@@ -54,7 +54,8 @@ Setup Server:
 7. You are now ready to begin using WireCat. Create a key or "allow manual node sign up."
 
 Run on each machine in network:
-1. Get the binary: `sudo wget 52.55.6.84:8081/meshclient/files/meshclient`
+0. While repo is private, you'll need your github access key for next step.
+1. Get the binary: `curl -vLJO -H 'Authorization: token YOUR_ACCESS_TOKEN' 'https://github.com/gravitl/netmaker/releases/download/v0.1/netclient'`
 2. Make it executable: `sudo chmod +x meshclient`
 3. Run the install command: `sudo ./meshclient -c install -g <group name> -s <server:port> -k <key value>`
 
