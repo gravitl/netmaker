@@ -1,0 +1,36 @@
+version: "3.3"
+
+services:
+  mongodb:
+    image: mongo:4.2
+    ports:
+      - "27017:27017"
+    container_name: mongodb
+    volumes:
+      - mongovol:/data/db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin
+      MONGO_INITDB_ROOT_PASSWORD: mongopass
+  wirecat:
+    container_name: wirecat
+    depends_on:
+      - mongodb
+    image: docker.pkg.github.com/gravitl/netmaker/netmaker:v0.1
+    ports:
+      - "8081:8081"
+      - "50051:50051"
+    environment:
+      MONGO_HOST: mongodb
+    restart: always
+  wirecat-ui:
+    container_name: wirecat-ui
+    depends_on:
+      - wirecat
+    image: docker.pkg.github.com/gravitl/netmaker-ui/netmaker-ui:v0.1
+    ports:
+      - "80:80"
+    environment:
+      BACKEND_URL: "http://localhost:8081"
+volumes:
+  mongovol: {}

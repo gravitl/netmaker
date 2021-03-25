@@ -1,0 +1,114 @@
+syntax = "proto3";
+package node;
+option go_package = "google.golang.org/protobuf/types/known/nodepb";
+
+service NodeService {
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc CreateNode(CreateNodeReq) returns (CreateNodeRes);
+    rpc ReadNode(ReadNodeReq) returns (ReadNodeRes);
+    rpc UpdateNode(UpdateNodeReq) returns (UpdateNodeRes);
+    rpc DeleteNode(DeleteNodeReq) returns (DeleteNodeRes);
+    rpc GetPeers(GetPeersReq) returns (stream GetPeersRes);
+    rpc CheckIn(CheckInReq) returns (CheckInRes);
+}
+
+message LoginRequest {
+  string macaddress = 1;
+  string password = 2;
+}
+
+message LoginResponse { string accesstoken = 1; }
+
+message Node {
+    string id = 1;
+    string name = 2;
+    string address = 3;
+    int32 listenport = 4;
+    string publickey = 5;
+    string endpoint = 6;
+    string macaddress = 7;
+    string password = 8;
+    string nodegroup = 9;
+    bool ispending = 10;
+    string postup = 11;
+    string preup = 12;
+    int32 keepalive = 13;
+    bool saveconfig = 14;
+    string accesskey = 15;
+    string interface = 16;
+    string lastcheckin = 17;
+    string lastmodified = 18;
+    int32 checkininterval = 19;
+    string localaddress = 20;
+    string postchanges = 21;
+}
+
+message CheckInResponse {
+    bool success = 1;
+    bool needpeerupdate = 2;
+    bool needconfigupdate = 3;
+    string nodemessage = 4;
+    bool ispending = 5;
+}
+
+message PeersResponse {
+    string publickey = 5;
+    string endpoint = 6;
+    string address = 3;
+    int32 listenport = 4;
+    string localaddress = 7;
+    int32 keepalive = 13;
+}
+
+message CreateNodeReq {
+    Node node = 1; // Node id blank
+}
+
+message CreateNodeRes {
+    Node node = 1; // Node id filled in
+}
+
+message UpdateNodeReq {
+    Node node = 1;
+}
+
+message UpdateNodeRes {
+    Node node = 1;
+}
+
+message ReadNodeReq {
+    string macaddress = 1;
+    string group = 2;
+}
+
+message ReadNodeRes {
+    Node node = 1;
+}
+
+message DeleteNodeReq {
+    string macaddress = 1;
+    string groupName = 2;
+}
+
+message DeleteNodeRes {
+    bool success = 1;
+}
+
+message GetPeersReq {
+    string macaddress = 1;
+    string group = 2;
+}
+
+message GetPeersRes {
+    PeersResponse peers = 1;
+}
+
+message CheckInReq {
+    Node node = 1;
+ //   bool postchanges = 2;
+}
+
+message CheckInRes {
+    CheckInResponse checkinresponse = 1;
+}
+
