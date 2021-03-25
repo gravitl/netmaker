@@ -33,6 +33,10 @@ Netmaker also has a handy dandy UI, which you can find in [this repo](https://gi
  - [Contributing](docs/CONTRIBUTING.md)
 
 
+## Compatible Systems
+
+This should work on most linux systems that have systemd. It works with Fedora, Ubuntu, and Raspian. Just make sure you have wireguard installed (WireGuard tools). It is recommended to also enable port forwarding, or you may have issues behind NAT.
+
 ## Quick Start
 
 Setup Docker (Prereq):
