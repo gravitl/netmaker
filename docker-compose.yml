@@ -12,8 +12,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongoadmin
       MONGO_INITDB_ROOT_PASSWORD: mongopass
-  wirecat:
-    container_name: wirecat
+  netmaker:
+    container_name: netmaker
     depends_on:
       - mongodb
     image: docker.pkg.github.com/gravitl/netmaker/netmaker:v0.1
@@ -23,10 +23,10 @@ services:
     environment:
       MONGO_HOST: mongodb
     restart: always
-  wirecat-ui:
-    container_name: wirecat-ui
+  netmaker-ui:
+    container_name: netmaker-ui
     depends_on:
-      - wirecat
+      - netmaker
     image: docker.pkg.github.com/gravitl/netmaker-ui/netmaker-ui:v0.1
     ports:
       - "80:80"
