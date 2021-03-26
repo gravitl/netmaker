@@ -150,7 +150,13 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 
                 if len(tokenSplit) > 1 {
                         authToken = tokenSplit[1]
+                }  else {
+                        errorResponse = models.ErrorResponse{
+                                Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
+                        }
+                        returnErrorResponse(w, r, errorResponse)
                 }
+
 
 		//This checks if
 		//A: the token is the master password
@@ -159,7 +165,10 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 		macaddress, _, err := functions.VerifyToken(authToken)
 
 		if err != nil {
-			return
+                        errorResponse = models.ErrorResponse{
+                                Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
+                        }
+                        returnErrorResponse(w, r, errorResponse)
 		}
 
 		var isAuthorized = false
@@ -179,7 +188,10 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
                         case "group":
                                 node, err := functions.GetNodeByMacAddress(params["group"], macaddress)
 		                if err != nil {
-				        return
+					errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
+					}
+					returnErrorResponse(w, r, errorResponse)
 		                }
                                 isAuthorized = (node.Group == params["group"])
 			case "node":
@@ -567,6 +579,8 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
                 mongoconn.GetError(errN, w)
                 return
         }
+        fmt.Println("Node " + node.Name + " uncordoned.")
+
 
         json.NewEncoder(w).Encode("SUCCESS")
 }

@@ -66,7 +66,8 @@ func GroupExists(name string) (bool, error) {
 		if err == mongo.ErrNoDocuments {
 			return false, err
 		}
-		log.Fatal(err)
+		fmt.Println("ERROR RETRIEVING GROUP!")
+		fmt.Println(err)
 	}
 	return true, err
 }

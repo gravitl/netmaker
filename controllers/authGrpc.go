@@ -79,7 +79,8 @@ func grpcAuthorize(ctx context.Context) error {
                 groupexists, err := functions.GroupExists(group)
 
 		if err != nil {
-			return err
+			return status.Errorf(codes.Unauthenticated, "Unauthorized. Group does not exist: " + group)
+
 		}
 		emptynode := models.Node{}
 		node, err := functions.GetNodeByMacAddress(group, mac)
@@ -122,7 +123,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
             collection := mongoconn.Client.Database("wirecat").Collection("nodes")
             ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-            var err = collection.FindOne(ctx, bson.M{ "macaddress": macaddress, "ispending": false }).Decode(&result)
+            var err = collection.FindOne(ctx, bson.M{ "macaddress": macaddress}).Decode(&result)
 
             defer cancel()
 

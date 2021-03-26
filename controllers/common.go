@@ -1,7 +1,6 @@
 package controller
 
 import (
-//    "github.com/davecgh/go-spew/spew"
     "gopkg.in/go-playground/validator.v9"
     "log"
     "fmt"
@@ -345,7 +344,6 @@ func CreateNode(node models.Node, groupName string) (models.Node, error) {
 
 func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, error) {
 
-
 	var response models.CheckInResponse
 
 	parentgroup, err := functions.GetParentGroup(groupName)
@@ -360,6 +358,7 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
                 return response, err
         }
 	if parentnode.IsPending {
+                err = fmt.Errorf("%w; Node checking in is still pending: " + node.MacAddress, err)
 		response.IsPending = true
 		return response, err
 	}
@@ -377,7 +376,6 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 	if parentnodelm < grouplm {
 		response.NeedConfigUpdate = true
 	}
-
 	if peerlistlm < peerslm {
 		response.NeedPeerUpdate = true
 	}
