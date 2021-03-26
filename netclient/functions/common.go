@@ -558,7 +558,6 @@ func getPublicAddr() (string, error) {
 		endpoint := ""
 		if resp.StatusCode == http.StatusOK {
                         bodyBytes, err := ioutil.ReadAll(resp.Body)
-                        _, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				return "", err
 			}
