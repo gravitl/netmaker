@@ -433,18 +433,35 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
-	err = cmdIPDevLinkAdd.Run()
+
+
+         currentiface, err := net.InterfaceByName(ifacename)
+
+
+        if err != nil {
+		err = cmdIPDevLinkAdd.Run()
 	if  err  !=  nil && !strings.Contains(err.Error(), "exists") {
 		fmt.Println("Error creating interface")
 		//fmt.Println(err.Error())
 		//return err
 	}
+	}
+	match := false
+	addrs, _ := currentiface.Addrs()
+	for _, a := range addrs {
+		fmt.Println("Current address: " + a.String())
+		fmt.Println("node.Address: " + node.Address)
+		if strings.Contains(a.String(), node.Address){
+			match = true
+		}
+	}
+	if !match {
         err = cmdIPAddrAdd.Run()
         if  err  !=  nil {
 		fmt.Println("Error adding address")
                 //return err
         }
-
+	}
 	var nodeport int
 	nodeport = int(node.Listenport)
 
@@ -476,7 +493,7 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 			fmt.Println("Device does not exist: ")
 			fmt.Println(err)
 		} else {
-			log.Fatalf("Unknown config error: %v", err)
+			fmt.Printf("This is inconvenient: %v", err)
 		}
 	}
         cmdIPLinkUp := &exec.Cmd {
@@ -601,6 +618,32 @@ func CheckIn() error {
 		fmt.Println("Node is in pending status. Waiting for Admin approval of  node before making furtherupdates.")
 		return err
 	}
+
+                newinterface := getNode().Interface
+                readreq := &nodepb.ReadNodeReq{
+                        Macaddress: node.Macaddress,
+                        Group: node.Nodegroup,
+                }
+                readres, err := wcclient.ReadNode(ctx, readreq, grpc.Header(&header))
+                if err != nil {
+                        fmt.Printf("Error: %v", err)
+                } else {
+                currentiface := readres.Node.Interface
+                ifaceupdate := newinterface != currentiface
+                fmt.Println("Is it time to update the interface? ")
+                fmt.Println(ifaceupdate)
+                if err != nil {
+                        log.Printf("Error retrieving interface: %v", err)
+                }
+                if ifaceupdate {
+                        err := DeleteInterface(currentiface)
+                        if err != nil {
+                                fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
+                        }
+                }
+                err = setWGConfig()
+		}
+
 	if checkinres.Checkinresponse.Needconfigupdate {
 		fmt.Println("Server has requested that node update config.")
 		fmt.Println("Updating config from remote server.")
@@ -628,28 +671,21 @@ func CheckIn() error {
                 fmt.Println("Node has requested to update remote config.")
                 fmt.Println("Posting local config to remote server.")
 		postnode := getNode()
-		currentinterface := postnode.Interface
+
 		req := &nodepb.UpdateNodeReq{
                                Node: &postnode,
                         }
-                res, err := wcclient.UpdateNode(ctx, req, grpc.Header(&header))
+		res, err := wcclient.UpdateNode(ctx, req, grpc.Header(&header))
                 if err != nil {
 			return err
 			log.Fatalf("Error: %v", err)
                 }
 		res.Node.Postchanges = "false"
-		newinterface := res.Node.Interface
 		err = modConfig(res.Node)
                 if err != nil {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
-		if currentinterface != newinterface {
-			err := DeleteInterface(currentinterface)
-			if err != nil {
-				fmt.Println("ERROR DELETING INTERFACE: " + currentinterface)
-			}
-		}
 		err = setWGConfig()
                 if err != nil {
 			return err
@@ -681,6 +717,23 @@ func CheckIn() error {
 	}
 	return nil
 }
+
+func needInterfaceUpdate(ctx context.Context, mac string, group string, iface string) (bool, string, error) {
+                var header metadata.MD
+		req := &nodepb.ReadNodeReq{
+                        Macaddress: mac,
+                        Group: group,
+                }
+                readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
+                if err != nil {
+                        return false, "", err
+                        log.Fatalf("Error: %v", err)
+                }
+		oldiface := readres.Node.Interface
+
+		return iface != oldiface, oldiface, err
+}
+
 func getNode() nodepb.Node {
 	modcfg := config.Config
 	modcfg.ReadConfig()
