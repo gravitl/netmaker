@@ -1,17 +1,11 @@
 package controller
 
 import (
-//        "github.com/davecgh/go-spew/spew"
-	"context"
+        "context"
 	"fmt"
-//	"errors"
-//	"time"
-//	"go.mongodb.org/mongo-driver/bson"
-//	"golang.org/x/crypto/bcrypt"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/functions"
-//	"github.com/gravitl/netmaker/mongoconn"
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -145,7 +139,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq) (*nodepb.CheckInRes, error) {
 	// Get the protobuf node type from the protobuf request type
         // Essentially doing req.Node to access the struct with a nil check
-        data := req.GetNode()
+	data := req.GetNode()
 	//postchanges := req.GetPostchanges()
 	// Now we have to convert this into a NodeItem type to convert into BSON
         node := models.Node{
@@ -164,12 +158,13 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 	checkinresponse, err := NodeCheckIn(node, node.Group)
 
         if err != nil {
-		err = fmt.Errorf("%w; Couldnt Check in", err)
                 // return internal gRPC error to be handled later
+		if checkinresponse == (models.CheckInResponse{}) || !checkinresponse.IsPending {
                 return nil, status.Errorf(
                         codes.Internal,
                         fmt.Sprintf("Internal error: %v", err),
                 )
+		}
         }
         // return the node in a CreateNodeRes type
         response := &nodepb.CheckInRes{
@@ -268,7 +263,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.DeleteNo
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find/delete node with mac address %s", macaddress))
 	}
 
-	fmt.Println("updating group last modified of" + req.GetGroupName())
+	fmt.Println("updating group last modified of " + req.GetGroupName())
 	err = SetGroupNodesLastModified(req.GetGroupName())
         if err != nil {
 		fmt.Println("Error updating Group")

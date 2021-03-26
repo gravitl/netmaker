@@ -129,7 +129,12 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 
                 if len(tokenSplit) > 1 {
                         authToken = tokenSplit[1]
-                }
+                } else {
+                        errorResponse = models.ErrorResponse{
+                                Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
+                        }
+                        returnErrorResponse(w, r, errorResponse)
+		}
 
 		//This checks if
 		//A: the token is the master password
@@ -138,8 +143,10 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 		username, _, err := functions.VerifyUserToken(authToken)
 
 		if err != nil {
-			json.NewEncoder(w).Encode(err)
-			return
+                        errorResponse = models.ErrorResponse{
+                                Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
+                        }
+                        returnErrorResponse(w, r, errorResponse)
 		}
 
 		isAuthorized := username != ""

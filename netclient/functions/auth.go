@@ -3,7 +3,7 @@ package functions
 import (
     "github.com/gravitl/netmaker/netclient/config"
     "fmt"
-    "os"
+//    "os"
     "context"
     "io/ioutil"
     "google.golang.org/grpc/metadata"
@@ -15,15 +15,16 @@ import (
 
 // CreateJWT func will used to create the JWT while signing in and signing out
 func SetJWT(client nodepb.NodeServiceClient) (context.Context, error) {
-		home, err := os.UserHomeDir()
-                tokentext, err := ioutil.ReadFile(home + "/.wctoken")
+		//home, err := os.UserHomeDir()
+		home := "/etc/netclient"
+		tokentext, err := ioutil.ReadFile(home + "/.nettoken")
                 if err != nil {
 			fmt.Println("Error reading token. Logging in to retrieve new token.")
 			err = AutoLogin(client)
 			if err != nil {
                                 return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong with Auto Login: %v", err))
                         }
-			tokentext, err = ioutil.ReadFile(home + "/.wctoken")
+			tokentext, err = ioutil.ReadFile(home + "/.nettoken")
 			if err != nil {
 				return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong: %v", err))
 			}
@@ -38,7 +39,8 @@ func SetJWT(client nodepb.NodeServiceClient) (context.Context, error) {
 }
 
 func AutoLogin(client nodepb.NodeServiceClient) error {
-	        home, err := os.UserHomeDir()
+	        //home, err := os.UserHomeDir()
+		home := "/etc/netclient"
 		nodecfg := config.Config.Node
                 login := &nodepb.LoginRequest{
                         Password: nodecfg.Password,
@@ -49,9 +51,8 @@ func AutoLogin(client nodepb.NodeServiceClient) error {
                 if err != nil {
                         return err
                 }
-                fmt.Printf("Token: %s\n", res.Accesstoken)
                 tokenstring := []byte(res.Accesstoken)
-                err = ioutil.WriteFile(home + "/.wctoken", tokenstring, 0644)
+                err = ioutil.WriteFile(home + "/.nettoken", tokenstring, 0644)
                 if err != nil {
                         return err
                 }

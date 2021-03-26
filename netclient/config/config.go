@@ -6,7 +6,7 @@ import (
   "fmt"
   "log"
   "gopkg.in/yaml.v3"
-  homedir "github.com/mitchellh/go-homedir"
+  //homedir "github.com/mitchellh/go-homedir"
 )
 
 var Config *ClientConfig
@@ -42,15 +42,23 @@ type NodeConfig struct {
 //reading in the env file
 func Write(config *ClientConfig) error{
 	nofile := false
-        home, err := homedir.Dir()
+        //home, err := homedir.Dir()
+        _, err := os.Stat("/etc/netclient") 
+	if os.IsNotExist(err) {
+		      os.Mkdir("/etc/netclient", 744)
+	} else if err != nil {
+                return err
+        }
+	home := "/etc/netclient"
+
         if err != nil {
                 log.Fatal(err)
         }
-        file := fmt.Sprintf(home + "/.wcconfig")
+        file := fmt.Sprintf(home + "/.netconfig")
         f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
         if err != nil {
                 nofile = true
-                //fmt.Println("Could not access " + home + "/.wcconfig,  proceeding...")
+                //fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
         }
         defer f.Close()
 
@@ -62,7 +70,7 @@ func Write(config *ClientConfig) error{
                 }
         } else {
 
-		newf, err := os.Create(home + "/.wcconfig")
+		newf, err := os.Create(home + "/.netconfig")
 		err = yaml.NewEncoder(newf).Encode(config)
 		defer newf.Close()
 		if err != nil {
@@ -75,17 +83,22 @@ func Write(config *ClientConfig) error{
 }
 func WriteServer(server string, accesskey string) error{
         nofile := false
-        home, err := homedir.Dir()
-        if err != nil {
-		fmt.Println("couldnt find home dir")
+        //home, err := homedir.Dir()
+        _, err := os.Stat("/etc/netclient")
+	if os.IsNotExist(err) {
+                os.Mkdir("/etc/netclient", 744)
+        } else if err != nil {
+		fmt.Println("couldnt find or create /etc/netclient")
                 return err
         }
-        file := fmt.Sprintf(home + "/.wcconfig")
+        home := "/etc/netclient"
+
+	file := fmt.Sprintf(home + "/.netconfig")
         //f, err := os.Open(file)
         f, err := os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0666)
 	//f, err := ioutil.ReadFile(file)
         if err != nil {
-		fmt.Println("couldnt open wcconfig")
+		fmt.Println("couldnt open netconfig")
 		fmt.Println(err)
                 nofile = true
 		//err = nil
@@ -97,7 +110,7 @@ func WriteServer(server string, accesskey string) error{
 	var cfg ClientConfig
 
         if !nofile {
-		fmt.Println("Writing to existing config file at " + home + "/.wcconfig")
+		fmt.Println("Writing to existing config file at " + home + "/.netconfig")
                 decoder := yaml.NewDecoder(f)
                 err = decoder.Decode(&cfg)
 		//err = yaml.Unmarshal(f, &cfg)
@@ -108,7 +121,7 @@ func WriteServer(server string, accesskey string) error{
 		f.Close()
 		f, err = os.OpenFile(file, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
 	        if err != nil {
-			fmt.Println("couldnt open wcconfig")
+			fmt.Println("couldnt open netconfig")
 			fmt.Println(err)
 			nofile = true
 			//err = nil
@@ -131,12 +144,12 @@ func WriteServer(server string, accesskey string) error{
                         return err
                 }
 	} else {
-                fmt.Println("Creating new config file at " + home + "/.wcconfig")
+                fmt.Println("Creating new config file at " + home + "/.netconfig")
 
                 cfg.Server.Address = server
                 cfg.Server.AccessKey = accesskey
 
-                newf, err := os.Create(home + "/.wcconfig")
+                newf, err := os.Create(home + "/.netconfig")
                 err = yaml.NewEncoder(newf).Encode(cfg)
                 defer newf.Close()
                 if err != nil {
@@ -152,18 +165,16 @@ func WriteServer(server string, accesskey string) error{
 func(config *ClientConfig) ReadConfig() {
 
 	nofile := false
-	home, err := homedir.Dir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	file := fmt.Sprintf(home + "/.wcconfig")
+	//home, err := homedir.Dir()
+	home := "/etc/netclient"
+	file := fmt.Sprintf(home + "/.netconfig")
 	//f, err := os.Open(file)
         f, err := os.OpenFile(file, os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println("trouble opening file")
 		fmt.Println(err)
 		nofile = true
-		//fmt.Println("Could not access " + home + "/.wcconfig,  proceeding...")
+		//fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
 	}
 	defer f.Close()
 
@@ -185,15 +196,13 @@ func(config *ClientConfig) ReadConfig() {
 
 func readConfig() *ClientConfig {
 	nofile := false
-	home, err := homedir.Dir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	file := fmt.Sprintf(home + "/.wcconfig")
+	//home, err := homedir.Dir()
+	home := "/etc/netclient"
+	file := fmt.Sprintf(home + "/.netconfig")
 	f, err := os.Open(file)
 	if err != nil {
 		nofile = true
-		fmt.Println("Could not access " + home + "/.wcconfig,  proceeding...")
+		fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
 	}
 	defer f.Close()
 
