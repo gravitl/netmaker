@@ -28,11 +28,17 @@ func ConfigureSystemD() error {
                 return err
         }
 
-	_, err = copy(binarypath, "/etc/netclient/netclient")
+	_, err = copy(binarypath, "/usr/local/bin/netclient")
 	if err != nil {
 		log.Println(err)
 		return err
 	}
+        _, err = copy(binarypath, "/etc/netclient/netclient")
+        if err != nil {
+                log.Println(err)
+                return err
+        }
+
 
 
 	systemservice := `[Unit]
@@ -49,10 +55,10 @@ WantedBy=multi-user.target
 
 	systemtimer := `[Unit]
 Description=Calls the Netmaker Mesh Client Service
-Requires=netmaker.service
+Requires=netclient.service
 
 [Timer]
-Unit=netmaker.service
+Unit=netclient.service
 OnCalendar=*:*:0/30
 
 [Install]
@@ -62,13 +68,13 @@ WantedBy=timers.target
 	servicebytes := []byte(systemservice)
 	timerbytes := []byte(systemtimer)
 
-	err = ioutil.WriteFile("/etc/systemd/system/netmaker.service", servicebytes, 0644)
+	err = ioutil.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
         if err != nil {
                 log.Println(err)
                 return err
         }
 
-        err = ioutil.WriteFile("/etc/systemd/system/netmaker.timer", timerbytes, 0644)
+        err = ioutil.WriteFile("/etc/systemd/system/netclient.timer", timerbytes, 0644)
         if err != nil {
                 log.Println(err)
                 return err
@@ -78,13 +84,13 @@ WantedBy=timers.target
 
         cmdSysEnableService := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "enable", "netmaker.service" },
+                Args: []string{ sysExec, "enable", "netclient.service" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
         cmdSysStartService := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "start", "netmaker.service"},
+                Args: []string{ sysExec, "start", "netclient.service"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
@@ -96,25 +102,25 @@ WantedBy=timers.target
         }
         cmdSysEnableTimer := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "enable", "netmaker.timer" },
+                Args: []string{ sysExec, "enable", "netclient.timer" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
         cmdSysStartTimer := &exec.Cmd {
                 Path: sysExec,
-		Args: []string{ sysExec, "start", "netmaker.timer"},
+		Args: []string{ sysExec, "start", "netclient.timer"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
 
         err = cmdSysEnableService.Run()
         if  err  !=  nil {
-                fmt.Println("Error enabling netmaker.service. Please investigate.")
+                fmt.Println("Error enabling netclient.service. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysStartService.Run()
         if  err  !=  nil {
-                fmt.Println("Error starting netmaker.service. Please investigate.")
+                fmt.Println("Error starting netclient.service. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysDaemonReload.Run()
@@ -124,12 +130,12 @@ WantedBy=timers.target
         }
         err = cmdSysEnableTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error enabling netmaker.timer. Please investigate.")
+                fmt.Println("Error enabling netclient.timer. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysStartTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error starting netmaker.timer. Please investigate.")
+                fmt.Println("Error starting netclient.timer. Please investigate.")
                 fmt.Println(err)
         }
 	return nil
@@ -140,13 +146,13 @@ func RemoveSystemDServices() error {
 
         cmdSysStopService := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "stop", "netmaker.service" },
+                Args: []string{ sysExec, "stop", "netclient.service" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
         cmdSysDisableService := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "disable", "netmaker.service"},
+                Args: []string{ sysExec, "disable", "netclient.service"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
@@ -156,42 +162,48 @@ func RemoveSystemDServices() error {
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
+        cmdSysResetFailed := &exec.Cmd {
+                Path: sysExec,
+                Args: []string{ sysExec, "reset-failed"},
+                Stdout: os.Stdout,
+                Stderr: os.Stdout,
+        }
         cmdSysStopTimer := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "stop", "netmaker.timer" },
+                Args: []string{ sysExec, "stop", "netclient.timer" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
         cmdSysDisableTimer := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "disable", "netmaker.timer"},
+                Args: []string{ sysExec, "disable", "netclient.timer"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
 
         err = cmdSysStopService.Run()
         if  err  !=  nil {
-                fmt.Println("Error stopping netmaker.service. Please investigate.")
+                fmt.Println("Error stopping netclient.service. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysDisableService.Run()
         if  err  !=  nil {
-                fmt.Println("Error disabling netmaker.service. Please investigate.")
+                fmt.Println("Error disabling netclient.service. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysStopTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error stopping netmaker.timer. Please investigate.")
+                fmt.Println("Error stopping netclient.timer. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysDisableTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error disabling netmaker.timer. Please investigate.")
+                fmt.Println("Error disabling netclient.timer. Please investigate.")
                 fmt.Println(err)
         }
 
-	err = os.Remove("/etc/systemd/system/netmaker.service")
-	err = os.Remove("/etc/systemd/system/netmaker.timer")
+	err = os.Remove("/etc/systemd/system/netclient.service")
+	err = os.Remove("/etc/systemd/system/netclient.timer")
 	if err != nil {
                 fmt.Println("Error removing file. Please investigate.")
                 fmt.Println(err)
@@ -201,7 +213,11 @@ func RemoveSystemDServices() error {
                 fmt.Println("Error reloading system daemons. Please investigate.")
                 fmt.Println(err)
         }
-
+        err = cmdSysResetFailed.Run()
+        if  err  !=  nil {
+                fmt.Println("Error reseting failed system services. Please investigate.")
+                fmt.Println(err)
+        }
 	return err
 
 }

@@ -4,6 +4,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"fmt"
 	"time"
+	"errors"
 	"context"
         "net/http"
         "io/ioutil"
@@ -449,8 +450,6 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	match := false
 	addrs, _ := currentiface.Addrs()
 	for _, a := range addrs {
-		fmt.Println("Current address: " + a.String())
-		fmt.Println("node.Address: " + node.Address)
 		if strings.Contains(a.String(), node.Address){
 			match = true
 		}
@@ -515,24 +514,6 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
         }
 	return err
 }
-/*
-func reconfigureWireguardSelf(node  nodepb.Node) error {
-
-}
-
-func reconfigureWireguardPeers(peers []nodepb.PeersResponse) error {
-
-}
-
-
-func update(node nodepb.Node) error {
-
-}
-
-func updateLocal() error {
-
-}
-*/
 
 func setWGConfig() error {
         servercfg := config.Config.Server
@@ -568,6 +549,66 @@ func retrievePrivKey() (string, error) {
 }
 
 
+func getPublicAddr() (string, error) {
+       resp, err := http.Get("https://ifconfig.me")
+       if err != nil {
+                return "", err
+       }
+       defer resp.Body.Close()
+		endpoint := ""
+		if resp.StatusCode == http.StatusOK {
+                        bodyBytes, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return "", err
+			}
+			endpoint = string(bodyBytes)
+		}
+                return endpoint, err
+}
+func getPrivateAddr() (string, error) {
+                ifaces, err := net.Interfaces()
+                if err != nil {
+                        return "", err
+                }
+                var local string
+                found := false
+                for _, i := range ifaces {
+                        if i.Flags&net.FlagUp == 0 {
+                                continue // interface down
+                        }
+                        if i.Flags&net.FlagLoopback != 0 {
+                                continue // loopback interface
+                        }
+                        addrs, err := i.Addrs()
+                        if err != nil {
+                                return "", err
+                        }
+                        for _, addr := range addrs {
+                                var ip net.IP
+                                switch v := addr.(type) {
+                                case *net.IPNet:
+                                        if !found {
+                                                ip = v.IP
+                                                local = ip.String()
+                                                found = true
+                                        }
+                                case *net.IPAddr:
+                                        if  !found {
+                                                ip = v.IP
+                                                local = ip.String()
+                                                found = true
+                                        }
+                                }
+                        }
+                }
+		if !found {
+			err := errors.New("Local Address Not Found.")
+			return "", err
+		}
+		return local, err
+}
+
+
 func CheckIn() error {
 	node := getNode()
         nodecfg := config.Config.Node
@@ -575,6 +616,39 @@ func CheckIn() error {
 	fmt.Println("Checking into server: " + servercfg.Address)
 
 	setupcheck := true
+
+	if !nodecfg.RoamingOff {
+		fmt.Println("Checking to see if addresses have changed")
+		extIP, err := getPublicAddr()
+		if err != nil {
+			fmt.Printf("Error encountered checking ip addresses: %v", err)
+		}
+		if nodecfg.Endpoint != extIP  && extIP != "" {
+	                fmt.Println("Endpoint has changed from " +
+			nodecfg.Endpoint + " to " + extIP)
+			fmt.Println("Updating address")
+			nodecfg.Endpoint = extIP
+			nodecfg.PostChanges = "true"
+			node.Endpoint = extIP
+			node.Postchanges = "true"
+		}
+		intIP, err := getPrivateAddr()
+                if err != nil {
+                        fmt.Printf("Error encountered checking ip addresses: %v", err)
+                }
+                if nodecfg.LocalAddress != intIP  && intIP != "" {
+                        fmt.Println("Local Address has changed from " +
+			nodecfg.LocalAddress + " to " + intIP)
+			fmt.Println("Updating address")
+			nodecfg.LocalAddress = intIP
+			nodecfg.PostChanges = "true"
+			node.Localaddress = intIP
+			node.Postchanges = "true"
+                }
+		if node.Postchanges != "true" {
+			fmt.Println("Addresses have not changed.")
+		}
+	}
 
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
@@ -807,8 +881,8 @@ func Remove() error {
 
 	err = WipeLocal()
 	if err != nil {
-                return err
-                log.Fatalf("Unable to wipe local config: %v", err)
+                //return err
+                log.Printf("Unable to wipe local config: %v", err)
 	}
 	err =  RemoveSystemDServices()
         if err != nil {
@@ -835,6 +909,7 @@ func WipeLocal() error{
         }
         ipExec, err := exec.LookPath("ip")
 
+	if ifacename != "" {
         cmdIPLinkDel := &exec.Cmd {
                 Path: ipExec,
                 Args: []string{ ipExec, "link", "del", ifacename },
@@ -845,6 +920,7 @@ func WipeLocal() error{
         if  err  !=  nil {
                 fmt.Println(err)
         }
+	}
 	return err
 
 }

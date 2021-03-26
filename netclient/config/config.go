@@ -29,6 +29,7 @@ type NodeConfig struct {
         MacAddress string `yaml:"macaddress"`
         LocalAddress string `yaml:"localaddress"`
         WGAddress string `yaml:"wgaddress"`
+        RoamingOff bool `yaml:"roamingoff"`
         PostUp string `yaml:"postup"`
         PreUp string `yaml:"preup"`
         Port int32 `yaml:"port"`
