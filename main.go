@@ -1,6 +1,4 @@
-//TODO: er is the wrapper of the service method implementation. It is the resUpdate README with new functions
 //TODO: Harden. Add failover for every method and agent calls
-//TODO: Make configurable. Use the config file for settings
 //TODO: Figure out why mongodb keeps failing (log rotation?)
 
 package main
@@ -32,16 +30,10 @@ func main() {
 		go runGRPC(&waitgroup)
 	}
 
-	//TODO: We need  to break up this package for clarity
-	//We need groupController and nodeController, and then 
-	//here we will call some third package with HandleRequests
-	//which will just set up and call  the other 2
-
 	if config.Config.Server.RestBackend {
 		waitgroup.Add(1)
 		controller.HandleRESTRequests(&waitgroup)
 	}
-
 	if !config.Config.Server.RestBackend && !config.Config.Server.AgentBackend {
 		fmt.Println("Oops! No Server Mode selected. Nothing being served.")
 	}
@@ -75,14 +67,10 @@ func runGRPC(wg *sync.WaitGroup) {
                 log.Fatalf("Unable to listen on port" + grpcport + ": %v", err)
         }
 
-         // Set options, here we can configure things like TLS support 
-         //opts := []grpc.ServerOption{}
-         // Create new gRPC server with (blank) options
          s := grpc.NewServer(
 		 authServerUnaryInterceptor(),
 		 authServerStreamInterceptor(),
 	 )
-         //s := grpc.NewServer(opts...)
          // Create NodeService type 
          srv := &service.NodeServiceServer{}
 

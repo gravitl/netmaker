@@ -3,7 +3,7 @@
 # if i've done my work correctly, this file will be defunct
 #  refer to config folder for new method
 export API_PORT=8081
-export GRPC_PORT=5051
+export GRPC_PORT=50051
 export MONGO_USER=mongoadmin
 export MONGO_PASS=mongopass
 export MONGO_HOST=localhost

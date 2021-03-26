@@ -20,7 +20,7 @@ import (
         "google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	homedir "github.com/mitchellh/go-homedir"
+	//homedir "github.com/mitchellh/go-homedir"
 )
 
 var (
@@ -241,7 +241,7 @@ func Install(accesskey string, password string, server string, group string, noa
                 Endpoint: endpoint,
         }
 
-       fmt.Println("Writing node settings to wcconfig file.")
+       fmt.Println("Writing node settings to netconfig file.")
         err = modConfig(postnode)
         if err != nil {
                 return err
@@ -284,7 +284,7 @@ func Install(accesskey string, password string, server string, group string, noa
 		fmt.Println("Node is marked as PENDING.")
 		fmt.Println("Awaiting approval from Admin before configuring WireGuard.")
 	        if !noauto {
-			fmt.Println("Configuring WireCat Service.")
+			fmt.Println("Configuring Netmaker Service.")
 			err = ConfigureSystemD()
 			return err
 		}
@@ -555,14 +555,17 @@ func CheckIn() error {
 	node := getNode()
         nodecfg := config.Config.Node
 	servercfg := config.Config.Server
+	fmt.Println("Checking into server: " + servercfg.Address)
+
+	setupcheck := true
 
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
         conn, err := grpc.Dial(servercfg.Address, requestOpts)
         if err != nil {
+		fmt.Printf("Cant dial GRPC server: %v", err)
 		return err
-                log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
         }
         wcclient = nodepb.NewNodeServiceClient(conn)
 
@@ -570,10 +573,11 @@ func CheckIn() error {
         fmt.Println("Authenticating with GRPC Server")
         ctx, err = SetJWT(wcclient)
         if err != nil {
+                fmt.Printf("Failed to authenticate: %v", err)
 		return err
-		log.Fatalf("Failed to authenticate: %v", err)
 	}
         fmt.Println("Authenticated")
+        fmt.Println("Checking In.")
 
         var header metadata.MD
 
@@ -585,16 +589,14 @@ func CheckIn() error {
 		grpc.Header(&header),
         )
         if err != nil {
+        if  checkinres != nil && checkinres.Checkinresponse.Ispending {
+                fmt.Println("Node is in pending status. Waiting for Admin approval of  node before making furtherupdates.")
+                return nil
+        }
+                fmt.Printf("Unable to process Check In request: %v", err)
 		return err
-                log.Fatalf("Unable to process Check In request: %v", err)
         }
 	fmt.Println("Checked in.")
-	/*
-	if nodecfg.PostChanges && checkinres.Checkinresponse.Nodeupdated {
-		nodecfg.PostChanges = false
-		modConfig(readres, false)
-	}
-	*/
 	if  checkinres.Checkinresponse.Ispending {
 		fmt.Println("Node is in pending status. Waiting for Admin approval of  node before making furtherupdates.")
 		return err
@@ -621,10 +623,12 @@ func CheckIn() error {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
+		setupcheck = false
 	} else if nodecfg.PostChanges == "true" {
                 fmt.Println("Node has requested to update remote config.")
                 fmt.Println("Posting local config to remote server.")
 		postnode := getNode()
+		currentinterface := postnode.Interface
 		req := &nodepb.UpdateNodeReq{
                                Node: &postnode,
                         }
@@ -634,16 +638,24 @@ func CheckIn() error {
 			log.Fatalf("Error: %v", err)
                 }
 		res.Node.Postchanges = "false"
+		newinterface := res.Node.Interface
 		err = modConfig(res.Node)
                 if err != nil {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
+		if currentinterface != newinterface {
+			err := DeleteInterface(currentinterface)
+			if err != nil {
+				fmt.Println("ERROR DELETING INTERFACE: " + currentinterface)
+			}
+		}
 		err = setWGConfig()
                 if err != nil {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
+		setupcheck = false
 	}
         if checkinres.Checkinresponse.Needpeerupdate {
                 fmt.Println("Server has requested that node update peer list.")
@@ -653,7 +665,20 @@ func CheckIn() error {
 			return err
                         log.Fatalf("Unable to process Set Peers request: %v", err)
                 }
+		setupcheck = false
         }
+	if setupcheck {
+	iface := nodecfg.Interface
+	_, err := net.InterfaceByName(iface)
+        if err != nil {
+		fmt.Println("interface " + iface + " does not currently exist. Setting up WireGuard.")
+                err = setWGConfig()
+                if err != nil {
+                        return err
+                        log.Fatalf("Error: %v", err)
+                }
+	}
+	}
 	return nil
 }
 func getNode() nodepb.Node {
@@ -694,9 +719,9 @@ func Remove() error {
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
         conn, err := grpc.Dial(servercfg.Address, requestOpts)
-        if err != nil {
-                return err
-                log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+	if err != nil {
+                log.Printf("Unable to establish client connection to " + servercfg.Address + ": %v", err)
+		return err
         }
         wcclient = nodepb.NewNodeServiceClient(conn)
 
@@ -745,15 +770,13 @@ func WipeLocal() error{
         nodecfg := config.Config.Node
         ifacename := nodecfg.Interface
 
-        home, err := homedir.Dir()
-        if err != nil {
-                log.Fatal(err)
-        }
-        err = os.Remove(home + "/.wcconfig")
+        //home, err := homedir.Dir()
+	home := "/etc/netclient"
+	err := os.Remove(home + "/.netconfig")
         if  err  !=  nil {
                 fmt.Println(err)
         }
-        err = os.Remove(home + "/.wctoken")
+        err = os.Remove(home + "/.nettoken")
         if  err  !=  nil {
                 fmt.Println(err)
         }
@@ -773,6 +796,21 @@ func WipeLocal() error{
 
 }
 
+func DeleteInterface(ifacename string) error{
+        ipExec, err := exec.LookPath("ip")
+
+        cmdIPLinkDel := &exec.Cmd {
+                Path: ipExec,
+                Args: []string{ ipExec, "link", "del", ifacename },
+                Stdout: os.Stdout,
+                Stderr: os.Stdout,
+        }
+        err = cmdIPLinkDel.Run()
+        if  err  !=  nil {
+                fmt.Println(err)
+        }
+        return err
+}
 
 func getPeers(macaddress string, group string, server string) ([]wgtypes.PeerConfig, error) {
         //need to  implement checkin on server side
@@ -784,7 +822,7 @@ func getPeers(macaddress string, group string, server string) ([]wgtypes.PeerCon
 	keepalive := nodecfg.KeepAlive
 	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
         if err != nil {
-                log.Fatalf("Issue with format of keepalive value. Please update wcconfig: %v", err)
+                log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
         }
 
 
