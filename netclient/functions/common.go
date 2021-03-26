@@ -558,6 +558,7 @@ func getPublicAddr() (string, error) {
 		endpoint := ""
 		if resp.StatusCode == http.StatusOK {
                         bodyBytes, err := ioutil.ReadAll(resp.Body)
+                        _, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				return "", err
 			}
@@ -616,6 +617,7 @@ func CheckIn() error {
 	fmt.Println("Checking into server: " + servercfg.Address)
 
 	setupcheck := true
+	ipchange := false
 
 	if !nodecfg.RoamingOff {
 		fmt.Println("Checking to see if addresses have changed")
@@ -631,6 +633,7 @@ func CheckIn() error {
 			nodecfg.PostChanges = "true"
 			node.Endpoint = extIP
 			node.Postchanges = "true"
+			ipchange = true
 		}
 		intIP, err := getPrivateAddr()
                 if err != nil {
@@ -644,11 +647,27 @@ func CheckIn() error {
 			nodecfg.PostChanges = "true"
 			node.Localaddress = intIP
 			node.Postchanges = "true"
+			ipchange = true
                 }
 		if node.Postchanges != "true" {
 			fmt.Println("Addresses have not changed.")
 		}
 	}
+	if ipchange {
+		err := modConfig(&node)
+                if err != nil {
+                        return err
+                        log.Fatalf("Error: %v", err)
+                }
+                err = setWGConfig()
+                if err != nil {
+                        return err
+                        log.Fatalf("Error: %v", err)
+                }
+	        node = getNode()
+		nodecfg = config.Config.Node
+	}
+
 
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
@@ -704,12 +723,12 @@ func CheckIn() error {
                 } else {
                 currentiface := readres.Node.Interface
                 ifaceupdate := newinterface != currentiface
-                fmt.Println("Is it time to update the interface? ")
-                fmt.Println(ifaceupdate)
                 if err != nil {
                         log.Printf("Error retrieving interface: %v", err)
                 }
                 if ifaceupdate {
+			fmt.Println("Interface update: " + currentiface +
+			" >>>> " + newinterface)
                         err := DeleteInterface(currentiface)
                         if err != nil {
                                 fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
