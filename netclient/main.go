@@ -60,6 +60,10 @@ func main() {
 					if err != nil {
 						fmt.Println("Error removing artifacts: ", err)
 					}
+                                        err = functions.RemoveSystemDServices()
+                                        if err != nil {
+                                                fmt.Println("Error removing services: ", err)
+                                        }
 				}
 				os.Exit(1)
 			}
@@ -93,6 +97,10 @@ func main() {
                                         err = functions.WipeLocal()
                                         if err != nil {
                                                 fmt.Println("Error removing artifacts: ", err)
+                                        }
+                                        err = functions.RemoveSystemDServices()
+                                        if err != nil {
+                                                fmt.Println("Error removing services: ", err)
                                         }
                                 fmt.Println("Error deleting node: ", err)
                                 os.Exit(1)
