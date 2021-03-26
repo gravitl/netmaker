@@ -126,21 +126,35 @@ func TestUsers(t *testing.T) {
 			return
 		}
 		//authenticate
-		token, err := authenticate()
-		if err != nil {
-			t.Error("could not authenticate")
-		}
-		response, err := api("", http.MethodGet, "http://localhost:8081/users/admin", token)
-		if err != nil {
-			t.Error("could not get user")
-		}
-		defer response.Body.Close()
-		var user models.User
-		json.NewDecoder(response.Body).Decode(&user)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
-		assert.Equal(t, "admin", user.UserName)
-		assert.Equal(t, true, user.IsAdmin)
-
+		t.Run("GetUser ValidToken", func(t *testing.T) {
+			token, err := authenticate()
+			if err != nil {
+				t.Error("could not authenticate")
+			}
+			response, err := api("", http.MethodGet, "http://localhost:8081/users/admin", token)
+			if err != nil {
+				t.Error("could not get user")
+			}
+			defer response.Body.Close()
+			var user models.User
+			json.NewDecoder(response.Body).Decode(&user)
+			assert.Equal(t, http.StatusOK, response.StatusCode)
+			assert.Equal(t, "admin", user.UserName)
+			assert.Equal(t, true, user.IsAdmin)
+		})
+		t.Run("GetUser InvalidToken", func(t *testing.T) {
+			//skip until sort out what should be returned
+			t.Skip()
+			response, err := api("", http.MethodGet, "http://localhost:8081/users/admin", "xxxx")
+			if err != nil {
+				t.Error("error getting user")
+			}
+			defer response.Body.Close()
+			///not sure what this should be
+			var something string
+			json.NewDecoder(response.Body).Decode(something)
+			assert.Equal(t, "Some error message", something)
+		})
 	})
 
 	t.Run("Update User", func(t *testing.T) {
