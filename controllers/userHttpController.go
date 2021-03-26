@@ -46,14 +46,17 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
     if decoderErr != nil {
         returnErrorResponse(response, request, errorResponse)
+	return
     } else {
         errorResponse.Code = http.StatusBadRequest
         if authRequest.UserName == "" {
             errorResponse.Message = "W1R3: Username can't be empty"
             returnErrorResponse(response, request, errorResponse)
+	    return
         } else if authRequest.Password == "" {
             errorResponse.Message = "W1R3: Password can't be empty"
             returnErrorResponse(response, request, errorResponse)
+	    return
         } else {
 
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
@@ -64,7 +67,9 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
             defer cancel()
 
             if err != nil {
+		errorResponse.Message = "W1R3: User " + authRequest.UserName + " not found."
                 returnErrorResponse(response, request, errorResponse)
+		return
             }
 
 	   //compare password from request to stored password in database
@@ -72,13 +77,18 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	   //TODO: Consider a way of hashing the password client side before sending, or using certificates
 	   err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
 	   if err != nil {
+                        errorResponse = models.ErrorResponse{
+                                Code: http.StatusUnauthorized, Message: "W1R3: Wrong Password.",
+                        }
 		   returnErrorResponse(response, request, errorResponse)
+		   return
 	   } else {
 		//Create a new JWT for the node
                 tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.IsAdmin)
 
                 if tokenString == "" {
                     returnErrorResponse(response, request, errorResponse)
+		    return
                 }
 
                 var successResponse = models.SuccessResponse{
@@ -94,6 +104,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
                 if jsonError != nil {
                     returnErrorResponse(response, request, errorResponse)
+		    return
                 }
                 response.Header().Set("Content-Type", "application/json")
                 response.Write(successJSONResponse)
@@ -134,6 +145,7 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
                                 Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
                         }
                         returnErrorResponse(w, r, errorResponse)
+			return
 		}
 
 		//This checks if
@@ -147,6 +159,7 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
                                 Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
                         }
                         returnErrorResponse(w, r, errorResponse)
+			return
 		}
 
 		isAuthorized := username != ""
@@ -156,6 +169,7 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
 			}
 			returnErrorResponse(w, r, errorResponse)
+			return
 		} else {
 			//If authorized, this function passes along it's request and output to the appropriate route function.
 			next.ServeHTTP(w, r)

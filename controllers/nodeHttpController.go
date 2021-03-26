@@ -53,15 +53,18 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 
     if decoderErr != nil {
         returnErrorResponse(response, request, errorResponse)
-    } else {
+	return
+	} else {
         errorResponse.Code = http.StatusBadRequest
         if authRequest.MacAddress == "" {
             errorResponse.Message = "W1R3: MacAddress can't be empty"
             returnErrorResponse(response, request, errorResponse)
+	    return
         } else if authRequest.Password == "" {
             errorResponse.Message = "W1R3: Password can't be empty"
             returnErrorResponse(response, request, errorResponse)
-        } else {
+            return
+       } else {
 
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
             collection := mongoconn.Client.Database("wirecat").Collection("nodes")
@@ -72,6 +75,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 
             if err != nil {
                 returnErrorResponse(response, request, errorResponse)
+		return
             }
 
 	   //compare password from request to stored password in database
@@ -80,12 +84,14 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	   err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
 	   if err != nil {
 		   returnErrorResponse(response, request, errorResponse)
+		   return
 	   } else {
 		//Create a new JWT for the node
                 tokenString, _ := functions.CreateJWT(authRequest.MacAddress, result.Group)
 
                 if tokenString == "" {
                     returnErrorResponse(response, request, errorResponse)
+		    return
                 }
 
                 var successResponse = models.SuccessResponse{
@@ -101,6 +107,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 
                 if jsonError != nil {
                     returnErrorResponse(response, request, errorResponse)
+		    return
                 }
                 response.Header().Set("Content-Type", "application/json")
                 response.Write(successJSONResponse)
@@ -134,6 +141,7 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
                                 Code: http.StatusNotFound, Message: "W1R3: This group does not exist. ",
                         }
                         returnErrorResponse(w, r, errorResponse)
+			return
 
                 } else {
 
@@ -155,7 +163,8 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
                                 Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
                         }
                         returnErrorResponse(w, r, errorResponse)
-                }
+			return
+		}
 
 
 		//This checks if
@@ -169,6 +178,7 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
                                 Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
                         }
                         returnErrorResponse(w, r, errorResponse)
+			return
 		}
 
 		var isAuthorized = false
@@ -192,6 +202,7 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 					Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
 					}
 					returnErrorResponse(w, r, errorResponse)
+					return
 		                }
                                 isAuthorized = (node.Group == params["group"])
 			case "node":
@@ -207,6 +218,7 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
 			}
 			returnErrorResponse(w, r, errorResponse)
+			return
 		} else {
 			//If authorized, this function passes along it's request and output to the appropriate route function.
 			next.ServeHTTP(w, r)
