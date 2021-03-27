@@ -92,6 +92,7 @@ func main() {
                         fmt.Println("Beginning node cleanup.")
 			err := functions.Remove()
                         if err != nil {
+					/*
                                         fmt.Println("Error uninstalling: ", err)
                                         fmt.Println("Wiping local.")
                                         err = functions.WipeLocal()
@@ -102,6 +103,7 @@ func main() {
                                         if err != nil {
                                                 fmt.Println("Error removing services: ", err)
                                         }
+					*/
                                 fmt.Println("Error deleting node: ", err)
                                 os.Exit(1)
                         }
