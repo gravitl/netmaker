@@ -4,6 +4,7 @@ import (
         //"github.com/davecgh/go-spew/spew"
         "fmt"
         "io/ioutil"
+	"path/filepath"
         "io"
         "log"
         "os"
@@ -11,16 +12,23 @@ import (
 )
 
 func ConfigureSystemD() error {
-
+	/*
 	path, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
 		return err
 	}
+	*/
+	//binarypath := path  + "/netclient"
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+            return err
+	}
+	binarypath := dir  + "/netclient"
 
-	binarypath := path  + "/netclient"
+	fmt.Println("Installing Binary from Path: " + binarypath)
 
-        _, err = os.Stat("/etc/netclient")
+	_, err = os.Stat("/etc/netclient")
         if os.IsNotExist(err) {
                 os.Mkdir("/etc/netclient", 744)
         } else if err != nil {
