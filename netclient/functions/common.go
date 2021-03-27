@@ -98,18 +98,10 @@ func Install(accesskey string, password string, server string, group string, noa
 	var wginterface string
 
 	if nodecfg.Endpoint == "" {
-                resp, err := http.Get("https://ifconfig.me")
+		endpoint, err = getPublicIP()
                 if err != nil {
                         return err
                 }
-       defer resp.Body.Close()
-                if resp.StatusCode == http.StatusOK {
-                        bodyBytes, err := ioutil.ReadAll(resp.Body)
-                if err != nil {
-                        return err
-                }
-                endpoint = string(bodyBytes)
-		}
         } else {
 		endpoint = nodecfg.Endpoint
 	}
@@ -315,6 +307,34 @@ func Install(accesskey string, password string, server string, group string, noa
 
 	return err
 }
+
+func getPublicIP() (string, error) {
+
+	iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+	endpoint := ""
+	var err error
+	    for _, ipserver := range iplist {
+		resp, err := http.Get(ipserver)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				continue
+			}
+			endpoint = string(bodyBytes)
+			break
+		}
+
+	}
+	if err == nil && endpoint == "" {
+		err =  errors.New("Public Address Not Found.")
+	}
+	return endpoint, err
+}
+
 func modConfig(node *nodepb.Node) error{
 	modconfig := config.Config
 	modconfig.ReadConfig()
@@ -548,23 +568,6 @@ func retrievePrivKey() (string, error) {
 	return string(dat), err
 }
 
-
-func getPublicAddr() (string, error) {
-       resp, err := http.Get("https://ifconfig.me")
-       if err != nil {
-                return "", err
-       }
-       defer resp.Body.Close()
-		endpoint := ""
-		if resp.StatusCode == http.StatusOK {
-                        bodyBytes, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return "", err
-			}
-			endpoint = string(bodyBytes)
-		}
-                return endpoint, err
-}
 func getPrivateAddr() (string, error) {
                 ifaces, err := net.Interfaces()
                 if err != nil {
@@ -620,7 +623,7 @@ func CheckIn() error {
 
 	if !nodecfg.RoamingOff {
 		fmt.Println("Checking to see if addresses have changed")
-		extIP, err := getPublicAddr()
+		extIP, err := getPublicIP()
 		if err != nil {
 			fmt.Printf("Error encountered checking ip addresses: %v", err)
 		}
@@ -866,17 +869,17 @@ func Remove() error {
         conn, err := grpc.Dial(servercfg.Address, requestOpts)
 	if err != nil {
                 log.Printf("Unable to establish client connection to " + servercfg.Address + ": %v", err)
-		return err
-        }
+		//return err
+        }else {
         wcclient = nodepb.NewNodeServiceClient(conn)
 
         ctx := context.Background()
         fmt.Println("Authenticating with GRPC Server")
         ctx, err = SetJWT(wcclient)
         if err != nil {
-                return err
-                log.Fatalf("Failed to authenticate: %v", err)
-        }
+                //return err
+                log.Printf("Failed to authenticate: %v", err)
+        } else {
         fmt.Println("Authenticated")
 
         var header metadata.MD
@@ -890,23 +893,24 @@ func Remove() error {
                 grpc.Header(&header),
         )
         if err != nil {
-		fmt.Println("Encountered error deleting node.")
+		log.Printf("Encountered error deleting node: %v", err)
 		fmt.Println(err)
-                //return err
-                //log.Fatalf("Unable to process Delete request: %v", err)
-        }
-        fmt.Println("Deleted node " + node.MacAddress)
-
+        } else {
+		fmt.Println("Deleted node " + node.MacAddress)
+	}
+	}
+	}
 	err = WipeLocal()
 	if err != nil {
-                //return err
                 log.Printf("Unable to wipe local config: %v", err)
 	}
 	err =  RemoveSystemDServices()
         if err != nil {
                 return err
-                log.Fatalf("Unable to remove systemd services: %v", err)
+                log.Printf("Unable to remove systemd services: %v", err)
         }
+	fmt.Printf("Please investigate any stated errors to ensure proper removal.")
+	fmt.Printf("Failure to delete node from server via gRPC will mean node still exists and needs to be manually deleted by administrator.")
 
 	return nil
 }
