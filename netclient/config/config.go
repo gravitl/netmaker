@@ -203,7 +203,6 @@ func readConfig() *ClientConfig {
 	f, err := os.Open(file)
 	if err != nil {
 		nofile = true
-		fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
 	}
 	defer f.Close()
 
