@@ -7,6 +7,8 @@ import (
         nodepb "github.com/gravitl/netmaker/grpc"
 	"flag"
 	"os"
+        "os/exec"
+        "strconv"
 	"log"
 )
 
@@ -39,6 +41,24 @@ func main() {
 
 
         flag.Parse()
+
+
+
+         getID := exec.Command("id", "-u")
+         out, err := getID.Output()
+
+         if err != nil {
+                 log.Fatal(err)
+         }
+         id, err := strconv.Atoi(string(out[:len(out)-1]))
+
+         if err != nil {
+                 log.Fatal(err)
+         }
+
+         if id != 0 {
+                 log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
+         }
 
 
         switch *command {
