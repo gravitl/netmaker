@@ -180,7 +180,7 @@ func TestDeleteUser(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/users/admin", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
-		json.NewDecoder(response.Body).Decode(message)
+		json.NewDecoder(response.Body).Decode(&message)
 		assert.Equal(t, "W1R3: Error Verifying Auth Token.", message.Message)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 	})
@@ -188,7 +188,7 @@ func TestDeleteUser(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/users/admin", token)
 		assert.Nil(t, err, err)
 		var body string
-		json.NewDecoder(response.Body).Decode(body)
+		json.NewDecoder(response.Body).Decode(&body)
 		assert.Equal(t, "admin deleted.", body)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
