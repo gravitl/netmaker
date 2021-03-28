@@ -51,13 +51,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestUsers(t *testing.T) {
-
-	//	t.Run("check that admin user does not exist", func(t *testing.T) {
-	//		response := checkAdminExists(t)
-	//		assert.Equal(t, false, response)
-	//	})
-}
 func TestAdminCreation(t *testing.T) {
 	var admin models.UserAuthParams
 	var user models.User
@@ -114,16 +107,10 @@ func TestGetUser(t *testing.T) {
 		assert.Equal(t, true, user.IsAdmin)
 	})
 	t.Run("GetUserWithInvalidToken", func(t *testing.T) {
-		//skip until sort out what should be returned
 		response, err := api(t, "", http.MethodGet, "http://localhost:8081/users/admin", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
-		///not sure what this should be
 		t.Log(response.Body)
-		//var something string
-
-		//json.NewDecoder(response.Body).Decode(something)
-		//assert.Equal(t, "Some error message", something)
 	})
 }
 
@@ -192,7 +179,7 @@ func TestDeleteUser(t *testing.T) {
 		assert.Equal(t, "admin deleted.", body)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
-	t.Run("DeletUser-NoAdmin", func(t *testing.T) {
+	t.Run("DeleteUser-NoAdmin", func(t *testing.T) {
 		//skip for now ... shouldn't panic
 		t.Skip()
 		function := func() {
@@ -230,7 +217,7 @@ func TestAuthenticateUser(t *testing.T) {
 			errMessage:    "W1R3: Password can't be empty",
 		},
 		AuthorizeTestCase{
-			testname:      "Invalid Passord",
+			testname:      "Invalid Password",
 			name:          "admin",
 			password:      "xxxxxxx",
 			code:          http.StatusUnauthorized,
