@@ -47,7 +47,7 @@ func TestMain(m *testing.M) {
 	waitgroup.Add(1)
 	go controller.HandleRESTRequests(&waitgroup)
 	//wait for http server to start
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 1)
 	os.Exit(m.Run())
 }
 
