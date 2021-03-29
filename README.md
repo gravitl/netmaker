@@ -61,11 +61,9 @@ In future releases, we have plans to support other platforms such as Windows and
 6. . Click "Create Network" and fill out the details
 7. You are now ready to begin using Netmaker. Create a key or enable manual node sign up so that your nodes can connect.
 
-#### On your machines [TODO -  This will be updated within the next 24 hours with an install script]:
-1. Get the binary: `curl -vLJO -H 'Authorization: token YOUR_ACCESS_TOKEN' 'https://github.com/gravitl/netmaker/releases/download/v0.1/netclient'`
-10. Make it executable: `sudo chmod +x netclient`
-11. Run the install command: `sudo ./netclient -c install -g <group name> -s <server:port> -k <key value>`
-
+#### On your machines :
+Run the following: `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.1/netclient-install.sh | SERVER_URL=<your server ip>:50051 NET_NAME=<your network name> KEY=<your access key> sh -`  
+(Note: Key can be left out if manual node signup is enabled)
 
 #### LICENSE
 
