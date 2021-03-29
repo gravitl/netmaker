@@ -8,7 +8,7 @@
 </p>
 
 ## What is Netmaker?
-Netmaker is a tool for creating and managing virtual networks. Our aim is simplicity and ease of use. Just spin up Netmaker and then install the netclient on your computers. Then, Netmaker will tell all of the computers how to reach each other and keep them informed of any changes to the network.
+Netmaker is a tool for creating and managing virtual networks. Our aim is simplicity and ease of use. Just spin up Netmaker and install netclient on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
 
 Netmaker also has a handy dandy UI, which you can find in [this repo](https://github.com/netmaker/netmaker-ui).
 
