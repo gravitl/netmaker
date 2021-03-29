@@ -70,3 +70,8 @@ In future releases, we have plans to support other platforms such as Windows and
 #### LICENSE
 
 Netmaker's source code and all artifacts in this repository are freely available. All versions are published under the Server Side Public License (SSPL), version 1, which can be found under the "licensing" directory: [LICENSE.txt](licensing/LICENSE.txt).
+
+#### CONTACT
+
+Email: alex@gravitl.com
+Discord: https://discord.gg/zRb9Vfhk8A
