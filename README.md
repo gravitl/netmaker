@@ -8,9 +8,9 @@
 </p>
 
 ## What is Netmaker?
-Netmaker is a tool for creating and managing virtual networks. Our aim is simplicity and ease of use. Just spin up Netmaker and install netclient on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
+Netmaker is a tool for creating and managing virtual networks. The goal is to make virtual/overlay/mesh networking easy for non-networking people. It should be like clicking a button. Netmaker consists of a server, an agent, and a UI. You spin up the Netmaker server and then install netclient (the agent) on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
 
-Netmaker also has a handy dandy UI, which you can find in [this repo](https://github.com/netmaker/netmaker-ui).
+Netmaker's handy dandy UI can be found [here](https://github.com/netmaker/netmaker-ui).
 
 Under the hood, Netmaker uses WireGuard to create encrypted tunnels between every node in your virtual network, creating a full mesh overlay. Netmaker takes the work out of manually configuring machines with WireGuard and updating them every time you have a change in your network. The netclient agent is self-updating and pulls any necessary changes (such as new peers) from the server. 
 
