@@ -73,5 +73,5 @@ Netmaker's source code and all artifacts in this repository are freely available
 
 #### CONTACT
 
-Email: alex@gravitl.com
+Email: alex@gravitl.com 
 Discord: https://discord.gg/zRb9Vfhk8A
