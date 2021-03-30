@@ -46,6 +46,8 @@ In future releases, we have plans to support other platforms such as Windows and
 
 ## Quick Start
 
+[Video Tutorial](https://youtu.be/PWLPT320Ybo)
+
 #### Prereqs:
 1. A server with an IP reachable by your computers (a small ec2 instance or droplet would do just fine).
 2. Linux installed on the above server (we use Ubuntu, but anything that runs Docker should work).
