@@ -3,7 +3,7 @@ set -e
 
 [ -z "$SERVER_URL" ] && echo "Need to set SERVER_URL" && exit 1;
 [ -z "$NET_NAME" ] && echo "Need to set NET_NAME" && exit 1;
-[ -z "$KEY_VALUE" ] && KEY=nokey;
+[ -z "$KEY" ] && KEY=nokey;
 
 
 
