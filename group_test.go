@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var Groups []models.Group
@@ -98,6 +99,78 @@ func TestGetGroup(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
+	})
+}
+
+func TestGetGroupNodeNumber(t *testing.T) {
+	t.Run("GetNumberNodesValidKey", func(t *testing.T) {
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet/numnodes", "secretkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message int
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		//assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+	})
+	t.Run("GetNumberNodesInvalidKey", func(t *testing.T) {
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet/numnodes", "badkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, message.Code)
+		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+	})
+	t.Run("GetNumNodesBadGroup", func(t *testing.T) {
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/badgroup/numnodes", "secretkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, http.StatusNotFound, response.StatusCode)
+	})
+}
+
+func TestDeleteGroup(t *testing.T) {
+	t.Run("DeleteGroupInvalidKey", func(t *testing.T) {
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/skynet", "badkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, message.Code)
+		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+	})
+	t.Run("DeleteGroupValidKey", func(t *testing.T) {
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/skynet", "secretkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message mongo.DeleteResult
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, int64(1), message.DeletedCount)
+
+	})
+	t.Run("DeleteGroupBadGroup", func(t *testing.T) {
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/badgroup", "secretkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, http.StatusNotFound, response.StatusCode)
+	})
+	t.Run("DeleteGroupNodesExist", func(t *testing.T) {
+		t.Skip()
 	})
 
 }
