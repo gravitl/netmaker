@@ -16,7 +16,7 @@ services:
     container_name: netmaker
     depends_on:
       - mongodb
-    image: docker.pkg.github.com/gravitl/netmaker/netmaker:v0.1
+    image: gravitl/netmaker:v0.1
     ports:
       - "8081:8081"
       - "50051:50051"
@@ -27,7 +27,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: docker.pkg.github.com/gravitl/netmaker-ui/netmaker-ui:v0.1
+    image: gravitl/netmaker-ui:v0.1
     ports:
       - "80:80"
     environment:
