@@ -1,68 +1,122 @@
 # API Reference Doc
 
 ###  Nodes
-**Get Peer List:** "/api/{group}/peerlist", "GET"  
-**Get List Last Modified Date:** "/api/{group}/lastmodified", "GET"  
-**Get Node Details:** "/api/{group}/nodes/{macaddress}", "GET"  
-**Create Node:** "/api/{group}/nodes", "POST"  
-**Uncordon Node:** "/api/{group}/nodes/{macaddress}/uncordon", "POST"  
-**Check In Node:** "/api/{group}/nodes/{macaddress}/checkin", "POST"  
-**Update Node:** "/api/{group}/nodes/{macaddress}", "PUT"  
-**Delete Node:** "/api/{group}/nodes/{macaddress}", "DELETE"  
-**Get Group Nodes:** "/api/{group}/nodes", "GET" 
-**Get All Nodes:** "/api/nodes", "GET"
-**Authenticate:** "/api/{group}/authenticate", "POST"
+| Operation | HTTP Verb | Endpoint |
+|-----------|-----------|----------|
+| Get Peer List | `GET` | `/api/{group}/peerlist` |
+| Get List Last Modified Date | `GET` | `/api/{group}/lastmodified` |
+| Get Node Details | `GET` | `/api/{group}/nodes/{macaddress}` |
+| Create Node | `POST` | `/api/{group}/nodes` |
+| Uncordon Node | `POST` | `/api/{group}/nodes/{macaddress}/uncordon` |
+| Check In Node | `POST` | `/api/{group}/nodes/{macaddress}/checkin` |
+| Update Node | `POST` | `/api/{group}/nodes/{macaddress}` |
+| Delete Node | `POST` | `/api/{group}/nodes/{macaddress}` |
+| Get Group Nodes | `GET` | `/api/{group}/nodes` |
+| Get All Nodes | `GET` | `/api/nodes` |
+| Authenticate | `POST` | `/api/{group}/authenticate` |
 
- 
+
 ### Groups
-**Get Groups:** "/api/groups", "GET"  
-**Get Group Details:** "/api/group/{groupname}", "GET"  
-**Get Number of Nodes in Group:** "/api/group/{groupname}/numnodes", "GET"  
-**Create Group:** "/api/groups", "POST"  
-**Update Group:** "/api/groups/{groupname}", "PUT"  
-**Delete Group:** "/api/groups/{groupname}", "DELETE"  
-
-**Create Access Key:** "/api/groups/{groupname}/keys", "POST"  
-**Get Access Key:** "/api/groups/{groupname}/keys", "GET"  
-**Delete Access Key:** "/api/groups/{groupname}/keys/{keyname}", "DELETE" 
+| Operation | HTTP Verb | Endpoint |
+|-----------|-----------|----------|
+|Get Groups | `GET` | `/api/groups` |
+|Get Group Details | `GET` | `/api/group/{groupname}` |
+|Get Number of Nodes in Group | `GET` | `/api/group/{groupname}/numnodes` |
+|Create Group | `POST` | `/api/groups` |
+|Update Group | `PUT` | `/api/groups/{groupname}` |
+|Delete Group | `DELETE` | `/api/groups/{groupname}` |
+|Create Access Key | `POST` |  `/api/groups/{groupname}/keys` |
+|Get Access Key | `GET` | `/api/groups/{groupname}/keys` |
+|Delete Access Key | `DELETE` | `/api/groups/{groupname}/keys/{keyname}` |
 
 ### Users (only used for interface admin user at this time)
-**Create Admin User:** "/users/createadmin", "POST"  
-**Check for  Admin User:** "/users/hasadmin", "GET"  
-**Update User:** "/users/{username}", "PUT"  
-**Delete User:** "/users/{username}", "DELETE"  
-**Get User:** "/users/{username}", "GET"  
-**Authenticate User:** "/users/authenticate", "POST"  
+| Operation | HTTP Verb | Endpoint |
+|-----------|-----------|----------|
+|Create Admin User| `POST` | `/users/createadmin` |
+|Check for Admin User| `GET` | `/users/hasadmin` |
+|Update User| `PUT` | `/users/{username}` |
+|Delete User| `DELETE` | `/users/{username}` |
+|Get User| `GET` | `/users/{username}` |
+|Authenticate User | `POST` | `/users/authenticate` |
 
-*note: users API does not use /api/ because of  a weird bug. Will fix in  future release.
-**note: Only able to create Admin at this time. The "user" is only used by the [user interface](https://github.com/falconcat-inc/WireCat-UI) to authenticate the  single  admin user.
+### Notes
+* users API does not use `/api/` because of a weird bug. Will fix in future
+  release.
+* Only able to create Admin at this time. The "user" is only used by the [user
+  interface](https://github.com/falconcat-inc/WireCat-UI) to authenticate the
+  single admin user.
 
 ### Files
-**Get File:** "/meshclient/files/{filename}", "GET"  
+| Operation | HTTP Verb | Endpoint |
+|-----------|-----------|----------|
+| Get File | `GET` | `/meshclient/files/{filename}` |
 
+---
 ## Example API CALLS
 
-**Note About Token:** This is a configurable value stored under  config/environments/dev.yaml and can be changed before  startup. It's a hack for testing, just provides an easy way to authorize, and should be removed and changed in the future.
+**Note About Token:** This is a configurable value stored under
+`config/environments/dev.yaml` and can be changed before startup. It's a hack
+for testing, just provides an easy way to authorize, and should be removed and
+changed in the future.
 
 #### Create a Group
-curl -d '{"addressrange":"10.70.0.0/16","nameid":"skynet"}' -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/groups
-
+```bash
+curl --location --request POST 'localhost:8081/api/groups' \
+--header 'Authorization: Bearer secretkey' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "addressrange": "10.70.0.0/16",
+    "nameid": "skynet"
+}'
+```
 #### Create a Key
-curl -d '{"uses":10}' -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/groups localhost:8081/api/groups/skynet/keys
-
+```bash
+curl --location --request POST 'localhost:8081/api/groups/skynet/keys' \
+--header 'Authorization: Bearer secretkey' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "uses": 10
+}'
+```
 #### Create a Node
-curl  -d  '{ "endpoint": 100.200.100.200, "publickey": aorijqalrik3ajflaqrdajhkr,"macaddress": "8c:90:b5:06:f1:d9","password": "reallysecret","localaddress": "172.16.16.1","accesskey": "aA3bVG0rnItIRXDx","listenport": 6400}' -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes
-
+```bash
+curl --location --request POST 'localhost:8081/api/skynet/nodes' \
+--header 'Content-Type: application/json' \
+--header 'authorization: Bearer secretkey' \
+--data-raw '{
+    "endpoint": 100.200.100.200,
+    "publickey": "aorijqalrik3ajflaqrdajhkr",
+    "macaddress": "8c:90:b5:06:f1:d9",
+    "password": "reallysecret",
+    "localaddress": "172.16.16.1",
+    "accesskey": "aA3bVG0rnItIRXDx",
+    "listenport": 6400
+}'
+```
 #### Get Groups
-curl -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/groups | jq
-
+```bash
+curl --location --request GET 'localhost:8081/api/groups' \
+--header 'Authorization: Bearer secretkey' \
+--header 'Content-Type: application/json' -s | jq
+```
 #### Get Group Nodes
-curl -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/skynet/nodes | jq
-
+```bash
+curl --location --request GET 'localhost:8081/api/skynet/nodes' \
+--header 'Authorization: Bearer secretkey' \
+--header 'Content-Type: application/json' -s | jq
+```
 #### Update Node Settings
-curl -X "PUT" -d '{"name":"my-laptop"}' -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9
-
+```bash
+curl --location --request PUT 'localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9' \
+--header 'Content-Type: application/json' \
+--header 'authorization: Bearer secretkey' \
+--data-raw '{
+    "name": "my-laptop"
+}'
+```
 #### Delete a Node
-curl -X "DELETE" -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9
-
+```bash
+curl --location --request DELETE 'localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9' \
+--header 'authorization: Bearer secretkey'
+```
 
