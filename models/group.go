@@ -44,7 +44,7 @@ func(group *Group) SetDefaults(){
 	group.DefaultInterface = "nm-" + group.NameID
     }
     if group.DefaultListenPort == 0 {
-        group.DefaultListenPort = 51820
+        group.DefaultListenPort = 51821
     }
     if group.DefaultPreUp == "" {
 
