@@ -121,7 +121,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
                 return nil, err
         } else {
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-            collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+            collection := mongoconn.Client.Database("netmaker").Collection("nodes")
             ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
             var err = collection.FindOne(ctx, bson.M{ "macaddress": macaddress}).Decode(&result)
 

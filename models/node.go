@@ -49,7 +49,7 @@ func(node *Node) GetGroup() (Group, error){
         var group Group
 
         collection := mongoconn.GroupDB
-        //collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        //collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 

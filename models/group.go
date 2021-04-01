@@ -41,10 +41,10 @@ func(group *Group) SetDefaults(){
         group.DisplayName = group.NameID
     }
     if group.DefaultInterface == "" {
-	group.DefaultInterface = "wc-" + group.NameID
+	group.DefaultInterface = "nm-" + group.NameID
     }
     if group.DefaultListenPort == 0 {
-        group.DefaultListenPort = 5555
+        group.DefaultListenPort = 51820
     }
     if group.DefaultPreUp == "" {
 
@@ -57,12 +57,10 @@ func(group *Group) SetDefaults(){
         group.DefaultKeepalive = 20
     }
     if group.DefaultPostUp == "" {
-            postup := "sudo wg addconf " + group.DefaultInterface + " /etc/wireguard/peers.conf"
-        group.DefaultPostUp = postup
     }
     //Check-In Interval for Nodes, In Seconds
     if group.DefaultCheckInInterval == 0 {
-        group.DefaultCheckInInterval = 120
+        group.DefaultCheckInInterval = 30
     }
     if group.AllowManualSignUp == nil {
 	signup := false

@@ -60,7 +60,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
         } else {
 
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-            collection := mongoconn.Client.Database("wirecat").Collection("users")
+            collection := mongoconn.Client.Database("netmaker").Collection("users")
             ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	    var err = collection.FindOne(ctx, bson.M{ "username": authRequest.UserName }).Decode(&result)
 
@@ -179,7 +179,7 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 
 func HasAdmin() (bool, error){
 
-        collection := mongoconn.Client.Database("wirecat").Collection("users")
+        collection := mongoconn.Client.Database("netmaker").Collection("users")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -217,7 +217,7 @@ func GetUser(username string) (models.User, error) {
 
         var user models.User
 
-        collection := mongoconn.Client.Database("wirecat").Collection("users")
+        collection := mongoconn.Client.Database("netmaker").Collection("users")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -265,7 +265,7 @@ func CreateUser(user models.User) (models.User, error) {
         }
 
         // connect db
-        collection := mongoconn.Client.Database("wirecat").Collection("users")
+        collection := mongoconn.Client.Database("netmaker").Collection("users")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // insert our node to the node db.
@@ -336,7 +336,7 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
         user.Password = userchange.Password
     }
         //collection := mongoconn.ConnectDB()
-        collection := mongoconn.Client.Database("wirecat").Collection("users")
+        collection := mongoconn.Client.Database("netmaker").Collection("users")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -416,7 +416,7 @@ func DeleteUser(user string) (bool, error)  {
 
         deleted := false
 
-        collection := mongoconn.Client.Database("wirecat").Collection("users")
+        collection := mongoconn.Client.Database("netmaker").Collection("users")
 
         filter := bson.M{"username": user}
 
