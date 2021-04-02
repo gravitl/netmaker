@@ -71,7 +71,7 @@
  - [ ] "Read Only" mode for nodes (can't update their settings centrally, only read)
  
 **Agent:**
- - [ ] Do system calls instead of direct comma[this repo](https://github.com/falconcat-inc/WireCat-UI)nds
+ - [ ] Do system calls instead of direct commands [this repo](https://github.com/gravitl/netmaker-ui)
  - [ ] Add a prompt for easy setup
  - [ ] Make it work as a sidecar container!!!
 

@@ -15,8 +15,8 @@ import (
 
 const (
 	// name of the service
-	name        = "wcdaemon"
-	description = "Wirecat Daemon Service"
+	name        = "netclient"
+	description = "Netmaker Daemon Service"
 )
 
 var password string

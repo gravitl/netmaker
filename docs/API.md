@@ -35,7 +35,7 @@
 **Authenticate User:** "/users/authenticate", "POST"  
 
 *note: users API does not use /api/ because of  a weird bug. Will fix in  future release.
-**note: Only able to create Admin at this time. The "user" is only used by the [user interface](https://github.com/falconcat-inc/WireCat-UI) to authenticate the  single  admin user.
+**note: Only able to create Admin at this time. The "user" is only used by the [user interface](https://github.com/gravitl/netmaker-ui) to authenticate the  single  admin user.
 
 ### Files
 **Get File:** "/meshclient/files/{filename}", "GET"  
