@@ -1,0 +1,14 @@
+server:
+  host: "localhost"
+  apiport: "8081"
+  grpcport: "50051"
+  masterkey: "secretkey"
+  allowedorigin: "*"
+  restbackend: true            
+  agentbackend: true
+mongoconn:
+  user: "mongoadmin"
+  pass: "mongopass"
+  host: "localhost"
+  port: "27017"
+  opts: '/?authSource=admin'
