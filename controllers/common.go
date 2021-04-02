@@ -21,7 +21,7 @@ func GetPeersList(groupName string) ([]models.PeersResponse, error) {
         var peers []models.PeersResponse
 
         //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -178,7 +178,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     }
 
         //collection := mongoconn.ConnectDB()
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -228,7 +228,7 @@ func DeleteNode(macaddress string, group string) (bool, error)  {
 
 	deleted := false
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
 	filter := bson.M{"macaddress": macaddress, "group": group}
 
@@ -254,7 +254,7 @@ func GetNode(macaddress string, group string) (models.Node, error) {
 
         var node models.Node
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -317,7 +317,7 @@ func CreateNode(node models.Node, groupName string) (models.Node, error) {
         }
 
         // connect db
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 
@@ -405,7 +405,7 @@ func SetGroupNodesLastModified(groupName string) error {
 
 	timestamp := time.Now().Unix()
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -441,7 +441,7 @@ func TimestampNode(node models.Node, updatecheckin bool, updatepeers bool, updat
 		node.SetLastPeerUpdate()
 	}
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 

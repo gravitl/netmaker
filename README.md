@@ -46,6 +46,8 @@ In future releases, we have plans to support other platforms such as Windows and
 
 ## Quick Start
 
+[Video Tutorial](https://youtu.be/PWLPT320Ybo)
+
 #### Prereqs:
 1. A server with an IP reachable by your computers (a small ec2 instance or droplet would do just fine).
 2. Linux installed on the above server (we use Ubuntu, but anything that runs Docker should work).
@@ -73,3 +75,8 @@ Netmaker's source code and all artifacts in this repository are freely available
 
 Email: alex@gravitl.com  
 Discord: https://discord.gg/zRb9Vfhk8A
+
+#### SUPPORT
+
+BTC: 3JE5ejpwu9i4vwA4rePkEDBEPpFY1xzJuN  
+ETH: 0xB6c5D23F2bE2100A5a2D337911A7Ef7575B4f91A
