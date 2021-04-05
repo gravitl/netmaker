@@ -64,6 +64,7 @@ type SuccessResponse struct {
 type AccessKey struct {
     Name string `json:"name" bson:"name"`
     Value string `json:"value" bson:"value"`
+    AccessString string `json:"accessstring" bson:"accessstring"`
     Uses int `json:"uses" bson:"uses"`
 }
 
@@ -71,6 +72,13 @@ type DisplayKey struct {
     Name string `json:"name" bson:"name"`
     Uses int `json:"uses" bson:"uses"`
 }
+
+type GlobalConfig struct {
+    Name string `json:"name" bson:"name"`
+    PortGRPC string `json:"portgrpc" bson:"portgrpc"`
+    ServerGRPC string `json:"servergrpc" bson:"servergrpc"`
+}
+
 
 type CheckInResponse struct{
     Success bool `json:"success" bson:"success"`
