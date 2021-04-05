@@ -21,6 +21,7 @@ import (
 func groupHandlers(r *mux.Router) {
     r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(getGroups))).Methods("GET")
     r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(createGroup))).Methods("POST")
+    r.HandleFunc("/api/groups/{groupname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
     r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(getGroup))).Methods("GET")
     r.HandleFunc("/api/groups/{groupname}/numnodes", securityCheck(http.HandlerFunc(getGroupNodeNumber))).Methods("GET")
     r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(updateGroup))).Methods("PUT")
@@ -187,6 +188,59 @@ func getGroup(w http.ResponseWriter, r *http.Request) {
 
         if err != nil {
                 mongoconn.GetError(err, w)
+                return
+        }
+
+        json.NewEncoder(w).Encode(group)
+}
+
+func keyUpdate(w http.ResponseWriter, r *http.Request) {
+
+        w.Header().Set("Content-Type", "application/json")
+
+        var params = mux.Vars(r)
+
+        var group models.Group
+
+        group, err := functions.GetParentGroup(params["groupname"])
+        if err != nil {
+		return
+        }
+
+	group.KeyUpdateTimeStamp = time.Now().Unix()
+
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"nameid": params["groupname"]}
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"addressrange", group.AddressRange},
+                        {"displayname", group.DisplayName},
+                        {"defaultlistenport", group.DefaultListenPort},
+                        {"defaultpostup", group.DefaultPostUp},
+                        {"defaultpreup", group.DefaultPreUp},
+			{"defaultkeepalive", group.DefaultKeepalive},
+                        {"keyupdatetimestamp", group.KeyUpdateTimeStamp},
+                        {"defaultsaveconfig", group.DefaultSaveConfig},
+                        {"defaultinterface", group.DefaultInterface},
+                        {"nodeslastmodified", group.NodesLastModified},
+                        {"grouplastmodified", group.GroupLastModified},
+                        {"allowmanualsignup", group.AllowManualSignUp},
+                        {"defaultcheckininterval", group.DefaultCheckInInterval},
+                }},
+        }
+
+        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+
+        defer cancel()
+
+        if errN != nil {
+                mongoconn.GetError(errN, w)
+                fmt.Println(errN)
                 return
         }
 
@@ -405,6 +459,7 @@ func createGroup(w http.ResponseWriter, r *http.Request) {
 	group.SetDefaults()
         group.SetNodesLastModified()
         group.SetGroupLastModified()
+        group.KeyUpdateTimeStamp = time.Now().Unix()
 
 
         collection := mongoconn.Client.Database("netmaker").Collection("groups")

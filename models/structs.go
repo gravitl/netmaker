@@ -84,6 +84,7 @@ type CheckInResponse struct{
     Success bool `json:"success" bson:"success"`
     NeedPeerUpdate bool `json:"needpeerupdate" bson:"needpeerupdate"`
     NeedConfigUpdate bool `json:"needconfigupdate" bson:"needconfigupdate"`
+    NeedKeyUpdate bool `json:"needkeyupdate" bson:"needkeyupdate"`
     NodeMessage string `json:"nodemessage" bson:"nodemessage"`
     IsPending bool `json:"ispending" bson:"ispending"`
 }

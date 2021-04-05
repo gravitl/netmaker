@@ -440,15 +440,7 @@ func getMacAddr() ([]string, error) {
     }
     return as, nil
 }
-/*
-func read(macaddress string,  group string) error {
-	//this would be  used  for retrieving state as set by the server.
-}
 
-func checkLocalConfigChange() error {
-
-}
-*/
 
 func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig) error  {
 
@@ -586,6 +578,71 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	return err
 }
 
+func setWGKeyConfig(network string, serveraddr string) error {
+
+        ctx := context.Background()
+        var header metadata.MD
+
+        var wcclient nodepb.NodeServiceClient
+        var requestOpts grpc.DialOption
+        requestOpts = grpc.WithInsecure()
+        conn, err := grpc.Dial(serveraddr, requestOpts)
+        if err != nil {
+                fmt.Printf("Cant dial GRPC server: %v", err)
+                return err
+        }
+        wcclient = nodepb.NewNodeServiceClient(conn)
+
+	fmt.Println("Authenticating with GRPC Server")
+        ctx, err = SetJWT(wcclient, network)
+        if err != nil {
+                fmt.Printf("Failed to authenticate: %v", err)
+                return err
+        }
+        fmt.Println("Authenticated")
+
+
+	node := getNode(network)
+
+	privatekey, err := wgtypes.GeneratePrivateKey()
+	if err != nil {
+		return err
+	}
+	privkeystring := privatekey.String()
+	publickey := privatekey.PublicKey()
+
+	node.Publickey = publickey.String()
+
+	err = storePrivKey(privkeystring)
+        if err != nil {
+                return err
+        }
+        err = modConfig(&node)
+        if err != nil {
+                return err
+        }
+
+
+	postnode := getNode(network)
+
+        req := &nodepb.UpdateNodeReq{
+               Node: &postnode,
+        }
+
+        _, err = wcclient.UpdateNode(ctx, req, grpc.Header(&header))
+        if err != nil {
+                return err
+        }
+        err = setWGConfig(network)
+        if err != nil {
+                return err
+                log.Fatalf("Error: %v", err)
+        }
+
+        return err
+}
+
+
 func setWGConfig(network string) error {
 
         cfg, err := config.ReadConfig(network)
@@ -615,12 +672,12 @@ func setWGConfig(network string) error {
 
 func storePrivKey(key string) error{
 	d1 := []byte(key)
-	err := ioutil.WriteFile("/root/.wckey", d1, 0644)
+	err := ioutil.WriteFile("/etc/netclient/wgkey", d1, 0644)
 	return err
 }
 
 func retrievePrivKey() (string, error) {
-	dat, err := ioutil.ReadFile("/root/.wckey")
+	dat, err := ioutil.ReadFile("/etc/netclient/wgkey")
 	return string(dat), err
 }
 
@@ -852,6 +909,16 @@ func CheckIn(network string) error {
                 }
 		setupcheck = false
 	}
+        if checkinres.Checkinresponse.Needkeyupdate {
+                fmt.Println("Server has requested that node update key pairs.")
+                fmt.Println("Proceeding to re-generate key pairs for Wiregard.")
+                err = setWGKeyConfig(network, servercfg.Address)
+                if err != nil {
+                        return err
+                        log.Fatalf("Unable to process reset keys request: %v", err)
+                }
+                setupcheck = false
+        }
         if checkinres.Checkinresponse.Needpeerupdate {
                 fmt.Println("Server has requested that node update peer list.")
                 fmt.Println("Updating peer list from remote server.")
