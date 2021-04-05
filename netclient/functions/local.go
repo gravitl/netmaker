@@ -173,8 +173,28 @@ WantedBy=timers.target
 	return nil
 }
 
+func isOnlyService(network string) (bool, error) {
+	isonly := false
+	files, err := filepath.Glob("/etc/netclient/netconfig-*")
+	if err != nil {
+		return isonly, err
+	}
+	count := len(files)
+	if count  == 0 {
+		isonly = true
+	}
+	return isonly, err
+
+}
+
 func RemoveSystemDServices(network string) error {
         sysExec, err := exec.LookPath("systemctl")
+
+
+	fullremove, err := isOnlyService(network)
+	if err != nil {
+		fmt.Println(err)
+	}
 
         cmdSysDisableService := &exec.Cmd {
                 Path: sysExec,
@@ -212,11 +232,13 @@ func RemoveSystemDServices(network string) error {
                 fmt.Println("Error stopping netclient@.service. Please investigate.")
                 fmt.Println(err)
         }
+	if fullremove {
         err = cmdSysDisableService.Run()
         if  err  !=  nil {
                 fmt.Println("Error disabling netclient@.service. Please investigate.")
                 fmt.Println(err)
         }
+	}
         err = cmdSysStopTimer.Run()
         if  err  !=  nil {
                 fmt.Println("Error stopping netclient-"+network+".timer. Please investigate.")
@@ -227,8 +249,9 @@ func RemoveSystemDServices(network string) error {
                 fmt.Println("Error disabling netclient-"+network+".timer. Please investigate.")
                 fmt.Println(err)
         }
-
+	if fullremove {
 	err = os.Remove("/etc/systemd/system/netclient@.service")
+	}
 	err = os.Remove("/etc/systemd/system/netclient-"+network+".timer")
 	if err != nil {
                 fmt.Println("Error removing file. Please investigate.")
