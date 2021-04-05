@@ -31,6 +31,7 @@ type Node struct {
 	AccessKey	string `json:"accesskey" bson:"accesskey"`
 	Interface	string `json:"interface" bson:"interface"`
 	LastModified	int64 `json:"lastmodified" bson:"lastmodified"`
+	KeyUpdateTimeStamp	int64 `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
 	LastPeerUpdate	int64 `json:"lastpeerupdate" bson:"lastpeerupdate"`
 	LastCheckIn	int64 `json:"lastcheckin" bson:"lastcheckin"`
 	MacAddress	string `json:"macaddress" bson:"macaddress" validate:"required,macaddress_valid,macaddress_unique"`

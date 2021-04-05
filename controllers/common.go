@@ -175,6 +175,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     }
     if nodechange.PublicKey != "" {
         node.PublicKey = nodechange.PublicKey
+	node.KeyUpdateTimeStamp = time.Now().Unix()
 	notifygroup = true
     }
 
@@ -195,6 +196,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
                         {"password", node.Password},
                         {"listenport", node.ListenPort},
                         {"publickey", node.PublicKey},
+                        {"keyupdatetimestamp", node.KeyUpdateTimeStamp},
                         {"endpoint", node.Endpoint},
                         {"postup", node.PostUp},
                         {"preup", node.PreUp},
@@ -307,7 +309,7 @@ func CreateNode(node models.Node, groupName string) (models.Node, error) {
         node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
-
+	node.KeyUpdateTimeStamp = time.Now().Unix()
 
         //Create a JWT for the node
         tokenString, _ := functions.CreateJWT(node.MacAddress, groupName)
@@ -366,7 +368,9 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 
         grouplm := parentgroup.GroupLastModified
 	peerslm := parentgroup.NodesLastModified
-        peerlistlm := parentnode.LastPeerUpdate
+	gkeyupdate := parentgroup.KeyUpdateTimeStamp
+	nkeyupdate := parentnode.KeyUpdateTimeStamp
+	peerlistlm := parentnode.LastPeerUpdate
         parentnodelm := parentnode.LastModified
 	parentnodelastcheckin := parentnode.LastCheckIn
 
@@ -379,6 +383,9 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 	}
 	if peerlistlm < peerslm {
 		response.NeedPeerUpdate = true
+	}
+	if nkeyupdate < gkeyupdate {
+		response.NeedKeyUpdate = true
 	}
 	/*
 	if postchanges {
