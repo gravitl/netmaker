@@ -408,7 +408,7 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"macaddress": params["macaddress"]}
+        filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
 
 	//old code was inefficient, this is all we need.
 	time := time.Now().String()
@@ -570,7 +570,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": params["macaddress"]}
+	filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
 
         node.SetLastModified()
 

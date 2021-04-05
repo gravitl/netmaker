@@ -121,6 +121,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     //Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
     //Eventually, lets have a better way to check if any of the fields are filled out...
     queryMac := node.MacAddress
+    queryGroup := node.Group
     notifygroup := false
 
     if nodechange.Address != "" {
@@ -183,7 +184,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": queryMac}
+        filter := bson.M{"macaddress": queryMac, "group": queryGroup}
 
         node.SetLastModified()
 
@@ -446,7 +447,7 @@ func TimestampNode(node models.Node, updatecheckin bool, updatepeers bool, updat
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": node.MacAddress}
+        filter := bson.M{"macaddress": node.MacAddress, "group": node.Group}
 
         // prepare update model.
         update := bson.D{
