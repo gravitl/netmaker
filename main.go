@@ -5,10 +5,17 @@ package main
 
 import (
     "log"
+    "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/controllers"
+    "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
     "github.com/gravitl/netmaker/config"
+    "go.mongodb.org/mongo-driver/bson"
     "fmt"
+    "time"
+    "net/http"
+    "errors"
+    "io/ioutil"
     "os"
     "net"
     "context"
@@ -18,6 +25,10 @@ import (
     nodepb "github.com/gravitl/netmaker/grpc"
     "google.golang.org/grpc"
 )
+
+var ServerGRPC string
+var PortGRPC string
+
 //Start MongoDB Connection and start API Request Handler
 func main() {
 	log.Println("Server starting...")
@@ -59,6 +70,27 @@ func runGRPC(wg *sync.WaitGroup) {
         if os.Getenv("GRPC_PORT") != "" {
 		grpcport = ":" + os.Getenv("GRPC_PORT")
         }
+	PortGRPC = grpcport
+	if os.Getenv("BACKEND_URL") == ""  {
+		if config.Config.Server.Host == "" {
+			ServerGRPC, _ = getPublicIP()
+		} else {
+			ServerGRPC = config.Config.Server.Host
+		}
+	} else {
+		ServerGRPC = os.Getenv("BACKEND_URL")
+	}
+	fmt.Println("GRPC Server set to: " + ServerGRPC)
+	fmt.Println("GRPC Port set to: " + PortGRPC)
+	var gconf models.GlobalConfig
+	gconf.ServerGRPC = ServerGRPC
+	gconf.PortGRPC = PortGRPC
+	gconf.Name = "netmaker"
+	err := setGlobalConfig(gconf)
+
+	if err != nil {
+	      log.Fatalf("Unable to set global config: %v", err)
+	}
 
 
 	listener, err := net.Listen("tcp", grpcport)
@@ -108,6 +140,59 @@ func runGRPC(wg *sync.WaitGroup) {
         mongoconn.Client.Disconnect(context.TODO())
         fmt.Println("MongoDB connection closed.")
 }
+func setGlobalConfig(globalconf models.GlobalConfig) (error) {
+
+        collection := mongoconn.Client.Database("netmaker").Collection("config")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	_, err := functions.GetGlobalConfig()
+	if err != nil {
+		_, err := collection.InsertOne(ctx, globalconf)
+		defer cancel()
+		if err != nil {
+			return err
+		}
+	} else {
+		filter := bson.M{"name": "netmaker"}
+		update := bson.D{
+			{"$set", bson.D{
+				{"servergrpc", globalconf.ServerGRPC},
+				{"portgrpc", globalconf.PortGRPC},
+			}},
+		}
+		err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&globalconf)
+	}
+	return nil
+}
+
+
+func getPublicIP() (string, error) {
+
+        iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+        endpoint := ""
+        var err error
+            for _, ipserver := range iplist {
+                resp, err := http.Get(ipserver)
+                if err != nil {
+                        continue
+                }
+                defer resp.Body.Close()
+                if resp.StatusCode == http.StatusOK {
+                        bodyBytes, err := ioutil.ReadAll(resp.Body)
+                        if err != nil {
+                                continue
+                        }
+                        endpoint = string(bodyBytes)
+                        break
+                }
+
+        }
+        if err == nil && endpoint == "" {
+                err =  errors.New("Public Address Not Found.")
+        }
+        return endpoint, err
+}
+
 
 func authServerUnaryInterceptor() grpc.ServerOption {
 	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)

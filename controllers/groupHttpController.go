@@ -3,6 +3,7 @@ package controller
 import (
     "gopkg.in/go-playground/validator.v9"
     "github.com/gravitl/netmaker/models"
+    "encoding/base64"
     "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
     "time"
@@ -454,6 +455,18 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
         if accesskey.Uses == 0 {
                 accesskey.Uses = 1
         }
+	gconf, errG := functions.GetGlobalConfig()
+        if errG != nil {
+                mongoconn.GetError(errG, w)
+                return
+        }
+
+
+	network := params["groupname"]
+	address := gconf.ServerGRPC + gconf.PortGRPC
+
+	accessstringdec := address + "." + network + "." + accesskey.Value
+	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 
 
 	group.AccessKeys = append(group.AccessKeys, accesskey)
@@ -495,8 +508,8 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
         var params = mux.Vars(r)
 
         var group models.Group
-        var keys []models.DisplayKey
-
+        //var keys []models.DisplayKey
+	var keys []models.AccessKey
         collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -521,6 +534,7 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
         //json.NewEncoder(w).Encode(group.AccessKeys)
         json.NewEncoder(w).Encode(keys)
 }
+
 
 //delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {

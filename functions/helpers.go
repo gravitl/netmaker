@@ -377,6 +377,31 @@ func UniqueAddress(groupName string) (string, error){
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
+//pretty simple get
+func GetGlobalConfig() ( models.GlobalConfig, error) {
+
+        filter := bson.M{}
+
+        var globalconf models.GlobalConfig
+
+        collection := mongoconn.Client.Database("netmaker").Collection("config")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        err := collection.FindOne(ctx, filter).Decode(&globalconf)
+
+        defer cancel()
+
+        if err != nil {
+                fmt.Println(err)
+                fmt.Println("Could not get global config")
+                return globalconf, err
+        }
+	return globalconf, err
+}
+
+
+
 //generate an access key value
 func GenKey() string {
 

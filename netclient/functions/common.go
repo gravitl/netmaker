@@ -19,6 +19,7 @@ import (
         nodepb "github.com/gravitl/netmaker/grpc"
 	"golang.zx2c4.com/wireguard/wgctrl"
         "google.golang.org/grpc"
+	"encoding/base64"
 	"google.golang.org/grpc/metadata"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	//homedir "github.com/mitchellh/go-homedir"
@@ -28,8 +29,31 @@ var (
         wcclient nodepb.NodeServiceClient
 )
 
-func Install(accesskey string, password string, server string, group string, noauto bool) error {
+func Install(accesskey string, password string, server string, group string, noauto bool, accesstoken string) error {
 
+
+	tserver := ""
+	tnetwork := ""
+	tkey := ""
+
+	if accesstoken != "" && accesstoken != "badtoken" {
+		btoken, err := base64.StdEncoding.DecodeString(accesstoken)
+		if err  != nil {
+			log.Fatalf("Something went wrong decoding your token: %v", err)
+		}
+		token := string(btoken)
+		tokenvals := strings.Split(token, ".")
+		tserver = tokenvals[0]
+		tnetwork = tokenvals[1]
+		tkey = tokenvals[2]
+		server = tserver
+		group = tnetwork
+		accesskey = tkey
+		fmt.Println("Decoded values from token:")
+		fmt.Println("    Server: " + tserver)
+		fmt.Println("    Network: " + tnetwork)
+		fmt.Println("    Key: " + tkey)
+	}
         wgclient, err := wgctrl.New()
 
         if err != nil {
@@ -46,20 +70,26 @@ func Install(accesskey string, password string, server string, group string, noa
 	fmt.Println("SERVER SETTINGS:")
 
 	if server == "" {
-		if servercfg.Address == "" {
+		if servercfg.Address == "" && tserver == "" {
 			log.Fatal("no server provided")
 		} else {
                         server = servercfg.Address
 		}
 	}
+	if tserver != "" {
+		server = tserver
+	}
        fmt.Println("     Server: " + server)
 
 	if accesskey == "" {
-		if servercfg.AccessKey == "" {
+		if servercfg.AccessKey == "" && tkey == "" {
 			fmt.Println("no access key provided.Proceeding anyway.")
 		} else {
 			accesskey = servercfg.AccessKey
 		}
+	}
+	if tkey != "" {
+		accesskey = tkey
 	}
        fmt.Println("     AccessKey: " + accesskey)
        err = config.WriteServer(server, accesskey, group)
@@ -81,13 +111,16 @@ func Install(accesskey string, password string, server string, group string, noa
        fmt.Println("     Password: " + password)
 
         if group == "badgroup" {
-                if nodecfg.Group == "" {
+                if nodecfg.Group == "" && tnetwork == "" {
                         //create error here                
                         log.Fatal("no group provided")
                 } else {
 			group = nodecfg.Group
 		}
         }
+	if tnetwork != "" {
+		group =  tnetwork
+	}
        fmt.Println("     Group: " + group)
 
 	var macaddress string
