@@ -7,6 +7,7 @@ import (
     "log"
     "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/controllers"
+    //"github.com/gravitl/netmaker/serverctl"
     "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
     "github.com/gravitl/netmaker/config"
@@ -38,6 +39,13 @@ func main() {
 		err := createDefaultNetwork()
 		if err != nil {
 			fmt.Printf("Error creating default network: %v", err)
+		} else {
+			/*
+			err = serverctl.NetworkAdd(config.Config.Server.DefaultNetName)
+			if err != nil {
+				fmt.Printf("Error adding to default network: %v", err)
+			}
+			*/
 		}
 	}
 
