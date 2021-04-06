@@ -32,6 +32,7 @@ type Node struct {
 	Interface	string `json:"interface" bson:"interface"`
 	LastModified	int64 `json:"lastmodified" bson:"lastmodified"`
 	KeyUpdateTimeStamp	int64 `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
+	ExpirationDateTime	int64 `json:"expdatetime" bson:"expdatetime"`
 	LastPeerUpdate	int64 `json:"lastpeerupdate" bson:"lastpeerupdate"`
 	LastCheckIn	int64 `json:"lastcheckin" bson:"lastcheckin"`
 	MacAddress	string `json:"macaddress" bson:"macaddress" validate:"required,macaddress_valid,macaddress_unique"`
@@ -82,6 +83,11 @@ func(node *Node) SetLastPeerUpdate(){
         node.LastPeerUpdate = time.Now().Unix()
 }
 
+func(node *Node) SetExpirationDateTime(){
+        node.ExpirationDateTime = time.Unix(1<<63-62135596801, 999999999).Unix()
+}
+
+
 func(node *Node) SetDefaultName(){
     if node.Name == "" {
         nodeid := StringWithCharset(5, charset)
@@ -96,6 +102,8 @@ func(node *Node) SetDefaults() {
 
     //TODO: Maybe I should make Group a part of the node struct. Then we can just query the Group object for stuff.
     parentGroup, _ := node.GetGroup()
+
+    node.ExpirationDateTime = time.Unix(1<<63-62135596801, 999999999).Unix()
 
     if node.ListenPort == 0 {
         node.ListenPort = parentGroup.DefaultListenPort

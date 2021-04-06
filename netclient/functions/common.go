@@ -327,7 +327,7 @@ func Install(accesskey string, password string, server string, group string, noa
                 return err
         }
 	fmt.Println("retrived peers, setting wireguard config.")
-	err = storePrivKey(privkeystring)
+	err = storePrivKey(privkeystring, group)
         if err != nil {
                 return err
         }
@@ -613,7 +613,7 @@ func setWGKeyConfig(network string, serveraddr string) error {
 
 	node.Publickey = publickey.String()
 
-	err = storePrivKey(privkeystring)
+	err = storePrivKey(privkeystring, network)
         if err != nil {
                 return err
         }
@@ -657,7 +657,7 @@ func setWGConfig(network string) error {
         if err != nil {
                 return err
         }
-	privkey, err := retrievePrivKey()
+	privkey, err := retrievePrivKey(network)
         if err != nil {
                 return err
         }
@@ -670,14 +670,14 @@ func setWGConfig(network string) error {
 	return err
 }
 
-func storePrivKey(key string) error{
+func storePrivKey(key string, network string) error{
 	d1 := []byte(key)
-	err := ioutil.WriteFile("/etc/netclient/wgkey", d1, 0644)
+	err := ioutil.WriteFile("/etc/netclient/wgkey-" + network, d1, 0644)
 	return err
 }
 
-func retrievePrivKey() (string, error) {
-	dat, err := ioutil.ReadFile("/etc/netclient/wgkey")
+func retrievePrivKey(network string) (string, error) {
+	dat, err := ioutil.ReadFile("/etc/netclient/wgkey-" + network)
 	return string(dat), err
 }
 
@@ -929,6 +929,14 @@ func CheckIn(network string) error {
                 }
 		setupcheck = false
         }
+	if checkinres.Checkinresponse.Needdelete {
+		fmt.Println("This machine got the delete signal. Deleting.")
+                err := Remove(network)
+                if err != nil {
+                        return err
+                        log.Fatalf("Error: %v", err)
+                }
+	}
 	if setupcheck {
 	iface := nodecfg.Interface
 	_, err := net.InterfaceByName(iface)
