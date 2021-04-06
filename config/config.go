@@ -42,6 +42,9 @@ type ServerConfig struct {
   AllowedOrigin	string `yaml:"allowedorigin"`
   RestBackend bool `yaml:"restbackend"`
   AgentBackend bool `yaml:"agentbackend"`
+  DefaultNetName string `yaml:"defaultnetname"`
+  DefaultNetRange string `yaml:"defaultnetrange"`
+  CreateDefault bool `yaml:"createdefault"`
 }
 
 type MongoConnConfig struct {

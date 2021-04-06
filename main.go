@@ -34,6 +34,13 @@ func main() {
 	log.Println("Server starting...")
 	mongoconn.ConnectDatabase()
 
+	if config.Config.Server.CreateDefault {
+		err := createDefaultNetwork()
+		if err != nil {
+			fmt.Printf("Error creating default network: %v", err)
+		}
+	}
+
 	var waitgroup sync.WaitGroup
 
 	if config.Config.Server.AgentBackend {
@@ -163,6 +170,45 @@ func setGlobalConfig(globalconf models.GlobalConfig) (error) {
 		err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&globalconf)
 	}
 	return nil
+}
+
+func createDefaultNetwork() error {
+
+
+	exists, err := functions.GroupExists(config.Config.Server.DefaultNetName)
+
+	if exists || err != nil {
+		fmt.Println("Default group already exists")
+		fmt.Println("Skipping default group create")
+		return err
+	} else {
+
+	var group models.Group
+
+	group.NameID = config.Config.Server.DefaultNetName
+	group.AddressRange = config.Config.Server.DefaultNetRange
+	group.DisplayName = config.Config.Server.DefaultNetName
+        group.SetDefaults()
+        group.SetNodesLastModified()
+        group.SetGroupLastModified()
+        group.KeyUpdateTimeStamp = time.Now().Unix()
+
+
+	fmt.Println("Creating default group.")
+
+
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+
+        // insert our group into the group table
+        _, err = collection.InsertOne(ctx, group)
+        defer cancel()
+
+	}
+	return err
+
+
 }
 
 
