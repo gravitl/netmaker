@@ -5,13 +5,7 @@ on:
         branches: 
         - 'arm-docker'
         - 'develop'
-        - 'main'
-        tags:
-            - 'v*.*.*'
-            - latest  
-  pull_request:
-        branches:
-            - 'main'
+        - 
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -19,18 +13,6 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v2
-      -
-        name: Docker Meta
-        id: meta
-        uses: crazy-max/ghaction-docker-meta@v2
-        with:
-            images: 
-                nusak/netmaker
-            tags: |
-                type=ref,event=branch
-                type=ref,event=pr
-                type=sha
-                type=edge,branch=develop
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -49,7 +31,5 @@ jobs:
         with:
           context: .
           platforms: linux/amd64, linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.output.tags }}
-          labels: ${{ steps.meta.output.labels }}
-         
+          push: true
+          tags: nusak/netmaker:dev      
