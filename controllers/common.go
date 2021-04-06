@@ -21,7 +21,7 @@ func GetPeersList(groupName string) ([]models.PeersResponse, error) {
         var peers []models.PeersResponse
 
         //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -121,6 +121,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     //Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
     //Eventually, lets have a better way to check if any of the fields are filled out...
     queryMac := node.MacAddress
+    queryGroup := node.Group
     notifygroup := false
 
     if nodechange.Address != "" {
@@ -135,6 +136,9 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     }
     if nodechange.ListenPort != 0 {
         node.ListenPort = nodechange.ListenPort
+    }
+    if nodechange.ExpirationDateTime != 0 {
+        node.ExpirationDateTime = nodechange.ExpirationDateTime
     }
     if nodechange.PreUp != "" {
         node.PreUp = nodechange.PreUp
@@ -174,16 +178,17 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     }
     if nodechange.PublicKey != "" {
         node.PublicKey = nodechange.PublicKey
+	node.KeyUpdateTimeStamp = time.Now().Unix()
 	notifygroup = true
     }
 
         //collection := mongoconn.ConnectDB()
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": queryMac}
+        filter := bson.M{"macaddress": queryMac, "group": queryGroup}
 
         node.SetLastModified()
 
@@ -194,6 +199,8 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
                         {"password", node.Password},
                         {"listenport", node.ListenPort},
                         {"publickey", node.PublicKey},
+                        {"keyupdatetimestamp", node.KeyUpdateTimeStamp},
+                        {"expdatetime", node.ExpirationDateTime},
                         {"endpoint", node.Endpoint},
                         {"postup", node.PostUp},
                         {"preup", node.PreUp},
@@ -228,7 +235,7 @@ func DeleteNode(macaddress string, group string) (bool, error)  {
 
 	deleted := false
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
 	filter := bson.M{"macaddress": macaddress, "group": group}
 
@@ -254,7 +261,7 @@ func GetNode(macaddress string, group string) (models.Node, error) {
 
         var node models.Node
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -306,7 +313,7 @@ func CreateNode(node models.Node, groupName string) (models.Node, error) {
         node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
-
+	node.KeyUpdateTimeStamp = time.Now().Unix()
 
         //Create a JWT for the node
         tokenString, _ := functions.CreateJWT(node.MacAddress, groupName)
@@ -317,7 +324,7 @@ func CreateNode(node models.Node, groupName string) (models.Node, error) {
         }
 
         // connect db
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 
@@ -365,7 +372,9 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 
         grouplm := parentgroup.GroupLastModified
 	peerslm := parentgroup.NodesLastModified
-        peerlistlm := parentnode.LastPeerUpdate
+	gkeyupdate := parentgroup.KeyUpdateTimeStamp
+	nkeyupdate := parentnode.KeyUpdateTimeStamp
+	peerlistlm := parentnode.LastPeerUpdate
         parentnodelm := parentnode.LastModified
 	parentnodelastcheckin := parentnode.LastCheckIn
 
@@ -379,22 +388,19 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 	if peerlistlm < peerslm {
 		response.NeedPeerUpdate = true
 	}
-	/*
-	if postchanges {
-		parentnode, err = UpdateNode(node, parentnode)
-	        if err != nil{
-			err = fmt.Errorf("%w; Couldnt Update Node: ", err)
-			return response, err
-		} else {
-			response.NodeUpdated = true
-		}
+	if nkeyupdate < gkeyupdate {
+		response.NeedKeyUpdate = true
 	}
-	*/
+        if time.Now().Unix() > parentnode.ExpirationDateTime {
+                response.NeedDelete = true
+		_, err =  DeleteNode(node.MacAddress, groupName)
+        } else {
 	err = TimestampNode(parentnode, true,  false, false)
 
 	if err != nil{
 		err = fmt.Errorf("%w; Couldnt Timestamp Node: ", err)
 		return response, err
+	}
 	}
 	response.Success = true
 
@@ -405,7 +411,7 @@ func SetGroupNodesLastModified(groupName string) error {
 
 	timestamp := time.Now().Unix()
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -441,12 +447,12 @@ func TimestampNode(node models.Node, updatecheckin bool, updatepeers bool, updat
 		node.SetLastPeerUpdate()
 	}
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": node.MacAddress}
+        filter := bson.M{"macaddress": node.MacAddress, "group": node.Group}
 
         // prepare update model.
         update := bson.D{

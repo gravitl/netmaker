@@ -2,8 +2,8 @@
 ### Server Setup
  1. Get yourself a linux server and make sure it has a public IP.
  2. Deploy MongoDB `docker volume create mongovol && docker run -d --name mongodb -v mongovol:/data/db --network host -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=mongopass mongo --bind_ip 0.0.0.0 `
- 3. Pull this repo: `git clone https://github.com/falconcat-inc/WireCat.git`
- 4. Switch to the directory and source the default env vars `cd WireCat && source defaultvars.sh`
+ 3. Pull this repo: `git clone https://github.com/gravitl/netmaker.git`
+ 4. Switch to the directory and source the default env vars `cd netmaker && source defaultvars.sh`
  5. Run the server: `go run ./`
 ### Optional (For  Testing):  Create Groups and Nodes
  
@@ -13,7 +13,7 @@
  4. Create Nodes: `./test/nodescreate.sh`
  5. Check to see if nodes were created: `curl -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes | jq`
 ### UI Setup
-Please see [this repo](https://github.com/falconcat-inc/WireCat-UI)  for instructions on setting up your UI.
+Please see [this repo](https://github.com/gravitl/netmaker-ui)  for instructions on setting up your UI.
 
 ### Agent  Setup
 

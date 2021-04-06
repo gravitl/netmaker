@@ -29,7 +29,7 @@ func IsFieldUnique(group string,  field string, value string) bool {
 	var node models.Node
 	isunique := true
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	filter := bson.M{field: value, "group": group}
@@ -51,7 +51,7 @@ func IsFieldUnique(group string,  field string, value string) bool {
 
 func GroupExists(name string) (bool, error) {
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -78,7 +78,7 @@ func GroupExists(name string) (bool, error) {
 func UpdateGroupNodeAddresses(groupName string) error {
 
         //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -158,7 +158,7 @@ func IsGroupDisplayNameUnique(name string) bool {
 func ListGroups() []models.Group{
         var groups []models.Group
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -222,7 +222,7 @@ func GetParentGroup(groupname string) (models.Group, error) {
 
         var group models.Group
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -275,7 +275,7 @@ func GetNodeObj(id primitive.ObjectID) models.Node {
 
         var node models.Node
 
-	collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         filter := bson.M{"_id": id}
@@ -329,7 +329,7 @@ func GetNodeByMacAddress(group string, macaddress string) (models.Node, error) {
 
 	filter := bson.M{"macaddress": macaddress, "group": group}
 
-	collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -377,6 +377,31 @@ func UniqueAddress(groupName string) (string, error){
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
+//pretty simple get
+func GetGlobalConfig() ( models.GlobalConfig, error) {
+
+        filter := bson.M{}
+
+        var globalconf models.GlobalConfig
+
+        collection := mongoconn.Client.Database("netmaker").Collection("config")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        err := collection.FindOne(ctx, filter).Decode(&globalconf)
+
+        defer cancel()
+
+        if err != nil {
+                fmt.Println(err)
+                fmt.Println("Could not get global config")
+                return globalconf, err
+        }
+	return globalconf, err
+}
+
+
+
 //generate an access key value
 func GenKey() string {
 
@@ -420,7 +445,7 @@ func IsIPUnique(group string, ip string) bool {
 
 	isunique := true
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	filter := bson.M{"address": ip, "group": group}
@@ -465,7 +490,7 @@ func DecrimentKey(groupName string, keyvalue string) {
                 }
         }
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -490,7 +515,7 @@ func DeleteKey(group models.Group, i int) {
 	group.AccessKeys = append(group.AccessKeys[:i],
                                 group.AccessKeys[i+1:]...)
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 

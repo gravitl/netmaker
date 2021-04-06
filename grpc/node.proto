@@ -49,6 +49,8 @@ message CheckInResponse {
     bool needconfigupdate = 3;
     string nodemessage = 4;
     bool ispending = 5;
+    bool needkeyupdate = 6;
+    bool needdelete = 7;
 }
 
 message PeersResponse {

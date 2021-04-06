@@ -16,7 +16,7 @@ services:
     container_name: netmaker
     depends_on:
       - mongodb
-    image: gravitl/netmaker:v0.1
+    image: gravitl/netmaker:v0.1-hotfix
     ports:
       - "8081:8081"
       - "50051:50051"

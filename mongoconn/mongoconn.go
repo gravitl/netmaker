@@ -93,8 +93,8 @@ func ConnectDatabase() {
         log.Fatal(err)
     }
 
-    NodeDB = Client.Database("wirecat").Collection("nodes")
-    GroupDB = Client.Database("wirecat").Collection("groups")
+    NodeDB = Client.Database("netmaker").Collection("nodes")
+    GroupDB = Client.Database("netmaker").Collection("groups")
 
     log.Println("Database Connected.")
 }

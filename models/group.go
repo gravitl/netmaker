@@ -19,6 +19,7 @@ type Group struct {
         DefaultListenPort      int32 `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,numeric,min=1024,max=65535"`
         DefaultPostUp  string `json:"defaultpostup" bson:"defaultpostup"`
         DefaultPreUp   string `json:"defaultpreup" bson:"defaultpreup"`
+        KeyUpdateTimeStamp      int64 `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
         DefaultKeepalive int32 `json:"defaultkeepalive" bson:"defaultkeepalive" validate: "omitempty,numeric,max=1000"`
         DefaultSaveConfig      *bool `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
 	AccessKeys	[]AccessKey `json:"accesskeys" bson:"accesskeys"`
@@ -41,10 +42,10 @@ func(group *Group) SetDefaults(){
         group.DisplayName = group.NameID
     }
     if group.DefaultInterface == "" {
-	group.DefaultInterface = "wc-" + group.NameID
+	group.DefaultInterface = "nm-" + group.NameID
     }
     if group.DefaultListenPort == 0 {
-        group.DefaultListenPort = 5555
+        group.DefaultListenPort = 51821
     }
     if group.DefaultPreUp == "" {
 
@@ -57,12 +58,10 @@ func(group *Group) SetDefaults(){
         group.DefaultKeepalive = 20
     }
     if group.DefaultPostUp == "" {
-            postup := "sudo wg addconf " + group.DefaultInterface + " /etc/wireguard/peers.conf"
-        group.DefaultPostUp = postup
     }
     //Check-In Interval for Nodes, In Seconds
     if group.DefaultCheckInInterval == 0 {
-        group.DefaultCheckInInterval = 120
+        group.DefaultCheckInInterval = 30
     }
     if group.AllowManualSignUp == nil {
 	signup := false

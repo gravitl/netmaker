@@ -67,7 +67,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
        } else {
 
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-            collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+            collection := mongoconn.Client.Database("netmaker").Collection("nodes")
             ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	    var err = collection.FindOne(ctx, bson.M{ "macaddress": authRequest.MacAddress, "ispending": false }).Decode(&result)
 
@@ -237,7 +237,7 @@ func getPeerList(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 
         //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -291,7 +291,7 @@ func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 	var nodes []models.ReturnNode
 	var params = mux.Vars(r)
 
-	collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -343,7 +343,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
         var nodes []models.ReturnNode
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -404,11 +404,11 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
 	//Retrieves node with DB Call which is inefficient. Let's just get the time and set it.
 	//node = functions.GetNodeByMacAddress(params["group"], params["macaddress"])
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"macaddress": params["macaddress"]}
+        filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
 
 	//old code was inefficient, this is all we need.
 	time := time.Now().String()
@@ -463,7 +463,7 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
         var group models.Group
         var params = mux.Vars(r)
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -565,12 +565,12 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		return
         }
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": params["macaddress"]}
+	filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
 
         node.SetLastModified()
 

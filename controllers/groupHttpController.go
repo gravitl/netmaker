@@ -3,6 +3,7 @@ package controller
 import (
     "gopkg.in/go-playground/validator.v9"
     "github.com/gravitl/netmaker/models"
+    "encoding/base64"
     "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
     "time"
@@ -20,6 +21,7 @@ import (
 func groupHandlers(r *mux.Router) {
     r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(getGroups))).Methods("GET")
     r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(createGroup))).Methods("POST")
+    r.HandleFunc("/api/groups/{groupname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
     r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(getGroup))).Methods("GET")
     r.HandleFunc("/api/groups/{groupname}/numnodes", securityCheck(http.HandlerFunc(getGroupNodeNumber))).Methods("GET")
     r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(updateGroup))).Methods("PUT")
@@ -147,7 +149,7 @@ func getGroupNodeNumber(w http.ResponseWriter, r *http.Request) {
 //maybe a functions/ folder and then a node.go, group.go, keys.go, misc.go
 func GetGroupNodeNumber(groupName string) (int,  error){
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -175,7 +177,7 @@ func getGroup(w http.ResponseWriter, r *http.Request) {
 
         var group models.Group
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -186,6 +188,59 @@ func getGroup(w http.ResponseWriter, r *http.Request) {
 
         if err != nil {
                 mongoconn.GetError(err, w)
+                return
+        }
+
+        json.NewEncoder(w).Encode(group)
+}
+
+func keyUpdate(w http.ResponseWriter, r *http.Request) {
+
+        w.Header().Set("Content-Type", "application/json")
+
+        var params = mux.Vars(r)
+
+        var group models.Group
+
+        group, err := functions.GetParentGroup(params["groupname"])
+        if err != nil {
+		return
+        }
+
+	group.KeyUpdateTimeStamp = time.Now().Unix()
+
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"nameid": params["groupname"]}
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"addressrange", group.AddressRange},
+                        {"displayname", group.DisplayName},
+                        {"defaultlistenport", group.DefaultListenPort},
+                        {"defaultpostup", group.DefaultPostUp},
+                        {"defaultpreup", group.DefaultPreUp},
+			{"defaultkeepalive", group.DefaultKeepalive},
+                        {"keyupdatetimestamp", group.KeyUpdateTimeStamp},
+                        {"defaultsaveconfig", group.DefaultSaveConfig},
+                        {"defaultinterface", group.DefaultInterface},
+                        {"nodeslastmodified", group.NodesLastModified},
+                        {"grouplastmodified", group.GroupLastModified},
+                        {"allowmanualsignup", group.AllowManualSignUp},
+                        {"defaultcheckininterval", group.DefaultCheckInInterval},
+                }},
+        }
+
+        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+
+        defer cancel()
+
+        if errN != nil {
+                mongoconn.GetError(errN, w)
+                fmt.Println(errN)
                 return
         }
 
@@ -285,7 +340,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
              haschange = true
         }
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -355,7 +410,7 @@ func deleteGroup(w http.ResponseWriter, r *http.Request) {
                 return
         }
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         filter := bson.M{"nameid": params["groupname"]}
 
@@ -404,9 +459,10 @@ func createGroup(w http.ResponseWriter, r *http.Request) {
 	group.SetDefaults()
         group.SetNodesLastModified()
         group.SetGroupLastModified()
+        group.KeyUpdateTimeStamp = time.Now().Unix()
 
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 
@@ -454,11 +510,23 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
         if accesskey.Uses == 0 {
                 accesskey.Uses = 1
         }
+	gconf, errG := functions.GetGlobalConfig()
+        if errG != nil {
+                mongoconn.GetError(errG, w)
+                return
+        }
+
+
+	network := params["groupname"]
+	address := gconf.ServerGRPC + gconf.PortGRPC
+
+	accessstringdec := address + "." + network + "." + accesskey.Value
+	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 
 
 	group.AccessKeys = append(group.AccessKeys, accesskey)
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -495,9 +563,9 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
         var params = mux.Vars(r)
 
         var group models.Group
-        var keys []models.DisplayKey
-
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        //var keys []models.DisplayKey
+	var keys []models.AccessKey
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -521,6 +589,7 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
         //json.NewEncoder(w).Encode(group.AccessKeys)
         json.NewEncoder(w).Encode(keys)
 }
+
 
 //delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
@@ -549,7 +618,7 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-        collection := mongoconn.Client.Database("wirecat").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
