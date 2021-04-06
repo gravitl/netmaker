@@ -6,6 +6,7 @@ jobs:
     steps:
         - uses: actions/checkout@master
         - name: Publish to Registry
+          uses: elgohr/Publish-Docker-Github-Actions@master
           with:
               name: nusak/netmaker
               username: ${{ secrets.DOCKER_USERNAME }}
