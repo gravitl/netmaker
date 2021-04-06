@@ -23,17 +23,8 @@ jobs:
         id: meta
         uses: crazy-max/ghaction-docker-meta@v2
         with:
-            #list of images to use as base name for tags
             images: 
                 nusak/netmaker
-            # generate Docker tags based on following events/attributes
-                tags: |
-                    type=ref,event=branch
-                    type=ref,event=pr
-                    type=semver,pattern={{version}}
-                    type=semver,pattern={{major}}.{{minor}}
-                    type=semver,pattern={{major}}
-                    type=sha
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
