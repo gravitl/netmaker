@@ -2,74 +2,79 @@ package serverctl
 
 import (
         "fmt"
-        "io/ioutil"
-        "log"
+  "github.com/gravitl/netmaker/functions"
+	"io"
+	"net/http"
         "os"
         "os/exec"
 )
 
 
-func fileExists(f string) bool {
-    info, err := os.Stat(f)
-    if os.IsNotExist(err) {
-        return false
-    }
-    notisdir := !info.IsDir()
-    return notisdir
-}
+func DownloadNetclient() error {
 
+	// Get the data
+	resp, err := http.Get("https://github.com/gravitl/netmaker/releases/download/develop/netclient")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-func installScript() error {
+	// Create the file
+	out, err := os.Create("/etc/netclient/netclient")
+	if err != nil {
+		return err
+	}
+	defer out.Close()
 
-
-	installScript := `#!/bin/sh
-set -e
-
-[ -z "$SERVER_URL" ] && echo "Need to set SERVER_URL" && exit 1;
-[ -z "$NET_NAME" ] && echo "Need to set NET_NAME" && exit 1;
-[ -z "$KEY" ] && KEY=nokey;
-
-
-
-wget -O netclient https://github.com/gravitl/netmaker/releases/download/develop/netclient
-chmod +x netclient
-sudo ./netclient -c install -s $SERVER_URL -g $NET_NAME -k $KEY
-rm -f netclient
-`
-
-        installbytes := []byte(installScript)
-
-	err := ioutil.WriteFile("/etc/netclient/netclient-install.sh", installbytes, 0755)
-        if err != nil {
-                log.Println(err)
-                return err
-        }
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
 	return err
 }
+func RemoveNetwork(network string) (bool, error) {
+	_, err := os.Stat("/etc/netclient/netclient")
+        if err != nil {
+		return false, err
+	}
+        cmdoutput, err := exec.Command("/etc/netclient/netclient","-c","remove","-n",network).Output()
+        if err != nil {
+                fmt.Println(string(cmdoutput))
+                return false, err
+        }
+        fmt.Println("Server removed from network " + network)
+        return true, err
 
+}
 
-func NetworkAdd(network string) error {
+func AddNetwork(network string) (bool, error) {
 	_, err := os.Stat("/etc/netclient")
         if os.IsNotExist(err) {
                 os.Mkdir("/etc/netclient", 744)
         } else if err != nil {
                 fmt.Println("couldnt find or create /etc/netclient")
-                return err
+                return false, err
         }
-        if !fileExists("/etc/netclient/netclient-install.sh") {
-        err = installScript()
+	token, err := functions.CreateServerToken(network)
         if err != nil {
-                log.Println(err)
-                return err
+                return false, err
         }
+        _, err = os.Stat("/etc/netclient/netclient")
+	if os.IsNotExist(err) {
+		err = DownloadNetclient()
+		if err != nil {
+			return false, err
+		}
 	}
-
-	cmdoutput, err := exec.Command("/bin/sh", "/etc/netclient/netclient-install.sh").Output()
+        err = os.Chmod("/etc/netclient/netclient", 0755)
+        if err != nil {
+                return false, err
+        }
+	cmdoutput, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker").Output()
 	if err != nil {
-		fmt.Printf("Error installing netclient: %s", err)
-	}
-	fmt.Println(cmdoutput)
-	return err
+	        fmt.Println(string(cmdoutput))
+                return false, err
+        }
+	fmt.Println("Server added to network " + network)
+	return true, err
 }
 
 

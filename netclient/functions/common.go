@@ -29,7 +29,7 @@ var (
         wcclient nodepb.NodeServiceClient
 )
 
-func Install(accesskey string, password string, server string, group string, noauto bool, accesstoken string) error {
+func Install(accesskey string, password string, server string, group string, noauto bool, accesstoken string,  inputname string) error {
 
 
 	tserver := ""
@@ -189,6 +189,9 @@ func Install(accesskey string, password string, server string, group string, noa
         if nodecfg.Name != "" {
                 name = nodecfg.Name
         }
+	if inputname != "" && inputname != "noname" {
+		name = inputname
+	}
        fmt.Println("     Name: " + name)
 
 
