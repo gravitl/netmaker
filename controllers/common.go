@@ -137,6 +137,9 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     if nodechange.ListenPort != 0 {
         node.ListenPort = nodechange.ListenPort
     }
+    if nodechange.ExpirationDateTime != 0 {
+        node.ExpirationDateTime = nodechange.ExpirationDateTime
+    }
     if nodechange.PreUp != "" {
         node.PreUp = nodechange.PreUp
     }
@@ -197,6 +200,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
                         {"listenport", node.ListenPort},
                         {"publickey", node.PublicKey},
                         {"keyupdatetimestamp", node.KeyUpdateTimeStamp},
+                        {"expdatetime", node.ExpirationDateTime},
                         {"endpoint", node.Endpoint},
                         {"postup", node.PostUp},
                         {"preup", node.PreUp},
@@ -387,22 +391,16 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 	if nkeyupdate < gkeyupdate {
 		response.NeedKeyUpdate = true
 	}
-	/*
-	if postchanges {
-		parentnode, err = UpdateNode(node, parentnode)
-	        if err != nil{
-			err = fmt.Errorf("%w; Couldnt Update Node: ", err)
-			return response, err
-		} else {
-			response.NodeUpdated = true
-		}
-	}
-	*/
+        if time.Now().Unix() > parentnode.ExpirationDateTime {
+                response.NeedDelete = true
+		_, err =  DeleteNode(node.MacAddress, groupName)
+        } else {
 	err = TimestampNode(parentnode, true,  false, false)
 
 	if err != nil{
 		err = fmt.Errorf("%w; Couldnt Timestamp Node: ", err)
 		return response, err
+	}
 	}
 	response.Success = true
 

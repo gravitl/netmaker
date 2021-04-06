@@ -171,6 +171,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
                 Checkinresponse: &nodepb.CheckInResponse{
                         Success:  checkinresponse.Success,
                         Needpeerupdate:  checkinresponse.NeedPeerUpdate,
+                        Needdelete:  checkinresponse.NeedDelete,
                         Needconfigupdate:  checkinresponse.NeedConfigUpdate,
                         Needkeyupdate:  checkinresponse.NeedKeyUpdate,
                         Nodemessage:  checkinresponse.NodeMessage,
