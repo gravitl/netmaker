@@ -192,7 +192,8 @@ func createDefaultNetwork() error {
         group.SetNodesLastModified()
         group.SetGroupLastModified()
         group.KeyUpdateTimeStamp = time.Now().Unix()
-
+	allow := true
+	group.AllowManualSignUp = &allow
 
 	fmt.Println("Creating default group.")
 
