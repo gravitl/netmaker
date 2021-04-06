@@ -25,6 +25,9 @@ jobs:
         with:
             images: 
                 nusak/netmaker
+            tags: |
+                type=ref,event=branch
+                type=ref,event=pr
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
