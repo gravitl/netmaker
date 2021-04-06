@@ -8,6 +8,7 @@ on:
         - 'main'
         tags:
             - 'v*.*.*'
+            - latest  
   pull_request:
         branches:
             - 'main'
