@@ -36,8 +36,8 @@ jobs:
           platforms: linux/amd64, linux/arm64
           push: true
           tags: |
-              nusak/nusak:${{ env.CI_REF_NAME_SLUG }}
-              nusak/nusak:${{ env.BUILD_VER }}
+              nusak/netmaker:${{ env.CI_REF_NAME_SLUG }}
+              nusak/netmaker:${{ env.BUILD_VER }}
 
 
 
