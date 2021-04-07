@@ -72,6 +72,13 @@ func main() {
 	}
 
         switch *command {
+		case "getport":
+			portno, err := functions.GetFreePort(51821)
+			fmt.Printf("Port Number: %v", portno)
+			fmt.Println("")
+			if err != nil {
+				log.Fatal(err)
+			}
 		case "required":
                         fmt.Println("command flag 'c' is required. Pick one of |install|checkin|update|remove|")
                         os.Exit(1)

@@ -17,14 +17,14 @@ import (
 func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, error) {
 		//home, err := os.UserHomeDir()
 		home := "/etc/netclient"
-		tokentext, err := ioutil.ReadFile(home + "/nettoken")
+		tokentext, err := ioutil.ReadFile(home + "/nettoken-"+network)
                 if err != nil {
 			fmt.Println("Error reading token. Logging in to retrieve new token.")
 			err = AutoLogin(client, network)
 			if err != nil {
                                 return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong with Auto Login: %v", err))
                         }
-			tokentext, err = ioutil.ReadFile(home + "/nettoken")
+			tokentext, err = ioutil.ReadFile(home + "/nettoken-"+network)
 			if err != nil {
 				return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong: %v", err))
 			}
@@ -42,13 +42,14 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 	        //home, err := os.UserHomeDir()
 		home := "/etc/netclient"
 		//nodecfg := config.Config.Node
-                config, err := config.ReadConfig(network) 
+                cfg, err := config.ReadConfig(network) 
 		if err != nil {
 			return err
 		}
 		login := &nodepb.LoginRequest{
-                        Password: config.Node.Password,
-                        Macaddress: config.Node.MacAddress,
+                        Password: cfg.Node.Password,
+                        Macaddress: cfg.Node.MacAddress,
+                        Network: network,
                 }
     // RPC call
                 res, err := client.Login(context.TODO(), login)
@@ -56,7 +57,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
                         return err
                 }
                 tokenstring := []byte(res.Accesstoken)
-                err = ioutil.WriteFile(home + "/nettoken", tokenstring, 0644)
+                err = ioutil.WriteFile(home + "/nettoken-"+network, tokenstring, 0644)
                 if err != nil {
                         return err
                 }

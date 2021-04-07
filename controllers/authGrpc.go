@@ -105,6 +105,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
 
 	//out := new(LoginResponse)
 	macaddress := req.GetMacaddress()
+	network := req.GetNetwork()
 	password := req.GetPassword()
 
 	var result models.NodeAuth
@@ -123,7 +124,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
             collection := mongoconn.Client.Database("netmaker").Collection("nodes")
             ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-            var err = collection.FindOne(ctx, bson.M{ "macaddress": macaddress}).Decode(&result)
+	    var err = collection.FindOne(ctx, bson.M{ "macaddress": macaddress, "group": network}).Decode(&result)
 
             defer cancel()
 
@@ -135,12 +136,15 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
            //might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
            //TODO: Consider a way of hashing the password client side before sending, or using certificates
            err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(password))
-           if err != nil && result.Password != password {
+	   if err != nil && result.Password != password {
 			return nil, err
            } else {
                 //Create a new JWT for the node
-                tokenString, _ := functions.CreateJWT(macaddress, result.Group)
+                tokenString, err := functions.CreateJWT(macaddress, result.Group)
 
+		if err != nil {
+			return nil, err
+		}
                 if tokenString == "" {
 		    err = errors.New("Something went wrong. Could not retrieve token.")
                     return nil, err
