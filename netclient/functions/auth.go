@@ -42,13 +42,14 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 	        //home, err := os.UserHomeDir()
 		home := "/etc/netclient"
 		//nodecfg := config.Config.Node
-                config, err := config.ReadConfig(network) 
+                cfg, err := config.ReadConfig(network) 
 		if err != nil {
 			return err
 		}
 		login := &nodepb.LoginRequest{
-                        Password: config.Node.Password,
-                        Macaddress: config.Node.MacAddress,
+                        Password: cfg.Node.Password,
+                        Macaddress: cfg.Node.MacAddress,
+                        Network: network,
                 }
     // RPC call
                 res, err := client.Login(context.TODO(), login)
