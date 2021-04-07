@@ -29,6 +29,51 @@ var (
         wcclient nodepb.NodeServiceClient
 )
 
+func ListPorts() error{
+	wgclient, err := wgctrl.New()
+	if err  != nil {
+		return err
+	}
+	devices, err := wgclient.Devices()
+        if err  != nil {
+                return err
+        }
+	fmt.Println("Here are your ports:")
+	 for _, i := range devices {
+		fmt.Println(i.ListenPort)
+	}
+	return err
+}
+
+func GetFreePort(rangestart int32) (int32, error){
+        wgclient, err := wgctrl.New()
+        if err  != nil {
+                return 0, err
+        }
+        devices, err := wgclient.Devices()
+        if err  != nil {
+                return 0, err
+        }
+	var portno int32
+	portno = 0
+	for  x := rangestart; x <= 60000; x++ {
+		conflict := false
+		for _, i := range devices {
+			if int32(i.ListenPort) == x {
+				conflict = true
+				break;
+			}
+		}
+		if conflict {
+			continue
+		}
+		portno = x
+		break
+	}
+        return portno, err
+}
+
+
 func Install(accesskey string, password string, server string, group string, noauto bool, accesstoken string) error {
 
 
@@ -206,7 +251,14 @@ func Install(accesskey string, password string, server string, group string, noa
 	if nodecfg.Port != 0 {
 		listenport = nodecfg.Port
 	}
-       fmt.Println("     Port: " + string(listenport))
+	if listenport == 0 {
+		listenport, err = GetFreePort(51821)
+		if err != nil {
+			fmt.Printf("Error retrieving port: %v", err)
+		}
+	}
+       fmt.Printf("     Port: %v", listenport)
+       fmt.Println("")
 
 	if nodecfg.PrivateKey != "" {
 		privkeystring = nodecfg.PrivateKey
@@ -942,7 +994,7 @@ func CheckIn(network string) error {
 	_, err := net.InterfaceByName(iface)
         if err != nil {
 		fmt.Println("interface " + iface + " does not currently exist. Setting up WireGuard.")
-                err = setWGConfig(network)
+                err = setWGKeyConfig(network, servercfg.Address)
                 if err != nil {
                         return err
                         log.Fatalf("Error: %v", err)
@@ -1076,7 +1128,7 @@ func WipeLocal(network string) error{
         if  err  !=  nil {
                 fmt.Println(err)
         }
-        err = os.Remove(home + "/nettoken")
+        err = os.Remove(home + "/nettoken-"+network)
         if  err  !=  nil {
                 fmt.Println(err)
         }
