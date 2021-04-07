@@ -1128,10 +1128,16 @@ func WipeLocal(network string) error{
         if  err  !=  nil {
                 fmt.Println(err)
         }
-        err = os.Remove(home + "/nettoken-"+network)
+        err = os.Remove(home + "/nettoken-" + network)
         if  err  !=  nil {
                 fmt.Println(err)
         }
+
+        err = os.Remove(home + "/wgkey-" + network)
+        if  err  !=  nil {
+                fmt.Println(err)
+        }
+
         ipExec, err := exec.LookPath("ip")
 
 	if ifacename != "" {
