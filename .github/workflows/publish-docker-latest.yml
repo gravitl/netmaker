@@ -1,19 +1,14 @@
 name: Publish Docker
 
 on: 
-  pull_request:
+  push:
         branches: 
-        - 'develop'
-        - 'master' 
+        - 'master'
 jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-       - uses: FranzDiebold/github-env-vars-action@v2
-       - name: Set Environment Variables
-           run: |
-             echo "BUILD_VER=v0.0.$GITHUB_RUN_NUMBER" >> $GITHUB_ENV
-       -
+      -
         name: Checkout
         uses: actions/checkout@v2
       -
@@ -35,8 +30,4 @@ jobs:
           context: .
           platforms: linux/amd64, linux/arm64
           push: true
-          tags: |
-              nusak/netmaker:${{ env.CI_REF_NAME_SLUG }}
-              nusak/netmaker:${{ env.BUILD_VER }}
-            
-
+          tags: nusak/netmaker:latest      
