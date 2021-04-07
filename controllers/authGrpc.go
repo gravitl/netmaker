@@ -5,7 +5,6 @@ import (
 	"context"
         "golang.org/x/crypto/bcrypt"
         "time"
-	"fmt"
         nodepb "github.com/gravitl/netmaker/grpc"
         "github.com/gravitl/netmaker/models"
         "github.com/gravitl/netmaker/functions"
