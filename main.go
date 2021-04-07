@@ -7,6 +7,7 @@ import (
     "log"
     "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/controllers"
+    "github.com/gravitl/netmaker/serverctl"
     "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
     "github.com/gravitl/netmaker/config"
@@ -33,11 +34,14 @@ var PortGRPC string
 func main() {
 	log.Println("Server starting...")
 	mongoconn.ConnectDatabase()
-
+	installserver := false
 	if config.Config.Server.CreateDefault {
-		err := createDefaultNetwork()
+		created, err := createDefaultNetwork()
 		if err != nil {
 			fmt.Printf("Error creating default network: %v", err)
+		}
+		if created {
+			installserver = true
 		}
 	}
 
@@ -45,7 +49,7 @@ func main() {
 
 	if config.Config.Server.AgentBackend {
 		waitgroup.Add(1)
-		go runGRPC(&waitgroup)
+		go runGRPC(&waitgroup, installserver)
 	}
 
 	if config.Config.Server.RestBackend {
@@ -60,7 +64,7 @@ func main() {
 }
 
 
-func runGRPC(wg *sync.WaitGroup) {
+func runGRPC(wg *sync.WaitGroup, installserver bool) {
 
 
 	defer wg.Done()
@@ -126,6 +130,20 @@ func runGRPC(wg *sync.WaitGroup) {
         }()
         fmt.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
 
+	if installserver {
+			fmt.Println("Adding server to default network")
+                        success, err := serverctl.AddNetwork(config.Config.Server.DefaultNetName)
+                        if err != nil || !success {
+                                fmt.Printf("Error adding to default network: %v", err)
+				fmt.Println("Unable to add server to network. Continuing.")
+			} else {
+                                fmt.Println("Server successfully added to default network.")
+			}
+	}
+        fmt.Println("Setup complete. You are ready to begin using netmaker.")
+
+
+
         // Right way to stop the server using a SHUTDOWN HOOK
         // Create a channel to receive OS signals
         c := make(chan os.Signal)
@@ -172,15 +190,15 @@ func setGlobalConfig(globalconf models.GlobalConfig) (error) {
 	return nil
 }
 
-func createDefaultNetwork() error {
+func createDefaultNetwork() (bool, error) {
 
-
+	iscreated := false
 	exists, err := functions.GroupExists(config.Config.Server.DefaultNetName)
 
 	if exists || err != nil {
 		fmt.Println("Default group already exists")
 		fmt.Println("Skipping default group create")
-		return err
+		return iscreated, err
 	} else {
 
 	var group models.Group
@@ -207,7 +225,10 @@ func createDefaultNetwork() error {
         defer cancel()
 
 	}
-	return err
+	if err == nil {
+		iscreated = true
+	}
+	return iscreated, err
 
 
 }

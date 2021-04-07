@@ -24,6 +24,58 @@ import (
 
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the group
+
+func CreateServerToken(network string) (string, error) {
+
+        var group models.Group
+        var accesskey models.AccessKey
+
+        group, err := GetParentGroup(network)
+        if err != nil {
+                return "", err
+        }
+
+                accesskey.Name = GenKeyName()
+                accesskey.Value = GenKey()
+                accesskey.Uses = 1
+        gconf, errG := GetGlobalConfig()
+        if errG != nil {
+                return "", errG
+        }
+        address := "localhost" + gconf.PortGRPC
+
+        accessstringdec := address + "." + network + "." + accesskey.Value
+        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+
+        group.AccessKeys = append(group.AccessKeys, accesskey)
+
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // Create filter
+        filter := bson.M{"nameid": network}
+
+        // Read update model from body request
+        fmt.Println("Adding key to " + group.NameID)
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"accesskeys", group.AccessKeys},
+                }},
+        }
+
+        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+
+        defer cancel()
+
+        if errN != nil {
+                return "", errN
+        }
+        return accesskey.AccessString, nil
+}
+
 func IsFieldUnique(group string,  field string, value string) bool {
 
 	var node models.Node
