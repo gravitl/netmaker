@@ -117,6 +117,7 @@ func ValidateNode(operation string, groupName string, node models.Node) error {
         return err
 }
 
+
 func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     //Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
     //Eventually, lets have a better way to check if any of the fields are filled out...

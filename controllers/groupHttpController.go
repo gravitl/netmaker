@@ -551,7 +551,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
                 mongoconn.GetError(errN, w)
                 return
         }
-	w.Write([]byte(accesskey.Value))
+	w.Write([]byte(accesskey.AccessString))
 }
 
 //pretty simple get
