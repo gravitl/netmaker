@@ -10,6 +10,7 @@ jobs:
       - uses: FranzDiebold/github-env-vars-action@v2
       - name: Print environment variables exposed by this action
         run: |
+          set 
           echo "CI_REPOSITORY_SLUG=$CI_REPOSITORY_SLUG"
           echo "CI_REPOSITORY_OWNER=$CI_REPOSITORY_OWNER"
           echo "CI_REPOSITORY_OWNER_SLUG=$CI_REPOSITORY_OWNER_SLUG"
