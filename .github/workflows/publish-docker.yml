@@ -14,11 +14,9 @@ jobs:
                 run: |
                     echo "BUILD_VER=v0.0.$GITHUB_RUN_NUMBER" >> $GITHUB_ENV
                     if ${{ github.head_ref }} = "master" ]
-                    then
                         echo "TAG=latest" >>$GITHUB_ENV
-                    else
-                        echo "TAG=${{ github.head_ref}}" >> $GITHUB_ENV
-                    done
+                    if ${{ github.head_ref }} = "master" ]
+                        echo "TAG=develop" >> $GITHUB_ENV
             -
                 name: Checkout
                 uses: actions/checkout@v2
