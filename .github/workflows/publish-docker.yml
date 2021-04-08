@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push latest
-        if: ${{ github.head_ref }} "master"
+        if: ${{ github.head_ref }} = "master"
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -31,7 +31,7 @@ jobs:
           tags: |
             nusak/netmaker:latest
       - name: Build and push develop
-        if: ${{ github.head_ref }} "develop"
+        if: ${{ github.head_ref }} = "develop"
         uses: docker/build-push-action@v2
         with:
           context: .
