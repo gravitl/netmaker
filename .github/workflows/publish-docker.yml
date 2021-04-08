@@ -5,7 +5,6 @@ on:
     branches:
       - 'develop'
       - 'master'
-  push:
 
 jobs:
   docker:
@@ -27,22 +26,22 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        name: Build and push 
         if: ${{ github.head_ref }} "master"
+        name: Build and push
         uses: docker/build-push-action@v2
         with:
           context: .
           platforms: linux/amd64, linux/arm64
-          push: false
+          push: true
           tags: |
             nusak/netmaker:latest
       -
-        name: Build and push 
         if: ${{ github.head_ref }} "develop"
+        name: Build and push
         uses: docker/build-push-action@v2
         with:
           context: .
           platforms: linux/amd64, linux/arm64
-          push: false
+          push: true
           tags: |
             nusak/netmaker:develop
