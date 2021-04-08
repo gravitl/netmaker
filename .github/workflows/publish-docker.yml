@@ -13,7 +13,7 @@ jobs:
             - name: Set Environment Variables
               run: |
                     echo "BUILD_VER=v0.0.$GITHUB_RUN_NUMBER" >> $GITHUB_ENV
-                    if [ ${{ CI_HED_REF }} = "master" ]
+                    if [ ${{ CI_HEAD_REF }} = "master" ]
                     then
                         echo "TAG=latest" >>$GITHUB_ENV
                     else
