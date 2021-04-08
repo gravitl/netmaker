@@ -12,14 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
-        name: Env Vars - Master
-        if: ${{ github.head_ref }} "master"
-        run: echo "TAG=latest" >> $GITHUB_ENV
-      -
-        name: Env Vars - Develop
-        if: ${{ github.head_ref }} "develop"
-        run: echo "TAG=develop" >> $GITHUB_ENV
-      -
         name: Checkout
         uses: actions/checkout@v2
       -
@@ -35,11 +27,22 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        name: Build and push
+        name: Build and push 
+        if: ${{ github.head_ref }} "master"
         uses: docker/build-push-action@v2
         with:
           context: .
           platforms: linux/amd64, linux/arm64
           push: false
           tags: |
-            nusak/netmaker:${{ env.TAG }}
+            nusak/netmaker:latest
+      -
+        name: Build and push 
+        if: ${{ github.head_ref }} "develop"
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64, linux/arm64
+          push: false
+          tags: |
+            nusak/netmaker:develop
