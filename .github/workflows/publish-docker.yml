@@ -1,5 +1,6 @@
 name: Publish Docker
 
+on:
     pull_request:
         branches:
             - 'develop'
@@ -42,4 +43,3 @@ name: Publish Docker
                 push: false
                 tags: |
                     nusak/netmaker:${{ env.TAG }}
-
