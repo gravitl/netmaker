@@ -12,7 +12,7 @@ import (
 )
 
 
-func fileExists(f string) bool {
+func FileExists(f string) bool {
     info, err := os.Stat(f)
     if os.IsNotExist(err) {
         return false
@@ -45,14 +45,17 @@ func ConfigureSystemD(network string) error {
                 return err
         }
 
-	if !fileExists("/usr/local/bin/netclient") {
+	if !FileExists("/usr/local/bin/netclient") {
+		os.Symlink("/etc/netclient/netclient","/usr/local/bin/netclient")
+	/*
 	_, err = copy(binarypath, "/usr/local/bin/netclient")
 	if err != nil {
 		log.Println(err)
 		return err
 	}
+	*/
 	}
-	if !fileExists("/etc/netclient/netclient") {
+	if !FileExists("/etc/netclient/netclient") {
         _, err = copy(binarypath, "/etc/netclient/netclient")
         if err != nil {
                 log.Println(err)
@@ -100,7 +103,7 @@ WantedBy=timers.target
 	servicebytes := []byte(systemservice)
 	timerbytes := []byte(systemtimer)
 
-	if !fileExists("/etc/systemd/system/netclient@.service") {
+	if !FileExists("/etc/systemd/system/netclient@.service") {
 	err = ioutil.WriteFile("/etc/systemd/system/netclient@.service", servicebytes, 0644)
         if err != nil {
                 log.Println(err)
@@ -108,7 +111,7 @@ WantedBy=timers.target
         }
 	}
 
-        if !fileExists("/etc/systemd/system/netclient-"+network+".timer") {
+        if !FileExists("/etc/systemd/system/netclient-"+network+".timer") {
         err = ioutil.WriteFile("/etc/systemd/system/netclient-"+network+".timer", timerbytes, 0644)
         if err != nil {
                 log.Println(err)
