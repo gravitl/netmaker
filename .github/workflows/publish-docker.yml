@@ -1,10 +1,11 @@
 name: Publish Docker
 
-on:
-    pull_request:
-        branches:
-            - 'develop'
-            - 'master'
+on: 
+  pull_request:
+        branches: 
+        - 'develop'
+        - 'master' 
+jobs:
     docker:
         runs-on: ubuntu-latest
         steps:
@@ -16,7 +17,7 @@ on:
                     then
                         echo "TAG=latest" >>$GITHUB_ENV
                     else
-                        echo "TAG=${{ github.head_ref}} >> $GITHUB_ENV
+                        echo "TAG=${{ github.head_ref}}" >> $GITHUB_ENV
                     done
             -
                 name: Checkout
@@ -31,14 +32,14 @@ on:
                 name: Login to DockerHub
                 uses: docker/login-action@v1
                 with:
-                username: ${{ secrets.DOCKERHUB_USERNAME }}
-                password: ${{ secrets.DOCKERHUB_TOKEN }}
+                    username: ${{ secrets.DOCKERHUB_USERNAME }}
+                    password: ${{ secrets.DOCKERHUB_TOKEN }}
             -
                 name: Build and push
                 uses: docker/build-push-action@v2
                 with:
-                context: .
-                platforms: linux/amd64, linux/arm64
-                push: false
-                tags: |
-                    nusak/netmaker:${{ env.TAG }}
+                    context: .
+                    platforms: linux/amd64, linux/arm64
+                    push: false
+                    tags: |
+                        nusak/netmaker:${{ env.TAG }}
