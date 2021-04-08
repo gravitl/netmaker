@@ -43,4 +43,3 @@ jobs:
                     push: false
                     tags: |
                         nusak/netmaker:${{ env.TAG }}
-
