@@ -9,15 +9,15 @@ jobs:
     docker:
         runs-on: ubuntu-latest
         steps:
-            - uses: FranzDiebold/github-env-vars-action@v2
-            - name: Set Environment Variables
-              run: |
+            -
+                name: Set Environment Variables
+                run: |
                     echo "BUILD_VER=v0.0.$GITHUB_RUN_NUMBER" >> $GITHUB_ENV
-                    if [ ${{ CI_HEAD_REF }} = "master" ]
+                    if ${{ github.head_ref }} = "master" ]
                     then
                         echo "TAG=latest" >>$GITHUB_ENV
                     else
-                        echo "TAG=$CI_HEAD_REF" >> $GITHUB_ENV
+                        echo "TAG=${{ github.head_ref}}" >> $GITHUB_ENV
                     done
             -
                 name: Checkout
