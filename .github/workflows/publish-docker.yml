@@ -12,6 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
+        name: Env Vars - Master
+        if: ${{ github.head_ref }} "master"
+        run: echo "TAG=latest" >> $GITHUB_ENV
+      -
+        name: Env Vars - Develop
+        if: ${{ github.head_ref }} "develop"
+        run: echo "TAG=develop" >> $GITHUB_ENV
+      -
         name: Checkout
         uses: actions/checkout@v2
       -
@@ -35,7 +43,3 @@ jobs:
           push: false
           tags: |
             nusak/netmaker:${{ env.TAG }}
-            if ${{ github.head_ref }} = "master"
-              nusak/netmaker:latest
-            if ${{ github.head_ref }} = "develop"
-              nusak/netmaker:latest
