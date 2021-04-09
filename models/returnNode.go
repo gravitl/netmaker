@@ -18,4 +18,7 @@ type ReturnNode struct {
 	Interface	string `json:"interface" bson:"interface"`
 	Group	string `json:"group" bson:"group"`
 	IsPending	*bool `json:"ispending" bson:"ispending"`
+        LocalAddress    string `json:"localaddress" bson:"localaddress" validate:"localaddress_check"`
+        ExpirationDateTime      int64 `json:"expdatetime" bson:"expdatetime"`
+        CheckInInterval int32 `json:"checkininterval" bson:"checkininterval"`
 }
