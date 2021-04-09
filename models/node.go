@@ -84,7 +84,7 @@ func(node *Node) SetLastPeerUpdate(){
 }
 
 func(node *Node) SetExpirationDateTime(){
-        node.ExpirationDateTime = time.Unix(1<<63-62135596801, 999999999).Unix()
+        node.ExpirationDateTime = time.Unix(33174902665, 0).Unix()
 }
 
 
@@ -103,7 +103,7 @@ func(node *Node) SetDefaults() {
     //TODO: Maybe I should make Group a part of the node struct. Then we can just query the Group object for stuff.
     parentGroup, _ := node.GetGroup()
 
-    node.ExpirationDateTime = time.Unix(1<<63-62135596801, 999999999).Unix()
+    node.ExpirationDateTime = time.Unix(33174902665, 0).Unix()
 
     if node.ListenPort == 0 {
         node.ListenPort = parentGroup.DefaultListenPort
