@@ -15,6 +15,7 @@ service NodeService {
 message LoginRequest {
   string macaddress = 1;
   string password = 2;
+  string network = 3;
 }
 
 message LoginResponse { string accesstoken = 1; }
@@ -49,6 +50,8 @@ message CheckInResponse {
     bool needconfigupdate = 3;
     string nodemessage = 4;
     bool ispending = 5;
+    bool needkeyupdate = 6;
+    bool needdelete = 7;
 }
 
 message PeersResponse {

@@ -5,10 +5,18 @@ package main
 
 import (
     "log"
+    "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/controllers"
+    "github.com/gravitl/netmaker/serverctl"
+    "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
     "github.com/gravitl/netmaker/config"
+    "go.mongodb.org/mongo-driver/bson"
     "fmt"
+    "time"
+    "net/http"
+    "errors"
+    "io/ioutil"
     "os"
     "net"
     "context"
@@ -18,16 +26,30 @@ import (
     nodepb "github.com/gravitl/netmaker/grpc"
     "google.golang.org/grpc"
 )
+
+var ServerGRPC string
+var PortGRPC string
+
 //Start MongoDB Connection and start API Request Handler
 func main() {
 	log.Println("Server starting...")
 	mongoconn.ConnectDatabase()
+	installserver := false
+	if config.Config.Server.CreateDefault {
+		created, err := createDefaultNetwork()
+		if err != nil {
+			fmt.Printf("Error creating default network: %v", err)
+		}
+		if created {
+			installserver = true
+		}
+	}
 
 	var waitgroup sync.WaitGroup
 
 	if config.Config.Server.AgentBackend {
 		waitgroup.Add(1)
-		go runGRPC(&waitgroup)
+		go runGRPC(&waitgroup, installserver)
 	}
 
 	if config.Config.Server.RestBackend {
@@ -42,7 +64,7 @@ func main() {
 }
 
 
-func runGRPC(wg *sync.WaitGroup) {
+func runGRPC(wg *sync.WaitGroup, installserver bool) {
 
 
 	defer wg.Done()
@@ -59,6 +81,27 @@ func runGRPC(wg *sync.WaitGroup) {
         if os.Getenv("GRPC_PORT") != "" {
 		grpcport = ":" + os.Getenv("GRPC_PORT")
         }
+	PortGRPC = grpcport
+	if os.Getenv("BACKEND_URL") == ""  {
+		if config.Config.Server.Host == "" {
+			ServerGRPC, _ = getPublicIP()
+		} else {
+			ServerGRPC = config.Config.Server.Host
+		}
+	} else {
+		ServerGRPC = os.Getenv("BACKEND_URL")
+	}
+	fmt.Println("GRPC Server set to: " + ServerGRPC)
+	fmt.Println("GRPC Port set to: " + PortGRPC)
+	var gconf models.GlobalConfig
+	gconf.ServerGRPC = ServerGRPC
+	gconf.PortGRPC = PortGRPC
+	gconf.Name = "netmaker"
+	err := setGlobalConfig(gconf)
+
+	if err != nil {
+	      log.Fatalf("Unable to set global config: %v", err)
+	}
 
 
 	listener, err := net.Listen("tcp", grpcport)
@@ -87,6 +130,20 @@ func runGRPC(wg *sync.WaitGroup) {
         }()
         fmt.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
 
+	if installserver {
+			fmt.Println("Adding server to default network")
+                        success, err := serverctl.AddNetwork(config.Config.Server.DefaultNetName)
+                        if err != nil || !success {
+                                fmt.Printf("Error adding to default network: %v", err)
+				fmt.Println("Unable to add server to network. Continuing.")
+			} else {
+                                fmt.Println("Server successfully added to default network.")
+			}
+	}
+        fmt.Println("Setup complete. You are ready to begin using netmaker.")
+
+
+
         // Right way to stop the server using a SHUTDOWN HOOK
         // Create a channel to receive OS signals
         c := make(chan os.Signal)
@@ -108,6 +165,102 @@ func runGRPC(wg *sync.WaitGroup) {
         mongoconn.Client.Disconnect(context.TODO())
         fmt.Println("MongoDB connection closed.")
 }
+func setGlobalConfig(globalconf models.GlobalConfig) (error) {
+
+        collection := mongoconn.Client.Database("netmaker").Collection("config")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	_, err := functions.GetGlobalConfig()
+	if err != nil {
+		_, err := collection.InsertOne(ctx, globalconf)
+		defer cancel()
+		if err != nil {
+			return err
+		}
+	} else {
+		filter := bson.M{"name": "netmaker"}
+		update := bson.D{
+			{"$set", bson.D{
+				{"servergrpc", globalconf.ServerGRPC},
+				{"portgrpc", globalconf.PortGRPC},
+			}},
+		}
+		err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&globalconf)
+	}
+	return nil
+}
+
+func createDefaultNetwork() (bool, error) {
+
+	iscreated := false
+	exists, err := functions.GroupExists(config.Config.Server.DefaultNetName)
+
+	if exists || err != nil {
+		fmt.Println("Default group already exists")
+		fmt.Println("Skipping default group create")
+		return iscreated, err
+	} else {
+
+	var group models.Group
+
+	group.NameID = config.Config.Server.DefaultNetName
+	group.AddressRange = config.Config.Server.DefaultNetRange
+	group.DisplayName = config.Config.Server.DefaultNetName
+        group.SetDefaults()
+        group.SetNodesLastModified()
+        group.SetGroupLastModified()
+        group.KeyUpdateTimeStamp = time.Now().Unix()
+	allow := true
+	group.AllowManualSignUp = &allow
+
+	fmt.Println("Creating default group.")
+
+
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+
+        // insert our group into the group table
+        _, err = collection.InsertOne(ctx, group)
+        defer cancel()
+
+	}
+	if err == nil {
+		iscreated = true
+	}
+	return iscreated, err
+
+
+}
+
+
+func getPublicIP() (string, error) {
+
+        iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+        endpoint := ""
+        var err error
+            for _, ipserver := range iplist {
+                resp, err := http.Get(ipserver)
+                if err != nil {
+                        continue
+                }
+                defer resp.Body.Close()
+                if resp.StatusCode == http.StatusOK {
+                        bodyBytes, err := ioutil.ReadAll(resp.Body)
+                        if err != nil {
+                                continue
+                        }
+                        endpoint = string(bodyBytes)
+                        break
+                }
+
+        }
+        if err == nil && endpoint == "" {
+                err =  errors.New("Public Address Not Found.")
+        }
+        return endpoint, err
+}
+
 
 func authServerUnaryInterceptor() grpc.ServerOption {
 	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)

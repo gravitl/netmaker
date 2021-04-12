@@ -11,7 +11,16 @@ import (
         "os/exec"
 )
 
-func ConfigureSystemD() error {
+
+func FileExists(f string) bool {
+    info, err := os.Stat(f)
+    if os.IsNotExist(err) {
+        return false
+    }
+    return !info.IsDir()
+}
+
+func ConfigureSystemD(network string) error {
 	/*
 	path, err := os.Getwd()
 	if err != nil {
@@ -36,17 +45,23 @@ func ConfigureSystemD() error {
                 return err
         }
 
+	if !FileExists("/usr/local/bin/netclient") {
+		os.Symlink("/etc/netclient/netclient","/usr/local/bin/netclient")
+	/*
 	_, err = copy(binarypath, "/usr/local/bin/netclient")
 	if err != nil {
 		log.Println(err)
 		return err
 	}
+	*/
+	}
+	if !FileExists("/etc/netclient/netclient") {
         _, err = copy(binarypath, "/etc/netclient/netclient")
         if err != nil {
                 log.Println(err)
                 return err
         }
-
+	}
 
 
 	systemservice := `[Unit]
@@ -54,8 +69,8 @@ Description=Regularly checks for updates in peers and local config
 Wants=netclient.timer
 
 [Service]
-Type=oneshot
-ExecStart=/etc/netclient/netclient -c checkin
+Type=simple
+ExecStart=/etc/netclient/netclient -c checkin -n %i
 
 [Install]
 WantedBy=multi-user.target
@@ -63,45 +78,62 @@ WantedBy=multi-user.target
 
 	systemtimer := `[Unit]
 Description=Calls the Netmaker Mesh Client Service
-Requires=netclient.service
+
+`
+systemtimer = systemtimer + "Requires=netclient@"+network+".service"
+
+systemtimer = systemtimer +
+`
 
 [Timer]
-Unit=netclient.service
+
+`
+systemtimer = systemtimer + "Unit=netclient@"+network+".service"
+
+systemtimer = systemtimer +
+`
+
 OnCalendar=*:*:0/30
 
 [Install]
 WantedBy=timers.target
 `
 
+
 	servicebytes := []byte(systemservice)
 	timerbytes := []byte(systemtimer)
 
-	err = ioutil.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
+	if !FileExists("/etc/systemd/system/netclient@.service") {
+	err = ioutil.WriteFile("/etc/systemd/system/netclient@.service", servicebytes, 0644)
         if err != nil {
                 log.Println(err)
                 return err
         }
+	}
 
-        err = ioutil.WriteFile("/etc/systemd/system/netclient.timer", timerbytes, 0644)
+        if !FileExists("/etc/systemd/system/netclient-"+network+".timer") {
+        err = ioutil.WriteFile("/etc/systemd/system/netclient-"+network+".timer", timerbytes, 0644)
         if err != nil {
                 log.Println(err)
                 return err
         }
-
+	}
         sysExec, err := exec.LookPath("systemctl")
 
         cmdSysEnableService := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "enable", "netclient.service" },
+                Args: []string{ sysExec, "enable", "netclient@.service" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
+	/*
         cmdSysStartService := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "start", "netclient.service"},
+                Args: []string{ sysExec, "start", "netclient@.service"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
+	*/
         cmdSysDaemonReload := &exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "daemon-reload"},
@@ -110,25 +142,20 @@ WantedBy=timers.target
         }
         cmdSysEnableTimer := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "enable", "netclient.timer" },
+                Args: []string{ sysExec, "enable", "netclient-"+network+".timer" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
         cmdSysStartTimer := &exec.Cmd {
                 Path: sysExec,
-		Args: []string{ sysExec, "start", "netclient.timer"},
+		Args: []string{ sysExec, "start", "netclient-"+network+".timer"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
 
         err = cmdSysEnableService.Run()
         if  err  !=  nil {
-                fmt.Println("Error enabling netclient.service. Please investigate.")
-                fmt.Println(err)
-        }
-        err = cmdSysStartService.Run()
-        if  err  !=  nil {
-                fmt.Println("Error starting netclient.service. Please investigate.")
+                fmt.Println("Error enabling netclient@.service. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysDaemonReload.Run()
@@ -143,24 +170,38 @@ WantedBy=timers.target
         }
         err = cmdSysStartTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error starting netclient.timer. Please investigate.")
+                fmt.Println("Error starting netclient-"+network+".timer. Please investigate.")
                 fmt.Println(err)
         }
 	return nil
 }
 
-func RemoveSystemDServices() error {
+func isOnlyService(network string) (bool, error) {
+	isonly := false
+	files, err := filepath.Glob("/etc/netclient/netconfig-*")
+	if err != nil {
+		return isonly, err
+	}
+	count := len(files)
+	if count  == 0 {
+		isonly = true
+	}
+	return isonly, err
+
+}
+
+func RemoveSystemDServices(network string) error {
         sysExec, err := exec.LookPath("systemctl")
 
-        cmdSysStopService := &exec.Cmd {
-                Path: sysExec,
-                Args: []string{ sysExec, "stop", "netclient.service" },
-                Stdout: os.Stdout,
-                Stderr: os.Stdout,
-        }
+
+	fullremove, err := isOnlyService(network)
+	if err != nil {
+		fmt.Println(err)
+	}
+
         cmdSysDisableService := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "disable", "netclient.service"},
+                Args: []string{ sysExec, "disable", "netclient@.service"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
@@ -178,40 +219,43 @@ func RemoveSystemDServices() error {
         }
         cmdSysStopTimer := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "stop", "netclient.timer" },
+                Args: []string{ sysExec, "stop", "netclient-"+network+".timer" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
         cmdSysDisableTimer := &exec.Cmd {
                 Path: sysExec,
-                Args: []string{ sysExec, "disable", "netclient.timer"},
+                Args: []string{ sysExec, "disable", "netclient-"+network+".timer"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
 
-        err = cmdSysStopService.Run()
+        //err = cmdSysStopService.Run()
         if  err  !=  nil {
-                fmt.Println("Error stopping netclient.service. Please investigate.")
+                fmt.Println("Error stopping netclient@.service. Please investigate.")
                 fmt.Println(err)
         }
+	if fullremove {
         err = cmdSysDisableService.Run()
         if  err  !=  nil {
-                fmt.Println("Error disabling netclient.service. Please investigate.")
+                fmt.Println("Error disabling netclient@.service. Please investigate.")
                 fmt.Println(err)
         }
+	}
         err = cmdSysStopTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error stopping netclient.timer. Please investigate.")
+                fmt.Println("Error stopping netclient-"+network+".timer. Please investigate.")
                 fmt.Println(err)
         }
         err = cmdSysDisableTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error disabling netclient.timer. Please investigate.")
+                fmt.Println("Error disabling netclient-"+network+".timer. Please investigate.")
                 fmt.Println(err)
         }
-
-	err = os.Remove("/etc/systemd/system/netclient.service")
-	err = os.Remove("/etc/systemd/system/netclient.timer")
+	if fullremove {
+	err = os.Remove("/etc/systemd/system/netclient@.service")
+	}
+	err = os.Remove("/etc/systemd/system/netclient-"+network+".timer")
 	if err != nil {
                 fmt.Println("Error removing file. Please investigate.")
                 fmt.Println(err)

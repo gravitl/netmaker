@@ -117,10 +117,12 @@ func ValidateNode(operation string, groupName string, node models.Node) error {
         return err
 }
 
+
 func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     //Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
     //Eventually, lets have a better way to check if any of the fields are filled out...
     queryMac := node.MacAddress
+    queryGroup := node.Group
     notifygroup := false
 
     if nodechange.Address != "" {
@@ -135,6 +137,9 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     }
     if nodechange.ListenPort != 0 {
         node.ListenPort = nodechange.ListenPort
+    }
+    if nodechange.ExpirationDateTime != 0 {
+        node.ExpirationDateTime = nodechange.ExpirationDateTime
     }
     if nodechange.PreUp != "" {
         node.PreUp = nodechange.PreUp
@@ -174,6 +179,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     }
     if nodechange.PublicKey != "" {
         node.PublicKey = nodechange.PublicKey
+	node.KeyUpdateTimeStamp = time.Now().Unix()
 	notifygroup = true
     }
 
@@ -183,7 +189,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": queryMac}
+        filter := bson.M{"macaddress": queryMac, "group": queryGroup}
 
         node.SetLastModified()
 
@@ -194,6 +200,8 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
                         {"password", node.Password},
                         {"listenport", node.ListenPort},
                         {"publickey", node.PublicKey},
+                        {"keyupdatetimestamp", node.KeyUpdateTimeStamp},
+                        {"expdatetime", node.ExpirationDateTime},
                         {"endpoint", node.Endpoint},
                         {"postup", node.PostUp},
                         {"preup", node.PreUp},
@@ -306,7 +314,7 @@ func CreateNode(node models.Node, groupName string) (models.Node, error) {
         node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
-
+	node.KeyUpdateTimeStamp = time.Now().Unix()
 
         //Create a JWT for the node
         tokenString, _ := functions.CreateJWT(node.MacAddress, groupName)
@@ -365,7 +373,9 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 
         grouplm := parentgroup.GroupLastModified
 	peerslm := parentgroup.NodesLastModified
-        peerlistlm := parentnode.LastPeerUpdate
+	gkeyupdate := parentgroup.KeyUpdateTimeStamp
+	nkeyupdate := parentnode.KeyUpdateTimeStamp
+	peerlistlm := parentnode.LastPeerUpdate
         parentnodelm := parentnode.LastModified
 	parentnodelastcheckin := parentnode.LastCheckIn
 
@@ -379,22 +389,19 @@ func NodeCheckIn(node models.Node, groupName string) (models.CheckInResponse, er
 	if peerlistlm < peerslm {
 		response.NeedPeerUpdate = true
 	}
-	/*
-	if postchanges {
-		parentnode, err = UpdateNode(node, parentnode)
-	        if err != nil{
-			err = fmt.Errorf("%w; Couldnt Update Node: ", err)
-			return response, err
-		} else {
-			response.NodeUpdated = true
-		}
+	if nkeyupdate < gkeyupdate {
+		response.NeedKeyUpdate = true
 	}
-	*/
+        if time.Now().Unix() > parentnode.ExpirationDateTime {
+                response.NeedDelete = true
+		_, err =  DeleteNode(node.MacAddress, groupName)
+        } else {
 	err = TimestampNode(parentnode, true,  false, false)
 
 	if err != nil{
 		err = fmt.Errorf("%w; Couldnt Timestamp Node: ", err)
 		return response, err
+	}
 	}
 	response.Success = true
 
@@ -446,7 +453,7 @@ func TimestampNode(node models.Node, updatecheckin bool, updatepeers bool, updat
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": node.MacAddress}
+        filter := bson.M{"macaddress": node.MacAddress, "group": node.Group}
 
         // prepare update model.
         update := bson.D{

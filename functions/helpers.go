@@ -24,6 +24,58 @@ import (
 
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the group
+
+func CreateServerToken(network string) (string, error) {
+
+        var group models.Group
+        var accesskey models.AccessKey
+
+        group, err := GetParentGroup(network)
+        if err != nil {
+                return "", err
+        }
+
+                accesskey.Name = GenKeyName()
+                accesskey.Value = GenKey()
+                accesskey.Uses = 1
+        gconf, errG := GetGlobalConfig()
+        if errG != nil {
+                return "", errG
+        }
+        address := "localhost" + gconf.PortGRPC
+
+        accessstringdec := address + "." + network + "." + accesskey.Value
+        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+
+        group.AccessKeys = append(group.AccessKeys, accesskey)
+
+        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // Create filter
+        filter := bson.M{"nameid": network}
+
+        // Read update model from body request
+        fmt.Println("Adding key to " + group.NameID)
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"accesskeys", group.AccessKeys},
+                }},
+        }
+
+        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+
+        defer cancel()
+
+        if errN != nil {
+                return "", errN
+        }
+        return accesskey.AccessString, nil
+}
+
 func IsFieldUnique(group string,  field string, value string) bool {
 
 	var node models.Node
@@ -64,7 +116,7 @@ func GroupExists(name string) (bool, error) {
 
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return false, err
+			return false, nil
 		}
 		fmt.Println("ERROR RETRIEVING GROUP!")
 		fmt.Println(err)
@@ -376,6 +428,31 @@ func UniqueAddress(groupName string) (string, error){
 	err1 := errors.New("ERROR: No unique addresses available. Check group subnet.")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
+
+//pretty simple get
+func GetGlobalConfig() ( models.GlobalConfig, error) {
+
+        filter := bson.M{}
+
+        var globalconf models.GlobalConfig
+
+        collection := mongoconn.Client.Database("netmaker").Collection("config")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        err := collection.FindOne(ctx, filter).Decode(&globalconf)
+
+        defer cancel()
+
+        if err != nil {
+                fmt.Println(err)
+                fmt.Println("Could not get global config")
+                return globalconf, err
+        }
+	return globalconf, err
+}
+
+
 
 //generate an access key value
 func GenKey() string {
