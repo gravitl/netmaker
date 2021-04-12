@@ -79,6 +79,12 @@ func Install(accesskey string, password string, server string, group string, noa
 	tnetwork := ""
 	tkey := ""
 
+	if FileExists("/etc/systemd/system/netclient-"+group+".timer") ||
+	   FileExists("/etc/netclient/netconfig-"+group) {
+		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for network " + group + ". To re-install, please remove by executing 'sudo netclient -c remove -n " + group + "'. Then re-run the install command.")
+		return err
+	}
+
 	if accesstoken != "" && accesstoken != "badtoken" {
 		btoken, err := base64.StdEncoding.DecodeString(accesstoken)
 		if err  != nil {

@@ -110,6 +110,7 @@ func main() {
 			fmt.Println("Beginning agent installation.")
 			err := functions.Install(*taccesskey, *tpassword, *tserver, *tnetwork, *tnoauto, *taccesstoken, *tname)
 			if err != nil {
+				if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 				fmt.Println("Error installing: ", err)
 				fmt.Println("Cleaning up (uninstall)")
 				err = functions.Remove(*tnetwork)
@@ -126,6 +127,10 @@ func main() {
                                         }
 				}
 				os.Exit(1)
+				} else {
+					fmt.Println(err.Error())
+					os.Exit(1)
+				}
 			}
 		/*
 		case "service-install":
