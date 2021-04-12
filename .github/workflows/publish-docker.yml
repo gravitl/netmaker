@@ -1,12 +1,11 @@
 name: Publish Docker
 
-
-on: 
+on:
   pull_request:
-        branches: 
-        - 'develop'
-        - 'master' 
-
+    branches:
+      - 'develop'
+      - 'master'
+      
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -30,7 +29,7 @@ jobs:
           platforms: linux/amd64, linux/arm64
           push: true
           tags: |
-            nusak/netmaker:latest
+            gravitl/netmaker:latest
       - name: Build and push develop
         if: github.base_ref == 'develop'
         uses: docker/build-push-action@v2
@@ -39,5 +38,4 @@ jobs:
           platforms: linux/amd64, linux/arm64
           push: true
           tags: |
-            nusak/netmaker:develop
-
+            gravitl/netmaker:develop
