@@ -7,7 +7,7 @@ set -e
 
 
 
-wget -O netclient https://github.com/gravitl/netmaker/releases/download/v0.1/netclient netclient
+wget -O netclient https://github.com/gravitl/netmaker/releases/download/latest/netclient netclient
 chmod +x netclient
 sudo ./netclient -c install -s $SERVER_URL -g $NET_NAME -k $KEY
 rm -f netclient
