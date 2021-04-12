@@ -39,6 +39,7 @@ In future releases, we have plans to support other platforms such as Windows and
 **For more information, please read the docs, or check out the Quick Start below:**
 
  - [Getting Started](docs/GETTING_STARTED.md)
+ - [Troubleshooting](docs/TROUBLESHOOTING.md)
  - [API Documentation](docs/API.md)
  - [Product Roadmap](docs/ROADMAP.md)
  - [Contributing](docs/CONTRIBUTING.md)
