@@ -615,7 +615,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
         update := bson.D{
                 {"$set", bson.D{
                         {"postup", nodechange.PostUp},
-                        {"preup", nodechange.PostDown},
+                        {"postdown", nodechange.PostDown},
                         {"isgateway", nodechange.IsGateway},
                         {"gatewayrange", nodechange.GatewayRange},
 			{"lastmodified", nodechange.LastModified},
