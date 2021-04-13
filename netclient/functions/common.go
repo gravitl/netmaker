@@ -78,7 +78,9 @@ func Install(accesskey string, password string, server string, group string, noa
 	tserver := ""
 	tnetwork := ""
 	tkey := ""
-
+	trange := ""
+	var localrange *net.IPNet
+	islocal := false
 	if FileExists("/etc/systemd/system/netclient-"+group+".timer") ||
 	   FileExists("/etc/netclient/netconfig-"+group) {
 		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for network " + group + ". To re-install, please remove by executing 'sudo netclient -c remove -n " + group + "'. Then re-run the install command.")
@@ -95,13 +97,29 @@ func Install(accesskey string, password string, server string, group string, noa
 		tserver = tokenvals[0]
 		tnetwork = tokenvals[1]
 		tkey = tokenvals[2]
-		server = tserver
-		group = tnetwork
-		accesskey = tkey
+		trange = tokenvals[3]
+		if server == "" {
+			server = tserver
+		}
+		if group == "" {
+			group = tnetwork
+		}
+		if accesskey == "" {
+			accesskey = tkey
+		}
+		if trange != "" {
+			islocal = true
+			_, localrange, err = net.ParseCIDR(trange)
+
+		} else {
+			trange = "Not a local network. Will use public address for endpoint."
+		}
+
 		fmt.Println("Decoded values from token:")
 		fmt.Println("    Server: " + tserver)
 		fmt.Println("    Network: " + tnetwork)
 		fmt.Println("    Key: " + tkey)
+		fmt.Println("    Local Range: " + localrange.String())
 	}
         wgclient, err := wgctrl.New()
 
@@ -125,9 +143,6 @@ func Install(accesskey string, password string, server string, group string, noa
                         server = servercfg.Address
 		}
 	}
-	if tserver != "" {
-		server = tserver
-	}
        fmt.Println("     Server: " + server)
 
 	if accesskey == "" {
@@ -136,9 +151,6 @@ func Install(accesskey string, password string, server string, group string, noa
 		} else {
 			accesskey = servercfg.AccessKey
 		}
-	}
-	if tkey != "" {
-		accesskey = tkey
 	}
        fmt.Println("     AccessKey: " + accesskey)
        err = config.WriteServer(server, accesskey, group)
@@ -167,9 +179,6 @@ func Install(accesskey string, password string, server string, group string, noa
 			group = nodecfg.Group
 		}
         }
-	if tnetwork != "" {
-		group =  tnetwork
-	}
        fmt.Println("     Group: " + group)
 
 	var macaddress string
@@ -218,13 +227,22 @@ func Install(accesskey string, password string, server string, group string, noa
 					if !found {
 						ip = v.IP
 						local = ip.String()
-						found = true
+						if islocal {
+							found = localrange.Contains(ip)
+						} else {
+							found = true
+						}
 					}
 				case *net.IPAddr:
 					if  !found {
 						ip = v.IP
 						local = ip.String()
-						found = true
+						if islocal {
+							found = localrange.Contains(ip)
+
+						} else {
+							found = true
+						}
 					}
 				}
 			}

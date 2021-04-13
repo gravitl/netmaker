@@ -21,12 +21,12 @@ import (
 
 func userHandlers(r *mux.Router) {
 
-    r.HandleFunc("/users/hasadmin", hasAdmin).Methods("GET")
-    r.HandleFunc("/users/createadmin", createAdmin).Methods("POST")
-    r.HandleFunc("/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
-    r.HandleFunc("/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
-    r.HandleFunc("/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
-    r.HandleFunc("/users/authenticate", authenticateUser).Methods("POST")
+    r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods("GET")
+    r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
+    r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
+    r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
+    r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
+    r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
 }
 
 //Node authenticates using its password and retrieves a JWT for authorization.

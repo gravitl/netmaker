@@ -3,6 +3,7 @@ package controller
 import (
     "gopkg.in/go-playground/validator.v9"
     "github.com/gravitl/netmaker/models"
+    "errors"
     "encoding/base64"
     "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
@@ -21,11 +22,10 @@ import (
 func groupHandlers(r *mux.Router) {
     r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(getGroups))).Methods("GET")
     r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(createGroup))).Methods("POST")
-    r.HandleFunc("/api/groups/{groupname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
     r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(getGroup))).Methods("GET")
-    r.HandleFunc("/api/groups/{groupname}/numnodes", securityCheck(http.HandlerFunc(getGroupNodeNumber))).Methods("GET")
     r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(updateGroup))).Methods("PUT")
     r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(deleteGroup))).Methods("DELETE")
+    r.HandleFunc("/api/groups/{groupname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
     r.HandleFunc("/api/groups/{groupname}/keys", securityCheck(http.HandlerFunc(createAccessKey))).Methods("POST")
     r.HandleFunc("/api/groups/{groupname}/keys", securityCheck(http.HandlerFunc(getAccessKeys))).Methods("GET")
     r.HandleFunc("/api/groups/{groupname}/keys/{name}", securityCheck(http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
@@ -42,12 +42,16 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 
 		var params = mux.Vars(r)
 		hasgroup := params["groupname"] != ""
-		groupexists, _ := functions.GroupExists(params["groupname"])
-                if hasgroup && !groupexists {
+		groupexists, err := functions.GroupExists(params["groupname"])
+                if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		} else if hasgroup && !groupexists {
                         errorResponse = models.ErrorResponse{
                                 Code: http.StatusNotFound, Message: "W1R3: This group does not exist.",
                         }
                         returnErrorResponse(w, r, errorResponse)
+			return
                 } else {
 
 		bearerToken := r.Header.Get("Authorization")
@@ -68,6 +72,7 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
 			}
 			returnErrorResponse(w, r, errorResponse)
+			return
 		} else {
 			next.ServeHTTP(w, r)
 		}
@@ -85,15 +90,16 @@ func authenticateMaster(tokenString string) bool {
 //simple get all groups function
 func getGroups(w http.ResponseWriter, r *http.Request) {
 
-	//depends on list groups function
-	//TODO: This is perhaps a more efficient way of handling ALL http handlers
-	//Take their primary logic and put in a separate function
-	//May be better since most http handler functionality is needed internally cross-method
-	//E.G. a method may need to check against all groups. But it  cant call this function. That's why there's ListGroups
-	groups := functions.ListGroups()
+	groups, err := functions.ListGroups()
 
-	json.NewEncoder(w).Encode(groups)
-
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	} else {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(groups)
+		return
+	}
 }
 
 func validateGroup(operation string, group models.Group) error {
@@ -105,14 +111,23 @@ func validateGroup(operation string, group models.Group) error {
                 return isvalid
         })
 
+        _ = v.RegisterValidation("privaterange_valid", func(fl validator.FieldLevel) bool {
+                isvalid := !*group.IsPrivate || functions.IsIpv4CIDR(fl.Field().String())
+                return isvalid
+        })
+
         _ = v.RegisterValidation("nameid_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique := operation == "update" || functions.IsGroupNameUnique(fl.Field().String())
-		inGroupCharSet := functions.NameInGroupCharSet(fl.Field().String())
-		return isFieldUnique && inGroupCharSet
+		isFieldUnique := false
+		inCharSet := false
+		if operation == "update" { isFieldUnique = true } else{
+			isFieldUnique, _ = functions.IsGroupNameUnique(fl.Field().String())
+			inCharSet        = functions.NameInGroupCharSet(fl.Field().String())
+		}
+		return isFieldUnique && inCharSet
         })
 
         _ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
-                isFieldUnique := functions.IsGroupDisplayNameUnique(fl.Field().String())
+                isFieldUnique, _ := functions.IsGroupDisplayNameUnique(fl.Field().String())
                 return isFieldUnique ||  operation == "update"
         })
 
@@ -124,47 +139,6 @@ func validateGroup(operation string, group models.Group) error {
                 }
         }
         return err
-}
-
-//Get number of nodes associated with a group
-//May not be necessary, but I think the front end needs it? This should be reviewed after iteration 1
-func getGroupNodeNumber(w http.ResponseWriter, r *http.Request) {
-
-        var params = mux.Vars(r)
-
-	count, err := GetGroupNodeNumber(params["groupname"])
-
-        if err != nil {
-		var errorResponse = models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: "W1R3: Error retrieving nodes.",
-		}
-		returnErrorResponse(w, r, errorResponse)
-	} else  {
-	json.NewEncoder(w).Encode(count)
-	}
-}
-
-//This is haphazard
-//I need a better folder structure
-//maybe a functions/ folder and then a node.go, group.go, keys.go, misc.go
-func GetGroupNodeNumber(groupName string) (int,  error){
-
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"group": groupName}
-        count, err := collection.CountDocuments(ctx, filter)
-	returncount := int(count)
-
-	//not sure if this is the right way of handling this error...
-        if err != nil {
-                return 9999, err
-        }
-
-        defer cancel()
-
-        return returncount, err
 }
 
 //Simple get group function
@@ -187,10 +161,10 @@ func getGroup(w http.ResponseWriter, r *http.Request) {
         defer cancel()
 
         if err != nil {
-                mongoconn.GetError(err, w)
+		returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-
+	w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(group)
 }
 
@@ -204,8 +178,10 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 
         group, err := functions.GetParentGroup(params["groupname"])
         if err != nil {
-		return
-        }
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+	}
+
 
 	group.KeyUpdateTimeStamp = time.Now().Unix()
 
@@ -234,16 +210,16 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
                 }},
         }
 
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
 
         defer cancel()
 
-        if errN != nil {
-                mongoconn.GetError(errN, w)
-                fmt.Println(errN)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
+        w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(group)
 }
 
@@ -258,6 +234,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 
 	group, err := functions.GetParentGroup(params["groupname"])
         if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
@@ -265,6 +242,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 
 	haschange := false
 	hasrangeupdate := false
+	hasprivaterangeupdate := false
 
 	_ = json.NewDecoder(r.Body).Decode(&groupChange)
 
@@ -278,16 +256,12 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 
         err = validateGroup("update", groupChange)
         if err != nil {
+		returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-
-	//TODO: group.Name is  not update-able
-	//group.Name acts as  the ID for the group and keeps it unique and searchable by nodes
-	//should consider renaming to group.ID  
-	//Too lazy for now.
-	//DisplayName is the editable version and will not be used for node searches,
-	//but will be used by front end.
+	//NOTE: Group.NameID is intentionally NOT editable. It acts as a static ID for the group. 
+	//DisplayName can be changed instead, which is what shows on the front end
 
         if groupChange.AddressRange != "" {
 
@@ -295,55 +269,64 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 
 	    var isAddressOK bool = functions.IsIpv4CIDR(groupChange.AddressRange)
             if !isAddressOK {
+		    err := errors.New("Invalid Range of " +  groupChange.AddressRange + " for addresses.")
+		    returnErrorResponse(w,r,formatError(err, "internal"))
                     return
             }
              haschange = true
 	     hasrangeupdate = true
 
         }
+	if groupChange.PrivateRange != "" {
+            group.PrivateRange = groupChange.PrivateRange
 
-       if groupChange.DefaultListenPort != 0 {
-            group.DefaultListenPort = groupChange.DefaultListenPort
+            var isAddressOK bool = functions.IsIpv4CIDR(groupChange.PrivateRange)
+            if !isAddressOK {
+		    err := errors.New("Invalid Range of " +  groupChange.PrivateRange + " for internal addresses.")
+                    returnErrorResponse(w,r,formatError(err, "internal"))
+                    return
+            }
              haschange = true
+             hasprivaterangeupdate = true
+	}
+	if groupChange.IsPrivate != nil {
+		group.IsPrivate = groupChange.IsPrivate
+	}
+	if groupChange.DefaultListenPort != 0 {
+		group.DefaultListenPort = groupChange.DefaultListenPort
+		haschange = true
         }
         if groupChange.DefaultPreUp != "" {
-            group.DefaultPreUp = groupChange.DefaultPreUp
-             haschange = true
+		group.DefaultPreUp = groupChange.DefaultPreUp
+		haschange = true
         }
         if groupChange.DefaultInterface != "" {
-            group.DefaultInterface = groupChange.DefaultInterface
-             haschange = true
+		group.DefaultInterface = groupChange.DefaultInterface
+		haschange = true
         }
         if groupChange.DefaultPostUp != "" {
-            group.DefaultPostUp = groupChange.DefaultPostUp
-             haschange = true
+		group.DefaultPostUp = groupChange.DefaultPostUp
+		haschange = true
         }
         if groupChange.DefaultKeepalive != 0 {
-            group.DefaultKeepalive = groupChange.DefaultKeepalive
-             haschange = true
+		group.DefaultKeepalive = groupChange.DefaultKeepalive
+		haschange = true
         }
         if groupChange.DisplayName != "" {
-            group.DisplayName = groupChange.DisplayName
-             haschange = true
+		group.DisplayName = groupChange.DisplayName
+		haschange = true
         }
         if groupChange.DefaultCheckInInterval != 0 {
-            group.DefaultCheckInInterval = groupChange.DefaultCheckInInterval
-             haschange = true
+		group.DefaultCheckInInterval = groupChange.DefaultCheckInInterval
+		haschange = true
         }
-
-	//TODO: Important. This doesn't work. This will create cases where we will
-	//unintentionally go from allowing manual signup to disallowing
-	//need to find a smarter way
-	//maybe make into a text field
-        if groupChange.AllowManualSignUp != group.AllowManualSignUp {
-            group.AllowManualSignUp = groupChange.AllowManualSignUp
-             haschange = true
+        if groupChange.AllowManualSignUp != nil {
+		group.AllowManualSignUp = groupChange.AllowManualSignUp
+		haschange = true
         }
 
         collection := mongoconn.Client.Database("netmaker").Collection("groups")
-
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
         filter := bson.M{"nameid": params["groupname"]}
 
 	if haschange {
@@ -364,27 +347,44 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
                         {"nodeslastmodified", group.NodesLastModified},
                         {"grouplastmodified", group.GroupLastModified},
                         {"allowmanualsignup", group.AllowManualSignUp},
+                        {"privaterange", group.PrivateRange},
+                        {"isprivate", group.IsPrivate},
                         {"defaultcheckininterval", group.DefaultCheckInInterval},
 		}},
         }
 
-	errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
-
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
         defer cancel()
 
-        if errN != nil {
-                mongoconn.GetError(errN, w)
-		fmt.Println(errN)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
 	//Cycles through nodes and gives them new IP's based on the new range
 	//Pretty cool, but also pretty inefficient currently
         if hasrangeupdate {
-		_ = functions.UpdateGroupNodeAddresses(params["groupname"])
-		//json.NewEncoder(w).Encode(errG)
+		err = functions.UpdateGroupNodeAddresses(params["groupname"])
+		if err != nil {
+			returnErrorResponse(w,r,formatError(err, "internal"))
+			return
+		}
 	}
-        json.NewEncoder(w).Encode(group)
+	if hasprivaterangeupdate {
+                err = functions.UpdateGroupPrivateAddresses(params["groupname"])
+                if err != nil {
+                        returnErrorResponse(w,r,formatError(err, "internal"))
+                        return
+                }
+	}
+	returngroup, err := functions.GetParentGroup(group.NameID)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(returngroup)
 }
 
 //Delete a group
@@ -395,15 +395,12 @@ func deleteGroup(w http.ResponseWriter, r *http.Request) {
 
         var params = mux.Vars(r)
 
-        var errorResponse = models.ErrorResponse{
-                Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-        }
-
-	nodecount, err := GetGroupNodeNumber(params["groupname"])
-
-	//we dont wanna leave nodes hanging. They need a group!
-        if nodecount > 0 || err != nil {
-                errorResponse = models.ErrorResponse{
+	nodecount, err := functions.GetGroupNodeNumber(params["groupname"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	} else if nodecount > 0  {
+		errorResponse := models.ErrorResponse{
                         Code: http.StatusForbidden, Message: "W1R3: Node check failed. All nodes must be deleted before deleting group.",
                 }
                 returnErrorResponse(w, r, errorResponse)
@@ -421,12 +418,12 @@ func deleteGroup(w http.ResponseWriter, r *http.Request) {
         defer cancel()
 
         if err != nil {
-                mongoconn.GetError(err, w)
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
+        w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(deleteResult)
-
 }
 
 //Create a group
@@ -435,32 +432,31 @@ func createGroup(w http.ResponseWriter, r *http.Request) {
 
         w.Header().Set("Content-Type", "application/json")
 
-	//TODO: 
-	//This may be needed to get error response. May be why some errors dont work
-	//analyze different error responses and see what needs to be done
-	//commenting out for now
-	/*
-        var errorResponse = models.ErrorResponse{
-                Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-        }
-	*/
         var group models.Group
 
         // we decode our body request params
-        _ = json.NewDecoder(r.Body).Decode(&group)
-
-	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateGroup
-	//Need to implement some better validation across the board
-        err := validateGroup("create", group)
+	err := json.NewDecoder(r.Body).Decode(&group)
         if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
+	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateGroup
+	//Need to implement some better validation across the board
+        if group.IsPrivate == nil {
+                falsevar := false
+                group.IsPrivate = &falsevar
+        }
+
+        err = validateGroup("create", group)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
 	group.SetDefaults()
         group.SetNodesLastModified()
         group.SetGroupLastModified()
         group.KeyUpdateTimeStamp = time.Now().Unix()
-
 
         collection := mongoconn.Client.Database("netmaker").Collection("groups")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -468,18 +464,18 @@ func createGroup(w http.ResponseWriter, r *http.Request) {
 
         // insert our group into the group table
         result, err := collection.InsertOne(ctx, group)
-        _ = result
 
         defer cancel()
 
         if err != nil {
-                mongoconn.GetError(err, w)
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(result)
 }
 
 // BEGIN KEY MANAGEMENT SECTION
-// Consider a separate file for these controllers but I think same file is fine for now
 
 
 //TODO: Very little error handling
@@ -496,10 +492,15 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
         //start here
 	group, err := functions.GetParentGroup(params["groupname"])
         if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-        _ = json.NewDecoder(r.Body).Decode(&accesskey)
+        err = json.NewDecoder(r.Body).Decode(&accesskey)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
 
 	if accesskey.Name == "" {
                 accesskey.Name = functions.GenKeyName()
@@ -510,19 +511,17 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
         if accesskey.Uses == 0 {
                 accesskey.Uses = 1
         }
-	gconf, errG := functions.GetGlobalConfig()
-        if errG != nil {
-                mongoconn.GetError(errG, w)
+	gconf, err := functions.GetGlobalConfig()
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-
 
 	network := params["groupname"]
 	address := gconf.ServerGRPC + gconf.PortGRPC
 
 	accessstringdec := address + "." + network + "." + accesskey.Value
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
-
 
 	group.AccessKeys = append(group.AccessKeys, accesskey)
 
@@ -543,15 +542,17 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
                 }},
         }
 
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
 
         defer cancel()
 
-        if errN != nil {
-                mongoconn.GetError(errN, w)
+	if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-	w.Write([]byte(accesskey.AccessString))
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(accesskey)
+	//w.Write([]byte(accesskey.AccessString))
 }
 
 //pretty simple get
@@ -575,18 +576,19 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
         defer cancel()
 
         if err != nil {
-                mongoconn.GetError(err, w)
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-	keydata, keyerr := json.Marshal(group.AccessKeys)
+	keydata, err := json.Marshal(group.AccessKeys)
 
-        if keyerr != nil {
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
 	json.Unmarshal(keydata, &keys)
 
-        //json.NewEncoder(w).Encode(group.AccessKeys)
+	w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(keys)
 }
 
@@ -604,9 +606,9 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
         //start here
 	group, err := functions.GetParentGroup(params["groupname"])
         if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-
 	//basically, turn the list of access keys into the list of access keys before and after the item
 	//have not done any error handling for if there's like...1 item. I think it works? need to test.
 	for i := len(group.AccessKeys) - 1; i >= 0; i-- {
@@ -632,12 +634,23 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
                 }},
         }
 
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
 
         defer cancel()
 
-        if errN != nil {
-                mongoconn.GetError(errN, w)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
+        var keys []models.AccessKey
+	keydata, err := json.Marshal(group.AccessKeys)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        json.Unmarshal(keydata, &keys)
+
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(keys)
 }

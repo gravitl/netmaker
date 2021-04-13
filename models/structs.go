@@ -99,3 +99,10 @@ type PeersResponse struct {
     KeepAlive int32 `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
+type GatewayRequest struct {
+    RangeString string `json:"rangestring" bson:"rangestring"`
+    Ranges []string `json:"ranges" bson:"ranges"`
+    Interface string `json:"interface" bson:"interface"`
+}
+
+

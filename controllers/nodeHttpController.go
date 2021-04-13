@@ -2,6 +2,7 @@ package controller
 
 import (
     "github.com/gravitl/netmaker/models"
+    "errors"
     "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
     "golang.org/x/crypto/bcrypt"
@@ -10,7 +11,6 @@ import (
     "fmt"
     "context"
     "encoding/json"
-    "log"
     "net/http"
     "github.com/gorilla/mux"
     "go.mongodb.org/mongo-driver/bson"
@@ -20,17 +20,18 @@ import (
 
 func nodeHandlers(r *mux.Router) {
 
-    r.HandleFunc("/api/{group}/nodes", authorize(true, "group", http.HandlerFunc(getGroupNodes))).Methods("GET")
     r.HandleFunc("/api/nodes", authorize(false, "master", http.HandlerFunc(getAllNodes))).Methods("GET")
-    r.HandleFunc("/api/{group}/peerlist", authorize(true, "group", http.HandlerFunc(getPeerList))).Methods("GET")
-    r.HandleFunc("/api/{group}/lastmodified", authorize(true, "group", http.HandlerFunc(getLastModified))).Methods("GET")
-    r.HandleFunc("/api/{group}/nodes/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
-    r.HandleFunc("/api/{group}/nodes", createNode).Methods("POST")
-    r.HandleFunc("/api/{group}/nodes/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
-    r.HandleFunc("/api/{group}/nodes/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
-    r.HandleFunc("/api/{group}/nodes/{macaddress}/uncordon", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
-    r.HandleFunc("/api/{group}/nodes/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
-    r.HandleFunc("/api/{group}/authenticate", authenticate).Methods("POST")
+    r.HandleFunc("/api/nodes/{group}", authorize(true, "group", http.HandlerFunc(getGroupNodes))).Methods("GET")
+    r.HandleFunc("/api/nodes/{group}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
+    r.HandleFunc("/api/nodes/{group}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
+    r.HandleFunc("/api/nodes/{group}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
+    r.HandleFunc("/api/nodes/{group}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
+//    r.HandleFunc("/api/nodes/{group}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
+//    r.HandleFunc("/api/nodes/{group}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("POST")
+    r.HandleFunc("/api/nodes/{group}/{macaddress}/uncordon", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
+    r.HandleFunc("/api/nodes/{group}/nodes", createNode).Methods("POST")
+    r.HandleFunc("/api/nodes/adm/{group}/lastmodified", authorize(true, "group", http.HandlerFunc(getLastModified))).Methods("GET")
+    r.HandleFunc("/api/nodes/adm/{group}/authenticate", authenticate).Methods("POST")
 
 }
 
@@ -109,6 +110,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
                     returnErrorResponse(response, request, errorResponse)
 		    return
                 }
+	        response.WriteHeader(http.StatusOK)
                 response.Header().Set("Content-Type", "application/json")
                 response.Write(successJSONResponse)
             }
@@ -227,62 +229,6 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 	}
 }
 
-//Returns a list of peers in "plaintext" format, which can be piped straight to a file (peers.conf) on a local machine
-//Not sure if it would be better to do that here or to let the client handle the formatting.
-//TODO: May want to consider a different approach
-func getPeerList(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-
-        var nodes []models.Node
-	var params = mux.Vars(r)
-
-        //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	//Get all nodes in the relevant group which are NOT in pending state
-        filter := bson.M{"group": params["group"], "ispending": false}
-        cur, err := collection.Find(ctx, filter)
-
-        if err != nil {
-                mongoconn.GetError(err, w)
-                return
-        }
-
-        // Close the cursor once finished and cancel if it takes too long
-	defer cancel()
-
-        for cur.Next(context.TODO()) {
-
-                var node models.Node
-                err := cur.Decode(&node)
-                if err != nil {
-                        log.Fatal(err)
-                }
-
-                // add the node to our node array
-		//maybe better to just return this? But then that's just GetNodes...
-                nodes = append(nodes, node)
-        }
-
-	//Uh oh, fatal error! This needs some better error handling
-	//TODO: needs appropriate error handling so the server doesnt shut down.
-        if err := cur.Err(); err != nil {
-                log.Fatal(err)
-        }
-
-	//Writes output in the style familiar to WireGuard
-	//Get's piped to peers.conf locally after client request
-	for _, n := range nodes {
-		w.Write([]byte("[Peer] \n"))
-	        w.Write([]byte("PublicKey = " + n.PublicKey + "\n"))
-	        w.Write([]byte("AllowedIPs = " + n.Address + "/32" + "\n"))
-	        w.Write([]byte("PersistentKeepalive = " + fmt.Sprint(n.PersistentKeepalive) + "\n"))
-		w.Write([]byte("Endpoint = " + n.Endpoint + ":" + fmt.Sprint(n.ListenPort) + "\n\n"))
-	}
-}
-
 //Gets all nodes associated with group, including pending nodes
 func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 
@@ -300,10 +246,10 @@ func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
 	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
 
-	if err != nil {
-		mongoconn.GetError(err, w)
-		return
-	}
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
 
 	defer cancel()
 
@@ -317,8 +263,9 @@ func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 		var node models.ReturnNode
 
 		err := cur.Decode(&node)
-		if err != nil {
-			log.Fatal(err)
+	        if err != nil {
+			returnErrorResponse(w,r,formatError(err, "internal"))
+			return
 		}
 
 		// add item our array of nodes
@@ -327,10 +274,12 @@ func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 
 	//TODO: Another fatal error we should take care of.
 	if err := cur.Err(); err != nil {
-		log.Fatal(err)
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
 	}
 
 	//Returns all the nodes in JSON format
+        w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
 
 }
@@ -349,9 +298,8 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	// Filter out them ID's again
 	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
-
         if err != nil {
-                mongoconn.GetError(err, w)
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
@@ -361,22 +309,23 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
                 var node models.ReturnNode
                 err := cur.Decode(&node)
-
-		//TODO: Fatal error
-                if err != nil {
-                        log.Fatal(err)
-                }
-
+	        if err != nil {
+		        returnErrorResponse(w,r,formatError(err, "internal"))
+			return
+		}
                 // add node to our array
                 nodes = append(nodes, node)
         }
 
 	//TODO: Fatal error
         if err := cur.Err(); err != nil {
-                log.Fatal(err)
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
         }
+
 	//Return all the nodes in JSON format
-        json.NewEncoder(w).Encode(nodes)
+        w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(nodes)
 
 }
 
@@ -422,16 +371,18 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
                 }},
         }
 
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+        err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
 
         defer cancel()
 
-        if errN != nil {
-                mongoconn.GetError(errN, w)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
+
 	//TODO: check node last modified vs group last modified
-        json.NewEncoder(w).Encode(node)
+        w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
 
 }
 
@@ -443,12 +394,11 @@ func getNode(w http.ResponseWriter, r *http.Request) {
         var params = mux.Vars(r)
 
 	node, err := GetNode(params["macaddress"], params["group"])
-
-	if err != nil {
-		mongoconn.GetError(err, w)
-		return
-	}
-
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
 
@@ -472,11 +422,12 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 
 	defer cancel()
 
-	if err != nil {
-		fmt.Println(err)
-		//log.Fatal(err)
-	}
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
 
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(string(group.NodesLastModified)))
 
 }
@@ -498,10 +449,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	//Check if group exists  first
 	//TODO: This is inefficient. Let's find a better way. 
 	//Just a few rows down we grab the group anyway
-        groupexists, errgroup := functions.GroupExists(groupName)
+        groupexists, err := functions.GroupExists(groupName)
 
-
-        if !groupexists || errgroup != nil {
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        } else if !groupexists {
                 errorResponse = models.ErrorResponse{
                         Code: http.StatusNotFound, Message: "W1R3: Group does not exist! ",
                 }
@@ -512,12 +465,20 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	var node models.Node
 
 	//get node from body of request
-	_ = json.NewDecoder(r.Body).Decode(&node)
+	err = json.NewDecoder(r.Body).Decode(&node)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
 
 	node.Group = groupName
 
 
-	group, _ := node.GetGroup()
+	group, err := node.GetGroup()
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
 
 	//Check to see if key is valid
 	//TODO: Triple inefficient!!! This is the third call to the DB we make for groups
@@ -537,16 +498,18 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err :=  ValidateNode("create", groupName, node)
+	err =  ValidateNode("create", groupName, node)
         if err != nil {
-		return
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
         }
 
         node, err = CreateNode(node, groupName)
         if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
 
@@ -561,8 +524,8 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 
 	node, err := functions.GetNodeByMacAddress(params["group"], params["macaddress"])
         if err != nil {
-                mongoconn.GetError(err, w)
-		return
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
         }
 
         collection := mongoconn.Client.Database("netmaker").Collection("nodes")
@@ -583,19 +546,69 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
                 }},
         }
 
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
 
         defer cancel()
 
-        if errN != nil {
-                mongoconn.GetError(errN, w)
+	if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        fmt.Println("Node " + node.Name + " uncordoned.")
+	w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode("SUCCESS")
+}
+
+func createGateway(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+
+        var params = mux.Vars(r)
+
+        var node models.Node
+
+        node, err := functions.GetNodeByMacAddress(params["group"], params["macaddress"])
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // Create filter
+        filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
+
+        node.SetLastModified()
+
+        err =  ValidateNode("create", params["group"], node)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"ispending", false},
+                }},
+        }
+
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+
+        defer cancel()
+
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
         fmt.Println("Node " + node.Name + " uncordoned.")
 
-
+	w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode("SUCCESS")
 }
+
 
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -611,9 +624,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	//start here
 	node, err := functions.GetNodeByMacAddress(params["group"], params["macaddress"])
         if err != nil {
-                json.NewEncoder(w).Encode(err)
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
+
 
 
         var nodechange models.Node
@@ -628,19 +642,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
         err = ValidateNode("update", params["group"], nodechange)
-
         if err != nil {
-                json.NewEncoder(w).Encode(err)
+                returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
 	node, err = UpdateNode(nodechange, node)
-
-	if err != nil {
-                json.NewEncoder(w).Encode(err)
-		return
-	}
-
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
 
@@ -655,29 +667,14 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	success, err := DeleteNode(params["macaddress"], params["group"])
 
-	if err != nil || !success {
-		json.NewEncoder(w).Encode("Could not delete node " + params["macaddress"])
+	if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        } else if !success {
+		err = errors.New("Could not delete node " + params["macaddress"])
+                returnErrorResponse(w,r,formatError(err, "internal"))
 		return
 	}
-
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(params["macaddress"] + " deleted.")
 }
-
-//A fun lil method for handling errors with http
-//Used in some cases but not others
-//1. This should probably be an application-wide function
-//2. All the API calls should probably be using this
-//3. The mongoconn should probably use this.
-//4. Need a consistent approach to error handling generally. Very haphazard at the moment
-//TODO: This is important. All Handlers  should be replying with appropriate error code.
-func returnErrorResponse(response http.ResponseWriter, request *http.Request, errorMesage models.ErrorResponse) {
-        httpResponse := &models.ErrorResponse{Code: errorMesage.Code, Message: errorMesage.Message}
-        jsonResponse, err := json.Marshal(httpResponse)
-        if err != nil {
-                panic(err)
-        }
-        response.Header().Set("Content-Type", "application/json")
-        response.WriteHeader(errorMesage.Code)
-        response.Write(jsonResponse)
-}
-

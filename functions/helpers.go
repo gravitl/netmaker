@@ -12,7 +12,6 @@ import (
     "context"
     "encoding/base64"
     "strings"
-    "log"
     "net"
     "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/mongoconn"
@@ -171,13 +170,62 @@ func UpdateGroupNodeAddresses(groupName string) error {
 
         return err
 }
+//TODO TODO TODO!!!!!
+func UpdateGroupPrivateAddresses(groupName string) error {
+
+        //Connection mongoDB with mongoconn class
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"group": groupName}
+        cur, err := collection.Find(ctx, filter)
+
+        if err != nil {
+                return err
+        }
+
+        defer cancel()
+
+        for cur.Next(context.TODO()) {
+
+                var node models.Node
+
+                err := cur.Decode(&node)
+                if err != nil {
+                        fmt.Println("error in node address assignment!")
+                        return err
+                }
+                ipaddr, iperr := UniqueAddress(groupName)
+                if iperr != nil {
+                        fmt.Println("error in node  address assignment!")
+                        return iperr
+                }
+
+                filter := bson.M{"macaddress": node.MacAddress}
+                update := bson.D{{"$set", bson.D{{"address", ipaddr}}}}
+
+                errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+
+                defer cancel()
+                if errN != nil {
+                        return errN
+                }
+        }
+
+        return err
+}
 
 //Checks to see if any other groups have the same name (id)
-func IsGroupNameUnique(name string) bool {
+func IsGroupNameUnique(name string) (bool, error ){
 
         isunique := true
 
-        dbs := ListGroups()
+        dbs, err := ListGroups()
+
+	if err != nil {
+		return false, err
+	}
 
 	for i := 0; i < len(dbs); i++ {
 
@@ -186,14 +234,18 @@ func IsGroupNameUnique(name string) bool {
 		}
 	}
 
-        return isunique
+        return isunique, nil
 }
 
-func IsGroupDisplayNameUnique(name string) bool {
+func IsGroupDisplayNameUnique(name string) (bool, error){
 
         isunique := true
 
-        dbs := ListGroups()
+        dbs, err := ListGroups()
+        if err != nil {
+                return false, err
+        }
+
 
         for i := 0; i < len(dbs); i++ {
 
@@ -202,12 +254,34 @@ func IsGroupDisplayNameUnique(name string) bool {
                 }
         }
 
-        return isunique
+        return isunique, nil
 }
+
+func GetGroupNodeNumber(groupName string) (int,  error){
+
+        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"group": groupName}
+        count, err := collection.CountDocuments(ctx, filter)
+	returncount := int(count)
+
+	//not sure if this is the right way of handling this error...
+        if err != nil {
+                return 9999, err
+        }
+
+        defer cancel()
+
+        return returncount, err
+}
+
 
 //Kind  of a weird name. Should just be GetGroups I think. Consider changing.
 //Anyway, returns all the groups
-func ListGroups() []models.Group{
+func ListGroups() ([]models.Group, error){
+
         var groups []models.Group
 
         collection := mongoconn.Client.Database("netmaker").Collection("groups")
@@ -217,7 +291,7 @@ func ListGroups() []models.Group{
         cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
 
         if err != nil {
-                return groups
+                return groups, err
         }
 
         defer cancel()
@@ -227,7 +301,7 @@ func ListGroups() []models.Group{
                 var group models.Group
                 err := cur.Decode(&group)
                 if err != nil {
-                        log.Fatal(err)
+			return groups, err
                 }
 
                 // add group our array
@@ -235,10 +309,10 @@ func ListGroups() []models.Group{
         }
 
         if err := cur.Err(); err != nil {
-                log.Fatal(err)
+                return groups, err
         }
 
-        return groups
+        return groups, err
 }
 
 //Checks to see if access key is valid
