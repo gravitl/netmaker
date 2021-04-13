@@ -26,9 +26,10 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
   
 **Cycle PublicKeys on all Nodes:** `/api/networks/{network id}/keyupdate`, `POST`  
   
-
+  
 ### Network  API Call Examples
-
+  
+  
 **Get All Networks:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks | jq`
 
 **Create Network:** `curl -d '{"addressrange":"10.70.0.0/16","netid":"skynet"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks`
@@ -48,17 +49,21 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 **Create Key:** `/api/networks/{network id}/keys`, `GET` 
   
 **Delete Key:** `/api/networks/{network id}/keys/{keyname}`, `DELETE` 
-
+  
+  
 ### Access Key API Call Examples
   
+   
 **Get All Keys:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys | jq`
   
 **Create Key:** `curl -d '{"uses":10,"name":"mykey"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks/skynet/keys`
   
 **Delete Key:** `curl -X DELETE -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys/mykey`
   
+    
 ## NODES (COMPUTERS)
-
+  
+  
 **Get All Nodes:** `/api/nodes`, `GET` 
   
 **Get Network Nodes:** `/api/nodes/{network id}`, `GET` 
@@ -82,9 +87,11 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 **Get Last Modified Date (Last Modified Node in Network):** `/api/nodes/adm/{network id}/lastmodified`, `GET`  
   
 **Authenticate:** `/api/nodes/adm/{network id}/authenticate`, `POST`  
-
+  
+  
 ### Example Node API Calls
-   
+  
+  
 **Get All Nodes:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes | jq`
   
 **Get Network Nodes:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet | jq`
@@ -106,9 +113,11 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 **Get Last Modified Date (Last Modified Node in Network):** `curl -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/adm/skynet/lastmodified`
 
 **Authenticate:** `curl -d  '{"macaddress": "8c:90:b5:06:f1:d9", "password": "YOUR_PASSWORD"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate`
-
+  
+  
 ## USERS
-
+  
+  
 **Note:** Only able to create Admin user at this time. The "user" is only used by the [user interface](https://github.com/gravitl/netmaker-ui) to authenticate the  single  admin user.
 
 **Get User:** `/api/users/{username}`, `GET`  
@@ -122,6 +131,10 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 **Create Admin User:** `/api/users/adm/createadmin`, `POST` 
   
 **Authenticate:** `/api/users/adm/authenticate`, `POST` 
+  
+  
+### Example User API Calls
+
   
 **Get User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq`
 
@@ -148,4 +161,5 @@ The Server Mgmt. API allows you to add and remove the server from networks.
 
 ## FILE SERVER
 **Get File:** `/meshclient/files/{filename}`, `GET`
+  
 **Example:**  `curl localhost:8081/meshclient/files/meshclient`
