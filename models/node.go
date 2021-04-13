@@ -41,7 +41,7 @@ type Node struct {
 	Password	string `json:"password" bson:"password" validate:"password_check"`
 	Network	string `json:"network" bson:"network" validate:"network_exists"`
 	IsPending bool `json:"ispending" bson:"ispending"`
-	IsGateway bool `json:"isgateway" bson:"isgateway"`
+	IsGateway *bool `json:"isgateway" bson:"isgateway"`
 	GatewayRange string `json:"gatewayrange" bson:"gatewayrange"`
 	PostChanges string `json:"postchanges" bson:"postchanges"`
 }

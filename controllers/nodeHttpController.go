@@ -589,7 +589,8 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
         var nodechange models.Node
 
-	nodechange.IsGateway = true
+	isgateway := true
+	nodechange.IsGateway = &isgateway
 	nodechange.GatewayRange = gateway.RangeString
 	if gateway.PostUp == "" {
 		nodechange.PostUp = "iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
@@ -622,7 +623,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 func validateGateway(gateway models.GatewayRequest) error {
 		var err error
-                isIpv4 := functions.IsIpv4Net(gateway.RangeString)
+                isIpv4 := functions.IsIpv4CIDR(gateway.RangeString)
                 empty := gateway.RangeString == ""
                 if empty || !isIpv4 {
 			err = errors.New("IP Range Not Valid")
@@ -646,7 +647,8 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
         var nodechange models.Node
 
-        nodechange.IsGateway = false
+	isgateway := false
+        nodechange.IsGateway = &isgateway
         nodechange.GatewayRange = ""
         nodechange.PostUp = ""
         nodechange.PostDown = ""
