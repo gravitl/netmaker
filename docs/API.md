@@ -44,40 +44,53 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 ## ACCESS KEYS
 
 **Get All Keys:** `/api/networks/{network id}/keys`, `GET` 
+  
 **Create Key:** `/api/networks/{network id}/keys`, `GET` 
+  
 **Delete Key:** `/api/networks/{network id}/keys/{keyname}`, `DELETE` 
 
 ### Access Key API Call Examples
-
+  
 **Get All Keys:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys | jq`
-
+  
 **Create Key:** `curl -d '{"uses":10,"name":"mykey"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks/skynet/keys`
-
+  
 **Delete Key:** `curl -X DELETE -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys/mykey`
-
+  
 ## NODES (COMPUTERS)
 
 **Get All Nodes:** `/api/nodes`, `GET` 
+  
 **Get Network Nodes:** `/api/nodes/{network id}`, `GET` 
+  
 **Create Node:** `/api/nodes/{network id}`, `POST`  
+  
 **Get Node:** `/api/nodes/{network id}/{macaddress}`, `GET`  
+  
 **Update Node:** `/api/nodes/{network id}/{macaddress}`, `PUT`  
+  
 **Delete Node:** `/api/nodes/{network id}/{macaddress}`, `DELETE`  
+  
 **Check In Node:** `/api/nodes/{network id}/{macaddress}/checkin`, `POST`  
+  
 **Create a Gateway:** `/api/nodes/{network id}/{macaddress}/creategateway`, `POST`  
+  
 **Delete a Gateway:** `/api/nodes/{network id}/{macaddress}/deletegateway`, `DELETE`  
+  
 **Uncordon (Approve) a Pending Node:** `/api/nodes/{network id}/{macaddress}/uncordon`, `POST`  
+  
 **Get Last Modified Date (Last Modified Node in Network):** `/api/nodes/adm/{network id}/lastmodified`, `GET`  
+  
 **Authenticate:** `/api/nodes/adm/{network id}/authenticate`, `POST`  
 
 ### Example Node API Calls
    
- **Get All Nodes:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes | jq`
+**Get All Nodes:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes | jq`
   
 **Get Network Nodes:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet | jq`
-  
+    
 **Create Node:** `curl  -d  '{ "endpoint": 100.200.100.200, "publickey": aorijqalrik3ajflaqrdajhkr,"macaddress": "8c:90:b5:06:f1:d9","password": "reallysecret","localaddress": "172.16.16.1","accesskey": "aA3bVG0rnItIRXDx","listenport": 6400}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet`
-  
+    
 **Get Node:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet/{macaddress} | jq`  
   
 **Update Node:** `curl -X PUT -d '{"name":"laptop1"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9`
@@ -99,24 +112,29 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 **Note:** Only able to create Admin user at this time. The "user" is only used by the [user interface](https://github.com/gravitl/netmaker-ui) to authenticate the  single  admin user.
 
 **Get User:** `/api/users/{username}`, `GET`  
+  
 **Update User:** `/api/users/{username}`, `PUT`  
+  
 **Delete User:** `/api/users/{username}`, `DELETE`  
+  
 **Check for Admin User:** `/api/users/adm/hasadmin`, `GET` 
+  
 **Create Admin User:** `/api/users/adm/createadmin`, `POST` 
+  
 **Authenticate:** `/api/users/adm/authenticate`, `POST` 
-
- **Get User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq`
+  
+**Get User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq`
 
 **Update User:** `curl -X PUT -d '{"password":"noonewillguessthis"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
-
+  
 **Delete User:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
-
+  
 **Check for Admin User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/adm/hasadmin`
-
+  
 **Create Admin User:** `curl -d '{ "username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/adm/createadmin`
- 
- **Authenticate:** `curl -d  '{"username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate`
-
+   
+**Authenticate:** `curl -d  '{"username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate`
+  
 ## SERVER MGMT
 
 The Server Mgmt. API allows you to add and remove the server from networks.
