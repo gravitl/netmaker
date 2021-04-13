@@ -29,7 +29,7 @@ func nodeHandlers(r *mux.Router) {
     r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
     r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("POST")
     r.HandleFunc("/api/nodes/{network}/{macaddress}/uncordon", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
-    r.HandleFunc("/api/nodes/{network}/nodes", createNode).Methods("POST")
+    r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
     r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
     r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 
