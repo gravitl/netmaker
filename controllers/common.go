@@ -177,12 +177,6 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     if nodechange.MacAddress != "" {
         node.MacAddress = nodechange.MacAddress
     }
-    if nodechange.IsGateway != nil {
-        node.IsGateway = nodechange.IsGateway
-    }
-    if nodechange.GatewayRange != "" {
-	node.GatewayRange = nodechange.GatewayRange
-    }
     if nodechange.PublicKey != "" {
         node.PublicKey = nodechange.PublicKey
 	node.KeyUpdateTimeStamp = time.Now().Unix()
@@ -216,8 +210,6 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
                         {"persistentkeepalive", node.PersistentKeepalive},
                         {"saveconfig", node.SaveConfig},
                         {"accesskey", node.AccessKey},
-                        {"isgateway", node.IsGateway},
-                        {"gatewayrange", node.GatewayRange},
                         {"interface", node.Interface},
                         {"lastmodified", node.LastModified},
                 }},

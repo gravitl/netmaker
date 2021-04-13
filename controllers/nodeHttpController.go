@@ -589,8 +589,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
         var nodechange models.Node
 
-	isgateway := true
-	nodechange.IsGateway = &isgateway
+	nodechange.IsGateway = true
 	nodechange.GatewayRange = gateway.RangeString
 	if gateway.PostUp == "" {
 		nodechange.PostUp = "iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
@@ -603,19 +602,41 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		nodechange.PostDown = gateway.PostDown
 	}
 
-        node, err = UpdateNode(nodechange, node)
+       collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // Create filter
+        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
+
+        nodechange.SetLastModified()
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"postup", nodechange.PostUp},
+                        {"preup", nodechange.PostDown},
+                        {"isgateway", nodechange.IsGateway},
+                        {"gatewayrange", nodechange.GatewayRange},
+			{"lastmodified", nodechange.LastModified},
+                }},
+        }
+        var nodeupdate models.Node
+
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
+
+        defer cancel()
+
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-        err = AlertNetwork(params["networkname"])
+        err = SetNetworkNodesLastModified(params["network"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-
-
 
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(node)
@@ -647,19 +668,42 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
         var nodechange models.Node
 
-	isgateway := false
-        nodechange.IsGateway = &isgateway
+        nodechange.IsGateway = false
         nodechange.GatewayRange = ""
         nodechange.PostUp = ""
         nodechange.PostDown = ""
 
-        node, err = UpdateNode(nodechange, node)
-        if err != nil {
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // Create filter
+        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
+
+        nodechange.SetLastModified()
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"postup", nodechange.PostUp},
+                        {"preup", nodechange.PostDown},
+                        {"isgateway", nodechange.IsGateway},
+                        {"gatewayrange", nodechange.GatewayRange},
+                        {"lastmodified", nodechange.LastModified},
+                }},
+        }
+        var nodeupdate models.Node
+
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
+
+        defer cancel()
+
+	if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-        err = AlertNetwork(params["networkname"])
+        err = SetNetworkNodesLastModified(params["networkname"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
