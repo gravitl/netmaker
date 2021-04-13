@@ -24,8 +24,8 @@ type Network struct {
         DefaultSaveConfig      *bool `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
 	AccessKeys	[]AccessKey `json:"accesskeys" bson:"accesskeys"`
 	AllowManualSignUp *bool `json:"allowmanualsignup" bson:"allowmanualsignup"`
-	IsPrivate *bool `json:"isprivate" bson:"isprivate"`
-	PrivateRange string `json:"privaterange" bson:"privaterange" validate:"privaterange_valid"`
+	IsLocal *bool `json:"islocal" bson:"islocal"`
+	LocalRange string `json:"localrange" bson:"localrange" validate:"localrange_valid"`
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=1,max=100000"`
 }
 

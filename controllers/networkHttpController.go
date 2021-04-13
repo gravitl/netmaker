@@ -111,8 +111,8 @@ func validateNetwork(operation string, network models.Network) error {
                 return isvalid
         })
 
-        _ = v.RegisterValidation("privaterange_valid", func(fl validator.FieldLevel) bool {
-                isvalid := !*network.IsPrivate || functions.IsIpv4CIDR(fl.Field().String())
+        _ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
+                isvalid := !*network.IsLocal || functions.IsIpv4CIDR(fl.Field().String())
                 return isvalid
         })
 
@@ -269,7 +269,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	haschange := false
 	hasrangeupdate := false
-	hasprivaterangeupdate := false
+	haslocalrangeupdate := false
 
 	_ = json.NewDecoder(r.Body).Decode(&networkChange)
 
@@ -304,20 +304,20 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	     hasrangeupdate = true
 
         }
-	if networkChange.PrivateRange != "" {
-            network.PrivateRange = networkChange.PrivateRange
+	if networkChange.LocalRange != "" {
+            network.LocalRange = networkChange.LocalRange
 
-            var isAddressOK bool = functions.IsIpv4CIDR(networkChange.PrivateRange)
+            var isAddressOK bool = functions.IsIpv4CIDR(networkChange.LocalRange)
             if !isAddressOK {
-		    err := errors.New("Invalid Range of " +  networkChange.PrivateRange + " for internal addresses.")
+		    err := errors.New("Invalid Range of " +  networkChange.LocalRange + " for internal addresses.")
                     returnErrorResponse(w,r,formatError(err, "internal"))
                     return
             }
              haschange = true
-             hasprivaterangeupdate = true
+             haslocalrangeupdate = true
 	}
-	if networkChange.IsPrivate != nil {
-		network.IsPrivate = networkChange.IsPrivate
+	if networkChange.IsLocal != nil {
+		network.IsLocal = networkChange.IsLocal
 	}
 	if networkChange.DefaultListenPort != 0 {
 		network.DefaultListenPort = networkChange.DefaultListenPort
@@ -374,8 +374,8 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
                         {"nodeslastmodified", network.NodesLastModified},
                         {"networklastmodified", network.NetworkLastModified},
                         {"allowmanualsignup", network.AllowManualSignUp},
-                        {"privaterange", network.PrivateRange},
-                        {"isprivate", network.IsPrivate},
+                        {"localrange", network.LocalRange},
+                        {"islocal", network.IsLocal},
                         {"defaultcheckininterval", network.DefaultCheckInInterval},
 		}},
         }
@@ -397,7 +397,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if hasprivaterangeupdate {
+	if haslocalrangeupdate {
                 err = functions.UpdateNetworkPrivateAddresses(params["networkname"])
                 if err != nil {
                         returnErrorResponse(w,r,formatError(err, "internal"))
@@ -470,9 +470,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateNetwork
 	//Need to implement some better validation across the board
-        if network.IsPrivate == nil {
+        if network.IsLocal == nil {
                 falsevar := false
-                network.IsPrivate = &falsevar
+                network.IsLocal = &falsevar
         }
 
         err = validateNetwork("create", network)
@@ -545,8 +545,8 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
         }
 
 	privAddr := ""
-	if *network.IsPrivate {
-		privAddr = network.PrivateRange
+	if *network.IsLocal {
+		privAddr = network.LocalRange
 	}
 
 

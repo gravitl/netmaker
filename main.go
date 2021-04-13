@@ -239,7 +239,7 @@ func createDefaultNetwork() (bool, error) {
         network.SetNetworkLastModified()
         network.KeyUpdateTimeStamp = time.Now().Unix()
 	priv := false
-	network.IsPrivate = &priv
+	network.IsLocal = &priv
         network.KeyUpdateTimeStamp = time.Now().Unix()
 	allow := true
 	network.AllowManualSignUp = &allow

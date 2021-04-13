@@ -1,7 +1,7 @@
 package functions
 
 import (
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	"fmt"
 	"time"
 	"errors"
@@ -1244,17 +1244,24 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 
         stream, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))
 	if err != nil {
-                return nil, err
+                fmt.Println("Error retrieving peers")
+                fmt.Println(err)
+		return nil, err
         }
-	fmt.Println("Parsing  peers response")
-        for {
-                // stream.Recv returns a pointer to a ListBlogRes at the current iteration
+	fmt.Println("Parsing peers response")
+	for {
 		res, err := stream.Recv()
                 // If end of stream, break the loop
 
+
 		if err == io.EOF {
-                        break
+                        fmt.Println("ERROR ENCOUNTERED WITH peer")
+                        fmt.Println(res)
+                        fmt.Println(err)
+			break
                 }
+			spew.Dump(res)
+
                 // if err, return an error
                 if err != nil {
 			if strings.Contains(err.Error(), "mongo: no documents in result") {
