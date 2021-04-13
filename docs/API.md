@@ -1,10 +1,12 @@
 # API Reference Doc
 
+## GENERAL
+
 Most actions that can be performed via API can be performed via UI. We recommend managing your networks using our official netmaker-ui project. That said, Netmaker is API based, and all functions can also be achieved via API calls. If you feel the need to work with Netmaker via API, we've provided some documentation below to help guide you.
  
 #### Authentication
  In general, API calls must be authenticated via a header of  the format  `-H "Authorization: Bearer <YOUR_SECRET_KEY>"` There are two methods of obtaining YOUR_SECRET_KEY:
-1. Using the masterkey. By default, this value is "secret key," but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file. See the [getting started](./GETTING_STARTED.md) documentation for more details.
+1. Using the masterkey. By default, this value is "secret key," but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [getting started](./GETTING_STARTED.md) documentation for more details.
 2. Using a JWT recieved for a node. This  can be retrieved by calling the `/api/nodes/<network>/authenticate` endpoint, as documented below.
 
 #### Format 
@@ -86,44 +88,40 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 
 **Authenticate:** `curl -d  '{"macaddress": "8c:90:b5:06:f1:d9", "password": "YOUR_PASSWORD"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate`
 
+## USERS
 
-### Users (only used for interface admin user at this time)
-**Create Admin User:** "/users/createadmin", "POST"  
-**Check for  Admin User:** "/users/hasadmin", "GET"  
-**Update User:** "/users/{username}", "PUT"  
-**Delete User:** "/users/{username}", "DELETE"  
-**Get User:** "/users/{username}", "GET"  
-**Authenticate User:** "/users/authenticate", "POST"  
+**Note:** Only able to create Admin user at this time. The "user" is only used by the [user interface](https://github.com/gravitl/netmaker-ui) to authenticate the  single  admin user.
 
-*note: users API does not use /api/ because of  a weird bug. Will fix in  future release.
-**note: Only able to create Admin at this time. The "user" is only used by the [user interface](https://github.com/gravitl/netmaker-ui) to authenticate the  single  admin user.
+**Get User:** `/api/users/{username}`, `GET`  
+**Update User:** `/api/users/{username}`, `PUT`  
+**Delete User:** `/api/users/{username}`, `DELETE`  
+**Check for Admin User:** `/api/users/adm/hasadmin`, `GET` 
+**Create Admin User:** `/api/users/adm/createadmin`, `POST` 
+**Authenticate:** `/api/users/adm/authenticate`, `POST` 
 
-### Files
-**Get File:** "/meshclient/files/{filename}", "GET"  
+ **Get User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq`
 
-## Example API CALLS
+**Update User:** `curl -X PUT -d '{"password":"noonewillguessthis"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
 
-**Note About Token:** This is a configurable value stored under  config/environments/dev.yaml and can be changed before  startup. It's a hack for testing, just provides an easy way to authorize, and should be removed and changed in the future.
+**Delete User:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
 
-#### Create a Network
-curl -d '{"addressrange":"10.70.0.0/16","netid":"skynet"}' -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/networks
+**Check for Admin User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/adm/hasadmin`
 
-#### Create a Key
-curl -d '{"uses":10}' -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/networks localhost:8081/api/networks/skynet/keys
+**Create Admin User:** `curl -d '{ "username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/adm/createadmin`
+ 
+ **Authenticate:** `curl -d  '{"username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate`
 
-#### Create a Node
-curl  -d  '{ "endpoint": 100.200.100.200, "publickey": aorijqalrik3ajflaqrdajhkr,"macaddress": "8c:90:b5:06:f1:d9","password": "reallysecret","localaddress": "172.16.16.1","accesskey": "aA3bVG0rnItIRXDx","listenport": 6400}' -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes
+## SERVER MGMT
 
-#### Get Networks
-curl -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/networks | jq
+The Server Mgmt. API allows you to add and remove the server from networks.
 
-#### Get Network Nodes
-curl -H "Authorization: Bearer secretkey" -H 'Content-Type: application/json' localhost:8081/api/skynet/nodes | jq
+**Add to Network:** `/api/server/addnetwork/{network id}`, `POST`  
+**Remove from Network:** `/api/server/removenetwork/{network id}`, `DELETE`  
 
-#### Update Node Settings
-curl -X "PUT" -d '{"name":"my-laptop"}' -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9
+**Add to Network:**  `curl -X POST -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/server/addnetwork/{network id}`
 
-#### Delete a Node
-curl -X "DELETE" -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9
+**Remove from Network:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/server/removenetwork/{network id}`
 
-
+## FILE SERVER
+**Get File:** `/meshclient/files/{filename}`, `GET`
+**Example:**  `curl localhost:8081/meshclient/files/meshclient`
