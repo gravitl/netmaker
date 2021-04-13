@@ -153,6 +153,7 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 The Server Mgmt. API allows you to add and remove the server from networks.
 
 **Add to Network:** `/api/server/addnetwork/{network id}`, `POST`  
+  
 **Remove from Network:** `/api/server/removenetwork/{network id}`, `DELETE`  
 
 **Add to Network:**  `curl -X POST -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/server/addnetwork/{network id}`
@@ -160,6 +161,7 @@ The Server Mgmt. API allows you to add and remove the server from networks.
 **Remove from Network:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/server/removenetwork/{network id}`
 
 ## FILE SERVER
+  
 **Get File:** `/meshclient/files/{filename}`, `GET`
   
 **Example:**  `curl localhost:8081/meshclient/files/meshclient`
