@@ -44,9 +44,9 @@ type AuthorizeTestCase struct {
 
 func TestMain(m *testing.M) {
 	mongoconn.ConnectDatabase()
-	var waitnetwork sync.Waitnetwork
-	waitnetwork.Add(1)
-	go controller.HandleRESTRequests(&waitnetwork)
+	var waitgroup sync.WaitGroup
+	waitgroup.Add(1)
+	go controller.HandleRESTRequests(&waitgroup)
 	//wait for http server to start
 	time.Sleep(time.Second * 1)
 	os.Exit(m.Run())
@@ -118,7 +118,7 @@ func deleteAdmin(t *testing.T) {
 }
 
 func createnetwork(t *testing.T) {
-	network := models.network{}
+	network := models.Network{}
 	network.NetID = "skynet"
 	network.AddressRange = "10.71.0.0/16"
 	response, err := api(t, network, http.MethodPost, "http://localhost:8081/api/networks", "secretkey")
@@ -172,24 +172,24 @@ func networkExists(t *testing.T) bool {
 	assert.Nil(t, err, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&networks)
+	err = json.NewDecoder(response.Body).Decode(&Networks)
 	assert.Nil(t, err, err)
-	if networks == nil {
+	if Networks == nil {
 		return false
 	} else {
 		return true
 	}
 }
 
-func deletenetworks(t *testing.T) {
+func deleteNetworks(t *testing.T) {
 
 	response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks", "secretkey")
 	assert.Nil(t, err, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&networks)
+	err = json.NewDecoder(response.Body).Decode(&Networks)
 	assert.Nil(t, err, err)
-	for _, network := range networks {
+	for _, network := range Networks {
 		name := network.DisplayName
 		_, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/"+name, "secretkey")
 		assert.Nil(t, err, err)
