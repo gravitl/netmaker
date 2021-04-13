@@ -19,20 +19,20 @@ import (
     "github.com/gravitl/netmaker/config"
 )
 
-func groupHandlers(r *mux.Router) {
-    r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(getGroups))).Methods("GET")
-    r.HandleFunc("/api/groups", securityCheck(http.HandlerFunc(createGroup))).Methods("POST")
-    r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(getGroup))).Methods("GET")
-    r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(updateGroup))).Methods("PUT")
-    r.HandleFunc("/api/groups/{groupname}", securityCheck(http.HandlerFunc(deleteGroup))).Methods("DELETE")
-    r.HandleFunc("/api/groups/{groupname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
-    r.HandleFunc("/api/groups/{groupname}/keys", securityCheck(http.HandlerFunc(createAccessKey))).Methods("POST")
-    r.HandleFunc("/api/groups/{groupname}/keys", securityCheck(http.HandlerFunc(getAccessKeys))).Methods("GET")
-    r.HandleFunc("/api/groups/{groupname}/keys/{name}", securityCheck(http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
+func networkHandlers(r *mux.Router) {
+    r.HandleFunc("/api/networks", securityCheck(http.HandlerFunc(getNetworks))).Methods("GET")
+    r.HandleFunc("/api/networks", securityCheck(http.HandlerFunc(createNetwork))).Methods("POST")
+    r.HandleFunc("/api/networks/{networkname}", securityCheck(http.HandlerFunc(getNetwork))).Methods("GET")
+    r.HandleFunc("/api/networks/{networkname}", securityCheck(http.HandlerFunc(updateNetwork))).Methods("PUT")
+    r.HandleFunc("/api/networks/{networkname}", securityCheck(http.HandlerFunc(deleteNetwork))).Methods("DELETE")
+    r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
+    r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(createAccessKey))).Methods("POST")
+    r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(getAccessKeys))).Methods("GET")
+    r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
-//Only admin should have access to all these group-level actions
+//Only admin should have access to all these network-level actions
 //or maybe some Users once implemented
 func securityCheck(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -41,14 +41,14 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 		}
 
 		var params = mux.Vars(r)
-		hasgroup := params["groupname"] != ""
-		groupexists, err := functions.GroupExists(params["groupname"])
+		hasnetwork := params["networkname"] != ""
+		networkexists, err := functions.NetworkExists(params["networkname"])
                 if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
-		} else if hasgroup && !groupexists {
+		} else if hasnetwork && !networkexists {
                         errorResponse = models.ErrorResponse{
-                                Code: http.StatusNotFound, Message: "W1R3: This group does not exist.",
+                                Code: http.StatusNotFound, Message: "W1R3: This network does not exist.",
                         }
                         returnErrorResponse(w, r, errorResponse)
 			return
@@ -87,22 +87,22 @@ func authenticateMaster(tokenString string) bool {
     return false
 }
 
-//simple get all groups function
-func getGroups(w http.ResponseWriter, r *http.Request) {
+//simple get all networks function
+func getNetworks(w http.ResponseWriter, r *http.Request) {
 
-	groups, err := functions.ListGroups()
+	networks, err := functions.ListNetworks()
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(groups)
+		json.NewEncoder(w).Encode(networks)
 		return
 	}
 }
 
-func validateGroup(operation string, group models.Group) error {
+func validateNetwork(operation string, network models.Network) error {
 
         v := validator.New()
 
@@ -112,26 +112,26 @@ func validateGroup(operation string, group models.Group) error {
         })
 
         _ = v.RegisterValidation("privaterange_valid", func(fl validator.FieldLevel) bool {
-                isvalid := !*group.IsPrivate || functions.IsIpv4CIDR(fl.Field().String())
+                isvalid := !*network.IsPrivate || functions.IsIpv4CIDR(fl.Field().String())
                 return isvalid
         })
 
-        _ = v.RegisterValidation("nameid_valid", func(fl validator.FieldLevel) bool {
+        _ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
 		isFieldUnique := false
 		inCharSet := false
 		if operation == "update" { isFieldUnique = true } else{
-			isFieldUnique, _ = functions.IsGroupNameUnique(fl.Field().String())
-			inCharSet        = functions.NameInGroupCharSet(fl.Field().String())
+			isFieldUnique, _ = functions.IsNetworkNameUnique(fl.Field().String())
+			inCharSet        = functions.NameInNetworkCharSet(fl.Field().String())
 		}
 		return isFieldUnique && inCharSet
         })
 
         _ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
-                isFieldUnique, _ := functions.IsGroupDisplayNameUnique(fl.Field().String())
+                isFieldUnique, _ := functions.IsNetworkDisplayNameUnique(fl.Field().String())
                 return isFieldUnique ||  operation == "update"
         })
 
-        err := v.Struct(group)
+        err := v.Struct(network)
 
         if err != nil {
                 for _, e := range err.(validator.ValidationErrors) {
@@ -141,22 +141,22 @@ func validateGroup(operation string, group models.Group) error {
         return err
 }
 
-//Simple get group function
-func getGroup(w http.ResponseWriter, r *http.Request) {
+//Simple get network function
+func getNetwork(w http.ResponseWriter, r *http.Request) {
 
         // set header.
         w.Header().Set("Content-Type", "application/json")
 
         var params = mux.Vars(r)
 
-        var group models.Group
+        var network models.Network
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"nameid": params["groupname"]}
-        err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&group)
+        filter := bson.M{"netid": params["networkname"]}
+        err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
 
         defer cancel()
 
@@ -165,7 +165,7 @@ func getGroup(w http.ResponseWriter, r *http.Request) {
                 return
         }
 	w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(group)
+        json.NewEncoder(w).Encode(network)
 }
 
 func keyUpdate(w http.ResponseWriter, r *http.Request) {
@@ -174,43 +174,43 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 
         var params = mux.Vars(r)
 
-        var group models.Group
+        var network models.Network
 
-        group, err := functions.GetParentGroup(params["groupname"])
+        network, err := functions.GetParentNetwork(params["networkname"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
 	}
 
 
-	group.KeyUpdateTimeStamp = time.Now().Unix()
+	network.KeyUpdateTimeStamp = time.Now().Unix()
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"nameid": params["groupname"]}
+        filter := bson.M{"netid": params["networkname"]}
 
         // prepare update model.
         update := bson.D{
                 {"$set", bson.D{
-                        {"addressrange", group.AddressRange},
-                        {"displayname", group.DisplayName},
-                        {"defaultlistenport", group.DefaultListenPort},
-                        {"defaultpostup", group.DefaultPostUp},
-                        {"defaultpreup", group.DefaultPreUp},
-			{"defaultkeepalive", group.DefaultKeepalive},
-                        {"keyupdatetimestamp", group.KeyUpdateTimeStamp},
-                        {"defaultsaveconfig", group.DefaultSaveConfig},
-                        {"defaultinterface", group.DefaultInterface},
-                        {"nodeslastmodified", group.NodesLastModified},
-                        {"grouplastmodified", group.GroupLastModified},
-                        {"allowmanualsignup", group.AllowManualSignUp},
-                        {"defaultcheckininterval", group.DefaultCheckInInterval},
+                        {"addressrange", network.AddressRange},
+                        {"displayname", network.DisplayName},
+                        {"defaultlistenport", network.DefaultListenPort},
+                        {"defaultpostup", network.DefaultPostUp},
+                        {"defaultpreup", network.DefaultPreUp},
+			{"defaultkeepalive", network.DefaultKeepalive},
+                        {"keyupdatetimestamp", network.KeyUpdateTimeStamp},
+                        {"defaultsaveconfig", network.DefaultSaveConfig},
+                        {"defaultinterface", network.DefaultInterface},
+                        {"nodeslastmodified", network.NodesLastModified},
+                        {"networklastmodified", network.NetworkLastModified},
+                        {"allowmanualsignup", network.AllowManualSignUp},
+                        {"defaultcheckininterval", network.DefaultCheckInInterval},
                 }},
         }
 
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
 
         defer cancel()
 
@@ -220,56 +220,56 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
         }
 
         w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(group)
+        json.NewEncoder(w).Encode(network)
 }
 
-//Update a group
-func updateGroup(w http.ResponseWriter, r *http.Request) {
+//Update a network
+func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
         w.Header().Set("Content-Type", "application/json")
 
         var params = mux.Vars(r)
 
-        var group models.Group
+        var network models.Network
 
-	group, err := functions.GetParentGroup(params["groupname"])
+	network, err := functions.GetParentNetwork(params["networkname"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-        var groupChange models.Group
+        var networkChange models.Network
 
 	haschange := false
 	hasrangeupdate := false
 	hasprivaterangeupdate := false
 
-	_ = json.NewDecoder(r.Body).Decode(&groupChange)
+	_ = json.NewDecoder(r.Body).Decode(&networkChange)
 
-	if groupChange.AddressRange == "" {
-		groupChange.AddressRange = group.AddressRange
+	if networkChange.AddressRange == "" {
+		networkChange.AddressRange = network.AddressRange
 	}
-	if groupChange.NameID == "" {
-		groupChange.NameID =  group.NameID
+	if networkChange.NetID == "" {
+		networkChange.NetID =  network.NetID
 	}
 
 
-        err = validateGroup("update", groupChange)
+        err = validateNetwork("update", networkChange)
         if err != nil {
 		returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-	//NOTE: Group.NameID is intentionally NOT editable. It acts as a static ID for the group. 
+	//NOTE: Network.NetID is intentionally NOT editable. It acts as a static ID for the network. 
 	//DisplayName can be changed instead, which is what shows on the front end
 
-        if groupChange.AddressRange != "" {
+        if networkChange.AddressRange != "" {
 
-            group.AddressRange = groupChange.AddressRange
+            network.AddressRange = networkChange.AddressRange
 
-	    var isAddressOK bool = functions.IsIpv4CIDR(groupChange.AddressRange)
+	    var isAddressOK bool = functions.IsIpv4CIDR(networkChange.AddressRange)
             if !isAddressOK {
-		    err := errors.New("Invalid Range of " +  groupChange.AddressRange + " for addresses.")
+		    err := errors.New("Invalid Range of " +  networkChange.AddressRange + " for addresses.")
 		    returnErrorResponse(w,r,formatError(err, "internal"))
                     return
             }
@@ -277,83 +277,83 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	     hasrangeupdate = true
 
         }
-	if groupChange.PrivateRange != "" {
-            group.PrivateRange = groupChange.PrivateRange
+	if networkChange.PrivateRange != "" {
+            network.PrivateRange = networkChange.PrivateRange
 
-            var isAddressOK bool = functions.IsIpv4CIDR(groupChange.PrivateRange)
+            var isAddressOK bool = functions.IsIpv4CIDR(networkChange.PrivateRange)
             if !isAddressOK {
-		    err := errors.New("Invalid Range of " +  groupChange.PrivateRange + " for internal addresses.")
+		    err := errors.New("Invalid Range of " +  networkChange.PrivateRange + " for internal addresses.")
                     returnErrorResponse(w,r,formatError(err, "internal"))
                     return
             }
              haschange = true
              hasprivaterangeupdate = true
 	}
-	if groupChange.IsPrivate != nil {
-		group.IsPrivate = groupChange.IsPrivate
+	if networkChange.IsPrivate != nil {
+		network.IsPrivate = networkChange.IsPrivate
 	}
-	if groupChange.DefaultListenPort != 0 {
-		group.DefaultListenPort = groupChange.DefaultListenPort
+	if networkChange.DefaultListenPort != 0 {
+		network.DefaultListenPort = networkChange.DefaultListenPort
 		haschange = true
         }
-        if groupChange.DefaultPreUp != "" {
-		group.DefaultPreUp = groupChange.DefaultPreUp
+        if networkChange.DefaultPreUp != "" {
+		network.DefaultPreUp = networkChange.DefaultPreUp
 		haschange = true
         }
-        if groupChange.DefaultInterface != "" {
-		group.DefaultInterface = groupChange.DefaultInterface
+        if networkChange.DefaultInterface != "" {
+		network.DefaultInterface = networkChange.DefaultInterface
 		haschange = true
         }
-        if groupChange.DefaultPostUp != "" {
-		group.DefaultPostUp = groupChange.DefaultPostUp
+        if networkChange.DefaultPostUp != "" {
+		network.DefaultPostUp = networkChange.DefaultPostUp
 		haschange = true
         }
-        if groupChange.DefaultKeepalive != 0 {
-		group.DefaultKeepalive = groupChange.DefaultKeepalive
+        if networkChange.DefaultKeepalive != 0 {
+		network.DefaultKeepalive = networkChange.DefaultKeepalive
 		haschange = true
         }
-        if groupChange.DisplayName != "" {
-		group.DisplayName = groupChange.DisplayName
+        if networkChange.DisplayName != "" {
+		network.DisplayName = networkChange.DisplayName
 		haschange = true
         }
-        if groupChange.DefaultCheckInInterval != 0 {
-		group.DefaultCheckInInterval = groupChange.DefaultCheckInInterval
+        if networkChange.DefaultCheckInInterval != 0 {
+		network.DefaultCheckInInterval = networkChange.DefaultCheckInInterval
 		haschange = true
         }
-        if groupChange.AllowManualSignUp != nil {
-		group.AllowManualSignUp = groupChange.AllowManualSignUp
+        if networkChange.AllowManualSignUp != nil {
+		network.AllowManualSignUp = networkChange.AllowManualSignUp
 		haschange = true
         }
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        filter := bson.M{"nameid": params["groupname"]}
+        filter := bson.M{"netid": params["networkname"]}
 
 	if haschange {
-		group.SetGroupLastModified()
+		network.SetNetworkLastModified()
 	}
 
         // prepare update model.
         update := bson.D{
                 {"$set", bson.D{
-                        {"addressrange", group.AddressRange},
-                        {"displayname", group.DisplayName},
-                        {"defaultlistenport", group.DefaultListenPort},
-                        {"defaultpostup", group.DefaultPostUp},
-                        {"defaultpreup", group.DefaultPreUp},
-                        {"defaultkeepalive", group.DefaultKeepalive},
-                        {"defaultsaveconfig", group.DefaultSaveConfig},
-                        {"defaultinterface", group.DefaultInterface},
-                        {"nodeslastmodified", group.NodesLastModified},
-                        {"grouplastmodified", group.GroupLastModified},
-                        {"allowmanualsignup", group.AllowManualSignUp},
-                        {"privaterange", group.PrivateRange},
-                        {"isprivate", group.IsPrivate},
-                        {"defaultcheckininterval", group.DefaultCheckInInterval},
+                        {"addressrange", network.AddressRange},
+                        {"displayname", network.DisplayName},
+                        {"defaultlistenport", network.DefaultListenPort},
+                        {"defaultpostup", network.DefaultPostUp},
+                        {"defaultpreup", network.DefaultPreUp},
+                        {"defaultkeepalive", network.DefaultKeepalive},
+                        {"defaultsaveconfig", network.DefaultSaveConfig},
+                        {"defaultinterface", network.DefaultInterface},
+                        {"nodeslastmodified", network.NodesLastModified},
+                        {"networklastmodified", network.NetworkLastModified},
+                        {"allowmanualsignup", network.AllowManualSignUp},
+                        {"privaterange", network.PrivateRange},
+                        {"isprivate", network.IsPrivate},
+                        {"defaultcheckininterval", network.DefaultCheckInInterval},
 		}},
         }
 
-	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
         defer cancel()
 
         if err != nil {
@@ -364,52 +364,52 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	//Cycles through nodes and gives them new IP's based on the new range
 	//Pretty cool, but also pretty inefficient currently
         if hasrangeupdate {
-		err = functions.UpdateGroupNodeAddresses(params["groupname"])
+		err = functions.UpdateNetworkNodeAddresses(params["networkname"])
 		if err != nil {
 			returnErrorResponse(w,r,formatError(err, "internal"))
 			return
 		}
 	}
 	if hasprivaterangeupdate {
-                err = functions.UpdateGroupPrivateAddresses(params["groupname"])
+                err = functions.UpdateNetworkPrivateAddresses(params["networkname"])
                 if err != nil {
                         returnErrorResponse(w,r,formatError(err, "internal"))
                         return
                 }
 	}
-	returngroup, err := functions.GetParentGroup(group.NameID)
+	returnnetwork, err := functions.GetParentNetwork(network.NetID)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
         w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(returngroup)
+        json.NewEncoder(w).Encode(returnnetwork)
 }
 
-//Delete a group
+//Delete a network
 //Will stop you if  there's any nodes associated
-func deleteGroup(w http.ResponseWriter, r *http.Request) {
+func deleteNetwork(w http.ResponseWriter, r *http.Request) {
         // Set header
         w.Header().Set("Content-Type", "application/json")
 
         var params = mux.Vars(r)
 
-	nodecount, err := functions.GetGroupNodeNumber(params["groupname"])
+	nodecount, err := functions.GetNetworkNodeNumber(params["networkname"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else if nodecount > 0  {
 		errorResponse := models.ErrorResponse{
-                        Code: http.StatusForbidden, Message: "W1R3: Node check failed. All nodes must be deleted before deleting group.",
+                        Code: http.StatusForbidden, Message: "W1R3: Node check failed. All nodes must be deleted before deleting network.",
                 }
                 returnErrorResponse(w, r, errorResponse)
                 return
         }
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
-        filter := bson.M{"nameid": params["groupname"]}
+        filter := bson.M{"netid": params["networkname"]}
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -426,44 +426,44 @@ func deleteGroup(w http.ResponseWriter, r *http.Request) {
         json.NewEncoder(w).Encode(deleteResult)
 }
 
-//Create a group
+//Create a network
 //Pretty simple
-func createGroup(w http.ResponseWriter, r *http.Request) {
+func createNetwork(w http.ResponseWriter, r *http.Request) {
 
         w.Header().Set("Content-Type", "application/json")
 
-        var group models.Group
+        var network models.Network
 
         // we decode our body request params
-	err := json.NewDecoder(r.Body).Decode(&group)
+	err := json.NewDecoder(r.Body).Decode(&network)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateGroup
+	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateNetwork
 	//Need to implement some better validation across the board
-        if group.IsPrivate == nil {
+        if network.IsPrivate == nil {
                 falsevar := false
-                group.IsPrivate = &falsevar
+                network.IsPrivate = &falsevar
         }
 
-        err = validateGroup("create", group)
+        err = validateNetwork("create", network)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-	group.SetDefaults()
-        group.SetNodesLastModified()
-        group.SetGroupLastModified()
-        group.KeyUpdateTimeStamp = time.Now().Unix()
+	network.SetDefaults()
+        network.SetNodesLastModified()
+        network.SetNetworkLastModified()
+        network.KeyUpdateTimeStamp = time.Now().Unix()
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 
-        // insert our group into the group table
-        result, err := collection.InsertOne(ctx, group)
+        // insert our network into the network table
+        result, err := collection.InsertOne(ctx, network)
 
         defer cancel()
 
@@ -479,18 +479,18 @@ func createGroup(w http.ResponseWriter, r *http.Request) {
 
 
 //TODO: Very little error handling
-//accesskey is created as a json string inside the Group collection item in mongo
+//accesskey is created as a json string inside the Network collection item in mongo
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
 
         w.Header().Set("Content-Type", "application/json")
 
         var params = mux.Vars(r)
 
-        var group models.Group
+        var network models.Network
         var accesskey models.AccessKey
 
         //start here
-	group, err := functions.GetParentGroup(params["groupname"])
+	network, err := functions.GetParentNetwork(params["networkname"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -517,32 +517,38 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
                 return
         }
 
-	network := params["groupname"]
+	privAddr := ""
+	if *network.IsPrivate {
+		privAddr = network.PrivateRange
+	}
+
+
+	netID := params["networkname"]
 	address := gconf.ServerGRPC + gconf.PortGRPC
 
-	accessstringdec := address + "." + network + "." + accesskey.Value
+	accessstringdec := address + "." + netID + "." + accesskey.Value + "." + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 
-	group.AccessKeys = append(group.AccessKeys, accesskey)
+	network.AccessKeys = append(network.AccessKeys, accesskey)
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"nameid": params["groupname"]}
+        filter := bson.M{"netid": params["networkname"]}
 
         // Read update model from body request
-        fmt.Println("Adding key to " + group.NameID)
+        fmt.Println("Adding key to " + network.NetID)
 
         // prepare update model.
         update := bson.D{
                 {"$set", bson.D{
-                        {"accesskeys", group.AccessKeys},
+                        {"accesskeys", network.AccessKeys},
                 }},
         }
 
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
 
         defer cancel()
 
@@ -563,15 +569,15 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 
         var params = mux.Vars(r)
 
-        var group models.Group
+        var network models.Network
         //var keys []models.DisplayKey
 	var keys []models.AccessKey
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"nameid": params["groupname"]}
-        err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&group)
+        filter := bson.M{"netid": params["networkname"]}
+        err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
 
         defer cancel()
 
@@ -579,7 +585,7 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-	keydata, err := json.Marshal(group.AccessKeys)
+	keydata, err := json.Marshal(network.AccessKeys)
 
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
@@ -600,41 +606,41 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 
         var params = mux.Vars(r)
 
-        var group models.Group
+        var network models.Network
 	keyname := params["name"]
 
         //start here
-	group, err := functions.GetParentGroup(params["groupname"])
+	network, err := functions.GetParentNetwork(params["networkname"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 	//basically, turn the list of access keys into the list of access keys before and after the item
 	//have not done any error handling for if there's like...1 item. I think it works? need to test.
-	for i := len(group.AccessKeys) - 1; i >= 0; i-- {
+	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
 
-		currentkey:= group.AccessKeys[i]
+		currentkey:= network.AccessKeys[i]
 		if currentkey.Name == keyname {
-			group.AccessKeys = append(group.AccessKeys[:i],
-				group.AccessKeys[i+1:]...)
+			network.AccessKeys = append(network.AccessKeys[:i],
+				network.AccessKeys[i+1:]...)
 		}
 	}
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"nameid": params["groupname"]}
+        filter := bson.M{"netid": params["networkname"]}
 
         // prepare update model.
         update := bson.D{
                 {"$set", bson.D{
-                        {"accesskeys", group.AccessKeys},
+                        {"accesskeys", network.AccessKeys},
                 }},
         }
 
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&group)
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
 
         defer cancel()
 
@@ -643,7 +649,7 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
                 return
         }
         var keys []models.AccessKey
-	keydata, err := json.Marshal(group.AccessKeys)
+	keydata, err := json.Marshal(network.AccessKeys)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return

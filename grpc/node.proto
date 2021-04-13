@@ -29,7 +29,7 @@ message Node {
     string endpoint = 6;
     string macaddress = 7;
     string password = 8;
-    string nodegroup = 9;
+    string nodenetwork = 9;
     bool ispending = 10;
     string postup = 11;
     string preup = 12;
@@ -81,7 +81,7 @@ message UpdateNodeRes {
 
 message ReadNodeReq {
     string macaddress = 1;
-    string group = 2;
+    string network = 2;
 }
 
 message ReadNodeRes {
@@ -90,7 +90,7 @@ message ReadNodeRes {
 
 message DeleteNodeReq {
     string macaddress = 1;
-    string groupName = 2;
+    string networkName = 2;
 }
 
 message DeleteNodeRes {
@@ -99,7 +99,7 @@ message DeleteNodeRes {
 
 message GetPeersReq {
     string macaddress = 1;
-    string group = 2;
+    string network = 2;
 }
 
 message GetPeersRes {

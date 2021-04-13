@@ -5,9 +5,9 @@
  3. Pull this repo: `git clone https://github.com/gravitl/netmaker.git`
  4. Switch to the directory and source the default env vars `cd netmaker && source defaultvars.sh`
  5. Run the server: `go run ./`
-### Optional (For  Testing):  Create Groups and Nodes
+### Optional (For  Testing):  Create Networks and Nodes
  
- 1. Create Group: `./test/groupcreate.sh`
+ 1. Create Network: `./test/networkcreate.sh`
  2. Create Key: `./test/keycreate.sh` (save the response for step 3)
  3. Open ./test/nodescreate.sh and replace ACCESSKEY with value from #2
  4. Create Nodes: `./test/nodescreate.sh`
@@ -21,10 +21,10 @@ On each machine you would like to add to the network, do the following:
 
 1. Confirm wireguard is installed: `sudo apt install wireguard-tools`
 2. Confirm ipv4 forwarding is enabled: `sysctl -w net.ipv4.ip_forward=1`
-3. Create a key or enable manual node signup at the group level
+3. Create a key or enable manual node signup at the network level
 4. Get the binary: `sudo wget 52.55.6.84:8081/meshclient/files/meshclient`
 5. Make it executable: `sudo chmod +x meshclient`
-6. Run the install command: `sudo ./meshclient -c install -g <group name> -s <server:port> -k <key value>`
+6. Run the install command: `sudo ./meshclient -c install -g <network name> -s <server:port> -k <key value>`
 
 This will install netclient.service and netclient.timer in systemd, which will run periodically to call the netclient binary, which will check to see if there are any updates that it needs and update WireGuard appropriately.
 

@@ -26,7 +26,7 @@ type ServerConfig struct {
 type NodeConfig struct {
         Name string `yaml:"name"`
         Interface string `yaml:"interface"`
-        Group string `yaml:"group"`
+        Network string `yaml:"network"`
         Password string `yaml:"password"`
         MacAddress string `yaml:"macaddress"`
         LocalAddress string `yaml:"localaddress"`

@@ -32,7 +32,7 @@ type SuccessfulUserLoginResponse struct {
 // Claims is  a struct that will be encoded to a JWT.
 // jwt.StandardClaims is an embedded type to provide expiry time
 type Claims struct {
-    Group string
+    Network string
     MacAddress string
     jwt.StandardClaims
 }
@@ -49,7 +49,7 @@ type ErrorResponse struct {
 }
 
 type NodeAuth struct {
-    Group    string
+    Network    string
     Password string
     MacAddress string
 }

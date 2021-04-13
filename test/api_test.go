@@ -44,9 +44,9 @@ type AuthorizeTestCase struct {
 
 func TestMain(m *testing.M) {
 	mongoconn.ConnectDatabase()
-	var waitgroup sync.WaitGroup
-	waitgroup.Add(1)
-	go controller.HandleRESTRequests(&waitgroup)
+	var waitnetwork sync.Waitnetwork
+	waitnetwork.Add(1)
+	go controller.HandleRESTRequests(&waitnetwork)
 	//wait for http server to start
 	time.Sleep(time.Second * 1)
 	os.Exit(m.Run())
@@ -117,11 +117,11 @@ func deleteAdmin(t *testing.T) {
 	assert.Nil(t, err, err)
 }
 
-func createGroup(t *testing.T) {
-	group := models.Group{}
-	group.NameID = "skynet"
-	group.AddressRange = "10.71.0.0/16"
-	response, err := api(t, group, http.MethodPost, "http://localhost:8081/api/groups", "secretkey")
+func createnetwork(t *testing.T) {
+	network := models.network{}
+	network.NetID = "skynet"
+	network.AddressRange = "10.71.0.0/16"
+	response, err := api(t, network, http.MethodPost, "http://localhost:8081/api/networks", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
@@ -130,7 +130,7 @@ func createKey(t *testing.T) {
 	key := models.AccessKey{}
 	key.Name = "skynet"
 	key.Uses = 10
-	response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/groups/skynet/keys", "secretkey")
+	response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/networks/skynet/keys", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	defer response.Body.Close()
@@ -140,7 +140,7 @@ func createKey(t *testing.T) {
 }
 
 func getKey(t *testing.T, name string) models.AccessKey {
-	response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet/keys", "secretkey")
+	response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/skynet/keys", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	defer response.Body.Close()
@@ -155,8 +155,8 @@ func getKey(t *testing.T, name string) models.AccessKey {
 	return models.AccessKey{}
 }
 
-func deleteKey(t *testing.T, key, group string) {
-	response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/"+group+"/keys/"+key, "secretkey")
+func deleteKey(t *testing.T, key, network string) {
+	response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/"+network+"/keys/"+key, "secretkey")
 	assert.Nil(t, err, err)
 	//api does not return Deleted Count at this time
 	//defer response.Body.Close()
@@ -167,31 +167,31 @@ func deleteKey(t *testing.T, key, group string) {
 	//assert.Equal(t, int64(1), message.DeletedCount)
 }
 
-func groupExists(t *testing.T) bool {
-	response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups", "secretkey")
+func networkExists(t *testing.T) bool {
+	response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks", "secretkey")
 	assert.Nil(t, err, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&Groups)
+	err = json.NewDecoder(response.Body).Decode(&networks)
 	assert.Nil(t, err, err)
-	if Groups == nil {
+	if networks == nil {
 		return false
 	} else {
 		return true
 	}
 }
 
-func deleteGroups(t *testing.T) {
+func deletenetworks(t *testing.T) {
 
-	response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups", "secretkey")
+	response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks", "secretkey")
 	assert.Nil(t, err, err)
 	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&Groups)
+	err = json.NewDecoder(response.Body).Decode(&networks)
 	assert.Nil(t, err, err)
-	for _, group := range Groups {
-		name := group.DisplayName
-		_, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/"+name, "secretkey")
+	for _, network := range networks {
+		name := network.DisplayName
+		_, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/"+name, "secretkey")
 		assert.Nil(t, err, err)
 	}
 }

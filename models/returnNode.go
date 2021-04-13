@@ -1,4 +1,4 @@
-//TODO:  Either add a returnGroup and returnKey, or delete this
+//TODO:  Either add a returnNetwork and returnKey, or delete this
 package models
 
 type ReturnNode struct {
@@ -16,7 +16,7 @@ type ReturnNode struct {
 	PersistentKeepalive int32 `json:"persistentkeepalive" bson:"persistentkeepalive"`
 	SaveConfig	*bool `json:"saveconfig" bson:"saveconfig"`
 	Interface	string `json:"interface" bson:"interface"`
-	Group	string `json:"group" bson:"group"`
+	Network	string `json:"network" bson:"network"`
 	IsPending	*bool `json:"ispending" bson:"ispending"`
 	IsGateway	*bool `json:"isgateway" bson:"ispending"`
 	GatewayRange	string `json:"gatewayrange" bson:"gatewayrange"`

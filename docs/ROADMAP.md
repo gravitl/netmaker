@@ -2,12 +2,12 @@
 
 ### 0.1
 **Server:**
- - [x] Create Groups (virtual networks)
- - [x] Allow default settings for nodes from groups
+ - [x] Create Networks (virtual networks)
+ - [x] Allow default settings for nodes from networks
  - [x] Admin/Superuser key
  - [x] Create multiuse keys for node signup
  - [x] JWT-based auth for post-signup
- - [x] CRUD for groups
+ - [x] CRUD for networks
  - [x] CRUD for nodes
  - [x] Track all important info about node for networking (port, endpoints, pub key, etc)
  - [x] Timestamps for determining if nodes need updates
@@ -31,21 +31,21 @@
 	- [ ] Troubleshooting
 
 **Server:**
- - [ ] Allow tracking multiple groups per node
+ - [ ] Allow tracking multiple networks per node
  - [ ] Configure Check-in thresholds
  - [ ] Separate sign-up endpoint to allow VPN-only comms after joining network
  - [ ] Swagger Docs
  - [ ] Build Out README
- - [ ] Encode Server, Port, and Group into Keys
+ - [ ] Encode Server, Port, and Network into Keys
  - [ ] Switch to Unique ID for nodes instead of MacAddress
  - [ ] Public Key refresh
  - [ ] Enable  ipv6 addresses
- - [ ] Have a "default" group created at startup
+ - [ ] Have a "default" network created at startup
  
 **Agent:**
  - [ ] Test / get working on multiple linux platforms
  - [ ] Set private DNS via etc hosts (node name + ip). Make it optional flag on agent.
- - [ ] Decode Server, Port, and Group from Key
+ - [ ] Decode Server, Port, and Network from Key
  - [ ] Service ID / unit file for SystemD Service
  - [ ] Allow multiple interfaces
  - [ ] Use "Check in interval" from server
@@ -55,7 +55,7 @@
 ### 0.3
 **Server:**
  - [ ] Swagger Docs
- - [ ] Group/Node labels
+ - [ ] Network/Node labels
  - [ ] "Read Only" mode for nodes (can't update their settings centrally, only read)
  - [ ] "No-GUI mode:" Similar to existing, just do more e2e testing and make sure flow makes sense
  - [ ] Let users set prefixes (node, interface)
@@ -87,7 +87,7 @@
  - [ ] Load balance / fault tolerant server
  - [ ] Change DB / make more scaleable (SQL?)
  - [ ] Redis
- - [ ] Group/Node labels
+ - [ ] Network/Node labels
  
 **Agent:**
  - [ ] userspace via Docker or Golang

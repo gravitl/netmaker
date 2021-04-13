@@ -10,11 +10,11 @@ import (
 var jwtSecretKey = []byte("(BytesOverTheWire)")
 
 // CreateJWT func will used to create the JWT while signing in and signing out
-func CreateJWT(macaddress string, group string) (response string, err error) {
+func CreateJWT(macaddress string, network string) (response string, err error) {
     expirationTime := time.Now().Add(5 * time.Minute)
     claims := &models.Claims{
         MacAddress: macaddress,
-        Group: group,
+        Network: network,
         StandardClaims: jwt.StandardClaims{
             ExpiresAt: expirationTime.Unix(),
         },
@@ -61,7 +61,7 @@ func VerifyUserToken(tokenString string) (username string, isadmin bool, err err
 }
 
 // VerifyToken func will used to Verify the JWT Token while using APIS
-func VerifyToken(tokenString string) (macaddress string, group string, err error) {
+func VerifyToken(tokenString string) (macaddress string, network string, err error) {
     claims := &models.Claims{}
 
     //this may be a stupid way of serving up a master key
@@ -75,7 +75,7 @@ func VerifyToken(tokenString string) (macaddress string, group string, err error
     })
 
     if token != nil {
-        return claims.MacAddress, claims.Group, nil
+        return claims.MacAddress, claims.Network, nil
     }
     return "", "", err
 }

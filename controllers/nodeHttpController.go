@@ -21,17 +21,17 @@ import (
 func nodeHandlers(r *mux.Router) {
 
     r.HandleFunc("/api/nodes", authorize(false, "master", http.HandlerFunc(getAllNodes))).Methods("GET")
-    r.HandleFunc("/api/nodes/{group}", authorize(true, "group", http.HandlerFunc(getGroupNodes))).Methods("GET")
-    r.HandleFunc("/api/nodes/{group}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
-    r.HandleFunc("/api/nodes/{group}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
-    r.HandleFunc("/api/nodes/{group}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
-    r.HandleFunc("/api/nodes/{group}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
-//    r.HandleFunc("/api/nodes/{group}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
-//    r.HandleFunc("/api/nodes/{group}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("POST")
-    r.HandleFunc("/api/nodes/{group}/{macaddress}/uncordon", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
-    r.HandleFunc("/api/nodes/{group}/nodes", createNode).Methods("POST")
-    r.HandleFunc("/api/nodes/adm/{group}/lastmodified", authorize(true, "group", http.HandlerFunc(getLastModified))).Methods("GET")
-    r.HandleFunc("/api/nodes/adm/{group}/authenticate", authenticate).Methods("POST")
+    r.HandleFunc("/api/nodes/{network}", authorize(true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
+    r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
+    r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
+    r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
+    r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
+//    r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
+//    r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("POST")
+    r.HandleFunc("/api/nodes/{network}/{macaddress}/uncordon", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
+    r.HandleFunc("/api/nodes/{network}/nodes", createNode).Methods("POST")
+    r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
+    r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 
 }
 
@@ -88,7 +88,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		   return
 	   } else {
 		//Create a new JWT for the node
-                tokenString, _ := functions.CreateJWT(authRequest.MacAddress, result.Group)
+                tokenString, _ := functions.CreateJWT(authRequest.MacAddress, result.Network)
 
                 if tokenString == "" {
                     returnErrorResponse(response, request, errorResponse)
@@ -121,11 +121,11 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 //The middleware for most requests to the API
 //They all pass  through here first
 //This will validate the JWT (or check for master token)
-//This will also check against the authGroup and make sure the node should be accessing that endpoint,
+//This will also check against the authNetwork and make sure the node should be accessing that endpoint,
 //even if it's technically ok
 //This is kind of a poor man's RBAC. There's probably a better/smarter way.
 //TODO: Consider better RBAC implementations
-func authorize(groupCheck bool, authGroup string, next http.Handler) http.HandlerFunc {
+func authorize(networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
         return func(w http.ResponseWriter, r *http.Request) {
 
                 var errorResponse = models.ErrorResponse{
@@ -134,13 +134,13 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 
 		var params = mux.Vars(r)
 
-		groupexists, _ := functions.GroupExists(params["group"])
+		networkexists, _ := functions.NetworkExists(params["network"])
 
-		//check that the request is for a valid group
-                //if (groupCheck && !groupexists) || err != nil {
-                if (groupCheck && !groupexists) {
+		//check that the request is for a valid network
+                //if (networkCheck && !networkexists) || err != nil {
+                if (networkCheck && !networkexists) {
                         errorResponse = models.ErrorResponse{
-                                Code: http.StatusNotFound, Message: "W1R3: This group does not exist. ",
+                                Code: http.StatusNotFound, Message: "W1R3: This network does not exist. ",
                         }
                         returnErrorResponse(w, r, errorResponse)
 			return
@@ -190,15 +190,15 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 			isAuthorized = true
 
 		//for everyone else, there's poor man's RBAC. The "cases" are defined in the routes in the handlers
-		//So each route defines which access group should be allowed to access it
+		//So each route defines which access network should be allowed to access it
 		} else {
-			switch authGroup {
+			switch authNetwork {
 			case "all":
 				isAuthorized = true
                         case "nodes":
 				isAuthorized = (macaddress != "")
-                        case "group":
-                                node, err := functions.GetNodeByMacAddress(params["group"], macaddress)
+                        case "network":
+                                node, err := functions.GetNodeByMacAddress(params["network"], macaddress)
 		                if err != nil {
 					errorResponse = models.ErrorResponse{
 					Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
@@ -206,7 +206,7 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 					returnErrorResponse(w, r, errorResponse)
 					return
 		                }
-                                isAuthorized = (node.Group == params["group"])
+                                isAuthorized = (node.Network == params["network"])
 			case "node":
 				isAuthorized = (macaddress == params["macaddress"])
                         case "master":
@@ -229,8 +229,8 @@ func authorize(groupCheck bool, authGroup string, next http.Handler) http.Handle
 	}
 }
 
-//Gets all nodes associated with group, including pending nodes
-func getGroupNodes(w http.ResponseWriter, r *http.Request) {
+//Gets all nodes associated with network, including pending nodes
+func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -241,7 +241,7 @@ func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"group": params["group"]}
+        filter := bson.M{"network": params["network"]}
 
 	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
 	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
@@ -256,7 +256,7 @@ func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 	for cur.Next(context.TODO()) {
 
 		//Using a different model for the ReturnNode (other than regular node).
-		//Either we should do this for ALL structs (so Groups and Keys)
+		//Either we should do this for ALL structs (so Networks and Keys)
 		//OR we should just use the original struct
 		//My preference is to make some new return structs
 		//TODO: Think about this. Not an immediate concern. Just need to get some consistency eventually
@@ -284,7 +284,7 @@ func getGroupNodes(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//A separate function to get all nodes, not just nodes for a particular group.
+//A separate function to get all nodes, not just nodes for a particular network.
 //Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
@@ -332,15 +332,15 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 //This function get's called when a node "checks in" at check in interval
 //Honestly I'm not sure what all it should be doing
 //TODO: Implement the necessary stuff, including the below
-//Check the last modified of the group
+//Check the last modified of the network
 //Check the last modified of the nodes
 //Write functions for responding to these two thingies
 func checkIn(w http.ResponseWriter, r *http.Request) {
 
 	//TODO: Current thoughts:
-	//Dont bother with a grouplastmodified
+	//Dont bother with a networklastmodified
 	//Instead, implement a "configupdate" boolean on nodes
-	//when there is a group update  that requrires  a config update,  then the node will pull its new config
+	//when there is a network update  that requrires  a config update,  then the node will pull its new config
 
         // set header.
         w.Header().Set("Content-Type", "application/json")
@@ -351,13 +351,13 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
 
 
 	//Retrieves node with DB Call which is inefficient. Let's just get the time and set it.
-	//node = functions.GetNodeByMacAddress(params["group"], params["macaddress"])
+	//node = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
 
         collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
+        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
 
 	//old code was inefficient, this is all we need.
 	time := time.Now().String()
@@ -380,7 +380,7 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
                 return
         }
 
-	//TODO: check node last modified vs group last modified
+	//TODO: check node last modified vs network last modified
         w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
@@ -393,7 +393,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 
         var params = mux.Vars(r)
 
-	node, err := GetNode(params["macaddress"], params["group"])
+	node, err := GetNode(params["macaddress"], params["network"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -402,23 +402,23 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-//Get the time that a group of nodes was last modified.
+//Get the time that a network of nodes was last modified.
 //TODO: This needs to be refactored
 //Potential way to do this: On UpdateNode, set a new field for "LastModified"
-//If we go with the existing way, we need to at least set group.NodesLastModified on UpdateNode
+//If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
 func getLastModified(w http.ResponseWriter, r *http.Request) {
         // set header.
         w.Header().Set("Content-Type", "application/json")
 
-        var group models.Group
+        var network models.Network
         var params = mux.Vars(r)
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"nameid": params["group"]}
-        err := collection.FindOne(ctx, filter).Decode(&group)
+        filter := bson.M{"netid": params["network"]}
+        err := collection.FindOne(ctx, filter).Decode(&network)
 
 	defer cancel()
 
@@ -428,7 +428,7 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
         }
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(string(group.NodesLastModified)))
+	w.Write([]byte(string(network.NodesLastModified)))
 
 }
 
@@ -444,19 +444,19 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	        Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
 
-        groupName := params["group"]
+        networkName := params["network"]
 
-	//Check if group exists  first
+	//Check if network exists  first
 	//TODO: This is inefficient. Let's find a better way. 
-	//Just a few rows down we grab the group anyway
-        groupexists, err := functions.GroupExists(groupName)
+	//Just a few rows down we grab the network anyway
+        networkexists, err := functions.NetworkExists(networkName)
 
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
-        } else if !groupexists {
+        } else if !networkexists {
                 errorResponse = models.ErrorResponse{
-                        Code: http.StatusNotFound, Message: "W1R3: Group does not exist! ",
+                        Code: http.StatusNotFound, Message: "W1R3: Network does not exist! ",
                 }
                 returnErrorResponse(w, r, errorResponse)
                 return
@@ -471,23 +471,23 @@ func createNode(w http.ResponseWriter, r *http.Request) {
                 return
         }
 
-	node.Group = groupName
+	node.Network = networkName
 
 
-	group, err := node.GetGroup()
+	network, err := node.GetNetwork()
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
 	//Check to see if key is valid
-	//TODO: Triple inefficient!!! This is the third call to the DB we make for groups
-	validKey := functions.IsKeyValid(groupName, node.AccessKey)
+	//TODO: Triple inefficient!!! This is the third call to the DB we make for networks
+	validKey := functions.IsKeyValid(networkName, node.AccessKey)
 
 	if !validKey {
-		//Check to see if group will allow manual sign up
+		//Check to see if network will allow manual sign up
 		//may want to switch this up with the valid key check and avoid a DB call that way.
-		if *group.AllowManualSignUp {
+		if *network.AllowManualSignUp {
 			node.IsPending = true
 		} else  {
 			errorResponse = models.ErrorResponse{
@@ -498,13 +498,13 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err =  ValidateNode("create", groupName, node)
+	err =  ValidateNode("create", networkName, node)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-        node, err = CreateNode(node, groupName)
+        node, err = CreateNode(node, networkName)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -522,7 +522,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 
         var node models.Node
 
-	node, err := functions.GetNodeByMacAddress(params["group"], params["macaddress"])
+	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -533,7 +533,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-	filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
+	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
 
         node.SetLastModified()
 
@@ -567,7 +567,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
         var node models.Node
 
-        node, err := functions.GetNodeByMacAddress(params["group"], params["macaddress"])
+        node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -578,11 +578,11 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         // Create filter
-        filter := bson.M{"macaddress": params["macaddress"], "group": params["group"]}
+        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
 
         node.SetLastModified()
 
-        err =  ValidateNode("create", params["group"], node)
+        err =  ValidateNode("create", params["network"], node)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -622,7 +622,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	var node models.Node
 
 	//start here
-	node, err := functions.GetNodeByMacAddress(params["group"], params["macaddress"])
+	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -634,14 +634,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
         // we decode our body request params
         _ = json.NewDecoder(r.Body).Decode(&nodechange)
-	if nodechange.Group == "" {
-	        nodechange.Group = node.Group
+	if nodechange.Network == "" {
+	        nodechange.Network = node.Network
 	}
 	if nodechange.MacAddress == "" {
 		nodechange.MacAddress = node.MacAddress
 	}
 
-        err = ValidateNode("update", params["group"], nodechange)
+        err = ValidateNode("update", params["network"], nodechange)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
@@ -665,7 +665,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	success, err := DeleteNode(params["macaddress"], params["group"])
+	success, err := DeleteNode(params["macaddress"], params["network"])
 
 	if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))

@@ -26,7 +26,7 @@ type Node struct {
 	Endpoint	string `json:"endpoint" bson:"endpoint" validate:"endpoint_check"`
 	PostUp	string `json:"postup" bson:"postup"`
 	PreUp	string `json:"preup" bson:"preup"`
-	AllowedIPs	string `json:"preup" bson:"preup"`
+	AllowedIPs	string `json:"allowedips" bson:"allowedips"`
 	PersistentKeepalive int32 `json:"persistentkeepalive" bson:"persistentkeepalive" validate: "omitempty,numeric,max=1000"`
 	SaveConfig	*bool `json:"saveconfig" bson:"saveconfig"`
 	AccessKey	string `json:"accesskey" bson:"accesskey"`
@@ -39,7 +39,7 @@ type Node struct {
 	MacAddress	string `json:"macaddress" bson:"macaddress" validate:"required,macaddress_valid,macaddress_unique"`
 	CheckInInterval	int32 `json:"checkininterval" bson:"checkininterval"`
 	Password	string `json:"password" bson:"password" validate:"password_check"`
-	Group	string `json:"group" bson:"group" validate:"group_exists"`
+	Network	string `json:"network" bson:"network" validate:"network_exists"`
 	IsPending bool `json:"ispending" bson:"ispending"`
 	IsGateway bool `json:"isgateway" bson:"isgateway"`
 	GatewayRange string `json:"gatewayrange" bson:"gatewayrange"`
@@ -48,27 +48,27 @@ type Node struct {
 
 
 //TODO: Contains a fatal error return. Need to change
-//Used in contexts where it's not the Parent group.
-func(node *Node) GetGroup() (Group, error){
+//Used in contexts where it's not the Parent network.
+func(node *Node) GetNetwork() (Network, error){
 
-        var group Group
+        var network Network
 
-        collection := mongoconn.GroupDB
-        //collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.NetworkDB
+        //collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"nameid": node.Group}
-        err := collection.FindOne(ctx, filter).Decode(&group)
+        filter := bson.M{"netid": node.Network}
+        err := collection.FindOne(ctx, filter).Decode(&network)
 
         defer cancel()
 
         if err != nil {
                 //log.Fatal(err)
-                return group, err
+                return network, err
         }
 
-        return group, err
+        return network, err
 }
 
 
@@ -103,13 +103,13 @@ func(node *Node) SetDefaultName(){
 //This should exist on the node.go struct. I'm sure there was a reason?
 func(node *Node) SetDefaults() {
 
-    //TODO: Maybe I should make Group a part of the node struct. Then we can just query the Group object for stuff.
-    parentGroup, _ := node.GetGroup()
+    //TODO: Maybe I should make Network a part of the node struct. Then we can just query the Network object for stuff.
+    parentNetwork, _ := node.GetNetwork()
 
     node.ExpirationDateTime = time.Unix(33174902665, 0).Unix()
 
     if node.ListenPort == 0 {
-        node.ListenPort = parentGroup.DefaultListenPort
+        node.ListenPort = parentNetwork.DefaultListenPort
     }
     if node.PreUp == "" {
         //Empty because we dont set it
@@ -118,20 +118,20 @@ func(node *Node) SetDefaults() {
     //TODO: This is dumb and doesn't work
     //Need to change
     if node.SaveConfig == nil {
-        defaultsave := *parentGroup.DefaultSaveConfig
+        defaultsave := *parentNetwork.DefaultSaveConfig
         node.SaveConfig = &defaultsave
     }
     if node.Interface == "" {
-        node.Interface = parentGroup.DefaultInterface
+        node.Interface = parentNetwork.DefaultInterface
     }
     if node.PersistentKeepalive == 0 {
-        node.PersistentKeepalive = parentGroup.DefaultKeepalive
+        node.PersistentKeepalive = parentNetwork.DefaultKeepalive
     }
     if node.PostUp == "" {
-            postup := parentGroup.DefaultPostUp
+            postup := parentNetwork.DefaultPostUp
         node.PostUp = postup
     }
-    node.CheckInInterval = parentGroup.DefaultCheckInInterval
+    node.CheckInInterval = parentNetwork.DefaultCheckInInterval
 
 }
 

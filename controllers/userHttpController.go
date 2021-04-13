@@ -116,7 +116,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //The middleware for most requests to the API
 //They all pass  through here first
 //This will validate the JWT (or check for master token)
-//This will also check against the authGroup and make sure the node should be accessing that endpoint,
+//This will also check against the authNetwork and make sure the node should be accessing that endpoint,
 //even if it's technically ok
 //This is kind of a poor man's RBAC. There's probably a better/smarter way.
 //TODO: Consider better RBAC implementations
