@@ -15,4 +15,4 @@ We actively welcome contributions, and the way to do that is with a PR:
 5. Issue a PR to `develop`
 
 ## Licensing
-Any contributions you make will be under the SSPL Software License. When you submit code changes, you  understand that they will be under the same license that covers this project, defined [here](../licensing/LICENSE.md). If you have any concerns around this, feel free to contact the maintainers.
+Any contributions you make will be under the SSPL Software License. When you submit code changes, you  understand that they will be under the same license that covers this project, defined [here](../licensing/LICENSE.txt). If you have any concerns around this, feel free to contact the maintainers.
