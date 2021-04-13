@@ -15,11 +15,17 @@ In general, requests will take the format of `curl -H "Authorization: Bearer <YO
 ## NETWORKS
 
 **Get All Networks:** `/api/networks`, `GET` 
+  
 **Create Network:** `/api/network`, `POST` 
+  
 **Get Network:** `/api/networks/{network id}`, `GET`  
+  
 **Update Network:** `/api/networks/{network id}`, `PUT`  
+  
 **Delete Network:** `/api/networks/{network id}`, `DELETE`  
+  
 **Cycle PublicKeys on all Nodes:** `/api/networks/{network id}/keyupdate`, `POST`  
+  
 
 ### Network  API Call Examples
 
