@@ -32,7 +32,7 @@ message Node {
     string nodenetwork = 9;
     bool ispending = 10;
     string postup = 11;
-    string preup = 12;
+    string postdown = 12;
     int32 keepalive = 13;
     bool saveconfig = 14;
     string accesskey = 15;
@@ -42,6 +42,7 @@ message Node {
     int32 checkininterval = 19;
     string localaddress = 20;
     string postchanges = 21;
+    string allowedips = 22;
 }
 
 message CheckInResponse {
@@ -55,6 +56,8 @@ message CheckInResponse {
 }
 
 message PeersResponse {
+    bool isgateway = 1;
+    string gatewayrange = 2;
     string publickey = 5;
     string endpoint = 6;
     string address = 3;

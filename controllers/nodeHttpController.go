@@ -26,8 +26,8 @@ func nodeHandlers(r *mux.Router) {
     r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
     r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
     r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
-//    r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
-//    r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("POST")
+    r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
+    r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("POST")
     r.HandleFunc("/api/nodes/{network}/{macaddress}/uncordon", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
     r.HandleFunc("/api/nodes/{network}/nodes", createNode).Methods("POST")
     r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
@@ -565,7 +565,15 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
         var params = mux.Vars(r)
 
-        var node models.Node
+        var gateway models.GatewayRequest
+
+	err := json.NewDecoder(r.Body).Decode(&gateway)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+	gateway.NetID = params["network"]
+	gateway.NodeID = params["macaddress"]
 
         node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
         if err != nil {
@@ -573,42 +581,91 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
                 return
         }
 
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        // Create filter
-        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
-
-        node.SetLastModified()
-
-        err =  ValidateNode("create", params["network"], node)
+	err = validateGateway(gateway)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
 
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"ispending", false},
-                }},
-        }
+        var nodechange models.Node
 
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+	nodechange.IsGateway = true
+	nodechange.GatewayRange = gateway.RangeString
+	if gateway.PostUp == "" {
+		nodechange.PostUp = "iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	} else {
+		nodechange.PostUp = gateway.PostUp
+	}
+	if gateway.PostDown == "" {
+		nodechange.PostDown = "iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	} else {
+		nodechange.PostDown = gateway.PostDown
+	}
 
-        defer cancel()
-
+        node, err = UpdateNode(nodechange, node)
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
         }
-        fmt.Println("Node " + node.Name + " uncordoned.")
 
-	w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode("SUCCESS")
+        err = AlertNetwork(params["networkname"])
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+
+
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(node)
 }
 
+func validateGateway(gateway models.GatewayRequest) error {
+		var err error
+                isIpv4 := functions.IsIpv4Net(gateway.RangeString)
+                empty := gateway.RangeString == ""
+                if empty || !isIpv4 {
+			err = errors.New("IP Range Not Valid")
+		}
+		return err
+}
+
+
+
+
+func deleteGateway(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+
+        var params = mux.Vars(r)
+
+        node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        var nodechange models.Node
+
+        nodechange.IsGateway = false
+        nodechange.GatewayRange = ""
+        nodechange.PostUp = ""
+        nodechange.PostDown = ""
+
+        node, err = UpdateNode(nodechange, node)
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        err = AlertNetwork(params["networkname"])
+        if err != nil {
+                returnErrorResponse(w,r,formatError(err, "internal"))
+                return
+        }
+
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(node)
+}
 
 
 func updateNode(w http.ResponseWriter, r *http.Request) {

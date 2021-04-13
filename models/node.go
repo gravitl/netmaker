@@ -25,7 +25,7 @@ type Node struct {
 	PublicKey	string `json:"publickey" bson:"publickey" validate:"pubkey_check"`
 	Endpoint	string `json:"endpoint" bson:"endpoint" validate:"endpoint_check"`
 	PostUp	string `json:"postup" bson:"postup"`
-	PreUp	string `json:"preup" bson:"preup"`
+	PostDown	string `json:"postdown" bson:"postdown"`
 	AllowedIPs	string `json:"allowedips" bson:"allowedips"`
 	PersistentKeepalive int32 `json:"persistentkeepalive" bson:"persistentkeepalive" validate: "omitempty,numeric,max=1000"`
 	SaveConfig	*bool `json:"saveconfig" bson:"saveconfig"`
@@ -111,7 +111,7 @@ func(node *Node) SetDefaults() {
     if node.ListenPort == 0 {
         node.ListenPort = parentNetwork.DefaultListenPort
     }
-    if node.PreUp == "" {
+    if node.PostDown == "" {
         //Empty because we dont set it
         //may want to set it to something in the future
     }

@@ -18,7 +18,7 @@ type Network struct {
 	DefaultInterface	string `json:"defaulinterface" bson:"defaultinterface"`
         DefaultListenPort      int32 `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,numeric,min=1024,max=65535"`
         DefaultPostUp  string `json:"defaultpostup" bson:"defaultpostup"`
-        DefaultPreUp   string `json:"defaultpreup" bson:"defaultpreup"`
+        DefaultPostDown   string `json:"defaultpreup" bson:"defaultpreup"`
         KeyUpdateTimeStamp      int64 `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
         DefaultKeepalive int32 `json:"defaultkeepalive" bson:"defaultkeepalive" validate: "omitempty,numeric,max=1000"`
         DefaultSaveConfig      *bool `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
@@ -49,7 +49,7 @@ func(network *Network) SetDefaults(){
     if network.DefaultListenPort == 0 {
         network.DefaultListenPort = 51821
     }
-    if network.DefaultPreUp == "" {
+    if network.DefaultPostDown == "" {
 
     }
     if network.DefaultSaveConfig == nil {

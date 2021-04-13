@@ -1070,7 +1070,7 @@ func getNode(network string) nodepb.Node {
 	node.Listenport = nodecfg.Port
 	node.Keepalive = nodecfg.KeepAlive
 	node.Postup = nodecfg.PostUp
-	node.Preup = nodecfg.PreUp
+	node.Postdown = nodecfg.PostDown
 	node.Publickey = nodecfg.PublicKey
 	node.Macaddress = nodecfg.MacAddress
 	node.Endpoint = nodecfg.Endpoint
@@ -1271,6 +1271,23 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
                         return peers, err
                 }
 		var peer wgtypes.PeerConfig
+		var peeraddr = net.IPNet{
+			IP: net.ParseIP(res.Peers.Address),
+                        Mask: net.CIDRMask(32, 32),
+		}
+		var allowedips []net.IPNet
+		allowedips = append(allowedips, peeraddr)
+
+		if res.Peers.Isgateway {
+			_, ipnet, err := net.ParseCIDR(res.Peers.Gatewayrange)
+			if err != nil {
+				fmt.Println("ERROR ENCOUNTERED SETTING GATEWAY")
+				fmt.Println("NOT SETTING GATEWAY")
+				fmt.Println(err)
+			} else {
+				allowedips = append(allowedips, *ipnet)
+			}
+		}
 		if keepalive != 0 {
 		peer = wgtypes.PeerConfig{
 			PublicKey: pubkey,
@@ -1280,11 +1297,8 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 				Port: int(res.Peers.Listenport),
 			},
 			ReplaceAllowedIPs: true,
-                        AllowedIPs: []net.IPNet{{
-                                IP: net.ParseIP(res.Peers.Address),
-				Mask: net.CIDRMask(32, 32),
-			}},
-		}
+                        AllowedIPs: allowedips,
+			}
 		} else {
                 peer = wgtypes.PeerConfig{
                         PublicKey: pubkey,
@@ -1293,11 +1307,8 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
                                 Port: int(res.Peers.Listenport),
                         },
                         ReplaceAllowedIPs: true,
-                        AllowedIPs: []net.IPNet{{
-                                IP: net.ParseIP(res.Peers.Address),
-                                Mask: net.CIDRMask(32, 32),
-                        }},
-                }
+                        AllowedIPs: allowedips,
+			}
 		}
 		peers = append(peers, peer)
 

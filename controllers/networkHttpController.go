@@ -190,7 +190,6 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         filter := bson.M{"netid": params["networkname"]}
-
         // prepare update model.
         update := bson.D{
                 {"$set", bson.D{
@@ -198,7 +197,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
                         {"displayname", network.DisplayName},
                         {"defaultlistenport", network.DefaultListenPort},
                         {"defaultpostup", network.DefaultPostUp},
-                        {"defaultpreup", network.DefaultPreUp},
+                        {"defaultpreup", network.DefaultPostDown},
 			{"defaultkeepalive", network.DefaultKeepalive},
                         {"keyupdatetimestamp", network.KeyUpdateTimeStamp},
                         {"defaultsaveconfig", network.DefaultSaveConfig},
@@ -206,7 +205,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
                         {"nodeslastmodified", network.NodesLastModified},
                         {"networklastmodified", network.NetworkLastModified},
                         {"allowmanualsignup", network.AllowManualSignUp},
-                        {"defaultcheckininterval", network.DefaultCheckInInterval},
+			{"defaultcheckininterval", network.DefaultCheckInInterval},
                 }},
         }
 
@@ -221,6 +220,34 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(network)
+}
+
+//Update a network
+func AlertNetwork(netid string) error{
+
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        filter := bson.M{"netid": netid}
+
+
+        var network models.Network
+
+        network, err := functions.GetParentNetwork(netid)
+        if err != nil {
+                return err
+        }
+	updatetime := time.Now().Unix()
+        update := bson.D{
+                {"$set", bson.D{
+                        {"nodeslastmodified", updatetime},
+                        {"networklastmodified", updatetime},
+                }},
+        }
+
+        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
+        defer cancel()
+
+        return err
 }
 
 //Update a network
@@ -296,8 +323,8 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		network.DefaultListenPort = networkChange.DefaultListenPort
 		haschange = true
         }
-        if networkChange.DefaultPreUp != "" {
-		network.DefaultPreUp = networkChange.DefaultPreUp
+        if networkChange.DefaultPostDown != "" {
+		network.DefaultPostDown = networkChange.DefaultPostDown
 		haschange = true
         }
         if networkChange.DefaultInterface != "" {
@@ -340,7 +367,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
                         {"displayname", network.DisplayName},
                         {"defaultlistenport", network.DefaultListenPort},
                         {"defaultpostup", network.DefaultPostUp},
-                        {"defaultpreup", network.DefaultPreUp},
+                        {"defaultpreup", network.DefaultPostDown},
                         {"defaultkeepalive", network.DefaultKeepalive},
                         {"defaultsaveconfig", network.DefaultSaveConfig},
                         {"defaultinterface", network.DefaultInterface},

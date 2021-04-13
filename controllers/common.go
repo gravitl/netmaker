@@ -141,8 +141,8 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
     if nodechange.ExpirationDateTime != 0 {
         node.ExpirationDateTime = nodechange.ExpirationDateTime
     }
-    if nodechange.PreUp != "" {
-        node.PreUp = nodechange.PreUp
+    if nodechange.PostDown != "" {
+        node.PostDown = nodechange.PostDown
     }
     if nodechange.Interface != "" {
         node.Interface = nodechange.Interface
@@ -204,7 +204,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
                         {"expdatetime", node.ExpirationDateTime},
                         {"endpoint", node.Endpoint},
                         {"postup", node.PostUp},
-                        {"preup", node.PreUp},
+                        {"preup", node.PostDown},
                         {"macaddress", node.MacAddress},
                         {"localaddress", node.LocalAddress},
                         {"persistentkeepalive", node.PersistentKeepalive},

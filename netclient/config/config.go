@@ -32,8 +32,9 @@ type NodeConfig struct {
         LocalAddress string `yaml:"localaddress"`
         WGAddress string `yaml:"wgaddress"`
         RoamingOff bool `yaml:"roamingoff"`
+        AllowedIPs string `yaml:"allowedips"`
         PostUp string `yaml:"postup"`
-        PreUp string `yaml:"preup"`
+        PostDown string `yaml:"postdown"`
         Port int32 `yaml:"port"`
         KeepAlive int32 `yaml:"keepalive"`
         PublicKey string `yaml:"publickey"`
