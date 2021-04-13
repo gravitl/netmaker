@@ -897,7 +897,7 @@ func CheckIn(network string) error {
         fmt.Println("Checking In.")
 
         var header metadata.MD
-
+	node.Nodenetwork = network
         checkinres, err := wcclient.CheckIn(
                 ctx,
                 &nodepb.CheckInReq{
