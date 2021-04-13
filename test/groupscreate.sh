@@ -7,7 +7,7 @@ generate_post_json ()
 {
   cat <<EOF
 {
-  "nameid": "$NAME",
+  "netid": "$NAME",
   "addressrange": "$ADDRESSRANGE"
 }
 EOF
@@ -15,7 +15,7 @@ EOF
 
 POST_JSON=$(generate_post_json)
 
-curl --max-time 5.0 -d "$POST_JSON" -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/groups
+curl --max-time 5.0 -d "$POST_JSON" -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/networks
 
 NAME="skynet"
 ADDRESSRANGE="100.70.0.0/14"
@@ -23,4 +23,4 @@ ADDRESSRANGE="100.70.0.0/14"
 POST_JSON=$(generate_post_json)
 
 
-curl --max-time 5.0 -d "$POST_JSON" -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/groups
+curl --max-time 5.0 -d "$POST_JSON" -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/networks

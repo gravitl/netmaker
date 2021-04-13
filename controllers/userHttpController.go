@@ -21,12 +21,12 @@ import (
 
 func userHandlers(r *mux.Router) {
 
-    r.HandleFunc("/users/hasadmin", hasAdmin).Methods("GET")
-    r.HandleFunc("/users/createadmin", createAdmin).Methods("POST")
-    r.HandleFunc("/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
-    r.HandleFunc("/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
-    r.HandleFunc("/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
-    r.HandleFunc("/users/authenticate", authenticateUser).Methods("POST")
+    r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods("GET")
+    r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
+    r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
+    r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
+    r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
+    r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
 }
 
 //Node authenticates using its password and retrieves a JWT for authorization.
@@ -116,7 +116,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //The middleware for most requests to the API
 //They all pass  through here first
 //This will validate the JWT (or check for master token)
-//This will also check against the authGroup and make sure the node should be accessing that endpoint,
+//This will also check against the authNetwork and make sure the node should be accessing that endpoint,
 //even if it's technically ok
 //This is kind of a poor man's RBAC. There's probably a better/smarter way.
 //TODO: Consider better RBAC implementations

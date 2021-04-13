@@ -6,65 +6,67 @@ import (
   "time"
 )
 
-//Group Struct
+//Network Struct
 //At  some point, need to replace all instances of Name with something else like  Identifier
-type Group struct {
+type Network struct {
 	ID	primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	AddressRange	string `json:"addressrange" bson:"addressrange" validate:"required,addressrange_valid"`
 	DisplayName string `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,displayname_unique,min=1,max=100"`
-	NameID string `json:"nameid" bson:"nameid" validate:"required,nameid_valid,min=1,max=12"`
+	NetID string `json:"netid" bson:"netid" validate:"required,netid_valid,min=1,max=12"`
 	NodesLastModified	int64 `json:"nodeslastmodified" bson:"nodeslastmodified"`
-	GroupLastModified int64 `json:"grouplastmodified" bson:"grouplastmodified"`
+	NetworkLastModified int64 `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface	string `json:"defaulinterface" bson:"defaultinterface"`
         DefaultListenPort      int32 `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,numeric,min=1024,max=65535"`
         DefaultPostUp  string `json:"defaultpostup" bson:"defaultpostup"`
-        DefaultPreUp   string `json:"defaultpreup" bson:"defaultpreup"`
+        DefaultPostDown   string `json:"defaultpreup" bson:"defaultpreup"`
         KeyUpdateTimeStamp      int64 `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
         DefaultKeepalive int32 `json:"defaultkeepalive" bson:"defaultkeepalive" validate: "omitempty,numeric,max=1000"`
         DefaultSaveConfig      *bool `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
 	AccessKeys	[]AccessKey `json:"accesskeys" bson:"accesskeys"`
 	AllowManualSignUp *bool `json:"allowmanualsignup" bson:"allowmanualsignup"`
+	IsLocal *bool `json:"islocal" bson:"islocal"`
+	LocalRange string `json:"localrange" bson:"localrange" validate:"localrange_valid"`
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=1,max=100000"`
 }
 
 //TODO:
 //Not  sure if we  need the below two functions. Got rid  of one of the calls. May want  to revisit
-func(group *Group) SetNodesLastModified(){
-        group.NodesLastModified = time.Now().Unix()
+func(network *Network) SetNodesLastModified(){
+        network.NodesLastModified = time.Now().Unix()
 }
 
-func(group *Group) SetGroupLastModified(){
-        group.GroupLastModified = time.Now().Unix()
+func(network *Network) SetNetworkLastModified(){
+        network.NetworkLastModified = time.Now().Unix()
 }
 
-func(group *Group) SetDefaults(){
-    if group.DisplayName == "" {
-        group.DisplayName = group.NameID
+func(network *Network) SetDefaults(){
+    if network.DisplayName == "" {
+        network.DisplayName = network.NetID
     }
-    if group.DefaultInterface == "" {
-	group.DefaultInterface = "nm-" + group.NameID
+    if network.DefaultInterface == "" {
+	network.DefaultInterface = "nm-" + network.NetID
     }
-    if group.DefaultListenPort == 0 {
-        group.DefaultListenPort = 51821
+    if network.DefaultListenPort == 0 {
+        network.DefaultListenPort = 51821
     }
-    if group.DefaultPreUp == "" {
+    if network.DefaultPostDown == "" {
 
     }
-    if group.DefaultSaveConfig == nil {
+    if network.DefaultSaveConfig == nil {
 	defaultsave := true
-        group.DefaultSaveConfig = &defaultsave
+        network.DefaultSaveConfig = &defaultsave
     }
-    if group.DefaultKeepalive == 0 {
-        group.DefaultKeepalive = 20
+    if network.DefaultKeepalive == 0 {
+        network.DefaultKeepalive = 20
     }
-    if group.DefaultPostUp == "" {
+    if network.DefaultPostUp == "" {
     }
     //Check-In Interval for Nodes, In Seconds
-    if group.DefaultCheckInInterval == 0 {
-        group.DefaultCheckInInterval = 30
+    if network.DefaultCheckInInterval == 0 {
+        network.DefaultCheckInInterval = 30
     }
-    if group.AllowManualSignUp == nil {
+    if network.AllowManualSignUp == nil {
 	signup := false
-        group.AllowManualSignUp = &signup
+        network.AllowManualSignUp = &signup
     }
 }

@@ -16,7 +16,7 @@ func serverHandlers(r *mux.Router) {
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
-//Only admin should have access to all these group-level actions
+//Only admin should have access to all these network-level actions
 //or maybe some Users once implemented
 func securityCheckServer(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

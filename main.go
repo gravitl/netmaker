@@ -5,6 +5,7 @@ package main
 
 import (
     "log"
+    "flag"
     "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/controllers"
     "github.com/gravitl/netmaker/serverctl"
@@ -18,8 +19,10 @@ import (
     "errors"
     "io/ioutil"
     "os"
+    "os/exec"
     "net"
     "context"
+    "strconv"
     "sync"
     "os/signal"
     service "github.com/gravitl/netmaker/controllers"
@@ -32,34 +35,59 @@ var PortGRPC string
 
 //Start MongoDB Connection and start API Request Handler
 func main() {
+
+	var clientmode string
+	var defaultnet string
+	flag.StringVar(&clientmode, "clientmode", "on", "Have a client on the server")
+	flag.StringVar(&defaultnet, "defaultnet", "on", "Create a default network")
+	flag.Parse()
+	if clientmode == "on" {
+
+         cmd := exec.Command("id", "-u")
+         output, err := cmd.Output()
+
+         if err != nil {
+                 log.Fatal(err)
+         }
+         i, err := strconv.Atoi(string(output[:len(output)-1]))
+         if err != nil {
+                 log.Fatal(err)
+         }
+
+         if i != 0 {
+                 log.Fatal("To run in client mode requires root privileges. Either turn off client mode with the --clientmode=off flag, or run with sudo.")
+         }
+	}
+
 	log.Println("Server starting...")
 	mongoconn.ConnectDatabase()
 	installserver := false
+	if !(defaultnet == "off") {
 	if config.Config.Server.CreateDefault {
 		created, err := createDefaultNetwork()
 		if err != nil {
 			fmt.Printf("Error creating default network: %v", err)
 		}
-		if created {
+		if created && clientmode != "off" {
 			installserver = true
 		}
 	}
-
-	var waitgroup sync.WaitGroup
+	}
+	var waitnetwork sync.WaitGroup
 
 	if config.Config.Server.AgentBackend {
-		waitgroup.Add(1)
-		go runGRPC(&waitgroup, installserver)
+		waitnetwork.Add(1)
+		go runGRPC(&waitnetwork, installserver)
 	}
 
 	if config.Config.Server.RestBackend {
-		waitgroup.Add(1)
-		controller.HandleRESTRequests(&waitgroup)
+		waitnetwork.Add(1)
+		controller.HandleRESTRequests(&waitnetwork)
 	}
 	if !config.Config.Server.RestBackend && !config.Config.Server.AgentBackend {
 		fmt.Println("Oops! No Server Mode selected. Nothing being served.")
 	}
-	waitgroup.Wait()
+	waitnetwork.Wait()
 	fmt.Println("Exiting now.")
 }
 
@@ -193,35 +221,38 @@ func setGlobalConfig(globalconf models.GlobalConfig) (error) {
 func createDefaultNetwork() (bool, error) {
 
 	iscreated := false
-	exists, err := functions.GroupExists(config.Config.Server.DefaultNetName)
+	exists, err := functions.NetworkExists(config.Config.Server.DefaultNetName)
 
 	if exists || err != nil {
-		fmt.Println("Default group already exists")
-		fmt.Println("Skipping default group create")
+		fmt.Println("Default network already exists")
+		fmt.Println("Skipping default network create")
 		return iscreated, err
 	} else {
 
-	var group models.Group
+	var network models.Network
 
-	group.NameID = config.Config.Server.DefaultNetName
-	group.AddressRange = config.Config.Server.DefaultNetRange
-	group.DisplayName = config.Config.Server.DefaultNetName
-        group.SetDefaults()
-        group.SetNodesLastModified()
-        group.SetGroupLastModified()
-        group.KeyUpdateTimeStamp = time.Now().Unix()
+	network.NetID = config.Config.Server.DefaultNetName
+	network.AddressRange = config.Config.Server.DefaultNetRange
+	network.DisplayName = config.Config.Server.DefaultNetName
+        network.SetDefaults()
+        network.SetNodesLastModified()
+        network.SetNetworkLastModified()
+        network.KeyUpdateTimeStamp = time.Now().Unix()
+	priv := false
+	network.IsLocal = &priv
+        network.KeyUpdateTimeStamp = time.Now().Unix()
 	allow := true
-	group.AllowManualSignUp = &allow
+	network.AllowManualSignUp = &allow
 
-	fmt.Println("Creating default group.")
+	fmt.Println("Creating default network.")
 
 
-        collection := mongoconn.Client.Database("netmaker").Collection("groups")
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 
-        // insert our group into the group table
-        _, err = collection.InsertOne(ctx, group)
+        // insert our network into the network table
+        _, err = collection.InsertOne(ctx, network)
         defer cancel()
 
 	}

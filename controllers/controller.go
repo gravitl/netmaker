@@ -27,7 +27,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 
     nodeHandlers(r)
     userHandlers(r)
-    groupHandlers(r)
+    networkHandlers(r)
     fileHandlers(r)
     serverHandlers(r)
 

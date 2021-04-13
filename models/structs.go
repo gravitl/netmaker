@@ -32,7 +32,7 @@ type SuccessfulUserLoginResponse struct {
 // Claims is  a struct that will be encoded to a JWT.
 // jwt.StandardClaims is an embedded type to provide expiry time
 type Claims struct {
-    Group string
+    Network string
     MacAddress string
     jwt.StandardClaims
 }
@@ -49,7 +49,7 @@ type ErrorResponse struct {
 }
 
 type NodeAuth struct {
-    Group    string
+    Network    string
     Password string
     MacAddress string
 }
@@ -98,4 +98,15 @@ type PeersResponse struct {
     ListenPort int32 `json:"listenport" bson:"listenport"`
     KeepAlive int32 `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
+
+type GatewayRequest struct {
+    NodeID string `json:"nodeid" bson:"nodeid"`
+    NetID string `json:"netid" bson:"netid"`
+    RangeString string `json:"rangestring" bson:"rangestring"`
+    Ranges []string `json:"ranges" bson:"ranges"`
+    Interface string `json:"interface" bson:"interface"`
+    PostUp string `json:"postup" bson:"postup"`
+    PostDown string `json:"postdown" bson:"postdown"`
+}
+
 

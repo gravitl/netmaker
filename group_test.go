@@ -11,19 +11,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var Groups []models.Group
+var Networks []models.Network
 
-func TestCreateGroup(t *testing.T) {
-	group := models.Group{}
-	group.NameID = "skynet"
-	group.AddressRange = "10.71.0.0/16"
-	t.Run("CreateGroup", func(t *testing.T) {
-		response, err := api(t, group, http.MethodPost, "http://localhost:8081/api/groups", "secretkey")
+func TestCreateNetwork(t *testing.T) {
+	network := models.Network{}
+	network.NetID = "skynet"
+	network.AddressRange = "10.71.0.0/16"
+	t.Run("CreateNetwork", func(t *testing.T) {
+		response, err := api(t, network, http.MethodPost, "http://localhost:8081/api/networks", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
 	t.Run("InvalidToken", func(t *testing.T) {
-		response, err := api(t, group, http.MethodPost, "http://localhost:8081/api/groups", "badkey")
+		response, err := api(t, network, http.MethodPost, "http://localhost:8081/api/networks", "badkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		defer response.Body.Close()
@@ -41,23 +41,23 @@ func TestCreateGroup(t *testing.T) {
 		//issue #42
 		t.Skip()
 	})
-	t.Run("DuplicateGroup", func(t *testing.T) {
+	t.Run("DuplicateNetwork", func(t *testing.T) {
 		//issue #42
 		t.Skip()
 	})
 }
 
-func TestGetGroups(t *testing.T) {
+func TestGetNetworks(t *testing.T) {
 	t.Run("ValidToken", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups", "secretkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		err = json.NewDecoder(response.Body).Decode(&Groups)
+		err = json.NewDecoder(response.Body).Decode(&Networks)
 		assert.Nil(t, err, err)
 	})
 	t.Run("InvalidToken", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups", "badkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
@@ -69,19 +69,19 @@ func TestGetGroups(t *testing.T) {
 	})
 }
 
-func TestGetGroup(t *testing.T) {
+func TestGetNetwork(t *testing.T) {
 	t.Run("ValidToken", func(t *testing.T) {
-		var group models.Group
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network models.Network
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		err = json.NewDecoder(response.Body).Decode(&group)
+		err = json.NewDecoder(response.Body).Decode(&network)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "skynet", group.DisplayName)
+		assert.Equal(t, "skynet", network.DisplayName)
 	})
 	t.Run("InvalidToken", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet", "badkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
@@ -91,31 +91,31 @@ func TestGetGroup(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
 	})
-	t.Run("InvalidGroup", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/badgroup", "secretkey")
+	t.Run("InvalidNetwork", func(t *testing.T) {
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/badnetwork", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 }
 
-func TestGetGroupNodeNumber(t *testing.T) {
+func TestGetNetworkNodeNumber(t *testing.T) {
 	t.Run("ValidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet/numnodes", "secretkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/skynet/numnodes", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message int
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		//assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		//assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
 	t.Run("InvalidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet/numnodes", "badkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/skynet/numnodes", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
@@ -125,21 +125,21 @@ func TestGetGroupNodeNumber(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
 	})
-	t.Run("BadGroup", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/badgroup/numnodes", "secretkey")
+	t.Run("BadNetwork", func(t *testing.T) {
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/badnetwork/numnodes", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 }
 
-func TestDeleteGroup(t *testing.T) {
+func TestDeleteNetwork(t *testing.T) {
 	t.Run("InvalidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/skynet", "badkey")
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
@@ -150,7 +150,7 @@ func TestDeleteGroup(t *testing.T) {
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
 	})
 	t.Run("ValidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/skynet", "secretkey")
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message mongo.DeleteResult
@@ -160,21 +160,21 @@ func TestDeleteGroup(t *testing.T) {
 		assert.Equal(t, int64(1), message.DeletedCount)
 
 	})
-	t.Run("BadGroup", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/badgroup", "secretkey")
+	t.Run("BadNetwork", func(t *testing.T) {
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/badnetwork", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("NodesExist", func(t *testing.T) {
 		t.Skip()
 	})
-	//Create Group for follow-on tests
-	createGroup(t)
+	//Create Network for follow-on tests
+	createNetwork(t)
 }
 
 func TestCreateAccessKey(t *testing.T) {
@@ -182,7 +182,7 @@ func TestCreateAccessKey(t *testing.T) {
 	key.Name = "skynet"
 	key.Uses = 10
 	t.Run("MultiUse", func(t *testing.T) {
-		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/groups/skynet/keys", "secretkey")
+		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/networks/skynet/keys", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
@@ -197,7 +197,7 @@ func TestCreateAccessKey(t *testing.T) {
 	t.Run("ZeroUse", func(t *testing.T) {
 		//t.Skip()
 		key.Uses = 0
-		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/groups/skynet/keys", "secretkey")
+		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/networks/skynet/keys", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
@@ -211,14 +211,14 @@ func TestCreateAccessKey(t *testing.T) {
 	t.Run("DuplicateAccessKey", func(t *testing.T) {
 		//t.Skip()
 		//this will fail
-		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/groups/skynet/keys", "secretkey")
+		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/networks/skynet/keys", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 		deleteKey(t, key.Name, "skynet")
 	})
 
 	t.Run("InvalidToken", func(t *testing.T) {
-		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/groups/skynet/keys", "badkey")
+		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/networks/skynet/keys", "badkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		defer response.Body.Close()
@@ -228,14 +228,14 @@ func TestCreateAccessKey(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
 	})
-	t.Run("BadGroup", func(t *testing.T) {
-		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/groups/badgroup/keys", "secretkey")
+	t.Run("BadNetwork", func(t *testing.T) {
+		response, err := api(t, key, http.MethodPost, "http://localhost:8081/api/networks/badnetwork/keys", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 }
@@ -243,7 +243,7 @@ func TestCreateAccessKey(t *testing.T) {
 func TestDeleteKey(t *testing.T) {
 	t.Run("KeyValid", func(t *testing.T) {
 		//fails -- deletecount not returned
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/skynet/keys/skynet", "secretkey")
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/skynet/keys/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message mongo.DeleteResult
@@ -254,7 +254,7 @@ func TestDeleteKey(t *testing.T) {
 	})
 	t.Run("InValidKey", func(t *testing.T) {
 		//fails -- status message  not returned
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/skynet/keys/badkey", "secretkey")
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/skynet/keys/badkey", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
@@ -263,18 +263,18 @@ func TestDeleteKey(t *testing.T) {
 		assert.Equal(t, "W1R3: This key does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
-	t.Run("KeyInValidGroup", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/badgroup/keys/skynet", "secretkey")
+	t.Run("KeyInValidNetwork", func(t *testing.T) {
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/badnetwork/keys/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("InvalidCredentials", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/groups/skynet/keys/skynet", "badkey")
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/networks/skynet/keys/skynet", "badkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		defer response.Body.Close()
@@ -289,7 +289,7 @@ func TestDeleteKey(t *testing.T) {
 func TestGetKeys(t *testing.T) {
 	createKey(t)
 	t.Run("Valid", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet/keys", "secretkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/skynet/keys", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
@@ -298,18 +298,18 @@ func TestGetKeys(t *testing.T) {
 		assert.Nil(t, err, err)
 	})
 	//deletekeys
-	t.Run("InvalidGroup", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/badgroup/keys", "secretkey")
+	t.Run("InvalidNetwork", func(t *testing.T) {
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/badnetwork/keys", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("InvalidCredentials", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/groups/skynet/keys", "badkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/networks/skynet/keys", "badkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		defer response.Body.Close()
@@ -321,29 +321,29 @@ func TestGetKeys(t *testing.T) {
 	})
 }
 
-func TestUpdateGroup(t *testing.T) {
-	var returnedGroup models.Group
-	t.Run("UpdateNameID", func(t *testing.T) {
-		type Group struct {
-			NameID string
+func TestUpdateNetwork(t *testing.T) {
+	var returnedNetwork models.Network
+	t.Run("UpdateNetID", func(t *testing.T) {
+		type Network struct {
+			NetID string
 		}
-		var group Group
-		group.NameID = "wirecat"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.NetID = "wirecat"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.NameID, returnedGroup.NameID)
+		assert.Equal(t, network.NetID, returnedNetwork.NetID)
 	})
-	t.Run("NameIDInvalidCredentials", func(t *testing.T) {
-		type Group struct {
-			NameID string
+	t.Run("NetIDInvalidCredentials", func(t *testing.T) {
+		type Network struct {
+			NetID string
 		}
-		var group Group
-		group.NameID = "wirecat"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "badkey")
+		var network Network
+		network.NetID = "wirecat"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
@@ -352,83 +352,83 @@ func TestUpdateGroup(t *testing.T) {
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 	})
-	t.Run("InvalidGroup", func(t *testing.T) {
-		type Group struct {
-			NameID string
+	t.Run("InvalidNetwork", func(t *testing.T) {
+		type Network struct {
+			NetID string
 		}
-		var group Group
-		group.NameID = "wirecat"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/badgroup", "secretkey")
+		var network Network
+		network.NetID = "wirecat"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/badnetwork", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusNotFound, message.Code)
-		assert.Equal(t, "W1R3: This group does not exist.", message.Message)
+		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
-	t.Run("UpdateNameIDTooLong", func(t *testing.T) {
-		type Group struct {
-			NameID string
+	t.Run("UpdateNetIDTooLong", func(t *testing.T) {
+		type Network struct {
+			NetID string
 		}
-		var group Group
-		group.NameID = "wirecat-skynet"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.NetID = "wirecat-skynet"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 	t.Run("UpdateAddress", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			AddressRange string
 		}
-		var group Group
-		group.AddressRange = "10.0.0.1/24"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.AddressRange = "10.0.0.1/24"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.AddressRange, returnedGroup.AddressRange)
+		assert.Equal(t, network.AddressRange, returnedNetwork.AddressRange)
 	})
 	t.Run("UpdateAddressInvalid", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			AddressRange string
 		}
-		var group Group
-		group.AddressRange = "10.0.0.1/36"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.AddressRange = "10.0.0.1/36"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 	t.Run("UpdateDisplayName", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DisplayName string
 		}
-		var group Group
-		group.DisplayName = "wirecat"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DisplayName = "wirecat"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DisplayName, returnedGroup.DisplayName)
+		assert.Equal(t, network.DisplayName, returnedNetwork.DisplayName)
 
 	})
 	t.Run("UpdateDisplayNameInvalidName", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DisplayName string
 		}
-		var group Group
+		var network Network
 		//create name that is longer than 100 chars
 		name := ""
 		for i := 0; i < 101; i++ {
 			name = name + "a"
 		}
-		group.DisplayName = name
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		network.DisplayName = name
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
@@ -438,41 +438,41 @@ func TestUpdateGroup(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 	t.Run("UpdateInterface", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultInterface string
 		}
-		var group Group
-		group.DefaultInterface = "netmaker"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultInterface = "netmaker"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DefaultInterface, returnedGroup.DefaultInterface)
+		assert.Equal(t, network.DefaultInterface, returnedNetwork.DefaultInterface)
 
 	})
 	t.Run("UpdateListenPort", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultListenPort int32
 		}
-		var group Group
-		group.DefaultListenPort = 6000
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultListenPort = 6000
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DefaultListenPort, returnedGroup.DefaultListenPort)
+		assert.Equal(t, network.DefaultListenPort, returnedNetwork.DefaultListenPort)
 	})
 	t.Run("UpdateListenPortInvalidPort", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultListenPort int32
 		}
-		var group Group
-		group.DefaultListenPort = 1023
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultListenPort = 1023
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
@@ -482,54 +482,54 @@ func TestUpdateGroup(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 	t.Run("UpdatePostUP", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultPostUp string
 		}
-		var group Group
-		group.DefaultPostUp = "sudo wg add-conf wc-netmaker /etc/wireguard/peers/conf"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultPostUp = "sudo wg add-conf wc-netmaker /etc/wireguard/peers/conf"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DefaultPostUp, returnedGroup.DefaultPostUp)
+		assert.Equal(t, network.DefaultPostUp, returnedNetwork.DefaultPostUp)
 	})
 	t.Run("UpdatePreUP", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultPreUp string
 		}
-		var group Group
-		group.DefaultPreUp = "test string"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultPreUp = "test string"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DefaultPreUp, returnedGroup.DefaultPreUp)
+		assert.Equal(t, network.DefaultPreUp, returnedNetwork.DefaultPreUp)
 	})
 	t.Run("UpdateKeepAlive", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultKeepalive int32
 		}
-		var group Group
-		group.DefaultKeepalive = 60
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultKeepalive = 60
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DefaultKeepalive, returnedGroup.DefaultKeepalive)
+		assert.Equal(t, network.DefaultKeepalive, returnedNetwork.DefaultKeepalive)
 	})
 	t.Run("UpdateKeepAliveTooBig", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultKeepAlive int32
 		}
-		var group Group
-		group.DefaultKeepAlive = 1001
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultKeepAlive = 1001
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
@@ -541,57 +541,57 @@ func TestUpdateGroup(t *testing.T) {
 	t.Run("UpdateSaveConfig", func(t *testing.T) {
 		//causes panic
 		t.Skip()
-		type Group struct {
+		type Network struct {
 			DefaultSaveConfig *bool
 		}
-		var group Group
+		var network Network
 		value := false
-		group.DefaultSaveConfig = &value
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		network.DefaultSaveConfig = &value
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, *group.DefaultSaveConfig, *returnedGroup.DefaultSaveConfig)
+		assert.Equal(t, *network.DefaultSaveConfig, *returnedNetwork.DefaultSaveConfig)
 	})
 	t.Run("UpdateManualSignUP", func(t *testing.T) {
 		t.Skip()
-		type Group struct {
+		type Network struct {
 			AllowManualSignUp *bool
 		}
-		var group Group
+		var network Network
 		value := true
-		group.AllowManualSignUp = &value
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		network.AllowManualSignUp = &value
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, *group.AllowManualSignUp, *returnedGroup.AllowManualSignUp)
+		assert.Equal(t, *network.AllowManualSignUp, *returnedNetwork.AllowManualSignUp)
 	})
 	t.Run("DefaultCheckInterval", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultCheckInInterval int32
 		}
-		var group Group
-		group.DefaultCheckInInterval = 6000
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultCheckInInterval = 6000
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DefaultCheckInInterval, returnedGroup.DefaultCheckInInterval)
+		assert.Equal(t, network.DefaultCheckInInterval, returnedNetwork.DefaultCheckInInterval)
 	})
 	t.Run("DefaultCheckIntervalTooBig", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DefaultCheckInInterval int32
 		}
-		var group Group
-		group.DefaultCheckInInterval = 100001
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultCheckInInterval = 100001
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
@@ -601,20 +601,20 @@ func TestUpdateGroup(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 	t.Run("MultipleFields", func(t *testing.T) {
-		type Group struct {
+		type Network struct {
 			DisplayName       string
 			DefaultListenPort int32
 		}
-		var group Group
-		group.DefaultListenPort = 7777
-		group.DisplayName = "multi"
-		response, err := api(t, group, http.MethodPut, "http://localhost:8081/api/groups/skynet", "secretkey")
+		var network Network
+		network.DefaultListenPort = 7777
+		network.DisplayName = "multi"
+		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedGroup)
+		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, group.DisplayName, returnedGroup.DisplayName)
-		assert.Equal(t, group.DefaultListenPort, returnedGroup.DefaultListenPort)
+		assert.Equal(t, network.DisplayName, returnedNetwork.DisplayName)
+		assert.Equal(t, network.DefaultListenPort, returnedNetwork.DefaultListenPort)
 	})
 }
