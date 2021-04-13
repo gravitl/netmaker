@@ -93,7 +93,7 @@ func Install(accesskey string, password string, server string, network string, n
 			log.Fatalf("Something went wrong decoding your token: %v", err)
 		}
 		token := string(btoken)
-		tokenvals := strings.Split(token, ".")
+		tokenvals := strings.Split(token, "|")
 		tserver = tokenvals[0]
 		tnetwork = tokenvals[1]
 		tkey = tokenvals[2]
@@ -108,11 +108,15 @@ func Install(accesskey string, password string, server string, network string, n
 		if accesskey == "badkey" {
 			accesskey = tkey
 		}
+		fmt.Println(trange)
 		if trange != "" {
 			islocal = true
 			_, localrange, err = net.ParseCIDR(trange)
-			printrange = localrange.String()
-
+			if err == nil {
+				printrange = localrange.String()
+			} else {
+				//localrange = ""
+			}
 		} else {
 			printrange = "Not a local network. Will use public address for endpoint."
 		}

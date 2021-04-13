@@ -526,7 +526,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	netID := params["networkname"]
 	address := gconf.ServerGRPC + gconf.PortGRPC
 
-	accessstringdec := address + "." + netID + "." + accesskey.Value + "." + privAddr
+	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 
 	network.AccessKeys = append(network.AccessKeys, accesskey)

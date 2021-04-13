@@ -13,7 +13,7 @@ import (
 func DownloadNetclient() error {
 
 	// Get the data
-	resp, err := http.Get("https://github.com/gravitl/netmaker/releases/download/develop/netclient")
+	resp, err := http.Get("https://github.com/gravitl/netmaker/releases/download/latest/netclient")
 	if err != nil {
 		return err
 	}
