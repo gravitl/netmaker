@@ -25,4 +25,4 @@ When submitting a PR, you will be asked to sign a CLA, defined [here](https://gi
 This project is evolving quickly and we may want to move to an MIT or GPL license at some point in the near future, which would be difficult without a CLA.
 
 ## Licensing
-Any contributions you make will be under the SSPL Software License. When you submit code changes, you  understand that they will be under the same license that covers this project, defined [here](../licensing/LICENSE.txt). If you have any concerns around this, feel free to contact the maintainers.
+Any contributions you make will be under the SSPL Software License. When you submit code changes, you  understand that they will be under the same license that covers this project, defined [here](../LICENSE.txt). If you have any concerns around this, feel free to contact the maintainers.
