@@ -1260,7 +1260,7 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
                         fmt.Println(err)
 			break
                 }
-			spew.Dump(res)
+		spew.Dump(res)
 
                 // if err, return an error
                 if err != nil {
@@ -1272,6 +1272,12 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
                         return peers, err
 			}
                 }
+		fmt.Println("Got Peer: "  + res.Peers.Publickey)
+		fmt.Println("    Address: " +res.Peers.Address)
+		fmt.Printf("    ListenPort: ",res.Peers.Listenport)
+		fmt.Println("")
+		fmt.Printf("    Gateway?: ",res.Peers.Isgateway)
+		fmt.Println("")
 		pubkey, err := wgtypes.ParseKey(res.Peers.Publickey)
                 if err != nil {
 			fmt.Println("error parsing key")
@@ -1292,6 +1298,7 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 				fmt.Println("NOT SETTING GATEWAY")
 				fmt.Println(err)
 			} else {
+				fmt.Println("    Gateway Range: "  + res.Peers.Gatewayrange)
 				allowedips = append(allowedips, *ipnet)
 			}
 		}
