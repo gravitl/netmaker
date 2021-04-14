@@ -1,4 +1,12 @@
-# Getting Started (Simple Setup)
+# Getting Started
+
+This guide covers the fundamentals of using Netmaker.
+
+## Quick Start
+
+
+## Non-Docker Setup
+
 ### Server Setup
  1. Get yourself a linux server and make sure it has a public IP.
  2. Deploy MongoDB `docker volume create mongovol && docker run -d --name mongodb -v mongovol:/data/db --network host -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=mongopass mongo --bind_ip 0.0.0.0 `

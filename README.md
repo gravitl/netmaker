@@ -77,7 +77,3 @@ Netmaker's source code and all artifacts in this repository are freely available
 Email: alex@gravitl.com  
 Discord: https://discord.gg/zRb9Vfhk8A
 
-#### SUPPORT
-
-BTC: 3JE5ejpwu9i4vwA4rePkEDBEPpFY1xzJuN  
-ETH: 0xB6c5D23F2bE2100A5a2D337911A7Ef7575B4f91A
