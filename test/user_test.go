@@ -52,8 +52,6 @@ func TestAdminCreation(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	t.Skip()
-	//ensure admin exists
 	if !adminExists(t) {
 		t.Log("no admin - creating")
 		addAdmin(t)
@@ -61,13 +59,11 @@ func TestGetUser(t *testing.T) {
 		t.Log("admin exists")
 	}
 
-	//authenticate
 	t.Run("GetUserWithValidToken", func(t *testing.T) {
 		t.Skip()
 		token, err := authenticate(t)
 		assert.Nil(t, err, err)
 		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/users/admin", token)
-		//response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/users/admin", "secretkey")
 		t.Log(response)
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
@@ -135,7 +131,6 @@ func TestDeleteUser(t *testing.T) {
 		assert.Panics(t, function, "")
 	})
 	t.Run("DeleteUser-InvalidCredentials", func(t *testing.T) {
-		t.Skip()
 		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
@@ -159,7 +154,6 @@ func TestDeleteUser(t *testing.T) {
 		}
 		assert.Panics(t, function, "")
 	})
-	addAdmin(t)
 }
 
 func TestAuthenticateUser(t *testing.T) {
