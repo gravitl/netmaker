@@ -1278,6 +1278,7 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 		fmt.Println("")
 		fmt.Printf("    Gateway?: ",res.Peers.Isgateway)
 		fmt.Println("")
+                fmt.Println("    Gate Range: " + res.Peers.Gatewayrange)
 		pubkey, err := wgtypes.ParseKey(res.Peers.Publickey)
                 if err != nil {
 			fmt.Println("error parsing key")
