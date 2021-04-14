@@ -175,7 +175,6 @@ func TestDeletenetwork(t *testing.T) {
 	t.Run("NodesExist", func(t *testing.T) {
 		t.Skip()
 	})
-	//Create network for follow-on tests
 }
 
 func TestCreateAccessKey(t *testing.T) {
