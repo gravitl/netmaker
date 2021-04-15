@@ -500,7 +500,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	err =  ValidateNode("create", networkName, node)
         if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
+                returnErrorResponse(w,r,formatError(err, "badrequest"))
                 return
         }
 
@@ -746,7 +746,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
         err = ValidateNode("update", params["network"], nodechange)
         if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
+                returnErrorResponse(w,r,formatError(err, "badrequest"))
                 return
         }
 

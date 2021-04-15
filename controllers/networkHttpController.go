@@ -102,7 +102,39 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func validateNetwork(operation string, network models.Network) error {
+func validateNetworkUpdate(network models.Network) error {
+
+        v := validator.New()
+
+        _ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
+                isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+                return isvalid
+        })
+
+        _ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
+                isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+                return isvalid
+        })
+
+        _ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
+                return true
+        })
+
+        _ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
+                return true
+        })
+
+        err := v.Struct(network)
+
+        if err != nil {
+                for _, e := range err.(validator.ValidationErrors) {
+                        fmt.Println(e)
+                }
+        }
+        return err
+}
+
+func validateNetworkCreate(network models.Network) error {
 
         v := validator.New()
 
@@ -112,23 +144,19 @@ func validateNetwork(operation string, network models.Network) error {
         })
 
         _ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-                isvalid := !*network.IsLocal || functions.IsIpv4CIDR(fl.Field().String())
+                isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
                 return isvalid
         })
 
         _ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique := false
-		inCharSet := false
-		if operation == "update" { isFieldUnique = true } else{
-			isFieldUnique, _ = functions.IsNetworkNameUnique(fl.Field().String())
-			inCharSet        = functions.NameInNetworkCharSet(fl.Field().String())
-		}
+		isFieldUnique, _ := functions.IsNetworkNameUnique(fl.Field().String())
+		inCharSet        := functions.NameInNetworkCharSet(fl.Field().String())
 		return isFieldUnique && inCharSet
         })
 
         _ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
                 isFieldUnique, _ := functions.IsNetworkDisplayNameUnique(fl.Field().String())
-                return isFieldUnique ||  operation == "update"
+                return isFieldUnique
         })
 
         err := v.Struct(network)
@@ -281,9 +309,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-        //err = validateNetwork("update", networkChange)
+        err = validateNetworkUpdate(networkChange)
         if err != nil {
-		returnErrorResponse(w,r,formatError(err, "internal"))
+		returnErrorResponse(w,r,formatError(err, "badrequest"))
                 return
         }
 
@@ -475,9 +503,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
                 network.IsLocal = &falsevar
         }
 
-        //err = validateNetwork("create", network)
+        err = validateNetworkCreate(network)
         if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
+                returnErrorResponse(w,r,formatError(err, "badrequest"))
                 return
         }
 	network.SetDefaults()
