@@ -4,6 +4,7 @@ import (
         "fmt"
   "github.com/gravitl/netmaker/functions"
 	"io"
+	"errors"
 	"net/http"
         "os"
         "os/exec"
@@ -56,11 +57,13 @@ func AddNetwork(network string) (bool, error) {
                 fmt.Println("could not find or create /etc/netclient")
                 return false, err
         }
+	fmt.Println("Directory is ready.")
 	token, err := functions.CreateServerToken(network)
         if err != nil {
                 fmt.Println("could not create server token for " + network)
 		return false, err
         }
+	fmt.Println("Token is ready.")
         _, err = os.Stat("/etc/netclient/netclient")
 	if os.IsNotExist(err) {
 		err = DownloadNetclient()
@@ -74,12 +77,12 @@ func AddNetwork(network string) (bool, error) {
                 fmt.Println("could not change netclient directory permissions")
                 return false, err
         }
-	cmdoutput, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker").Output()
+	fmt.Println("Client is ready. Running install.")
+	out, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker").Output()
+        fmt.Println(string(out))
 	if err != nil {
-	        fmt.Println(string(cmdoutput))
-                return false, err
+                return false, errors.New(string(out) + err.Error())
         }
-	fmt.Println(string(cmdoutput))
 	fmt.Println("Server added to network " + network)
 	return true, err
 }

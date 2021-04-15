@@ -678,12 +678,41 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 Stderr: os.Stdout,
         }
         err = cmdIPLinkDown.Run()
-        err = cmdIPLinkUp.Run()
-        if  err  !=  nil {
+        if nodecfg.PostDown != "" {
+		runcmds := strings.Split(nodecfg.PostDown, "; ")
+		err = runCmds(runcmds)
+		if err != nil {
+			fmt.Println("Error encountered running PostDown: " + err.Error())
+		}
+	}
+
+	err = cmdIPLinkUp.Run()
+        if nodecfg.PostUp != "" {
+                runcmds := strings.Split(nodecfg.PostUp, "; ")
+                err = runCmds(runcmds)
+                if err != nil {
+                        fmt.Println("Error encountered running PostUp: " + err.Error())
+                }
+        }
+	if  err  !=  nil {
                 return err
         }
 	return err
 }
+func runCmds(commands []string) error {
+	var err error
+	for _, command := range commands {
+		fmt.Println("Running command: " + command)
+		args := strings.Fields(command)
+		out, err := exec.Command(args[0], args[1:]...).Output()
+		fmt.Println(string(out))
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 
 func setWGKeyConfig(network string, serveraddr string) error {
 
@@ -959,7 +988,7 @@ func CheckIn(network string) error {
                 if ifaceupdate {
 			fmt.Println("Interface update: " + currentiface +
 			" >>>> " + newinterface)
-                        err := DeleteInterface(currentiface)
+                        err := DeleteInterface(currentiface, nodecfg.PostDown)
                         if err != nil {
                                 fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
                         }
@@ -1206,12 +1235,19 @@ func WipeLocal(network string) error{
         if  err  !=  nil {
                 fmt.Println(err)
         }
+        if nodecfg.PostDown != "" {
+                runcmds := strings.Split(nodecfg.PostDown, "; ")
+                err = runCmds(runcmds)
+                if err != nil {
+                        fmt.Println("Error encountered running PostDown: " + err.Error())
+                }
+        }
 	}
 	return err
 
 }
 
-func DeleteInterface(ifacename string) error{
+func DeleteInterface(ifacename string, postdown string) error{
         ipExec, err := exec.LookPath("ip")
 
         cmdIPLinkDel := &exec.Cmd {
@@ -1223,6 +1259,13 @@ func DeleteInterface(ifacename string) error{
         err = cmdIPLinkDel.Run()
         if  err  !=  nil {
                 fmt.Println(err)
+        }
+        if postdown != "" {
+                runcmds := strings.Split(postdown, "; ")
+                err = runCmds(runcmds)
+                if err != nil {
+                        fmt.Println("Error encountered running PostDown: " + err.Error())
+                }
         }
         return err
 }

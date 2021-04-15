@@ -592,12 +592,12 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	nodechange.IsGateway = true
 	nodechange.GatewayRange = gateway.RangeString
 	if gateway.PostUp == "" {
-		nodechange.PostUp = "iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+		nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	} else {
 		nodechange.PostUp = gateway.PostUp
 	}
 	if gateway.PostDown == "" {
-		nodechange.PostDown = "iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+		nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	} else {
 		nodechange.PostDown = gateway.PostDown
 	}

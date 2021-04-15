@@ -63,6 +63,7 @@ func main() {
 
 	log.Println("Server starting...")
 	mongoconn.ConnectDatabase()
+
 	installserver := false
 	if !(defaultnet == "off") {
 	if config.Config.Server.CreateDefault {
