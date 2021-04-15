@@ -480,7 +480,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		network.IsLocal = &falsevar
 	}
 
-	//err = validateNetwork("create", network)
+	err = validateNetwork("create", network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
