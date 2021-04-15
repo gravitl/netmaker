@@ -538,7 +538,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
         if accesskey.Uses == 0 {
                 accesskey.Uses = 1
         }
-	gconf, err := functions.GetGlobalConfig()
+	_, gconf, err := functions.GetGlobalConfig()
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return

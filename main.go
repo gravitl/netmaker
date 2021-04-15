@@ -16,6 +16,7 @@ import (
     "fmt"
     "time"
     "net/http"
+    "strings"
     "errors"
     "io/ioutil"
     "os"
@@ -25,6 +26,7 @@ import (
     "strconv"
     "sync"
     "os/signal"
+    "go.mongodb.org/mongo-driver/mongo"
     service "github.com/gravitl/netmaker/controllers"
     nodepb "github.com/gravitl/netmaker/grpc"
     "google.golang.org/grpc"
@@ -127,7 +129,7 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
 	gconf.Name = "netmaker"
 	err := setGlobalConfig(gconf)
 
-	if err != nil {
+	if err != nil && err != mongo.ErrNoDocuments{
 	      log.Fatalf("Unable to set global config: %v", err)
 	}
 
@@ -159,11 +161,13 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
         fmt.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
 
 	if installserver {
-			fmt.Println("Adding server to default network")
+			fmt.Println("Adding server to " + config.Config.Server.DefaultNetName)
                         success, err := serverctl.AddNetwork(config.Config.Server.DefaultNetName)
                         if err != nil || !success {
                                 fmt.Printf("Error adding to default network: %v", err)
+				fmt.Println("")
 				fmt.Println("Unable to add server to network. Continuing.")
+				fmt.Println("Please investigate client installation on server.")
 			} else {
                                 fmt.Println("Server successfully added to default network.")
 			}
@@ -198,12 +202,16 @@ func setGlobalConfig(globalconf models.GlobalConfig) (error) {
         collection := mongoconn.Client.Database("netmaker").Collection("config")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	_, err := functions.GetGlobalConfig()
-	if err != nil {
+	create, _, err := functions.GetGlobalConfig()
+	if create {
 		_, err := collection.InsertOne(ctx, globalconf)
 		defer cancel()
 		if err != nil {
-			return err
+			if err == mongo.ErrNoDocuments || strings.Contains(err.Error(), "no documents in result"){
+				return nil
+			} else {
+				return err
+			}
 		}
 	} else {
 		filter := bson.M{"name": "netmaker"}
@@ -213,9 +221,13 @@ func setGlobalConfig(globalconf models.GlobalConfig) (error) {
 				{"portgrpc", globalconf.PortGRPC},
 			}},
 		}
-		err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&globalconf)
+		err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&globalconf)
+                        if err == mongo.ErrNoDocuments {
+			//if err == mongo.ErrNoDocuments || strings.Contains(err.Error(), "no documents in result"){
+                                return nil
+                        }
 	}
-	return nil
+	return err
 }
 
 func createDefaultNetwork() (bool, error) {

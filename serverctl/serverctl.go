@@ -15,6 +15,7 @@ func DownloadNetclient() error {
 	// Get the data
 	resp, err := http.Get("https://github.com/gravitl/netmaker/releases/download/latest/netclient")
 	if err != nil {
+                fmt.Println("could not download netclient")
 		return err
 	}
 	defer resp.Body.Close()
@@ -22,6 +23,7 @@ func DownloadNetclient() error {
 	// Create the file
 	out, err := os.Create("/etc/netclient/netclient")
 	if err != nil {
+                fmt.Println("could not create /etc/netclient")
 		return err
 	}
 	defer out.Close()
@@ -33,6 +35,7 @@ func DownloadNetclient() error {
 func RemoveNetwork(network string) (bool, error) {
 	_, err := os.Stat("/etc/netclient/netclient")
         if err != nil {
+                fmt.Println("could not find /etc/netclient")
 		return false, err
 	}
         cmdoutput, err := exec.Command("/etc/netclient/netclient","-c","remove","-n",network).Output()
@@ -50,22 +53,25 @@ func AddNetwork(network string) (bool, error) {
         if os.IsNotExist(err) {
                 os.Mkdir("/etc/netclient", 744)
         } else if err != nil {
-                fmt.Println("couldnt find or create /etc/netclient")
+                fmt.Println("could not find or create /etc/netclient")
                 return false, err
         }
 	token, err := functions.CreateServerToken(network)
         if err != nil {
-                return false, err
+                fmt.Println("could not create server token for " + network)
+		return false, err
         }
         _, err = os.Stat("/etc/netclient/netclient")
 	if os.IsNotExist(err) {
 		err = DownloadNetclient()
+                fmt.Println("could not download netclient")
 		if err != nil {
 			return false, err
 		}
 	}
         err = os.Chmod("/etc/netclient/netclient", 0755)
         if err != nil {
+                fmt.Println("could not change netclient directory permissions")
                 return false, err
         }
 	cmdoutput, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker").Output()
@@ -73,8 +79,8 @@ func AddNetwork(network string) (bool, error) {
 	        fmt.Println(string(cmdoutput))
                 return false, err
         }
+	fmt.Println(string(cmdoutput))
 	fmt.Println("Server added to network " + network)
 	return true, err
 }
-
 

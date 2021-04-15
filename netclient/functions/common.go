@@ -196,6 +196,8 @@ func Install(accesskey string, password string, server string, network string, n
 	var privatekey wgtypes.Key
 	var privkeystring string
 	var endpoint string
+	var postup string
+	var postdown string
 	var name string
 	var wginterface string
 
@@ -274,6 +276,17 @@ func Install(accesskey string, password string, server string, network string, n
         }
        fmt.Println("     Interface: " + wginterface)
 
+        if nodecfg.PostUp != "" {
+                postup = nodecfg.PostUp
+        }
+       fmt.Println("     PostUp: " + postup)
+
+       if nodecfg.PostDown!= "" {
+                postdown = nodecfg.PostDown
+        }
+       fmt.Println("     PostDown: " + postdown)
+
+
        if nodecfg.KeepAlive != 0 {
                 keepalive = nodecfg.KeepAlive
         }
@@ -347,6 +360,8 @@ func Install(accesskey string, password string, server string, network string, n
                 Accesskey: accesskey,
                 Nodenetwork:  network,
                 Listenport: listenport,
+                Postup: postup,
+                Postdown: postdown,
                 Keepalive: keepalive,
 		Localaddress: localaddress,
 		Interface: wginterface,
@@ -384,6 +399,8 @@ func Install(accesskey string, password string, server string, network string, n
        fmt.Println("     Local Address: " + node.Localaddress)
        fmt.Println("     Name: " + node.Name)
        fmt.Println("     Interface: " + node.Interface)
+       fmt.Println("     PostUp: " + node.Postup)
+       fmt.Println("     PostDown: " + node.Postdown)
        fmt.Println("     Port: " + strconv.FormatInt(int64(node.Listenport), 10))
        fmt.Println("     KeepAlive: " + strconv.FormatInt(int64(node.Keepalive), 10))
        fmt.Println("     Public Key: " + node.Publickey)
@@ -482,6 +499,12 @@ func modConfig(node *nodepb.Node) error{
         }
         if node.Localaddress != ""{
 		nodecfg.LocalAddress = node.Localaddress
+        }
+        if node.Postup != ""{
+                nodecfg.PostUp = node.Postup
+        }
+        if node.Postdown != ""{
+                nodecfg.PostDown = node.Postdown
         }
         if node.Listenport != 0{
                 nodecfg.Port = node.Listenport
