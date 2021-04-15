@@ -341,13 +341,13 @@ func TestUpdatenetwork(t *testing.T) {
 		network.NetID = "wirecat"
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		//returns previous value not the updated value
-		// ----- needs fixing -----
-		//assert.Equal(t, network.NetID, returnedNetwork.NetID)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Equal(t, "NetID is not editable", message.message)
 	})
 	t.Run("NetIDInvalidCredentials", func(t *testing.T) {
 		type Network struct {
