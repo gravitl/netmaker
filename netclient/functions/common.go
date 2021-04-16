@@ -196,6 +196,8 @@ func Install(accesskey string, password string, server string, network string, n
 	var privatekey wgtypes.Key
 	var privkeystring string
 	var endpoint string
+	var postup string
+	var postdown string
 	var name string
 	var wginterface string
 
@@ -274,6 +276,17 @@ func Install(accesskey string, password string, server string, network string, n
         }
        fmt.Println("     Interface: " + wginterface)
 
+        if nodecfg.PostUp != "" {
+                postup = nodecfg.PostUp
+        }
+       fmt.Println("     PostUp: " + postup)
+
+       if nodecfg.PostDown!= "" {
+                postdown = nodecfg.PostDown
+        }
+       fmt.Println("     PostDown: " + postdown)
+
+
        if nodecfg.KeepAlive != 0 {
                 keepalive = nodecfg.KeepAlive
         }
@@ -347,6 +360,8 @@ func Install(accesskey string, password string, server string, network string, n
                 Accesskey: accesskey,
                 Nodenetwork:  network,
                 Listenport: listenport,
+                Postup: postup,
+                Postdown: postdown,
                 Keepalive: keepalive,
 		Localaddress: localaddress,
 		Interface: wginterface,
@@ -384,6 +399,8 @@ func Install(accesskey string, password string, server string, network string, n
        fmt.Println("     Local Address: " + node.Localaddress)
        fmt.Println("     Name: " + node.Name)
        fmt.Println("     Interface: " + node.Interface)
+       fmt.Println("     PostUp: " + node.Postup)
+       fmt.Println("     PostDown: " + node.Postdown)
        fmt.Println("     Port: " + strconv.FormatInt(int64(node.Listenport), 10))
        fmt.Println("     KeepAlive: " + strconv.FormatInt(int64(node.Keepalive), 10))
        fmt.Println("     Public Key: " + node.Publickey)
@@ -482,6 +499,12 @@ func modConfig(node *nodepb.Node) error{
         }
         if node.Localaddress != ""{
 		nodecfg.LocalAddress = node.Localaddress
+        }
+        if node.Postup != ""{
+                nodecfg.PostUp = node.Postup
+        }
+        if node.Postdown != ""{
+                nodecfg.PostDown = node.Postdown
         }
         if node.Listenport != 0{
                 nodecfg.Port = node.Listenport
@@ -655,12 +678,41 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 Stderr: os.Stdout,
         }
         err = cmdIPLinkDown.Run()
-        err = cmdIPLinkUp.Run()
-        if  err  !=  nil {
+        if nodecfg.PostDown != "" {
+		runcmds := strings.Split(nodecfg.PostDown, "; ")
+		err = runCmds(runcmds)
+		if err != nil {
+			fmt.Println("Error encountered running PostDown: " + err.Error())
+		}
+	}
+
+	err = cmdIPLinkUp.Run()
+        if nodecfg.PostUp != "" {
+                runcmds := strings.Split(nodecfg.PostUp, "; ")
+                err = runCmds(runcmds)
+                if err != nil {
+                        fmt.Println("Error encountered running PostUp: " + err.Error())
+                }
+        }
+	if  err  !=  nil {
                 return err
         }
 	return err
 }
+func runCmds(commands []string) error {
+	var err error
+	for _, command := range commands {
+		fmt.Println("Running command: " + command)
+		args := strings.Fields(command)
+		out, err := exec.Command(args[0], args[1:]...).Output()
+		fmt.Println(string(out))
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 
 func setWGKeyConfig(network string, serveraddr string) error {
 
@@ -936,7 +988,7 @@ func CheckIn(network string) error {
                 if ifaceupdate {
 			fmt.Println("Interface update: " + currentiface +
 			" >>>> " + newinterface)
-                        err := DeleteInterface(currentiface)
+                        err := DeleteInterface(currentiface, nodecfg.PostDown)
                         if err != nil {
                                 fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
                         }
@@ -1183,12 +1235,19 @@ func WipeLocal(network string) error{
         if  err  !=  nil {
                 fmt.Println(err)
         }
+        if nodecfg.PostDown != "" {
+                runcmds := strings.Split(nodecfg.PostDown, "; ")
+                err = runCmds(runcmds)
+                if err != nil {
+                        fmt.Println("Error encountered running PostDown: " + err.Error())
+                }
+        }
 	}
 	return err
 
 }
 
-func DeleteInterface(ifacename string) error{
+func DeleteInterface(ifacename string, postdown string) error{
         ipExec, err := exec.LookPath("ip")
 
         cmdIPLinkDel := &exec.Cmd {
@@ -1200,6 +1259,13 @@ func DeleteInterface(ifacename string) error{
         err = cmdIPLinkDel.Run()
         if  err  !=  nil {
                 fmt.Println(err)
+        }
+        if postdown != "" {
+                runcmds := strings.Split(postdown, "; ")
+                err = runCmds(runcmds)
+                if err != nil {
+                        fmt.Println("Error encountered running PostDown: " + err.Error())
+                }
         }
         return err
 }
@@ -1260,7 +1326,7 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
                         fmt.Println(err)
 			break
                 }
-			spew.Dump(res)
+		spew.Dump(res)
 
                 // if err, return an error
                 if err != nil {
@@ -1272,6 +1338,13 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
                         return peers, err
 			}
                 }
+		fmt.Println("Got Peer: "  + res.Peers.Publickey)
+		fmt.Println("    Address: " +res.Peers.Address)
+		fmt.Printf("    ListenPort: ",res.Peers.Listenport)
+		fmt.Println("")
+		fmt.Printf("    Gateway?: ",res.Peers.Isgateway)
+		fmt.Println("")
+                fmt.Println("    Gate Range: " + res.Peers.Gatewayrange)
 		pubkey, err := wgtypes.ParseKey(res.Peers.Publickey)
                 if err != nil {
 			fmt.Println("error parsing key")
@@ -1292,6 +1365,7 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 				fmt.Println("NOT SETTING GATEWAY")
 				fmt.Println(err)
 			} else {
+				fmt.Println("    Gateway Range: "  + res.Peers.Gatewayrange)
 				allowedips = append(allowedips, *ipnet)
 			}
 		}

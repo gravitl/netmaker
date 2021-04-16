@@ -25,7 +25,7 @@ import (
 //node has that value for the same field within the network
 
 func CreateServerToken(netID string) (string, error) {
-
+	fmt.Println("Creating token.")
         var network models.Network
         var accesskey models.AccessKey
 
@@ -37,14 +37,29 @@ func CreateServerToken(netID string) (string, error) {
                 accesskey.Name = GenKeyName()
                 accesskey.Value = GenKey()
                 accesskey.Uses = 1
-        gconf, errG := GetGlobalConfig()
+        _, gconf, errG := GetGlobalConfig()
         if errG != nil {
                 return "", errG
         }
         address := "localhost" + gconf.PortGRPC
 
-        accessstringdec := address + "." + netID + "." + accesskey.Value
-        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+        privAddr := ""
+        if *network.IsLocal {
+                privAddr = network.LocalRange
+        }
+
+
+	fmt.Println("Token details:")
+	fmt.Println("    grpc address + port: " + address)
+	fmt.Println("                network: " + netID)
+	fmt.Println("          private range: " + privAddr)
+
+	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
+
+	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+
+        fmt.Println("          access string: " + accesskey.AccessString)
+
 
         network.AccessKeys = append(network.AccessKeys, accesskey)
 
@@ -504,7 +519,9 @@ func UniqueAddress(networkName string) (string, error){
 }
 
 //pretty simple get
-func GetGlobalConfig() ( models.GlobalConfig, error) {
+func GetGlobalConfig() (bool, models.GlobalConfig, error) {
+
+	create := false
 
         filter := bson.M{}
 
@@ -518,12 +535,16 @@ func GetGlobalConfig() ( models.GlobalConfig, error) {
 
         defer cancel()
 
-        if err != nil {
+	if err == mongo.ErrNoDocuments {
+                fmt.Println("Global config does not exist. Need to create.")
+		create = true
+		return create, globalconf, err
+	} else if err != nil {
                 fmt.Println(err)
                 fmt.Println("Could not get global config")
-                return globalconf, err
+                return create, globalconf, err
         }
-	return globalconf, err
+	return create, globalconf, err
 }
 
 

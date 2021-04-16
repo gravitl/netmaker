@@ -6,7 +6,7 @@ Most actions that can be performed via API can be performed via UI. We recommend
  
 #### Authentication
  In general, API calls must be authenticated via a header of  the format  `-H "Authorization: Bearer <YOUR_SECRET_KEY>"` There are two methods of obtaining YOUR_SECRET_KEY:
-1. Using the masterkey. By default, this value is "secret key," but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [getting started](./GETTING_STARTED.md) documentation for more details.
+1. Using the masterkey. By default, this value is "secret key," but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [general usage](./USAGE.md) documentation for more details.
 2. Using a JWT recieved for a node. This  can be retrieved by calling the `/api/nodes/<network>/authenticate` endpoint, as documented below.
 
 #### Format 

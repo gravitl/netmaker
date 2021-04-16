@@ -50,6 +50,10 @@ func CreateUserJWT(username string, isadmin bool) (response string, err error) {
 func VerifyUserToken(tokenString string) (username string, isadmin bool, err error) {
     claims := &models.UserClaims{}
 
+    if tokenString == config.Config.Server.MasterKey {
+        return "masteradministrator", true, nil
+    }
+
     token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
         return jwtSecretKey, nil
     })

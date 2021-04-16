@@ -500,7 +500,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	err =  ValidateNode("create", networkName, node)
         if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
+                returnErrorResponse(w,r,formatError(err, "badrequest"))
                 return
         }
 
@@ -592,12 +592,12 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	nodechange.IsGateway = true
 	nodechange.GatewayRange = gateway.RangeString
 	if gateway.PostUp == "" {
-		nodechange.PostUp = "iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+		nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	} else {
 		nodechange.PostUp = gateway.PostUp
 	}
 	if gateway.PostDown == "" {
-		nodechange.PostDown = "iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+		nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	} else {
 		nodechange.PostDown = gateway.PostDown
 	}
@@ -615,7 +615,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
         update := bson.D{
                 {"$set", bson.D{
                         {"postup", nodechange.PostUp},
-                        {"preup", nodechange.PostDown},
+                        {"postdown", nodechange.PostDown},
                         {"isgateway", nodechange.IsGateway},
                         {"gatewayrange", nodechange.GatewayRange},
 			{"lastmodified", nodechange.LastModified},
@@ -746,7 +746,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
         err = ValidateNode("update", params["network"], nodechange)
         if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
+                returnErrorResponse(w,r,formatError(err, "badrequest"))
                 return
         }
 

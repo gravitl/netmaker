@@ -1,0 +1,8 @@
+#!/bin/bash
+docker run -d \
+            -e MONGO_INITDB_ROOT_USERNAME:='mongoadmin' \
+            -e MONGO_INITDB_ROOT_PASSWORD:='mongopass' \
+            -p 27017:27017 mongo:4.2 
+go run . --clientmode=off
+cd test
+go test . -v

@@ -7,6 +7,7 @@ import (
     "github.com/gravitl/netmaker/mongoconn"
     "golang.org/x/crypto/bcrypt"
     "time"
+    "errors"
     "strings"
     "fmt"
     "context"
@@ -444,11 +445,16 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	success, err := DeleteUser(params["username"])
 
-	if err != nil || !success {
-		http.Error(w, err.Error(), 400)
+	if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
 		json.NewEncoder(w).Encode("Could not delete user " + params["username"])
 		return
-	}
+	} else if !success {
+                returnErrorResponse(w, r, formatError(errors.New("Delete unsuccessful."), "internal"))
+                json.NewEncoder(w).Encode("Could not delete user " + params["username"])
+                return
+        }
+
 
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
 }

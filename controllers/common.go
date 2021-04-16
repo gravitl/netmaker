@@ -300,11 +300,7 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
         //until one is open and then returns it
         node.Address, err = functions.UniqueAddress(networkName)
 
-        if err != nil {/*
-		errorResponse := models.ErrorResponse{
-                        Code: http.StatusInternalServerError, Message: "W1R3: Encountered an internal error! ",
-                }*/
-                //returnErrorResponse(w, r, errorResponse)
+        if err != nil {
                 return node, err
         }
 
