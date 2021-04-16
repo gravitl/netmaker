@@ -35,23 +35,17 @@ func TestCreateNetwork(t *testing.T) {
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
 	t.Run("DuplicateNetwork", func(t *testing.T) {
-		//issue #42
-		//t.Skip()
 		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusInternalServerError, response.StatusCode)
 	})
 	t.Run("BadName", func(t *testing.T) {
-		//issue #42
-		//t.Skip()
 		network.NetID = "thisnameistoolong"
 		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusInternalServerError, response.StatusCode)
 	})
 	t.Run("BadAddress", func(t *testing.T) {
-		//issue #42
-		//t.Skip()
 		network.NetID = "wirecat"
 		network.AddressRange = "10.300.20.56/36"
 		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
