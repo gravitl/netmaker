@@ -12,6 +12,7 @@ import (
 )
 
 func TestCreateNetwork(t *testing.T) {
+	t.Skip()
 	network := models.Network{}
 	network.NetID = "skynet"
 	network.AddressRange = "10.71.0.0/16"
@@ -47,6 +48,7 @@ func TestCreateNetwork(t *testing.T) {
 }
 
 func TestGetNetworks(t *testing.T) {
+	t.Skip()
 	t.Run("ValidToken", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
 		assert.Nil(t, err, err)
@@ -69,6 +71,7 @@ func TestGetNetworks(t *testing.T) {
 }
 
 func TestGetNetwork(t *testing.T) {
+	t.Skip()
 	t.Run("ValidToken", func(t *testing.T) {
 		var network models.Network
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet", "secretkey")
@@ -140,6 +143,7 @@ func TestGetnetworkNodeNumber(t *testing.T) {
 }
 
 func TestDeletenetwork(t *testing.T) {
+	t.Skip()
 	t.Run("InvalidKey", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
@@ -178,6 +182,7 @@ func TestDeletenetwork(t *testing.T) {
 }
 
 func TestCreateAccessKey(t *testing.T) {
+	t.Skip()
 	if !networkExists(t) {
 		createNetwork(t)
 	}
@@ -244,6 +249,7 @@ func TestCreateAccessKey(t *testing.T) {
 }
 
 func TestDeleteKey(t *testing.T) {
+	t.Skip()
 	t.Run("KeyValid", func(t *testing.T) {
 		//fails -- deletecount not returned
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/skynet", "secretkey")
@@ -294,6 +300,7 @@ func TestDeleteKey(t *testing.T) {
 }
 
 func TestGetKeys(t *testing.T) {
+	t.Skip()
 	createKey(t)
 	t.Run("Valid", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet/keys", "secretkey")
@@ -329,6 +336,7 @@ func TestGetKeys(t *testing.T) {
 }
 
 func TestUpdatenetwork(t *testing.T) {
+	t.Skip()
 	//ensure we are working with known networks
 	deleteNetworks(t)
 	createNetwork(t)

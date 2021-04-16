@@ -11,6 +11,7 @@ import (
 )
 
 func TestAdminCreation(t *testing.T) {
+	t.Skip()
 	var admin models.UserAuthParams
 	var user models.User
 	admin.UserName = "admin"
@@ -52,6 +53,7 @@ func TestAdminCreation(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
+	t.Skip()
 	if !adminExists(t) {
 		t.Log("no admin - creating")
 		addAdmin(t)
@@ -82,6 +84,7 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
+	t.Skip()
 	if !adminExists(t) {
 		addAdmin(t)
 	}
@@ -117,6 +120,7 @@ func TestUpdateUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
+	t.Skip()
 	if !adminExists(t) {
 		addAdmin(t)
 	}
@@ -157,6 +161,7 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestAuthenticateUser(t *testing.T) {
+	t.Skip()
 	cases := []AuthorizeTestCase{
 		AuthorizeTestCase{
 			testname:      "Invalid User",
