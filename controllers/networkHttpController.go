@@ -106,34 +106,34 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 func validateNetworkUpdate(network models.Network) error {
 
-        v := validator.New()
+	v := validator.New()
 
-        _ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
-                isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
-                return isvalid
-        })
+	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
+		isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+		return isvalid
+	})
 
-        _ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-                isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
-                return isvalid
-        })
+	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
+		isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+		return isvalid
+	})
 
-        _ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-                return true
-        })
+	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
+		return true
+	})
 
-        _ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
-                return true
-        })
+	_ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
+		return true
+	})
 
-        err := v.Struct(network)
+	err := v.Struct(network)
 
-        if err != nil {
-                for _, e := range err.(validator.ValidationErrors) {
-                        fmt.Println(e)
-                }
-        }
-        return err
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			fmt.Println(e)
+		}
+	}
+	return err
 }
 
 func validateNetworkCreate(network models.Network) error {
@@ -145,21 +145,21 @@ func validateNetworkCreate(network models.Network) error {
 		return isvalid
 	})
 
-  _ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-                isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
-                return isvalid
-  })
+	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
+		isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+		return isvalid
+	})
 
-        _ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
+	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
 		isFieldUnique, _ := functions.IsNetworkNameUnique(fl.Field().String())
-		inCharSet        := functions.NameInNetworkCharSet(fl.Field().String())
+		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
 		return isFieldUnique && inCharSet
 	})
 
-  _ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
-                isFieldUnique, _ := functions.IsNetworkDisplayNameUnique(fl.Field().String())
-                return isFieldUnique
-  })
+	_ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
+		isFieldUnique, _ := functions.IsNetworkDisplayNameUnique(fl.Field().String())
+		return isFieldUnique
+	})
 
 	err := v.Struct(network)
 
@@ -314,13 +314,13 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-  err = validateNetworkUpdate(networkChange)
-  if err != nil {
-         returnErrorResponse(w,r,formatError(err, "badrequest"))
-         return
-  }
+	err = validateNetworkUpdate(networkChange)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
 
-	//NOTE: Network.NetID is intentionally NOT editable. It acts as a static ID for the network. 
+	//NOTE: Network.NetID is intentionally NOT editable. It acts as a static ID for the network.
 	//DisplayName can be changed instead, which is what shows on the front end
 	if networkChange.NetID != network.NetID {
 		returnErrorResponse(w, r, formatError(errors.New("NetID is not editable"), "badrequest"))
@@ -508,24 +508,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateNetwork
 	//Need to implement some better validation across the board
 
-        if network.IsLocal == nil {
-                falsevar := false
-                network.IsLocal = &falsevar
-        }
+	if network.IsLocal == nil {
+		falsevar := false
+		network.IsLocal = &falsevar
+	}
 
-        err = validateNetworkCreate(network)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "badrequest"))
-                return
-        }
-	network.SetDefaults()
-        network.SetNodesLastModified()
-        network.SetNetworkLastModified()
-        network.KeyUpdateTimeStamp = time.Now().Unix()
-
-	err = validateNetwork("create", network)
+	err = validateNetworkCreate(network)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	network.SetDefaults()
@@ -582,14 +572,14 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 		accesskey.Value = functions.GenKey()
 	}
 
-        if accesskey.Uses == 0 {
-                accesskey.Uses = 1
-        }
+	if accesskey.Uses == 0 {
+		accesskey.Uses = 1
+	}
 	_, gconf, err := functions.GetGlobalConfig()
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	privAddr := ""
 	if *network.IsLocal {
