@@ -11,7 +11,7 @@ import (
 )
 
 func TestAdminCreation(t *testing.T) {
-	t.Skip()
+
 	var admin models.UserAuthParams
 	var user models.User
 	admin.UserName = "admin"
@@ -53,7 +53,7 @@ func TestAdminCreation(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	t.Skip()
+
 	if !adminExists(t) {
 		t.Log("no admin - creating")
 		addAdmin(t)
@@ -62,7 +62,7 @@ func TestGetUser(t *testing.T) {
 	}
 
 	t.Run("GetUserWithValidToken", func(t *testing.T) {
-		t.Skip()
+
 		token, err := authenticate(t)
 		assert.Nil(t, err, err)
 		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/users/admin", token)
@@ -84,7 +84,7 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	t.Skip()
+
 	if !adminExists(t) {
 		addAdmin(t)
 	}
@@ -120,23 +120,17 @@ func TestUpdateUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	t.Skip()
+
 	if !adminExists(t) {
+		t.Log("Creating Admin")
 		addAdmin(t)
 	}
 	token, err := authenticate(t)
 	assert.Nil(t, err, err)
-	t.Run("DeleteUser-WongAdmin", func(t *testing.T) {
-		//skip for now ... shouldn't panic
-		t.Skip()
-		function := func() {
-			_, _ = api(t, "", http.MethodDelete, "http://localhost:8081/api/users/xxxx", token)
-		}
-		assert.Panics(t, function, "")
-	})
 	t.Run("DeleteUser-InvalidCredentials", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", "secretkey")
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", "badcredentials")
 		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		var message models.ErrorResponse
 		json.NewDecoder(response.Body).Decode(&message)
 		assert.Equal(t, "W1R3: Error Verifying Auth Token.", message.Message)
@@ -150,18 +144,21 @@ func TestDeleteUser(t *testing.T) {
 		assert.Equal(t, "admin deleted.", body)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
-	t.Run("DeleteUser-NoAdmin", func(t *testing.T) {
-		//skip for now ... shouldn't panic
-		t.Skip()
-		function := func() {
-			_, _ = api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", token)
-		}
-		assert.Panics(t, function, "")
+	t.Run("DeleteUser-NonExistantAdmin", func(t *testing.T) {
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", token)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+		var message models.ErrorResponse
+		defer response.Body.Close()
+		json.NewDecoder(response.Body).Decode(&message)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Equal(t, "Delete unsuccessful.", message.Message)
 	})
+
 }
 
 func TestAuthenticateUser(t *testing.T) {
-	t.Skip()
+
 	cases := []AuthorizeTestCase{
 		AuthorizeTestCase{
 			testname:      "Invalid User",
