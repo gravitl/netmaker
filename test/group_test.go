@@ -12,6 +12,7 @@ import (
 )
 
 func TestCreateNetwork(t *testing.T) {
+	t.Skip()
 	network := models.Network{}
 	network.NetID = "skynet"
 	network.AddressRange = "10.71.0.0/16"
@@ -56,6 +57,7 @@ func TestCreateNetwork(t *testing.T) {
 }
 
 func TestGetNetworks(t *testing.T) {
+	t.Skip()
 	t.Run("ValidToken", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
 		assert.Nil(t, err, err)
@@ -78,6 +80,7 @@ func TestGetNetworks(t *testing.T) {
 }
 
 func TestGetNetwork(t *testing.T) {
+	t.Skip()
 	t.Run("ValidToken", func(t *testing.T) {
 		var network models.Network
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet", "secretkey")
@@ -149,6 +152,7 @@ func TestGetnetworkNodeNumber(t *testing.T) {
 }
 
 func TestDeletenetwork(t *testing.T) {
+	t.Skip()
 	t.Run("InvalidKey", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
