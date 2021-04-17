@@ -673,13 +673,20 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 	//basically, turn the list of access keys into the list of access keys before and after the item
 	//have not done any error handling for if there's like...1 item. I think it works? need to test.
+	found := false
 	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
 
 		currentkey := network.AccessKeys[i]
 		if currentkey.Name == keyname {
 			network.AccessKeys = append(network.AccessKeys[:i],
 				network.AccessKeys[i+1:]...)
+			found = true
 		}
+	}
+	if !found {
+		err = errors.New("key " + keyname + " does not exist")
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
 	}
 
 	collection := mongoconn.Client.Database("netmaker").Collection("networks")

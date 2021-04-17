@@ -222,7 +222,8 @@ func TestCreateAccessKey(t *testing.T) {
 }
 
 func TestDeleteKey(t *testing.T) {
-
+	//ensure key exists
+	createKey(t)
 	t.Run("KeyValid", func(t *testing.T) {
 		//fails -- deletecount not returned
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/skynet", "secretkey")
@@ -238,16 +239,15 @@ func TestDeleteKey(t *testing.T) {
 		}
 	})
 	t.Run("InValidKey", func(t *testing.T) {
-
-		//responds ok, will nil record returned..  should be an error.
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/badkey", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This key does not exist.", message.Message)
-		assert.Equal(t, http.StatusNotFound, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Equal(t, "key badkey does not exist", message.Message)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("KeyInValidnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/badnetwork/keys/skynet", "secretkey")
