@@ -194,7 +194,7 @@ func deleteNetworks(t *testing.T) {
 	err = json.NewDecoder(response.Body).Decode(&Networks)
 	assert.Nil(t, err, err)
 	for _, network := range Networks {
-		name := network.DisplayName
+		name := network.NetID
 		_, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/"+name, "secretkey")
 		assert.Nil(t, err, err)
 	}
