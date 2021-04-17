@@ -164,12 +164,15 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
 	if installserver {
 			fmt.Println("Adding server to " + config.Config.Server.DefaultNetName)
                         success, err := serverctl.AddNetwork(config.Config.Server.DefaultNetName)
-                        if err != nil || !success {
+                        if err != nil {
                                 fmt.Printf("Error adding to default network: %v", err)
 				fmt.Println("")
 				fmt.Println("Unable to add server to network. Continuing.")
 				fmt.Println("Please investigate client installation on server.")
-			} else {
+			} else if !success {
+                                fmt.Println("Unable to add server to network. Continuing.")
+                                fmt.Println("Please investigate client installation on server.")
+			} else{
                                 fmt.Println("Server successfully added to default network.")
 			}
 	}

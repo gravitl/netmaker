@@ -20,6 +20,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 	// convert string id (from proto) to mongoDB ObjectId
 	macaddress := req.GetMacaddress()
         networkName := req.GetNetwork()
+	network, _ := functions.GetParentNetwork(networkName)
 
 	node, err := GetNode(macaddress, networkName)
 
@@ -50,6 +51,9 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Publickey:  node.PublicKey,
 			Listenport:  node.ListenPort,
 			Keepalive:  node.PersistentKeepalive,
+                        Islocal:  *network.IsLocal,
+                        Localrange:  network.LocalRange,
+
 		},
 	}
 	return response, nil
@@ -87,9 +91,9 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
         //Check to see if key is valid
         //TODO: Triple inefficient!!! This is the third call to the DB we make for networks
         validKey := functions.IsKeyValid(node.Network, node.AccessKey)
+        network, _ := functions.GetParentNetwork(node.Network)
 
         if !validKey {
-		network, _ := functions.GetParentNetwork(node.Network)
                 //Check to see if network will allow manual sign up
                 //may want to switch this up with the valid key check and avoid a DB call that way.
                 if *network.AllowManualSignUp {
@@ -126,6 +130,8 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
                         Publickey:  node.PublicKey,
                         Listenport:  node.ListenPort,
                         Keepalive:  node.PersistentKeepalive,
+                        Islocal:  *network.IsLocal,
+                        Localrange:  network.LocalRange,
 		},
 	}
         err = SetNetworkNodesLastModified(node.Network)
@@ -208,6 +214,8 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	// Convert the Id string to a MongoDB ObjectId
 	macaddress := nodechange.MacAddress
 	networkName := nodechange.Network
+        network, _ := functions.GetParentNetwork(networkName)
+
 
 	err := ValidateNode("update", networkName, nodechange)
         if err != nil {
@@ -247,6 +255,8 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
                         Publickey:  newnode.PublicKey,
                         Listenport:  newnode.ListenPort,
                         Keepalive:  newnode.PersistentKeepalive,
+                        Islocal:  *network.IsLocal,
+                        Localrange:  network.LocalRange,
 
 		},
 	}, nil
