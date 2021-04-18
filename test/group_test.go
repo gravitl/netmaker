@@ -115,7 +115,7 @@ func TestGetNetwork(t *testing.T) {
 	})
 }
 
-func TestDeletenetwork(t *testing.T) {
+func TestDeleteMetwork(t *testing.T) {
 
 	t.Run("InvalidKey", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "badkey")
@@ -154,11 +154,10 @@ func TestDeletenetwork(t *testing.T) {
 	})
 }
 
-func TestCreateAccessKey(t *testing.T) {
-
-	if !networkExists(t) {
-		createNetwork(t)
-	}
+func TestCreateKey(t *testing.T) {
+	//ensure we are working with known networks
+	deleteNetworks(t)
+	createNetwork(t)
 
 	key := models.AccessKey{}
 	key.Name = "skynet"
@@ -222,6 +221,9 @@ func TestCreateAccessKey(t *testing.T) {
 }
 
 func TestDeleteKey(t *testing.T) {
+	//ensure we are working with known networks
+	deleteNetworks(t)
+	createNetwork(t)
 	//ensure key exists
 	createKey(t)
 	t.Run("KeyValid", func(t *testing.T) {
@@ -273,7 +275,9 @@ func TestDeleteKey(t *testing.T) {
 }
 
 func TestGetKeys(t *testing.T) {
-
+	//ensure we are working with known networks
+	deleteNetworks(t)
+	createNetwork(t)
 	createKey(t)
 	t.Run("Valid", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet/keys", "secretkey")
@@ -284,7 +288,6 @@ func TestGetKeys(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&keys)
 		assert.Nil(t, err, err)
 	})
-	//deletekeys
 	t.Run("Invalidnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/badnetwork/keys", "secretkey")
 		assert.Nil(t, err, err)
