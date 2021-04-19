@@ -255,16 +255,21 @@ func Install(accesskey string, password string, server string, network string, n
         if nodecfg.Endpoint == "" {
 		if islocal && localaddress != "" {
 			endpoint = localaddress
+			fmt.Println("Endpoint is local. Setting to address: " + endpoint)
 		} else {
+
 			endpoint, err = getPublicIP()
 			if err != nil {
+				fmt.Println("Error setting endpoint.")
 				return err
 			}
+			fmt.Println("Endpoint is public. Setting to address: " + endpoint)
 		}
         } else {
                 endpoint = nodecfg.Endpoint
+		fmt.Println("Endpoint set in config. Setting to address: " + endpoint)
         }
-       fmt.Println("     Public Endpoint: " + endpoint)
+       fmt.Println("     Endpoint: " + endpoint)
 
 
         if nodecfg.Name != "" {
@@ -414,6 +419,7 @@ func Install(accesskey string, password string, server string, network string, n
        fmt.Println("     Local Range: " + node.Localrange)
 
 	if !islocal && node.Islocal && node.Localrange != "" {
+		fmt.Println("Resetting local settings for local network.")
 		node.Localaddress, err = getLocalIP(node.Localrange)
 		if err != nil {
 			return err
@@ -948,7 +954,7 @@ func CheckIn(network string) error {
 
 	if !nodecfg.RoamingOff {
 		if !nodecfg.IsLocal {
-		fmt.Println("Checking to see if addresses have changed")
+		fmt.Println("Checking to see if public addresses have changed")
 		extIP, err := getPublicIP()
 		if err != nil {
 			fmt.Printf("Error encountered checking ip addresses: %v", err)
@@ -978,7 +984,7 @@ func CheckIn(network string) error {
 			ipchange = true
                 }
 		} else {
-                fmt.Println("Checking to see if address has changed")
+                fmt.Println("Checking to see if local addresses have changed")
                 localIP, err := getLocalIP(nodecfg.LocalRange)
                 if err != nil {
                         fmt.Printf("Error encountered checking ip addresses: %v", err)
@@ -1413,14 +1419,13 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 		res, err := stream.Recv()
                 // If end of stream, break the loop
 
-
 		if err == io.EOF {
 			break
                 }
                 // if err, return an error
                 if err != nil {
 			if strings.Contains(err.Error(), "mongo: no documents in result") {
-				break
+				continue
 			} else {
 			fmt.Println("ERROR ENCOUNTERED WITH RESPONSE")
 			fmt.Println(res)
@@ -1432,6 +1437,16 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 			fmt.Println("error parsing key")
                         return peers, hasGateway, gateways, err
                 }
+
+                if nodecfg.PublicKey == res.Peers.Publickey {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+                if nodecfg.Endpoint == res.Peers.Endpoint {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+
 		var peer wgtypes.PeerConfig
 		var peeraddr = net.IPNet{
 			IP: net.ParseIP(res.Peers.Address),
@@ -1439,7 +1454,6 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 		}
 		var allowedips []net.IPNet
 		allowedips = append(allowedips, peeraddr)
-
 		if res.Peers.Isgateway {
 			hasGateway = true
 			gateways = append(gateways,res.Peers.Gatewayrange)

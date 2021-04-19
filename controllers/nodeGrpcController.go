@@ -3,6 +3,7 @@ package controller
 import (
         "context"
 	"fmt"
+	"strconv"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/functions"
@@ -91,7 +92,16 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
         //Check to see if key is valid
         //TODO: Triple inefficient!!! This is the third call to the DB we make for networks
         validKey := functions.IsKeyValid(node.Network, node.AccessKey)
-        network, _ := functions.GetParentNetwork(node.Network)
+        network, err := functions.GetParentNetwork(node.Network)
+        if err != nil {
+                return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find network: %v", err))
+        } else {
+		fmt.Println("Creating node in network " + network.NetID)
+		fmt.Println("Network is local? " + strconv.FormatBool(*network.IsLocal))
+		fmt.Println("Range if local: " + network.LocalRange)
+	}
+
+
 
         if !validKey {
                 //Check to see if network will allow manual sign up
