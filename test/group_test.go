@@ -473,22 +473,18 @@ func TestUpdateNetwork(t *testing.T) {
 		assert.Equal(t, network.DefaultPostUp, returnedNetwork.DefaultPostUp)
 	})
 	t.Run("UpdatePostDown", func(t *testing.T) {
-		// -------needs fixing ------
-		// mismatch in models.Network between struc name and json/bson name
-		// does not get updated.
-
 		type Network struct {
-			DefaultPreUp string
+			DefaultPostDown string
 		}
 		var network Network
-		network.DefaultPreUp = "test string"
+		network.DefaultPostDown = "test string"
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, network.DefaultPreUp, returnedNetwork.DefaultPostDown)
+		assert.Equal(t, network.DefaultPostDown, returnedNetwork.DefaultPostDown)
 	})
 	t.Run("UpdateKeepAlive", func(t *testing.T) {
 		type Network struct {
