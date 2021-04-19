@@ -472,7 +472,7 @@ func TestUpdateNetwork(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, network.DefaultPostUp, returnedNetwork.DefaultPostUp)
 	})
-	t.Run("UpdatePreUp", func(t *testing.T) {
+	t.Run("UpdatePostDown", func(t *testing.T) {
 		// -------needs fixing ------
 		// mismatch in models.Network between struc name and json/bson name
 		// does not get updated.

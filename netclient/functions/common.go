@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"fmt"
 	"time"
 	"errors"
@@ -110,6 +109,7 @@ func Install(accesskey string, password string, server string, network string, n
 		}
 		fmt.Println(trange)
 		if trange != "" {
+			fmt.Println("This is a local network. Proceeding with local address as endpoint.")
 			islocal = true
 			_, localrange, err = net.ParseCIDR(trange)
 			if err == nil {
@@ -201,16 +201,6 @@ func Install(accesskey string, password string, server string, network string, n
 	var name string
 	var wginterface string
 
-	if nodecfg.Endpoint == "" {
-		endpoint, err = getPublicIP()
-                if err != nil {
-                        return err
-                }
-        } else {
-		endpoint = nodecfg.Endpoint
-	}
-       fmt.Println("     Public Endpoint: " + endpoint)
-
 	if nodecfg.LocalAddress == "" {
 		ifaces, err := net.Interfaces()
                 if err != nil {
@@ -261,6 +251,26 @@ func Install(accesskey string, password string, server string, network string, n
 		localaddress = nodecfg.LocalAddress
 	}
        fmt.Println("     Local Address: " + localaddress)
+
+        if nodecfg.Endpoint == "" {
+		if islocal && localaddress != "" {
+			endpoint = localaddress
+			fmt.Println("Endpoint is local. Setting to address: " + endpoint)
+		} else {
+
+			endpoint, err = getPublicIP()
+			if err != nil {
+				fmt.Println("Error setting endpoint.")
+				return err
+			}
+			fmt.Println("Endpoint is public. Setting to address: " + endpoint)
+		}
+        } else {
+                endpoint = nodecfg.Endpoint
+		fmt.Println("Endpoint set in config. Setting to address: " + endpoint)
+        }
+       fmt.Println("     Endpoint: " + endpoint)
+
 
         if nodecfg.Name != "" {
                 name = nodecfg.Name
@@ -405,6 +415,17 @@ func Install(accesskey string, password string, server string, network string, n
        fmt.Println("     KeepAlive: " + strconv.FormatInt(int64(node.Keepalive), 10))
        fmt.Println("     Public Key: " + node.Publickey)
        fmt.Println("     Mac Address: " + node.Macaddress)
+       fmt.Println("     Is Local?: " + strconv.FormatBool(node.Islocal))
+       fmt.Println("     Local Range: " + node.Localrange)
+
+	if !islocal && node.Islocal && node.Localrange != "" {
+		fmt.Println("Resetting local settings for local network.")
+		node.Localaddress, err = getLocalIP(node.Localrange)
+		if err != nil {
+			return err
+		}
+		node.Endpoint = node.Localaddress
+	}
 
         err = modConfig(node)
         if err != nil {
@@ -419,10 +440,9 @@ func Install(accesskey string, password string, server string, network string, n
 			err = ConfigureSystemD(network)
 			return err
 		}
-
 	}
 
-	peers, err := getPeers(node.Macaddress, network, server)
+	peers, hasGateway, gateways, err := getPeers(node.Macaddress, network, server)
 
 	if err != nil {
                 return err
@@ -432,7 +452,7 @@ func Install(accesskey string, password string, server string, network string, n
         if err != nil {
                 return err
         }
-	err = initWireguard(node, privkeystring, peers)
+	err = initWireguard(node, privkeystring, peers, hasGateway, gateways)
         if err != nil {
                 return err
         }
@@ -444,6 +464,52 @@ func Install(accesskey string, password string, server string, network string, n
         }
 
 	return err
+}
+
+func getLocalIP(localrange string) (string, error) {
+	_, localRange, err := net.ParseCIDR(localrange)
+        if err != nil {
+                return "", err
+        }
+	ifaces, err := net.Interfaces()
+        if err != nil {
+		return "", err
+        }
+        var local string
+        found := false
+        for _, i := range ifaces {
+        if i.Flags&net.FlagUp == 0 {
+		continue // interface down
+        }
+        if i.Flags&net.FlagLoopback != 0 {
+		continue // loopback interface
+        }
+	addrs, err := i.Addrs()
+        if err != nil {
+                return "", err
+        }
+        for _, addr := range addrs {
+                var ip net.IP
+                switch v := addr.(type) {
+                case *net.IPNet:
+			if !found {
+				 ip = v.IP
+                                 local = ip.String()
+                                 found = localRange.Contains(ip)
+                        }
+		case *net.IPAddr:
+			if !found {
+				ip = v.IP
+                                local = ip.String()
+                                found = localRange.Contains(ip)
+                        }
+                }
+        }
+        }
+	if !found || local == "" {
+		return "", errors.New("Failed to find local IP in range " + localrange)
+	}
+	return local, nil
 }
 
 func getPublicIP() (string, error) {
@@ -478,9 +544,7 @@ func modConfig(node *nodepb.Node) error{
 	if network == "" {
 		return errors.New("No Network Provided")
 	}
-	//modconfig := config.Config
 	modconfig, err := config.ReadConfig(network)
-	//modconfig.ReadConfig()
 	if err != nil {
 		return err
 	}
@@ -527,6 +591,10 @@ func modConfig(node *nodepb.Node) error{
         if node.Postchanges != "" {
                 nodecfg.PostChanges = node.Postchanges
         }
+        if node.Localrange != "" && node.Islocal {
+                nodecfg.IsLocal = true
+                nodecfg.LocalRange = node.Localrange
+        }
 	modconfig.Node = nodecfg
 	err = config.Write(modconfig, network)
 	return err
@@ -549,7 +617,7 @@ func getMacAddr() ([]string, error) {
 }
 
 
-func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig) error  {
+func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error  {
 
 	ipExec, err := exec.LookPath("ip")
 	if err !=  nil {
@@ -687,16 +755,26 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	err = cmdIPLinkUp.Run()
-        if nodecfg.PostUp != "" {
+        if  err  !=  nil {
+                return err
+        }
+
+	if nodecfg.PostUp != "" {
                 runcmds := strings.Split(nodecfg.PostUp, "; ")
                 err = runCmds(runcmds)
                 if err != nil {
                         fmt.Println("Error encountered running PostUp: " + err.Error())
                 }
         }
-	if  err  !=  nil {
-                return err
-        }
+	if (hasGateway) {
+		for _, gateway := range gateways {
+			out, err := exec.Command(ipExec,"-4","route","add",gateway,"dev",ifacename).Output()
+                fmt.Println(string(out))
+		if err != nil {
+                        fmt.Println("Error encountered adding gateway: " + err.Error())
+                }
+	}
+	}
 	return err
 }
 func runCmds(commands []string) error {
@@ -789,7 +867,7 @@ func setWGConfig(network string) error {
         nodecfg := cfg.Node
         node := getNode(network)
 
-	peers, err := getPeers(node.Macaddress, nodecfg.Network, servercfg.Address)
+	peers, hasGateway, gateways, err := getPeers(node.Macaddress, nodecfg.Network, servercfg.Address)
         if err != nil {
                 return err
         }
@@ -798,7 +876,7 @@ func setWGConfig(network string) error {
                 return err
         }
 
-        err = initWireguard(&node, privkey, peers)
+        err = initWireguard(&node, privkey, peers, hasGateway, gateways)
         if err != nil {
                 return err
         }
@@ -875,7 +953,8 @@ func CheckIn(network string) error {
 	ipchange := false
 
 	if !nodecfg.RoamingOff {
-		fmt.Println("Checking to see if addresses have changed")
+		if !nodecfg.IsLocal {
+		fmt.Println("Checking to see if public addresses have changed")
 		extIP, err := getPublicIP()
 		if err != nil {
 			fmt.Printf("Error encountered checking ip addresses: %v", err)
@@ -904,6 +983,25 @@ func CheckIn(network string) error {
 			node.Postchanges = "true"
 			ipchange = true
                 }
+		} else {
+                fmt.Println("Checking to see if local addresses have changed")
+                localIP, err := getLocalIP(nodecfg.LocalRange)
+                if err != nil {
+                        fmt.Printf("Error encountered checking ip addresses: %v", err)
+                }
+                if nodecfg.Endpoint != localIP  && localIP != "" {
+                        fmt.Println("Endpoint has changed from " +
+                        nodecfg.Endpoint + " to " + localIP)
+                        fmt.Println("Updating address")
+                        nodecfg.Endpoint = localIP
+                        nodecfg.LocalAddress = localIP
+                        nodecfg.PostChanges = "true"
+                        node.Endpoint = localIP
+                        node.Localaddress = localIP
+                        node.Postchanges = "true"
+                        ipchange = true
+                }
+		}
 		if node.Postchanges != "true" {
 			fmt.Println("Addresses have not changed.")
 		}
@@ -992,8 +1090,11 @@ func CheckIn(network string) error {
                         if err != nil {
                                 fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
                         }
-                }
                 err = setWGConfig(network)
+                if err != nil {
+                        log.Printf("Error updating interface: %v", err)
+                }
+		}
 		}
 
 	if checkinres.Checkinresponse.Needconfigupdate {
@@ -1270,8 +1371,10 @@ func DeleteInterface(ifacename string, postdown string) error{
         return err
 }
 
-func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerConfig, error) {
+func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerConfig, bool, []string, error) {
         //need to  implement checkin on server side
+	hasGateway := false
+	var gateways []string
 	var peers []wgtypes.PeerConfig
 	var wcclient nodepb.NodeServiceClient
         cfg, err := config.ReadConfig(network)
@@ -1304,7 +1407,7 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 	ctx, err = SetJWT(wcclient, network)
         if err != nil {
 		fmt.Println("Failed to authenticate.")
-                return peers, err
+                return peers, hasGateway, gateways, err
         }
         var header metadata.MD
 
@@ -1312,44 +1415,41 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 	if err != nil {
                 fmt.Println("Error retrieving peers")
                 fmt.Println(err)
-		return nil, err
+		return nil, hasGateway, gateways, err
         }
 	fmt.Println("Parsing peers response")
 	for {
 		res, err := stream.Recv()
                 // If end of stream, break the loop
 
-
 		if err == io.EOF {
-                        fmt.Println("ERROR ENCOUNTERED WITH peer")
-                        fmt.Println(res)
-                        fmt.Println(err)
 			break
                 }
-		spew.Dump(res)
-
                 // if err, return an error
                 if err != nil {
 			if strings.Contains(err.Error(), "mongo: no documents in result") {
-				break
+				continue
 			} else {
 			fmt.Println("ERROR ENCOUNTERED WITH RESPONSE")
 			fmt.Println(res)
-                        return peers, err
+                        return peers, hasGateway, gateways, err
 			}
                 }
-		fmt.Println("Got Peer: "  + res.Peers.Publickey)
-		fmt.Println("    Address: " +res.Peers.Address)
-		fmt.Printf("    ListenPort: ",res.Peers.Listenport)
-		fmt.Println("")
-		fmt.Printf("    Gateway?: ",res.Peers.Isgateway)
-		fmt.Println("")
-                fmt.Println("    Gate Range: " + res.Peers.Gatewayrange)
 		pubkey, err := wgtypes.ParseKey(res.Peers.Publickey)
                 if err != nil {
 			fmt.Println("error parsing key")
-                        return peers, err
+                        return peers, hasGateway, gateways, err
                 }
+
+                if nodecfg.PublicKey == res.Peers.Publickey {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+                if nodecfg.Endpoint == res.Peers.Endpoint {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+
 		var peer wgtypes.PeerConfig
 		var peeraddr = net.IPNet{
 			IP: net.ParseIP(res.Peers.Address),
@@ -1357,8 +1457,9 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 		}
 		var allowedips []net.IPNet
 		allowedips = append(allowedips, peeraddr)
-
 		if res.Peers.Isgateway {
+			hasGateway = true
+			gateways = append(gateways,res.Peers.Gatewayrange)
 			_, ipnet, err := net.ParseCIDR(res.Peers.Gatewayrange)
 			if err != nil {
 				fmt.Println("ERROR ENCOUNTERED SETTING GATEWAY")
@@ -1395,5 +1496,5 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 
         }
 	fmt.Println("Finished parsing peers response")
-	return peers, err
+	return peers, hasGateway, gateways, err
 }

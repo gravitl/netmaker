@@ -43,6 +43,8 @@ message Node {
     string localaddress = 20;
     string postchanges = 21;
     string allowedips = 22;
+    bool islocal = 23;
+    string localrange = 24;
 }
 
 message CheckInResponse {

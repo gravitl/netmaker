@@ -495,19 +495,19 @@ func TestUpdateNetwork(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, network.DefaultPostUp, returnedNetwork.DefaultPostUp)
 	})
-	t.Run("UpdatePreUP", func(t *testing.T) {
+	t.Run("UpdatePostDown", func(t *testing.T) {
 		type Network struct {
-			DefaultPreUp string
+			DefaultPostDown string
 		}
 		var network Network
-		network.DefaultPreUp = "test string"
+		network.DefaultPostDown = "test string"
 		response, err := api(t, network, http.MethodPut, "http://localhost:8081/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, network.DefaultPreUp, returnedNetwork.DefaultPreUp)
+		assert.Equal(t, network.DefaultPostDown, returnedNetwork.DefaultPostDown)
 	})
 	t.Run("UpdateKeepAlive", func(t *testing.T) {
 		type Network struct {
