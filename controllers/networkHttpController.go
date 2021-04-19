@@ -308,12 +308,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		networkChange.NetID = network.NetID
 	}
 
-	//err = validateNetwork("update", networkChange)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
 	err = validateNetworkUpdate(networkChange)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -326,7 +320,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(errors.New("NetID is not editable"), "badrequest"))
 		return
 	}
-
+	//MRK:  I think this code block is redundant.  valdiateNetworkUpdate(networkChange) covers this
 	if networkChange.AddressRange != "" {
 
 		network.AddressRange = networkChange.AddressRange
@@ -679,13 +673,20 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 	//basically, turn the list of access keys into the list of access keys before and after the item
 	//have not done any error handling for if there's like...1 item. I think it works? need to test.
+	found := false
 	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
 
 		currentkey := network.AccessKeys[i]
 		if currentkey.Name == keyname {
 			network.AccessKeys = append(network.AccessKeys[:i],
 				network.AccessKeys[i+1:]...)
+			found = true
 		}
+	}
+	if !found {
+		err = errors.New("key " + keyname + " does not exist")
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
 	}
 
 	collection := mongoconn.Client.Database("netmaker").Collection("networks")
