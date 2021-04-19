@@ -1,0 +1,96 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Netmaker version'
+        required: false
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Get Version Number
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            NETMAKER_VERSION=${{ github.event.inputs.version }}
+          else
+            NETMAKER_VERSION=$(curl -fsSL https://api.github.com/repos/gravitl/netmaker/tags | grep 'name' | head -1 | cut -d'"' -f4)
+          fi
+          echo "NETMAKER_VERSION=${NETMAKER_VERSION}" >> $GITHUB_ENV
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: Build
+        run: |
+          cd netclient
+          env GOOS=linux GOARCH=amd64 go build -o build/netclient main.go
+          env GOOS=linux GOARCH=arm GOARM=5 go build -o build/netclient-arm5/ main.go
+          env GOOS=linux GOARCH=arm GOARM=6 go build -o build/netclient-arm6/ main.go
+          env GOOS=linux GOARCH=arm GOARM=7 go build -o build/netclient-arm7/ main.go
+          env GOOS=linux GOARCH=arm64 go build -o build/netclient-arm64 main.go
+
+      - name: Upload arm5 to Release
+        if: github.event.inputs.version == ''
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-arm5
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm5
+
+      - name: Upload arm6 to Release
+        if: github.event.inputs.version == ''
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-arm6
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm6
+
+      - name: Upload arm7 to Release
+        if: github.event.inputs.version == ''
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-arm7
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm7
+
+      - name: Upload arm64 to Release
+        if: github.event.inputs.version == ''
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/netclient-arm64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm64
+
+      - name: Upload x86 to Release
+        if: github.event.inputs.version == ''
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient

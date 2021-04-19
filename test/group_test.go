@@ -12,15 +12,13 @@ import (
 )
 
 func TestCreateNetwork(t *testing.T) {
+
 	network := models.Network{}
 	network.NetID = "skynet"
 	network.AddressRange = "10.71.0.0/16"
-	deleteNetworks(t)
-	t.Run("CreateNetwork", func(t *testing.T) {
-		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
-	})
+	if networkExists(t) {
+		deleteNetworks(t)
+	}
 	t.Run("InvalidToken", func(t *testing.T) {
 		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "badkey")
 		assert.Nil(t, err, err)
@@ -32,21 +30,34 @@ func TestCreateNetwork(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
 	})
-	t.Run("BadName", func(t *testing.T) {
-		//issue #42
-		t.Skip()
-	})
-	t.Run("BadAddress", func(t *testing.T) {
-		//issue #42
-		t.Skip()
+	t.Run("CreateNetwork", func(t *testing.T) {
+		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
 	t.Run("DuplicateNetwork", func(t *testing.T) {
-		//issue #42
-		t.Skip()
+		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
+	t.Run("BadName", func(t *testing.T) {
+		network.NetID = "thisnameistoolong"
+		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+	t.Run("BadAddress", func(t *testing.T) {
+		network.NetID = "wirecat"
+		network.AddressRange = "10.300.20.56/36"
+		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+
 }
 
 func TestGetNetworks(t *testing.T) {
+
 	t.Run("ValidToken", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
 		assert.Nil(t, err, err)
@@ -69,6 +80,7 @@ func TestGetNetworks(t *testing.T) {
 }
 
 func TestGetNetwork(t *testing.T) {
+
 	t.Run("ValidToken", func(t *testing.T) {
 		var network models.Network
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet", "secretkey")
@@ -103,43 +115,8 @@ func TestGetNetwork(t *testing.T) {
 	})
 }
 
-func TestGetnetworkNodeNumber(t *testing.T) {
-	t.Skip()
-	//not part of api anymore
-	t.Run("ValidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet/numnodes", "secretkey")
-		assert.Nil(t, err, err)
-		defer response.Body.Close()
-		var message int
-		err = json.NewDecoder(response.Body).Decode(&message)
-		assert.Nil(t, err, err)
-		//assert.Equal(t, "W1R3: This network does not exist.", message.Message)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
-	})
-	t.Run("InvalidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet/numnodes", "badkey")
-		assert.Nil(t, err, err)
-		defer response.Body.Close()
-		var message models.ErrorResponse
-		err = json.NewDecoder(response.Body).Decode(&message)
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
-		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
-	})
-	t.Run("Badnetwork", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/badnetwork/numnodes", "secretkey")
-		assert.Nil(t, err, err)
-		defer response.Body.Close()
-		var message models.ErrorResponse
-		err = json.NewDecoder(response.Body).Decode(&message)
-		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
-		assert.Equal(t, http.StatusNotFound, response.StatusCode)
-	})
-}
+func TestDeleteMetwork(t *testing.T) {
 
-func TestDeletenetwork(t *testing.T) {
 	t.Run("InvalidKey", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
@@ -173,14 +150,14 @@ func TestDeletenetwork(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("NodesExist", func(t *testing.T) {
-		t.Skip()
+
 	})
 }
 
-func TestCreateAccessKey(t *testing.T) {
-	if !networkExists(t) {
-		createNetwork(t)
-	}
+func TestCreateKey(t *testing.T) {
+	//ensure we are working with known networks
+	deleteNetworks(t)
+	createNetwork(t)
 
 	key := models.AccessKey{}
 	key.Name = "skynet"
@@ -199,7 +176,7 @@ func TestCreateAccessKey(t *testing.T) {
 	})
 	deleteKey(t, "skynet", "skynet")
 	t.Run("ZeroUse", func(t *testing.T) {
-		//t.Skip()
+		//
 		key.Uses = 0
 		response, err := api(t, key, http.MethodPost, baseURL+"/api/networks/skynet/keys", "secretkey")
 		assert.Nil(t, err, err)
@@ -244,6 +221,11 @@ func TestCreateAccessKey(t *testing.T) {
 }
 
 func TestDeleteKey(t *testing.T) {
+	//ensure we are working with known networks
+	deleteNetworks(t)
+	createNetwork(t)
+	//ensure key exists
+	createKey(t)
 	t.Run("KeyValid", func(t *testing.T) {
 		//fails -- deletecount not returned
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/skynet", "secretkey")
@@ -259,16 +241,15 @@ func TestDeleteKey(t *testing.T) {
 		}
 	})
 	t.Run("InValidKey", func(t *testing.T) {
-		t.Skip()
-		//responds ok, will nil record returned..  should be an error.
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/badkey", "secretkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This key does not exist.", message.Message)
-		assert.Equal(t, http.StatusNotFound, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Equal(t, "key badkey does not exist", message.Message)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("KeyInValidnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/badnetwork/keys/skynet", "secretkey")
@@ -294,6 +275,9 @@ func TestDeleteKey(t *testing.T) {
 }
 
 func TestGetKeys(t *testing.T) {
+	//ensure we are working with known networks
+	deleteNetworks(t)
+	createNetwork(t)
 	createKey(t)
 	t.Run("Valid", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet/keys", "secretkey")
@@ -304,7 +288,6 @@ func TestGetKeys(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&keys)
 		assert.Nil(t, err, err)
 	})
-	//deletekeys
 	t.Run("Invalidnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/badnetwork/keys", "secretkey")
 		assert.Nil(t, err, err)
@@ -328,7 +311,7 @@ func TestGetKeys(t *testing.T) {
 	})
 }
 
-func TestUpdatenetwork(t *testing.T) {
+func TestUpdateNetwork(t *testing.T) {
 	//ensure we are working with known networks
 	deleteNetworks(t)
 	createNetwork(t)
@@ -341,28 +324,13 @@ func TestUpdatenetwork(t *testing.T) {
 		network.NetID = "wirecat"
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
-		assert.Nil(t, err, err)
-		//returns previous value not the updated value
-		// ----- needs fixing -----
-		//assert.Equal(t, network.NetID, returnedNetwork.NetID)
-	})
-	t.Run("NetIDInvalidCredentials", func(t *testing.T) {
-		type Network struct {
-			NetID string
-		}
-		var network Network
-		network.NetID = "wirecat"
-		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "badkey")
-		assert.Nil(t, err, err)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
-		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Equal(t, "NetID is not editable", message.Message)
 	})
 	t.Run("Invalidnetwork", func(t *testing.T) {
 		type Network struct {
@@ -379,19 +347,6 @@ func TestUpdatenetwork(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, message.Code)
 		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
-	})
-	t.Run("UpdateNetIDTooLong", func(t *testing.T) {
-		// ---- needs fixing -----
-		// succeeds for some reason
-		t.Skip()
-		type Network struct {
-			NetID string
-		}
-		var network Network
-		network.NetID = "wirecat-skynet"
-		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 	t.Run("UpdateAddress", func(t *testing.T) {
 		type Network struct {
@@ -415,13 +370,13 @@ func TestUpdatenetwork(t *testing.T) {
 		network.AddressRange = "10.0.0.1/36"
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusInternalServerError, message.Code)
-		assert.Contains(t, message.Message, "Invalid Range")
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Contains(t, message.Message, "validation for 'AddressRange' failed")
 
 	})
 	t.Run("UpdateDisplayName", func(t *testing.T) {
@@ -440,9 +395,6 @@ func TestUpdatenetwork(t *testing.T) {
 
 	})
 	t.Run("UpdateDisplayNameInvalidName", func(t *testing.T) {
-		// -----needs fixing ----
-		// fails silently
-		t.Skip()
 		type Network struct {
 			DisplayName string
 		}
@@ -455,12 +407,12 @@ func TestUpdatenetwork(t *testing.T) {
 		network.DisplayName = name
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnprocessableEntity, message.Code)
-		assert.Equal(t, "W1R3: Field validation for 'DisplayName' failed.", message.Message)
-		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Contains(t, message.Message, "Field validation for 'DisplayName' failed")
 	})
 	t.Run("UpdateInterface", func(t *testing.T) {
 		type Network struct {
@@ -492,9 +444,6 @@ func TestUpdatenetwork(t *testing.T) {
 		assert.Equal(t, network.DefaultListenPort, returnedNetwork.DefaultListenPort)
 	})
 	t.Run("UpdateListenPortInvalidPort", func(t *testing.T) {
-		// ---needs fixing -----
-		// value is updated anyways
-		t.Skip()
 		type Network struct {
 			DefaultListenPort int32
 		}
@@ -505,9 +454,9 @@ func TestUpdatenetwork(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnprocessableEntity, message.Code)
-		assert.Equal(t, "W1R3: Field validation for 'DefaultListenPort' failed.", message.Message)
-		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Contains(t, message.Message, "Field validation for 'DefaultListenPort' failed")
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("UpdatePostUP", func(t *testing.T) {
 		type Network struct {
@@ -527,19 +476,19 @@ func TestUpdatenetwork(t *testing.T) {
 		// -------needs fixing ------
 		// mismatch in models.Network between struc name and json/bson name
 		// does not get updated.
-		t.Skip()
+
 		type Network struct {
-			DefaultPostDown string
+			DefaultPreUp string
 		}
 		var network Network
-		network.DefaultPostDown = "test string"
+		network.DefaultPreUp = "test string"
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, network.DefaultPostDown, returnedNetwork.DefaultPostDown)
+		assert.Equal(t, network.DefaultPreUp, returnedNetwork.DefaultPostDown)
 	})
 	t.Run("UpdateKeepAlive", func(t *testing.T) {
 		type Network struct {
@@ -556,7 +505,7 @@ func TestUpdatenetwork(t *testing.T) {
 		assert.Equal(t, network.DefaultKeepalive, returnedNetwork.DefaultKeepalive)
 	})
 	t.Run("UpdateKeepAliveTooBig", func(t *testing.T) {
-		//fails silently
+		//does not fails ----- value gets updated.
 		// ----- needs fixing -----
 		t.Skip()
 		type Network struct {
@@ -569,13 +518,13 @@ func TestUpdatenetwork(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnprocessableEntity, message.Code)
-		assert.Equal(t, "W1R3: Field validation for 'DefaultKeepAlive' failed.", message.Message)
-		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Contains(t, message.Message, "Field validation for 'DefaultKeepAlive' failed")
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("UpdateSaveConfig", func(t *testing.T) {
-		//causes panic
 		t.Skip()
+		//does not appear to be updatable
 		type Network struct {
 			DefaultSaveConfig *bool
 		}
@@ -591,7 +540,6 @@ func TestUpdatenetwork(t *testing.T) {
 		assert.Equal(t, *network.DefaultSaveConfig, *returnedNetwork.DefaultSaveConfig)
 	})
 	t.Run("UpdateManualSignUP", func(t *testing.T) {
-		t.Skip()
 		type Network struct {
 			AllowManualSignUp *bool
 		}
@@ -604,10 +552,10 @@ func TestUpdatenetwork(t *testing.T) {
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, *network.AllowManualSignUp, *returnedNetwork.AllowManualSignUp)
+		assert.Equal(t, network.AllowManualSignUp, returnedNetwork.AllowManualSignUp)
 	})
 	t.Run("DefaultCheckInterval", func(t *testing.T) {
-		//value is not returned in struct ---
+		//value is not updated
 		t.Skip()
 		type Network struct {
 			DefaultCheckInInterval int32
@@ -625,6 +573,7 @@ func TestUpdatenetwork(t *testing.T) {
 	t.Run("DefaultCheckIntervalTooBig", func(t *testing.T) {
 		//value is not returned in struct ---
 		t.Skip()
+
 		type Network struct {
 			DefaultCheckInInterval int32
 		}
