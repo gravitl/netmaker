@@ -204,7 +204,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
                         {"expdatetime", node.ExpirationDateTime},
                         {"endpoint", node.Endpoint},
                         {"postup", node.PostUp},
-                        {"preup", node.PostDown},
+                        {"postdown", node.PostDown},
                         {"macaddress", node.MacAddress},
                         {"localaddress", node.LocalAddress},
                         {"persistentkeepalive", node.PersistentKeepalive},

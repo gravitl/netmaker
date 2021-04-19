@@ -686,7 +686,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
         update := bson.D{
                 {"$set", bson.D{
                         {"postup", nodechange.PostUp},
-                        {"preup", nodechange.PostDown},
+                        {"postdown", nodechange.PostDown},
                         {"isgateway", nodechange.IsGateway},
                         {"gatewayrange", nodechange.GatewayRange},
                         {"lastmodified", nodechange.LastModified},
@@ -703,7 +703,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
                 return
         }
 
-        err = SetNetworkNodesLastModified(params["networkname"])
+        err = SetNetworkNodesLastModified(params["network"])
         if err != nil {
                 returnErrorResponse(w,r,formatError(err, "internal"))
                 return
