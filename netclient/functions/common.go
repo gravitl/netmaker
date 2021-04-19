@@ -1090,8 +1090,11 @@ func CheckIn(network string) error {
                         if err != nil {
                                 fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
                         }
-                }
                 err = setWGConfig(network)
+                if err != nil {
+                        log.Printf("Error updating interface: %v", err)
+                }
+		}
 		}
 
 	if checkinres.Checkinresponse.Needconfigupdate {

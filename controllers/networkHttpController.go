@@ -218,25 +218,25 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	filter := bson.M{"netid": params["networkname"]}
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"addressrange", network.AddressRange},
-			{"displayname", network.DisplayName},
-			{"defaultlistenport", network.DefaultListenPort},
-			{"defaultpostup", network.DefaultPostUp},
-			{"defaultpreup", network.DefaultPostDown},
-			{"defaultkeepalive", network.DefaultKeepalive},
-			{"keyupdatetimestamp", network.KeyUpdateTimeStamp},
-			{"defaultsaveconfig", network.DefaultSaveConfig},
-			{"defaultinterface", network.DefaultInterface},
-			{"nodeslastmodified", network.NodesLastModified},
-			{"networklastmodified", network.NetworkLastModified},
-			{"allowmanualsignup", network.AllowManualSignUp},
-			{"defaultcheckininterval", network.DefaultCheckInInterval},
-		}},
-	}
+        filter := bson.M{"netid": params["networkname"]}
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"addressrange", network.AddressRange},
+                        {"displayname", network.DisplayName},
+                        {"defaultlistenport", network.DefaultListenPort},
+                        {"defaultpostup", network.DefaultPostUp},
+                        {"defaultpostdown", network.DefaultPostDown},
+                  			{"defaultkeepalive", network.DefaultKeepalive},
+			                  {"keyupdatetimestamp", network.KeyUpdateTimeStamp},
+			                  {"defaultsaveconfig", network.DefaultSaveConfig},
+                  			{"defaultinterface", network.DefaultInterface},
+			                  {"nodeslastmodified", network.NodesLastModified},
+                  			{"networklastmodified", network.NetworkLastModified},
+			                  {"allowmanualsignup", network.AllowManualSignUp},
+			                  {"defaultcheckininterval", network.DefaultCheckInInterval},
+		            }},
+	      }
 
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
 
@@ -390,25 +390,24 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if haschange {
 		network.SetNetworkLastModified()
 	}
-
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"addressrange", network.AddressRange},
-			{"displayname", network.DisplayName},
-			{"defaultlistenport", network.DefaultListenPort},
-			{"defaultpostup", network.DefaultPostUp},
-			{"defaultpreup", network.DefaultPostDown},
-			{"defaultkeepalive", network.DefaultKeepalive},
-			{"defaultsaveconfig", network.DefaultSaveConfig},
-			{"defaultinterface", network.DefaultInterface},
-			{"nodeslastmodified", network.NodesLastModified},
-			{"networklastmodified", network.NetworkLastModified},
-			{"allowmanualsignup", network.AllowManualSignUp},
-			{"localrange", network.LocalRange},
-			{"islocal", network.IsLocal},
-			{"defaultcheckininterval", network.DefaultCheckInInterval},
-		}},
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"addressrange", network.AddressRange},
+                        {"displayname", network.DisplayName},
+                        {"defaultlistenport", network.DefaultListenPort},
+                        {"defaultpostup", network.DefaultPostUp},
+                        {"defaultpostdown", network.DefaultPostDown},
+                        {"defaultkeepalive", network.DefaultKeepalive},
+                        {"defaultsaveconfig", network.DefaultSaveConfig},
+                        {"defaultinterface", network.DefaultInterface},
+                        {"nodeslastmodified", network.NodesLastModified},
+                        {"networklastmodified", network.NetworkLastModified},
+                        {"allowmanualsignup", network.AllowManualSignUp},
+                        {"localrange", network.LocalRange},
+                        {"islocal", network.IsLocal},
+                        {"defaultcheckininterval", network.DefaultCheckInInterval},
+		              }},
 	}
 
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)

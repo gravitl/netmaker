@@ -12,7 +12,7 @@ type ReturnNode struct {
 	PublicKey	string `json:"publickey" bson:"publickey" validate:"base64"`
 	Endpoint	string `json:"endpoint" bson:"endpoint" validate:"required,ipv4"`
 	PostUp	string `json:"postup" bson:"postup"`
-	PostDown	string `json:"preup" bson:"preup"`
+	PostDown	string `json:"postdown" bson:"postdown"`
 	PersistentKeepalive int32 `json:"persistentkeepalive" bson:"persistentkeepalive"`
 	SaveConfig	*bool `json:"saveconfig" bson:"saveconfig"`
 	Interface	string `json:"interface" bson:"interface"`
