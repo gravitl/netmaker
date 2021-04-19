@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -50,6 +51,19 @@ func TestMain(m *testing.M) {
 	var waitgroup sync.WaitGroup
 	waitgroup.Add(1)
 	go controller.HandleRESTRequests(&waitgroup)
+	var gconf models.GlobalConfig
+	gconf.ServerGRPC = "localhost:8081"
+	gconf.PortGRPC = "50051"
+	//err := SetGlobalConfig(gconf)
+	collection := mongoconn.Client.Database("netmaker").Collection("config")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	//create, _, err := functions.GetGlobalConfig()
+	_, err := collection.InsertOne(ctx, gconf)
+	if err != nil {
+		panic("could not create config store")
+	}
+
 	//wait for http server to start
 	time.Sleep(time.Second * 1)
 	os.Exit(m.Run())
@@ -178,11 +192,15 @@ func networkExists(t *testing.T) bool {
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	err = json.NewDecoder(response.Body).Decode(&Networks)
 	assert.Nil(t, err, err)
-	if Networks == nil {
-		return false
-	} else {
-		return true
+	for i, network := range Networks {
+		t.Log(i, network)
+		if network.NetID == "" {
+			return false
+		} else {
+			return true
+		}
 	}
+	return false
 }
 
 func deleteNetworks(t *testing.T) {
@@ -194,7 +212,7 @@ func deleteNetworks(t *testing.T) {
 	err = json.NewDecoder(response.Body).Decode(&Networks)
 	assert.Nil(t, err, err)
 	for _, network := range Networks {
-		name := network.DisplayName
+		name := network.NetID
 		_, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/"+name, "secretkey")
 		assert.Nil(t, err, err)
 	}
