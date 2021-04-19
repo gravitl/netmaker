@@ -555,38 +555,33 @@ func TestUpdateNetwork(t *testing.T) {
 		assert.Equal(t, network.AllowManualSignUp, returnedNetwork.AllowManualSignUp)
 	})
 	t.Run("DefaultCheckInterval", func(t *testing.T) {
-		//value is not updated
-		t.Skip()
 		type Network struct {
-			DefaultCheckInInterval int32
+			CheckInInterval int32
 		}
 		var network Network
-		network.DefaultCheckInInterval = 6000
+		network.CheckInInterval = 60
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, network.DefaultCheckInInterval, returnedNetwork.DefaultCheckInInterval)
+		assert.Equal(t, network.CheckInInterval, returnedNetwork.DefaultCheckInInterval)
 	})
 	t.Run("DefaultCheckIntervalTooBig", func(t *testing.T) {
-		//value is not returned in struct ---
-		t.Skip()
-
 		type Network struct {
-			DefaultCheckInInterval int32
+			CheckInInterval int32
 		}
 		var network Network
-		network.DefaultCheckInInterval = 100001
+		network.CheckInInterval = 100001
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnprocessableEntity, message.Code)
-		assert.Equal(t, "W1R3: Field validation for 'DefaultCheckInInterval' failed.", message.Message)
-		assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Contains(t, message.Message, "Field validation for 'DefaultCheckInInterval' failed")
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("MultipleFields", func(t *testing.T) {
 		type Network struct {
