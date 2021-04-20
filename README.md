@@ -38,7 +38,8 @@ In future releases, we have plans to support other platforms such as Windows and
 ## Docs
 **For more information, please read the docs, or check out the Quick Start below:**
 
- - [Getting Started](docs/GETTING_STARTED.md)
+ - [General Usage](docs/USAGE.md)
+ - [Troubleshooting](docs/TROUBLESHOOTING.md)
  - [API Documentation](docs/API.md)
  - [Product Roadmap](docs/ROADMAP.md)
  - [Contributing](docs/CONTRIBUTING.md)
@@ -69,14 +70,10 @@ Run the following: `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker
 
 #### LICENSE
 
-Netmaker's source code and all artifacts in this repository are freely available. All versions are published under the Server Side Public License (SSPL), version 1, which can be found under the "licensing" directory: [LICENSE.txt](licensing/LICENSE.txt).
+Netmaker's source code and all artifacts in this repository are freely available. All versions are published under the Server Side Public License (SSPL), version 1, which can be found here: [LICENSE.txt](./LICENSE.txt).
 
 #### CONTACT
 
 Email: alex@gravitl.com  
 Discord: https://discord.gg/zRb9Vfhk8A
 
-#### SUPPORT
-
-BTC: 3JE5ejpwu9i4vwA4rePkEDBEPpFY1xzJuN  
-ETH: 0xB6c5D23F2bE2100A5a2D337911A7Ef7575B4f91A

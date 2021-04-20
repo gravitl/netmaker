@@ -13,7 +13,7 @@ import (
 
 var Client *mongo.Client
 var NodeDB *mongo.Collection
-var GroupDB *mongo.Collection
+var NetworkDB *mongo.Collection
 var user string
 var pass string
 var host string
@@ -93,8 +93,8 @@ func ConnectDatabase() {
         log.Fatal(err)
     }
 
-    NodeDB = Client.Database("wirecat").Collection("nodes")
-    GroupDB = Client.Database("wirecat").Collection("groups")
+    NodeDB = Client.Database("netmaker").Collection("nodes")
+    NetworkDB = Client.Database("netmaker").Collection("networks")
 
     log.Println("Database Connected.")
 }

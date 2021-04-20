@@ -1,4 +1,4 @@
-//TODO:  Either add a returnGroup and returnKey, or delete this
+//TODO:  Either add a returnNetwork and returnKey, or delete this
 package models
 
 type ReturnNode struct {
@@ -12,10 +12,14 @@ type ReturnNode struct {
 	PublicKey	string `json:"publickey" bson:"publickey" validate:"base64"`
 	Endpoint	string `json:"endpoint" bson:"endpoint" validate:"required,ipv4"`
 	PostUp	string `json:"postup" bson:"postup"`
-	PreUp	string `json:"preup" bson:"preup"`
+	PostDown	string `json:"postdown" bson:"postdown"`
 	PersistentKeepalive int32 `json:"persistentkeepalive" bson:"persistentkeepalive"`
 	SaveConfig	*bool `json:"saveconfig" bson:"saveconfig"`
 	Interface	string `json:"interface" bson:"interface"`
-	Group	string `json:"group" bson:"group"`
+	Network	string `json:"network" bson:"network"`
 	IsPending	*bool `json:"ispending" bson:"ispending"`
+	IsGateway	*bool `json:"isgateway" bson:"isgateway"`
+	GatewayRange	string `json:"gatewayrange" bson:"gatewayrange"`
+        LocalAddress    string `json:"localaddress" bson:"localaddress" validate:"localaddress_check"`
+        ExpirationDateTime      int64 `json:"expdatetime" bson:"expdatetime"`
 }

@@ -1,55 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
-	"os"
-	"sync"
 	"testing"
-	"time"
 
-	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/stretchr/testify/assert"
 )
-
-type databaseError struct {
-	Inner  *int
-	Errors int
-}
-
-//should be use models.SuccessResponse and models.SuccessfulUserLoginResponse
-//rather than creating new type but having trouble decoding that way
-type Auth struct {
-	Username  string
-	AuthToken string
-}
-type Success struct {
-	Code     int
-	Message  string
-	Response Auth
-}
-
-type AuthorizeTestCase struct {
-	testname      string
-	name          string
-	password      string
-	code          int
-	tokenExpected bool
-	errMessage    string
-}
-
-func TestMain(m *testing.M) {
-	mongoconn.ConnectDatabase()
-	var waitgroup sync.WaitGroup
-	waitgroup.Add(1)
-	go controller.HandleRESTRequests(&waitgroup)
-	//wait for http server to start
-	time.Sleep(time.Second * 1)
-	os.Exit(m.Run())
-}
 
 func TestAdminCreation(t *testing.T) {
 	var admin models.UserAuthParams
@@ -60,7 +19,7 @@ func TestAdminCreation(t *testing.T) {
 		if adminExists(t) {
 			deleteAdmin(t)
 		}
-		response, err := api(t, admin, http.MethodPost, "http://localhost:8081/users/createadmin", "")
+		response, err := api(t, admin, http.MethodPost, "http://localhost:8081/api/users/adm/createadmin", "")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&user)
@@ -69,12 +28,14 @@ func TestAdminCreation(t *testing.T) {
 		assert.Equal(t, true, user.IsAdmin)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		assert.True(t, adminExists(t), "Admin creation failed")
+		message, _ := ioutil.ReadAll(response.Body)
+		t.Log(string(message))
 	})
 	t.Run("AdminCreationFailure", func(t *testing.T) {
 		if !adminExists(t) {
 			addAdmin(t)
 		}
-		response, err := api(t, admin, http.MethodPost, "http://localhost:8081/users/createadmin", "")
+		response, err := api(t, admin, http.MethodPost, "http://localhost:8081/api/users/adm/createadmin", "")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var message models.ErrorResponse
@@ -88,16 +49,16 @@ func TestAdminCreation(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-
-	//ensure admin exists
 	if !adminExists(t) {
+		t.Log("no admin - creating")
 		addAdmin(t)
+	} else {
+		t.Log("admin exists")
 	}
-	//authenticate
 	t.Run("GetUserWithValidToken", func(t *testing.T) {
 		token, err := authenticate(t)
 		assert.Nil(t, err, err)
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/users/admin", token)
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/users/admin", token)
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		var user models.User
@@ -107,10 +68,16 @@ func TestGetUser(t *testing.T) {
 		assert.Equal(t, true, user.IsAdmin)
 	})
 	t.Run("GetUserWithInvalidToken", func(t *testing.T) {
-		response, err := api(t, "", http.MethodGet, "http://localhost:8081/users/admin", "secretkey")
+		response, err := api(t, "", http.MethodGet, "http://localhost:8081/api/users/admin", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
-		t.Log(response.Body)
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, message.Code)
+		assert.Equal(t, "W1R3: Error Verifying Auth Token.", message.Message)
+
 	})
 }
 
@@ -126,7 +93,7 @@ func TestUpdateUser(t *testing.T) {
 	t.Run("UpdateWrongToken", func(t *testing.T) {
 		admin.UserName = "admin"
 		admin.Password = "admin"
-		response, err := api(t, admin, http.MethodPut, "http://localhost:8081/users/admin", "secretkey")
+		response, err := api(t, admin, http.MethodPut, "http://localhost:8081/api/users/admin", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&message)
@@ -137,7 +104,7 @@ func TestUpdateUser(t *testing.T) {
 	t.Run("UpdateSuccess", func(t *testing.T) {
 		admin.UserName = "admin"
 		admin.Password = "password"
-		response, err := api(t, admin, http.MethodPut, "http://localhost:8081/users/admin", token)
+		response, err := api(t, admin, http.MethodPut, "http://localhost:8081/api/users/admin", token)
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&user)
@@ -146,51 +113,47 @@ func TestUpdateUser(t *testing.T) {
 		assert.Equal(t, true, user.IsAdmin)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
-
 }
 
 func TestDeleteUser(t *testing.T) {
+
 	if !adminExists(t) {
+		t.Log("Creating Admin")
 		addAdmin(t)
 	}
 	token, err := authenticate(t)
 	assert.Nil(t, err, err)
-	t.Run("DeleteUser-WongAdmin", func(t *testing.T) {
-		//skip for now ... shouldn't panic
-		t.Skip()
-		function := func() {
-			_, _ = api(t, "", http.MethodDelete, "http://localhost:8081/users/xxxx", token)
-		}
-		assert.Panics(t, function, "")
-	})
 	t.Run("DeleteUser-InvalidCredentials", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/users/admin", "secretkey")
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", "badcredentials")
 		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		var message models.ErrorResponse
 		json.NewDecoder(response.Body).Decode(&message)
 		assert.Equal(t, "W1R3: Error Verifying Auth Token.", message.Message)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 	})
 	t.Run("DeleteUser-ValidCredentials", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/users/admin", token)
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", token)
 		assert.Nil(t, err, err)
 		var body string
 		json.NewDecoder(response.Body).Decode(&body)
 		assert.Equal(t, "admin deleted.", body)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
-	t.Run("DeleteUser-NoAdmin", func(t *testing.T) {
-		//skip for now ... shouldn't panic
-		t.Skip()
-		function := func() {
-			_, _ = api(t, "", http.MethodDelete, "http://localhost:8081/users/admin", token)
-		}
-		assert.Panics(t, function, "")
+	t.Run("DeleteUser-NonExistantAdmin", func(t *testing.T) {
+		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", token)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+		var message models.ErrorResponse
+		defer response.Body.Close()
+		json.NewDecoder(response.Body).Decode(&message)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Equal(t, "Delete unsuccessful.", message.Message)
 	})
-	addAdmin(t)
 }
 
 func TestAuthenticateUser(t *testing.T) {
+
 	cases := []AuthorizeTestCase{
 		AuthorizeTestCase{
 			testname:      "Invalid User",
@@ -233,7 +196,6 @@ func TestAuthenticateUser(t *testing.T) {
 			errMessage:    "W1R3: Device Admin Authorized",
 		},
 	}
-
 	if !adminExists(t) {
 		addAdmin(t)
 	}
@@ -242,7 +204,7 @@ func TestAuthenticateUser(t *testing.T) {
 			var admin models.User
 			admin.UserName = tc.name
 			admin.Password = tc.password
-			response, err := api(t, admin, http.MethodPost, "http://localhost:8081/users/authenticate", "secretkey")
+			response, err := api(t, admin, http.MethodPost, "http://localhost:8081/api/users/adm/authenticate", "secretkey")
 			assert.Nil(t, err, err)
 			defer response.Body.Close()
 			if tc.tokenExpected {
@@ -259,69 +221,4 @@ func TestAuthenticateUser(t *testing.T) {
 			assert.Equal(t, tc.code, response.StatusCode)
 		})
 	}
-}
-
-func adminExists(t *testing.T) bool {
-	response, err := http.Get("http://localhost:8081/users/hasadmin")
-	assert.Nil(t, err, err)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-	defer response.Body.Close()
-	var body bool
-	json.NewDecoder(response.Body).Decode(&body)
-	return body
-}
-
-func api(t *testing.T, data interface{}, method, url, authorization string) (*http.Response, error) {
-	var request *http.Request
-	var err error
-	if data != "" {
-		payload, err := json.Marshal(data)
-		assert.Nil(t, err, err)
-		request, err = http.NewRequest(method, url, bytes.NewBuffer(payload))
-		assert.Nil(t, err, err)
-		request.Header.Set("Content-Type", "application/json")
-	} else {
-		request, err = http.NewRequest(method, url, nil)
-		assert.Nil(t, err, err)
-	}
-	if authorization != "" {
-		request.Header.Set("Authorization", "Bearer "+authorization)
-	}
-	client := http.Client{}
-	return client.Do(request)
-}
-
-func addAdmin(t *testing.T) {
-	var admin models.User
-	admin.UserName = "admin"
-	admin.Password = "password"
-	response, err := api(t, admin, http.MethodPost, "http://localhost:8081/users/createadmin", "secretkey")
-	assert.Nil(t, err, err)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-}
-
-func authenticate(t *testing.T) (string, error) {
-	var admin models.User
-	admin.UserName = "admin"
-	admin.Password = "password"
-	response, err := api(t, admin, http.MethodPost, "http://localhost:8081/users/authenticate", "secretkey")
-	assert.Nil(t, err, err)
-
-	var body Success
-	err = json.NewDecoder(response.Body).Decode(&body)
-	assert.Nil(t, err, err)
-	assert.NotEmpty(t, body.Response.AuthToken, "token not returned")
-	assert.Equal(t, "W1R3: Device admin Authorized", body.Message)
-
-	return body.Response.AuthToken, nil
-}
-
-func deleteAdmin(t *testing.T) {
-	if !adminExists(t) {
-		return
-	}
-	token, err := authenticate(t)
-	assert.Nil(t, err, err)
-	_, err = api(t, "", http.MethodDelete, "http://localhost:8081/users/admin", token)
-	assert.Nil(t, err, err)
 }

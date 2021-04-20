@@ -3,18 +3,20 @@ package config
 import (
 //  "github.com/davecgh/go-spew/spew"
   "os"
+  "errors"
   "fmt"
   "log"
   "gopkg.in/yaml.v3"
   //homedir "github.com/mitchellh/go-homedir"
 )
 
-var Config *ClientConfig
+//var Config *ClientConfig
 
 // Configurations exported
 type ClientConfig struct {
 	Server ServerConfig `yaml:"server"`
 	Node NodeConfig `yaml:"node"`
+	Network string
 }
 type ServerConfig struct {
         Address string `yaml:"address"`
@@ -24,14 +26,17 @@ type ServerConfig struct {
 type NodeConfig struct {
         Name string `yaml:"name"`
         Interface string `yaml:"interface"`
-        Group string `yaml:"group"`
+        Network string `yaml:"network"`
         Password string `yaml:"password"`
         MacAddress string `yaml:"macaddress"`
         LocalAddress string `yaml:"localaddress"`
         WGAddress string `yaml:"wgaddress"`
         RoamingOff bool `yaml:"roamingoff"`
+        IsLocal bool `yaml:"islocal"`
+        AllowedIPs string `yaml:"allowedips"`
+        LocalRange string `yaml:"localrange"`
         PostUp string `yaml:"postup"`
-        PreUp string `yaml:"preup"`
+        PostDown string `yaml:"postdown"`
         Port int32 `yaml:"port"`
         KeepAlive int32 `yaml:"keepalive"`
         PublicKey string `yaml:"publickey"`
@@ -41,7 +46,11 @@ type NodeConfig struct {
 }
 
 //reading in the env file
-func Write(config *ClientConfig) error{
+func Write(config *ClientConfig, network string) error{
+	if network == "" {
+		err := errors.New("No network provided. Exiting.")
+		return err
+	}
 	nofile := false
         //home, err := homedir.Dir()
         _, err := os.Stat("/etc/netclient") 
@@ -55,11 +64,11 @@ func Write(config *ClientConfig) error{
         if err != nil {
                 log.Fatal(err)
         }
-        file := fmt.Sprintf(home + "/.netconfig")
+        file := fmt.Sprintf(home + "/netconfig-" + network)
         f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
         if err != nil {
                 nofile = true
-                //fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
+                //fmt.Println("Could not access " + home + "/netconfig,  proceeding...")
         }
         defer f.Close()
 
@@ -71,7 +80,7 @@ func Write(config *ClientConfig) error{
                 }
         } else {
 
-		newf, err := os.Create(home + "/.netconfig")
+		newf, err := os.Create(home + "/netconfig-" + network)
 		err = yaml.NewEncoder(newf).Encode(config)
 		defer newf.Close()
 		if err != nil {
@@ -82,7 +91,11 @@ func Write(config *ClientConfig) error{
 
         return err
 }
-func WriteServer(server string, accesskey string) error{
+func WriteServer(server string, accesskey string, network string) error{
+        if network == "" {
+                err := errors.New("No network provided. Exiting.")
+                return err
+        }
         nofile := false
         //home, err := homedir.Dir()
         _, err := os.Stat("/etc/netclient")
@@ -94,12 +107,12 @@ func WriteServer(server string, accesskey string) error{
         }
         home := "/etc/netclient"
 
-	file := fmt.Sprintf(home + "/.netconfig")
+	file := fmt.Sprintf(home + "/netconfig-" + network)
         //f, err := os.Open(file)
         f, err := os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0666)
 	//f, err := ioutil.ReadFile(file)
         if err != nil {
-		fmt.Println("couldnt open netconfig")
+		fmt.Println("couldnt open netconfig-" + network)
 		fmt.Println(err)
                 nofile = true
 		//err = nil
@@ -111,7 +124,7 @@ func WriteServer(server string, accesskey string) error{
 	var cfg ClientConfig
 
         if !nofile {
-		fmt.Println("Writing to existing config file at " + home + "/.netconfig")
+		fmt.Println("Writing to existing config file at " + home + "/netconfig-" + network)
                 decoder := yaml.NewDecoder(f)
                 err = decoder.Decode(&cfg)
 		//err = yaml.Unmarshal(f, &cfg)
@@ -145,12 +158,12 @@ func WriteServer(server string, accesskey string) error{
                         return err
                 }
 	} else {
-                fmt.Println("Creating new config file at " + home + "/.netconfig")
+                fmt.Println("Creating new config file at " + home + "/netconfig-" + network)
 
                 cfg.Server.Address = server
                 cfg.Server.AccessKey = accesskey
 
-                newf, err := os.Create(home + "/.netconfig")
+                newf, err := os.Create(home + "/netconfig-" + network)
                 err = yaml.NewEncoder(newf).Encode(cfg)
                 defer newf.Close()
                 if err != nil {
@@ -168,7 +181,7 @@ func(config *ClientConfig) ReadConfig() {
 	nofile := false
 	//home, err := homedir.Dir()
 	home := "/etc/netclient"
-	file := fmt.Sprintf(home + "/.netconfig")
+	file := fmt.Sprintf(home + "/netconfig-" + config.Network)
 	//f, err := os.Open(file)
         f, err := os.OpenFile(file, os.O_RDONLY, 0666)
 	if err != nil {
@@ -194,12 +207,15 @@ func(config *ClientConfig) ReadConfig() {
 	}
 }
 
-
-func readConfig() *ClientConfig {
+func ReadConfig(network string) (*ClientConfig, error) {
+        if network == "" {
+                err := errors.New("No network provided. Exiting.")
+                return nil, err
+        }
 	nofile := false
 	//home, err := homedir.Dir()
 	home := "/etc/netclient"
-	file := fmt.Sprintf(home + "/.netconfig")
+	file := fmt.Sprintf(home + "/netconfig-" + network)
 	f, err := os.Open(file)
 	if err != nil {
 		nofile = true
@@ -213,13 +229,14 @@ func readConfig() *ClientConfig {
 		err = decoder.Decode(&cfg)
 		if err != nil {
 			fmt.Println("trouble decoding file")
-			log.Fatal(err)
+			return nil, err
 		}
 	}
-	return &cfg
+	return &cfg, err
 }
-
+/*
 func init() {
   Config = readConfig()
 }
+*/
 

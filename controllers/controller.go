@@ -27,8 +27,9 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 
     nodeHandlers(r)
     userHandlers(r)
-    groupHandlers(r)
+    networkHandlers(r)
     fileHandlers(r)
+    serverHandlers(r)
 
 		port := config.Config.Server.ApiPort
 	        if os.Getenv("API_PORT") != "" {

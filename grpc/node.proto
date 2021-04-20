@@ -15,6 +15,7 @@ service NodeService {
 message LoginRequest {
   string macaddress = 1;
   string password = 2;
+  string network = 3;
 }
 
 message LoginResponse { string accesstoken = 1; }
@@ -28,10 +29,10 @@ message Node {
     string endpoint = 6;
     string macaddress = 7;
     string password = 8;
-    string nodegroup = 9;
+    string nodenetwork = 9;
     bool ispending = 10;
     string postup = 11;
-    string preup = 12;
+    string postdown = 12;
     int32 keepalive = 13;
     bool saveconfig = 14;
     string accesskey = 15;
@@ -41,6 +42,9 @@ message Node {
     int32 checkininterval = 19;
     string localaddress = 20;
     string postchanges = 21;
+    string allowedips = 22;
+    bool islocal = 23;
+    string localrange = 24;
 }
 
 message CheckInResponse {
@@ -49,9 +53,13 @@ message CheckInResponse {
     bool needconfigupdate = 3;
     string nodemessage = 4;
     bool ispending = 5;
+    bool needkeyupdate = 6;
+    bool needdelete = 7;
 }
 
 message PeersResponse {
+    bool isgateway = 1;
+    string gatewayrange = 2;
     string publickey = 5;
     string endpoint = 6;
     string address = 3;
@@ -78,7 +86,7 @@ message UpdateNodeRes {
 
 message ReadNodeReq {
     string macaddress = 1;
-    string group = 2;
+    string network = 2;
 }
 
 message ReadNodeRes {
@@ -87,7 +95,7 @@ message ReadNodeRes {
 
 message DeleteNodeReq {
     string macaddress = 1;
-    string groupName = 2;
+    string networkName = 2;
 }
 
 message DeleteNodeRes {
@@ -96,7 +104,7 @@ message DeleteNodeRes {
 
 message GetPeersReq {
     string macaddress = 1;
-    string group = 2;
+    string network = 2;
 }
 
 message GetPeersRes {

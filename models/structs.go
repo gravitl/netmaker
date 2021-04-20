@@ -32,7 +32,7 @@ type SuccessfulUserLoginResponse struct {
 // Claims is  a struct that will be encoded to a JWT.
 // jwt.StandardClaims is an embedded type to provide expiry time
 type Claims struct {
-    Group string
+    Network string
     MacAddress string
     jwt.StandardClaims
 }
@@ -49,7 +49,7 @@ type ErrorResponse struct {
 }
 
 type NodeAuth struct {
-    Group    string
+    Network    string
     Password string
     MacAddress string
 }
@@ -64,6 +64,7 @@ type SuccessResponse struct {
 type AccessKey struct {
     Name string `json:"name" bson:"name"`
     Value string `json:"value" bson:"value"`
+    AccessString string `json:"accessstring" bson:"accessstring"`
     Uses int `json:"uses" bson:"uses"`
 }
 
@@ -72,10 +73,19 @@ type DisplayKey struct {
     Uses int `json:"uses" bson:"uses"`
 }
 
+type GlobalConfig struct {
+    Name string `json:"name" bson:"name"`
+    PortGRPC string `json:"portgrpc" bson:"portgrpc"`
+    ServerGRPC string `json:"servergrpc" bson:"servergrpc"`
+}
+
+
 type CheckInResponse struct{
     Success bool `json:"success" bson:"success"`
     NeedPeerUpdate bool `json:"needpeerupdate" bson:"needpeerupdate"`
     NeedConfigUpdate bool `json:"needconfigupdate" bson:"needconfigupdate"`
+    NeedKeyUpdate bool `json:"needkeyupdate" bson:"needkeyupdate"`
+    NeedDelete bool `json:"needdelete" bson:"needdelete"`
     NodeMessage string `json:"nodemessage" bson:"nodemessage"`
     IsPending bool `json:"ispending" bson:"ispending"`
 }
@@ -85,7 +95,20 @@ type PeersResponse struct {
     Endpoint string `json:"endpoint" bson:"endpoint"`
     Address string `json:"address" bson:"address"`
     LocalAddress string `json:"localaddress" bson:"localaddress"`
+    IsGateway bool `json:"isgateway" bson:"isgateway"`
+    GatewayRange string `json:"gatewayrange" bson:"gatewayrange"`
     ListenPort int32 `json:"listenport" bson:"listenport"`
     KeepAlive int32 `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
+
+type GatewayRequest struct {
+    NodeID string `json:"nodeid" bson:"nodeid"`
+    NetID string `json:"netid" bson:"netid"`
+    RangeString string `json:"rangestring" bson:"rangestring"`
+    Ranges []string `json:"ranges" bson:"ranges"`
+    Interface string `json:"interface" bson:"interface"`
+    PostUp string `json:"postup" bson:"postup"`
+    PostDown string `json:"postdown" bson:"postdown"`
+}
+
 

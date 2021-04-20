@@ -72,27 +72,27 @@ func grpcAuthorize(ctx context.Context) error {
 
 		authToken := authHeader[0]
 
-		mac, group, err := functions.VerifyToken(authToken)
+		mac, network, err := functions.VerifyToken(authToken)
 
 		if err  != nil { return err }
 
-                groupexists, err := functions.GroupExists(group)
+                networkexists, err := functions.NetworkExists(network)
 
 		if err != nil {
-			return status.Errorf(codes.Unauthenticated, "Unauthorized. Group does not exist: " + group)
+			return status.Errorf(codes.Unauthenticated, "Unauthorized. Network does not exist: " + network)
 
 		}
 		emptynode := models.Node{}
-		node, err := functions.GetNodeByMacAddress(group, mac)
+		node, err := functions.GetNodeByMacAddress(network, mac)
 		if err != nil || node == emptynode {
                         return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 		}
 
-                //check that the request is for a valid group
-                //if (groupCheck && !groupexists) || err != nil {
-                if (!groupexists) {
+                //check that the request is for a valid network
+                //if (networkCheck && !networkexists) || err != nil {
+                if (!networkexists) {
 
-			return status.Errorf(codes.Unauthenticated, "Group does not exist.")
+			return status.Errorf(codes.Unauthenticated, "Network does not exist.")
 
                 } else {
                         return nil
@@ -105,6 +105,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
 
 	//out := new(LoginResponse)
 	macaddress := req.GetMacaddress()
+	network := req.GetNetwork()
 	password := req.GetPassword()
 
 	var result models.NodeAuth
@@ -121,9 +122,9 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
                 return nil, err
         } else {
             //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-            collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+            collection := mongoconn.Client.Database("netmaker").Collection("nodes")
             ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-            var err = collection.FindOne(ctx, bson.M{ "macaddress": macaddress}).Decode(&result)
+	    var err = collection.FindOne(ctx, bson.M{ "macaddress": macaddress, "network": network}).Decode(&result)
 
             defer cancel()
 
@@ -135,12 +136,15 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
            //might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
            //TODO: Consider a way of hashing the password client side before sending, or using certificates
            err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(password))
-           if err != nil && result.Password != password {
+	   if err != nil && result.Password != password {
 			return nil, err
            } else {
                 //Create a new JWT for the node
-                tokenString, _ := functions.CreateJWT(macaddress, result.Group)
+                tokenString, err := functions.CreateJWT(macaddress, result.Network)
 
+		if err != nil {
+			return nil, err
+		}
                 if tokenString == "" {
 		    err = errors.New("Something went wrong. Could not retrieve token.")
                     return nil, err

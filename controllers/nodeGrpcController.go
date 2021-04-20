@@ -3,6 +3,7 @@ package controller
 import (
         "context"
 	"fmt"
+	"strconv"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/functions"
@@ -19,9 +20,10 @@ type NodeServiceServer struct {
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeReq) (*nodepb.ReadNodeRes, error) {
 	// convert string id (from proto) to mongoDB ObjectId
 	macaddress := req.GetMacaddress()
-        groupName := req.GetGroup()
+        networkName := req.GetNetwork()
+	network, _ := functions.GetParentNetwork(networkName)
 
-	node, err := GetNode(macaddress, groupName)
+	node, err := GetNode(macaddress, networkName)
 
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Something went wrong: %v", err))
@@ -40,16 +42,19 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Address:  node.Address,
 			Endpoint:  node.Endpoint,
 			Password:  node.Password,
-			Nodegroup:  node.Group,
+			Nodenetwork:  node.Network,
 			Interface:  node.Interface,
 			Localaddress:  node.LocalAddress,
-			Preup:  node.PreUp,
+			Postdown:  node.PostDown,
 			Postup:  node.PostUp,
 			Checkininterval:  node.CheckInInterval,
 			Ispending:  node.IsPending,
 			Publickey:  node.PublicKey,
 			Listenport:  node.ListenPort,
 			Keepalive:  node.PersistentKeepalive,
+                        Islocal:  *network.IsLocal,
+                        Localrange:  network.LocalRange,
+
 		},
 	}
 	return response, nil
@@ -71,13 +76,13 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
                         PersistentKeepalive:  data.GetKeepalive(),
                         Password:  data.GetPassword(),
                         Interface:  data.GetInterface(),
-                        Group:  data.GetNodegroup(),
+                        Network:  data.GetNodenetwork(),
                         IsPending:  data.GetIspending(),
                         PublicKey:  data.GetPublickey(),
                         ListenPort:  data.GetListenport(),
 	}
 
-        err := ValidateNode("create", node.Group, node)
+        err := ValidateNode("create", node.Network, node)
 
         if err != nil {
                 // return internal gRPC error to be handled later
@@ -85,24 +90,33 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
         }
 
         //Check to see if key is valid
-        //TODO: Triple inefficient!!! This is the third call to the DB we make for groups
-        validKey := functions.IsKeyValid(node.Group, node.AccessKey)
+        //TODO: Triple inefficient!!! This is the third call to the DB we make for networks
+        validKey := functions.IsKeyValid(node.Network, node.AccessKey)
+        network, err := functions.GetParentNetwork(node.Network)
+        if err != nil {
+                return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find network: %v", err))
+        } else {
+		fmt.Println("Creating node in network " + network.NetID)
+		fmt.Println("Network is local? " + strconv.FormatBool(*network.IsLocal))
+		fmt.Println("Range if local: " + network.LocalRange)
+	}
+
+
 
         if !validKey {
-		group, _ := functions.GetParentGroup(node.Group)
-                //Check to see if group will allow manual sign up
+                //Check to see if network will allow manual sign up
                 //may want to switch this up with the valid key check and avoid a DB call that way.
-                if *group.AllowManualSignUp {
+                if *network.AllowManualSignUp {
                         node.IsPending = true
                 } else  {
 	                return nil, status.Errorf(
 		                codes.Internal,
-				fmt.Sprintf("Invalid key, and group does not allow no-key signups"),
+				fmt.Sprintf("Invalid key, and network does not allow no-key signups"),
 			)
                 }
         }
 
-	node, err = CreateNode(node, node.Group)
+	node, err = CreateNode(node, node.Network)
 
 	if err != nil {
 		// return internal gRPC error to be handled later
@@ -121,16 +135,18 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
                         Endpoint:  node.Endpoint,
                         Password:  node.Password,
                         Interface:  node.Interface,
-                        Nodegroup:  node.Group,
+                        Nodenetwork:  node.Network,
                         Ispending:  node.IsPending,
                         Publickey:  node.PublicKey,
                         Listenport:  node.ListenPort,
                         Keepalive:  node.PersistentKeepalive,
+                        Islocal:  *network.IsLocal,
+                        Localrange:  network.LocalRange,
 		},
 	}
-        err = SetGroupNodesLastModified(node.Group)
+        err = SetNetworkNodesLastModified(node.Network)
         if err != nil {
-                return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not update group last modified date: %v", err))
+                return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not update network last modified date: %v", err))
         }
 
 	return response, nil
@@ -147,7 +163,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
                         MacAddress: data.GetMacaddress(),
                         Address:  data.GetAddress(),
                         Endpoint:  data.GetEndpoint(),
-                        Group:  data.GetNodegroup(),
+                        Network:  data.GetNodenetwork(),
                         Password:  data.GetPassword(),
                         LocalAddress:  data.GetLocaladdress(),
                         ListenPort:  data.GetListenport(),
@@ -155,7 +171,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
                         PublicKey:  data.GetPublickey(),
         }
 
-	checkinresponse, err := NodeCheckIn(node, node.Group)
+	checkinresponse, err := NodeCheckIn(node, node.Network)
 
         if err != nil {
                 // return internal gRPC error to be handled later
@@ -171,7 +187,9 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
                 Checkinresponse: &nodepb.CheckInResponse{
                         Success:  checkinresponse.Success,
                         Needpeerupdate:  checkinresponse.NeedPeerUpdate,
+                        Needdelete:  checkinresponse.NeedDelete,
                         Needconfigupdate:  checkinresponse.NeedConfigUpdate,
+                        Needkeyupdate:  checkinresponse.NeedKeyUpdate,
                         Nodemessage:  checkinresponse.NodeMessage,
                         Ispending:  checkinresponse.IsPending,
                 },
@@ -193,9 +211,9 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
                         Endpoint:  data.GetEndpoint(),
                         Password:  data.GetPassword(),
                         PersistentKeepalive:  data.GetKeepalive(),
-                        Group:  data.GetNodegroup(),
+                        Network:  data.GetNodenetwork(),
                         Interface:  data.GetInterface(),
-                        PreUp:  data.GetPreup(),
+                        PostDown:  data.GetPostdown(),
                         PostUp:  data.GetPostup(),
                         IsPending:  data.GetIspending(),
                         PublicKey:  data.GetPublickey(),
@@ -205,14 +223,16 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 
 	// Convert the Id string to a MongoDB ObjectId
 	macaddress := nodechange.MacAddress
-	groupName := nodechange.Group
+	networkName := nodechange.Network
+        network, _ := functions.GetParentNetwork(networkName)
 
-	err := ValidateNode("update", groupName, nodechange)
+
+	err := ValidateNode("update", networkName, nodechange)
         if err != nil {
                 return nil, err
         }
 
-        node, err := functions.GetNodeByMacAddress(groupName, macaddress)
+        node, err := functions.GetNodeByMacAddress(networkName, macaddress)
         if err != nil {
                return nil, status.Errorf(
                         codes.NotFound,
@@ -238,13 +258,15 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
                         Endpoint:  newnode.Endpoint,
                         Password:  newnode.Password,
                         Interface:  newnode.Interface,
-                        Preup:  newnode.PreUp,
+                        Postdown:  newnode.PostDown,
                         Postup:  newnode.PostUp,
-                        Nodegroup:  newnode.Group,
+                        Nodenetwork:  newnode.Network,
                         Ispending:  newnode.IsPending,
                         Publickey:  newnode.PublicKey,
                         Listenport:  newnode.ListenPort,
                         Keepalive:  newnode.PersistentKeepalive,
+                        Islocal:  *network.IsLocal,
+                        Localrange:  network.LocalRange,
 
 		},
 	}, nil
@@ -253,9 +275,9 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.DeleteNodeReq) (*nodepb.DeleteNodeRes, error) {
 	fmt.Println("beginning node delete")
 	macaddress := req.GetMacaddress()
-	group := req.GetGroupName()
+	network := req.GetNetworkName()
 
-	success, err := DeleteNode(macaddress, group)
+	success, err := DeleteNode(macaddress, network)
 
 	if err != nil || !success {
 		fmt.Println("Error deleting node.")
@@ -263,12 +285,12 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.DeleteNo
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find/delete node with mac address %s", macaddress))
 	}
 
-	fmt.Println("updating group last modified of " + req.GetGroupName())
-	err = SetGroupNodesLastModified(req.GetGroupName())
+	fmt.Println("updating network last modified of " + req.GetNetworkName())
+	err = SetNetworkNodesLastModified(req.GetNetworkName())
         if err != nil {
-		fmt.Println("Error updating Group")
+		fmt.Println("Error updating Network")
 		fmt.Println(err)
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not update group last modified date: %v", err))
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not update network last modified date: %v", err))
         }
 
 
@@ -282,7 +304,7 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 	//data := &models.PeersResponse{}
 	// collection.Find returns a cursor for our (empty) query
 	//cursor, err := s.NodeDB.Find(context.Background(), bson.M{})
-	peers, err := GetPeersList(req.GetGroup())
+	peers, err := GetPeersList(req.GetNetwork())
 
 	if err != nil {
 		return status.Errorf(codes.Internal, fmt.Sprintf("Unknown internal error: %v", err))
@@ -295,6 +317,8 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 			Peers: &nodepb.PeersResponse{
                             Address:  peers[i].Address,
                             Endpoint:  peers[i].Endpoint,
+                            Gatewayrange:  peers[i].GatewayRange,
+                            Isgateway:  peers[i].IsGateway,
                             Publickey:  peers[i].PublicKey,
                             Keepalive:  peers[i].KeepAlive,
                             Listenport:  peers[i].ListenPort,
@@ -303,7 +327,7 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 		})
 	}
 
-	node, err := functions.GetNodeByMacAddress(req.GetGroup(), req.GetMacaddress())
+	node, err := functions.GetNodeByMacAddress(req.GetNetwork(), req.GetMacaddress())
        if err != nil {
                 return status.Errorf(codes.Internal, fmt.Sprintf("Could not get node: %v", err))
         }
