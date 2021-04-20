@@ -45,7 +45,8 @@ In future releases, we have plans to support other platforms such as Windows and
 
 ## Quick Start
 
-[Video Tutorial](https://youtu.be/PWLPT320Ybo)
+[Intro/Overview Video Tutorial](https://youtu.be/PWLPT320Ybo)
+[Site-to-Site Video Tutorial](https://youtu.be/krCKBJhwwDk)
 
 #### Prereqs:
 1. A server with an IP reachable by your computers (a small ec2 instance or droplet would do just fine).
