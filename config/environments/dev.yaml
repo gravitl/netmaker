@@ -1,5 +1,5 @@
 server:
-  host: "3.231.219.63"
+  host: "localhost"
   apiport: "8081"
   grpcport: "50051"
   masterkey: "secretkey"
