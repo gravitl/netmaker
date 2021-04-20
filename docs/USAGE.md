@@ -2,22 +2,6 @@
 
 This guide covers advanced usage of Netmaker. If you are just looking to get started quickly, check out the Quick Start in the [README](../README.md).
 
-## Index
-
- - Config
-	 - Server Config
-	 - Agent Config
-	 - UI Config
- - Creating Your  Network
-	 - Creating Networks
-	 - Creating Keys
-	 - Creating Nodes
-	 - Managing Your Network
- - Cleaning up
- - Non-Docker Installation
- - Building
- - Testing 
-
 ## Server Config
 Netmaker settings can be set via Environment Variables or Config file. There are also a couple of runtime arguments that can optionally be set.
 
@@ -63,26 +47,63 @@ Stored as config/environments/*.yaml. Default used is dev.yaml
 **clientmode**: (default=on) E.x.: `sudo netmaker --clientmode=off` Run the Server as a client (node) as well.
 **defaultnet**:  (default=on) E.x.: `sudo netmaker --defaultnet=off` Create a default network on startup.
 
-### Running the Backend Components on Different Machines
-HTTP, GRPC, MongoDB
+## Client  Config
 
-### Non-Docker Installation
+Client config files are stored under /etc/netclient  per network as /etc/netclient/netconfig-< network name >
+**server:**
+    address: The address:port of the server
+    accesskey: The acceess key used to sign up with the server
+**node:**
+    name: a displayname for the node, e.g. "mycomputer"
+    interface: 
+    network: default
+    password: $2a$05$HqVV85kuDF5R3DS.sK5hSuYiaYFaszhGXHYy8mpIOhV7TesWOlKWG
+    macaddress: 12:cc:6f:f4:cb:a1
+    localaddress: 10.10.10.2
+    wgaddress: 10.10.10.2
+    roamingoff: false
+    islocal: false
+    allowedips: ""
+    localrange: ""
+    postup: iptables -A FORWARD -i nm-default -j ACCEPT; iptables -t nat -A POSTROUTING
+        -o nm-home -j MASQUERADE
+    postdown: iptables -D FORWARD -i nm-default -j ACCEPT; iptables -t nat -D POSTROUTING
+        -o nm-home -j MASQUERADE
+    port: 51821
+    keepalive: 20
+    publickey: WoXfPcBLGwbEVNnxOmS1dnMR+pzvoL5sg+6KuSjEN0M=
+    privatekey: ""
+    endpoint: 66.169.21.167
+    postchanges: "false"
+network: ""
+
+
+## Non-Docker Installation
+
+### MongoDB Setup
+1.  Install MongoDB on your server. For Ubuntu: `sudo apt install -y mongodb`. For more advanced installation or other operating systems, see  the [MongoDB documentation](https://docs.mongodb.com/manual/administration/install-community/).
+
+2. Create a user:
+`mongo admin`
+`db.createUser({ user: "mongoadmin" , pwd: "mongopass", roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]})`
 
 ### Server Setup
- 1. Get yourself a linux server and make sure it has a public IP.
- 2. Deploy MongoDB `docker volume create mongovol && docker run -d --name mongodb -v mongovol:/data/db --network host -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=mongopass mongo --bind_ip 0.0.0.0 `
- 3. Pull this repo: `git clone https://github.com/gravitl/netmaker.git`
- 4. Switch to the directory and source the default env vars `cd netmaker && source defaultvars.sh`
- 5. Run the server: `go run ./`
-### Optional (For  Testing):  Create Networks and Nodes
- 
- 1. Create Network: `./test/networkcreate.sh`
- 2. Create Key: `./test/keycreate.sh` (save the response for step 3)
- 3. Open ./test/nodescreate.sh and replace ACCESSKEY with value from #2
- 4. Create Nodes: `./test/nodescreate.sh`
- 5. Check to see if nodes were created: `curl -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes | jq`
+ 1. **Run the install script:** sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netmaker-server.sh | sh -
+ 2. Check status:  `sudo journalctl -u netmaker`
+2. If any settings are incorrect such as host or mongo credentials, change them under /etc/netmaker/config/environments/ENV.yaml and then run `sudo systemctl restart netmaker`
+
 ### UI Setup
-Please see [this repo](https://github.com/gravitl/netmaker-ui)  for instructions on setting up your UI.
+1. **Download UI asset files:** `sudo wget -O /usr/share/nginx/html/netmaker-ui.zip https://github.com/gravitl/netmaker-ui/releases/download/latest/netmaker-ui.zip`
+
+2. **Unzip:** `sudo unzip /usr/share/nginx/html/netmaker-ui.zip -d /usr/share/nginx/html`
+
+3. **Copy Config to Nginx:** `sudo cp /usr/share/nginx/html/nginx.conf /etc/nginx/conf.d/default.conf`
+
+4. **Modify Default Config Path:** `sudo sed -i 's/root \/var\/www\/html/root \/usr\/share\/nginx\/html/g' /etc/nginx/sites-available/default`
+
+5. **Change Backend URL:** `sudo sh -c 'BACKEND_URL=http://<YOUR BACKEND API URL>:PORT /usr/share/nginx/html/generate_config_js.sh >/usr/share/nginx/html/config.js'`
+
+6. **Start Nginx:** `sudo systemctl start nginx`
 
 ### Agent  Setup
 
@@ -119,4 +140,3 @@ When making changes to Netmaker, you may wish to create nodes, networks, or keys
 
 **Integration Testing**
 Similarly, several go  scripts have been created under the test directory (*.go) to test out changes to the code base.  These will be run automatically when PR's are submitted but can also be run manually using "go test."
-
