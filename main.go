@@ -38,6 +38,7 @@ var PortGRPC string
 //Start MongoDB Connection and start API Request Handler
 func main() {
 
+
 	var clientmode string
 	var defaultnet string
 	flag.StringVar(&clientmode, "clientmode", "on", "Have a client on the server")

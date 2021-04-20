@@ -2,6 +2,7 @@ package functions
 
 import (
     "time"
+    "os"
     "github.com/gravitl/netmaker/config"
     "github.com/gravitl/netmaker/models"
     "github.com/dgrijalva/jwt-go"
@@ -50,7 +51,7 @@ func CreateUserJWT(username string, isadmin bool) (response string, err error) {
 func VerifyUserToken(tokenString string) (username string, isadmin bool, err error) {
     claims := &models.UserClaims{}
 
-    if tokenString == config.Config.Server.MasterKey || os.Getenv("MASTER_KEY") {
+    if tokenString == config.Config.Server.MasterKey || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
         return "masteradministrator", true, nil
     }
 
@@ -70,7 +71,7 @@ func VerifyToken(tokenString string) (macaddress string, network string, err err
 
     //this may be a stupid way of serving up a master key
     //TODO: look into a different method. Encryption?
-    if tokenString == config.Config.Server.MasterKey || os.Getenv("MASTER_KEY") {
+    if tokenString == config.Config.Server.MasterKey || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
         return "mastermac", "", nil
     }
 
