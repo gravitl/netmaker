@@ -13,7 +13,7 @@ chmod +x /etc/netmaker/netmaker
 
 cat >/etc/netmaker/config/environments/dev.yaml<<EOL
 server:
-  host: $SERVER_DOMAIN
+  host: "$SERVER_DOMAIN"
   apiport: "8081"
   grpcport: "50051"
   masterkey: "secretkey"
