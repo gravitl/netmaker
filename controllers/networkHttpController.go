@@ -234,7 +234,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 			                  {"nodeslastmodified", network.NodesLastModified},
                   			{"networklastmodified", network.NetworkLastModified},
 			                  {"allowmanualsignup", network.AllowManualSignUp},
-			                  {"defaultcheckininterval", network.DefaultCheckInInterval},
+			                  {"checkininterval", network.DefaultCheckInInterval},
 		            }},
 	      }
 
@@ -406,7 +406,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
                         {"allowmanualsignup", network.AllowManualSignUp},
                         {"localrange", network.LocalRange},
                         {"islocal", network.IsLocal},
-                        {"defaultcheckininterval", network.DefaultCheckInInterval},
+                        {"checkininterval", network.DefaultCheckInInterval},
 		              }},
 	}
 
