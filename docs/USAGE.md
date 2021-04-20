@@ -6,19 +6,19 @@ This guide covers advanced usage of Netmaker. If you are just looking to get sta
 Netmaker settings can be set via Environment Variables or Config file. There are also a couple of runtime arguments that can optionally be set.
 
 ### Environment Variables
-**APP_ENV**: default=dev. Determines which environment file to use. Will look under config/environments/APP_ENV.yaml. For instance, you can  have different environments  for dev,  test, and prod,  and store different settinggs  accordingly.
-**GRPC_PORT**: default=50051. The port for GRPC (node/client) communications
-**API_PORT**: default=8081. The port for API and UI communications
-**MASTER_KEY**: default=secretkey. The skeleton key used for authenticating with server as administrator.
-
-MongoDB Connection Env Vars:
-**MONGO_USER**:default=admin
-**MONGO_HOST**:default=password
-**MONGO_PASS**:default=localhost
-**MONGO_PORTS**:default=27017
-**MONGO_OPTS**:default=/?authSource=admin
-
-**BACKEND_URL**: default=nil. The address of the server. Used for setting token values  for client/nodes. If not set, will run a command to retrieve the server URL.
+**APP_ENV**: default=dev. Determines which environment file to use. Will look under config/environments/APP_ENV.yaml. For instance, you can  have different environments  for dev,  test, and prod,  and store different settinggs  accordingly.  
+**GRPC_PORT**: default=50051. The port for GRPC (node/client) communications  
+**API_PORT**: default=8081. The port for API and UI communications  
+**MASTER_KEY**: default=secretkey. The skeleton key used for authenticating with server as administrator.  
+  
+MongoDB Connection Env Vars:  
+**MONGO_USER**:default=admin   
+**MONGO_HOST**:default=password  
+**MONGO_PASS**:default=localhost   
+**MONGO_PORTS**:default=27017  
+**MONGO_OPTS**:default=/?authSource=admin  
+  
+**BACKEND_URL**: default=nil. The address of the server. Used for setting token values  for client/nodes. If not set, will run a command to retrieve the server URL.  
 
 ###   Config File
 Stored as config/environments/*.yaml. Default used is dev.yaml
@@ -49,33 +49,31 @@ Stored as config/environments/*.yaml. Default used is dev.yaml
 
 ## Client  Config
 
-Client config files are stored under /etc/netclient  per network as /etc/netclient/netconfig-< network name >
-**server:**
-    address: The address:port of the server
-    accesskey: The acceess key used to sign up with the server
-**node:**
-    name: a displayname for the node, e.g. "mycomputer"
-    interface: 
-    network: default
-    password: $2a$05$HqVV85kuDF5R3DS.sK5hSuYiaYFaszhGXHYy8mpIOhV7TesWOlKWG
-    macaddress: 12:cc:6f:f4:cb:a1
-    localaddress: 10.10.10.2
-    wgaddress: 10.10.10.2
-    roamingoff: false
-    islocal: false
-    allowedips: ""
-    localrange: ""
-    postup: iptables -A FORWARD -i nm-default -j ACCEPT; iptables -t nat -A POSTROUTING
-        -o nm-home -j MASQUERADE
-    postdown: iptables -D FORWARD -i nm-default -j ACCEPT; iptables -t nat -D POSTROUTING
-        -o nm-home -j MASQUERADE
-    port: 51821
-    keepalive: 20
-    publickey: WoXfPcBLGwbEVNnxOmS1dnMR+pzvoL5sg+6KuSjEN0M=
-    privatekey: ""
-    endpoint: 66.169.21.167
-    postchanges: "false"
-network: ""
+Client config files are stored under /etc/netclient  per network as /etc/netclient/netconfig-< network name >  
+**server:**  
+    address: The address:port of the server  
+    accesskey: The acceess key used to sign up with the server  
+  
+**node:**  
+    name: a displayname for the node, e.g. "mycomputer" 
+    interface:  the network interface name, by default something like "nm-"  
+    network: the netmaker network being attached to  
+    password: the node's hashed password. Can be changed by putting a value in here and setting "postchanges" to "true"   
+    macaddress: the mac address of the node  
+    localaddress: the local network address   
+    wgaddress: the wireguard private address  
+    roamingoff: flag to update the IP address automatically based on network changes  
+    islocal: whether or not this is a local or public network   
+    allowedips: the allowedips addresses that other nodes will recieve  
+    localrange: the local address range if it's a local network  
+    postup: post up rules for gateway nodes  
+    postdown: post down rules for gateway nodes  
+    port: the wiregard port   
+    keepalive: the default keepalive value between this and all other nodes  
+    publickey: the public key other nodes will use to access this node   
+    privatekey: the private key of the nodes (this field does nothing)  
+    endpoint: the reachable endpoint of the node for routing, either local or public.  
+    postchanges: either "true" or "false" (with quotes). If true, will post any changes you make to the remote server. 
 
 
 ## Non-Docker Installation
