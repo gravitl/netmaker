@@ -58,7 +58,7 @@ In future releases, we have plans to support other platforms such as Windows and
 Netmaker v0.2 introduces the server as a 'client'. This means the server can add itself into networks if you would like. To do so, Netmaker requires privileged access where it is running, and needs to modify the host filesystem. To run in this mode, we are not currently using Docker.
 
 **If you would like to run with "client mode", you can use the following script to deploy:**
-`sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netmaker-install-clientmode.sh | sudo SERVER_DOMAIN=3.231.219.63 sh -`
+`sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netmaker-install-clientmode.sh | sudo SERVER_DOMAIN=< your server IP > sh -`
 
 **If you would like to run without "client mode", and manually add/remove the server from networks:**
 
