@@ -2,39 +2,23 @@
 
 This guide covers advanced usage of Netmaker. If you are just looking to get started quickly, check out the Quick Start in the [README](../README.md).
 
-## Index
-
- - Config
-	 - Server Config
-	 - Agent Config
-	 - UI Config
- - Creating Your  Network
-	 - Creating Networks
-	 - Creating Keys
-	 - Creating Nodes
-	 - Managing Your Network
- - Cleaning up
- - Non-Docker Installation
- - Building
- - Testing 
-
 ## Server Config
 Netmaker settings can be set via Environment Variables or Config file. There are also a couple of runtime arguments that can optionally be set.
 
 ### Environment Variables
-**APP_ENV**: default=dev. Determines which environment file to use. Will look under config/environments/APP_ENV.yaml. For instance, you can  have different environments  for dev,  test, and prod,  and store different settinggs  accordingly.
-**GRPC_PORT**: default=50051. The port for GRPC (node/client) communications
-**API_PORT**: default=8081. The port for API and UI communications
-**MASTER_KEY**: default=secretkey. The skeleton key used for authenticating with server as administrator.
-
-MongoDB Connection Env Vars:
-**MONGO_USER**:default=admin
-**MONGO_HOST**:default=password
-**MONGO_PASS**:default=localhost
-**MONGO_PORTS**:default=27017
-**MONGO_OPTS**:default=/?authSource=admin
-
-**BACKEND_URL**: default=nil. The address of the server. Used for setting token values  for client/nodes. If not set, will run a command to retrieve the server URL.
+**APP_ENV**: default=dev. Determines which environment file to use. Will look under config/environments/APP_ENV.yaml. For instance, you can  have different environments  for dev,  test, and prod,  and store different settinggs  accordingly.  
+**GRPC_PORT**: default=50051. The port for GRPC (node/client) communications  
+**API_PORT**: default=8081. The port for API and UI communications  
+**MASTER_KEY**: default=secretkey. The skeleton key used for authenticating with server as administrator.  
+  
+MongoDB Connection Env Vars:  
+**MONGO_USER**:default=admin   
+**MONGO_HOST**:default=password  
+**MONGO_PASS**:default=localhost   
+**MONGO_PORTS**:default=27017  
+**MONGO_OPTS**:default=/?authSource=admin  
+  
+**BACKEND_URL**: default=nil. The address of the server. Used for setting token values  for client/nodes. If not set, will run a command to retrieve the server URL.  
 
 ###   Config File
 Stored as config/environments/*.yaml. Default used is dev.yaml
@@ -63,26 +47,61 @@ Stored as config/environments/*.yaml. Default used is dev.yaml
 **clientmode**: (default=on) E.x.: `sudo netmaker --clientmode=off` Run the Server as a client (node) as well.
 **defaultnet**:  (default=on) E.x.: `sudo netmaker --defaultnet=off` Create a default network on startup.
 
-### Running the Backend Components on Different Machines
-HTTP, GRPC, MongoDB
+## Client  Config
 
-### Non-Docker Installation
+Client config files are stored under /etc/netclient  per network as /etc/netclient/netconfig-< network name >  
+**server:**  
+    address: The address:port of the server  
+    accesskey: The acceess key used to sign up with the server  
+  
+**node:**  
+    name: a displayname for the node, e.g. "mycomputer" 
+    interface:  the network interface name, by default something like "nm-"  
+    network: the netmaker network being attached to  
+    password: the node's hashed password. Can be changed by putting a value in here and setting "postchanges" to "true"   
+    macaddress: the mac address of the node  
+    localaddress: the local network address   
+    wgaddress: the wireguard private address  
+    roamingoff: flag to update the IP address automatically based on network changes  
+    islocal: whether or not this is a local or public network   
+    allowedips: the allowedips addresses that other nodes will recieve  
+    localrange: the local address range if it's a local network  
+    postup: post up rules for gateway nodes  
+    postdown: post down rules for gateway nodes  
+    port: the wiregard port   
+    keepalive: the default keepalive value between this and all other nodes  
+    publickey: the public key other nodes will use to access this node   
+    privatekey: the private key of the nodes (this field does nothing)  
+    endpoint: the reachable endpoint of the node for routing, either local or public.  
+    postchanges: either "true" or "false" (with quotes). If true, will post any changes you make to the remote server. 
+
+
+## Non-Docker Installation
+
+### MongoDB Setup
+1.  Install MongoDB on your server. For Ubuntu: `sudo apt install -y mongodb`. For more advanced installation or other operating systems, see  the [MongoDB documentation](https://docs.mongodb.com/manual/administration/install-community/).
+
+2. Create a user:
+`mongo admin`
+`db.createUser({ user: "mongoadmin" , pwd: "mongopass", roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]})`
 
 ### Server Setup
- 1. Get yourself a linux server and make sure it has a public IP.
- 2. Deploy MongoDB `docker volume create mongovol && docker run -d --name mongodb -v mongovol:/data/db --network host -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=mongopass mongo --bind_ip 0.0.0.0 `
- 3. Pull this repo: `git clone https://github.com/gravitl/netmaker.git`
- 4. Switch to the directory and source the default env vars `cd netmaker && source defaultvars.sh`
- 5. Run the server: `go run ./`
-### Optional (For  Testing):  Create Networks and Nodes
- 
- 1. Create Network: `./test/networkcreate.sh`
- 2. Create Key: `./test/keycreate.sh` (save the response for step 3)
- 3. Open ./test/nodescreate.sh and replace ACCESSKEY with value from #2
- 4. Create Nodes: `./test/nodescreate.sh`
- 5. Check to see if nodes were created: `curl -H "authorization: Bearer secretkey" localhost:8081/api/skynet/nodes | jq`
+ 1. **Run the install script:** sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netmaker-server.sh | sh -
+ 2. Check status:  `sudo journalctl -u netmaker`
+2. If any settings are incorrect such as host or mongo credentials, change them under /etc/netmaker/config/environments/ENV.yaml and then run `sudo systemctl restart netmaker`
+
 ### UI Setup
-Please see [this repo](https://github.com/gravitl/netmaker-ui)  for instructions on setting up your UI.
+1. **Download UI asset files:** `sudo wget -O /usr/share/nginx/html/netmaker-ui.zip https://github.com/gravitl/netmaker-ui/releases/download/latest/netmaker-ui.zip`
+
+2. **Unzip:** `sudo unzip /usr/share/nginx/html/netmaker-ui.zip -d /usr/share/nginx/html`
+
+3. **Copy Config to Nginx:** `sudo cp /usr/share/nginx/html/nginx.conf /etc/nginx/conf.d/default.conf`
+
+4. **Modify Default Config Path:** `sudo sed -i 's/root \/var\/www\/html/root \/usr\/share\/nginx\/html/g' /etc/nginx/sites-available/default`
+
+5. **Change Backend URL:** `sudo sh -c 'BACKEND_URL=http://<YOUR BACKEND API URL>:PORT /usr/share/nginx/html/generate_config_js.sh >/usr/share/nginx/html/config.js'`
+
+6. **Start Nginx:** `sudo systemctl start nginx`
 
 ### Agent  Setup
 
@@ -119,4 +138,3 @@ When making changes to Netmaker, you may wish to create nodes, networks, or keys
 
 **Integration Testing**
 Similarly, several go  scripts have been created under the test directory (*.go) to test out changes to the code base.  These will be run automatically when PR's are submitted but can also be run manually using "go test."
-
