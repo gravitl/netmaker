@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
+	"os"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/functions"
@@ -83,7 +83,7 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == config.Config.Server.MasterKey {
+	if tokenString == config.Config.Server.MasterKey  || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
 		return true
 	}
 	return false
