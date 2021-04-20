@@ -6,7 +6,7 @@
 </p>
 
 ## What is Netmaker?
-Netmaker is a tool for creating and managing virtual networks. The goal is to make virtual/overlay/mesh networking easy for non-networking people. It should be like clicking a button. Netmaker consists of a server, an agent, and a UI. You spin up the Netmaker server and then install netclient (the agent) on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
+Netmaker is a tool for creating and managing virtual networks. The goal is to provide functionality similar to Tailscale, ZeroTier, and Nebula, but faster, easier, and more dynamic. It should be like clicking a button. Netmaker consists of a server, an agent, and a UI. You spin up the Netmaker server and then install netclient (the agent) on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
 
 Netmaker's handy dandy UI can be found [here](https://github.com/gravitl/netmaker-ui).
 
