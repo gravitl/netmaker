@@ -1,5 +1,3 @@
-
-
 <p align="center">
   <img src="netmaker.png"><break/>
 </p>
@@ -8,7 +6,7 @@
 </p>
 
 ## What is Netmaker?
-Netmaker is a tool for creating and managing virtual networks. The goal is to make virtual/overlay/mesh networking easy for non-networking people. It should be like clicking a button. Netmaker consists of a server, an agent, and a UI. You spin up the Netmaker server and then install netclient (the agent) on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
+Netmaker is a tool for creating and managing virtual networks. The goal is to provide functionality similar to Tailscale, ZeroTier, and Nebula, but faster, easier, and more dynamic. It should be like clicking a button. Netmaker consists of a server, an agent, and a UI. You spin up the Netmaker server and then install netclient (the agent) on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
 
 Netmaker's handy dandy UI can be found [here](https://github.com/gravitl/netmaker-ui).
 
@@ -47,25 +45,34 @@ In future releases, we have plans to support other platforms such as Windows and
 
 ## Quick Start
 
-[Video Tutorial](https://youtu.be/PWLPT320Ybo)
-
+[Intro/Overview Video Tutorial](https://youtu.be/PWLPT320Ybo)  
+[Site-to-Site Video Tutorial](https://youtu.be/krCKBJhwwDk)  
+   
 #### Prereqs:
 1. A server with an IP reachable by your computers (a small ec2 instance or droplet would do just fine).
 2. Linux installed on the above server (we use Ubuntu, but anything that runs Docker should work).
-3. Install Docker (can run without Docker as well, but is not preferred. If this is a requirement, view the Advanced Usage docs).
+3. Install Docker if running in Docker Mode (see below).
 
 
 #### Launch Netmaker:
+
+Netmaker v0.2 introduces the server as a 'client'. This means the server can add itself into networks if you would like. To do so, Netmaker requires privileged access where it is running, and needs to modify the host filesystem. To run in this mode, we are not currently using Docker.
+
+**If you would like to run with "client mode", you can use the following script to deploy:**
+`sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netmaker-install-clientmode.sh | sudo SERVER_DOMAIN=< your server IP > sh -`
+
+**If you would like to run without "client mode", and manually add/remove the server from networks:**
+
 1. Clone this repo or just copy contents of "docker-compose.yml" to your Netmaker server (from prereqs).
-2. In docker-compose.yml, change BACKEND_URL to the public IP ofthat machine.
+2. In docker-compose.yml, change BACKEND_URL to the public IP of your server.
 3. Run `sudo docker-compose up`
 4. Navigate to your server's IP in the browser and you should see the Netmaker UI asking to create a new admin user.
 5. Create a new admin user
-6. . Click "Create Network" and fill out the details
-7. You are now ready to begin using Netmaker. Create a key or enable manual node sign up so that your nodes can connect.
+6. You are now ready to begin using Netmaker. There should be a default network you can use or you can create your own. Then, Create a key or enable manual node sign up so that your nodes can connect.
 
 #### On your machines :
-Run the following: `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.1/netclient-install.sh | SERVER_URL=<your server ip>:50051 NET_NAME=<your network name> KEY=<your access key> sh -`  
+A command will be displayed when you generate a token for signing up nodes. Run it on each machine you would like to connect.
+`curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netclient-install.sh | KEY=<your access key> sh -`  
 (Note: Key can be left out if manual node signup is enabled)
 
 #### LICENSE
@@ -76,4 +83,3 @@ Netmaker's source code and all artifacts in this repository are freely available
 
 Email: info@gravitl.com  
 Discord: https://discord.gg/zRb9Vfhk8A
-

@@ -22,34 +22,34 @@
  - [x] Config file for modifying node 
 
 ### 0.2
-- [ ] Separate out README into DOCS folder with the following:
-	- [ ] API Docs
-	- [ ] Getting Started
+- [x] Separate out README into DOCS folder with the following:
+	- [x] API Docs
+	- [x] Usage
 	- [ ] Advanced Usage
-	- [ ] Contributing
+	- [x] Contributing
 	- [ ] Roadmap
 	- [ ] Troubleshooting
 
 **Server:**
- - [ ] Allow tracking multiple networks per node
+ - [x] Allow tracking multiple networks per node
  - [ ] Configure Check-in thresholds
  - [ ] Separate sign-up endpoint to allow VPN-only comms after joining network
  - [ ] Swagger Docs
- - [ ] Build Out README
- - [ ] Encode Server, Port, and Network into Keys
+ - [x] Build Out README
+ - [x] Encode Server, Port, and Network into Keys
  - [ ] Switch to Unique ID for nodes instead of MacAddress
- - [ ] Public Key refresh
+ - [x] Public Key refresh
  - [ ] Enable  ipv6 addresses
- - [ ] Have a "default" network created at startup
+ - [x] Have a "default" network created at startup
  
 **Agent:**
- - [ ] Test / get working on multiple linux platforms
+ - [x] Test / get working on multiple linux platforms
  - [ ] Set private DNS via etc hosts (node name + ip). Make it optional flag on agent.
- - [ ] Decode Server, Port, and Network from Key
+ - [x] Decode Server, Port, and Network from Key
  - [ ] Service ID / unit file for SystemD Service
- - [ ] Allow multiple interfaces
+ - [x] Allow multiple interfaces
  - [ ] Use "Check in interval" from server
- - [ ] Pre-req check on machine (wg, port forwarding)
+ - [x] Pre-req check on machine (wg, port forwarding)
  - [ ]  Enable  ipv6 addresses
 
 ### 0.3

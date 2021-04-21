@@ -27,5 +27,5 @@ COPY --from=builder /app/config config
 EXPOSE 8081
 EXPOSE 50051
 
-CMD ["./app"]
+CMD ["./app", "--clientmode=off"]
 
