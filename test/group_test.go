@@ -115,7 +115,7 @@ func TestGetNetwork(t *testing.T) {
 	})
 }
 
-func TestDeleteMetwork(t *testing.T) {
+func TestDeleteNetwork(t *testing.T) {
 
 	t.Run("InvalidKey", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "badkey")

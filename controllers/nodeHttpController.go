@@ -1,121 +1,120 @@
 package controller
 
 import (
-    "github.com/gravitl/netmaker/models"
-    "errors"
-    "github.com/gravitl/netmaker/functions"
-    "github.com/gravitl/netmaker/mongoconn"
-    "golang.org/x/crypto/bcrypt"
-    "time"
-    "strings"
-    "fmt"
-    "context"
-    "encoding/json"
-    "net/http"
-    "github.com/gorilla/mux"
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/mongo/options"
-)
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
+	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mongoconn"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/bcrypt"
+)
 
 func nodeHandlers(r *mux.Router) {
 
-    r.HandleFunc("/api/nodes", authorize(false, "master", http.HandlerFunc(getAllNodes))).Methods("GET")
-    r.HandleFunc("/api/nodes/{network}", authorize(true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
-    r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
-    r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
-    r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
-    r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
-    r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
-    r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("DELETE")
-    r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
-    r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
-    r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
-    r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
+	r.HandleFunc("/api/nodes", authorize(false, "master", http.HandlerFunc(getAllNodes))).Methods("GET")
+	r.HandleFunc("/api/nodes/{network}", authorize(true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
+	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
+	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 
 }
 
 //Node authenticates using its password and retrieves a JWT for authorization.
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
-
-    //Auth request consists of Mac Address and Password (from node that is authorizing
-    //in case of Master, auth is ignored and mac is set to "mastermac"
-    var authRequest models.AuthParams
-    var result models.Node
-    var errorResponse = models.ErrorResponse{
-	    Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-    }
-
-    //Get password fnd mac rom request
-    decoder := json.NewDecoder(request.Body)
-    decoderErr := decoder.Decode(&authRequest)
-    defer request.Body.Close()
-
-    if decoderErr != nil {
-        returnErrorResponse(response, request, errorResponse)
-	return
-	} else {
-        errorResponse.Code = http.StatusBadRequest
-        if authRequest.MacAddress == "" {
-            errorResponse.Message = "W1R3: MacAddress can't be empty"
-            returnErrorResponse(response, request, errorResponse)
-	    return
-        } else if authRequest.Password == "" {
-            errorResponse.Message = "W1R3: Password can't be empty"
-            returnErrorResponse(response, request, errorResponse)
-            return
-       } else {
-
-            //Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-            collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-            ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	    var err = collection.FindOne(ctx, bson.M{ "macaddress": authRequest.MacAddress, "ispending": false }).Decode(&result)
-
-            defer cancel()
-
-            if err != nil {
-                returnErrorResponse(response, request, errorResponse)
-		return
-            }
-
-	   //compare password from request to stored password in database
-	   //might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
-	   //TODO: Consider a way of hashing the password client side before sending, or using certificates
-	   err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
-	   if err != nil {
-		   returnErrorResponse(response, request, errorResponse)
-		   return
-	   } else {
-		//Create a new JWT for the node
-                tokenString, _ := functions.CreateJWT(authRequest.MacAddress, result.Network)
-
-                if tokenString == "" {
-                    returnErrorResponse(response, request, errorResponse)
-		    return
-                }
-
-                var successResponse = models.SuccessResponse{
-                    Code:    http.StatusOK,
-                    Message: "W1R3: Device " + authRequest.MacAddress + " Authorized",
-                    Response: models.SuccessfulLoginResponse{
-                        AuthToken: tokenString,
-                        MacAddress:     authRequest.MacAddress,
-                    },
-                }
-                //Send back the JWT
-                successJSONResponse, jsonError := json.Marshal(successResponse)
-
-                if jsonError != nil {
-                    returnErrorResponse(response, request, errorResponse)
-		    return
-                }
-	        response.WriteHeader(http.StatusOK)
-                response.Header().Set("Content-Type", "application/json")
-                response.Write(successJSONResponse)
-            }
+	//Auth request consists of Mac Address and Password (from node that is authorizing
+	//in case of Master, auth is ignored and mac is set to "mastermac"
+	var authRequest models.AuthParams
+	var result models.Node
+	var errorResponse = models.ErrorResponse{
+		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
-    }
+
+	//Get password fnd mac rom request
+	decoder := json.NewDecoder(request.Body)
+	decoderErr := decoder.Decode(&authRequest)
+	defer request.Body.Close()
+
+	if decoderErr != nil {
+		returnErrorResponse(response, request, errorResponse)
+		return
+	} else {
+		errorResponse.Code = http.StatusBadRequest
+		if authRequest.MacAddress == "" {
+			errorResponse.Message = "W1R3: MacAddress can't be empty"
+			returnErrorResponse(response, request, errorResponse)
+			return
+		} else if authRequest.Password == "" {
+			errorResponse.Message = "W1R3: Password can't be empty"
+			returnErrorResponse(response, request, errorResponse)
+			return
+		} else {
+
+			//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
+			collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			var err = collection.FindOne(ctx, bson.M{"macaddress": authRequest.MacAddress, "ispending": false}).Decode(&result)
+
+			defer cancel()
+
+			if err != nil {
+				returnErrorResponse(response, request, errorResponse)
+				return
+			}
+
+			//compare password from request to stored password in database
+			//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
+			//TODO: Consider a way of hashing the password client side before sending, or using certificates
+			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
+			if err != nil {
+				returnErrorResponse(response, request, errorResponse)
+				return
+			} else {
+				//Create a new JWT for the node
+				tokenString, _ := functions.CreateJWT(authRequest.MacAddress, result.Network)
+
+				if tokenString == "" {
+					returnErrorResponse(response, request, errorResponse)
+					return
+				}
+
+				var successResponse = models.SuccessResponse{
+					Code:    http.StatusOK,
+					Message: "W1R3: Device " + authRequest.MacAddress + " Authorized",
+					Response: models.SuccessfulLoginResponse{
+						AuthToken:  tokenString,
+						MacAddress: authRequest.MacAddress,
+					},
+				}
+				//Send back the JWT
+				successJSONResponse, jsonError := json.Marshal(successResponse)
+
+				if jsonError != nil {
+					returnErrorResponse(response, request, errorResponse)
+					return
+				}
+				response.WriteHeader(http.StatusOK)
+				response.Header().Set("Content-Type", "application/json")
+				response.Write(successJSONResponse)
+			}
+		}
+	}
 }
 
 //The middleware for most requests to the API
@@ -126,105 +125,103 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 //This is kind of a poor man's RBAC. There's probably a better/smarter way.
 //TODO: Consider better RBAC implementations
 func authorize(networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
-        return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-                var errorResponse = models.ErrorResponse{
-                        Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-                }
+		var errorResponse = models.ErrorResponse{
+			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+		}
 
 		var params = mux.Vars(r)
 
 		networkexists, _ := functions.NetworkExists(params["network"])
 
 		//check that the request is for a valid network
-                //if (networkCheck && !networkexists) || err != nil {
-                if (networkCheck && !networkexists) {
-                        errorResponse = models.ErrorResponse{
-                                Code: http.StatusNotFound, Message: "W1R3: This network does not exist. ",
-                        }
-                        returnErrorResponse(w, r, errorResponse)
-			return
-
-                } else {
-
-	        w.Header().Set("Content-Type", "application/json")
-
-		//get the auth token
-		bearerToken := r.Header.Get("Authorization")
-
-                var tokenSplit = strings.Split(bearerToken, " ")
-
-		//I put this in in case the user doesn't put in a token at all (in which case it's empty)
-		//There's probably a smarter way of handling this.
-                var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
-
-                if len(tokenSplit) > 1 {
-                        authToken = tokenSplit[1]
-                }  else {
-                        errorResponse = models.ErrorResponse{
-                                Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
-                        }
-                        returnErrorResponse(w, r, errorResponse)
-			return
-		}
-
-
-		//This checks if
-		//A: the token is the master password
-		//B: the token corresponds to a mac address, and if so, which one
-		//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
-		macaddress, _, err := functions.VerifyToken(authToken)
-
-		if err != nil {
-                        errorResponse = models.ErrorResponse{
-                                Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
-                        }
-                        returnErrorResponse(w, r, errorResponse)
-			return
-		}
-
-		var isAuthorized = false
-
-		//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
-		if macaddress == "mastermac" {
-			isAuthorized = true
-
-		//for everyone else, there's poor man's RBAC. The "cases" are defined in the routes in the handlers
-		//So each route defines which access network should be allowed to access it
-		} else {
-			switch authNetwork {
-			case "all":
-				isAuthorized = true
-                        case "nodes":
-				isAuthorized = (macaddress != "")
-                        case "network":
-                                node, err := functions.GetNodeByMacAddress(params["network"], macaddress)
-		                if err != nil {
-					errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
-					}
-					returnErrorResponse(w, r, errorResponse)
-					return
-		                }
-                                isAuthorized = (node.Network == params["network"])
-			case "node":
-				isAuthorized = (macaddress == params["macaddress"])
-                        case "master":
-				 isAuthorized = (macaddress == "mastermac")
-			default:
-				isAuthorized = false
-			}
-		}
-		if !isAuthorized {
+		//if (networkCheck && !networkexists) || err != nil {
+		if networkCheck && !networkexists {
 			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+				Code: http.StatusNotFound, Message: "W1R3: This network does not exist. ",
 			}
 			returnErrorResponse(w, r, errorResponse)
 			return
+
 		} else {
-			//If authorized, this function passes along it's request and output to the appropriate route function.
-			next.ServeHTTP(w, r)
-		}
+
+			w.Header().Set("Content-Type", "application/json")
+
+			//get the auth token
+			bearerToken := r.Header.Get("Authorization")
+
+			var tokenSplit = strings.Split(bearerToken, " ")
+
+			//I put this in in case the user doesn't put in a token at all (in which case it's empty)
+			//There's probably a smarter way of handling this.
+			var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
+
+			if len(tokenSplit) > 1 {
+				authToken = tokenSplit[1]
+			} else {
+				errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
+				}
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
+
+			//This checks if
+			//A: the token is the master password
+			//B: the token corresponds to a mac address, and if so, which one
+			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
+			macaddress, _, err := functions.VerifyToken(authToken)
+			if err != nil {
+				errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
+				}
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
+
+			var isAuthorized = false
+
+			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
+			if macaddress == "mastermac" {
+				isAuthorized = true
+
+				//for everyone else, there's poor man's RBAC. The "cases" are defined in the routes in the handlers
+				//So each route defines which access network should be allowed to access it
+			} else {
+				switch authNetwork {
+				case "all":
+					isAuthorized = true
+				case "nodes":
+					isAuthorized = (macaddress != "")
+				case "network":
+					node, err := functions.GetNodeByMacAddress(params["network"], macaddress)
+					if err != nil {
+						errorResponse = models.ErrorResponse{
+							Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
+						}
+						returnErrorResponse(w, r, errorResponse)
+						return
+					}
+					isAuthorized = (node.Network == params["network"])
+				case "node":
+					isAuthorized = (macaddress == params["macaddress"])
+				case "master":
+					isAuthorized = (macaddress == "mastermac")
+				default:
+					isAuthorized = false
+				}
+			}
+			if !isAuthorized {
+				errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+				}
+				returnErrorResponse(w, r, errorResponse)
+				return
+			} else {
+				//If authorized, this function passes along it's request and output to the appropriate route function.
+				next.ServeHTTP(w, r)
+			}
 		}
 	}
 }
@@ -241,15 +238,15 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"network": params["network"]}
+	filter := bson.M{"network": params["network"]}
 
 	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
 	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
 
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	defer cancel()
 
@@ -263,8 +260,8 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		var node models.ReturnNode
 
 		err := cur.Decode(&node)
-	        if err != nil {
-			returnErrorResponse(w,r,formatError(err, "internal"))
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
 
@@ -274,12 +271,12 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	//TODO: Another fatal error we should take care of.
 	if err := cur.Err(); err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
 	}
 
 	//Returns all the nodes in JSON format
-        w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
 
 }
@@ -288,43 +285,43 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 //Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
-        w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 
-        var nodes []models.ReturnNode
+	var nodes []models.ReturnNode
 
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	// Filter out them ID's again
 	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        defer cancel()
+	defer cancel()
 
-        for cur.Next(context.TODO()) {
+	for cur.Next(context.TODO()) {
 
-                var node models.ReturnNode
-                err := cur.Decode(&node)
-	        if err != nil {
-		        returnErrorResponse(w,r,formatError(err, "internal"))
+		var node models.ReturnNode
+		err := cur.Decode(&node)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
-                // add node to our array
-                nodes = append(nodes, node)
-        }
+		// add node to our array
+		nodes = append(nodes, node)
+	}
 
 	//TODO: Fatal error
-        if err := cur.Err(); err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err := cur.Err(); err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	//Return all the nodes in JSON format
-        w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
 
 }
@@ -342,46 +339,45 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
 	//Instead, implement a "configupdate" boolean on nodes
 	//when there is a network update  that requrires  a config update,  then the node will pull its new config
 
-        // set header.
-        w.Header().Set("Content-Type", "application/json")
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
 
-        var params = mux.Vars(r)
+	var params = mux.Vars(r)
 
 	var node models.Node
-
 
 	//Retrieves node with DB Call which is inefficient. Let's just get the time and set it.
 	//node = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
 
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
+	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
 
 	//old code was inefficient, this is all we need.
-	time := time.Now().String()
+	time := time.Now().Unix()
 
-        //node.SetLastCheckIn()
+	//node.SetLastCheckIn()
 
-        // prepare update model with new time
-        update := bson.D{
-                {"$set", bson.D{
-                        {"lastcheckin", time},
-                }},
-        }
+	// prepare update model with new time
+	update := bson.D{
+		{"$set", bson.D{
+			{"lastcheckin", time},
+		}},
+	}
 
-        err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+	err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
 
-        defer cancel()
+	defer cancel()
 
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	//TODO: check node last modified vs network last modified
-        w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
 }
@@ -391,13 +387,13 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-        var params = mux.Vars(r)
+	var params = mux.Vars(r)
 
 	node, err := GetNode(params["macaddress"], params["network"])
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -407,25 +403,25 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 //Potential way to do this: On UpdateNode, set a new field for "LastModified"
 //If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
 func getLastModified(w http.ResponseWriter, r *http.Request) {
-        // set header.
-        w.Header().Set("Content-Type", "application/json")
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
 
-        var network models.Network
-        var params = mux.Vars(r)
+	var network models.Network
+	var params = mux.Vars(r)
 
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
+	collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"netid": params["network"]}
-        err := collection.FindOne(ctx, filter).Decode(&network)
+	filter := bson.M{"netid": params["network"]}
+	err := collection.FindOne(ctx, filter).Decode(&network)
 
 	defer cancel()
 
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(string(network.NodesLastModified)))
@@ -438,47 +434,46 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 func createNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-        var params = mux.Vars(r)
+	var params = mux.Vars(r)
 
 	var errorResponse = models.ErrorResponse{
-	        Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
 
-        networkName := params["network"]
+	networkName := params["network"]
 
 	//Check if network exists  first
-	//TODO: This is inefficient. Let's find a better way. 
+	//TODO: This is inefficient. Let's find a better way.
 	//Just a few rows down we grab the network anyway
-        networkexists, err := functions.NetworkExists(networkName)
+	networkexists, err := functions.NetworkExists(networkName)
 
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        } else if !networkexists {
-                errorResponse = models.ErrorResponse{
-                        Code: http.StatusNotFound, Message: "W1R3: Network does not exist! ",
-                }
-                returnErrorResponse(w, r, errorResponse)
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	} else if !networkexists {
+		errorResponse = models.ErrorResponse{
+			Code: http.StatusNotFound, Message: "W1R3: Network does not exist! ",
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+	}
 
 	var node models.Node
 
 	//get node from body of request
 	err = json.NewDecoder(r.Body).Decode(&node)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	node.Network = networkName
 
-
 	network, err := node.GetNetwork()
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	//Check to see if key is valid
 	//TODO: Triple inefficient!!! This is the third call to the DB we make for networks
@@ -489,7 +484,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		//may want to switch this up with the valid key check and avoid a DB call that way.
 		if *network.AllowManualSignUp {
 			node.IsPending = true
-		} else  {
+		} else {
 			errorResponse = models.ErrorResponse{
 				Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
 			}
@@ -498,17 +493,17 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err =  ValidateNode("create", networkName, node)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "badrequest"))
-                return
-        }
+	err = ValidateNode("create", networkName, node)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
 
-        node, err = CreateNode(node, networkName)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	node, err = CreateNode(node, networkName)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -516,78 +511,78 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 //Takes node out of pending state
 //TODO: May want to use cordon/uncordon terminology instead of "ispending".
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 
-        var params = mux.Vars(r)
+	var params = mux.Vars(r)
 
-        var node models.Node
+	var node models.Node
 
 	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        // Create filter
+	// Create filter
 	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
 
-        node.SetLastModified()
+	node.SetLastModified()
 
-        fmt.Println("Uncordoning node " + node.Name)
+	fmt.Println("Uncordoning node " + node.Name)
 
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"ispending", false},
-                }},
-        }
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"ispending", false},
+		}},
+	}
 
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
 
-        defer cancel()
+	defer cancel()
 
 	if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        fmt.Println("Node " + node.Name + " uncordoned.")
+	fmt.Println("Node " + node.Name + " uncordoned.")
 	w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode("SUCCESS")
+	json.NewEncoder(w).Encode("SUCCESS")
 }
 
 func createGateway(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 
-        var params = mux.Vars(r)
+	var params = mux.Vars(r)
 
-        var gateway models.GatewayRequest
+	var gateway models.GatewayRequest
 
 	err := json.NewDecoder(r.Body).Decode(&gateway)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["macaddress"]
 
-        node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	err = validateGateway(gateway)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        var nodechange models.Node
+	var nodechange models.Node
 
 	nodechange.IsGateway = true
 	nodechange.GatewayRange = gateway.RangeString
@@ -602,117 +597,126 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		nodechange.PostDown = gateway.PostDown
 	}
 
-       collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        // Create filter
-        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
+	// Create filter
+	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
 
-        nodechange.SetLastModified()
+	nodechange.SetLastModified()
 
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"postup", nodechange.PostUp},
-                        {"postdown", nodechange.PostDown},
-                        {"isgateway", nodechange.IsGateway},
-                        {"gatewayrange", nodechange.GatewayRange},
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"postup", nodechange.PostUp},
+			{"postdown", nodechange.PostDown},
+			{"isgateway", nodechange.IsGateway},
+			{"gatewayrange", nodechange.GatewayRange},
 			{"lastmodified", nodechange.LastModified},
-                }},
-        }
-        var nodeupdate models.Node
+		}},
+	}
+	var nodeupdate models.Node
 
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
 
-        defer cancel()
+	defer cancel()
 
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        err = SetNetworkNodesLastModified(params["network"])
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	err = SetNetworkNodesLastModified(params["network"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(node)
+	//Get updated values to return
+	node, err = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
 }
 
 func validateGateway(gateway models.GatewayRequest) error {
-		var err error
-                isIpv4 := functions.IsIpv4CIDR(gateway.RangeString)
-                empty := gateway.RangeString == ""
-                if empty || !isIpv4 {
-			err = errors.New("IP Range Not Valid")
-		}
-		return err
+	var err error
+	isIpv4 := functions.IsIpv4CIDR(gateway.RangeString)
+	empty := gateway.RangeString == ""
+	if empty || !isIpv4 {
+		err = errors.New("IP Range Not Valid")
+	}
+	return err
 }
-
-
-
 
 func deleteGateway(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 
-        var params = mux.Vars(r)
+	var params = mux.Vars(r)
 
-        node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        var nodechange models.Node
+	var nodechange models.Node
 
-        nodechange.IsGateway = false
-        nodechange.GatewayRange = ""
-        nodechange.PostUp = ""
-        nodechange.PostDown = ""
+	nodechange.IsGateway = false
+	nodechange.GatewayRange = ""
+	nodechange.PostUp = ""
+	nodechange.PostDown = ""
 
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        // Create filter
-        filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
+	// Create filter
+	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
 
-        nodechange.SetLastModified()
+	nodechange.SetLastModified()
 
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"postup", nodechange.PostUp},
-                        {"postdown", nodechange.PostDown},
-                        {"isgateway", nodechange.IsGateway},
-                        {"gatewayrange", nodechange.GatewayRange},
-                        {"lastmodified", nodechange.LastModified},
-                }},
-        }
-        var nodeupdate models.Node
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"postup", nodechange.PostUp},
+			{"postdown", nodechange.PostDown},
+			{"isgateway", nodechange.IsGateway},
+			{"gatewayrange", nodechange.GatewayRange},
+			{"lastmodified", nodechange.LastModified},
+		}},
+	}
+	var nodeupdate models.Node
 
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
 
-        defer cancel()
+	defer cancel()
 
 	if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        err = SetNetworkNodesLastModified(params["network"])
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	err = SetNetworkNodesLastModified(params["network"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(node)
+	//Get updated values to return
+	node, err = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
 }
-
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -726,35 +730,33 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	//start here
 	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
+	var nodechange models.Node
 
-
-        var nodechange models.Node
-
-        // we decode our body request params
-        _ = json.NewDecoder(r.Body).Decode(&nodechange)
+	// we decode our body request params
+	_ = json.NewDecoder(r.Body).Decode(&nodechange)
 	if nodechange.Network == "" {
-	        nodechange.Network = node.Network
+		nodechange.Network = node.Network
 	}
 	if nodechange.MacAddress == "" {
 		nodechange.MacAddress = node.MacAddress
 	}
 
-        err = ValidateNode("update", params["network"], nodechange)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "badrequest"))
-                return
-        }
+	err = ValidateNode("update", params["network"], nodechange)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
 
 	node, err = UpdateNode(nodechange, node)
-        if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        }
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -771,13 +773,12 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	success, err := DeleteNode(params["macaddress"], params["network"])
 
 	if err != nil {
-                returnErrorResponse(w,r,formatError(err, "internal"))
-                return
-        } else if !success {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	} else if !success {
 		err = errors.New("Could not delete node " + params["macaddress"])
-                returnErrorResponse(w,r,formatError(err, "internal"))
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(params["macaddress"] + " deleted.")
+	returnSuccessResponse(w, r, params["macaddress"]+" deleted.")
 }

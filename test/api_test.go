@@ -157,6 +157,19 @@ func createKey(t *testing.T) {
 	assert.NotNil(t, message, message)
 }
 
+func createAccessKey(t *testing.T) (key models.AccessKey) {
+	createkey := models.AccessKey{}
+	createkey.Name = "skynet"
+	createkey.Uses = 10
+	response, err := api(t, createkey, http.MethodPost, baseURL+"/api/networks/skynet/keys", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	defer response.Body.Close()
+	err = json.NewDecoder(response.Body).Decode(&key)
+	assert.Nil(t, err, err)
+	return key
+}
+
 func getKey(t *testing.T, name string) models.AccessKey {
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet/keys", "secretkey")
 	assert.Nil(t, err, err)
@@ -216,4 +229,17 @@ func deleteNetworks(t *testing.T) {
 		_, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/"+name, "secretkey")
 		assert.Nil(t, err, err)
 	}
+}
+
+func getNetworkNodes(t *testing.T) []models.ReturnNode {
+	var nodes []models.ReturnNode
+	var node models.ReturnNode
+	nodes = append(nodes, node)
+	return nodes
+}
+
+func deleteNode(t *testing.T, node models.ReturnNode) {
+}
+
+func createNode(t *testing.T) {
 }
