@@ -82,8 +82,8 @@ Client config files are stored under /etc/netclient  per network as /etc/netclie
 1.  Install MongoDB on your server. For Ubuntu: `sudo apt install -y mongodb`. For more advanced installation or other operating systems, see  the [MongoDB documentation](https://docs.mongodb.com/manual/administration/install-community/).
 
 2. Create a user:
-`mongo admin`
-`db.createUser({ user: "mongoadmin" , pwd: "mongopass", roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]})`
+`mongo admin`  
+> `db.createUser({ user: "mongoadmin" , pwd: "mongopass", roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]})`
 
 ### Server Setup
  1. **Run the install script:** sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netmaker-server.sh | sh -
