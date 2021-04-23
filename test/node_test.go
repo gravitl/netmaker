@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -10,8 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func setup(t *testing.T) {
+	deleteNetworks(t)
+	createNetwork(t)
+	createNode(t)
+}
+
+func TestJunk(t *testing.T) {
+	deleteNetworks(t)
+}
+
 func TestGetAllNodes(t *testing.T) {
-	//ensure nodes exist
+	setup(t)
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -25,6 +34,7 @@ func TestGetAllNodes(t *testing.T) {
 }
 
 func TestGetNetworkNodes(t *testing.T) {
+	setup(t)
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -38,6 +48,7 @@ func TestGetNetworkNodes(t *testing.T) {
 }
 
 func TestGetNode(t *testing.T) {
+	setup(t)
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet/01:02:03:04:05:06", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -49,6 +60,7 @@ func TestGetNode(t *testing.T) {
 }
 
 func TestUpdateNode(t *testing.T) {
+	setup(t)
 	var data struct {
 		Name string
 	}
@@ -64,6 +76,7 @@ func TestUpdateNode(t *testing.T) {
 }
 
 func TestDeleteNode(t *testing.T) {
+	setup(t)
 	t.Run("ExistingNode", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/01:02:03:04:05:06", "secretkey")
 		assert.Nil(t, err, err)
@@ -92,6 +105,7 @@ func TestDeleteNode(t *testing.T) {
 func TestCheckIn(t *testing.T) {
 	//get node
 	//oldNode := getNode(t)
+	setup(t)
 	response, err := api(t, "", http.MethodPost, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/checkin", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -103,6 +117,7 @@ func TestCheckIn(t *testing.T) {
 }
 
 func TestCreateGateway(t *testing.T) {
+	setup(t)
 	//assert.False(t, node.IsGateway)
 	var gateway models.GatewayRequest
 	gateway.RangeString = "0.0.0.0/0"
@@ -118,6 +133,7 @@ func TestCreateGateway(t *testing.T) {
 }
 
 func TestDeleteGateway(t *testing.T) {
+	setup(t)
 	response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/deletegateway", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -129,6 +145,7 @@ func TestDeleteGateway(t *testing.T) {
 }
 
 func TestUncordonNode(t *testing.T) {
+	setup(t)
 	response, err := api(t, "", http.MethodPost, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/approve", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
@@ -141,11 +158,6 @@ func TestUncordonNode(t *testing.T) {
 }
 
 func TestCreateNode(t *testing.T) {
-	//setup environment
-	nodes := getNetworkNodes(t)
-	for _, node := range nodes {
-		deleteNode(t, node)
-	}
 	deleteNetworks(t)
 	createNetwork(t)
 	key := createAccessKey(t)
@@ -163,13 +175,10 @@ func TestCreateNode(t *testing.T) {
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	defer response.Body.Close()
-	//message, err := ioutil.ReadAll(response.Body)
-	//assert.Nil(t, err, err)
 	var message models.Node
 	err = json.NewDecoder(response.Body).Decode(&message)
 	assert.Nil(t, err, err)
 	assert.Equal(t, node.Name, message.Name)
-	//nodePassword = message.Password
 	t.Log(message.Password)
 }
 
@@ -181,39 +190,17 @@ func TestGetLastModified(t *testing.T) {
 }
 
 func TestNodeAuthenticate(t *testing.T) {
-	//setup
-	//deleteA
-	deleteNetworks(t)
-	createNetwork(t)
-	//password := createNode(t)
+	setup(t)
 	var authRequest models.AuthParams
 	authRequest.MacAddress = "01:02:03:04:05:06"
-	//authRequest.MacAddress = "mastermac"
-	//authRequest.Password = nodePassword
-	authRequest.Password = "secretkey"
+	authRequest.Password = "tobedetermined"
 	response, err := api(t, authRequest, http.MethodPost, "http://localhost:8081:/api/nodes/adm/skynet/authenticate", "")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	defer response.Body.Close()
-	message, err := ioutil.ReadAll(response.Body)
+	var message models.SuccessResponse
+	err = json.NewDecoder(response.Body).Decode(&message)
 	assert.Nil(t, err, err)
-	//var message string
-	//json.NewDecoder(response.Body).Decode(&message)
-	t.Log(string(message))
-
-}
-
-func TestNodeAuthorize(t *testing.T) {
-	//testing
-	var authRequest models.AuthParams
-	//authRequest.MacAddress = "01:02:03:04:05:06"
-	authRequest.MacAddress = "mastermac"
-	authRequest.Password = "to be determined"
-	response, err := api(t, authRequest, http.MethodPost, "http://localhost:8081:/api/nodes/adm/skynet/authenticate", "")
-	assert.Nil(t, err, err)
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-	defer response.Body.Close()
-	var message string
-	json.NewDecoder(response.Body).Decode(&message)
-	t.Log(message)
+	assert.Equal(t, http.StatusOK, message.Code)
+	assert.Equal(t, "W1R3: Device 01:02:03:04:05:06 Authorized", message.Message)
 }

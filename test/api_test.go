@@ -217,29 +217,77 @@ func networkExists(t *testing.T) bool {
 }
 
 func deleteNetworks(t *testing.T) {
-
-	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
+	//delete all network nodes
+	var nodes []models.ReturnNode
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet", "secretkey")
 	assert.Nil(t, err, err)
-	defer response.Body.Close()
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&Networks)
-	assert.Nil(t, err, err)
-	for _, network := range Networks {
-		name := network.NetID
-		_, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/"+name, "secretkey")
+	if response.StatusCode == http.StatusOK {
+		err = json.NewDecoder(response.Body).Decode(&nodes)
+		response.Body.Close()
 		assert.Nil(t, err, err)
+		for _, node := range nodes {
+			resp, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/"+node.MacAddress, "secretkey")
+			assert.Nil(t, err, err)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+	}
+	response, err = api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
+	assert.Nil(t, err, err)
+	if response.StatusCode == http.StatusOK {
+		defer response.Body.Close()
+		err = json.NewDecoder(response.Body).Decode(&Networks)
+		assert.Nil(t, err, err)
+		for _, network := range Networks {
+			name := network.NetID
+			_, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/"+name, "secretkey")
+			assert.Nil(t, err, err)
+		}
 	}
 }
 
 func getNetworkNodes(t *testing.T) []models.ReturnNode {
 	var nodes []models.ReturnNode
-	var node models.ReturnNode
-	nodes = append(nodes, node)
+	//var node models.ReturnNode
+	//response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet", "secretkey")
+	//assert.Nil(t, err, err)
+	//assert.Equal(t, http.StatusOK, response.StatusCode)
+	//defer response.Body.Close()
+	//err = json.NewDecoder(response.Body).Decode(&nodes)
+	//assert.Nil(t, err, err)
+	//for _, nodes := range nodes {
+	//	nodes = append(nodes, node)
+	//}
 	return nodes
 }
 
 func deleteNode(t *testing.T, node models.ReturnNode) {
+	response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/"+node.MacAddress, "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
 
 func createNode(t *testing.T) {
+	var node models.Node
+	key := createAccessKey(t)
+	node.AccessKey = key.Value
+	node.MacAddress = "01:02:03:04:05:06"
+	node.Name = "myNode"
+	node.PublicKey = "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34="
+	node.Password = "tobedetermined"
+	node.LocalAddress = "192.168.0.1"
+	node.Endpoint = "10.100.100.4"
+	response, err := api(t, node, http.MethodPost, "http://localhost:8081:/api/nodes/skynet", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
+func getNode(t *testing.T) models.Node {
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet/01:02:03:04:05:06", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	var node models.Node
+	defer response.Body.Close()
+	err = json.NewDecoder(response.Body).Decode(&node)
+	assert.Nil(t, err, err)
+	return node
 }

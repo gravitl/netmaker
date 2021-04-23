@@ -52,6 +52,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
 	if decoderErr != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = decoderErr.Error()
 		returnErrorResponse(response, request, errorResponse)
 		return
 	} else {
@@ -74,6 +76,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			defer cancel()
 
 			if err != nil {
+				errorResponse.Code = http.StatusBadRequest
+				errorResponse.Message = err.Error()
 				returnErrorResponse(response, request, errorResponse)
 				return
 			}
@@ -83,6 +87,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			//TODO: Consider a way of hashing the password client side before sending, or using certificates
 			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
 			if err != nil {
+				errorResponse.Code = http.StatusBadRequest
+				errorResponse.Message = err.Error()
 				returnErrorResponse(response, request, errorResponse)
 				return
 			} else {
@@ -90,6 +96,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				tokenString, _ := functions.CreateJWT(authRequest.MacAddress, result.Network)
 
 				if tokenString == "" {
+					errorResponse.Code = http.StatusBadRequest
+					errorResponse.Message = "Could not create Token"
 					returnErrorResponse(response, request, errorResponse)
 					return
 				}
@@ -106,6 +114,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				successJSONResponse, jsonError := json.Marshal(successResponse)
 
 				if jsonError != nil {
+					errorResponse.Code = http.StatusBadRequest
+					errorResponse.Message = err.Error()
 					returnErrorResponse(response, request, errorResponse)
 					return
 				}
