@@ -8,7 +8,6 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestCreateNetwork(t *testing.T) {
@@ -118,6 +117,7 @@ func TestGetNetwork(t *testing.T) {
 func TestDeleteNetwork(t *testing.T) {
 
 	t.Run("InvalidKey", func(t *testing.T) {
+		setup(t)
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
@@ -127,17 +127,6 @@ func TestDeleteNetwork(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
-	})
-	t.Run("ValidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "secretkey")
-		assert.Nil(t, err, err)
-		defer response.Body.Close()
-		var message mongo.DeleteResult
-		err = json.NewDecoder(response.Body).Decode(&message)
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
-		assert.Equal(t, int64(1), message.DeletedCount)
-
 	})
 	t.Run("Badnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/badnetwork", "secretkey")
@@ -150,7 +139,33 @@ func TestDeleteNetwork(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("NodesExist", func(t *testing.T) {
-
+		setup(t)
+		node := getNode(t)
+		t.Log(node)
+		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusForbidden, response.StatusCode)
+		defer response.Body.Close()
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Contains(t, message.Message, "Node check failed")
+		assert.Equal(t, http.StatusForbidden, message.Code)
+	})
+	t.Run("ValidKey", func(t *testing.T) {
+		type Message struct {
+			DeletedCount int64
+		}
+		setup(t)
+		deleteAllNodes(t)
+		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "secretkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message Message
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, int64(1), message.DeletedCount)
 	})
 }
 

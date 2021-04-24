@@ -387,6 +387,12 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//TODO: check node last modified vs network last modified
+	//Get Updated node to return
+	node, err = GetNode(params["macaddress"], params["network"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
@@ -659,6 +665,10 @@ func validateGateway(gateway models.GatewayRequest) error {
 	empty := gateway.RangeString == ""
 	if empty || !isIpv4 {
 		err = errors.New("IP Range Not Valid")
+	}
+	empty = gateway.Interface == ""
+	if empty {
+		err = errors.New("Interface cannot be empty")
 	}
 	return err
 }

@@ -216,22 +216,14 @@ func networkExists(t *testing.T) bool {
 	return false
 }
 
+func TestJunk(t *testing.T) {
+	deleteNetworks(t)
+}
+
 func deleteNetworks(t *testing.T) {
-	//delete all network nodes
-	var nodes []models.ReturnNode
-	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet", "secretkey")
-	assert.Nil(t, err, err)
-	if response.StatusCode == http.StatusOK {
-		err = json.NewDecoder(response.Body).Decode(&nodes)
-		response.Body.Close()
-		assert.Nil(t, err, err)
-		for _, node := range nodes {
-			resp, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/"+node.MacAddress, "secretkey")
-			assert.Nil(t, err, err)
-			assert.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-	}
-	response, err = api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
+	//delete all node
+	deleteAllNodes(t)
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
 	assert.Nil(t, err, err)
 	if response.StatusCode == http.StatusOK {
 		defer response.Body.Close()
@@ -260,12 +252,24 @@ func getNetworkNodes(t *testing.T) []models.ReturnNode {
 	return nodes
 }
 
-func deleteNode(t *testing.T, node models.ReturnNode) {
-	response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/"+node.MacAddress, "secretkey")
+func deleteNode(t *testing.T) {
+	response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/01:02:03:04:05:06", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
-
+func deleteAllNodes(t *testing.T) {
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	var nodes []models.ReturnNode
+	defer response.Body.Close()
+	json.NewDecoder(response.Body).Decode(&nodes)
+	for _, node := range nodes {
+		resp, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/"+node.Network+"/"+node.MacAddress, "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	}
+}
 func createNode(t *testing.T) {
 	var node models.Node
 	key := createAccessKey(t)
@@ -290,4 +294,10 @@ func getNode(t *testing.T) models.Node {
 	err = json.NewDecoder(response.Body).Decode(&node)
 	assert.Nil(t, err, err)
 	return node
+}
+
+func setup(t *testing.T) {
+	deleteNetworks(t)
+	createNetwork(t)
+	createNode(t)
 }
