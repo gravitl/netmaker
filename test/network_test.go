@@ -5,10 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func TestCreateNetwork(t *testing.T) {
@@ -16,9 +16,7 @@ func TestCreateNetwork(t *testing.T) {
 	network := models.Network{}
 	network.NetID = "skynet"
 	network.AddressRange = "10.71.0.0/16"
-	if networkExists(t) {
-		deleteNetworks(t)
-	}
+	deleteNetworks(t)
 	t.Run("InvalidToken", func(t *testing.T) {
 		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "badkey")
 		assert.Nil(t, err, err)
@@ -115,9 +113,10 @@ func TestGetNetwork(t *testing.T) {
 	})
 }
 
-func TestDeleteMetwork(t *testing.T) {
+func TestDeleteNetwork(t *testing.T) {
 
 	t.Run("InvalidKey", func(t *testing.T) {
+		setup(t)
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "badkey")
 		assert.Nil(t, err, err)
 		defer response.Body.Close()
@@ -127,17 +126,6 @@ func TestDeleteMetwork(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
 		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
-	})
-	t.Run("ValidKey", func(t *testing.T) {
-		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "secretkey")
-		assert.Nil(t, err, err)
-		defer response.Body.Close()
-		var message mongo.DeleteResult
-		err = json.NewDecoder(response.Body).Decode(&message)
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
-		assert.Equal(t, int64(1), message.DeletedCount)
-
 	})
 	t.Run("Badnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/badnetwork", "secretkey")
@@ -150,7 +138,31 @@ func TestDeleteMetwork(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("NodesExist", func(t *testing.T) {
-
+		setup(t)
+		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusForbidden, response.StatusCode)
+		defer response.Body.Close()
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Contains(t, message.Message, "Node check failed")
+		assert.Equal(t, http.StatusForbidden, message.Code)
+	})
+	t.Run("ValidKey", func(t *testing.T) {
+		type Message struct {
+			DeletedCount int64
+		}
+		setup(t)
+		deleteAllNodes(t)
+		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "secretkey")
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		var message Message
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusOK, response.StatusCode)
+		assert.Equal(t, int64(1), message.DeletedCount)
 	})
 }
 
@@ -508,7 +520,7 @@ func TestUpdateNetwork(t *testing.T) {
 			DefaultKeepAlive int32
 		}
 		var network Network
-		network.DefaultKeepAlive = 1001
+		network.DefaultKeepAlive = 2000
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		var message models.ErrorResponse
@@ -519,21 +531,26 @@ func TestUpdateNetwork(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("UpdateSaveConfig", func(t *testing.T) {
-		t.Skip()
-		//does not appear to be updatable
+		//t.Skip()
+		//not updatable, ensure attempt to change does not result in change
 		type Network struct {
 			DefaultSaveConfig *bool
 		}
 		var network Network
-		value := false
+		var value bool
+		oldnet := getNetwork(t, "skynet")
+		if *oldnet.DefaultSaveConfig == true {
+			value = false
+		} else {
+			value = true
+		}
+
 		network.DefaultSaveConfig = &value
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
-		assert.Nil(t, err, err)
-		assert.Equal(t, *network.DefaultSaveConfig, *returnedNetwork.DefaultSaveConfig)
+		newnet := getNetwork(t, "skynet")
+		assert.Equal(t, oldnet.DefaultSaveConfig, newnet.DefaultSaveConfig)
 	})
 	t.Run("UpdateManualSignUP", func(t *testing.T) {
 		type Network struct {
@@ -596,4 +613,16 @@ func TestUpdateNetwork(t *testing.T) {
 		assert.Equal(t, network.DisplayName, returnedNetwork.DisplayName)
 		assert.Equal(t, network.DefaultListenPort, returnedNetwork.DefaultListenPort)
 	})
+}
+
+func TestKeyUpdate(t *testing.T) {
+	//get current network settings
+	oldnet := getNetwork(t, "skynet")
+	//update key
+	time.Sleep(time.Second * 1)
+	reply, err := api(t, "", http.MethodPost, baseURL+"/api/networks/skynet/keyupdate", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, reply.StatusCode)
+	newnet := getNetwork(t, "skynet")
+	assert.Greater(t, newnet.KeyUpdateTimeStamp, oldnet.KeyUpdateTimeStamp)
 }

@@ -17,11 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type databaseError struct {
-	Inner  *int
-	Errors int
-}
-
 //should be use models.SuccessResponse and models.SuccessfulUserLoginResponse
 //rather than creating new type but having trouble decoding that way
 type Auth struct {
@@ -96,7 +91,6 @@ func api(t *testing.T, data interface{}, method, url, authorization string) (*ht
 		request.Header.Set("authorization", "Bearer "+authorization)
 	}
 	client := http.Client{}
-	//t.Log("api request", request)
 	return client.Do(request)
 }
 
@@ -157,6 +151,19 @@ func createKey(t *testing.T) {
 	assert.NotNil(t, message, message)
 }
 
+func createAccessKey(t *testing.T) (key models.AccessKey) {
+	createkey := models.AccessKey{}
+	createkey.Name = "skynet"
+	createkey.Uses = 10
+	response, err := api(t, createkey, http.MethodPost, baseURL+"/api/networks/skynet/keys", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	defer response.Body.Close()
+	err = json.NewDecoder(response.Body).Decode(&key)
+	assert.Nil(t, err, err)
+	return key
+}
+
 func getKey(t *testing.T, name string) models.AccessKey {
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/skynet/keys", "secretkey")
 	assert.Nil(t, err, err)
@@ -185,35 +192,81 @@ func deleteKey(t *testing.T, key, network string) {
 	//assert.Equal(t, int64(1), message.DeletedCount)
 }
 
-func networkExists(t *testing.T) bool {
+func deleteNetworks(t *testing.T) {
+	//delete all node
+	deleteAllNodes(t)
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
 	assert.Nil(t, err, err)
-	defer response.Body.Close()
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&Networks)
-	assert.Nil(t, err, err)
-	for i, network := range Networks {
-		t.Log(i, network)
-		if network.NetID == "" {
-			return false
-		} else {
-			return true
+	if response.StatusCode == http.StatusOK {
+		defer response.Body.Close()
+		err = json.NewDecoder(response.Body).Decode(&Networks)
+		assert.Nil(t, err, err)
+		for _, network := range Networks {
+			name := network.NetID
+			_, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/"+name, "secretkey")
+			assert.Nil(t, err, err)
 		}
 	}
-	return false
 }
 
-func deleteNetworks(t *testing.T) {
-
-	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
+func deleteNode(t *testing.T) {
+	response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/01:02:03:04:05:06", "secretkey")
 	assert.Nil(t, err, err)
-	defer response.Body.Close()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&Networks)
+}
+func deleteAllNodes(t *testing.T) {
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes", "secretkey")
 	assert.Nil(t, err, err)
-	for _, network := range Networks {
-		name := network.NetID
-		_, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/"+name, "secretkey")
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	var nodes []models.ReturnNode
+	defer response.Body.Close()
+	json.NewDecoder(response.Body).Decode(&nodes)
+	for _, node := range nodes {
+		resp, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/"+node.Network+"/"+node.MacAddress, "secretkey")
 		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	}
+}
+func createNode(t *testing.T) {
+	var node models.Node
+	key := createAccessKey(t)
+	node.Address = "10.71.0.1"
+	node.AccessKey = key.Value
+	node.MacAddress = "01:02:03:04:05:06"
+	node.Name = "myNode"
+	node.PublicKey = "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34="
+	node.Password = "tobedetermined"
+	node.LocalAddress = "192.168.0.1"
+	node.Endpoint = "10.100.100.4"
+	response, err := api(t, node, http.MethodPost, "http://localhost:8081:/api/nodes/skynet", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
+func getNode(t *testing.T) models.Node {
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet/01:02:03:04:05:06", "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	var node models.Node
+	defer response.Body.Close()
+	err = json.NewDecoder(response.Body).Decode(&node)
+	assert.Nil(t, err, err)
+	return node
+}
+
+func getNetwork(t *testing.T, network string) models.Network {
+	var net models.Network
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/"+network, "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	defer response.Body.Close()
+	err = json.NewDecoder(response.Body).Decode(&net)
+	assert.Nil(t, err, err)
+	return net
+}
+
+func setup(t *testing.T) {
+	deleteNetworks(t)
+	createNetwork(t)
+	createNode(t)
 }
