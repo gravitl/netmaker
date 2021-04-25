@@ -521,6 +521,7 @@ func TestCreateNode(t *testing.T) {
 
 		var node models.Node
 		node.AccessKey = key.Value
+		node.Address = "10.200.200.1"
 		node.MacAddress = "01:02:03:04:05:06"
 		node.Name = "myNode"
 		node.PublicKey = "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34="
