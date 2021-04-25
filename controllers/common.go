@@ -62,6 +62,11 @@ func ValidateNode(operation string, networkName string, node models.Node) error 
 
 	v := validator.New()
 
+	_ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
+		isIpv4 := functions.IsIpv4Net(node.Address)
+		notEmptyCheck := node.Address != ""
+		return (notEmptyCheck && isIpv4)
+	})
 	_ = v.RegisterValidation("endpoint_check", func(fl validator.FieldLevel) bool {
 		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
 		isIpv4 := functions.IsIpv4Net(node.Endpoint)
@@ -193,6 +198,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
+			{"address", node.Address},
 			{"name", node.Name},
 			{"password", node.Password},
 			{"listenport", node.ListenPort},
@@ -212,7 +218,6 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
 		}},
 	}
 	var nodeupdate models.Node
-
 	errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
 	if errN != nil {
 		return nodeupdate, errN

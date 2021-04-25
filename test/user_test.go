@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -28,8 +27,6 @@ func TestAdminCreation(t *testing.T) {
 		assert.Equal(t, true, user.IsAdmin)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		assert.True(t, adminExists(t), "Admin creation failed")
-		message, _ := ioutil.ReadAll(response.Body)
-		t.Log(string(message))
 	})
 	t.Run("AdminCreationFailure", func(t *testing.T) {
 		if !adminExists(t) {
@@ -50,10 +47,7 @@ func TestAdminCreation(t *testing.T) {
 
 func TestGetUser(t *testing.T) {
 	if !adminExists(t) {
-		t.Log("no admin - creating")
 		addAdmin(t)
-	} else {
-		t.Log("admin exists")
 	}
 	t.Run("GetUserWithValidToken", func(t *testing.T) {
 		token, err := authenticate(t)

@@ -765,7 +765,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if nodechange.MacAddress == "" {
 		nodechange.MacAddress = node.MacAddress
 	}
-
 	err = ValidateNode("update", params["network"], nodechange)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))

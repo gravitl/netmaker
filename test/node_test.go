@@ -104,6 +104,7 @@ func TestUpdateNode(t *testing.T) {
 	setup(t)
 
 	t.Run("UpdateMulti", func(t *testing.T) {
+		data.Address = "10.1.0.2"
 		data.MacAddress = "01:02:03:04:05:05"
 		data.Name = "NewName"
 		data.PublicKey = "DM5qhLAE20PG9BbfBCgfr+Ac9D2NDOwCtY1rbYDLf34="
@@ -115,7 +116,6 @@ func TestUpdateNode(t *testing.T) {
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
 		var node models.Node
-		t.Log(response.Body)
 		err = json.NewDecoder(response.Body).Decode(&node)
 		assert.Nil(t, err, err)
 		assert.Equal(t, data.Name, node.Name)
@@ -125,6 +125,19 @@ func TestUpdateNode(t *testing.T) {
 		assert.Equal(t, data.LocalAddress, node.LocalAddress)
 		assert.Equal(t, data.Endpoint, node.Endpoint)
 	})
+	t.Run("InvalidAddress", func(t *testing.T) {
+		data.Address = "10.300.2.0"
+		response, err := api(t, data, http.MethodPut, baseURL+"/api/nodes/skynet/01:02:03:04:05:05", "secretkey")
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+		var message models.ErrorResponse
+		defer response.Body.Close()
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err, err)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Contains(t, message.Message, "Field validation for 'Address' failed")
+	})
+
 	t.Run("InvalidMacAddress", func(t *testing.T) {
 		data.MacAddress = "10:11:12:13:14:15:16"
 		response, err := api(t, data, http.MethodPut, baseURL+"/api/nodes/skynet/01:02:03:04:05:05", "secretkey")
@@ -226,7 +239,6 @@ func TestDeleteNode(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, "01:02:03:04:05:06 deleted.", message.Message)
 		assert.Equal(t, http.StatusOK, message.Code)
-		t.Log(response.Header.Get("Content-Type"))
 	})
 	t.Run("NonExistantNode", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/01:02:03:04:05:06", "secretkey")
@@ -335,7 +347,6 @@ func TestUncordonNode(t *testing.T) {
 	err = json.NewDecoder(response.Body).Decode(&message)
 	assert.Nil(t, err, err)
 	assert.Equal(t, "SUCCESS", message)
-	t.Log(message, string(message))
 }
 
 func TestCreateNode(t *testing.T) {
@@ -525,9 +536,7 @@ func TestCreateNode(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, node.Name, message.Name)
-		t.Log(message)
 	})
-
 }
 
 func TestGetLastModified(t *testing.T) {

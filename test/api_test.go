@@ -17,11 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type databaseError struct {
-	Inner  *int
-	Errors int
-}
-
 //should be use models.SuccessResponse and models.SuccessfulUserLoginResponse
 //rather than creating new type but having trouble decoding that way
 type Auth struct {
@@ -96,7 +91,6 @@ func api(t *testing.T, data interface{}, method, url, authorization string) (*ht
 		request.Header.Set("authorization", "Bearer "+authorization)
 	}
 	client := http.Client{}
-	//t.Log("api request", request)
 	return client.Do(request)
 }
 
@@ -198,28 +192,6 @@ func deleteKey(t *testing.T, key, network string) {
 	//assert.Equal(t, int64(1), message.DeletedCount)
 }
 
-func networkExists(t *testing.T) bool {
-	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks", "secretkey")
-	assert.Nil(t, err, err)
-	defer response.Body.Close()
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-	err = json.NewDecoder(response.Body).Decode(&Networks)
-	assert.Nil(t, err, err)
-	for i, network := range Networks {
-		t.Log(i, network)
-		if network.NetID == "" {
-			return false
-		} else {
-			return true
-		}
-	}
-	return false
-}
-
-func TestJunk(t *testing.T) {
-	deleteNetworks(t)
-}
-
 func deleteNetworks(t *testing.T) {
 	//delete all node
 	deleteAllNodes(t)
@@ -235,21 +207,6 @@ func deleteNetworks(t *testing.T) {
 			assert.Nil(t, err, err)
 		}
 	}
-}
-
-func getNetworkNodes(t *testing.T) []models.ReturnNode {
-	var nodes []models.ReturnNode
-	//var node models.ReturnNode
-	//response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet", "secretkey")
-	//assert.Nil(t, err, err)
-	//assert.Equal(t, http.StatusOK, response.StatusCode)
-	//defer response.Body.Close()
-	//err = json.NewDecoder(response.Body).Decode(&nodes)
-	//assert.Nil(t, err, err)
-	//for _, nodes := range nodes {
-	//	nodes = append(nodes, node)
-	//}
-	return nodes
 }
 
 func deleteNode(t *testing.T) {
@@ -273,6 +230,7 @@ func deleteAllNodes(t *testing.T) {
 func createNode(t *testing.T) {
 	var node models.Node
 	key := createAccessKey(t)
+	node.Address = "10.71.0.1"
 	node.AccessKey = key.Value
 	node.MacAddress = "01:02:03:04:05:06"
 	node.Name = "myNode"
@@ -294,6 +252,17 @@ func getNode(t *testing.T) models.Node {
 	err = json.NewDecoder(response.Body).Decode(&node)
 	assert.Nil(t, err, err)
 	return node
+}
+
+func getNetwork(t *testing.T, network string) models.Network {
+	var net models.Network
+	response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/"+network, "secretkey")
+	assert.Nil(t, err, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	defer response.Body.Close()
+	err = json.NewDecoder(response.Body).Decode(&net)
+	assert.Nil(t, err, err)
+	return net
 }
 
 func setup(t *testing.T) {
