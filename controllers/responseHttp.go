@@ -1,10 +1,11 @@
 package controller
 
 import (
-    "github.com/gravitl/netmaker/models"
-    "encoding/json"
-    "net/http"
-    "fmt"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/gravitl/netmaker/models"
 )
 
 func formatError(err error, errType string) models.ErrorResponse {
@@ -14,7 +15,7 @@ func formatError(err error, errType string) models.ErrorResponse {
 	case "internal":
 		status = http.StatusInternalServerError
 	case "badrequest":
-		status  = http.StatusBadRequest
+		status = http.StatusBadRequest
 	case "notfound":
 		status = http.StatusNotFound
 	case "unauthorized":
@@ -25,25 +26,30 @@ func formatError(err error, errType string) models.ErrorResponse {
 		status = http.StatusInternalServerError
 	}
 
-        var response = models.ErrorResponse{
-                Message: err.Error(),
-                Code: status,
-        }
+	var response = models.ErrorResponse{
+		Message: err.Error(),
+		Code:    status,
+	}
 	return response
 }
 
-func returnSuccessResponse(response http.ResponseWriter, request *http.Request, errorMesage models.ErrorResponse) {
-
+func returnSuccessResponse(response http.ResponseWriter, request *http.Request, message string) {
+	var httpResponse models.SuccessResponse
+	httpResponse.Code = http.StatusOK
+	httpResponse.Message = message
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(http.StatusOK)
+	json.NewEncoder(response).Encode(httpResponse)
 }
 
 func returnErrorResponse(response http.ResponseWriter, request *http.Request, errorMessage models.ErrorResponse) {
-        httpResponse := &models.ErrorResponse{Code: errorMessage.Code, Message: errorMessage.Message}
-        jsonResponse, err := json.Marshal(httpResponse)
-        if err != nil {
-                panic(err)
-        }
+	httpResponse := &models.ErrorResponse{Code: errorMessage.Code, Message: errorMessage.Message}
+	jsonResponse, err := json.Marshal(httpResponse)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println(errorMessage)
-        response.Header().Set("Content-Type", "application/json")
-        response.WriteHeader(errorMessage.Code)
-        response.Write(jsonResponse)
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(errorMessage.Code)
+	response.Write(jsonResponse)
 }
