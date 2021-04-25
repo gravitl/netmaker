@@ -1,15 +1,30 @@
 name: Publish Docker
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'docker tag'
+        required: true
   pull_request:
     branches:
-      - 'develop'
+      - 'test'
       - 'master'
-      
+
 jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
+      - name: Set tag
+        run: |
+            if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+              TAG=${{ github.event.inputs.tag }}
+            elif [[ "${{ github.base_ref }}" == 'master' ]]; then
+              TAG="latest"
+            else
+              TAG="${{ github.base_ref }}"
+            fi
+            echo "TAG=${TAG}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set up QEMU
@@ -22,20 +37,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push latest
-        if: github.base_ref == 'master'
         uses: docker/build-push-action@v2
         with:
           context: .
           platforms: linux/amd64, linux/arm64
           push: true
-          tags: |
-            gravitl/netmaker:latest
-      - name: Build and push develop
-        if: github.base_ref == 'develop'
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          platforms: linux/amd64, linux/arm64
-          push: true
-          tags: |
-            gravitl/netmaker:develop
+          tags: gravitl/netmaker:${{ env.TAG }}
