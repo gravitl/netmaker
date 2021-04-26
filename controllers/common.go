@@ -65,7 +65,7 @@ func ValidateNode(operation string, networkName string, node models.Node) error 
 	_ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
 		isIpv4 := functions.IsIpv4Net(node.Address)
 		notEmptyCheck := node.Address != ""
-		return (notEmptyCheck && isIpv4)
+		return (notEmptyCheck && isIpv4) || operation == "create"
 	})
 	_ = v.RegisterValidation("endpoint_check", func(fl validator.FieldLevel) bool {
 		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
@@ -107,7 +107,7 @@ func ValidateNode(operation string, networkName string, node models.Node) error 
 	_ = v.RegisterValidation("password_check", func(fl validator.FieldLevel) bool {
 		notEmptyCheck := node.Password != ""
 		goodLength := len(node.Password) > 5
-		return (notEmptyCheck && goodLength)
+		return (notEmptyCheck && goodLength) || operation == "update"
 	})
 
 	err := v.Struct(node)
