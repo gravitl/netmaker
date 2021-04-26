@@ -106,8 +106,11 @@ func ValidateNode(operation string, networkName string, node models.Node) error 
 	})
 	_ = v.RegisterValidation("password_check", func(fl validator.FieldLevel) bool {
 		notEmptyCheck := node.Password != ""
-		goodLength := len(node.Password) > 5
-		return (notEmptyCheck && goodLength) || operation == "update"
+		goodLength := true
+		if notEmptyCheck {
+			goodLength = len(node.Password) > 5
+		}
+		return (notEmptyCheck || operation == "update") && goodLength
 	})
 
 	err := v.Struct(node)
