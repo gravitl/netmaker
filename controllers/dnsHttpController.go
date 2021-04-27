@@ -19,10 +19,11 @@ import (
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns/{network}/nodes", securityCheck(http.HandlerFunc(getNodeDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/{network}/custom", securityCheck(http.HandlerFunc(getCustomDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/{network}", securityCheck(http.HandlerFunc(getDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(createDNS))).Methods("POST")
+	r.HandleFunc("/api/dns", securityCheck(http.HandlerFunc(getAllDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/nodes", securityCheck(http.HandlerFunc(getNodeDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheck(http.HandlerFunc(getCustomDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}", securityCheck(http.HandlerFunc(getDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/{network}", securityCheck(http.HandlerFunc(createDNS))).Methods("POST")
 	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(deleteDNS))).Methods("DELETE")
 	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(updateDNS))).Methods("PUT")
 }
@@ -45,6 +46,34 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(dns)
 }
+
+//Gets all nodes associated with network, including pending nodes
+func getAllDNS(w http.ResponseWriter, r *http.Request) {
+
+        w.Header().Set("Content-Type", "application/json")
+
+        var dns []models.DNSEntry
+
+	networks, err := functions.ListNetworks()
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+
+        for _, net := range networks {
+                netdns, err := GetDNS(net.NetID)
+                if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+                        return
+                }
+	        dns = append(dns, netdns...)
+        }
+
+        //Returns all the nodes in JSON format
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(dns)
+}
+
 
 func GetNodeDNS(network string) ([]models.DNSEntry, error){
 
@@ -199,9 +228,11 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var entry models.DNSEntry
+        var params = mux.Vars(r)
 
 	//get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&entry)
+	entry.Network = params["network"]
 
 	err := ValidateDNSCreate(entry)
 	if err != nil {
@@ -214,7 +245,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
                 returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
+        w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(entry)
 }
 
@@ -265,7 +296,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
         // get params
         var params = mux.Vars(r)
 
-        success, err := DeleteDNS(params["domain"])
+        success, err := DeleteDNS(params["domain"], params["network"])
 
         if err != nil {
                 returnErrorResponse(w, r, formatError(err, "internal"))
@@ -347,13 +378,13 @@ func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntr
         return dnsupdate, errN
 }
 
-func DeleteDNS(domain string) (bool, error) {
+func DeleteDNS(domain string, network string) (bool, error) {
 
 	deleted := false
 
 	collection := mongoconn.Client.Database("netmaker").Collection("dns")
 
-	filter := bson.M{"name": domain}
+	filter := bson.M{"name": domain,  "network": network}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -399,6 +430,7 @@ func WriteHosts() error {
 func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	v := validator.New()
+        fmt.Println("Validating DNS: " + entry.Name)
 
 	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
 		num, err := GetDNSEntryNum(entry.Name, entry.Network)
@@ -416,6 +448,10 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
                 isIpv4 := functions.IsIpv4Net(entry.Address)
 		return notEmptyCheck && isIpv4
 	})
+        _ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
+                _, err := functions.GetParentNetwork(entry.Network)
+                return err == nil
+        })
 
 	err := v.Struct(entry)
 
