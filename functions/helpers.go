@@ -446,6 +446,19 @@ func NameInNetworkCharSet(name string) bool {
 	return true
 }
 
+func NameInDNSCharSet(name string) bool {
+
+        charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+
+        for _, char := range name {
+                if !strings.Contains(charset, strings.ToLower(string(char))) {
+                        return false
+                }
+        }
+        return true
+}
+
+
 func NameInNodeCharSet(name string) bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-"

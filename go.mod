@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/stretchr/testify v1.6.1
+	github.com/txn2/txeh v1.3.0 // indirect
 	go.mongodb.org/mongo-driver v1.4.3
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect

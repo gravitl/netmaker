@@ -61,7 +61,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 func ValidateNode(operation string, networkName string, node models.Node) error {
 
 	v := validator.New()
-
+	fmt.Println("Address: " + node.Address)
 	_ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
 		isIpv4 := functions.IsIpv4Net(node.Address)
 		notEmptyCheck := node.Address != ""
@@ -303,7 +303,7 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	//Anyways, this scrolls through all the IP Addresses in the network range and checks against nodes
 	//until one is open and then returns it
 	node.Address, err = functions.UniqueAddress(networkName)
-
+	fmt.Println("Setting node address: " + node.Address)
 	if err != nil {
 		return node, err
 	}
