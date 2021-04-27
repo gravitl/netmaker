@@ -24,6 +24,7 @@ func dnsHandlers(r *mux.Router) {
 	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheck(http.HandlerFunc(getCustomDNS))).Methods("GET")
 	r.HandleFunc("/api/dns/adm/{network}", securityCheck(http.HandlerFunc(getDNS))).Methods("GET")
 	r.HandleFunc("/api/dns/{network}", securityCheck(http.HandlerFunc(createDNS))).Methods("POST")
+	r.HandleFunc("/api/dns/adm/pushdns", securityCheck(http.HandlerFunc(pushDNS))).Methods("POST")
 	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(deleteDNS))).Methods("DELETE")
 	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(updateDNS))).Methods("PUT")
 }
@@ -401,11 +402,28 @@ func DeleteDNS(domain string, network string) (bool, error) {
 	return deleted, err
 }
 
-func WriteHosts() error {
-	hostfile, err := txeh.NewHostsDefault()
+func pushDNS(w http.ResponseWriter, r *http.Request) {
+        // Set header
+        w.Header().Set("Content-Type", "application/json")
+
+        err := WriteHosts() 
+
         if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+	}
+        json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
+}
+
+
+func WriteHosts() error {
+	//hostfile, err := txeh.NewHostsDefault()
+	hostfile := txeh.Hosts{}
+	/*
+	if err != nil {
                 return err
         }
+	*/
 	networks, err := functions.ListNetworks()
         if err != nil {
                 return err
@@ -431,6 +449,8 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	v := validator.New()
         fmt.Println("Validating DNS: " + entry.Name)
+        fmt.Println("       Address: " + entry.Address)
+        fmt.Println("       Network: " + entry.Network)
 
 	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
 		num, err := GetDNSEntryNum(entry.Name, entry.Network)
@@ -439,12 +459,12 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	_ = v.RegisterValidation("name_valid", func(fl validator.FieldLevel) bool {
 		isvalid := functions.NameInDNSCharSet(entry.Name)
-                notEmptyCheck := entry.Name != ""
+                notEmptyCheck := len(entry.Name) > 0
 		return isvalid && notEmptyCheck
 	})
 
 	_ = v.RegisterValidation("address_valid", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := entry.Address != ""
+		notEmptyCheck := len(entry.Address) > 0
                 isIpv4 := functions.IsIpv4Net(entry.Address)
 		return notEmptyCheck && isIpv4
 	})
