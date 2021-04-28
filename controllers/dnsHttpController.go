@@ -406,7 +406,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
         // Set header
         w.Header().Set("Content-Type", "application/json")
 
-        err := WriteHosts() 
+        err := WriteHosts()
 
         if err != nil {
                 returnErrorResponse(w, r, formatError(err, "internal"))
