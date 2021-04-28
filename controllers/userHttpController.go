@@ -195,8 +195,9 @@ func HasAdmin() (bool, error) {
 
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return false, err
+			return false, nil
 		}
+		return false, err
 		fmt.Println(err)
 	}
 	return true, err
