@@ -440,7 +440,7 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(string(network.NodesLastModified)))
+	json.NewEncoder(w).Encode(network.NodesLastModified)
 
 }
 
