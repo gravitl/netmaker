@@ -661,9 +661,9 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 func validateGateway(gateway models.GatewayRequest) error {
 	var err error
-	isIpv4 := functions.IsIpv4CIDR(gateway.RangeString)
+	isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := gateway.RangeString == ""
-	if empty || !isIpv4 {
+	if empty || !isIp {
 		err = errors.New("IP Range Not Valid")
 	}
 	empty = gateway.Interface == ""

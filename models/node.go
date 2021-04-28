@@ -20,6 +20,7 @@ var seededRand *rand.Rand = rand.New(
 type Node struct {
 	ID                  primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	Address             string             `json:"address" bson:"address" validate:"address_check"`
+	Address6             string             `json:"address6" bson:"address6" validate:"address6_check"`
 	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"localaddress_check"`
 	Name                string             `json:"name" bson:"name" validate:"omitempty,name_valid,max=12"`
 	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`

@@ -62,21 +62,26 @@ func ValidateNodeCreate(networkName string, node models.Node) error {
 
 	v := validator.New()
 	_ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
-		isIpv4 := functions.IsIpv4Net(node.Address)
+		isIpv4 := functions.IsIpNet(node.Address)
 		empty := node.Address == ""
 		return (empty || isIpv4)
 	})
+        _ = v.RegisterValidation("address6_check", func(fl validator.FieldLevel) bool {
+                isIpv6 := functions.IsIpNet(node.Address6)
+                empty := node.Address6 == ""
+                return (empty || isIpv6)
+        })
 	_ = v.RegisterValidation("endpoint_check", func(fl validator.FieldLevel) bool {
 		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-		isIpv4 := functions.IsIpv4Net(node.Endpoint)
+		isIp := functions.IsIpNet(node.Endpoint)
 		notEmptyCheck := node.Endpoint != ""
-		return (notEmptyCheck && isIpv4)
+		return (notEmptyCheck && isIp)
 	})
 	_ = v.RegisterValidation("localaddress_check", func(fl validator.FieldLevel) bool {
 		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-		isIpv4 := functions.IsIpv4Net(node.LocalAddress)
+		isIp := functions.IsIpNet(node.LocalAddress)
 		empty := node.LocalAddress == ""
-		return (empty || isIpv4)
+		return (empty || isIp)
 	})
 
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
@@ -123,23 +128,27 @@ func ValidateNodeUpdate(networkName string, node models.Node) error {
 
         v := validator.New()
         _ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
-                isIpv4 := functions.IsIpv4Net(node.Address)
+                isIpv4 := functions.IsIpNet(node.Address)
                 empty := node.Address == ""
                 return (empty || isIpv4)
         })
+        _ = v.RegisterValidation("address6_check", func(fl validator.FieldLevel) bool {
+                isIpv6 := functions.IsIpNet(node.Address6)
+                empty := node.Address6 == ""
+                return (empty || isIpv6)
+        })
         _ = v.RegisterValidation("endpoint_check", func(fl validator.FieldLevel) bool {
                 //var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-                isIpv4 := functions.IsIpv4Net(node.Endpoint)
-                empty := node.Endpoint == ""
-                return (empty || isIpv4)
+                isIp := functions.IsIpNet(node.Address)
+		empty := node.Endpoint == ""
+                return (empty || isIp)
         })
         _ = v.RegisterValidation("localaddress_check", func(fl validator.FieldLevel) bool {
                 //var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-                isIpv4 := functions.IsIpv4Net(node.LocalAddress)
+                isIp := functions.IsIpNet(node.LocalAddress)
                 empty := node.LocalAddress == ""
-                return (empty || isIpv4)
+                return (empty || isIp )
         })
-
         _ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
                 return true
         })
@@ -190,6 +199,10 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
 		node.Address = nodechange.Address
 		notifynetwork = true
 	}
+        if nodechange.Address6 != "" {
+                node.Address6 = nodechange.Address6
+                notifynetwork = true
+        }
 	if nodechange.Name != "" {
 		node.Name = nodechange.Name
 	}
@@ -258,6 +271,7 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
 	update := bson.D{
 		{"$set", bson.D{
 			{"address", node.Address},
+			{"address6", node.Address6},
 			{"name", node.Name},
 			{"password", node.Password},
 			{"listenport", node.ListenPort},
@@ -355,7 +369,6 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	//Umm, why am I doing this again?
 	//TODO: Why am I using a local function instead of the struct function? I really dont know.
 	//I think I thought it didn't work but uhhh...idk
-	//anyways, this sets some sensible variables for unset params.
 	node.SetDefaults()
 
 	//Another DB call here...Inefficient
@@ -366,6 +379,15 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
+        fmt.Println("Setting node address: " + node.Address)
+
+        node.Address6, err = functions.UniqueAddress6(networkName)
+        if node.Address6 != "" {
+		fmt.Println("Setting node ipv6 address: " + node.Address6)
+	}
+	if err != nil {
+                return node, err
+        }
 
 	//IDK why these aren't a part of "set defaults. Pretty dumb.
 	//TODO: This is dumb. Consolidate and fix.

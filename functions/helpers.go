@@ -378,17 +378,14 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 	return network, nil
 }
 
-//Check for valid IPv4 address
-//Note: We dont handle IPv6 AT ALL!!!!! This definitely is needed at some point
-//But for iteration 1, lets just stick to IPv4. Keep it simple stupid.
-func IsIpv4Net(host string) bool {
+func IsIpNet(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
 //Similar to above but checks if Cidr range is valid
 //At least this guy's got some print statements
 //still not good error handling
-func IsIpv4CIDR(host string) bool {
+func IsIpCIDR(host string) bool {
 
 	ip, ipnet, err := net.ParseCIDR(host)
 
@@ -527,6 +524,35 @@ func UniqueAddress(networkName string) (string, error) {
 	//TODO
 	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
+}
+
+func UniqueAddress6(networkName string) (string, error) {
+
+        var network models.Network
+        network, err := GetParentNetwork(networkName)
+        if err != nil {
+                fmt.Println("UniqueAddress6 encountered  an error")
+                return "666", err
+        }
+
+        offset := true
+        ip, ipnet, err := net.ParseCIDR(network.AddressRange)
+        if err != nil {
+                fmt.Println("UniqueAddress6 encountered  an error")
+                return "666", err
+        }
+        for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
+                if offset {
+                        offset = false
+                        continue
+                }
+                if IsIPUnique(networkName, ip.String()) {
+                        return ip.String(), err
+                }
+        }
+        //TODO
+        err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
+        return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
 //pretty simple get

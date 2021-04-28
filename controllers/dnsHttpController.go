@@ -465,8 +465,8 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	_ = v.RegisterValidation("address_valid", func(fl validator.FieldLevel) bool {
 		notEmptyCheck := len(entry.Address) > 0
-                isIpv4 := functions.IsIpv4Net(entry.Address)
-		return notEmptyCheck && isIpv4
+                isIp := functions.IsIpNet(entry.Address)
+		return notEmptyCheck && isIp
 	})
         _ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
                 _, err := functions.GetParentNetwork(entry.Network)
@@ -507,7 +507,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
         _ = v.RegisterValidation("address_valid", func(fl validator.FieldLevel) bool {
 		isValid := true
 		if entry.Address != "" {
-			isValid = functions.IsIpv4Net(entry.Address)
+			isValid = functions.IsIpNet(entry.Address)
 		}
 		return isValid
         })
