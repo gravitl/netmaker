@@ -530,13 +530,17 @@ func UniqueAddress6(networkName string) (string, error) {
 
         var network models.Network
         network, err := GetParentNetwork(networkName)
-        if err != nil {
+	if !*network.IsDualStack {
+		return "", nil
+	}
+
+	if err != nil {
                 fmt.Println("UniqueAddress6 encountered  an error")
                 return "666", err
         }
 
         offset := true
-        ip, ipnet, err := net.ParseCIDR(network.AddressRange)
+        ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
         if err != nil {
                 fmt.Println("UniqueAddress6 encountered  an error")
                 return "666", err
