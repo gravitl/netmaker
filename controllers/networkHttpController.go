@@ -149,8 +149,11 @@ func validateNetworkCreate(network models.Network) error {
 		return isvalid
 	})
         _ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
-                isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-                return isvalid
+		isvalid := true
+		if *network.IsDualStack {
+			isvalid = functions.IsIpCIDR(fl.Field().String())
+		}
+		return isvalid
         })
 
 

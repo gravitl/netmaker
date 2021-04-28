@@ -11,7 +11,7 @@ import (
 type Network struct {
 	ID	primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	AddressRange	string `json:"addressrange" bson:"addressrange" validate:"required,addressrange_valid"`
-	AddressRange6	string `json:"addressrange6" bson:"addressrange6" validate:"required,addressrange6_valid"`
+	AddressRange6	string `json:"addressrange6" bson:"addressrange6" validate:"addressrange6_valid"`
 	DisplayName string `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,displayname_unique,min=1,max=100"`
 	NetID string `json:"netid" bson:"netid" validate:"required,netid_valid,min=1,max=12"`
 	NodesLastModified	int64 `json:"nodeslastmodified" bson:"nodeslastmodified"`
