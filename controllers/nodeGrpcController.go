@@ -82,7 +82,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
                         ListenPort:  data.GetListenport(),
 	}
 
-        err := ValidateNode("create", node.Network, node)
+        err := ValidateNodeCreate(node.Network, node)
 
         if err != nil {
                 // return internal gRPC error to be handled later
@@ -227,7 +227,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
         network, _ := functions.GetParentNetwork(networkName)
 
 
-	err := ValidateNode("update", networkName, nodechange)
+	err := ValidateNodeUpdate(networkName, nodechange)
         if err != nil {
                 return nil, err
         }

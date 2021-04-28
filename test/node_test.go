@@ -213,18 +213,6 @@ func TestUpdateNode(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, message.Code)
 		assert.Contains(t, message.Message, "Field validation for 'Password' failed")
 	})
-	t.Run("EmptyPassword", func(t *testing.T) {
-		data.Password = ""
-		response, err := api(t, data, http.MethodPut, baseURL+"/api/nodes/skynet/01:02:03:04:05:05", "secretkey")
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-		var message models.ErrorResponse
-		defer response.Body.Close()
-		err = json.NewDecoder(response.Body).Decode(&message)
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Contains(t, message.Message, "Field validation for 'Password' failed")
-	})
 }
 
 func TestDeleteNode(t *testing.T) {

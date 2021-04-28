@@ -31,6 +31,12 @@ mongoconn:
   opts: '/?authSource=admin'
 EOL
 
+cat >/etc/netmaker/config/Corefile<<EOL
+. {
+    hosts /root/netmaker.hosts
+}
+EOL
+
 cat >/etc/systemd/system/netmaker.service<<EOL
 [Unit]
 Description=Netmaker Server
@@ -51,3 +57,4 @@ systemctl start netmaker.service
 
 
 docker run -d --name netmaker-ui -p 80:80 -e BACKEND_URL="http://$SERVER_DOMAIN:8081" gravitl/netmaker-ui:v0.2
+docker run -d --name coredns --restart=always --volume=/etc/netmaker/config/:/root/ -p 52:53/udp coredns/coredns -conf /root/Corefile
