@@ -509,7 +509,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = ValidateNode("create", networkName, node)
+	err = ValidateNodeCreate(networkName, node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -765,7 +765,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if nodechange.MacAddress == "" {
 		nodechange.MacAddress = node.MacAddress
 	}
-	err = ValidateNode("update", params["network"], nodechange)
+	err = ValidateNodeUpdate(params["network"], nodechange)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
