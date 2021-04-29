@@ -36,7 +36,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	//Auth request consists of Mac Address and Password (from node that is authorizing
 	//in case of Master, auth is ignored and mac is set to "mastermac"
 	var authRequest models.UserAuthParams
-	var result models.User
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
@@ -44,74 +43,74 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	decoderErr := decoder.Decode(&authRequest)
 	defer request.Body.Close()
-
 	if decoderErr != nil {
 		returnErrorResponse(response, request, errorResponse)
 		return
-	} else {
-		errorResponse.Code = http.StatusBadRequest
-		if authRequest.UserName == "" {
-			errorResponse.Message = "W1R3: Username can't be empty"
-			returnErrorResponse(response, request, errorResponse)
-			return
-		} else if authRequest.Password == "" {
-			errorResponse.Message = "W1R3: Password can't be empty"
-			returnErrorResponse(response, request, errorResponse)
-			return
-		} else {
-
-			//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-			collection := mongoconn.Client.Database("netmaker").Collection("users")
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			var err = collection.FindOne(ctx, bson.M{"username": authRequest.UserName}).Decode(&result)
-
-			defer cancel()
-
-			if err != nil {
-				errorResponse.Message = "W1R3: User " + authRequest.UserName + " not found."
-				returnErrorResponse(response, request, errorResponse)
-				return
-			}
-
-			//compare password from request to stored password in database
-			//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
-			//TODO: Consider a way of hashing the password client side before sending, or using certificates
-			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
-			if err != nil {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: Wrong Password.",
-				}
-				returnErrorResponse(response, request, errorResponse)
-				return
-			} else {
-				//Create a new JWT for the node
-				tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.IsAdmin)
-
-				if tokenString == "" {
-					returnErrorResponse(response, request, errorResponse)
-					return
-				}
-
-				var successResponse = models.SuccessResponse{
-					Code:    http.StatusOK,
-					Message: "W1R3: Device " + authRequest.UserName + " Authorized",
-					Response: models.SuccessfulUserLoginResponse{
-						AuthToken: tokenString,
-						UserName:  authRequest.UserName,
-					},
-				}
-				//Send back the JWT
-				successJSONResponse, jsonError := json.Marshal(successResponse)
-
-				if jsonError != nil {
-					returnErrorResponse(response, request, errorResponse)
-					return
-				}
-				response.Header().Set("Content-Type", "application/json")
-				response.Write(successJSONResponse)
-			}
-		}
 	}
+
+	jwt, err := VerifyAuthRequest(authRequest)
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		returnErrorResponse(response, request, errorResponse)
+	}
+
+	if jwt == "" {
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	var successResponse = models.SuccessResponse{
+		Code:    http.StatusOK,
+		Message: "W1R3: Device " + authRequest.UserName + " Authorized",
+		Response: models.SuccessfulUserLoginResponse{
+			AuthToken: jwt,
+			UserName:  authRequest.UserName,
+		},
+	}
+	//Send back the JWT
+	successJSONResponse, jsonError := json.Marshal(successResponse)
+
+	if jsonError != nil {
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	response.Write(successJSONResponse)
+}
+
+func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
+	var result models.User
+	if authRequest.UserName == "" {
+		return "", errors.New("Username can't be empty")
+	} else if authRequest.Password == "" {
+		return "", errors.New("Password can't be empty")
+	}
+	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
+	collection := mongoconn.Client.Database("netmaker").Collection("users")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	var err = collection.FindOne(ctx, bson.M{"username": authRequest.UserName}).Decode(&result)
+
+	defer cancel()
+	if err != nil {
+		return "", errors.New("User " + authRequest.UserName + " not found")
+	}
+	// This is a a useless test as cannot create user that is not an an admin
+	if !result.IsAdmin {
+		return "", errors.New("User is not an admin")
+	}
+
+	//compare password from request to stored password in database
+	//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
+	//TODO: Consider a way of hashing the password client side before sending, or using certificates
+	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
+	if err != nil {
+		return "", errors.New("Wrong Password")
+	}
+
+	//Create a new JWT for the node
+	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, true)
+	return tokenString, nil
 }
 
 //The middleware for most requests to the API
@@ -132,50 +131,43 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 
 		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
-
-		var tokenSplit = strings.Split(bearerToken, " ")
-
-		//I put this in in case the user doesn't put in a token at all (in which case it's empty)
-		//There's probably a smarter way of handling this.
-		var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
-
-		if len(tokenSplit) > 1 {
-			authToken = tokenSplit[1]
-		} else {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
-			}
-			returnErrorResponse(w, r, errorResponse)
-			return
-		}
-
-		//This checks if
-		//A: the token is the master password
-		//B: the token corresponds to a mac address, and if so, which one
-		//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
-		username, _, err := functions.VerifyUserToken(authToken)
-
+		err := ValidateToken(bearerToken)
 		if err != nil {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
-			}
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
-
-		isAuthorized := username != ""
-
-		if !isAuthorized {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-			}
-			returnErrorResponse(w, r, errorResponse)
-			return
-		} else {
-			//If authorized, this function passes along it's request and output to the appropriate route function.
-			next.ServeHTTP(w, r)
-		}
+		next.ServeHTTP(w, r)
 	}
+}
+
+func ValidateToken(token string) error {
+	var tokenSplit = strings.Split(token, " ")
+
+	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
+	//There's probably a smarter way of handling this.
+	var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
+
+	if len(tokenSplit) > 1 {
+		authToken = tokenSplit[1]
+	} else {
+		return errors.New("Missing Auth Token.")
+	}
+
+	//This checks if
+	//A: the token is the master password
+	//B: the token corresponds to a mac address, and if so, which one
+	//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
+	username, _, err := functions.VerifyUserToken(authToken)
+	if err != nil {
+		return errors.New("Error Verifying Auth Token")
+	}
+
+	isAuthorized := username != ""
+	if !isAuthorized {
+		return errors.New("You are unauthorized to access this endpoint.")
+	}
+
+	return nil
 }
 
 func HasAdmin() (bool, error) {
@@ -249,10 +241,19 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateUser(user models.User) (models.User, error) {
+	hasadmin, err := HasAdmin()
+	if hasadmin {
+		return models.User{}, errors.New("Admin already Exists")
+	}
+
+	user.IsAdmin = true
+	err = ValidateUser("create", user)
+	if err != nil {
+		return models.User{}, err
+	}
 
 	//encrypt that password so we never see it again
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
-
 	if err != nil {
 		return user, err
 	}
@@ -271,9 +272,7 @@ func CreateUser(user models.User) (models.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	// insert our node to the node db.
-	result, err := collection.InsertOne(ctx, user)
-	_ = result
-
+	_, err = collection.InsertOne(ctx, user)
 	defer cancel()
 
 	return user, err
@@ -282,34 +281,11 @@ func CreateUser(user models.User) (models.User, error) {
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var errorResponse = models.ErrorResponse{
-		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-	}
-
-	hasadmin, err := HasAdmin()
-
-	if hasadmin {
-		errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "W1R3: Admin already exists! ",
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
-	}
-
 	var admin models.User
-
 	//get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
 
-	admin.IsAdmin = true
-
-	err = ValidateUser("create", admin)
-	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
-	}
-
-	admin, err = CreateUser(admin)
+	admin, err := CreateUser(admin)
 	if err != nil {
 		json.NewEncoder(w).Encode(err)
 		return
@@ -319,6 +295,11 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
+
+	err := ValidateUser("update", userchange)
+	if err != nil {
+		return models.User{}, err
+	}
 
 	queryUser := user.UserName
 
@@ -367,7 +348,7 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 
 	defer cancel()
 
-	return userupdate, errN
+	return user, errN
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
@@ -388,15 +369,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
-	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
-	}
-
-	userchange.IsAdmin = true
-
-	err = ValidateUser("update", userchange)
-
 	if err != nil {
 		json.NewEncoder(w).Encode(err)
 		return
@@ -458,23 +430,6 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 func ValidateUser(operation string, user models.User) error {
 
 	v := validator.New()
-
-	_ = v.RegisterValidation("username_unique", func(fl validator.FieldLevel) bool {
-		_, err := GetUser(user.UserName)
-		return err == nil || operation == "update"
-	})
-
-	_ = v.RegisterValidation("username_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.NameInNodeCharSet(user.UserName)
-		return isvalid
-	})
-
-	_ = v.RegisterValidation("password_check", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := user.Password != ""
-		goodLength := len(user.Password) > 5
-		return (notEmptyCheck && goodLength) || operation == "update"
-	})
-
 	err := v.Struct(user)
 
 	if err != nil {
