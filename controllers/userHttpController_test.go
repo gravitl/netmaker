@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 func TestHasAdmin(t *testing.T) {
 	_, err := DeleteUser("admin")
 	assert.Nil(t, err)
-	user := models.User{"admin", "admin", true}
+	user := models.User{"admin", "password", true}
 	_, err = CreateUser(user)
 	assert.Nil(t, err, err)
 	t.Run("AdminExists", func(t *testing.T) {
@@ -49,7 +49,7 @@ func TestHasAdmin(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	user := models.User{"admin", "admin", true}
+	user := models.User{"admin", "password", true}
 	t.Run("NoUser", func(t *testing.T) {
 		_, err := DeleteUser("admin")
 		assert.Nil(t, err, err)
@@ -68,7 +68,7 @@ func TestDeleteUser(t *testing.T) {
 	hasadmin, err := HasAdmin()
 	assert.Nil(t, err, err)
 	if !hasadmin {
-		user := models.User{"admin", "admin", true}
+		user := models.User{"admin", "pasword", true}
 		_, err := CreateUser(user)
 		assert.Nil(t, err, err)
 	}
@@ -95,7 +95,7 @@ func TestValidateUser(t *testing.T) {
 	})
 	t.Run("ValidUpdate", func(t *testing.T) {
 		user.UserName = "admin"
-		user.Password = "admin"
+		user.Password = "password"
 		err := ValidateUser("update", user)
 		assert.Nil(t, err, err)
 	})
@@ -122,10 +122,14 @@ func TestValidateUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	user := models.User{"admin", "admin", true}
 	t.Run("UserExisits", func(t *testing.T) {
-		_, err := CreateUser(user)
+		user := models.User{"admin", "password", true}
+		hasadmin, err := HasAdmin()
 		assert.Nil(t, err, err)
+		if !hasadmin {
+			_, err := CreateUser(user)
+			assert.Nil(t, err, err)
+		}
 		admin, err := GetUser("admin")
 		assert.Nil(t, err, err)
 		assert.Equal(t, user.UserName, admin.UserName)
@@ -140,7 +144,7 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	user := models.User{"admin", "admin", true}
+	user := models.User{"admin", "password", true}
 	newuser := models.User{"hello", "world", true}
 	t.Run("UserExisits", func(t *testing.T) {
 		_, err := DeleteUser("admin")
@@ -220,7 +224,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 	})
 	t.Run("WrongPassword", func(t *testing.T) {
 		_, err := DeleteUser("admin")
-		user := models.User{"admin", "admin", true}
+		user := models.User{"admin", "password", true}
 		_, err = CreateUser(user)
 		assert.Nil(t, err)
 		authRequest := models.UserAuthParams{"admin", "badpass"}
@@ -230,7 +234,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		assert.Equal(t, "Wrong Password", err.Error())
 	})
 	t.Run("Success", func(t *testing.T) {
-		authRequest := models.UserAuthParams{"admin", "admin"}
+		authRequest := models.UserAuthParams{"admin", "password"}
 		jwt, err := VerifyAuthRequest(authRequest)
 		assert.Nil(t, err, err)
 		assert.NotNil(t, jwt)

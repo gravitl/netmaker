@@ -50,13 +50,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	jwt, err := VerifyAuthRequest(authRequest)
 	if err != nil {
-		errorResponse.Code = http.StatusBadRequest
-		errorResponse.Message = err.Error()
-		returnErrorResponse(response, request, errorResponse)
+		returnErrorResponse(response, request, formatError(err, "badrequest"))
+		return
 	}
 
 	if jwt == "" {
-		returnErrorResponse(response, request, errorResponse)
+		//very unlikely that err is !nil and no jwt returned, but handle it anyways.
+		returnErrorResponse(response, request, formatError(errors.New("No token returned"), "internal"))
 		return
 	}
 
@@ -122,18 +122,13 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 //TODO: Consider better RBAC implementations
 func authorizeUser(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		var errorResponse = models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-		}
-
 		w.Header().Set("Content-Type", "application/json")
 
 		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
 		err := ValidateToken(bearerToken)
 		if err != nil {
-			returnErrorResponse(w, r, errorResponse)
+			returnErrorResponse(w, r, formatError(err, "unauthorized"))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -286,8 +281,9 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&admin)
 
 	admin, err := CreateUser(admin)
+
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
@@ -377,7 +373,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	user, err = UpdateUser(userchange, user)
 
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
