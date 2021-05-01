@@ -2,6 +2,7 @@ package controller
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
@@ -13,24 +14,195 @@ type NetworkValidationTestCase struct {
 	errMessage string
 }
 
+func deleteNet() {
+	_, err := GetNetwork("skynet")
+	if err == nil {
+		_, _ = DeleteNetwork("skynet")
+	}
+}
+
+func createNet() {
+	var network models.Network
+	network.NetID = "skynet"
+	network.AddressRange = "10.0.0.1/24"
+	network.DisplayName = "mynetwork"
+	_, err := GetNetwork("skynet")
+	if err != nil {
+		CreateNetwork(network)
+	}
+}
+
 func TestGetNetworks(t *testing.T) {
-	//calls functions.ListNetworks --- nothing to be don
+	//calls functions.ListNetworks --- nothing to be done
 }
 func TestCreateNetwork(t *testing.T) {
+	deleteNet()
+	var network models.Network
+	network.NetID = "skynet"
+	network.AddressRange = "10.0.0.1/24"
+	network.DisplayName = "mynetwork"
+	err := CreateNetwork(network)
+	assert.Nil(t, err)
+}
+func TestGetDeleteNetwork(t *testing.T) {
+	createNet()
+	//create nodes
+	t.Run("NetworkwithNodes", func(t *testing.T) {
+	})
+	t.Run("GetExistingNetwork", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, "skynet", network.NetID)
+	})
+	t.Run("DeleteExistingNetwork", func(t *testing.T) {
+		result, err := DeleteNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), result.DeletedCount)
+		t.Log(result.DeletedCount)
+	})
+	t.Run("GetNonExistantNetwork", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.NotNil(t, err)
+		assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.Equal(t, "", network.NetID)
+	})
+	t.Run("NonExistantNetwork", func(t *testing.T) {
+		result, err := DeleteNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, int64(0), result.DeletedCount)
+		t.Log(result.DeletedCount)
+	})
 }
 func TestGetNetwork(t *testing.T) {
 }
 func TestUpdateNetwork(t *testing.T) {
 }
-func TestDeleteNetwork(t *testing.T) {
-}
+
 func TestKeyUpdate(t *testing.T) {
+	createNet()
+	existing, err := GetNetwork("skynet")
+	assert.Nil(t, err)
+	time.Sleep(time.Second * 1)
+	network, err := KeyUpdate("skynet")
+	assert.Nil(t, err)
+	network, err = GetNetwork("skynet")
+	assert.Nil(t, err)
+	assert.Greater(t, network.KeyUpdateTimeStamp, existing.KeyUpdateTimeStamp)
 }
+
 func TestCreateKey(t *testing.T) {
+	createNet()
+	var accesskey models.AccessKey
+	var network models.Network
+	network.NetID = "skynet"
+	t.Run("InvalidName", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Name = "bad-name"
+		_, err = CreateAccessKey(accesskey, network)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'alphanum' tag")
+	})
+	t.Run("NameTooLong", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Name = "Thisisareallylongkeynamethatwillfail"
+		_, err = CreateAccessKey(accesskey, network)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'max' tag")
+	})
+	t.Run("BlankName", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Name = ""
+		key, err := CreateAccessKey(accesskey, network)
+		assert.Nil(t, err)
+		assert.NotEqual(t, "", key.Name)
+	})
+	t.Run("InvalidValue", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Value = "bad-value"
+		_, err = CreateAccessKey(accesskey, network)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Value' failed on the 'alphanum' tag")
+	})
+	t.Run("BlankValue", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Name = "mykey"
+		accesskey.Value = ""
+		key, err := CreateAccessKey(accesskey, network)
+		assert.Nil(t, err)
+		assert.NotEqual(t, "", key.Value)
+		assert.Equal(t, accesskey.Name, key.Name)
+	})
+	t.Run("ValueTooLong", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Name = "keyname"
+		accesskey.Value = "AccessKeyValuethatistoolong"
+		_, err = CreateAccessKey(accesskey, network)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Value' failed on the 'max' tag")
+	})
+	t.Run("BlankUses", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Uses = 0
+		accesskey.Value = ""
+		key, err := CreateAccessKey(accesskey, network)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, key.Uses)
+	})
+	t.Run("DuplicateKey", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		accesskey.Name = "mykey"
+		_, err = CreateAccessKey(accesskey, network)
+		assert.NotNil(t, err)
+		assert.Equal(t, "Duplicate AccessKey Name", err.Error())
+	})
 }
-func TestGetKey(t *testing.T) {
+func TestGetKeys(t *testing.T) {
+	deleteNet()
+	createNet()
+	network, err := GetNetwork("skynet")
+	assert.Nil(t, err)
+	var key models.AccessKey
+	key.Name = "mykey"
+	_, err = CreateAccessKey(key, network)
+	assert.Nil(t, err)
+	t.Run("KeyExists", func(t *testing.T) {
+		keys, err := GetKeys(network.NetID)
+		assert.Nil(t, err)
+		assert.NotEqual(t, models.AccessKey{}, keys)
+	})
+	t.Run("NonExistantKey", func(t *testing.T) {
+		err := DeleteKey("mykey", "skynet")
+		assert.Nil(t, err)
+		keys, err := GetKeys(network.NetID)
+		assert.Nil(t, err)
+		assert.Equal(t, []models.AccessKey(nil), keys)
+	})
 }
 func TestDeleteKey(t *testing.T) {
+	createNet()
+	network, err := GetNetwork("skynet")
+	assert.Nil(t, err)
+	var key models.AccessKey
+	key.Name = "mykey"
+	_, err = CreateAccessKey(key, network)
+	assert.Nil(t, err)
+	t.Run("ExistingKey", func(t *testing.T) {
+		err := DeleteKey("mykey", "skynet")
+		assert.Nil(t, err)
+	})
+	t.Run("NonExistantKey", func(t *testing.T) {
+		err := DeleteKey("mykey", "skynet")
+		assert.NotNil(t, err)
+		assert.Equal(t, "key mykey does not exist", err.Error())
+	})
 }
 func TestSecurityCheck(t *testing.T) {
 }
@@ -39,6 +211,7 @@ func TestValidateNetworkUpdate(t *testing.T) {
 func TestValidateNetworkCreate(t *testing.T) {
 	yes := true
 	no := false
+	deleteNet()
 	//DeleteNetworks
 	cases := []NetworkValidationTestCase{
 		NetworkValidationTestCase{
@@ -194,10 +367,10 @@ func TestValidateNetworkCreate(t *testing.T) {
 	}
 	t.Run("DuplicateNetID", func(t *testing.T) {
 		var net1, net2 models.Network
-		net1.NetID = "skylink"
+		net1.NetID = "skynet"
 		net1.AddressRange = "10.0.0.1/24"
 		net1.DisplayName = "mynetwork"
-		net2.NetID = "skylink"
+		net2.NetID = "skynet"
 		net2.AddressRange = "10.0.1.1/24"
 		net2.IsDualStack = &no
 

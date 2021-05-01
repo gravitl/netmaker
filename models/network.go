@@ -14,24 +14,26 @@ type Network struct {
 	AddressRange string             `json:"addressrange" bson:"addressrange" validate:"required,cidr"`
 	// bug in validator --- required_with does not work with bools  issue#683
 	//	AddressRange6          string             `json:"addressrange6" bson:"addressrange6" validate:"required_with=isdualstack true,cidrv6"`
-	AddressRange6          string      `json:"addressrange6" bson:"addressrange6" validate:"addressrange6_valid"`
-	DisplayName            string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,alphanum,min=2,max=20,displayname_unique"`
-	NetID                  string      `json:"netid" bson:"netid" validate:"required,alphanum,min=1,max=12,netid_valid"`
-	NodesLastModified      int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
-	NetworkLastModified    int64       `json:"networklastmodified" bson:"networklastmodified"`
-	DefaultInterface       string      `json:"defaultinterface" bson:"defaultinterface"`
-	DefaultListenPort      int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	DefaultPostUp          string      `json:"defaultpostup" bson:"defaultpostup"`
-	DefaultPostDown        string      `json:"defaultpostdown" bson:"defaultpostdown"`
-	KeyUpdateTimeStamp     int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
-	DefaultKeepalive       int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	DefaultSaveConfig      *bool       `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
-	AccessKeys             []AccessKey `json:"accesskeys" bson:"accesskeys"`
-	AllowManualSignUp      *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
-	IsLocal                *bool       `json:"islocal" bson:"islocal"`
-	IsDualStack            *bool       `json:"isdualstack" bson:"isdualstack"`
-	LocalRange             string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
-	DefaultCheckInInterval int32       `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
+	AddressRange6 string `json:"addressrange6" bson:"addressrange6" validate:"addressrange6_valid"`
+	//can't have min=1 with omitempty
+	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,alphanum,min=2,max=20,displayname_unique"`
+	NetID               string      `json:"netid" bson:"netid" validate:"required,alphanum,min=1,max=12,netid_valid"`
+	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
+	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
+	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
+	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
+	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
+	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
+	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
+	DefaultKeepalive    int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
+	DefaultSaveConfig   *bool       `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
+	AccessKeys          []AccessKey `json:"accesskeys" bson:"accesskeys"`
+	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
+	IsLocal             *bool       `json:"islocal" bson:"islocal"`
+	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
+	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
+	//can't have min=1 with omitempty
+	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
 }
 
 //TODO:

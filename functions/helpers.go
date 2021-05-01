@@ -445,16 +445,15 @@ func NameInNetworkCharSet(name string) bool {
 
 func NameInDNSCharSet(name string) bool {
 
-        charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
 
-        for _, char := range name {
-                if !strings.Contains(charset, strings.ToLower(string(char))) {
-                        return false
-                }
-        }
-        return true
+	for _, char := range name {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
 }
-
 
 func NameInNodeCharSet(name string) bool {
 
@@ -528,35 +527,35 @@ func UniqueAddress(networkName string) (string, error) {
 
 func UniqueAddress6(networkName string) (string, error) {
 
-        var network models.Network
-        network, err := GetParentNetwork(networkName)
+	var network models.Network
+	network, err := GetParentNetwork(networkName)
 	if !*network.IsDualStack {
 		return "", nil
 	}
 
 	if err != nil {
-                fmt.Println("UniqueAddress6 encountered  an error")
-                return "666", err
-        }
+		fmt.Println("UniqueAddress6 encountered  an error")
+		return "666", err
+	}
 
-        offset := true
-        ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
-        if err != nil {
-                fmt.Println("UniqueAddress6 encountered  an error")
-                return "666", err
-        }
-        for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
-                if offset {
-                        offset = false
-                        continue
-                }
-                if IsIPUnique(networkName, ip.String()) {
-                        return ip.String(), err
-                }
-        }
-        //TODO
-        err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
-        return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
+	offset := true
+	ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
+	if err != nil {
+		fmt.Println("UniqueAddress6 encountered  an error")
+		return "666", err
+	}
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
+		if offset {
+			offset = false
+			continue
+		}
+		if IsIPUnique(networkName, ip.String()) {
+			return ip.String(), err
+		}
+	}
+	//TODO
+	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
+	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
 //pretty simple get
@@ -620,7 +619,7 @@ func GenKeyName() string {
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
-	return "key-" + string(b)
+	return "key" + string(b)
 }
 
 //checks if IP is unique in the address range

@@ -62,8 +62,8 @@ type SuccessResponse struct {
 }
 
 type AccessKey struct {
-	Name         string `json:"name" bson:"name"`
-	Value        string `json:"value" bson:"value"`
+	Name         string `json:"name" bson:"name" validate:"omitempty,alphanum,max=20"`
+	Value        string `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
 	AccessString string `json:"accessstring" bson:"accessstring"`
 	Uses         int    `json:"uses" bson:"uses"`
 }

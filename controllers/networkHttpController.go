@@ -186,23 +186,11 @@ func ValidateNetworkCreate(network models.Network) error {
 
 //Simple get network function
 func getNetwork(w http.ResponseWriter, r *http.Request) {
-
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
-	var network models.Network
-
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"netid": params["networkname"]}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
-
-	defer cancel()
-
+	netname := params["networkname"]
+	network, err := GetNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -211,27 +199,41 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-func keyUpdate(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-
+func GetNetwork(name string) (models.Network, error) {
 	var network models.Network
+	collection := mongoconn.Client.Database("netmaker").Collection("networks")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	filter := bson.M{"netid": name}
+	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
+	defer cancel()
+	if err != nil {
+		return models.Network{}, err
+	}
+	return network, nil
+}
 
-	network, err := functions.GetParentNetwork(params["networkname"])
+func keyUpdate(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	netname := params["networkname"]
+	network, err := KeyUpdate(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(network)
+}
 
+func KeyUpdate(netname string) (models.Network, error) {
+	network, err := functions.GetParentNetwork(netname)
+	if err != nil {
+		return models.Network{}, err
+	}
 	network.KeyUpdateTimeStamp = time.Now().Unix()
-
 	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"netid": params["networkname"]}
+	filter := bson.M{"netid": netname}
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
@@ -251,18 +253,12 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 			{"checkininterval", network.DefaultCheckInInterval},
 		}},
 	}
-
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Network{}, err
 	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(network)
+	return network, nil
 }
 
 //Update a network
@@ -562,8 +558,7 @@ func CreateNetwork(network models.Network) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	// insert our network into the network table
-	result, err := collection.InsertOne(ctx, network)
-	fmt.Printf("=========%T, %v\n", result, result)
+	_, err = collection.InsertOne(ctx, network)
 	defer cancel()
 	if err != nil {
 		return err
@@ -576,188 +571,167 @@ func CreateNetwork(network models.Network) error {
 //TODO: Very little error handling
 //accesskey is created as a json string inside the Network collection item in mongo
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
-	var network models.Network
 	var accesskey models.AccessKey
-
 	//start here
 	network, err := functions.GetParentNetwork(params["networkname"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	err = json.NewDecoder(r.Body).Decode(&accesskey)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	key, err := CreateAccessKey(accesskey, network)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(key)
+	//w.Write([]byte(accesskey.AccessString))
+}
 
+func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models.AccessKey, error) {
 	if accesskey.Name == "" {
 		accesskey.Name = functions.GenKeyName()
 	}
 	if accesskey.Value == "" {
 		accesskey.Value = functions.GenKey()
 	}
-
 	if accesskey.Uses == 0 {
 		accesskey.Uses = 1
 	}
+	for _, key := range network.AccessKeys {
+		if key.Name == accesskey.Name {
+			return models.AccessKey{}, errors.New("Duplicate AccessKey Name")
+		}
+	}
+
 	_, gconf, err := functions.GetGlobalConfig()
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		//returnErrorResponse(w, r, formatError(err, "internal"))
+		return models.AccessKey{}, err
 	}
-
 	privAddr := ""
-	if *network.IsLocal {
-		privAddr = network.LocalRange
+	if network.IsLocal != nil {
+		if *network.IsLocal {
+			privAddr = network.LocalRange
+		}
 	}
 
-	netID := params["networkname"]
+	//netID := params["networkname"]
 	address := gconf.ServerGRPC + gconf.PortGRPC
-
-	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
+	accessstringdec := address + "|" + network.NetID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
-
+	//validate accesskey
+	v := validator.New()
+	err = v.Struct(accesskey)
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			fmt.Println(e)
+		}
+		return models.AccessKey{}, err
+	}
 	network.AccessKeys = append(network.AccessKeys, accesskey)
-
 	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	// Create filter
-	filter := bson.M{"netid": params["networkname"]}
-
+	filter := bson.M{"netid": network.NetID}
 	// Read update model from body request
 	fmt.Println("Adding key to " + network.NetID)
-
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
 			{"accesskeys", network.AccessKeys},
 		}},
 	}
-
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		//returnErrorResponse(w, r, formatError(err, "internal"))
+		return models.AccessKey{}, err
 	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(accesskey)
-	//w.Write([]byte(accesskey.AccessString))
+	return accesskey, nil
 }
 
 //pretty simple get
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {
-
-	// set header.
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
-	var network models.Network
-	//var keys []models.DisplayKey
-	var keys []models.AccessKey
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"netid": params["networkname"]}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
-
-	defer cancel()
-
+	network := params["networkname"]
+	keys, err := GetKeys(network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	keydata, err := json.Marshal(network.AccessKeys)
-
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	json.Unmarshal(keydata, &keys)
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(keys)
+}
+func GetKeys(net string) ([]models.AccessKey, error) {
+
+	var network models.Network
+	collection := mongoconn.Client.Database("netmaker").Collection("networks")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	filter := bson.M{"netid": net}
+	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
+	defer cancel()
+	if err != nil {
+		return []models.AccessKey{}, err
+	}
+	return network.AccessKeys, nil
 }
 
 //delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
-	var network models.Network
 	keyname := params["name"]
-
-	//start here
-	network, err := functions.GetParentNetwork(params["networkname"])
+	netname := params["networkname"]
+	err := DeleteKey(keyname, netname)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+func DeleteKey(keyname, netname string) error {
+	network, err := functions.GetParentNetwork(netname)
+	if err != nil {
+		return err
 	}
 	//basically, turn the list of access keys into the list of access keys before and after the item
 	//have not done any error handling for if there's like...1 item. I think it works? need to test.
 	found := false
-	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
-
-		currentkey := network.AccessKeys[i]
+	var updatedKeys []models.AccessKey
+	for _, currentkey := range network.AccessKeys {
 		if currentkey.Name == keyname {
-			network.AccessKeys = append(network.AccessKeys[:i],
-				network.AccessKeys[i+1:]...)
 			found = true
+		} else {
+			updatedKeys = append(updatedKeys, currentkey)
 		}
 	}
 	if !found {
-		err = errors.New("key " + keyname + " does not exist")
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return
+		return errors.New("key " + keyname + " does not exist")
 	}
 
 	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	// Create filter
-	filter := bson.M{"netid": params["networkname"]}
-
+	filter := bson.M{"netid": netname}
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
-			{"accesskeys", network.AccessKeys},
+			{"accesskeys", updatedKeys},
 		}},
 	}
-
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return err
 	}
-	var keys []models.AccessKey
-	keydata, err := json.Marshal(network.AccessKeys)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	json.Unmarshal(keydata, &keys)
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(keys)
+	return nil
 }

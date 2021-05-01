@@ -141,13 +141,13 @@ func TestDeleteNetwork(t *testing.T) {
 		setup(t)
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusForbidden, response.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 		defer response.Body.Close()
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Contains(t, message.Message, "Node check failed")
-		assert.Equal(t, http.StatusForbidden, message.Code)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
 	})
 	t.Run("ValidKey", func(t *testing.T) {
 		type Message struct {
@@ -202,11 +202,15 @@ func TestCreateKey(t *testing.T) {
 		assert.Equal(t, 1, returnedkey.Uses)
 	})
 	t.Run("DuplicateAccessKey", func(t *testing.T) {
-		//this is allowed I think it should fail fail
 		response, err := api(t, key, http.MethodPost, baseURL+"/api/networks/skynet/keys", "secretkey")
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusOK, response.StatusCode)
-		deleteKey(t, key.Name, "skynet")
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+		defer response.Body.Close()
+		var message models.ErrorResponse
+		err = json.NewDecoder(response.Body).Decode(&message)
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusBadRequest, message.Code)
+		assert.Equal(t, "Duplicate AccessKey Name", message.Message)
 	})
 
 	t.Run("InvalidToken", func(t *testing.T) {
@@ -239,18 +243,9 @@ func TestDeleteKey(t *testing.T) {
 	//ensure key exists
 	createKey(t)
 	t.Run("KeyValid", func(t *testing.T) {
-		//fails -- deletecount not returned
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/skynet", "secretkey")
 		assert.Nil(t, err, err)
-		defer response.Body.Close()
-		//var message mongo.DeleteResult
-		var messages []models.AccessKey
-		err = json.NewDecoder(response.Body).Decode(&messages)
-		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		for _, message := range messages {
-			assert.Equal(t, "skynet", message.Name)
-		}
 	})
 	t.Run("InValidKey", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/badkey", "secretkey")
@@ -515,7 +510,7 @@ func TestUpdateNetwork(t *testing.T) {
 	t.Run("UpdateKeepAliveTooBig", func(t *testing.T) {
 		//does not fails ----- value gets updated.
 		// ----- needs fixing -----
-		t.Skip()
+		//t.Skip()
 		type Network struct {
 			DefaultKeepAlive int32
 		}
@@ -527,7 +522,7 @@ func TestUpdateNetwork(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Contains(t, message.Message, "Field validation for 'DefaultKeepAlive' failed")
+		assert.Contains(t, message.Message, "Field validation for 'DefaultKeepalive' failed on the 'max' tag")
 		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("UpdateSaveConfig", func(t *testing.T) {

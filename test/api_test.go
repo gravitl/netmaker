@@ -236,7 +236,6 @@ func createNode(t *testing.T) {
 	node.Name = "myNode"
 	node.PublicKey = "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34="
 	node.Password = "tobedetermined"
-	node.LocalAddress = "192.168.0.1"
 	node.Endpoint = "10.100.100.4"
 	response, err := api(t, node, http.MethodPost, "http://localhost:8081:/api/nodes/skynet", "secretkey")
 	assert.Nil(t, err, err)
