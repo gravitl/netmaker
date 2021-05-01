@@ -7,17 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
-	"os"
+
+	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"gopkg.in/go-playground/validator.v9"
 )
 
 func networkHandlers(r *mux.Router) {
@@ -83,7 +85,7 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == config.Config.Server.MasterKey  || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
+	if tokenString == config.Config.Server.MasterKey || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
 		return true
 	}
 	return false
@@ -104,7 +106,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func validateNetworkUpdate(network models.Network) error {
+func ValidateNetworkUpdate(network models.Network) error {
 
 	v := validator.New()
 
@@ -112,10 +114,10 @@ func validateNetworkUpdate(network models.Network) error {
 		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
 		return isvalid
 	})
-        _ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
-                isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-                return isvalid
-        })
+	_ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
+		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
+		return isvalid
+	})
 
 	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
 		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
@@ -140,34 +142,33 @@ func validateNetworkUpdate(network models.Network) error {
 	return err
 }
 
-func validateNetworkCreate(network models.Network) error {
+func ValidateNetworkCreate(network models.Network) error {
 
 	v := validator.New()
 
-	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.IsIpCIDR(fl.Field().String())
-		return isvalid
-	})
-        _ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
+	//	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
+	//		isvalid := functions.IsIpCIDR(fl.Field().String())
+	//		return isvalid
+	//	})
+	_ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
 		isvalid := true
 		if *network.IsDualStack {
 			isvalid = functions.IsIpCIDR(fl.Field().String())
 		}
 		return isvalid
-        })
-
-
-	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-		return isvalid
 	})
-
+	//
+	//	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
+	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
+	//		return isvalid
+	//	})
+	//
 	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
 		isFieldUnique, _ := functions.IsNetworkNameUnique(fl.Field().String())
-		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
-		return isFieldUnique && inCharSet
+		//		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
+		return isFieldUnique
 	})
-
+	//
 	_ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
 		isFieldUnique, _ := functions.IsNetworkDisplayNameUnique(fl.Field().String())
 		return isFieldUnique
@@ -230,16 +231,16 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"netid": params["networkname"]}
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"addressrange", network.AddressRange},
-                        {"addressrange6", network.AddressRange6},
-                        {"displayname", network.DisplayName},
-                        {"defaultlistenport", network.DefaultListenPort},
-                        {"defaultpostup", network.DefaultPostUp},
-                        {"defaultpostdown", network.DefaultPostDown},
+	filter := bson.M{"netid": params["networkname"]}
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"addressrange", network.AddressRange},
+			{"addressrange6", network.AddressRange6},
+			{"displayname", network.DisplayName},
+			{"defaultlistenport", network.DefaultListenPort},
+			{"defaultpostup", network.DefaultPostUp},
+			{"defaultpostdown", network.DefaultPostDown},
 			{"defaultkeepalive", network.DefaultKeepalive},
 			{"keyupdatetimestamp", network.KeyUpdateTimeStamp},
 			{"defaultsaveconfig", network.DefaultSaveConfig},
@@ -248,8 +249,8 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 			{"networklastmodified", network.NetworkLastModified},
 			{"allowmanualsignup", network.AllowManualSignUp},
 			{"checkininterval", network.DefaultCheckInInterval},
-		        }},
-	      }
+		}},
+	}
 
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
 
@@ -317,14 +318,14 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if networkChange.AddressRange == "" {
 		networkChange.AddressRange = network.AddressRange
 	}
-        if networkChange.AddressRange6 == "" {
-                networkChange.AddressRange6 = network.AddressRange6
-        }
+	if networkChange.AddressRange6 == "" {
+		networkChange.AddressRange6 = network.AddressRange6
+	}
 	if networkChange.NetID == "" {
 		networkChange.NetID = network.NetID
 	}
 
-	err = validateNetworkUpdate(networkChange)
+	err = ValidateNetworkUpdate(networkChange)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -366,9 +367,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if networkChange.IsLocal != nil {
 		network.IsLocal = networkChange.IsLocal
 	}
-        if networkChange.IsDualStack != nil {
-                network.IsDualStack = networkChange.IsDualStack
-        }
+	if networkChange.IsDualStack != nil {
+		network.IsDualStack = networkChange.IsDualStack
+	}
 	if networkChange.DefaultListenPort != 0 {
 		network.DefaultListenPort = networkChange.DefaultListenPort
 		haschange = true
@@ -409,26 +410,26 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if haschange {
 		network.SetNetworkLastModified()
 	}
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"addressrange", network.AddressRange},
-                        {"addressrange6", network.AddressRange6},
-                        {"displayname", network.DisplayName},
-                        {"defaultlistenport", network.DefaultListenPort},
-                        {"defaultpostup", network.DefaultPostUp},
-                        {"defaultpostdown", network.DefaultPostDown},
-                        {"defaultkeepalive", network.DefaultKeepalive},
-                        {"defaultsaveconfig", network.DefaultSaveConfig},
-                        {"defaultinterface", network.DefaultInterface},
-                        {"nodeslastmodified", network.NodesLastModified},
-                        {"networklastmodified", network.NetworkLastModified},
-                        {"allowmanualsignup", network.AllowManualSignUp},
-                        {"localrange", network.LocalRange},
-                        {"islocal", network.IsLocal},
-                        {"isdualstack", network.IsDualStack},
-                        {"checkininterval", network.DefaultCheckInInterval},
-		              }},
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"addressrange", network.AddressRange},
+			{"addressrange6", network.AddressRange6},
+			{"displayname", network.DisplayName},
+			{"defaultlistenport", network.DefaultListenPort},
+			{"defaultpostup", network.DefaultPostUp},
+			{"defaultpostdown", network.DefaultPostDown},
+			{"defaultkeepalive", network.DefaultKeepalive},
+			{"defaultsaveconfig", network.DefaultSaveConfig},
+			{"defaultinterface", network.DefaultInterface},
+			{"nodeslastmodified", network.NodesLastModified},
+			{"networklastmodified", network.NetworkLastModified},
+			{"allowmanualsignup", network.AllowManualSignUp},
+			{"localrange", network.LocalRange},
+			{"islocal", network.IsLocal},
+			{"isdualstack", network.IsDualStack},
+			{"checkininterval", network.DefaultCheckInInterval},
+		}},
 	}
 
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
@@ -472,36 +473,42 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
+	network := params["networkname"]
+	count, err := DeleteNetwork(network)
 
-	nodecount, err := functions.GetNetworkNodeNumber(params["networkname"])
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(count)
+}
+
+func DeleteNetwork(network string) (*mongo.DeleteResult, error) {
+	none := &mongo.DeleteResult{}
+
+	nodecount, err := functions.GetNetworkNodeNumber(network)
+	if err != nil {
+		//returnErrorResponse(w, r, formatError(err, "internal"))
+		return none, err
 	} else if nodecount > 0 {
-		errorResponse := models.ErrorResponse{
-			Code: http.StatusForbidden, Message: "W1R3: Node check failed. All nodes must be deleted before deleting network.",
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
+		//errorResponse := models.ErrorResponse{
+		//	Code: http.StatusForbidden, Message: "W1R3: Node check failed. All nodes must be deleted before deleting network.",
+		//}
+		//returnErrorResponse(w, r, errorResponse)
+		return none, errors.New("Node check failed. All nodes must be deleted before deleting network")
 	}
 
 	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-	filter := bson.M{"netid": params["networkname"]}
-
+	filter := bson.M{"netid": network}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	deleteResult, err := collection.DeleteOne(ctx, filter)
-
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		//returnErrorResponse(w, r, formatError(err, "internal"))
+		return none, err
 	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(deleteResult)
+	return deleteResult, nil
 }
 
 //Create a network
@@ -519,6 +526,16 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = CreateNetwork(network)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	//json.NewEncoder(w).Encode(result)
+}
+
+func CreateNetwork(network models.Network) error {
 	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateNetwork
 	//Need to implement some better validation across the board
 
@@ -526,15 +543,15 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		falsevar := false
 		network.IsLocal = &falsevar
 	}
-        if network.IsDualStack == nil {
-                falsevar := false
-                network.IsDualStack = &falsevar
-        }
+	if network.IsDualStack == nil {
+		falsevar := false
+		network.IsDualStack = &falsevar
+	}
 
-	err = validateNetworkCreate(network)
+	err := ValidateNetworkCreate(network)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return
+		//returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return err
 	}
 	network.SetDefaults()
 	network.SetNodesLastModified()
@@ -546,15 +563,12 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	// insert our network into the network table
 	result, err := collection.InsertOne(ctx, network)
-
+	fmt.Printf("=========%T, %v\n", result, result)
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return err
 	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(result)
+	return nil
 }
 
 // BEGIN KEY MANAGEMENT SECTION
