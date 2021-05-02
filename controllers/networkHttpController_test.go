@@ -74,6 +74,18 @@ func TestGetDeleteNetwork(t *testing.T) {
 	})
 }
 func TestGetNetwork(t *testing.T) {
+	createNet()
+	t.Run("NoNetwork", func(t *testing.T) {
+		network, err := GetNetwork("badnet")
+		assert.NotNil(t, err)
+		assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.Equal(t, models.Network{}, network)
+	})
+	t.Run("Valid", func(t *testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, "skynet", network.NetID)
+	})
 }
 func TestUpdateNetwork(t *testing.T) {
 }

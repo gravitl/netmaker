@@ -40,47 +40,53 @@ func networkHandlers(r *mux.Router) {
 func securityCheck(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+			Code: http.StatusUnauthorized, Message: "W1R3: It's not you it's me.",
 		}
 
 		var params = mux.Vars(r)
-		hasnetwork := params["networkname"] != ""
-		networkexists, err := functions.NetworkExists(params["networkname"])
+		bearerToken := r.Header.Get("Authorization")
+		err := SecurityCheck(params["networkname"], bearerToken)
 		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		} else if hasnetwork && !networkexists {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusNotFound, Message: "W1R3: This network does not exist.",
-			}
+			errorResponse.Message = err.Error()
 			returnErrorResponse(w, r, errorResponse)
 			return
-		} else {
-
-			bearerToken := r.Header.Get("Authorization")
-
-			var hasBearer = true
-			var tokenSplit = strings.Split(bearerToken, " ")
-			var authToken = ""
-
-			if len(tokenSplit) < 2 {
-				hasBearer = false
-			} else {
-				authToken = tokenSplit[1]
-			}
-			//all endpoints here require master so not as complicated
-			//still might not be a good  way of doing this
-			if !hasBearer || !authenticateMaster(authToken) {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-				}
-				returnErrorResponse(w, r, errorResponse)
-				return
-			} else {
-				next.ServeHTTP(w, r)
-			}
 		}
+		next.ServeHTTP(w, r)
 	}
+}
+func SecurityCheck(netname, token string) error {
+	hasnetwork := netname != ""
+	networkexists, err := functions.NetworkExists(netname)
+	if err != nil {
+		return err
+	}
+	if hasnetwork && !networkexists {
+		//errorResponse = models.ErrorResponse{
+		//	Code: http.StatusNotFound, Message: "W1R3: This network does not exist.",
+		//}
+		//returnErrorResponse(w, r, errorResponse)
+		return errors.New("This network does not exist")
+	}
+
+	var hasBearer = true
+	var tokenSplit = strings.Split(token, " ")
+	var authToken = ""
+
+	if len(tokenSplit) < 2 {
+		hasBearer = false
+	} else {
+		authToken = tokenSplit[1]
+	}
+	//all endpoints here require master so not as complicated
+	//still might not be a good  way of doing this
+	if !hasBearer || !authenticateMaster(authToken) {
+		//errorResponse = models.ErrorResponse{
+		//	Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+		//	}
+		//	returnErrorResponse(w, r, errorResponse)
+		return errors.New("You are unauthorized to access this endpoint")
+	} //else {
+	return nil
 }
 
 //Consider a more secure way of setting master key
