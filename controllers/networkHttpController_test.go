@@ -217,6 +217,24 @@ func TestDeleteKey(t *testing.T) {
 	})
 }
 func TestSecurityCheck(t *testing.T) {
+	t.Run("NoNetwork", func(t *testing.T) {
+		err := SecurityCheck("", "Bearer secretkey")
+		assert.Nil(t, err)
+	})
+	t.Run("WithNetwork", func(t *testing.T) {
+		err := SecurityCheck("skynet", "Bearer secretkey")
+		assert.Nil(t, err)
+	})
+	t.Run("BadNet", func(t *testing.T) {
+		err := SecurityCheck("badnet", "Bearer secretkey")
+		assert.NotNil(t, err)
+		t.Log(err)
+	})
+	t.Run("BadToken", func(t *testing.T) {
+		err := SecurityCheck("skynet", "Bearer badkey")
+		assert.NotNil(t, err)
+		t.Log(err)
+	})
 }
 func TestValidateNetworkUpdate(t *testing.T) {
 }
