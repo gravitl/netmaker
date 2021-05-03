@@ -152,15 +152,19 @@ func createKey(t *testing.T) {
 }
 
 func createAccessKey(t *testing.T) (key models.AccessKey) {
+	//delete existing key if
+	_, _ = api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/skynet", "secretkey")
 	createkey := models.AccessKey{}
 	createkey.Name = "skynet"
 	createkey.Uses = 10
 	response, err := api(t, createkey, http.MethodPost, baseURL+"/api/networks/skynet/keys", "secretkey")
+	t.Log(err, response)
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	defer response.Body.Close()
 	err = json.NewDecoder(response.Body).Decode(&key)
 	assert.Nil(t, err, err)
+	t.Log("key is ", key)
 	return key
 }
 

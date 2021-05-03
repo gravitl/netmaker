@@ -44,7 +44,7 @@ type NetworkUpdate struct {
 	AddressRange6 string `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
 	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,alphanum,min=2,max=20"`
-	NetID               string      `json:"netid" bson:"netid" validate:"alphanum,min=1,max=12"`
+	NetID               string      `json:"netid" bson:"netid" validate:"omitempty,alphanum,min=1,max=12"`
 	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`

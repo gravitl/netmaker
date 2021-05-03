@@ -31,6 +31,10 @@ func createNet() {
 		CreateNetwork(network)
 	}
 }
+func getNet() models.Network {
+	network, _ := GetNetwork("skynet")
+	return network
+}
 
 func TestGetNetworks(t *testing.T) {
 	//calls functions.ListNetworks --- nothing to be done
@@ -88,6 +92,24 @@ func TestGetNetwork(t *testing.T) {
 	})
 }
 func TestUpdateNetwork(t *testing.T) {
+	createNet()
+	network := getNet()
+	t.Run("NetID", func(t *testing.T) {
+		var networkupdate models.NetworkUpdate
+		networkupdate.NetID = "wirecat"
+		_, err := UpdateNetwork(networkupdate, network)
+		assert.NotNil(t, err)
+		assert.Equal(t, "NetID is not editable", err.Error())
+	})
+	t.Run("LocalRange", func(t *testing.T) {
+		var networkupdate models.NetworkUpdate
+		//NetID needs to be set as it will be in updateNetwork
+		networkupdate.NetID = "skynet"
+		networkupdate.LocalRange = "192.168.0.1/24"
+		update, err := UpdateNetwork(networkupdate, network)
+		assert.Nil(t, err)
+		t.Log(err, update)
+	})
 }
 
 func TestKeyUpdate(t *testing.T) {

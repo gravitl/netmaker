@@ -503,8 +503,8 @@ func TestCreateNode(t *testing.T) {
 		assert.Contains(t, "W1R3: Network does not exist! ", message.Message)
 	})
 	t.Run("Valid", func(t *testing.T) {
-		setup(t)
-		deleteNode(t)
+		deleteNetworks(t)
+		createNetwork(t)
 		key := createAccessKey(t)
 
 		var node models.Node

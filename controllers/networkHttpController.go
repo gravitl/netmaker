@@ -295,13 +295,9 @@ func AlertNetwork(netid string) error {
 
 //Update a network
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
 	var network models.Network
-
 	network, err := functions.GetParentNetwork(params["networkname"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -309,10 +305,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var networkChange models.NetworkUpdate
-
-	haschange := false
-	hasrangeupdate := false
-	haslocalrangeupdate := false
 
 	_ = json.NewDecoder(r.Body).Decode(&networkChange)
 	if networkChange.AddressRange == "" {
@@ -330,39 +322,36 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	returnednetwork, err := UpdateNetwork(networkChange, network)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
 
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(returnednetwork)
+}
+
+func UpdateNetwork(networkChange models.NetworkUpdate, network models.Network) (models.Network, error) {
 	//NOTE: Network.NetID is intentionally NOT editable. It acts as a static ID for the network.
 	//DisplayName can be changed instead, which is what shows on the front end
 	if networkChange.NetID != network.NetID {
-		returnErrorResponse(w, r, formatError(errors.New("NetID is not editable"), "badrequest"))
-		return
+		return models.Network{}, errors.New("NetID is not editable")
 	}
-	//MRK:  I think this code block is redundant.  valdiateNetworkUpdate(networkChange) covers this
+
+	haschange := false
+	hasrangeupdate := false
+	haslocalrangeupdate := false
+
 	if networkChange.AddressRange != "" {
-
-		network.AddressRange = networkChange.AddressRange
-
-		var isAddressOK bool = functions.IsIpCIDR(networkChange.AddressRange)
-		if !isAddressOK {
-			err := errors.New("Invalid Range of " + networkChange.AddressRange + " for addresses.")
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
 		haschange = true
 		hasrangeupdate = true
-
+		network.AddressRange = networkChange.AddressRange
 	}
 	if networkChange.LocalRange != "" {
-		network.LocalRange = networkChange.LocalRange
-
-		var isAddressOK bool = functions.IsIpCIDR(networkChange.LocalRange)
-		if !isAddressOK {
-			err := errors.New("Invalid Range of " + networkChange.LocalRange + " for internal addresses.")
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
 		haschange = true
 		haslocalrangeupdate = true
+		network.LocalRange = networkChange.LocalRange
 	}
 	if networkChange.IsLocal != nil {
 		network.IsLocal = networkChange.IsLocal
@@ -405,7 +394,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	collection := mongoconn.Client.Database("netmaker").Collection("networks")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"netid": params["networkname"]}
+	filter := bson.M{"netid": network.NetID}
 
 	if haschange {
 		network.SetNetworkLastModified()
@@ -432,38 +421,32 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		}},
 	}
 
-	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
+	err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
 	defer cancel()
 
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Network{}, err
 	}
 
 	//Cycles through nodes and gives them new IP's based on the new range
 	//Pretty cool, but also pretty inefficient currently
 	if hasrangeupdate {
-		err = functions.UpdateNetworkNodeAddresses(params["networkname"])
+		err = functions.UpdateNetworkNodeAddresses(network.NetID)
 		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
+			return models.Network{}, err
 		}
 	}
 	if haslocalrangeupdate {
-		err = functions.UpdateNetworkPrivateAddresses(params["networkname"])
+		err = functions.UpdateNetworkPrivateAddresses(network.NetID)
 		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
+			return models.Network{}, err
 		}
 	}
 	returnnetwork, err := functions.GetParentNetwork(network.NetID)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Network{}, err
 	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(returnnetwork)
+	return returnnetwork, nil
 }
 
 //Delete a network
@@ -600,6 +583,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models.AccessKey, error) {
+	fmt.Println(accesskey)
 	if accesskey.Name == "" {
 		accesskey.Name = functions.GenKeyName()
 	}
