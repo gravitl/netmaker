@@ -237,6 +237,112 @@ func TestSecurityCheck(t *testing.T) {
 	})
 }
 func TestValidateNetworkUpdate(t *testing.T) {
+	//yes := true
+	//no := false
+	deleteNet()
+	//DeleteNetworks
+	cases := []NetworkValidationTestCase{
+		NetworkValidationTestCase{
+			testname: "InvalidAddress",
+			network: models.Network{
+				AddressRange: "10.0.0.256",
+			},
+			errMessage: "Field validation for 'AddressRange' failed on the 'cidr' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "InvalidAddress6",
+			network: models.Network{
+				AddressRange6: "2607::ag",
+			},
+			errMessage: "Field validation for 'AddressRange6' failed on the 'cidr' tag",
+		},
+
+		NetworkValidationTestCase{
+			testname: "BadDisplayName",
+			network: models.Network{
+				DisplayName: "skynet*",
+			},
+			errMessage: "Field validation for 'DisplayName' failed on the 'alphanum' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "DisplayNameTooLong",
+			network: models.Network{
+				DisplayName: "Thisisareallylongdisplaynamethatistoolong",
+			},
+			errMessage: "Field validation for 'DisplayName' failed on the 'max' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "DisplayNameTooShort",
+			network: models.Network{
+				DisplayName: "1",
+			},
+			errMessage: "Field validation for 'DisplayName' failed on the 'min' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "InvalidNetID",
+			network: models.Network{
+				NetID: "contains spaces",
+			},
+			errMessage: "Field validation for 'NetID' failed on the 'alphanum' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "NetIDTooLong",
+			network: models.Network{
+				NetID: "LongNetIDName",
+			},
+			errMessage: "Field validation for 'NetID' failed on the 'max' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "ListenPortTooLow",
+			network: models.Network{
+				DefaultListenPort: 1023,
+			},
+			errMessage: "Field validation for 'DefaultListenPort' failed on the 'min' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "ListenPortTooHigh",
+			network: models.Network{
+				DefaultListenPort: 65536,
+			},
+			errMessage: "Field validation for 'DefaultListenPort' failed on the 'max' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "KeepAliveTooBig",
+			network: models.Network{
+				DefaultKeepalive: 1010,
+			},
+			errMessage: "Field validation for 'DefaultKeepalive' failed on the 'max' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "InvalidLocalRange",
+			network: models.Network{
+				LocalRange: "192.168.0.1",
+			},
+			errMessage: "Field validation for 'LocalRange' failed on the 'cidr' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "CheckInIntervalTooBig",
+			network: models.Network{
+				DefaultCheckInInterval: 100001,
+			},
+			errMessage: "Field validation for 'DefaultCheckInInterval' failed on the 'max' tag",
+		},
+		NetworkValidationTestCase{
+			testname: "CheckInIntervalTooSmall",
+			network: models.Network{
+				DefaultCheckInInterval: 1,
+			},
+			errMessage: "Field validation for 'DefaultCheckInInterval' failed on the 'min' tag",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.testname, func(t *testing.T) {
+			network := models.NetworkUpdate(tc.network)
+			err := ValidateNetworkUpdate(network)
+			assert.NotNil(t, err)
+			assert.Contains(t, err.Error(), tc.errMessage)
+		})
+	}
 }
 func TestValidateNetworkCreate(t *testing.T) {
 	yes := true

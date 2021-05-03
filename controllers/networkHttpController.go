@@ -112,31 +112,30 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func ValidateNetworkUpdate(network models.Network) error {
-
+func ValidateNetworkUpdate(network models.NetworkUpdate) error {
 	v := validator.New()
 
-	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-		return isvalid
-	})
-	_ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
-		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-		return isvalid
-	})
+	//	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
+	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
+	//		return isvalid
+	//	})
+	//_ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
+	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
+	//		return isvalid
+	//	})
 
-	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-		return isvalid
-	})
+	//	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
+	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
+	//		return isvalid
+	//	})
 
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		return true
-	})
+	//	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
+	//		return true
+	//	})
 
-	_ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
-		return true
-	})
+	//	_ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
+	//		return true
+	//	})
 
 	err := v.Struct(network)
 
@@ -309,14 +308,13 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var networkChange models.Network
+	var networkChange models.NetworkUpdate
 
 	haschange := false
 	hasrangeupdate := false
 	haslocalrangeupdate := false
 
 	_ = json.NewDecoder(r.Body).Decode(&networkChange)
-
 	if networkChange.AddressRange == "" {
 		networkChange.AddressRange = network.AddressRange
 	}
