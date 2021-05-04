@@ -13,6 +13,7 @@ sleep 10
 echo "Installing Netmaker API"
 
 mkdir -p /etc/netmaker/config/environments
+mkdir -p /etc/netmaker/config/dnsconfig
 cp ../netmaker /etc/netmaker/netmaker
 chmod +x /etc/netmaker/netmaker
 
@@ -37,7 +38,7 @@ mongoconn:
   opts: '/?authSource=admin'
 EOL
 
-cat >/etc/netmaker/config/Corefile<<EOL
+cat >/etc/netmaker/config/dnsconfig/Corefile<<EOL
 . {
     hosts ./root/netmaker.hosts {
 	fallthrough	
@@ -70,7 +71,7 @@ sudo docker pull gravitl/netmaker-ui:v0.3
 systemctl stop systemd-resolved
 systemctl disable systemd-resolved
 echo "Running CoreDNS"
-sudo docker run -d --name coredns --restart=always --volume=/etc/netmaker/config/:/root/ -p 53:53/udp coredns/coredns -conf /root/Corefile
+sudo docker run -d --name coredns --restart=always --volume=/etc/netmaker/config/dnsconfig/:/root/ -p 53:53/udp coredns/coredns -conf /root/Corefile
 
 echo "Running UI"
 sudo docker run -d --name netmaker-ui -p 80:80 -e BACKEND_URL="http://$SERVER_DOMAIN:8081" gravitl/netmaker-ui:v0.3

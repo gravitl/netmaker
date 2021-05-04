@@ -49,11 +49,6 @@ func CreateServerToken(netID string) (string, error) {
 		privAddr = network.LocalRange
 	}
 
-	fmt.Println("Token details:")
-	fmt.Println("    grpc address + port: " + address)
-	fmt.Println("                network: " + netID)
-	fmt.Println("          private range: " + privAddr)
-
 	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
@@ -131,8 +126,6 @@ func NetworkExists(name string) (bool, error) {
 		if err == mongo.ErrNoDocuments {
 			return false, nil
 		}
-		fmt.Println("Error Retrieving Group: " + name)
-		fmt.Println(err)
 	}
 	return true, err
 }

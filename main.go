@@ -15,10 +15,7 @@ import (
     "go.mongodb.org/mongo-driver/bson"
     "fmt"
     "time"
-    "net/http"
     "strings"
-    "errors"
-    "io/ioutil"
     "os"
     "os/exec"
     "net"
@@ -39,10 +36,12 @@ var PortGRPC string
 func main() {
 
 
+	var dnsmode string
 	var clientmode string
 	var defaultnet string
 	flag.StringVar(&clientmode, "clientmode", "on", "Have a client on the server")
 	flag.StringVar(&defaultnet, "defaultnet", "on", "Create a default network")
+	flag.StringVar(&dnsmode, "dnsmode", "on", "Add DNS settings")
 	flag.Parse()
 	if clientmode == "on" {
 
@@ -76,6 +75,12 @@ func main() {
 			installserver = true
 		}
 	}
+	}
+	if dnsmode == "on" {
+		err := functions.ConfigureDNS()
+                if err != nil {
+                        fmt.Printf("Error setting DNS: %v", err)
+                }
 	}
 	var waitnetwork sync.WaitGroup
 
@@ -116,7 +121,7 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
 	PortGRPC = grpcport
 	if os.Getenv("BACKEND_URL") == ""  {
 		if config.Config.Server.Host == "" {
-			ServerGRPC, _ = getPublicIP()
+			ServerGRPC, _ = serverctl.GetPublicIP()
 		} else {
 			ServerGRPC = config.Config.Server.Host
 		}
@@ -280,35 +285,6 @@ func createDefaultNetwork() (bool, error) {
 
 
 }
-
-
-func getPublicIP() (string, error) {
-
-        iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
-        endpoint := ""
-        var err error
-            for _, ipserver := range iplist {
-                resp, err := http.Get(ipserver)
-                if err != nil {
-                        continue
-                }
-                defer resp.Body.Close()
-                if resp.StatusCode == http.StatusOK {
-                        bodyBytes, err := ioutil.ReadAll(resp.Body)
-                        if err != nil {
-                                continue
-                        }
-                        endpoint = string(bodyBytes)
-                        break
-                }
-
-        }
-        if err == nil && endpoint == "" {
-                err =  errors.New("Public Address Not Found.")
-        }
-        return endpoint, err
-}
-
 
 func authServerUnaryInterceptor() grpc.ServerOption {
 	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)

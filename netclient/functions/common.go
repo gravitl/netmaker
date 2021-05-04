@@ -72,7 +72,7 @@ func GetFreePort(rangestart int32) (int32, error){
         return portno, err
 }
 
-func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string) error {
+func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string, pubip string) error {
 
 	tserver := ""
 	tnetwork := ""
@@ -252,6 +252,9 @@ func Install(accesskey string, password string, server string, network string, n
 	}
        fmt.Println("     Local Address: " + localaddress)
 
+        if pubip != "" && pubip != "nopubip" {
+                endpoint = pubip
+        } else {
         if nodecfg.Endpoint == "" {
 		if islocal && localaddress != "" {
 			endpoint = localaddress
@@ -269,6 +272,7 @@ func Install(accesskey string, password string, server string, network string, n
                 endpoint = nodecfg.Endpoint
 		fmt.Println("Endpoint set in config. Setting to address: " + endpoint)
         }
+	}
        fmt.Println("     Endpoint: " + endpoint)
 
 

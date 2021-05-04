@@ -6,6 +6,7 @@ echo "Starting."
 sudo docker kill mongodb || true
 sudo docker rm mongodb || true
 sudo docker volume rm mongovol || true
+sudo  docker volume rm `docker volume ls -q -f dangling=true` || true
 sudo docker kill coredns || true
 sudo docker rm coredns || true
 sudo docker kill netmaker-ui || true

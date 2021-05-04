@@ -118,40 +118,32 @@ WantedBy=timers.target
                 return err
         }
 	}
-        sysExec, err := exec.LookPath("systemctl")
+        //sysExec, err := exec.LookPath("systemctl")
 
-        cmdSysEnableService := &exec.Cmd {
+        cmdSysEnableService := exec.Command("systemctl", "enable", "netclient@.service")/*&exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "enable", "netclient@.service" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
-	/*
-        cmdSysStartService := &exec.Cmd {
-                Path: sysExec,
-                Args: []string{ sysExec, "start", "netclient@.service"},
-                Stdout: os.Stdout,
-                Stderr: os.Stdout,
-        }
-	*/
-        cmdSysDaemonReload := &exec.Cmd {
+        }*/
+        cmdSysDaemonReload := exec.Command("systemctl", "daemon-reload")/*&exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "daemon-reload"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
-        cmdSysEnableTimer := &exec.Cmd {
+        }*/
+        cmdSysEnableTimer := exec.Command("systemctl", "enable", "netclient-"+network+".timer")/*&exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "enable", "netclient-"+network+".timer" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
-        cmdSysStartTimer := &exec.Cmd {
+        }*/
+        cmdSysStartTimer := exec.Command("systemctl", "start", "netclient-"+network+".timer")/*&exec.Cmd {
                 Path: sysExec,
 		Args: []string{ sysExec, "start", "netclient-"+network+".timer"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
+        }*/
 
         err = cmdSysEnableService.Run()
         if  err  !=  nil {
@@ -191,7 +183,7 @@ func isOnlyService(network string) (bool, error) {
 }
 
 func RemoveSystemDServices(network string) error {
-        sysExec, err := exec.LookPath("systemctl")
+        //sysExec, err := exec.LookPath("systemctl")
 
 
 	fullremove, err := isOnlyService(network)
@@ -199,36 +191,36 @@ func RemoveSystemDServices(network string) error {
 		fmt.Println(err)
 	}
 
-        cmdSysDisableService := &exec.Cmd {
+	cmdSysDisableService := exec.Command("systemctl","disable","netclient@.service")/* &exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "disable", "netclient@.service"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
-        cmdSysDaemonReload := &exec.Cmd {
+        }*/
+        cmdSysDaemonReload := exec.Command("systemctl","daemon-reload")/*&exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "daemon-reload"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
-        cmdSysResetFailed := &exec.Cmd {
+        }*/
+        cmdSysResetFailed := exec.Command("systemctl","reset-failed")/*&exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "reset-failed"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
-        cmdSysStopTimer := &exec.Cmd {
+        }*/
+        cmdSysStopTimer := exec.Command("systemctl", "stop", "netclient-"+network+".timer")/*&exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "stop", "netclient-"+network+".timer" },
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
-        cmdSysDisableTimer := &exec.Cmd {
+        }*/
+        cmdSysDisableTimer :=  exec.Command("systemctl", "disable", "netclient-"+network+".timer")/*&exec.Cmd {
                 Path: sysExec,
                 Args: []string{ sysExec, "disable", "netclient-"+network+".timer"},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
-        }
+        }*/
 
         //err = cmdSysStopService.Run()
         if  err  !=  nil {

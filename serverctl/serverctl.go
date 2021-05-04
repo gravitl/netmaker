@@ -2,17 +2,50 @@ package serverctl
 
 import (
         "fmt"
-  "github.com/gravitl/netmaker/functions"
+	"net/http"
+	"io/ioutil"
+	"github.com/gravitl/netmaker/functions"
 	"io"
 	"errors"
-	"net/http"
         "os"
         "os/exec"
 )
 
+func GetPublicIP() (string, error) {
+
+        endpoint := ""
+        var err error
+
+        if os.Getenv("SERVER_DOMAIN") != ""  {
+                endpoint = os.Getenv("SERVER_DOMAIN")
+        } else {
+
+        iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+        for _, ipserver := range iplist {
+                resp, err := http.Get(ipserver)
+                if err != nil {
+                        continue
+                }
+                defer resp.Body.Close()
+                if resp.StatusCode == http.StatusOK {
+                        bodyBytes, err := ioutil.ReadAll(resp.Body)
+                        if err != nil {
+                                continue
+                        }
+                        endpoint = string(bodyBytes)
+                        break
+                }
+
+        }
+        if err == nil && endpoint == "" {
+                err =  errors.New("Public Address Not Found.")
+        }
+        }
+        return endpoint, err
+}
 
 func DownloadNetclient() error {
-
+	/*
 	// Get the data
 	resp, err := http.Get("https://github.com/gravitl/netmaker/releases/download/latest/netclient")
 	if err != nil {
@@ -23,16 +56,58 @@ func DownloadNetclient() error {
 
 	// Create the file
 	out, err := os.Create("/etc/netclient/netclient")
+        */
+        if !FileExists("/etc/netclient/netclient") {
+		_, err := copy("./netclient/netclient", "/etc/netclient/netclient")
 	if err != nil {
                 fmt.Println("could not create /etc/netclient")
 		return err
 	}
-	defer out.Close()
+	}
+	//defer out.Close()
 
 	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	return err
+	//_, err = io.Copy(out, resp.Body)
+	return nil
 }
+
+func FileExists(f string) bool {
+    info, err := os.Stat(f)
+    if os.IsNotExist(err) {
+        return false
+    }
+    return !info.IsDir()
+}
+
+func copy(src, dst string) (int64, error) {
+        sourceFileStat, err := os.Stat(src)
+        if err != nil {
+                return 0, err
+        }
+
+        if !sourceFileStat.Mode().IsRegular() {
+                return 0, fmt.Errorf("%s is not a regular file", src)
+        }
+
+        source, err := os.Open(src)
+        if err != nil {
+                return 0, err
+        }
+        defer source.Close()
+
+        destination, err := os.Create(dst)
+        if err != nil {
+                return 0, err
+        }
+        defer destination.Close()
+        nBytes, err := io.Copy(destination, source)
+        err = os.Chmod(dst, 0755)
+        if err != nil {
+                fmt.Println(err)
+        }
+        return nBytes, err
+}
+
 func RemoveNetwork(network string) (bool, error) {
 	_, err := os.Stat("/etc/netclient/netclient")
         if err != nil {
@@ -50,7 +125,13 @@ func RemoveNetwork(network string) (bool, error) {
 }
 
 func AddNetwork(network string) (bool, error) {
-	_, err := os.Stat("/etc/netclient")
+	pubip, err := GetPublicIP()
+        if err != nil {
+                fmt.Println("could not get public IP.")
+                return false, err
+        }
+
+	_, err = os.Stat("/etc/netclient")
         if os.IsNotExist(err) {
                 os.Mkdir("/etc/netclient", 744)
         } else if err != nil {
@@ -78,7 +159,7 @@ func AddNetwork(network string) (bool, error) {
                 return false, err
         }
 	fmt.Println("Client is ready. Running install.")
-	out, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker").Output()
+	out, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker","-ip4",pubip).Output()
         fmt.Println(string(out))
 	if err != nil {
                 return false, errors.New(string(out) + err.Error())

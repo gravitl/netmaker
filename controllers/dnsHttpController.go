@@ -441,7 +441,7 @@ func WriteHosts() error {
 	                }
 		}
 	}
-	err = hostfile.SaveAs("./config/netmaker.hosts")
+	err = hostfile.SaveAs("./config/dnsconfig/netmaker.hosts")
 	return err
 }
 
