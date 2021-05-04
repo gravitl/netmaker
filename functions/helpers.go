@@ -131,7 +131,7 @@ func NetworkExists(name string) (bool, error) {
 		if err == mongo.ErrNoDocuments {
 			return false, nil
 		}
-		fmt.Println("ERROR RETRIEVING GROUP!")
+		fmt.Println("Error Retrieving Group: " + name)
 		fmt.Println(err)
 	}
 	return true, err
@@ -530,7 +530,11 @@ func UniqueAddress6(networkName string) (string, error) {
 
         var network models.Network
         network, err := GetParentNetwork(networkName)
-	if !*network.IsDualStack {
+        if err != nil {
+                fmt.Println("Network Not Found")
+                return "", err
+        }
+	if network.IsDualStack == nil || *network.IsDualStack == false {
 		return "", nil
 	}
 
