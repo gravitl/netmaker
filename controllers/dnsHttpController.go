@@ -51,29 +51,31 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 
 //Gets all nodes associated with network, including pending nodes
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
-
-	var dns []models.DNSEntry
-
-	networks, err := functions.ListNetworks()
+	dns, err := GetAllDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	for _, net := range networks {
-		netdns, err := GetDNS(net.NetID)
-		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
-		dns = append(dns, netdns...)
-	}
-
 	//Returns all the nodes in JSON format
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(dns)
+}
+
+func GetAllDNS() ([]models.DNSEntry, error) {
+	var dns []models.DNSEntry
+	networks, err := functions.ListNetworks()
+	if err != nil {
+		return []models.DNSEntry{}, err
+	}
+	for _, net := range networks {
+		netdns, err := GetDNS(net.NetID)
+		if err != nil {
+			return []models.DNSEntry{}, nil
+		}
+		dns = append(dns, netdns...)
+	}
+	return dns, nil
 }
 
 func GetNodeDNS(network string) ([]models.DNSEntry, error) {
@@ -272,6 +274,16 @@ func updateDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	//fill in any missing fields
+	if dnschange.Name == "" {
+		dnschange.Name = entry.Name
+	}
+	if dnschange.Network == "" {
+		dnschange.Network = entry.Network
+	}
+	if dnschange.Address == "" {
+		dnschange.Address = entry.Address
+	}
 
 	err = ValidateDNSUpdate(dnschange, entry)
 
@@ -380,7 +392,7 @@ func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntr
 }
 
 func DeleteDNS(domain string, network string) (bool, error) {
-
+	fmt.Println("delete dns entry ", domain, network)
 	deleted := false
 
 	collection := mongoconn.Client.Database("netmaker").Collection("dns")
@@ -456,24 +468,12 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 		return err == nil && num == 0
 	})
 
-	_ = v.RegisterValidation("name_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.NameInDNSCharSet(entry.Name)
-		notEmptyCheck := len(entry.Name) > 0
-		return isvalid && notEmptyCheck
-	})
-
-	_ = v.RegisterValidation("address_valid", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := len(entry.Address) > 0
-		isIp := functions.IsIpNet(entry.Address)
-		return notEmptyCheck && isIp
-	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := functions.GetParentNetwork(entry.Network)
 		return err == nil
 	})
 
 	err := v.Struct(entry)
-
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
 			fmt.Println(e)
@@ -487,31 +487,34 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 	v := validator.New()
 
 	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
-		goodNum := false
-		num, err := GetDNSEntryNum(entry.Name, entry.Network)
-		if change.Name != entry.Name {
-			goodNum = num == 0
-		} else {
-			goodNum = num == 1
+		//if name & net not changing name we are good
+		if change.Name == entry.Name && change.Network == entry.Network {
+			return true
 		}
-		return err == nil && goodNum
+		num, err := GetDNSEntryNum(change.Name, change.Network)
+		return err == nil && num == 0
+	})
+	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
+		_, err := functions.GetParentNetwork(change.Network)
+		fmt.Println(err, entry.Network)
+		return err == nil
 	})
 
-	_ = v.RegisterValidation("name_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.NameInDNSCharSet(entry.Name)
-		notEmptyCheck := entry.Name != ""
-		return isvalid && notEmptyCheck
-	})
+	//	_ = v.RegisterValidation("name_valid", func(fl validator.FieldLevel) bool {
+	//		isvalid := functions.NameInDNSCharSet(entry.Name)
+	//		notEmptyCheck := entry.Name != ""
+	//		return isvalid && notEmptyCheck
+	//	})
+	//
+	//	_ = v.RegisterValidation("address_valid", func(fl validator.FieldLevel) bool {
+	//		isValid := true
+	//		if entry.Address != "" {
+	//			isValid = functions.IsIpNet(entry.Address)
+	//		}
+	//		return isValid
+	//	})
 
-	_ = v.RegisterValidation("address_valid", func(fl validator.FieldLevel) bool {
-		isValid := true
-		if entry.Address != "" {
-			isValid = functions.IsIpNet(entry.Address)
-		}
-		return isValid
-	})
-
-	err := v.Struct(entry)
+	err := v.Struct(change)
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {

@@ -733,3 +733,30 @@ func Inc(ip net.IP) {
 		}
 	}
 }
+
+func GetAllNodes() ([]models.ReturnNode, error) {
+	var node models.ReturnNode
+	var nodes []models.ReturnNode
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Filter out them ID's again
+	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+	if err != nil {
+		return []models.ReturnNode{}, err
+	}
+	defer cancel()
+	for cur.Next(context.TODO()) {
+		err := cur.Decode(&node)
+		if err != nil {
+			return []models.ReturnNode{}, err
+		}
+		// add node to our array
+		nodes = append(nodes, node)
+	}
+
+	//TODO: Fatal error
+	if err := cur.Err(); err != nil {
+		return []models.ReturnNode{}, err
+	}
+	return nodes, nil
+}

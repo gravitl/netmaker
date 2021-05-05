@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -14,10 +15,28 @@ type NetworkValidationTestCase struct {
 	errMessage string
 }
 
-func deleteNet() {
-	_, err := GetNetwork("skynet")
-	if err == nil {
-		_, _ = DeleteNetwork("skynet")
+func deleteNet(t *testing.T) {
+	nodes, err := functions.GetAllNodes()
+	assert.Nil(t, err)
+	for _, node := range nodes {
+		t.Log("deleting node", node.Name)
+		result, err := DeleteNode(node.MacAddress, node.Network)
+		assert.Nil(t, err)
+		assert.True(t, result)
+	}
+	dns, err := GetAllDNS()
+	assert.Nil(t, err)
+	for _, entry := range dns {
+		t.Log("deleting dns enty", entry.Name, entry.Network)
+		success, err := DeleteDNS(entry.Name, entry.Network)
+		assert.Nil(t, err)
+		assert.True(t, success)
+	}
+	networks, _ := functions.ListNetworks()
+	for _, network := range networks {
+		t.Log("deleting network", network.NetID)
+		success, err := DeleteNetwork(network.NetID)
+		t.Log(success, err)
 	}
 }
 
@@ -40,7 +59,7 @@ func TestGetNetworks(t *testing.T) {
 	//calls functions.ListNetworks --- nothing to be done
 }
 func TestCreateNetwork(t *testing.T) {
-	deleteNet()
+	deleteNet(t)
 	var network models.Network
 	network.NetID = "skynet"
 	network.AddressRange = "10.0.0.1/24"
@@ -199,7 +218,7 @@ func TestCreateKey(t *testing.T) {
 	})
 }
 func TestGetKeys(t *testing.T) {
-	deleteNet()
+	deleteNet(t)
 	createNet()
 	network, err := GetNetwork("skynet")
 	assert.Nil(t, err)
@@ -261,7 +280,7 @@ func TestSecurityCheck(t *testing.T) {
 func TestValidateNetworkUpdate(t *testing.T) {
 	//yes := true
 	//no := false
-	deleteNet()
+	deleteNet(t)
 	//DeleteNetworks
 	cases := []NetworkValidationTestCase{
 		NetworkValidationTestCase{
@@ -369,7 +388,7 @@ func TestValidateNetworkUpdate(t *testing.T) {
 func TestValidateNetworkCreate(t *testing.T) {
 	yes := true
 	no := false
-	deleteNet()
+	deleteNet(t)
 	//DeleteNetworks
 	cases := []NetworkValidationTestCase{
 		NetworkValidationTestCase{
@@ -524,6 +543,7 @@ func TestValidateNetworkCreate(t *testing.T) {
 		})
 	}
 	t.Run("DuplicateNetID", func(t *testing.T) {
+		deleteNet(t)
 		var net1, net2 models.Network
 		net1.NetID = "skynet"
 		net1.AddressRange = "10.0.0.1/24"

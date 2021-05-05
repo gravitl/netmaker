@@ -135,6 +135,7 @@ func createNetwork(t *testing.T) {
 	network.AddressRange = "10.71.0.0/16"
 	response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
 	assert.Nil(t, err, err)
+	t.Log(err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
 
