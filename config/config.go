@@ -44,7 +44,6 @@ type ServerConfig struct {
   AgentBackend bool `yaml:"agentbackend"`
   DefaultNetName string `yaml:"defaultnetname"`
   DefaultNetRange string `yaml:"defaultnetrange"`
-  CreateDefault bool `yaml:"createdefault"`
 }
 
 type MongoConnConfig struct {

@@ -2,10 +2,8 @@ package mongoconn
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"os"
-	"net/http"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
         "github.com/gravitl/netmaker/config"
@@ -67,7 +65,6 @@ func setVars() {
 //TODO: are we  even using  this besides at startup? Is it truely necessary?
 //TODO: Use config file instead of os.Getenv
 func ConnectDatabase() {
-    log.Println("Database connecting...")
     // Set client options
 
     setVars()
@@ -80,9 +77,11 @@ func ConnectDatabase() {
 						opts )
 
     // Connect to MongoDB
+    log.Println("Connecting to MongoDB at " + host + ":" + port + "...")
     client, err := mongo.Connect(context.TODO(), clientOptions)
     Client = client
     if err != nil {
+	log.Println("Error encountered connecting to MongoDB. Terminating.")
         log.Fatal(err)
     }
 
@@ -90,54 +89,18 @@ func ConnectDatabase() {
     err = Client.Ping(context.TODO(), nil)
 
     if err != nil {
+	log.Println("Error encountered pinging MongoDB. Terminating.")
         log.Fatal(err)
     }
 
     NodeDB = Client.Database("netmaker").Collection("nodes")
     NetworkDB = Client.Database("netmaker").Collection("networks")
 
-    log.Println("Database Connected.")
-}
-
-//TODO: IDK if we're using ConnectDB any more.... I think we're just using Client.Database
-//Review and see if this is necessary
-// ConnectDB : This is helper function to connect mongoDB
-func ConnectDB(db string, targetCollection string) *mongo.Collection {
-
-	// Set client options
-	//clientOptions := options.Client().ApplyURI("mongodb://mongoadmin:mongopassword@localhost:27017/?authSource=admin")
-	clientOptions := options.Client().ApplyURI("mongodb://" + os.Getenv("MONGO_USER") + ":" +
-	os.Getenv("MONGO_PASS") + "@" + os.Getenv("MONGO_HOST") + ":" + os.Getenv("MONGO_PORT") + os.Getenv("MONGO_OPTS") )
-
-	// Connect to MongoDB
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//collection := client.Database("go_rest_api").Collection("wg")
-	collection := client.Database(db).Collection(targetCollection)
-
-	return collection
+    log.Println("MongoDB Connected.")
 }
 
 // ErrorResponse : This is error model.
 type ErrorResponse struct {
 	StatusCode   int    `json:"status"`
 	ErrorMessage string `json:"message"`
-}
-
-// GetError : This is helper function to prepare error model.
-func GetError(err error, w http.ResponseWriter) {
-
-	var response = ErrorResponse{
-		ErrorMessage: err.Error(),
-		StatusCode:   http.StatusInternalServerError,
-	}
-
-	message, _ := json.Marshal(response)
-
-	w.WriteHeader(response.StatusCode)
-	w.Write(message)
 }

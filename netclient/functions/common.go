@@ -518,7 +518,7 @@ func getLocalIP(localrange string) (string, error) {
 
 func getPublicIP() (string, error) {
 
-	iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+	iplist := []string{"http://ip.client.gravitl.com","https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
 	endpoint := ""
 	var err error
 	    for _, ipserver := range iplist {

@@ -156,10 +156,7 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 		username, _, err := functions.VerifyUserToken(authToken)
 
 		if err != nil {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
-			}
-			returnErrorResponse(w, r, errorResponse)
+			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
 
@@ -240,8 +237,8 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	user, err := GetUser(params["username"])
 
 	if err != nil {
-		mongoconn.GetError(err, w)
-		return
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
 	}
 
 	json.NewEncoder(w).Encode(user)
@@ -304,14 +301,14 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 
 	err = ValidateUser("create", admin)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
 	}
 
 	admin, err = CreateUser(admin)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
 	}
 
 	json.NewEncoder(w).Encode(admin)
@@ -379,8 +376,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	//start here
 	user, err := GetUser(params["username"])
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
 	}
 
 	var userchange models.User
@@ -388,8 +385,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
 	}
 
 	userchange.IsAdmin = true
@@ -397,15 +394,15 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	err = ValidateUser("update", userchange)
 
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
 	}
 
 	user, err = UpdateUser(userchange, user)
 
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
 	}
 
 	json.NewEncoder(w).Encode(user)

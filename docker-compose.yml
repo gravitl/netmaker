@@ -36,7 +36,6 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup
     environment:
       MONGO_HOST: "127.0.0.1"
-      SERVER_DOMAIN: "3.236.149.180"
     cap_add:
       - NET_ADMIN
       - SYS_MODULE

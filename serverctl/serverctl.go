@@ -11,37 +11,159 @@ import (
         "os/exec"
 )
 
-func GetPublicIP() (string, error) {
+func CreateDefaultNetwork() (bool, error) {
 
-        endpoint := ""
-        var err error
+        fmt.Println("Creating default network...")
 
-        if os.Getenv("SERVER_DOMAIN") != ""  {
-                endpoint = os.Getenv("SERVER_DOMAIN")
+        iscreated := false
+        exists, err := functions.NetworkExists(config.Config.Server.DefaultNetName)
+
+        if exists || err != nil {
+                fmt.Println("Default network already exists. Skipping...")
+                return iscreated, err
         } else {
 
-        iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
-        for _, ipserver := range iplist {
-                resp, err := http.Get(ipserver)
-                if err != nil {
-                        continue
-                }
-                defer resp.Body.Close()
-                if resp.StatusCode == http.StatusOK {
-                        bodyBytes, err := ioutil.ReadAll(resp.Body)
-                        if err != nil {
-                                continue
-                        }
-                        endpoint = string(bodyBytes)
-                        break
-                }
+        var network models.Network
+
+        network.NetID = "default"
+        network.AddressRange = "10.10.10.0/24"
+        network.DisplayName = "default"
+        network.SetDefaults()
+        network.SetNodesLastModified()
+        network.SetNetworkLastModified()
+        network.KeyUpdateTimeStamp = time.Now().Unix()
+        priv := false
+        network.IsLocal = &priv
+        network.KeyUpdateTimeStamp = time.Now().Unix()
+        allow := true
+        network.AllowManualSignUp = &allow
+
+        fmt.Println("Creating default network.")
+
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // insert our network into the network table
+        _, err = collection.InsertOne(ctx, network)
+        defer cancel()
 
         }
-        if err == nil && endpoint == "" {
-                err =  errors.New("Public Address Not Found.")
+        if err == nil {
+                iscreated = true
         }
+        return iscreated, err
+
+
+}
+
+func GetHTTPPort() (string, error) {
+
+}
+
+func GetGRPCPort() (string, error) {
+
+}
+
+func GetServerDomain() (string, error) {
+
+}
+
+func modConfig(node *nodepb.Node) error{
+        network := node.Nodenetwork
+        if network == "" {
+                return errors.New("No Network Provided")
         }
-        return endpoint, err
+        modconfig, err := config.ReadConfig(network)
+        if err != nil {
+                return err
+        }
+        nodecfg := modconfig.Node
+        if node.Name != ""{
+                nodecfg.Name = node.Name
+        }
+        if node.Interface != ""{
+                nodecfg.Interface = node.Interface
+        }
+        if node.Nodenetwork != ""{
+                nodecfg.Network = node.Nodenetwork
+        }
+        if node.Macaddress != ""{
+                nodecfg.MacAddress = node.Macaddress
+        }
+        if node.Localaddress != ""{
+                nodecfg.LocalAddress = node.Localaddress
+        }
+        if node.Postup != ""{
+                nodecfg.PostUp = node.Postup
+        }
+        if node.Postdown != ""{
+                nodecfg.PostDown = node.Postdown
+        }
+        if node.Listenport != 0{
+                nodecfg.Port = node.Listenport
+        }
+        if node.Keepalive != 0{
+                nodecfg.KeepAlive = node.Keepalive
+        }
+        if node.Publickey != ""{
+                nodecfg.PublicKey = node.Publickey
+        }
+        if node.Endpoint != ""{
+                nodecfg.Endpoint = node.Endpoint
+        }
+        if node.Password != ""{
+                nodecfg.Password = node.Password
+        }
+        if node.Address != ""{
+                nodecfg.WGAddress = node.Address
+        }
+        if node.Postchanges != "" {
+                nodecfg.PostChanges = node.Postchanges
+        }
+        if node.Localrange != "" && node.Islocal {
+                nodecfg.IsLocal = true
+                nodecfg.LocalRange = node.Localrange
+        }
+        modconfig.Node = nodecfg
+        err = config.Write(modconfig, network)
+        return err
+}
+
+func SetGlobalConfig(globalconf models.GlobalConfig) (error) {
+
+        if err != nil && err != mongo.ErrNoDocuments{
+              log.Fatalf("Unable to set global config: %v", err)
+        }
+
+        collection := mongoconn.Client.Database("netmaker").Collection("config")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        create, _, err := functions.GetGlobalConfig()
+        if create {
+                _, err := collection.InsertOne(ctx, globalconf)
+                defer cancel()
+                if err != nil {
+                        if err == mongo.ErrNoDocuments || strings.Contains(err.Error(), "no documents in result"){
+                                return nil
+                        } else {
+                                return err
+                        }
+                }
+        } else {
+                filter := bson.M{"name": "netmaker"}
+                update := bson.D{
+                        {"$set", bson.D{
+                                {"servergrpc", globalconf.ServerGRPC},
+                                {"portgrpc", globalconf.PortGRPC},
+                        }},
+                }
+                err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&globalconf)
+                        if err == mongo.ErrNoDocuments {
+                        //if err == mongo.ErrNoDocuments || strings.Contains(err.Error(), "no documents in result"){
+                                return nil
+                        }
+        }
+        return err
 }
 
 func DownloadNetclient() error {
