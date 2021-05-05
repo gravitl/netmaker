@@ -17,7 +17,7 @@ func FileExists(f string) bool {
     return !info.IsDir()
 }
 
-func ConfigureDNS() error {
+func SetCorefile(domains string) error {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
             return err
@@ -30,10 +30,9 @@ func ConfigureDNS() error {
                 return err
         }
 
-	if !FileExists(dir + "/config/dnsconfig/Corefile") {
-
-		corefile := `. {
+		corefile := domains + ` {
     hosts /root/dnsconfig/netmaker.hosts {
+	reload 15s
 	fallthrough	
     }
     forward . 8.8.8.8 8.8.4.4
@@ -48,6 +47,5 @@ func ConfigureDNS() error {
 			log.Println("")
 			return err
 		}
-	}
 	return err
 }

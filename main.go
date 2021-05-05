@@ -77,7 +77,7 @@ func main() {
 	}
 	}
 	if dnsmode == "on" {
-		err := functions.ConfigureDNS()
+		err := controller.SetDNS()
                 if err != nil {
                         fmt.Printf("Error setting DNS: %v", err)
                 }
@@ -119,14 +119,14 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
 		grpcport = ":" + os.Getenv("GRPC_PORT")
         }
 	PortGRPC = grpcport
-	if os.Getenv("BACKEND_URL") == ""  {
+	if os.Getenv("SERVER_DOMAIN") == ""  {
 		if config.Config.Server.Host == "" {
 			ServerGRPC, _ = serverctl.GetPublicIP()
 		} else {
 			ServerGRPC = config.Config.Server.Host
 		}
 	} else {
-		ServerGRPC = os.Getenv("BACKEND_URL")
+		ServerGRPC = os.Getenv("SERVER_DOMAIN")
 	}
 	fmt.Println("GRPC Server set to: " + ServerGRPC)
 	fmt.Println("GRPC Port set to: " + PortGRPC)
