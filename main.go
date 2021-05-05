@@ -5,17 +5,11 @@ package main
 
 import (
     "log"
-    "flag"
-    "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/controllers"
+    "github.com/gravitl/netmaker/servercfg"
     "github.com/gravitl/netmaker/serverctl"
-    "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/mongoconn"
-    "github.com/gravitl/netmaker/config"
-    "go.mongodb.org/mongo-driver/bson"
     "fmt"
-    "time"
-    "strings"
     "os"
     "os/exec"
     "net"
@@ -23,7 +17,6 @@ import (
     "strconv"
     "sync"
     "os/signal"
-    "go.mongodb.org/mongo-driver/mongo"
     service "github.com/gravitl/netmaker/controllers"
     nodepb "github.com/gravitl/netmaker/grpc"
     "google.golang.org/grpc"
@@ -33,7 +26,7 @@ import (
 func main() {
 
 	//Client Mode Prereq Check
-	if serverctl.IsClientMode() {
+	if servercfg.IsClientMode() {
 		cmd := exec.Command("id", "-u")
 		output, err := cmd.Output()
 
@@ -62,7 +55,7 @@ func main() {
 		fmt.Printf("Error creating default network: %v", err)
 	}
 
-	if created && serverctl.IsClientMode() {
+	if created && servercfg.IsClientMode() {
 		installserver = true
 	}
 
@@ -74,17 +67,17 @@ func main() {
 	var waitnetwork sync.WaitGroup
 
 	//Run Agent Server
-	if serverctl.IsAgentBackend() {
+	if servercfg.IsAgentBackend() {
 		waitnetwork.Add(1)
 		go runGRPC(&waitnetwork, installserver)
 	}
 
 	//Run Rest Server
-	if serverctl.IsRestBackend() {
+	if servercfg.IsRestBackend() {
 		waitnetwork.Add(1)
 		controller.HandleRESTRequests(&waitnetwork)
 	}
-	if !serverctl.IsAgentBackend() && !serverctl.IsRestBackend {
+	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
 		fmt.Println("Oops! No Server Mode selected. Nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
 	}
 	waitnetwork.Wait()
@@ -101,9 +94,9 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
         // Pipe flags to one another (log.LstdFLags = log.Ldate | log.Ltime)
         log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	grpcport := serverctl.GetGRPCPort()
+	grpcport := servercfg.GetGRPCPort()
 
-	listener, err := net.Listen("tcp", grpcport)
+	listener, err := net.Listen("tcp", ":"+grpcport)
         // Handle errors if any
         if err != nil {
                 log.Fatalf("Unable to listen on port" + grpcport + ": %v", err)

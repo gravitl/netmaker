@@ -1,4 +1,12 @@
-package serverctl
+package servercfg
+
+import (
+        "github.com/gravitl/netmaker/config"
+	"net/http"
+	"io/ioutil"
+	"os"
+	"errors"
+)
 
 func SetHost() error {
 	remoteip, err := GetPublicIP()
@@ -6,9 +14,41 @@ func SetHost() error {
 		return err
 	}
 	os.Setenv("SERVER_HOST", remoteip)
+	return nil
 }
+func GetConfig() config.ServerConfig {
+	var cfg config.ServerConfig
+	cfg.APIHost = GetAPIHost()
+	cfg.APIPort = GetAPIPort()
+	cfg.GRPCHost = GetGRPCHost()
+	cfg.GRPCPort = GetGRPCPort()
+	cfg.MasterKey = "(hidden)"
+	cfg.AllowedOrigin = GetAllowedOrigin()
+	cfg.RestBackend = "off"
+	if IsRestBackend() {
+		cfg.RestBackend = "on"
+	}
+	cfg.AgentBackend = "off"
+        if IsAgentBackend() {
+                cfg.AgentBackend = "on"
+        }
+	cfg.ClientMode = "off"
+	if IsClientMode() {
+		cfg.ClientMode = "on"
+	}
+	cfg.DNSMode = "off"
+	if IsDNSMode() {
+	        cfg.DNSMode = "on"
+	}
+	cfg.DisableRemoteIPCheck = "off"
+	if DisableRemoteIPCheck() {
+		cfg.DisableRemoteIPCheck = "on"
+	}
+	return cfg
+}
+
 func GetAPIHost() string {
-        serverhost := 127.0.0.1
+        serverhost := "127.0.0.1"
         if os.Getenv("SERVER_HTTP_HOST") != ""  {
                 serverhost = os.Getenv("SERVER_HTTP_HOST")
         } else if config.Config.Server.APIHost != "" {
@@ -28,7 +68,7 @@ func GetAPIPort() string {
 	return apiport
 }
 func GetGRPCHost() string {
-        serverhost := 127.0.0.1
+        serverhost := "127.0.0.1"
         if os.Getenv("SERVER_GRPC_HOST") != ""  {
                 serverhost = os.Getenv("SERVER_GRPC_HOST")
         } else if config.Config.Server.GRPCHost != "" {
@@ -68,7 +108,7 @@ func GetAllowedOrigin() string {
 func IsRestBackend() bool {
         isrest := true
         if os.Getenv("REST_BACKEND") != "" {
-		if os.Getenv("REST_BACKEND") == "off"
+		if os.Getenv("REST_BACKEND") == "off" {
 			isrest = false
 		}
 	} else if config.Config.Server.RestBackend != "" {
@@ -81,7 +121,7 @@ func IsRestBackend() bool {
 func IsAgentBackend() bool {
         isagent := true
         if os.Getenv("AGENT_BACKEND") != "" {
-                if os.Getenv("AGENT_BACKEND") == "off"
+                if os.Getenv("AGENT_BACKEND") == "off" {
                         isagent = false
                 }
         } else if config.Config.Server.AgentBackend != "" {
@@ -94,7 +134,7 @@ func IsAgentBackend() bool {
 func IsClientMode() bool {
         isclient := true
         if os.Getenv("CLIENT_MODE") != "" {
-                if os.Getenv("CLIENT_MODE") == "off"
+                if os.Getenv("CLIENT_MODE") == "off" {
                         isclient = false
                 }
         } else if config.Config.Server.ClientMode != "" {
@@ -107,7 +147,7 @@ func IsClientMode() bool {
 func IsDNSMode() bool {
         isdns := true
         if os.Getenv("DNS_MODE") != "" {
-                if os.Getenv("DNS_MODE") == "off"
+                if os.Getenv("DNS_MODE") == "off" {
                         isdns = false
                 }
         } else if config.Config.Server.DNSMode != "" {
@@ -120,11 +160,11 @@ func IsDNSMode() bool {
 func DisableRemoteIPCheck() bool {
         disabled := false
         if os.Getenv("DISABLE_REMOTE_IP_CHECK") != "" {
-                if os.Getenv("DISABLE_REMOTE_IP_CHECK") == "on"
+                if os.Getenv("DISABLE_REMOTE_IP_CHECK") == "on" {
                         disabled = true
                 }
-        } else if config.Config.Server.DisableRemoteIpCheck != "" {
-                if config.Config.Server.DisableRemoteIpCheck == "on" {
+        } else if config.Config.Server.DisableRemoteIPCheck != "" {
+                if config.Config.Server.DisableRemoteIPCheck == "on" {
                         disabled= true
                 }
        }
