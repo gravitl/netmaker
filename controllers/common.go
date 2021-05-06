@@ -375,16 +375,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	//Anyways, this scrolls through all the IP Addresses in the network range and checks against nodes
 	//until one is open and then returns it
 	node.Address, err = functions.UniqueAddress(networkName)
-	fmt.Println("Setting node address: " + node.Address)
 	if err != nil {
 		return node, err
 	}
-        fmt.Println("Setting node address: " + node.Address)
 
         node.Address6, err = functions.UniqueAddress6(networkName)
-        if node.Address6 != "" {
-		fmt.Println("Setting node ipv6 address: " + node.Address6)
-	}
 	if err != nil {
                 return node, err
         }

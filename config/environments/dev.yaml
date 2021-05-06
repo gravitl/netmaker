@@ -1,17 +1,18 @@
 server:
-  host: "localhost"
-  apiport: "8081"
-  grpcport: "50051"
-  masterkey: "secretkey"
-  allowedorigin: "*"
-  restbackend: true            
-  agentbackend: true
-  defaultnetname: "default"
-  defaultnetrange: "10.10.10.0/24"
-  createdefault: true
+  apihost: "" # defaults to 127.0.0.1 or remote ip (SERVER_HOST) if DisableRemoteIPCheck is not set to true. SERVER_API_HOST if set
+  apiport: "" # defaults to 8081 or HTTP_PORT (if set)
+  grpchost: "" # defaults to 127.0.0.1 or remote ip (SERVER_HOST) if DisableRemoteIPCheck is not set to true. SERVER_GRPC_HOST if set.
+  grpcport: "" # defaults to 50051 or GRPC_PORT (if set)
+  masterkey: "" # defaults to 'secretkey' or MASTER_KEY (if set)
+  allowedorigin: "" # defaults to '*' or CORS_ALLOWED_ORIGIN (if set)
+  restbackend: "" # defaults to "on" or REST_BACKEND (if set)
+  agentbackend: "" # defaults to "on" or AGENT_BACKEND (if set)
+  clientmode: "" # defaults to "on" or CLIENT_MODE (if set)
+  dnsmode: "" # defaults to "on" or DNS_MODE (if set)
+  disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
 mongoconn:
-  user: "mongoadmin"
-  pass: "mongopass"
-  host: "localhost"
-  port: "27017"
-  opts: '/?authSource=admin'
+  user: "" # defaults to "mongoadmin" or MONGO_ADMIN (if set)
+  pass: "" # defaults to "mongopass" or MONGO_PASS (if set)
+  host: "" # defaults to 127.0.0.1 or MONGO_HOST (if set)
+  port: "" # defaults to 27017 or MONGO_PORT (if set)
+  opts: '' # defaults to '/?authSource=admin' or MONGO_OPTS (if set)

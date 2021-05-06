@@ -9,9 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"os"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
@@ -83,7 +82,7 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == config.Config.Server.MasterKey  || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
+	if tokenString == servercfg.GetMasterKey() {
 		return true
 	}
 	return false
@@ -593,7 +592,6 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	if accesskey.Uses == 0 {
 		accesskey.Uses = 1
 	}
-	_, gconf, err := functions.GetGlobalConfig()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -605,7 +603,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	netID := params["networkname"]
-	address := gconf.ServerGRPC + gconf.PortGRPC
+	address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
 
 	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
