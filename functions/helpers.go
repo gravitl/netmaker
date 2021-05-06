@@ -528,11 +528,6 @@ func UniqueAddress6(networkName string) (string, error) {
 		return "", nil
 	}
 
-	if err != nil {
-                fmt.Println("UniqueAddress6 encountered  an error")
-                return "666", err
-        }
-
         offset := true
         ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
         if err != nil {
@@ -544,7 +539,7 @@ func UniqueAddress6(networkName string) (string, error) {
                         offset = false
                         continue
                 }
-                if IsIPUnique(networkName, ip.String()) {
+                if IsIP6Unique(networkName, ip.String()) {
                         return ip.String(), err
                 }
         }
@@ -615,6 +610,35 @@ func IsIPUnique(network string, ip string) bool {
 	}
 	return isunique
 }
+
+//checks if IP is unique in the address range
+//used by UniqueAddress
+func IsIP6Unique(network string, ip string) bool {
+
+        var node models.Node
+
+        isunique := true
+
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"address6": ip, "network": network}
+
+        err := collection.FindOne(ctx, filter).Decode(&node)
+
+        defer cancel()
+
+        if err != nil {
+                fmt.Println(err)
+                return isunique
+        }
+
+        if node.Address6 == ip {
+                isunique = false
+        }
+        return isunique
+}
+
 
 //called once key has been used by createNode
 //reduces value by one and deletes if necessary
