@@ -39,8 +39,10 @@ func main() {
 	tname := flag.String("name", "noname", "give the node a name at runtime")
 	tserver := flag.String("s", "localhost:50051", "The location (including port) of the remote gRPC server.")
 	tnetwork := flag.String("n", "nonetwork", "The node network you are attempting to join.")
+	tdnsoff := flag.Bool("dnsoff", false, "DNS Mode. If true, netclient will not alter system dns. false by default.")
+	tpublicip := flag.String("ip4", "nopubip", "The node network you are attempting to join.")
 	tnoauto := flag.Bool("na", false, "No auto mode. If true, netmclient will not be installed as a system service and you will have to retrieve updates manually via checkin command.")
-	tnoforward := flag.Bool("nf", false, "No Forward mode. If true, netclient will not check for IP forwarding. This may break functionality")
+	tipforward := flag.String("nf", "on", "No Forward mode. If true, netclient will not check for IP forwarding. This may break functionality")
 	command := flag.String("c", "required", "The command to run")
 
 
@@ -89,7 +91,7 @@ func main() {
                                 fmt.Println("Required, '-n'. No network provided. Exiting.")
                                 os.Exit(1)
                         }
-
+			/*
 			if !*tnoforward {
 				forward := exec.Command("sysctl", "net.ipv4.ip_forward")
 				out, err := forward.Output()
@@ -106,9 +108,9 @@ func main() {
 					log.Fatal("It is recommended to enable IP Forwarding. Current status is: " +  s[2] + ", but should be 1. if you would like to run without IP Forwarding, re-run with flag '-nf true'")
 				}
 			}
-
+			*/
 			fmt.Println("Beginning agent installation.")
-			err := functions.Install(*taccesskey, *tpassword, *tserver, *tnetwork, *tnoauto, *taccesstoken, *tname)
+			err := functions.Install(*taccesskey, *tpassword, *tserver, *tnetwork, *tnoauto, *taccesstoken, *tname, *tpublicip, *tdnsoff, *tipforward)
 			if err != nil {
 				fmt.Println("Error encountered while installing.")
 				if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {

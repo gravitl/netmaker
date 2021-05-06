@@ -9,9 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"os"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
@@ -83,7 +82,7 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == config.Config.Server.MasterKey  || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
+	if tokenString == servercfg.GetMasterKey() {
 		return true
 	}
 	return false
@@ -109,12 +108,16 @@ func validateNetworkUpdate(network models.Network) error {
 	v := validator.New()
 
 	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
 		return isvalid
 	})
+        _ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
+                isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
+                return isvalid
+        })
 
 	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
 		return isvalid
 	})
 
@@ -141,12 +144,20 @@ func validateNetworkCreate(network models.Network) error {
 	v := validator.New()
 
 	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.IsIpv4CIDR(fl.Field().String())
+		isvalid := functions.IsIpCIDR(fl.Field().String())
 		return isvalid
 	})
+        _ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
+		isvalid := true
+		if *network.IsDualStack {
+			isvalid = functions.IsIpCIDR(fl.Field().String())
+		}
+		return isvalid
+        })
+
 
 	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-		isvalid := fl.Field().String() == "" || functions.IsIpv4CIDR(fl.Field().String())
+		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
 		return isvalid
 	})
 
@@ -223,19 +234,20 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
         update := bson.D{
                 {"$set", bson.D{
                         {"addressrange", network.AddressRange},
+                        {"addressrange6", network.AddressRange6},
                         {"displayname", network.DisplayName},
                         {"defaultlistenport", network.DefaultListenPort},
                         {"defaultpostup", network.DefaultPostUp},
                         {"defaultpostdown", network.DefaultPostDown},
-                  			{"defaultkeepalive", network.DefaultKeepalive},
-			                  {"keyupdatetimestamp", network.KeyUpdateTimeStamp},
-			                  {"defaultsaveconfig", network.DefaultSaveConfig},
-                  			{"defaultinterface", network.DefaultInterface},
-			                  {"nodeslastmodified", network.NodesLastModified},
-                  			{"networklastmodified", network.NetworkLastModified},
-			                  {"allowmanualsignup", network.AllowManualSignUp},
-			                  {"checkininterval", network.DefaultCheckInInterval},
-		            }},
+			{"defaultkeepalive", network.DefaultKeepalive},
+			{"keyupdatetimestamp", network.KeyUpdateTimeStamp},
+			{"defaultsaveconfig", network.DefaultSaveConfig},
+			{"defaultinterface", network.DefaultInterface},
+			{"nodeslastmodified", network.NodesLastModified},
+			{"networklastmodified", network.NetworkLastModified},
+			{"allowmanualsignup", network.AllowManualSignUp},
+			{"checkininterval", network.DefaultCheckInInterval},
+		        }},
 	      }
 
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
@@ -304,6 +316,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if networkChange.AddressRange == "" {
 		networkChange.AddressRange = network.AddressRange
 	}
+        if networkChange.AddressRange6 == "" {
+                networkChange.AddressRange6 = network.AddressRange6
+        }
 	if networkChange.NetID == "" {
 		networkChange.NetID = network.NetID
 	}
@@ -325,7 +340,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 		network.AddressRange = networkChange.AddressRange
 
-		var isAddressOK bool = functions.IsIpv4CIDR(networkChange.AddressRange)
+		var isAddressOK bool = functions.IsIpCIDR(networkChange.AddressRange)
 		if !isAddressOK {
 			err := errors.New("Invalid Range of " + networkChange.AddressRange + " for addresses.")
 			returnErrorResponse(w, r, formatError(err, "internal"))
@@ -338,7 +353,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if networkChange.LocalRange != "" {
 		network.LocalRange = networkChange.LocalRange
 
-		var isAddressOK bool = functions.IsIpv4CIDR(networkChange.LocalRange)
+		var isAddressOK bool = functions.IsIpCIDR(networkChange.LocalRange)
 		if !isAddressOK {
 			err := errors.New("Invalid Range of " + networkChange.LocalRange + " for internal addresses.")
 			returnErrorResponse(w, r, formatError(err, "internal"))
@@ -350,6 +365,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if networkChange.IsLocal != nil {
 		network.IsLocal = networkChange.IsLocal
 	}
+        if networkChange.IsDualStack != nil {
+                network.IsDualStack = networkChange.IsDualStack
+        }
 	if networkChange.DefaultListenPort != 0 {
 		network.DefaultListenPort = networkChange.DefaultListenPort
 		haschange = true
@@ -394,6 +412,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
         update := bson.D{
                 {"$set", bson.D{
                         {"addressrange", network.AddressRange},
+                        {"addressrange6", network.AddressRange6},
                         {"displayname", network.DisplayName},
                         {"defaultlistenport", network.DefaultListenPort},
                         {"defaultpostup", network.DefaultPostUp},
@@ -406,6 +425,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
                         {"allowmanualsignup", network.AllowManualSignUp},
                         {"localrange", network.LocalRange},
                         {"islocal", network.IsLocal},
+                        {"isdualstack", network.IsDualStack},
                         {"checkininterval", network.DefaultCheckInInterval},
 		              }},
 	}
@@ -505,6 +525,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		falsevar := false
 		network.IsLocal = &falsevar
 	}
+        if network.IsDualStack == nil {
+                falsevar := false
+                network.IsDualStack = &falsevar
+        }
 
 	err = validateNetworkCreate(network)
 	if err != nil {
@@ -568,7 +592,6 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	if accesskey.Uses == 0 {
 		accesskey.Uses = 1
 	}
-	_, gconf, err := functions.GetGlobalConfig()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -580,7 +603,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	netID := params["networkname"]
-	address := gconf.ServerGRPC + gconf.PortGRPC
+	address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
 
 	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))

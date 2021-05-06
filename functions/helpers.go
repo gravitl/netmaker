@@ -16,6 +16,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
+	"github.com/gravitl/netmaker/servercfg"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -38,21 +39,12 @@ func CreateServerToken(netID string) (string, error) {
 	accesskey.Name = GenKeyName()
 	accesskey.Value = GenKey()
 	accesskey.Uses = 1
-	_, gconf, errG := GetGlobalConfig()
-	if errG != nil {
-		return "", errG
-	}
-	address := "localhost" + gconf.PortGRPC
+	address := "127.0.0.1:" + servercfg.GetGRPCPort()
 
 	privAddr := ""
 	if *network.IsLocal {
 		privAddr = network.LocalRange
 	}
-
-	fmt.Println("Token details:")
-	fmt.Println("    grpc address + port: " + address)
-	fmt.Println("                network: " + netID)
-	fmt.Println("          private range: " + privAddr)
 
 	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 
@@ -131,8 +123,6 @@ func NetworkExists(name string) (bool, error) {
 		if err == mongo.ErrNoDocuments {
 			return false, nil
 		}
-		fmt.Println("ERROR RETRIEVING GROUP!")
-		fmt.Println(err)
 	}
 	return true, err
 }
@@ -378,17 +368,14 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 	return network, nil
 }
 
-//Check for valid IPv4 address
-//Note: We dont handle IPv6 AT ALL!!!!! This definitely is needed at some point
-//But for iteration 1, lets just stick to IPv4. Keep it simple stupid.
-func IsIpv4Net(host string) bool {
+func IsIpNet(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
 //Similar to above but checks if Cidr range is valid
 //At least this guy's got some print statements
 //still not good error handling
-func IsIpv4CIDR(host string) bool {
+func IsIpCIDR(host string) bool {
 
 	ip, ipnet, err := net.ParseCIDR(host)
 
@@ -445,6 +432,19 @@ func NameInNetworkCharSet(name string) bool {
 	}
 	return true
 }
+
+func NameInDNSCharSet(name string) bool {
+
+        charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+
+        for _, char := range name {
+                if !strings.Contains(charset, strings.ToLower(string(char))) {
+                        return false
+                }
+        }
+        return true
+}
+
 
 func NameInNodeCharSet(name string) bool {
 
@@ -516,33 +516,36 @@ func UniqueAddress(networkName string) (string, error) {
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
-//pretty simple get
-func GetGlobalConfig() (bool, models.GlobalConfig, error) {
+func UniqueAddress6(networkName string) (string, error) {
 
-	create := false
-
-	filter := bson.M{}
-
-	var globalconf models.GlobalConfig
-
-	collection := mongoconn.Client.Database("netmaker").Collection("config")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	err := collection.FindOne(ctx, filter).Decode(&globalconf)
-
-	defer cancel()
-
-	if err == mongo.ErrNoDocuments {
-		fmt.Println("Global config does not exist. Need to create.")
-		create = true
-		return create, globalconf, err
-	} else if err != nil {
-		fmt.Println(err)
-		fmt.Println("Could not get global config")
-		return create, globalconf, err
+        var network models.Network
+        network, err := GetParentNetwork(networkName)
+        if err != nil {
+                fmt.Println("Network Not Found")
+                return "", err
+        }
+	if network.IsDualStack == nil || *network.IsDualStack == false {
+		return "", nil
 	}
-	return create, globalconf, err
+
+        offset := true
+        ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
+        if err != nil {
+                fmt.Println("UniqueAddress6 encountered  an error")
+                return "666", err
+        }
+        for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
+                if offset {
+                        offset = false
+                        continue
+                }
+                if IsIP6Unique(networkName, ip.String()) {
+                        return ip.String(), err
+                }
+        }
+        //TODO
+        err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
+        return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
 //generate an access key value
@@ -607,6 +610,35 @@ func IsIPUnique(network string, ip string) bool {
 	}
 	return isunique
 }
+
+//checks if IP is unique in the address range
+//used by UniqueAddress
+func IsIP6Unique(network string, ip string) bool {
+
+        var node models.Node
+
+        isunique := true
+
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"address6": ip, "network": network}
+
+        err := collection.FindOne(ctx, filter).Decode(&node)
+
+        defer cancel()
+
+        if err != nil {
+                fmt.Println(err)
+                return isunique
+        }
+
+        if node.Address6 == ip {
+                isunique = false
+        }
+        return isunique
+}
+
 
 //called once key has been used by createNode
 //reduces value by one and deletes if necessary

@@ -24,6 +24,7 @@ message Node {
     string id = 1;
     string name = 2;
     string address = 3;
+    string address6 = 26;
     int32 listenport = 4;
     string publickey = 5;
     string endpoint = 6;
@@ -44,7 +45,9 @@ message Node {
     string postchanges = 21;
     string allowedips = 22;
     bool islocal = 23;
-    string localrange = 24;
+    bool isdualstack = 27;
+    bool dnsoff = 24;
+    string localrange = 25;
 }
 
 message CheckInResponse {
@@ -63,6 +66,7 @@ message PeersResponse {
     string publickey = 5;
     string endpoint = 6;
     string address = 3;
+    string address6 = 8;
     int32 listenport = 4;
     string localaddress = 7;
     int32 keepalive = 13;

@@ -2,6 +2,7 @@ package controller
 
 import (
     "github.com/gravitl/netmaker/mongoconn"
+    "github.com/gravitl/netmaker/servercfg"
     "os/signal"
     "os"
     "fmt"
@@ -10,7 +11,6 @@ import (
     "github.com/gorilla/mux"
     "github.com/gorilla/handlers"
     "sync"
-    "github.com/gravitl/netmaker/config"
 )
 
 
@@ -22,19 +22,17 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
     // Currently allowed dev origin is all. Should change in prod
     // should consider analyzing the allowed methods further
     headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization"})
-    originsOk := handlers.AllowedOrigins([]string{config.Config.Server.AllowedOrigin})
+    originsOk := handlers.AllowedOrigins([]string{servercfg.GetAllowedOrigin()})
     methodsOk := handlers.AllowedMethods([]string{"GET", "PUT", "POST", "DELETE"})
 
     nodeHandlers(r)
     userHandlers(r)
     networkHandlers(r)
+    dnsHandlers(r)
     fileHandlers(r)
     serverHandlers(r)
 
-		port := config.Config.Server.ApiPort
-	        if os.Getenv("API_PORT") != "" {
-			port = os.Getenv("API_PORT")
-		}
+		port := servercfg.GetAPIPort()
 
 		srv := &http.Server{Addr: ":" + port, Handler: handlers.CORS(originsOk, headersOk, methodsOk)(r)}
 		go func(){

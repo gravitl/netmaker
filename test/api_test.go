@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -46,20 +45,6 @@ func TestMain(m *testing.M) {
 	var waitgroup sync.WaitGroup
 	waitgroup.Add(1)
 	go controller.HandleRESTRequests(&waitgroup)
-	var gconf models.GlobalConfig
-	gconf.ServerGRPC = "localhost:8081"
-	gconf.PortGRPC = "50051"
-	//err := SetGlobalConfig(gconf)
-	collection := mongoconn.Client.Database("netmaker").Collection("config")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	//create, _, err := functions.GetGlobalConfig()
-	_, err := collection.InsertOne(ctx, gconf)
-	if err != nil {
-		panic("could not create config store")
-	}
-
-	//wait for http server to start
 	time.Sleep(time.Second * 1)
 	os.Exit(m.Run())
 }

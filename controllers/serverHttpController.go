@@ -3,7 +3,7 @@ package controller
 import (
     "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/serverctl"
-    "github.com/gravitl/netmaker/config"
+    "github.com/gravitl/netmaker/servercfg"
     "encoding/json"
     "strings"
     "net/http"
@@ -12,6 +12,7 @@ import (
 
 func serverHandlers(r *mux.Router) {
     r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(http.HandlerFunc(addNetwork))).Methods("POST")
+    r.HandleFunc("/api/server/getconfig", securityCheckServer(http.HandlerFunc(getConfig))).Methods("GET")
     r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(http.HandlerFunc(removeNetwork))).Methods("DELETE")
 }
 
@@ -49,7 +50,7 @@ func securityCheckServer(next http.Handler) http.HandlerFunc {
 }
 //Consider a more secure way of setting master key
 func authenticateMasterServer(tokenString string) bool {
-    if tokenString == config.Config.Server.MasterKey {
+    if tokenString == servercfg.GetMasterKey() {
         return true
     }
     return false
@@ -70,6 +71,18 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
         }
 
         json.NewEncoder(w).Encode("Server removed from network " + params["network"])
+}
+
+func getConfig(w http.ResponseWriter, r *http.Request) {
+        // Set header
+        w.Header().Set("Content-Type", "application/json")
+
+        // get params
+
+        scfg := servercfg.GetConfig()
+
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(scfg)
 }
 
 func addNetwork(w http.ResponseWriter, r *http.Request) {

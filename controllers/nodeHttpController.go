@@ -509,7 +509,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = ValidateNode("create", networkName, node)
+	err = ValidateNodeCreate(networkName, node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -661,9 +661,9 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 func validateGateway(gateway models.GatewayRequest) error {
 	var err error
-	isIpv4 := functions.IsIpv4CIDR(gateway.RangeString)
+	isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := gateway.RangeString == ""
-	if empty || !isIpv4 {
+	if empty || !isIp {
 		err = errors.New("IP Range Not Valid")
 	}
 	empty = gateway.Interface == ""
@@ -765,7 +765,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if nodechange.MacAddress == "" {
 		nodechange.MacAddress = node.MacAddress
 	}
-	err = ValidateNode("update", params["network"], nodechange)
+	err = ValidateNodeUpdate(params["network"], nodechange)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return

@@ -15,7 +15,7 @@ import (
 //setting dev by default
 func getEnv() string {
 
-  env := os.Getenv("APP_ENV")
+  env := os.Getenv("NETMAKER_ENV")
 
   if len(env) == 0 {
     return "dev"
@@ -35,16 +35,17 @@ type EnvironmentConfig struct {
 
 // ServerConfig :
 type ServerConfig struct {
-  Host   string  `yaml:"host"`
-  ApiPort   string `yaml:"apiport"`
-  GrpcPort   string `yaml:"grpcport"`
+  APIHost   string  `yaml:"apihost"`
+  APIPort   string `yaml:"apiport"`
+  GRPCHost   string `yaml:"grpchost"`
+  GRPCPort   string `yaml:"grpcport"`
   MasterKey	string `yaml:"masterkey"`
   AllowedOrigin	string `yaml:"allowedorigin"`
-  RestBackend bool `yaml:"restbackend"`
-  AgentBackend bool `yaml:"agentbackend"`
-  DefaultNetName string `yaml:"defaultnetname"`
-  DefaultNetRange string `yaml:"defaultnetrange"`
-  CreateDefault bool `yaml:"createdefault"`
+  RestBackend string `yaml:"restbackend"`
+  AgentBackend string `yaml:"agentbackend"`
+  ClientMode string `yaml:"clientmode"`
+  DNSMode string `yaml:"dnsmode"`
+  DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
 }
 
 type MongoConnConfig struct {
@@ -60,13 +61,16 @@ type MongoConnConfig struct {
 func readConfig() *EnvironmentConfig {
   file := fmt.Sprintf("config/environments/%s.yaml", getEnv())
   f, err := os.Open(file)
+  var cfg EnvironmentConfig
   if err != nil {
-    log.Fatal(err)
-    os.Exit(2)
+    //log.Fatal(err)
+    //os.Exit(2)
+    log.Println("Unable to open config file at config/environments/" + getEnv())
+    log.Println("Will proceed with defaults or enironment variables (no config file).")
+    return &cfg
   }
   defer f.Close()
 
-  var cfg EnvironmentConfig
   decoder := yaml.NewDecoder(f)
   err = decoder.Decode(&cfg)
   if err != nil {

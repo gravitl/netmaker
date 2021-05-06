@@ -31,8 +31,11 @@ type NodeConfig struct {
         MacAddress string `yaml:"macaddress"`
         LocalAddress string `yaml:"localaddress"`
         WGAddress string `yaml:"wgaddress"`
+        WGAddress6 string `yaml:"wgaddress6"`
         RoamingOff bool `yaml:"roamingoff"`
+        DNSOff bool `yaml:"dnsoff"`
         IsLocal bool `yaml:"islocal"`
+        IsDualStack bool `yaml:"isdualstack"`
         AllowedIPs string `yaml:"allowedips"`
         LocalRange string `yaml:"localrange"`
         PostUp string `yaml:"postup"`
@@ -43,6 +46,7 @@ type NodeConfig struct {
         PrivateKey string `yaml:"privatekey"`
         Endpoint string `yaml:"endpoint"`
         PostChanges string `yaml:"postchanges"`
+        IPForwarding string `yaml:"ipforwarding"`
 }
 
 //reading in the env file
@@ -234,9 +238,3 @@ func ReadConfig(network string) (*ClientConfig, error) {
 	}
 	return &cfg, err
 }
-/*
-func init() {
-  Config = readConfig()
-}
-*/
-

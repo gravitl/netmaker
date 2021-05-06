@@ -3,6 +3,7 @@ package models
 
 type ReturnNode struct {
 	Address	string `json:"address" bson:"address"`
+	Address6 string `json:"address6" bson:"address6"`
 	Name	string `json:"name" bson:"name"`
 	MacAddress string `json:"macaddress" bson:"macaddress"`
 	LastCheckIn int64 `json:"lastcheckin" bson:"lastcheckin"`
