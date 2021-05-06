@@ -83,7 +83,7 @@ Note, this installs Netmaker with CoreDNS and a Netclient (privileged).  If you 
 
 1. Clone this repo or just copy contents of "docker-compose.yml" to your Netmaker server (from prereqs).
 2. In docker-compose.yml, change BACKEND_URL to the public IP of your server.
-3. Run `sudo docker-compose up`
+3. Run `sudo docker-compose up -d`
 4. Navigate to your server's IP in the browser and you should see the Netmaker UI asking to create a new admin user.
 5. Create a new admin user
 6. You are now ready to begin using Netmaker. 
