@@ -196,28 +196,28 @@ func TestValidateNodeUpdate(t *testing.T) {
 			node: models.NodeUpdate{
 				Address: "256.0.0.1",
 			},
-			errorMessage: "Field validation for 'Address' failed on the 'address_check' tag",
+			errorMessage: "Field validation for 'Address' failed on the 'ip' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "BadAddress6",
 			node: models.NodeUpdate{
 				Address6: "2607::abcd:efgh::1",
 			},
-			errorMessage: "Field validation for 'Address6' failed on the 'address6_check' tag",
+			errorMessage: "Field validation for 'Address6' failed on the 'ipv6' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "BadLocalAddress",
 			node: models.NodeUpdate{
 				LocalAddress: "10.0.200.300",
 			},
-			errorMessage: "Field validation for 'LocalAddress' failed on the 'localaddress_check' tag",
+			errorMessage: "Field validation for 'LocalAddress' failed on the 'ip' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "InvalidName",
 			node: models.NodeUpdate{
 				Name: "mynode*",
 			},
-			errorMessage: "Field validation for 'Name' failed on the 'name_valid' tag",
+			errorMessage: "Field validation for 'Name' failed on the 'alphanum' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "NameTooLong",
@@ -243,16 +243,16 @@ func TestValidateNodeUpdate(t *testing.T) {
 		NodeValidationUpdateTC{
 			testname: "PublicKeyInvalid",
 			node: models.NodeUpdate{
-				PublicKey: "",
+				PublicKey: "bad&key",
 			},
-			errorMessage: "Field validation for 'PublicKey' failed on the 'pubkey_check' tag",
+			errorMessage: "Field validation for 'PublicKey' failed on the 'base64' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "EndpointInvalid",
 			node: models.NodeUpdate{
 				Endpoint: "10.2.0.300",
 			},
-			errorMessage: "Field validation for 'Endpoint' failed on the 'endpoint_check' tag",
+			errorMessage: "Field validation for 'Endpoint' failed on the 'ip' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "PersistentKeepaliveMax",
@@ -266,7 +266,7 @@ func TestValidateNodeUpdate(t *testing.T) {
 			node: models.NodeUpdate{
 				MacAddress: "01:02:03:04:05",
 			},
-			errorMessage: "Field validation for 'MacAddress' failed on the 'macaddress_valid' tag",
+			errorMessage: "Field validation for 'MacAddress' failed on the 'mac' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "MacAddressMissing",
@@ -276,18 +276,11 @@ func TestValidateNodeUpdate(t *testing.T) {
 			errorMessage: "Field validation for 'MacAddress' failed on the 'required' tag",
 		},
 		NodeValidationUpdateTC{
-			testname: "EmptyPassword",
-			node: models.NodeUpdate{
-				Password: "",
-			},
-			errorMessage: "Field validation for 'Password' failed on the 'password_check' tag",
-		},
-		NodeValidationUpdateTC{
 			testname: "ShortPassword",
 			node: models.NodeUpdate{
 				Password: "1234",
 			},
-			errorMessage: "Field validation for 'Password' failed on the 'password_check' tag",
+			errorMessage: "Field validation for 'Password' failed on the 'min' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "NoNetwork",

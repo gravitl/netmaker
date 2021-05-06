@@ -51,13 +51,13 @@ type Node struct {
 //node update struct --- only validations are different
 type NodeUpdate struct {
 	ID                  primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	Address             string             `json:"address" bson:"address" validate:"address_check"`
-	Address6            string             `json:"address6" bson:"address6" validate:"address6_check"`
-	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"localaddress_check"`
-	Name                string             `json:"name" bson:"name" validate:"omitempty,name_valid,max=12"`
+	Address             string             `json:"address" bson:"address" validate:"omitempty,ip"`
+	Address6            string             `json:"address6" bson:"address6" validate:"omitempty,ipv6"`
+	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"omitempty,ip"`
+	Name                string             `json:"name" bson:"name" validate:"omitempty,alphanum,max=12"`
 	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
-	PublicKey           string             `json:"publickey" bson:"publickey" validate:"pubkey_check"`
-	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"endpoint_check"`
+	PublicKey           string             `json:"publickey" bson:"publickey" validate:"omitempty,base64"`
+	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"omitempty,ip"`
 	PostUp              string             `json:"postup" bson:"postup"`
 	PostDown            string             `json:"postdown" bson:"postdown"`
 	AllowedIPs          string             `json:"allowedips" bson:"allowedips"`
@@ -70,9 +70,9 @@ type NodeUpdate struct {
 	ExpirationDateTime  int64              `json:"expdatetime" bson:"expdatetime"`
 	LastPeerUpdate      int64              `json:"lastpeerupdate" bson:"lastpeerupdate"`
 	LastCheckIn         int64              `json:"lastcheckin" bson:"lastcheckin"`
-	MacAddress          string             `json:"macaddress" bson:"macaddress" validate:"required,macaddress_valid,macaddress_unique"`
+	MacAddress          string             `json:"macaddress" bson:"macaddress" validate:"required,mac"`
 	CheckInInterval     int32              `json:"checkininterval" bson:"checkininterval"`
-	Password            string             `json:"password" bson:"password" validate:"password_check"`
+	Password            string             `json:"password" bson:"password" validate:"omitempty,min=5"`
 	Network             string             `json:"network" bson:"network" validate:"network_exists"`
 	IsPending           bool               `json:"ispending" bson:"ispending"`
 	IsGateway           bool               `json:"isgateway" bson:"isgateway"`
