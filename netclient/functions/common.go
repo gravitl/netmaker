@@ -703,7 +703,6 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 Stderr: os.Stdout,
         }
 
-
          currentiface, err := net.InterfaceByName(ifacename)
 
 
@@ -830,15 +829,15 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		if err != nil {
                         fmt.Println("Error encountered adding gateway: " + err.Error())
                 }
+		}
 	}
-	/*
         if (node.Address6 != "" && node.Isdualstack) {
-                _, err := exec.Command(ipExec,"-6","route","add",node.Address6,"dev",ifacename).Output()
+		fmt.Println("Adding address: " + node.Address6)
+                out, err := exec.Command(ipExec, "address", "add", "dev", ifacename, node.Address6+"/64").Output()
                 if err != nil {
+                        fmt.Println(out)
                         fmt.Println("Error encountered adding ipv6: " + err.Error())
                 }
-        }
-	*/
 	}
 	return err
 }
