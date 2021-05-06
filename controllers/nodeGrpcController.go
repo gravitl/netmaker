@@ -3,7 +3,6 @@ package controller
 import (
         "context"
 	"fmt"
-	"strconv"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/functions"
@@ -56,6 +55,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Listenport:  node.ListenPort,
 			Keepalive:  node.PersistentKeepalive,
                         Islocal:  *network.IsLocal,
+                        Isdualstack:  *network.IsDualStack,
                         Localrange:  network.LocalRange,
 
 		},
@@ -101,8 +101,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
                 return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find network: %v", err))
         } else {
 		fmt.Println("Creating node in network " + network.NetID)
-		fmt.Println("Network is local? " + strconv.FormatBool(*network.IsLocal))
-		fmt.Println("Range if local: " + network.LocalRange)
 	}
 
 
@@ -147,6 +145,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
                         Listenport:  node.ListenPort,
                         Keepalive:  node.PersistentKeepalive,
                         Islocal:  *network.IsLocal,
+                        Isdualstack:  *network.IsDualStack,
                         Localrange:  network.LocalRange,
 		},
 	}
@@ -276,6 +275,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
                         Listenport:  newnode.ListenPort,
                         Keepalive:  newnode.PersistentKeepalive,
                         Islocal:  *network.IsLocal,
+                        Isdualstack:  *network.IsDualStack,
                         Localrange:  network.LocalRange,
 
 		},
