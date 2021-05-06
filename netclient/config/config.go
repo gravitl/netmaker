@@ -236,9 +236,3 @@ func ReadConfig(network string) (*ClientConfig, error) {
 	}
 	return &cfg, err
 }
-/*
-func init() {
-  Config = readConfig()
-}
-*/
-

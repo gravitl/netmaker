@@ -72,7 +72,7 @@ func GetFreePort(rangestart int32) (int32, error){
         return portno, err
 }
 
-func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string, dnsoff bool) error {
+func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string, pubip string, dnsoff bool) error {
 
 	tserver := ""
 	tnetwork := ""
@@ -254,6 +254,9 @@ func Install(accesskey string, password string, server string, network string, n
 	}
        fmt.Println("     Local Address: " + localaddress)
 
+        if pubip != "" && pubip != "nopubip" {
+                endpoint = pubip
+        } else {
         if nodecfg.Endpoint == "" {
 		if islocal && localaddress != "" {
 			endpoint = localaddress
@@ -271,6 +274,7 @@ func Install(accesskey string, password string, server string, network string, n
                 endpoint = nodecfg.Endpoint
 		fmt.Println("Endpoint set in config. Setting to address: " + endpoint)
         }
+	}
        fmt.Println("     Endpoint: " + endpoint)
 
 
@@ -516,7 +520,7 @@ func getLocalIP(localrange string) (string, error) {
 
 func getPublicIP() (string, error) {
 
-	iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+	iplist := []string{"http://ip.client.gravitl.com","https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
 	endpoint := ""
 	var err error
 	    for _, ipserver := range iplist {
