@@ -31,8 +31,8 @@ func SetCorefile(domains string) error {
         }
 
 		corefile := domains + ` {
+    reload 15s
     hosts /root/dnsconfig/netmaker.hosts {
-	reload 15s
 	fallthrough	
     }
     forward . 8.8.8.8 8.8.4.4
