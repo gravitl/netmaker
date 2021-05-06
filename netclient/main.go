@@ -39,7 +39,8 @@ func main() {
 	tname := flag.String("name", "noname", "give the node a name at runtime")
 	tserver := flag.String("s", "localhost:50051", "The location (including port) of the remote gRPC server.")
 	tnetwork := flag.String("n", "nonetwork", "The node network you are attempting to join.")
-	tnoauto := flag.Bool("na", false, "No auto mode. If true, netmclient will not be installed as a system service and you will have to retrieve updates manually via checkin command.")
+	tnoauto := flag.Bool("na", false, "No auto mode. If true, netclient will not be installed as a system service and you will have to retrieve updates manually via checkin command.")
+	tdnsoff := flag.Bool("dnsoff", false, "No dns mode. If true, netclient will not alter system dns.")
 	tnoforward := flag.Bool("nf", false, "No Forward mode. If true, netclient will not check for IP forwarding. This may break functionality")
 	command := flag.String("c", "required", "The command to run")
 
@@ -108,7 +109,7 @@ func main() {
 			}
 
 			fmt.Println("Beginning agent installation.")
-			err := functions.Install(*taccesskey, *tpassword, *tserver, *tnetwork, *tnoauto, *taccesstoken, *tname)
+			err := functions.Install(*taccesskey, *tpassword, *tserver, *tnetwork, *tnoauto, *taccesstoken, *tname, *tdnsoff)
 			if err != nil {
 				fmt.Println("Error encountered while installing.")
 				if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {

@@ -44,7 +44,8 @@ message Node {
     string postchanges = 21;
     string allowedips = 22;
     bool islocal = 23;
-    string localrange = 24;
+    bool dnsoff = 24;
+    string localrange = 25;
 }
 
 message CheckInResponse {

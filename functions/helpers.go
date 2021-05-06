@@ -530,6 +530,7 @@ func UniqueAddress6(networkName string) (string, error) {
 
         var network models.Network
         network, err := GetParentNetwork(networkName)
+	dualstack := *network.IsDualStack
 	if !*network.IsDualStack {
 		return "", nil
 	}

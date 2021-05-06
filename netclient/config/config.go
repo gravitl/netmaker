@@ -31,7 +31,9 @@ type NodeConfig struct {
         MacAddress string `yaml:"macaddress"`
         LocalAddress string `yaml:"localaddress"`
         WGAddress string `yaml:"wgaddress"`
+        WGAddress6 string `yaml:"wgaddress6"`
         RoamingOff bool `yaml:"roamingoff"`
+        DNSOff bool `yaml:"dnsoff"`
         IsLocal bool `yaml:"islocal"`
         AllowedIPs string `yaml:"allowedips"`
         LocalRange string `yaml:"localrange"`

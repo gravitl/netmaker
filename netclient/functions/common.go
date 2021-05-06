@@ -72,7 +72,7 @@ func GetFreePort(rangestart int32) (int32, error){
         return portno, err
 }
 
-func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string) error {
+func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string, dnsoff bool) error {
 
 	tserver := ""
 	tnetwork := ""
@@ -142,6 +142,8 @@ func Install(accesskey string, password string, server string, network string, n
 	nodecfg := cfg.Node
 	servercfg := cfg.Server
 	fmt.Println("SERVER SETTINGS:")
+
+	nodecfg.DNSOff = dnsoff
 
 	if server == "" {
 		if servercfg.Address == "" && tserver == "" {
@@ -588,6 +590,9 @@ func modConfig(node *nodepb.Node) error{
         if node.Address != ""{
                 nodecfg.WGAddress = node.Address
         }
+        if node.Address != ""{
+                nodecfg.WGAddress = node.Address
+        }
         if node.Postchanges != "" {
                 nodecfg.PostChanges = node.Postchanges
         }
@@ -951,6 +956,15 @@ func CheckIn(network string) error {
 
 	setupcheck := true
 	ipchange := false
+
+	if !nodecfg.DNSOff {
+		vals := strings.Split(servercfg.Address, ":")
+		server := vals[0]
+		err = SetDNS(server)
+		if err != nil {
+                        fmt.Printf("Error encountered setting dns: %v", err)
+		}
+	}
 
 	if !nodecfg.RoamingOff {
 		if !nodecfg.IsLocal {

@@ -6,6 +6,7 @@ import (
         "io/ioutil"
 	"path/filepath"
         "io"
+	"strings"
         "log"
         "os"
         "os/exec"
@@ -18,6 +19,27 @@ func FileExists(f string) bool {
         return false
     }
     return !info.IsDir()
+}
+
+func SetDNS(nameserver string) error {
+	bytes, err := ioutil.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		return err
+	}
+	resolvstring := string(bytes)
+	// //check whether s contains substring text
+	hasdns := strings.Contains(resolvstring, nameserver)
+	if hasdns {
+		return nil
+	}
+	resolv, err := os.OpenFile("/etc/resolv.conf",os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer resolv.Close()
+	_, err = resolv.WriteString("nameserver " + nameserver + "\n")
+
+	return err
 }
 
 func ConfigureSystemD(network string) error {
