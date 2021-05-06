@@ -109,7 +109,7 @@ After Network creation, you can edit the network in the NETWORK DETAILS pane, mo
 	- **Install Command:** Use on machines that do not have the netclient utility
 
 ### Install Agent:
-For machines **without** netclient, run the install command (from above): `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netclient-install.sh | KEY=<your access key> sh -`  
+For machines **without** netclient, run the install command (from above): `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.3/netclient-install.sh | KEY=<your access key> sh -`  
 For machines **with** netclient run the following (with access token from above): `sudo netclient -c install -t <access token>`
 For networks with **manual signup** enabled (see above), install using the network name: `sudo netclient -c install -n <network name>`
 
