@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
 	"go.mongodb.org/mongo-driver/bson"
@@ -306,6 +307,9 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
 	if notifynetwork {
 		errN = SetNetworkNodesLastModified(queryNetwork)
 	}
+        if servercfg.IsDNSMode() {
+		errN = SetDNS()
+        }
 
 	return returnnode, errN
 }
@@ -332,6 +336,9 @@ func DeleteNode(macaddress string, network string) (bool, error) {
 
 	err = SetNetworkNodesLastModified(network)
 	fmt.Println("Deleted node " + macaddress + " from network " + network)
+        if servercfg.IsDNSMode() {
+                err = SetDNS()
+        }
 
 	return deleted, err
 }
@@ -421,7 +428,9 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	}
 
 	SetNetworkNodesLastModified(node.Network)
-
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
 	return node, err
 }
 
