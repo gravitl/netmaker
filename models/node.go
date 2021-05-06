@@ -19,6 +19,38 @@ var seededRand *rand.Rand = rand.New(
 //node struct
 type Node struct {
 	ID                  primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	Address             string             `json:"address" bson:"address" validate:"omitempty,ipv4"`
+	Address6            string             `json:"address6" bson:"address6" validate:"omitempty,ipv6"`
+	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"omitempty,ip"`
+	Name                string             `json:"name" bson:"name" validate:"omitempty,alphanum,max=12"`
+	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
+	PublicKey           string             `json:"publickey" bson:"publickey" validate:"required,base64"`
+	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"required,ip"`
+	PostUp              string             `json:"postup" bson:"postup"`
+	PostDown            string             `json:"postdown" bson:"postdown"`
+	AllowedIPs          string             `json:"allowedips" bson:"allowedips"`
+	PersistentKeepalive int32              `json:"persistentkeepalive" bson:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
+	SaveConfig          *bool              `json:"saveconfig" bson:"saveconfig"`
+	AccessKey           string             `json:"accesskey" bson:"accesskey"`
+	Interface           string             `json:"interface" bson:"interface"`
+	LastModified        int64              `json:"lastmodified" bson:"lastmodified"`
+	KeyUpdateTimeStamp  int64              `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
+	ExpirationDateTime  int64              `json:"expdatetime" bson:"expdatetime"`
+	LastPeerUpdate      int64              `json:"lastpeerupdate" bson:"lastpeerupdate"`
+	LastCheckIn         int64              `json:"lastcheckin" bson:"lastcheckin"`
+	MacAddress          string             `json:"macaddress" bson:"macaddress" validate:"required,mac,macaddress_unique"`
+	CheckInInterval     int32              `json:"checkininterval" bson:"checkininterval"`
+	Password            string             `json:"password" bson:"password" validate:"required,min=6"`
+	Network             string             `json:"network" bson:"network" validate:"network_exists"`
+	IsPending           bool               `json:"ispending" bson:"ispending"`
+	IsGateway           bool               `json:"isgateway" bson:"isgateway"`
+	GatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
+	PostChanges         string             `json:"postchanges" bson:"postchanges"`
+}
+
+//node update struct --- only validations are different
+type NodeUpdate struct {
+	ID                  primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	Address             string             `json:"address" bson:"address" validate:"address_check"`
 	Address6            string             `json:"address6" bson:"address6" validate:"address6_check"`
 	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"localaddress_check"`
@@ -46,6 +78,29 @@ type Node struct {
 	IsGateway           bool               `json:"isgateway" bson:"isgateway"`
 	GatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
+}
+
+//Duplicated function for NodeUpdates
+func (node *NodeUpdate) GetNetwork() (Network, error) {
+
+	var network Network
+
+	collection := mongoconn.NetworkDB
+	//collection := mongoconn.Client.Database("netmaker").Collection("networks")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	filter := bson.M{"netid": node.Network}
+	err := collection.FindOne(ctx, filter).Decode(&network)
+
+	defer cancel()
+
+	if err != nil {
+		//log.Fatal(err)
+		return network, err
+	}
+
+	return network, err
 }
 
 //TODO: Contains a fatal error return. Need to change

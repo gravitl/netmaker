@@ -59,61 +59,15 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 }
 
 func ValidateNodeCreate(networkName string, node models.Node) error {
-
 	v := validator.New()
-	_ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
-		isIpv4 := functions.IsIpNet(node.Address)
-		empty := node.Address == ""
-		return (empty || isIpv4)
-	})
-	_ = v.RegisterValidation("address6_check", func(fl validator.FieldLevel) bool {
-		isIpv6 := functions.IsIpNet(node.Address6)
-		empty := node.Address6 == ""
-		return (empty || isIpv6)
-	})
-	_ = v.RegisterValidation("endpoint_check", func(fl validator.FieldLevel) bool {
-		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-		isIp := functions.IsIpNet(node.Endpoint)
-		notEmptyCheck := node.Endpoint != ""
-		return (notEmptyCheck && isIp)
-	})
-	_ = v.RegisterValidation("localaddress_check", func(fl validator.FieldLevel) bool {
-		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-		isIp := functions.IsIpNet(node.LocalAddress)
-		empty := node.LocalAddress == ""
-		return (empty || isIp)
-	})
-
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
 		var isFieldUnique bool = functions.IsFieldUnique(networkName, "macaddress", node.MacAddress)
 		return isFieldUnique
 	})
-
-	_ = v.RegisterValidation("macaddress_valid", func(fl validator.FieldLevel) bool {
-		_, err := net.ParseMAC(node.MacAddress)
-		return err == nil
-	})
-
-	_ = v.RegisterValidation("name_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.NameInNodeCharSet(node.Name)
-		return isvalid
-	})
-
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := node.GetNetwork()
 		return err == nil
 	})
-	_ = v.RegisterValidation("pubkey_check", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := node.PublicKey != ""
-		isBase64 := functions.IsBase64(node.PublicKey)
-		return (notEmptyCheck && isBase64)
-	})
-	_ = v.RegisterValidation("password_check", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := node.Password != ""
-		goodLength := len(node.Password) > 5
-		return (notEmptyCheck && goodLength)
-	})
-
 	err := v.Struct(node)
 
 	if err != nil {
@@ -124,7 +78,7 @@ func ValidateNodeCreate(networkName string, node models.Node) error {
 	return err
 }
 
-func ValidateNodeUpdate(networkName string, node models.Node) error {
+func ValidateNodeUpdate(networkName string, node models.NodeUpdate) error {
 
 	v := validator.New()
 	_ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
@@ -188,7 +142,7 @@ func ValidateNodeUpdate(networkName string, node models.Node) error {
 	return err
 }
 
-func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
+func UpdateNode(nodechange models.NodeUpdate, node models.Node) (models.Node, error) {
 	//Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
 	//Eventually, lets have a better way to check if any of the fields are filled out...
 	queryMac := node.MacAddress

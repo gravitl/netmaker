@@ -689,7 +689,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var nodechange models.Node
+	var nodechange models.NodeUpdate
 
 	// we decode our body request params
 	_ = json.NewDecoder(r.Body).Decode(&nodechange)
