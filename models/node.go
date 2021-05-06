@@ -20,7 +20,7 @@ var seededRand *rand.Rand = rand.New(
 type Node struct {
 	ID                  primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	Address             string             `json:"address" bson:"address" validate:"address_check"`
-	Address6             string             `json:"address6" bson:"address6" validate:"address6_check"`
+	Address6            string             `json:"address6" bson:"address6" validate:"address6_check"`
 	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"localaddress_check"`
 	Name                string             `json:"name" bson:"name" validate:"omitempty,name_valid,max=12"`
 	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
@@ -29,7 +29,7 @@ type Node struct {
 	PostUp              string             `json:"postup" bson:"postup"`
 	PostDown            string             `json:"postdown" bson:"postdown"`
 	AllowedIPs          string             `json:"allowedips" bson:"allowedips"`
-	PersistentKeepalive int32              `json:"persistentkeepalive" bson:"persistentkeepalive" validate: "omitempty,numeric,max=1000"`
+	PersistentKeepalive int32              `json:"persistentkeepalive" bson:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
 	SaveConfig          *bool              `json:"saveconfig" bson:"saveconfig"`
 	AccessKey           string             `json:"accesskey" bson:"accesskey"`
 	Interface           string             `json:"interface" bson:"interface"`
@@ -117,8 +117,10 @@ func (node *Node) SetDefaults() {
 	//TODO: This is dumb and doesn't work
 	//Need to change
 	if node.SaveConfig == nil {
-		defaultsave := *parentNetwork.DefaultSaveConfig
-		node.SaveConfig = &defaultsave
+		if parentNetwork.DefaultSaveConfig != nil {
+			defaultsave := *parentNetwork.DefaultSaveConfig
+			node.SaveConfig = &defaultsave
+		}
 	}
 	if node.Interface == "" {
 		node.Interface = parentNetwork.DefaultInterface
