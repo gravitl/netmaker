@@ -35,6 +35,7 @@ type NodeConfig struct {
         RoamingOff bool `yaml:"roamingoff"`
         DNSOff bool `yaml:"dnsoff"`
         IsLocal bool `yaml:"islocal"`
+        IsDualStack bool `yaml:"isdualstack"`
         AllowedIPs string `yaml:"allowedips"`
         LocalRange string `yaml:"localrange"`
         PostUp string `yaml:"postup"`
@@ -45,6 +46,7 @@ type NodeConfig struct {
         PrivateKey string `yaml:"privatekey"`
         Endpoint string `yaml:"endpoint"`
         PostChanges string `yaml:"postchanges"`
+        IPForwarding string `yaml:"ipforwarding"`
 }
 
 //reading in the env file
