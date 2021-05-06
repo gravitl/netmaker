@@ -16,6 +16,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
+	"github.com/gravitl/netmaker/servercfg"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -38,11 +39,7 @@ func CreateServerToken(netID string) (string, error) {
 	accesskey.Name = GenKeyName()
 	accesskey.Value = GenKey()
 	accesskey.Uses = 1
-	_, gconf, errG := GetGlobalConfig()
-	if errG != nil {
-		return "", errG
-	}
-	address := "localhost" + gconf.PortGRPC
+	address := "127.0.0.1:" + servercfg.GetGRPCPort()
 
 	privAddr := ""
 	if *network.IsLocal {
@@ -554,35 +551,6 @@ func UniqueAddress6(networkName string) (string, error) {
         //TODO
         err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
         return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
-}
-
-//pretty simple get
-func GetGlobalConfig() (bool, models.GlobalConfig, error) {
-
-	create := false
-
-	filter := bson.M{}
-
-	var globalconf models.GlobalConfig
-
-	collection := mongoconn.Client.Database("netmaker").Collection("config")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	err := collection.FindOne(ctx, filter).Decode(&globalconf)
-
-	defer cancel()
-
-	if err == mongo.ErrNoDocuments {
-		fmt.Println("Global config does not exist. Need to create.")
-		create = true
-		return create, globalconf, err
-	} else if err != nil {
-		fmt.Println(err)
-		fmt.Println("Could not get global config")
-		return create, globalconf, err
-	}
-	return create, globalconf, err
 }
 
 //generate an access key value

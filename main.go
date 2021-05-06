@@ -68,12 +68,26 @@ func main() {
 
 	//Run Agent Server
 	if servercfg.IsAgentBackend() {
+	        if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
+			err := servercfg.SetHost()
+			if err != nil {
+				fmt.Println("Unable to Set host. Exiting.")
+				log.Fatal(err)
+			}
+		}
 		waitnetwork.Add(1)
 		go runGRPC(&waitnetwork, installserver)
 	}
 
 	//Run Rest Server
 	if servercfg.IsRestBackend() {
+                if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
+                        err := servercfg.SetHost()
+                        if err != nil {
+                                fmt.Println("Unable to Set host. Exiting.")
+                                log.Fatal(err)
+                        }
+                }
 		waitnetwork.Add(1)
 		controller.HandleRESTRequests(&waitnetwork)
 	}

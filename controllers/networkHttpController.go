@@ -592,7 +592,6 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	if accesskey.Uses == 0 {
 		accesskey.Uses = 1
 	}
-	_, gconf, err := functions.GetGlobalConfig()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -604,7 +603,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	netID := params["networkname"]
-	address := gconf.ServerGRPC + gconf.PortGRPC
+	address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
 
 	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
