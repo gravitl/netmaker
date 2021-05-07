@@ -1,8 +1,5 @@
 version: "3.4"
 
-volumes:
-  dnsconfig:
-  driver: local
 services:
   mongodb:
     image: mongo:4.2
@@ -18,7 +15,6 @@ services:
   netmaker:
     privileged: true
     container_name: netmaker
-    build: netmaker
     depends_on:
       - mongodb
     image: gravitl/netmaker:v0.3
