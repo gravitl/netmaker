@@ -18,14 +18,11 @@ services:
     depends_on:
       - mongodb
     image: gravitl/netmaker:v0.3
-    ports:
-      - "8081:8081"
-      - "50051:50051"
     volumes:
       - ./:/local
       - /etc/netclient:/etc/netclient
       - dnsconfig:/root/config/dnsconfig
-      - /usr/bin/wg:/usr/bin/wg:ro
+      - /usr/bin/wg:/usr/bin/wg
       - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
       - /run/systemd/system:/run/systemd/system
       - /etc/systemd/system:/etc/systemd/system
