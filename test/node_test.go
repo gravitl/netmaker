@@ -400,7 +400,7 @@ func TestCreateNode(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Contains(t, message.Message, "Field validation for 'MacAddress' failed on the 'macaddress_valid' tag")
+		assert.Contains(t, message.Message, "Field validation for 'MacAddress' failed on the 'mac' tag")
 	})
 	t.Run("BadPublicKey", func(t *testing.T) {
 		var node models.Node
