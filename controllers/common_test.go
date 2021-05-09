@@ -1,10 +1,14 @@
 package controller
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type NodeValidationTC struct {
@@ -19,22 +23,253 @@ type NodeValidationUpdateTC struct {
 	errorMessage string
 }
 
+func createTestNode() models.Node {
+	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
+	node, err := CreateNode(createnode, "skynet")
+	if err != nil {
+		panic(err)
+	}
+	return node
+}
+
 func TestCreateNode(t *testing.T) {
+	deleteNet(t)
+	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
+	createNet()
+	err := ValidateNodeCreate("skynet", createnode)
+	assert.Nil(t, err)
+	node, err := CreateNode(createnode, "skynet")
+	assert.Nil(t, err)
+	assert.Equal(t, "10.0.0.1", node.Endpoint)
+	assert.Equal(t, "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", node.PublicKey)
+	assert.Equal(t, "01:02:03:04:05:06", node.MacAddress)
+	assert.Equal(t, int32(51821), node.ListenPort)
+	assert.NotNil(t, node.Name)
+	assert.Equal(t, "skynet", node.Network)
+	assert.Equal(t, "nm-skynet", node.Interface)
 }
 func TestDeleteNode(t *testing.T) {
+	deleteNet(t)
+	createNet()
+	node := createTestNode()
+	t.Run("NodeExists", func(t *testing.T) {
+		deleted, err := DeleteNode(node.MacAddress, node.Network)
+		assert.Nil(t, err)
+		assert.True(t, deleted)
+	})
+	t.Run("NonExistantNode", func(t *testing.T) {
+		deleted, err := DeleteNode(node.MacAddress, node.Network)
+		assert.Nil(t, err)
+		assert.False(t, deleted)
+	})
 }
 func TestGetNode(t *testing.T) {
+	deleteNet(t)
+	createNet()
+	node := createTestNode()
+	t.Run("NodeExists", func(t *testing.T) {
+		response, err := GetNode(node.MacAddress, node.Network)
+		assert.Nil(t, err)
+		assert.Equal(t, "10.0.0.1", response.Endpoint)
+		assert.Equal(t, "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", response.PublicKey)
+		assert.Equal(t, "01:02:03:04:05:06", response.MacAddress)
+		assert.Equal(t, int32(51821), response.ListenPort)
+		assert.NotNil(t, response.Name)
+		assert.Equal(t, "skynet", response.Network)
+		assert.Equal(t, "nm-skynet", response.Interface)
+	})
+	t.Run("BadMac", func(t *testing.T) {
+		response, err := GetNode("01:02:03:04:05:07", node.Network)
+		assert.NotNil(t, err)
+		assert.Equal(t, models.Node{}, response)
+		assert.Equal(t, "mongo: no documents in result", err.Error())
+	})
+	t.Run("BadNetwork", func(t *testing.T) {
+		response, err := GetNode(node.MacAddress, "badnet")
+		assert.NotNil(t, err)
+		assert.Equal(t, models.Node{}, response)
+		assert.Equal(t, "mongo: no documents in result", err.Error())
+	})
+	t.Run("NoNode", func(t *testing.T) {
+		_, _ = DeleteNode("01:02:03:04:05:06", "skynet")
+		response, err := GetNode(node.MacAddress, node.Network)
+		assert.NotNil(t, err)
+		assert.Equal(t, models.Node{}, response)
+		assert.Equal(t, "mongo: no documents in result", err.Error())
+	})
+
 }
 func TestGetPeerList(t *testing.T) {
+	deleteNet(t)
+	createNet()
+	_ = createTestNode()
+	//createnode := models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "02:02:03:04:05:06", Password: "password", Network: "skynet"}
+	//_, _ = CreateNode(createnode, "skynet")
+	t.Run("PeerExist", func(t *testing.T) {
+		peers, err := GetPeersList("skynet")
+		assert.Nil(t, err)
+		assert.NotEqual(t, []models.PeersResponse(nil), peers)
+		t.Log(peers)
+	})
+	t.Run("NoNodes", func(t *testing.T) {
+		_, _ = DeleteNode("01:02:03:04:05:06", "skynet")
+		peers, err := GetPeersList("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, []models.PeersResponse(nil), peers)
+		t.Log(peers)
+	})
 }
 func TestNodeCheckIn(t *testing.T) {
+	deleteNet(t)
+	createNet()
+	node := createTestNode()
+	time.Sleep(time.Second * 1)
+	expectedResponse := models.CheckInResponse{false, false, false, false, false, "", false}
+	t.Run("BadNet", func(t *testing.T) {
+		response, err := NodeCheckIn(node, "badnet")
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Couldnt retrieve Network badnet: ")
+		assert.Equal(t, expectedResponse, response)
+	})
+	t.Run("BadNode", func(t *testing.T) {
+		badnode := models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "02:02:03:04:05:06", Password: "password", Network: "skynet"}
+		response, err := NodeCheckIn(badnode, "skynet")
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Couldnt Get Node 02:02:03:04:05:06")
+		assert.Equal(t, expectedResponse, response)
+	})
+	t.Run("NoUpdatesNeeded", func(t *testing.T) {
+		expectedResponse := models.CheckInResponse{true, false, false, false, false, "", false}
+		response, err := NodeCheckIn(node, node.Network)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedResponse, response)
+	})
+	t.Run("NodePending", func(t *testing.T) {
+		//		create Pending Node
+		createnode := models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", IsPending: true}
+		pendingNode, _ := CreateNode(createnode, "skynet")
+		expectedResponse.IsPending = true
+		response, err := NodeCheckIn(pendingNode, "skynet")
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Node checking in is still pending: 01:02:03:04:05:07")
+		assert.Equal(t, expectedResponse, response)
+	})
+	t.Run("ConfigUpdateRequired", func(t *testing.T) {
+		err := TimestampNode(node, false, false, true)
+		assert.Nil(t, err)
+		expectedResponse.NeedConfigUpdate = true
+		expectedResponse.Success = true
+		response, err := NodeCheckIn(node, "skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, true, response.Success)
+		assert.Equal(t, true, response.NeedConfigUpdate)
+	})
+	t.Run("PeerUpdateRequired", func(t *testing.T) {
+		var nodeUpdate models.NodeUpdate
+		newtime := time.Now().Add(time.Hour * -24).Unix()
+		nodeUpdate.LastPeerUpdate = newtime
+		_, err := UpdateNode(nodeUpdate, node)
+		assert.Nil(t, err)
+		response, err := NodeCheckIn(node, "skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, true, response.Success)
+		assert.Equal(t, true, response.NeedPeerUpdate)
+	})
+	t.Run("KeyUpdateRequired", func(t *testing.T) {
+		var network models.Network
+		newtime := time.Now().Add(time.Hour * 24).Unix()
+		t.Log(newtime, time.Now().Unix())
+		//this is cheating; but can't find away to update timestamp through existing api
+		collection := mongoconn.Client.Database("netmaker").Collection("networks")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		filter := bson.M{"netid": "skynet"}
+		update := bson.D{
+			{"$set", bson.D{
+				{"keyupdatetimestamp", newtime},
+			}},
+		}
+		defer cancel()
+		err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
+		assert.Nil(t, err)
+		response, err := NodeCheckIn(node, "skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, true, response.Success)
+		assert.Equal(t, true, response.NeedKeyUpdate)
+	})
+	t.Run("DeleteNeeded", func(t *testing.T) {
+		var nodeUpdate models.NodeUpdate
+		newtime := time.Now().Add(time.Hour * -24).Unix()
+		nodeUpdate.ExpirationDateTime = newtime
+		_, err := UpdateNode(nodeUpdate, node)
+		assert.Nil(t, err)
+		response, err := NodeCheckIn(node, "skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, true, response.Success)
+		assert.Equal(t, true, response.NeedDelete)
+	})
 }
+
 func TestSetNetworkNodesLastModified(t *testing.T) {
+	deleteNet(t)
+	createNet()
+	t.Run("InvalidNetwork", func(t *testing.T) {
+		err := SetNetworkNodesLastModified("badnet")
+		assert.NotNil(t, err)
+		assert.Equal(t, "mongo: no documents in result", err.Error())
+	})
+	t.Run("NetworkExists", func(t *testing.T) {
+		err := SetNetworkNodesLastModified("skynet")
+		assert.Nil(t, err)
+	})
 }
 func TestTimestampNode(t *testing.T) {
+	deleteNet(t)
+	createNet()
+	node := createTestNode()
+	time.Sleep(time.Second * 1)
+	before, err := GetNode(node.MacAddress, node.Network)
+	assert.Nil(t, err)
+	t.Run("UpdateCheckIn", func(t *testing.T) {
+		err = TimestampNode(node, true, false, false)
+		assert.Nil(t, err)
+		after, err := GetNode(node.MacAddress, node.Network)
+		assert.Nil(t, err)
+		assert.Greater(t, after.LastCheckIn, before.LastCheckIn)
+	})
+	t.Run("UpdatePeers", func(t *testing.T) {
+		err = TimestampNode(node, false, true, false)
+		assert.Nil(t, err)
+		after, err := GetNode(node.MacAddress, node.Network)
+		assert.Nil(t, err)
+		assert.Greater(t, after.LastPeerUpdate, before.LastPeerUpdate)
+	})
+	t.Run("UpdateLastModified", func(t *testing.T) {
+		err = TimestampNode(node, false, false, true)
+		assert.Nil(t, err)
+		after, err := GetNode(node.MacAddress, node.Network)
+		assert.Nil(t, err)
+		assert.Greater(t, after.LastModified, before.LastModified)
+	})
+	t.Run("InvalidNode", func(t *testing.T) {
+		node.MacAddress = "01:02:03:04:05:08"
+		err = TimestampNode(node, true, true, true)
+		assert.NotNil(t, err)
+		assert.Equal(t, "mongo: no documents in result", err.Error())
+	})
+
 }
 func TestUpdateNode(t *testing.T) {
+	deleteNet(t)
+	createNet()
+	node := createTestNode()
+	var update models.NodeUpdate
+	update.MacAddress = "01:02:03:04:05:06"
+	update.Name = "helloworld"
+	newnode, err := UpdateNode(update, node)
+	assert.Nil(t, err)
+	assert.Equal(t, update.Name, newnode.Name)
 }
+
 func TestValidateNodeCreate(t *testing.T) {
 	cases := []NodeValidationTC{
 		//		NodeValidationTC{
@@ -185,7 +420,7 @@ func TestValidateNodeCreate(t *testing.T) {
 		node := models.Node{Address: ""}
 		err := ValidateNodeCreate("skynet", node)
 		assert.NotNil(t, err)
-		assert.NotContains(t, err.Error(), "Field validation for 'Address' failed on the 'address_check' tag")
+		assert.NotContains(t, err.Error(), "Field validation for 'Address' failed on the 'ipv4' tag")
 	})
 }
 func TestValidateNodeUpdate(t *testing.T) {

@@ -109,8 +109,8 @@ func (node *Node) GetNetwork() (Network, error) {
 
 	var network Network
 
-	collection := mongoconn.NetworkDB
-	//collection := mongoconn.Client.Database("netmaker").Collection("networks")
+	//collection := mongoconn.NetworkDB
+	collection := mongoconn.Client.Database("netmaker").Collection("networks")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
