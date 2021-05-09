@@ -23,19 +23,17 @@ type NodeValidationUpdateTC struct {
 	errorMessage string
 }
 
-func createTestNode() models.Node {
+func createTestNode(t *testing.T) models.Node {
 	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
 	node, err := CreateNode(createnode, "skynet")
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
 	return node
 }
 
 func TestCreateNode(t *testing.T) {
 	deleteNet(t)
-	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
 	createNet()
+	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
 	err := ValidateNodeCreate("skynet", createnode)
 	assert.Nil(t, err)
 	node, err := CreateNode(createnode, "skynet")
@@ -51,7 +49,7 @@ func TestCreateNode(t *testing.T) {
 func TestDeleteNode(t *testing.T) {
 	deleteNet(t)
 	createNet()
-	node := createTestNode()
+	node := createTestNode(t)
 	t.Run("NodeExists", func(t *testing.T) {
 		deleted, err := DeleteNode(node.MacAddress, node.Network)
 		assert.Nil(t, err)
@@ -66,7 +64,7 @@ func TestDeleteNode(t *testing.T) {
 func TestGetNode(t *testing.T) {
 	deleteNet(t)
 	createNet()
-	node := createTestNode()
+	node := createTestNode(t)
 	t.Run("NodeExists", func(t *testing.T) {
 		response, err := GetNode(node.MacAddress, node.Network)
 		assert.Nil(t, err)
@@ -102,7 +100,7 @@ func TestGetNode(t *testing.T) {
 func TestGetPeerList(t *testing.T) {
 	deleteNet(t)
 	createNet()
-	_ = createTestNode()
+	_ = createTestNode(t)
 	//createnode := models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "02:02:03:04:05:06", Password: "password", Network: "skynet"}
 	//_, _ = CreateNode(createnode, "skynet")
 	t.Run("PeerExist", func(t *testing.T) {
@@ -122,7 +120,7 @@ func TestGetPeerList(t *testing.T) {
 func TestNodeCheckIn(t *testing.T) {
 	deleteNet(t)
 	createNet()
-	node := createTestNode()
+	node := createTestNode(t)
 	time.Sleep(time.Second * 1)
 	expectedResponse := models.CheckInResponse{false, false, false, false, false, "", false}
 	t.Run("BadNet", func(t *testing.T) {
@@ -225,7 +223,7 @@ func TestSetNetworkNodesLastModified(t *testing.T) {
 func TestTimestampNode(t *testing.T) {
 	deleteNet(t)
 	createNet()
-	node := createTestNode()
+	node := createTestNode(t)
 	time.Sleep(time.Second * 1)
 	before, err := GetNode(node.MacAddress, node.Network)
 	assert.Nil(t, err)
@@ -261,7 +259,7 @@ func TestTimestampNode(t *testing.T) {
 func TestUpdateNode(t *testing.T) {
 	deleteNet(t)
 	createNet()
-	node := createTestNode()
+	node := createTestNode(t)
 	var update models.NodeUpdate
 	update.MacAddress = "01:02:03:04:05:06"
 	update.Name = "helloworld"

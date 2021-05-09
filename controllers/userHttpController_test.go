@@ -25,6 +25,17 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("could not create config store")
 	}
+	//drop network, nodes, and user collections
+	var collections = []string{"networks", "nodes", "users", "dns"}
+	for _, table := range collections {
+		collection := mongoconn.Client.Database("netmaker").Collection(table)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := collection.Drop(ctx)
+		if err != nil {
+			panic("could not drop collection")
+		}
+	}
 	os.Exit(m.Run())
 }
 
