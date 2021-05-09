@@ -3,11 +3,11 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,11 +36,21 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 		}
 	*/
 	// Cast to ReadNodeRes type
+	dualvar := false
+	if network.IsDualStack != nil {
+		dualvar = *network.IsDualStack
+	}
+	localvar := false
+	if network.IsLocal != nil {
+		localvar = *network.IsLocal
+	}
+
 	response := &nodepb.ReadNodeRes{
 		Node: &nodepb.Node{
 			Macaddress:      node.MacAddress,
 			Name:            node.Name,
 			Address:         node.Address,
+			Address6:        node.Address6,
 			Endpoint:        node.Endpoint,
 			Password:        node.Password,
 			Nodenetwork:     node.Network,
@@ -49,11 +59,13 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Postdown:        node.PostDown,
 			Postup:          node.PostUp,
 			Checkininterval: node.CheckInInterval,
+			Dnsoff:          !servercfg.IsDNSMode(),
 			Ispending:       node.IsPending,
 			Publickey:       node.PublicKey,
 			Listenport:      node.ListenPort,
 			Keepalive:       node.PersistentKeepalive,
-			Islocal:         *network.IsLocal,
+			Islocal:         localvar,
+			Isdualstack:     dualvar,
 			Localrange:      network.LocalRange,
 		},
 	}
@@ -71,6 +83,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 		LocalAddress:        data.GetLocaladdress(),
 		Name:                data.GetName(),
 		Address:             data.GetAddress(),
+		Address6:            data.GetAddress6(),
 		AccessKey:           data.GetAccesskey(),
 		Endpoint:            data.GetEndpoint(),
 		PersistentKeepalive: data.GetKeepalive(),
@@ -97,8 +110,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find network: %v", err))
 	} else {
 		fmt.Println("Creating node in network " + network.NetID)
-		fmt.Println("Network is local? " + strconv.FormatBool(*network.IsLocal))
-		fmt.Println("Range if local: " + network.LocalRange)
 	}
 
 	if !validKey {
@@ -123,6 +134,15 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 			fmt.Sprintf("Internal error: %v", err),
 		)
 	}
+	dualvar := false
+	if network.IsDualStack != nil {
+		dualvar = *network.IsDualStack
+	}
+	localvar := false
+	if network.IsLocal != nil {
+		localvar = *network.IsLocal
+	}
+
 	// return the node in a CreateNodeRes type
 	response := &nodepb.CreateNodeRes{
 		Node: &nodepb.Node{
@@ -130,15 +150,18 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 			Localaddress: node.LocalAddress,
 			Name:         node.Name,
 			Address:      node.Address,
+			Address6:     node.Address6,
 			Endpoint:     node.Endpoint,
 			Password:     node.Password,
 			Interface:    node.Interface,
 			Nodenetwork:  node.Network,
+			Dnsoff:       !servercfg.IsDNSMode(),
 			Ispending:    node.IsPending,
 			Publickey:    node.PublicKey,
 			Listenport:   node.ListenPort,
 			Keepalive:    node.PersistentKeepalive,
-			Islocal:      *network.IsLocal,
+			Islocal:      localvar,
+			Isdualstack:  dualvar,
 			Localrange:   network.LocalRange,
 		},
 	}
@@ -160,6 +183,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 		// ID:       primitive.NilObjectID,
 		MacAddress:          data.GetMacaddress(),
 		Address:             data.GetAddress(),
+		Address6:            data.GetAddress6(),
 		Endpoint:            data.GetEndpoint(),
 		Network:             data.GetNodenetwork(),
 		Password:            data.GetPassword(),
@@ -199,11 +223,12 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	// Get the node data from the request
 	data := req.GetNode()
 	// Now we have to convert this into a NodeItem type to convert into BSON
-	nodechange := models.NodeUpdate{
+	nodechange := models.Node{
 		// ID:       primitive.NilObjectID,
 		MacAddress:          data.GetMacaddress(),
 		Name:                data.GetName(),
 		Address:             data.GetAddress(),
+		Address6:            data.GetAddress6(),
 		LocalAddress:        data.GetLocaladdress(),
 		Endpoint:            data.GetEndpoint(),
 		Password:            data.GetPassword(),
@@ -243,12 +268,22 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 			fmt.Sprintf("Could not find node with supplied Mac Address: %v", err),
 		)
 	}
+	dualvar := false
+	if network.IsDualStack != nil {
+		dualvar = *network.IsDualStack
+	}
+	localvar := false
+	if network.IsLocal != nil {
+		localvar = *network.IsLocal
+	}
+
 	return &nodepb.UpdateNodeRes{
 		Node: &nodepb.Node{
 			Macaddress:   newnode.MacAddress,
 			Localaddress: newnode.LocalAddress,
 			Name:         newnode.Name,
 			Address:      newnode.Address,
+			Address6:     newnode.Address6,
 			Endpoint:     newnode.Endpoint,
 			Password:     newnode.Password,
 			Interface:    newnode.Interface,
@@ -257,9 +292,11 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 			Nodenetwork:  newnode.Network,
 			Ispending:    newnode.IsPending,
 			Publickey:    newnode.PublicKey,
+			Dnsoff:       !servercfg.IsDNSMode(),
 			Listenport:   newnode.ListenPort,
 			Keepalive:    newnode.PersistentKeepalive,
-			Islocal:      *network.IsLocal,
+			Islocal:      localvar,
+			Isdualstack:  dualvar,
 			Localrange:   network.LocalRange,
 		},
 	}, nil
@@ -308,6 +345,7 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 		stream.Send(&nodepb.GetPeersRes{
 			Peers: &nodepb.PeersResponse{
 				Address:      peers[i].Address,
+				Address6:     peers[i].Address6,
 				Endpoint:     peers[i].Endpoint,
 				Gatewayrange: peers[i].GatewayRange,
 				Isgateway:    peers[i].IsGateway,

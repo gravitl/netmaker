@@ -175,6 +175,40 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 	return dns, err
 }
 
+func SetDNS() error {
+	hostfile := txeh.Hosts{}
+	var corefilestring string
+	networks, err := functions.ListNetworks()
+	if err != nil {
+		return err
+	}
+
+	for _, net := range networks {
+		corefilestring = corefilestring + net.NetID + " "
+		dns, err := GetDNS(net.NetID)
+		if err != nil {
+			return err
+		}
+		for _, entry := range dns {
+			hostfile.AddHost(entry.Address, entry.Name+"."+entry.Network)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if corefilestring == "" {
+		corefilestring = "example.com"
+	}
+
+	err = hostfile.SaveAs("./config/dnsconfig/netmaker.hosts")
+	if err != nil {
+		return err
+	}
+	err = functions.SetCorefile(corefilestring)
+
+	return err
+}
+
 func GetDNSEntryNum(domain string, network string) (int, error) {
 
 	num := 0
@@ -418,42 +452,13 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
 
-	err := WriteHosts()
+	err := SetDNS()
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
-}
-
-func WriteHosts() error {
-	//hostfile, err := txeh.NewHostsDefault()
-	hostfile := txeh.Hosts{}
-	/*
-			if err != nil {
-		                return err
-		        }
-	*/
-	networks, err := functions.ListNetworks()
-	if err != nil {
-		return err
-	}
-
-	for _, net := range networks {
-		dns, err := GetDNS(net.NetID)
-		if err != nil {
-			return err
-		}
-		for _, entry := range dns {
-			hostfile.AddHost(entry.Address, entry.Name+"."+entry.Network)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	err = hostfile.SaveAs("./config/netmaker.hosts")
-	return err
 }
 
 func ValidateDNSCreate(entry models.DNSEntry) error {

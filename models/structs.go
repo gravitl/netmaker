@@ -93,6 +93,7 @@ type PeersResponse struct {
 	PublicKey    string `json:"publickey" bson:"publickey"`
 	Endpoint     string `json:"endpoint" bson:"endpoint"`
 	Address      string `json:"address" bson:"address"`
+	Address6     string `json:"address6" bson:"address6"`
 	LocalAddress string `json:"localaddress" bson:"localaddress"`
 	IsGateway    bool   `json:"isgateway" bson:"isgateway"`
 	GatewayRange string `json:"gatewayrange" bson:"gatewayrange"`

@@ -228,7 +228,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	user, err := GetUser(params["username"])
 
 	if err != nil {
-		mongoconn.GetError(err, w)
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
@@ -349,34 +349,26 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
 	var user models.User
-
 	//start here
 	user, err := GetUser(params["username"])
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	var userchange models.User
-
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	user, err = UpdateUser(userchange, user)
-
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
 	json.NewEncoder(w).Encode(user)
 }
 

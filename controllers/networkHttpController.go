@@ -7,16 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
+	"github.com/gravitl/netmaker/servercfg"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -91,7 +90,7 @@ func SecurityCheck(netname, token string) error {
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == config.Config.Server.MasterKey || (tokenString == os.Getenv("MASTER_KEY") && tokenString != "") {
+	if tokenString == servercfg.GetMasterKey() {
 		return true
 	}
 	return false
@@ -598,12 +597,6 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 			return models.AccessKey{}, errors.New("Duplicate AccessKey Name")
 		}
 	}
-
-	_, gconf, err := functions.GetGlobalConfig()
-	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "internal"))
-		return models.AccessKey{}, err
-	}
 	privAddr := ""
 	if network.IsLocal != nil {
 		if *network.IsLocal {
@@ -611,9 +604,10 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		}
 	}
 
-	//netID := params["networkname"]
-	address := gconf.ServerGRPC + gconf.PortGRPC
-	accessstringdec := address + "|" + network.NetID + "|" + accesskey.Value + "|" + privAddr
+	netID := params["networkname"]
+	address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
+
+	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 	//validate accesskey
 	v := validator.New()

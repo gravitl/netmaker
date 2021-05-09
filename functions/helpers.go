@@ -16,6 +16,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
+	"github.com/gravitl/netmaker/servercfg"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -38,21 +39,12 @@ func CreateServerToken(netID string) (string, error) {
 	accesskey.Name = GenKeyName()
 	accesskey.Value = GenKey()
 	accesskey.Uses = 1
-	_, gconf, errG := GetGlobalConfig()
-	if errG != nil {
-		return "", errG
-	}
-	address := "localhost" + gconf.PortGRPC
+	address := "127.0.0.1:" + servercfg.GetGRPCPort()
 
 	privAddr := ""
 	if *network.IsLocal {
 		privAddr = network.LocalRange
 	}
-
-	fmt.Println("Token details:")
-	fmt.Println("    grpc address + port: " + address)
-	fmt.Println("                network: " + netID)
-	fmt.Println("          private range: " + privAddr)
 
 	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 
@@ -131,8 +123,6 @@ func NetworkExists(name string) (bool, error) {
 		if err == mongo.ErrNoDocuments {
 			return false, nil
 		}
-		fmt.Println("ERROR RETRIEVING GROUP!")
-		fmt.Println(err)
 	}
 	return true, err
 }
@@ -529,13 +519,12 @@ func UniqueAddress6(networkName string) (string, error) {
 
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
-	if !*network.IsDualStack {
-		return "", nil
-	}
-
 	if err != nil {
-		fmt.Println("UniqueAddress6 encountered  an error")
-		return "666", err
+		fmt.Println("Network Not Found")
+		return "", err
+	}
+	if network.IsDualStack == nil || *network.IsDualStack == false {
+		return "", nil
 	}
 
 	offset := true
@@ -549,42 +538,13 @@ func UniqueAddress6(networkName string) (string, error) {
 			offset = false
 			continue
 		}
-		if IsIPUnique(networkName, ip.String()) {
+		if IsIP6Unique(networkName, ip.String()) {
 			return ip.String(), err
 		}
 	}
 	//TODO
 	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
-}
-
-//pretty simple get
-func GetGlobalConfig() (bool, models.GlobalConfig, error) {
-
-	create := false
-
-	filter := bson.M{}
-
-	var globalconf models.GlobalConfig
-
-	collection := mongoconn.Client.Database("netmaker").Collection("config")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	err := collection.FindOne(ctx, filter).Decode(&globalconf)
-
-	defer cancel()
-
-	if err == mongo.ErrNoDocuments {
-		fmt.Println("Global config does not exist. Need to create.")
-		create = true
-		return create, globalconf, err
-	} else if err != nil {
-		fmt.Println(err)
-		fmt.Println("Could not get global config")
-		return create, globalconf, err
-	}
-	return create, globalconf, err
 }
 
 //generate an access key value
@@ -645,6 +605,34 @@ func IsIPUnique(network string, ip string) bool {
 	}
 
 	if node.Address == ip {
+		isunique = false
+	}
+	return isunique
+}
+
+//checks if IP is unique in the address range
+//used by UniqueAddress
+func IsIP6Unique(network string, ip string) bool {
+
+	var node models.Node
+
+	isunique := true
+
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	filter := bson.M{"address6": ip, "network": network}
+
+	err := collection.FindOne(ctx, filter).Decode(&node)
+
+	defer cancel()
+
+	if err != nil {
+		fmt.Println(err)
+		return isunique
+	}
+
+	if node.Address6 == ip {
 		isunique = false
 	}
 	return isunique

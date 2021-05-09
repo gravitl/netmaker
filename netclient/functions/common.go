@@ -72,7 +72,7 @@ func GetFreePort(rangestart int32) (int32, error){
         return portno, err
 }
 
-func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string) error {
+func Install(accesskey string, password string, server string, network string, noauto bool, accesstoken string,  inputname string, pubip string, dnsoff bool, ipforward string) error {
 
 	tserver := ""
 	tnetwork := ""
@@ -142,6 +142,9 @@ func Install(accesskey string, password string, server string, network string, n
 	nodecfg := cfg.Node
 	servercfg := cfg.Server
 	fmt.Println("SERVER SETTINGS:")
+
+	nodecfg.DNSOff = dnsoff
+	nodecfg.IPForwarding = ipforward
 
 	if server == "" {
 		if servercfg.Address == "" && tserver == "" {
@@ -252,6 +255,9 @@ func Install(accesskey string, password string, server string, network string, n
 	}
        fmt.Println("     Local Address: " + localaddress)
 
+        if pubip != "" && pubip != "nopubip" {
+                endpoint = pubip
+        } else {
         if nodecfg.Endpoint == "" {
 		if islocal && localaddress != "" {
 			endpoint = localaddress
@@ -269,6 +275,7 @@ func Install(accesskey string, password string, server string, network string, n
                 endpoint = nodecfg.Endpoint
 		fmt.Println("Endpoint set in config. Setting to address: " + endpoint)
         }
+	}
        fmt.Println("     Endpoint: " + endpoint)
 
 
@@ -404,6 +411,7 @@ func Install(accesskey string, password string, server string, network string, n
        fmt.Println("NODE RECIEVED SETTINGS: ")
        fmt.Println("     Password: " + node.Password)
        fmt.Println("     WG Address: " + node.Address)
+       fmt.Println("     WG ipv6 Address: " + node.Address6)
        fmt.Println("     Network: " + node.Nodenetwork)
        fmt.Println("     Public  Endpoint: " + node.Endpoint)
        fmt.Println("     Local Address: " + node.Localaddress)
@@ -416,8 +424,12 @@ func Install(accesskey string, password string, server string, network string, n
        fmt.Println("     Public Key: " + node.Publickey)
        fmt.Println("     Mac Address: " + node.Macaddress)
        fmt.Println("     Is Local?: " + strconv.FormatBool(node.Islocal))
+       fmt.Println("     Is Dual Stack?: " + strconv.FormatBool(node.Isdualstack))
        fmt.Println("     Local Range: " + node.Localrange)
 
+       if node.Dnsoff==true && !nodecfg.DNSOff {
+		nodecfg.DNSOff = true
+	}
 	if !islocal && node.Islocal && node.Localrange != "" {
 		fmt.Println("Resetting local settings for local network.")
 		node.Localaddress, err = getLocalIP(node.Localrange)
@@ -442,7 +454,7 @@ func Install(accesskey string, password string, server string, network string, n
 		}
 	}
 
-	peers, hasGateway, gateways, err := getPeers(node.Macaddress, network, server)
+	peers, hasGateway, gateways, err := getPeers(node.Macaddress, network, server, node.Isdualstack)
 
 	if err != nil {
                 return err
@@ -514,7 +526,7 @@ func getLocalIP(localrange string) (string, error) {
 
 func getPublicIP() (string, error) {
 
-	iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+	iplist := []string{"http://ip.client.gravitl.com","https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
 	endpoint := ""
 	var err error
 	    for _, ipserver := range iplist {
@@ -588,9 +600,19 @@ func modConfig(node *nodepb.Node) error{
         if node.Address != ""{
                 nodecfg.WGAddress = node.Address
         }
+        if node.Address6 != ""{
+                nodecfg.WGAddress6 = node.Address6
+        }
         if node.Postchanges != "" {
                 nodecfg.PostChanges = node.Postchanges
         }
+        if node.Dnsoff == true {
+                nodecfg.DNSOff = node.Dnsoff
+        }
+        if node.Isdualstack == true {
+                nodecfg.IsDualStack = true
+        }
+
         if node.Localrange != "" && node.Islocal {
                 nodecfg.IsLocal = true
                 nodecfg.LocalRange = node.Localrange
@@ -638,6 +660,7 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 
 
 	nodecfg := modcfg.Node
+	servercfg := modcfg.Server
 	fmt.Println("beginning local WG config")
 
 
@@ -659,7 +682,14 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Address == "" {
 		log.Fatal("no address to configure")
 	}
-
+	nameserver := servercfg.Address
+	nameserver = strings.Split(nameserver, ":")[0]
+	network := node.Nodenetwork
+        if nodecfg.Network != "" {
+                network = nodecfg.Network
+        } else if node.Nodenetwork != "" {
+                network = node.Nodenetwork
+        }
         cmdIPDevLinkAdd := &exec.Cmd {
                 Path: ipExec,
                 Args: []string{ ipExec, "link", "add", "dev", ifacename, "type",  "wireguard" },
@@ -672,7 +702,6 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
-
 
          currentiface, err := net.InterfaceByName(ifacename)
 
@@ -733,6 +762,33 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 			fmt.Printf("This is inconvenient: %v", err)
 		}
 	}
+
+	//=========DNS Setup==========\\
+	if nodecfg.DNSOff != true {
+
+	        _, err := exec.LookPath("resolvectl")
+		if err != nil {
+			fmt.Println(err)
+			fmt.Println("WARNING: resolvectl not present. Unable to set dns. Install resolvectl or run manually.")
+		} else {
+			_, err = exec.Command("resolvectl", "domain", ifacename, "~"+network).Output()
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("WARNING: Error encountered setting dns. Aborted setting dns.")
+			} else {
+				_, err = exec.Command("resolvectl", "default-route", ifacename, "false").Output()
+				if err != nil {
+	                                fmt.Println(err)
+	                                fmt.Println("WARNING: Error encountered setting dns. Aborted setting dns.")
+				} else {
+					_, err = exec.Command("resolvectl", "dns", ifacename, nameserver).Output()
+					fmt.Println(err)
+				}
+			}
+		}
+	}
+        //=========End DNS Setup=======\\
+
         cmdIPLinkUp := &exec.Cmd {
                 Path: ipExec,
                 Args: []string{ ipExec, "link", "set", "up", "dev", ifacename},
@@ -773,7 +829,15 @@ func initWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		if err != nil {
                         fmt.Println("Error encountered adding gateway: " + err.Error())
                 }
+		}
 	}
+        if (node.Address6 != "" && node.Isdualstack) {
+		fmt.Println("Adding address: " + node.Address6)
+                out, err := exec.Command(ipExec, "address", "add", "dev", ifacename, node.Address6+"/64").Output()
+                if err != nil {
+                        fmt.Println(out)
+                        fmt.Println("Error encountered adding ipv6: " + err.Error())
+                }
 	}
 	return err
 }
@@ -867,7 +931,7 @@ func setWGConfig(network string) error {
         nodecfg := cfg.Node
         node := getNode(network)
 
-	peers, hasGateway, gateways, err := getPeers(node.Macaddress, nodecfg.Network, servercfg.Address)
+	peers, hasGateway, gateways, err := getPeers(node.Macaddress, nodecfg.Network, servercfg.Address, node.Isdualstack)
         if err != nil {
                 return err
         }
@@ -951,6 +1015,23 @@ func CheckIn(network string) error {
 
 	setupcheck := true
 	ipchange := false
+
+	if !(nodecfg.IPForwarding == "off") {
+		out, err := exec.Command("sysctl", "net.ipv4.ip_forward").Output()
+                 if err != nil {
+	                 fmt.Println(err)
+			 fmt.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
+                 } else {
+                         s := strings.Fields(string(out))
+                         if s[2] != "1" {
+				_, err = exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Output()
+				if err != nil {
+					fmt.Println(err)
+					fmt.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
+				}
+			}
+		}
+	}
 
 	if !nodecfg.RoamingOff {
 		if !nodecfg.IsLocal {
@@ -1220,6 +1301,7 @@ func getNode(network string) nodepb.Node {
 	node.Nodenetwork = nodecfg.Network
 	node.Localaddress = nodecfg.LocalAddress
 	node.Address = nodecfg.WGAddress
+	node.Address6 = nodecfg.WGAddress6
 	node.Listenport = nodecfg.Port
 	node.Keepalive = nodecfg.KeepAlive
 	node.Postup = nodecfg.PostUp
@@ -1228,9 +1310,8 @@ func getNode(network string) nodepb.Node {
 	node.Macaddress = nodecfg.MacAddress
 	node.Endpoint = nodecfg.Endpoint
 	node.Password = nodecfg.Password
-
-	//spew.Dump(node)
-
+	node.Dnsoff = nodecfg.DNSOff
+	node.Isdualstack = nodecfg.IsDualStack
         return node
 }
 
@@ -1371,7 +1452,7 @@ func DeleteInterface(ifacename string, postdown string) error{
         return err
 }
 
-func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerConfig, bool, []string, error) {
+func getPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, bool, []string, error) {
         //need to  implement checkin on server side
 	hasGateway := false
 	var gateways []string
@@ -1470,6 +1551,13 @@ func getPeers(macaddress string, network string, server string) ([]wgtypes.PeerC
 				allowedips = append(allowedips, *ipnet)
 			}
 		}
+                if res.Peers.Address6 != "" && dualstack {
+			var addr6 = net.IPNet{
+	                        IP: net.ParseIP(res.Peers.Address6),
+	                        Mask: net.CIDRMask(128, 128),
+	                }
+                        allowedips = append(allowedips, addr6)
+                }
 		if keepalive != 0 {
 		peer = wgtypes.PeerConfig{
 			PublicKey: pubkey,

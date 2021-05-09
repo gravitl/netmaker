@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
+	"github.com/gravitl/netmaker/servercfg"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
@@ -210,6 +211,9 @@ func UpdateNode(nodechange models.NodeUpdate, node models.Node) (models.Node, er
 	if notifynetwork {
 		errN = SetNetworkNodesLastModified(queryNetwork)
 	}
+	if servercfg.IsDNSMode() {
+		errN = SetDNS()
+	}
 
 	return returnnode, errN
 }
@@ -236,6 +240,9 @@ func DeleteNode(macaddress string, network string) (bool, error) {
 
 	err = SetNetworkNodesLastModified(network)
 	fmt.Println("Deleted node " + macaddress + " from network " + network)
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
 
 	return deleted, err
 }
@@ -279,16 +286,12 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	//Anyways, this scrolls through all the IP Addresses in the network range and checks against nodes
 	//until one is open and then returns it
 	node.Address, err = functions.UniqueAddress(networkName)
-	fmt.Println("Setting node address: " + node.Address)
 	if err != nil {
 		return node, err
 	}
-	fmt.Println("Setting node address: " + node.Address)
 
 	node.Address6, err = functions.UniqueAddress6(networkName)
-	if node.Address6 != "" {
-		fmt.Println("Setting node ipv6 address: " + node.Address6)
-	}
+
 	if err != nil {
 		return node, err
 	}
@@ -330,7 +333,9 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	}
 
 	SetNetworkNodesLastModified(node.Network)
-
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
 	return node, err
 }
 
