@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"io/ioutil"
 	"testing"
 
 	"github.com/gravitl/netmaker/models"
@@ -66,18 +65,7 @@ func TestDeleteDNS(t *testing.T) {
 	})
 
 }
-func TestWriteHosts(t *testing.T) {
-	err := WriteHosts()
-	assert.Nil(t, err)
-	files, err := ioutil.ReadDir("./config")
-	assert.Nil(t, err)
-	for _, file := range files {
-		if file.Name() == "netmaker.hosts" {
-			return
-		}
-	}
-	t.Fail()
-}
+
 func TestValidateDNSUpdate(t *testing.T) {
 	entry := models.DNSEntry{"10.0.0.2", "myhost", "skynet"}
 	_, _ = DeleteDNS("mynode", "skynet")

@@ -604,14 +604,14 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		}
 	}
 
-	netID := params["networkname"]
+	netID := network.NetID
 	address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
 
 	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 	//validate accesskey
 	v := validator.New()
-	err = v.Struct(accesskey)
+	err := v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
 			fmt.Println(e)

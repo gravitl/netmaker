@@ -223,7 +223,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	// Get the node data from the request
 	data := req.GetNode()
 	// Now we have to convert this into a NodeItem type to convert into BSON
-	nodechange := models.Node{
+	nodechange := models.NodeUpdate{
 		// ID:       primitive.NilObjectID,
 		MacAddress:          data.GetMacaddress(),
 		Name:                data.GetName(),
