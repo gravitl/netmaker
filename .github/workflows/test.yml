@@ -19,5 +19,4 @@ jobs:
         uses: actions/checkout@v2
       - name: run tests
         run: |
-            go test ./test -v
-            go test ./controllers -v
+            go test -p 1 ./... -v
