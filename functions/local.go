@@ -1,36 +1,39 @@
 package functions
 
 import (
-        "fmt"
-	"path/filepath"
-        "log"
-        "os"
+	"fmt"
 	"io/ioutil"
+	"log"
+	"os"
 )
 
-
 func FileExists(f string) bool {
-    info, err := os.Stat(f)
-    if os.IsNotExist(err) {
-        return false
-    }
-    return !info.IsDir()
+	info, err := os.Stat(f)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
 
 func SetCorefile(domains string) error {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	//does not work when executing tests
+	//dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	//if err != nil {
+	//	return err
+	//}
+	dir, err := os.Getwd()
 	if err != nil {
-            return err
+		return err
 	}
 	_, err = os.Stat(dir + "/config/dnsconfig")
-        if os.IsNotExist(err) {
-                os.Mkdir(dir +"/config/dnsconfig", 744)
-        } else if err != nil {
-                fmt.Println("couldnt find or create /config/dnsconfig")
-                return err
-        }
+	if os.IsNotExist(err) {
+		os.Mkdir(dir+"/config/dnsconfig", 744)
+	} else if err != nil {
+		fmt.Println("couldnt find or create /config/dnsconfig")
+		return err
+	}
 
-		corefile := domains + ` {
+	corefile := domains + ` {
     reload 15s
     hosts /root/dnsconfig/netmaker.hosts {
 	fallthrough	
@@ -39,13 +42,13 @@ func SetCorefile(domains string) error {
     log
 }
 `
-		corebytes := []byte(corefile)
+	corebytes := []byte(corefile)
 
-		err = ioutil.WriteFile(dir + "/config/dnsconfig/Corefile", corebytes, 0644)
-		if err != nil {
-			log.Println(err)
-			log.Println("")
-			return err
-		}
+	err = ioutil.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
+	if err != nil {
+		log.Println(err)
+		log.Println("")
+		return err
+	}
 	return err
 }

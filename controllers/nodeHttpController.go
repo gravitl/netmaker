@@ -243,44 +243,8 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	var nodes []models.ReturnNode
 	var params = mux.Vars(r)
-
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"network": params["network"]}
-
-	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
-	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
-
+	nodes, err := GetNetworkNodes(params["network"])
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	defer cancel()
-
-	for cur.Next(context.TODO()) {
-
-		//Using a different model for the ReturnNode (other than regular node).
-		//Either we should do this for ALL structs (so Networks and Keys)
-		//OR we should just use the original struct
-		//My preference is to make some new return structs
-		//TODO: Think about this. Not an immediate concern. Just need to get some consistency eventually
-		var node models.ReturnNode
-
-		err := cur.Decode(&node)
-		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
-
-		// add item our array of nodes
-		nodes = append(nodes, node)
-	}
-
-	//TODO: Another fatal error we should take care of.
-	if err := cur.Err(); err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -288,52 +252,52 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	//Returns all the nodes in JSON format
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
+}
 
+func GetNetworkNodes(network string) ([]models.ReturnNode, error) {
+	var nodes []models.ReturnNode
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	filter := bson.M{"network": network}
+	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
+	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
+	if err != nil {
+		return []models.ReturnNode{}, err
+	}
+	defer cancel()
+	for cur.Next(context.TODO()) {
+		//Using a different model for the ReturnNode (other than regular node).
+		//Either we should do this for ALL structs (so Networks and Keys)
+		//OR we should just use the original struct
+		//My preference is to make some new return structs
+		//TODO: Think about this. Not an immediate concern. Just need to get some consistency eventually
+		var node models.ReturnNode
+		err := cur.Decode(&node)
+		if err != nil {
+			return []models.ReturnNode{}, err
+		}
+		// add item our array of nodes
+		nodes = append(nodes, node)
+	}
+	//TODO: Another fatal error we should take care of.
+	if err := cur.Err(); err != nil {
+		return []models.ReturnNode{}, err
+	}
+	return nodes, nil
 }
 
 //A separate function to get all nodes, not just nodes for a particular network.
 //Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
-
-	var nodes []models.ReturnNode
-
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Filter out them ID's again
-	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+	nodes, err := functions.GetAllNodes()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	defer cancel()
-
-	for cur.Next(context.TODO()) {
-
-		var node models.ReturnNode
-		err := cur.Decode(&node)
-		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
-		// add node to our array
-		nodes = append(nodes, node)
-	}
-
-	//TODO: Fatal error
-	if err := cur.Err(); err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
 	//Return all the nodes in JSON format
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
-
 }
 
 //This function get's called when a node "checks in" at check in interval
@@ -353,49 +317,43 @@ func checkIn(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-
-	var node models.Node
-
-	//Retrieves node with DB Call which is inefficient. Let's just get the time and set it.
-	//node = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
-
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
-
-	//old code was inefficient, this is all we need.
-	time := time.Now().Unix()
-
-	//node.SetLastCheckIn()
-
-	// prepare update model with new time
-	update := bson.D{
-		{"$set", bson.D{
-			{"lastcheckin", time},
-		}},
-	}
-
-	err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
-
-	defer cancel()
-
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	//TODO: check node last modified vs network last modified
-	//Get Updated node to return
-	node, err = GetNode(params["macaddress"], params["network"])
+	node, err := CheckIn(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+}
+func CheckIn(network, macaddress string) (models.Node, error) {
+	var node models.Node
 
+	//Retrieves node with DB Call which is inefficient. Let's just get the time and set it.
+	//node = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	filter := bson.M{"macaddress": macaddress, "network": network}
+	//old code was inefficient, this is all we need.
+	time := time.Now().Unix()
+	//node.SetLastCheckIn()
+	// prepare update model with new time
+	update := bson.D{
+		{"$set", bson.D{
+			{"lastcheckin", time},
+		}},
+	}
+	err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
+	defer cancel()
+	if err != nil {
+		return models.Node{}, err
+	}
+	//TODO: check node last modified vs network last modified
+	//Get Updated node to return
+	node, err = GetNode(macaddress, network)
+	if err != nil {
+		return models.Node{}, err
+	}
+	return node, nil
 }
 
 //Get an individual node. Nothin fancy here folks.
@@ -422,26 +380,28 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	var network models.Network
 	var params = mux.Vars(r)
-
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"netid": params["network"]}
-	err := collection.FindOne(ctx, filter).Decode(&network)
-
-	defer cancel()
-
+	network, err := GetLastModified(params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(string(network.NodesLastModified)))
+	json.NewEncoder(w).Encode(network.NodesLastModified)
+}
 
+func GetLastModified(network string) (models.Network, error) {
+	var net models.Network
+	collection := mongoconn.Client.Database("netmaker").Collection("networks")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	filter := bson.M{"netid": network}
+	err := collection.FindOne(ctx, filter).Decode(&net)
+	defer cancel()
+	if err != nil {
+		fmt.Println(err)
+		return models.Network{}, err
+	}
+	return net, nil
 }
 
 //This one's a doozy
@@ -527,57 +487,47 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 //Takes node out of pending state
 //TODO: May want to use cordon/uncordon terminology instead of "ispending".
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
-	var node models.Node
-
-	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	w.Header().Set("Content-Type", "application/json")
+	node, err := UncordonNode(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	fmt.Println("Node " + node.Name + " uncordoned.")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode("SUCCESS")
+}
 
+func UncordonNode(network, macaddress string) (models.Node, error) {
+	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	// Create filter
-	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
-
+	filter := bson.M{"macaddress": macaddress, "network": network}
 	node.SetLastModified()
-
 	fmt.Println("Uncordoning node " + node.Name)
-
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
 			{"ispending", false},
 		}},
 	}
-
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
-
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-
-	fmt.Println("Node " + node.Name + " uncordoned.")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("SUCCESS")
+	return node, nil
 }
 
 func createGateway(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-
 	var gateway models.GatewayRequest
-
+	var params = mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewDecoder(r.Body).Decode(&gateway)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -585,21 +535,25 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["macaddress"]
-
-	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	node, err := CreateGateway(gateway)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
 
-	err = validateGateway(gateway)
+func CreateGateway(gateway models.GatewayRequest) (models.Node, error) {
+	node, err := functions.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-
+	err = ValidateGateway(gateway)
+	if err != nil {
+		return models.Node{}, err
+	}
 	var nodechange models.Node
-
 	nodechange.IsGateway = true
 	nodechange.GatewayRange = gateway.RangeString
 	if gateway.PostUp == "" {
@@ -614,14 +568,10 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	// Create filter
-	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
-
+	filter := bson.M{"macaddress": gateway.NodeID, "network": gateway.NetID}
 	nodechange.SetLastModified()
-
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
@@ -633,33 +583,24 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		}},
 	}
 	var nodeupdate models.Node
-
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
-
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-
-	err = SetNetworkNodesLastModified(params["network"])
+	err = SetNetworkNodesLastModified(gateway.NetID)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-
 	//Get updated values to return
-	node, err = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	node, err = functions.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	return node, nil
 }
 
-func validateGateway(gateway models.GatewayRequest) error {
+func ValidateGateway(gateway models.GatewayRequest) error {
 	var err error
 	isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := gateway.RangeString == ""
@@ -675,16 +616,24 @@ func validateGateway(gateway models.GatewayRequest) error {
 
 func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
-	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	node, err := DeleteGateway(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
 
+func DeleteGateway(network, macaddress string) (models.Node, error) {
+
+	var nodeupdate models.Node
 	var nodechange models.Node
+	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
 
 	nodechange.IsGateway = false
 	nodechange.GatewayRange = ""
@@ -692,14 +641,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	nodechange.PostDown = ""
 
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	// Create filter
-	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
-
+	filter := bson.M{"macaddress": macaddress, "network": network}
 	nodechange.SetLastModified()
-
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
@@ -710,32 +655,21 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 			{"lastmodified", nodechange.LastModified},
 		}},
 	}
-	var nodeupdate models.Node
-
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
-
 	defer cancel()
-
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-
-	err = SetNetworkNodesLastModified(params["network"])
+	err = SetNetworkNodesLastModified(network)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-
 	//Get updated values to return
-	node, err = functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	node, err = functions.GetNodeByMacAddress(network, macaddress)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
+		return models.Node{}, err
 	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	return node, nil
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -755,7 +689,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var nodechange models.Node
+	var nodechange models.NodeUpdate
 
 	// we decode our body request params
 	_ = json.NewDecoder(r.Body).Decode(&nodechange)

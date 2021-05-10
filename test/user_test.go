@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -38,11 +39,9 @@ func TestAdminCreation(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
-		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: Admin already exists! ", message.Message)
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+		assert.Equal(t, "Admin already Exists", message.Message)
 	})
-
 }
 
 func TestGetUser(t *testing.T) {
@@ -70,12 +69,13 @@ func TestGetUser(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: Error Verifying Auth Token.", message.Message)
+		assert.Equal(t, "Error Verifying Auth Token", message.Message)
 
 	})
 }
 
 func TestUpdateUser(t *testing.T) {
+	deleteAdmin(t)
 	if !adminExists(t) {
 		addAdmin(t)
 	}
@@ -92,7 +92,7 @@ func TestUpdateUser(t *testing.T) {
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: Error Verifying Auth Token.", message.Message)
+		assert.Equal(t, "Error Verifying Auth Token", message.Message)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 	})
 	t.Run("UpdateSuccess", func(t *testing.T) {
@@ -107,6 +107,18 @@ func TestUpdateUser(t *testing.T) {
 		assert.Equal(t, true, user.IsAdmin)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 	})
+	t.Run("ShortPassword", func(t *testing.T) {
+		admin.UserName = "user"
+		admin.Password = "123"
+		response, err := api(t, admin, http.MethodPut, "http://localhost:8081/api/users/admin", token)
+		assert.Nil(t, err, err)
+		defer response.Body.Close()
+		message, err := ioutil.ReadAll(response.Body)
+		assert.Nil(t, err, err)
+		assert.Contains(t, string(message), "Field validation for 'Password' failed")
+		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+
 }
 
 func TestDeleteUser(t *testing.T) {
@@ -123,7 +135,7 @@ func TestDeleteUser(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		var message models.ErrorResponse
 		json.NewDecoder(response.Body).Decode(&message)
-		assert.Equal(t, "W1R3: Error Verifying Auth Token.", message.Message)
+		assert.Equal(t, "Error Verifying Auth Token", message.Message)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 	})
 	t.Run("DeleteUser-ValidCredentials", func(t *testing.T) {
@@ -155,7 +167,7 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "password",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "W1R3: User invaliduser not found.",
+			errMessage:    "User invaliduser not found",
 		},
 		AuthorizeTestCase{
 			testname:      "empty user",
@@ -163,7 +175,7 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "password",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "W1R3: Username can't be empty",
+			errMessage:    "Username can't be empty",
 		},
 		AuthorizeTestCase{
 			testname:      "empty password",
@@ -171,15 +183,15 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "W1R3: Password can't be empty",
+			errMessage:    "Password can't be empty",
 		},
 		AuthorizeTestCase{
 			testname:      "Invalid Password",
 			name:          "admin",
 			password:      "xxxxxxx",
-			code:          http.StatusUnauthorized,
+			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "W1R3: Wrong Password.",
+			errMessage:    "Wrong Password",
 		},
 		AuthorizeTestCase{
 			testname:      "Valid User",

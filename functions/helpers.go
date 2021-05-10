@@ -435,16 +435,15 @@ func NameInNetworkCharSet(name string) bool {
 
 func NameInDNSCharSet(name string) bool {
 
-        charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
 
-        for _, char := range name {
-                if !strings.Contains(charset, strings.ToLower(string(char))) {
-                        return false
-                }
-        }
-        return true
+	for _, char := range name {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
 }
-
 
 func NameInNodeCharSet(name string) bool {
 
@@ -518,34 +517,34 @@ func UniqueAddress(networkName string) (string, error) {
 
 func UniqueAddress6(networkName string) (string, error) {
 
-        var network models.Network
-        network, err := GetParentNetwork(networkName)
-        if err != nil {
-                fmt.Println("Network Not Found")
-                return "", err
-        }
+	var network models.Network
+	network, err := GetParentNetwork(networkName)
+	if err != nil {
+		fmt.Println("Network Not Found")
+		return "", err
+	}
 	if network.IsDualStack == nil || *network.IsDualStack == false {
 		return "", nil
 	}
 
-        offset := true
-        ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
-        if err != nil {
-                fmt.Println("UniqueAddress6 encountered  an error")
-                return "666", err
-        }
-        for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
-                if offset {
-                        offset = false
-                        continue
-                }
-                if IsIP6Unique(networkName, ip.String()) {
-                        return ip.String(), err
-                }
-        }
-        //TODO
-        err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
-        return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
+	offset := true
+	ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
+	if err != nil {
+		fmt.Println("UniqueAddress6 encountered  an error")
+		return "666", err
+	}
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
+		if offset {
+			offset = false
+			continue
+		}
+		if IsIP6Unique(networkName, ip.String()) {
+			return ip.String(), err
+		}
+	}
+	//TODO
+	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
+	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
 //generate an access key value
@@ -580,7 +579,7 @@ func GenKeyName() string {
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
-	return "key-" + string(b)
+	return "key" + string(b)
 }
 
 //checks if IP is unique in the address range
@@ -615,30 +614,29 @@ func IsIPUnique(network string, ip string) bool {
 //used by UniqueAddress
 func IsIP6Unique(network string, ip string) bool {
 
-        var node models.Node
+	var node models.Node
 
-        isunique := true
+	isunique := true
 
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"address6": ip, "network": network}
+	filter := bson.M{"address6": ip, "network": network}
 
-        err := collection.FindOne(ctx, filter).Decode(&node)
+	err := collection.FindOne(ctx, filter).Decode(&node)
 
-        defer cancel()
+	defer cancel()
 
-        if err != nil {
-                fmt.Println(err)
-                return isunique
-        }
+	if err != nil {
+		fmt.Println(err)
+		return isunique
+	}
 
-        if node.Address6 == ip {
-                isunique = false
-        }
-        return isunique
+	if node.Address6 == ip {
+		isunique = false
+	}
+	return isunique
 }
-
 
 //called once key has been used by createNode
 //reduces value by one and deletes if necessary
@@ -722,4 +720,31 @@ func Inc(ip net.IP) {
 			break
 		}
 	}
+}
+
+func GetAllNodes() ([]models.ReturnNode, error) {
+	var node models.ReturnNode
+	var nodes []models.ReturnNode
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Filter out them ID's again
+	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+	if err != nil {
+		return []models.ReturnNode{}, err
+	}
+	defer cancel()
+	for cur.Next(context.TODO()) {
+		err := cur.Decode(&node)
+		if err != nil {
+			return []models.ReturnNode{}, err
+		}
+		// add node to our array
+		nodes = append(nodes, node)
+	}
+
+	//TODO: Fatal error
+	if err := cur.Err(); err != nil {
+		return []models.ReturnNode{}, err
+	}
+	return nodes, nil
 }
