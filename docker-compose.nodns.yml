@@ -22,9 +22,6 @@ services:
     depends_on:
       - mongodb
     image: gravitl/netmaker:v0.3
-    ports:
-      - "8081:8081"
-      - "50051:50051"
     volumes:
       - ./:/local
       - /etc/netclient:/etc/netclient
@@ -39,6 +36,9 @@ services:
       - SYS_MODULE
     restart: always
     network_mode: host
+    environment:
+      CLIENT_MODE: "off"
+      DNS_MODE: "off
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
@@ -49,18 +49,7 @@ services:
     ports:
       - "80:80"
     environment:
-      BACKEND_URL: "http://3.236.149.180:8081"
-  coredns:
-    depends_on:
-      - netmaker 
-    image: coredns/coredns
-    command: -conf /root/dnsconfig/Corefile
-    container_name: coredns
-    restart: always
-    ports:
-      - "53:53/udp"
-    volumes:
-      - dnsconfig:/root/dnsconfig
+      BACKEND_URL: "http://your-backend:8081"
 volumes:
   mongovol: {}
   dnsconfig: {}
