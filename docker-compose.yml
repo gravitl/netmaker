@@ -18,9 +18,6 @@ services:
     depends_on:
       - mongodb
     image: gravitl/netmaker:v0.3
-    ports:
-      - "8081:8081"
-      - "50051:50051"
     volumes:
       - ./:/local
       - /etc/netclient:/etc/netclient
@@ -45,7 +42,7 @@ services:
     ports:
       - "80:80"
     environment:
-      BACKEND_URL: "http://3.236.149.180:8081"
+      BACKEND_URL: "http://your-ip:8081"
   coredns:
     depends_on:
       - netmaker 
