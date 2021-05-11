@@ -18,7 +18,6 @@ services:
   netmaker:
     privileged: true
     container_name: netmaker
-    build: netmaker
     depends_on:
       - mongodb
     image: gravitl/netmaker:v0.3
@@ -38,7 +37,7 @@ services:
     network_mode: host
     environment:
       CLIENT_MODE: "off"
-      DNS_MODE: "off
+      DNS_MODE: "off"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
