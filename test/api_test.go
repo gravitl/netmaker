@@ -120,6 +120,7 @@ func createNetwork(t *testing.T) {
 	network.AddressRange = "10.71.0.0/16"
 	response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
 	assert.Nil(t, err, err)
+	t.Log(err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 }
 
@@ -137,6 +138,8 @@ func createKey(t *testing.T) {
 }
 
 func createAccessKey(t *testing.T) (key models.AccessKey) {
+	//delete existing key if
+	_, _ = api(t, "", http.MethodDelete, baseURL+"/api/networks/skynet/keys/skynet", "secretkey")
 	createkey := models.AccessKey{}
 	createkey.Name = "skynet"
 	createkey.Uses = 10
@@ -221,7 +224,6 @@ func createNode(t *testing.T) {
 	node.Name = "myNode"
 	node.PublicKey = "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34="
 	node.Password = "tobedetermined"
-	node.LocalAddress = "192.168.0.1"
 	node.Endpoint = "10.100.100.4"
 	response, err := api(t, node, http.MethodPost, "http://localhost:8081:/api/nodes/skynet", "secretkey")
 	assert.Nil(t, err, err)

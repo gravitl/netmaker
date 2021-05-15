@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/functions"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
+	"github.com/gravitl/netmaker/servercfg"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/go-playground/validator.v9"
 )
 
 func GetPeersList(networkName string) ([]models.PeersResponse, error) {
@@ -60,61 +59,15 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 }
 
 func ValidateNodeCreate(networkName string, node models.Node) error {
-
 	v := validator.New()
-	_ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
-		isIpv4 := functions.IsIpNet(node.Address)
-		empty := node.Address == ""
-		return (empty || isIpv4)
-	})
-        _ = v.RegisterValidation("address6_check", func(fl validator.FieldLevel) bool {
-                isIpv6 := functions.IsIpNet(node.Address6)
-                empty := node.Address6 == ""
-                return (empty || isIpv6)
-        })
-	_ = v.RegisterValidation("endpoint_check", func(fl validator.FieldLevel) bool {
-		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-		isIp := functions.IsIpNet(node.Endpoint)
-		notEmptyCheck := node.Endpoint != ""
-		return (notEmptyCheck && isIp)
-	})
-	_ = v.RegisterValidation("localaddress_check", func(fl validator.FieldLevel) bool {
-		//var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-		isIp := functions.IsIpNet(node.LocalAddress)
-		empty := node.LocalAddress == ""
-		return (empty || isIp)
-	})
-
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
 		var isFieldUnique bool = functions.IsFieldUnique(networkName, "macaddress", node.MacAddress)
 		return isFieldUnique
 	})
-
-	_ = v.RegisterValidation("macaddress_valid", func(fl validator.FieldLevel) bool {
-		_, err := net.ParseMAC(node.MacAddress)
-		return err == nil
-	})
-
-	_ = v.RegisterValidation("name_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.NameInNodeCharSet(node.Name)
-		return isvalid
-	})
-
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := node.GetNetwork()
 		return err == nil
 	})
-	_ = v.RegisterValidation("pubkey_check", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := node.PublicKey != ""
-		isBase64 := functions.IsBase64(node.PublicKey)
-		return (notEmptyCheck && isBase64)
-	})
-	_ = v.RegisterValidation("password_check", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := node.Password != ""
-		goodLength := len(node.Password) > 5
-		return (notEmptyCheck && goodLength)
-	})
-
 	err := v.Struct(node)
 
 	if err != nil {
@@ -125,71 +78,22 @@ func ValidateNodeCreate(networkName string, node models.Node) error {
 	return err
 }
 
-func ValidateNodeUpdate(networkName string, node models.Node) error {
-
-        v := validator.New()
-        _ = v.RegisterValidation("address_check", func(fl validator.FieldLevel) bool {
-                isIpv4 := functions.IsIpNet(node.Address)
-                empty := node.Address == ""
-                return (empty || isIpv4)
-        })
-        _ = v.RegisterValidation("address6_check", func(fl validator.FieldLevel) bool {
-                isIpv6 := functions.IsIpNet(node.Address6)
-                empty := node.Address6 == ""
-                return (empty || isIpv6)
-        })
-        _ = v.RegisterValidation("endpoint_check", func(fl validator.FieldLevel) bool {
-                //var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-                isIp := functions.IsIpNet(node.Address)
-		empty := node.Endpoint == ""
-                return (empty || isIp)
-        })
-        _ = v.RegisterValidation("localaddress_check", func(fl validator.FieldLevel) bool {
-                //var isFieldUnique bool = functions.IsFieldUnique(networkName, "endpoint", node.Endpoint)
-                isIp := functions.IsIpNet(node.LocalAddress)
-                empty := node.LocalAddress == ""
-                return (empty || isIp )
-        })
-        _ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
-                return true
-        })
-
-        _ = v.RegisterValidation("macaddress_valid", func(fl validator.FieldLevel) bool {
-                _, err := net.ParseMAC(node.MacAddress)
-                return err == nil
-        })
-
-        _ = v.RegisterValidation("name_valid", func(fl validator.FieldLevel) bool {
-                isvalid := functions.NameInNodeCharSet(node.Name)
-                return isvalid
-        })
-
-        _ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-                _, err := node.GetNetwork()
-                return err == nil
-        })
-        _ = v.RegisterValidation("pubkey_check", func(fl validator.FieldLevel) bool {
-                empty := node.PublicKey == ""
-                isBase64 := functions.IsBase64(node.PublicKey)
-                return (empty || isBase64)
-        })
-        _ = v.RegisterValidation("password_check", func(fl validator.FieldLevel) bool {
-                empty := node.Password == ""
-                goodLength := len(node.Password) > 5
-                return (empty || goodLength)
-        })
-
-        err := v.Struct(node)
-
-        if err != nil {
-                for _, e := range err.(validator.ValidationErrors) {
-                        fmt.Println(e)
-                }
-        }
-        return err
+func ValidateNodeUpdate(networkName string, node models.NodeUpdate) error {
+	v := validator.New()
+	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
+		_, err := node.GetNetwork()
+		return err == nil
+	})
+	err := v.Struct(node)
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			fmt.Println(e)
+		}
+	}
+	return err
 }
 
-func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
+func UpdateNode(nodechange models.NodeUpdate, node models.Node) (models.Node, error) {
 	//Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
 	//Eventually, lets have a better way to check if any of the fields are filled out...
 	queryMac := node.MacAddress
@@ -200,10 +104,10 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
 		node.Address = nodechange.Address
 		notifynetwork = true
 	}
-        if nodechange.Address6 != "" {
-                node.Address6 = nodechange.Address6
-                notifynetwork = true
-        }
+	if nodechange.Address6 != "" {
+		node.Address6 = nodechange.Address6
+		notifynetwork = true
+	}
 	if nodechange.Name != "" {
 		node.Name = nodechange.Name
 	}
@@ -307,9 +211,9 @@ func UpdateNode(nodechange models.Node, node models.Node) (models.Node, error) {
 	if notifynetwork {
 		errN = SetNetworkNodesLastModified(queryNetwork)
 	}
-        if servercfg.IsDNSMode() {
+	if servercfg.IsDNSMode() {
 		errN = SetDNS()
-        }
+	}
 
 	return returnnode, errN
 }
@@ -336,9 +240,9 @@ func DeleteNode(macaddress string, network string) (bool, error) {
 
 	err = SetNetworkNodesLastModified(network)
 	fmt.Println("Deleted node " + macaddress + " from network " + network)
-        if servercfg.IsDNSMode() {
-                err = SetDNS()
-        }
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
 
 	return deleted, err
 }
@@ -386,10 +290,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 		return node, err
 	}
 
-        node.Address6, err = functions.UniqueAddress6(networkName)
+	node.Address6, err = functions.UniqueAddress6(networkName)
+
 	if err != nil {
-                return node, err
-        }
+		return node, err
+	}
 
 	//IDK why these aren't a part of "set defaults. Pretty dumb.
 	//TODO: This is dumb. Consolidate and fix.
