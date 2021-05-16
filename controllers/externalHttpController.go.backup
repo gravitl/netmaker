@@ -1,0 +1,233 @@
+package controller
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	// "fmt"
+	"net/http"
+	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mongoconn"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	// "github.com/skip2/go-qrcode"
+)
+
+func externalHandlers(r *mux.Router) {
+
+	r.HandleFunc("/api/externals", securityCheck(http.HandlerFunc(getAllExternals))).Methods("GET")
+	r.HandleFunc("/api/externals/{network}", securityCheck(http.HandlerFunc(getNetworkExternals))).Methods("GET")
+	r.HandleFunc("/api/externals/{network}/{clientid}", securityCheck(http.HandlerFunc(getExternal))).Methods("GET")
+	r.HandleFunc("/api/externals/{network}/{clientid}/qr", securityCheck(http.HandlerFunc(getExternal))).Methods("GET")
+	r.HandleFunc("/api/externals/{network}/{ingressgateway}", securityCheck(http.HandlerFunc(getExternal))).Methods("GET")
+	r.HandleFunc("/api/externals/{network}/{clientid}", securityCheck(http.HandlerFunc(updateExternal))).Methods("PUT")
+	r.HandleFunc("/api/externals/{network}/{clientid}", securityCheck(http.HandlerFunc(deleteExternal))).Methods("DELETE")
+	r.HandleFunc("/api/externals/{network}", securityCheck(http.HandlerFunc(createExternal))).Methods("POST")
+}
+
+//Gets all nodes associated with network, including pending nodes
+func getNetworkExternals(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var nodes []models.External
+	var params = mux.Vars(r)
+	nodes, err := GetNetworkExternals(params["network"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	//Returns all the nodes in JSON format
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(nodes)
+}
+
+func GetNetworkExternals(network string) ([]models.External, error) {
+	var nodes []models.External
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	filter := bson.M{"network": network}
+	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
+	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
+	if err != nil {
+		return []models.External{}, err
+	}
+	defer cancel()
+	for cur.Next(context.TODO()) {
+		//Using a different model for the ReturnExternal (other than regular node).
+		//Either we should do this for ALL structs (so Networks and Keys)
+		//OR we should just use the original struct
+		//My preference is to make some new return structs
+		//TODO: Think about this. Not an immediate concern. Just need to get some consistency eventually
+		var node models.External
+		err := cur.Decode(&node)
+		if err != nil {
+			return []models.External{}, err
+		}
+		// add item our array of nodes
+		nodes = append(nodes, node)
+	}
+	//TODO: Another fatal error we should take care of.
+	if err := cur.Err(); err != nil {
+		return []models.External{}, err
+	}
+	return nodes, nil
+}
+
+//A separate function to get all nodes, not just nodes for a particular network.
+//Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
+func getAllExternals(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	nodes, err := functions.GetAllExternals()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	//Return all the nodes in JSON format
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(nodes)
+}
+
+//Get an individual node. Nothin fancy here folks.
+func getExternal(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+
+	var node models.Node
+
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	filter := bson.M{"macaddress": params["macaddress"], "network": params["network"]}
+	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&node)
+
+	defer cancel()
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
+
+//This one's a doozy
+//To create a node
+//Must have valid key and be unique
+func createExternal(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+
+	var errorResponse = models.ErrorResponse{
+		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+	}
+
+	networkName := params["network"]
+
+	//Check if network exists  first
+	//TODO: This is inefficient. Let's find a better way.
+	//Just a few rows down we grab the network anyway
+	networkexists, err := functions.NetworkExists(networkName)
+
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	} else if !networkexists {
+		errorResponse = models.ErrorResponse{
+			Code: http.StatusNotFound, Message: "W1R3: Network does not exist! ",
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+	}
+
+	var external models.External
+
+	//get node from body of request
+	err = json.NewDecoder(r.Body).Decode(&external)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	err = ValidateExternalCreate(external)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+
+	node, err = CreateExternal(node, networkName)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
+
+func updateExternal(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+
+	//Get id from parameters
+	//id, _ := primitive.ObjectIDFromHex(params["id"])
+
+	var node models.External
+
+	//start here
+	node, err := functions.GetExternalByMacAddress(params["network"], params["macaddress"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	var nodechange models.ExternalUpdate
+
+	// we decode our body request params
+	_ = json.NewDecoder(r.Body).Decode(&nodechange)
+	if nodechange.Network == "" {
+		nodechange.Network = node.Network
+	}
+	if nodechange.MacAddress == "" {
+		nodechange.MacAddress = node.MacAddress
+	}
+	err = ValidateExternalUpdate(params["network"], nodechange)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+
+	node, err = UpdateExternal(nodechange, node)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
+
+//Delete a node
+//Pretty straightforward
+func deleteExternal(w http.ResponseWriter, r *http.Request) {
+	// Set header
+	w.Header().Set("Content-Type", "application/json")
+
+	// get params
+	var params = mux.Vars(r)
+
+	success, err := DeleteExternal(params["macaddress"], params["network"])
+
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	} else if !success {
+		err = errors.New("Could not delete node " + params["macaddress"])
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	returnSuccessResponse(w, r, params["macaddress"]+" deleted.")
+}

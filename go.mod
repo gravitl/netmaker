@@ -8,6 +8,7 @@ require (
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/txn2/txeh v1.3.0
 	go.mongodb.org/mongo-driver v1.4.3

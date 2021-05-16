@@ -28,6 +28,8 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/createingress", securityCheck(http.HandlerFunc(createIngress))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleteingress", securityCheck(http.HandlerFunc(deleteIngress))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
@@ -653,6 +655,97 @@ func DeleteGateway(network, macaddress string) (models.Node, error) {
 			{"isgateway", nodechange.IsGateway},
 			{"gatewayrange", nodechange.GatewayRange},
 			{"lastmodified", nodechange.LastModified},
+		}},
+	}
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
+	defer cancel()
+	if err != nil {
+		return models.Node{}, err
+	}
+	err = SetNetworkNodesLastModified(network)
+	if err != nil {
+		return models.Node{}, err
+	}
+	//Get updated values to return
+	node, err = functions.GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
+	return node, nil
+}
+// == INGRESS ==
+func createIngress(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	node, err := CreateIngress(params["network"], params["macaddress"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
+
+func CreateIngress(network string, macaddress string) (models.Node, error) {
+	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Create filter
+	filter := bson.M{"macaddress": macaddress, "network": network}
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"isingress", true},
+			{"lastmodified", time.Now().Unix()},
+		}},
+	}
+	var nodeupdate models.Node
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
+	defer cancel()
+	if err != nil {
+		return models.Node{}, err
+	}
+	//Get updated values to return
+	node, err = functions.GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
+	return node, nil
+}
+
+func deleteIngress(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	node, err := DeleteIngress(params["network"], params["macaddress"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
+
+func DeleteIngress(network, macaddress string) (models.Node, error) {
+
+	var nodeupdate models.Node
+	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Create filter
+	filter := bson.M{"macaddress": macaddress, "network": network}
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"lastmodified", time.Now().Unix()},
+			{"isingress", false},
 		}},
 	}
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
