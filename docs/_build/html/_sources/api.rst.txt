@@ -1,6 +1,6 @@
-===========================================
-Netmaker Server API Reference Documentation
-==========================================
+=============================================
+API Reference
+=============================================
 
 API Usage
 ==========================
@@ -105,7 +105,7 @@ Nodes API
 Nodes API Call Examples
 ----------------------- 
   
-**Get All Nodes:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes | jq`
+**Get All Nodes:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes | jq`
   
 **Get Network Nodes:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet | jq`
     
@@ -149,13 +149,13 @@ Users API
 Users API Calls Examples
 ------------------------
   
-**Get User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq`
+**Get User:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq`
 
 **Update User:** `curl -X PUT -d '{"password":"noonewillguessthis"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
   
 **Delete User:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
   
-**Check for Admin User:**`curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/adm/hasadmin`
+**Check for Admin User:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/adm/hasadmin`
   
 **Create Admin User:** `curl -d '{ "username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/adm/createadmin`
    

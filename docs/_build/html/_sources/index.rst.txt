@@ -9,22 +9,28 @@
    :alt: Netmaker WireGuard
    :align: center
 
+.. role:: raw-html(raw)
+    :format: html
 
+:raw-html:`<br />`
+
+=======================================
 Welcome to the Netmaker Documentation
 =======================================
 
 
-Netmaker is a platform for creating and managing fast, secure, and easy-to-use virtual overlay networks using WireGuard.
+Netmaker is a platform for creating and managing fast, secure, and dynamic virtual overlay networks using WireGuard.
 
-This site covers Netmaker's installation, usage, troubleshooting, and customization, as well as thorough documentation of configurations for the API, UI and Agent. You can view and retrieve all of our `source code <https://github.com/gravitl/netmaker>`_ on GitHub.
+This documentation covers Netmaker's installation, usage, troubleshooting, and customization, as well as reference documents for the API, UI and Agent configuration. All of the `source code <https://github.com/gravitl/netmaker>`_ for Netmaker is on GitHub.
+
+:raw-html:`<br />`
 
 .. raw:: html
    :file: youtube-1.html
 
 About
 ------
-
-A quick overview of Netmaker, explaining what it is about, and why you should be using it.
+A quick overview of Netmaker, explaining what it is, how it works, and why you should be using it.
 
 .. toctree::
    :maxdepth: 2
@@ -34,7 +40,7 @@ A quick overview of Netmaker, explaining what it is about, and why you should be
 Architecture
 ---------------
 
-Information about Netmaker's technical design and how it is implemented.
+A technical overview of Netmaker, including design decisions and limitations.
 
 .. toctree::
    :maxdepth: 2
@@ -44,7 +50,7 @@ Information about Netmaker's technical design and how it is implemented.
 Quick Start
 ---------------
 
-Get up and running as quickly as possible with a full mesh overlay VPN based on WireGuard.
+A quick start guide to getting up and running with Netmaker and WireGuard as quickly as possible.
 
 .. toctree::
    :maxdepth: 2
@@ -54,7 +60,7 @@ Get up and running as quickly as possible with a full mesh overlay VPN based on 
 Server Installation
 --------------------
 
-Covers installation of the Server, UI, DB, and supporting services such as Client and CoreDNS.
+A detailed guide to installing the Netmaker server (API, DB, UI, DNS), and configuration options.
 
 .. toctree::
    :maxdepth: 2
@@ -64,7 +70,7 @@ Covers installation of the Server, UI, DB, and supporting services such as Clien
 Client Installation
 --------------------
 
-Covers installation of the agent (netclient) and configuration options.
+A detailed guide to installing the Netmaker agent (netclient) on devices and configuration options.
 
 .. toctree::
    :maxdepth: 2
@@ -72,10 +78,10 @@ Covers installation of the agent (netclient) and configuration options.
    client-installation
 
 
-Using Netmaker
+Guides
 ----------------
 
-Different use cases such as site-to-site/gateway, Kubernetes, and DNS. Use these guides to get started with a more advanced use case.
+A handful of guides for use cases including site-to-site, Kubernetes, private DNS, and more.
 
 .. toctree::
    :maxdepth: 2
@@ -85,10 +91,9 @@ Different use cases such as site-to-site/gateway, Kubernetes, and DNS. Use these
 API Reference
 ---------------
 
+A reference document for the Netmaker Server API, and example API calls for various use cases.
 
-These are the reference documents for the Netmaker Server API. It also provides examples for various API calls that cover different use cases. The API docs are currently static. In a future release these docs will be replaced by Swagger docs.
-
-**TODO:** Swagger Documentation via https://github.com/swaggo/swag
+**Coming Soon:** Swagger Documentation
 
 .. toctree::
    :maxdepth: 1
@@ -98,7 +103,7 @@ These are the reference documents for the Netmaker Server API. It also provides 
 Support
 ----------------
 
-Common issue troubleshooting, FAQ, and Contact information.
+A few helpful documents for if you run into issues with Netmaker.
 
 .. toctree::
    :maxdepth: 2
@@ -106,11 +111,19 @@ Common issue troubleshooting, FAQ, and Contact information.
    support
 
 
+Contributing
+-----------------
+
+A guide on how to contribute to the Netmaker project.
+
+.. toctree:: 
+
+        contribute.rst
 
 Code of Conduct
 -----------------
 
-Learn how to approproately interact with the community: 
+A statement on our expectations and pledge to the community.
 
 .. toctree:: 
 
@@ -119,7 +132,7 @@ Learn how to approproately interact with the community:
 Licensing
 ---------------
 
-Information about the Netmaker license.
+A link to the Netmaker license.
 
 .. toctree:: 
 

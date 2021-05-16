@@ -46,16 +46,17 @@
   
   
   
-    <title>API Usage &#8212; Netmaker 0.3.5 documentation</title>
+    <title>API Reference &#8212; Netmaker 0.3.5 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Code of Conduct" href="conduct.html" />
+    <link rel="next" title="Support" href="support.html" />
     <link rel="prev" title="Using Netmaker" href="usage.html" />
   
    
@@ -93,7 +94,7 @@
       <div class="md-flex__cell md-flex__cell--stretch">
         <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
           <span class="md-header-nav__topic">Netmaker Docs</span>
-          <span class="md-header-nav__topic"> API Usage </span>
+          <span class="md-header-nav__topic"> API Reference </span>
         </div>
       </div>
       <div class="md-flex__cell md-flex__cell--shrink">
@@ -208,26 +209,54 @@
     <li class="md-nav__item">
     
     
-      <a href="introduction.html" class="md-nav__link">Introduction</a>
+      <a href="about.html" class="md-nav__link">About</a>
       <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
-      <a href="introduction.html#use-cases" class="md-nav__link">Use Cases</a>
+      <a href="about.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="introduction.html#compatible-systems" class="md-nav__link">Compatible Systems</a>
+      <a href="about.html#how-does-netmaker-work" class="md-nav__link">How Does Netmaker Work?</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="introduction.html#limitations" class="md-nav__link">Limitations</a>
+      <a href="about.html#use-cases" class="md-nav__link">Use Cases</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html" class="md-nav__link">Architecture</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#core-concepts" class="md-nav__link">Core Concepts</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#compatible-systems" class="md-nav__link">Compatible Systems</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#limitations" class="md-nav__link">Limitations</a>
       
     
     </li></ul>
@@ -356,15 +385,17 @@
     
     
     <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    <label class="md-nav__link md-nav__link--active" for="__toc"> API Usage </label>
+    <label class="md-nav__link md-nav__link--active" for="__toc"> API Reference </label>
     
-      <a href="#" class="md-nav__link md-nav__link--active">API Usage</a>
+      <a href="#" class="md-nav__link md-nav__link--active">API Reference</a>
       
         
 <nav class="md-nav md-nav--secondary">
     <label class="md-nav__title" for="__toc">Contents</label>
   <ul class="md-nav__list" data-md-scrollfix="">
-        <li class="md-nav__item"><a href="#api--page-root" class="md-nav__link">API Usage</a>
+        <li class="md-nav__item"><a href="#api--page-root" class="md-nav__link">API Reference</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#api-usage" class="md-nav__link">API Usage</a>
         </li>
         <li class="md-nav__item"><a href="#authentication" class="md-nav__link">Authentication</a>
         </li>
@@ -393,9 +424,16 @@
         <li class="md-nav__item"><a href="#file-server-api" class="md-nav__link">File Server API</a>
         </li></ul>
             </nav>
+        </li></ul>
+            </nav>
         </li>
   </ul>
 </nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#api-usage" class="md-nav__link">API Usage</a>
       
     
     </li>
@@ -417,74 +455,62 @@
     
     
       <a href="#api-documentation" class="md-nav__link">API Documentation</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html" class="md-nav__link">Support</a>
       <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
-      <a href="#networks-api" class="md-nav__link">Networks API</a>
+      <a href="support.html#faq" class="md-nav__link">FAQ</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#networks-api-call-examples" class="md-nav__link">Networks API Call Examples</a>
+      <a href="support.html#troubleshooting" class="md-nav__link">Troubleshooting</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#access-keys-api" class="md-nav__link">Access Keys API</a>
+      <a href="support.html#contact" class="md-nav__link">Contact</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="contribute.html" class="md-nav__link">Contribute</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="contribute.html#submitting-an-issue" class="md-nav__link">Submitting an Issue</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#access-keys-api-call-examples" class="md-nav__link">Access Keys API Call Examples</a>
+      <a href="contribute.html#submitting-an-enhancement" class="md-nav__link">Submitting an Enhancement</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#nodes-api" class="md-nav__link">Nodes API</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#nodes-api-call-examples" class="md-nav__link">Nodes API Call Examples</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#users-api" class="md-nav__link">Users API</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#users-api-calls-examples" class="md-nav__link">Users API Calls Examples</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#server-management-api" class="md-nav__link">Server Management API</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#file-server-api" class="md-nav__link">File Server API</a>
+      <a href="contribute.html#contributing-code" class="md-nav__link">Contributing Code</a>
       
     
     </li></ul>
@@ -546,13 +572,6 @@
       
     
     </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contact.html" class="md-nav__link">Contact</a>
-      
-    
-    </li>
   </ul>
   
 
@@ -567,7 +586,9 @@
 <nav class="md-nav md-nav--secondary">
     <label class="md-nav__title" for="__toc">Contents</label>
   <ul class="md-nav__list" data-md-scrollfix="">
-        <li class="md-nav__item"><a href="#api--page-root" class="md-nav__link">API Usage</a>
+        <li class="md-nav__item"><a href="#api--page-root" class="md-nav__link">API Reference</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#api-usage" class="md-nav__link">API Usage</a>
         </li>
         <li class="md-nav__item"><a href="#authentication" class="md-nav__link">Authentication</a>
         </li>
@@ -596,6 +617,8 @@
         <li class="md-nav__item"><a href="#file-server-api" class="md-nav__link">File Server API</a>
         </li></ul>
             </nav>
+        </li></ul>
+            </nav>
         </li>
   </ul>
 </nav>
@@ -607,23 +630,25 @@
           <article class="md-content__inner md-typeset" role="main">
             
   
-<h1 id="api--page-root">API Usage<a class="headerlink" href="#api--page-root" title="Permalink to this headline">¶</a></h1>
+<h1 id="api--page-root">API Reference<a class="headerlink" href="#api--page-root" title="Permalink to this headline">¶</a></h1>
+
+<h2 id="api-usage">API Usage<a class="headerlink" href="#api-usage" title="Permalink to this headline">¶</a></h2>
 <p>Most actions that can be performed via API can be performed via UI. We recommend managing your networks using the official netmaker-ui project. However, Netmaker can also be run without the UI, and all functions can be achieved via API calls. If your use case requires using Netmaker without the UI or you need to do some troubleshooting/advanced configuration, using the API directly may help.</p>
 
 
-<h1 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permalink to this headline">¶</a></h1>
+<h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permalink to this headline">¶</a></h2>
 <p>API calls must be authenticated via a header of  the format  <cite>-H “Authorization: Bearer &lt;YOUR_SECRET_KEY&gt;”</cite> There are two methods to obtain YOUR_SECRET_KEY:
 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/&lt; env &gt;.yaml). See the [general usage](./USAGE.md) documentation for more details.
 2. Using a JWT recieved for a node. This  can be retrieved by calling the <cite>/api/nodes/&lt;network&gt;/authenticate</cite> endpoint, as documented below.</p>
 
 
-<h1 id="format-of-calls-for-curl">Format of Calls for Curl<a class="headerlink" href="#format-of-calls-for-curl" title="Permalink to this headline">¶</a></h1>
+<h2 id="format-of-calls-for-curl">Format of Calls for Curl<a class="headerlink" href="#format-of-calls-for-curl" title="Permalink to this headline">¶</a></h2>
 <p>Requests take the format of <cite>curl -H “Authorization: Bearer &lt;YOUR_SECRET_KEY&gt;” -H ‘Content-Type: application/json’ localhost:8081/api/path/to/endpoint</cite></p>
 
 
-<h1 id="api-documentation">API Documentation<a class="headerlink" href="#api-documentation" title="Permalink to this headline">¶</a></h1>
+<h2 id="api-documentation">API Documentation<a class="headerlink" href="#api-documentation" title="Permalink to this headline">¶</a></h2>
 
-<h2 id="networks-api">Networks API<a class="headerlink" href="#networks-api" title="Permalink to this headline">¶</a></h2>
+<h3 id="networks-api">Networks API<a class="headerlink" href="#networks-api" title="Permalink to this headline">¶</a></h3>
 <p><strong>Get All Networks:</strong> <cite>/api/networks</cite>, <cite>GET</cite></p>
 <p><strong>Create Network:</strong> <cite>/api/network</cite>, <cite>POST</cite></p>
 <p><strong>Get Network:</strong> <cite>/api/networks/{network id}</cite>, <cite>GET</cite></p>
@@ -632,7 +657,7 @@
 <p><strong>Cycle PublicKeys on all Nodes:</strong> <cite>/api/networks/{network id}/keyupdate</cite>, <cite>POST</cite></p>
 
 
-<h2 id="networks-api-call-examples">Networks API Call Examples<a class="headerlink" href="#networks-api-call-examples" title="Permalink to this headline">¶</a></h2>
+<h3 id="networks-api-call-examples">Networks API Call Examples<a class="headerlink" href="#networks-api-call-examples" title="Permalink to this headline">¶</a></h3>
 <p><strong>Get All Networks:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks | jq</cite></p>
 <p><strong>Create Network:</strong> <cite>curl -d ‘{“addressrange”:”10.70.0.0/16”,”netid”:”skynet”}’ -H “Authorization: Bearer YOUR_SECRET_KEY” -H ‘Content-Type: application/json’ localhost:8081/api/networks</cite></p>
 <p><strong>Get Network:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet | jq</cite></p>
@@ -641,19 +666,19 @@
 <p><strong>Cycle PublicKeys on all Nodes:</strong> <cite>curl -X POST -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet/keyupdate</cite></p>
 
 
-<h2 id="access-keys-api">Access Keys API<a class="headerlink" href="#access-keys-api" title="Permalink to this headline">¶</a></h2>
+<h3 id="access-keys-api">Access Keys API<a class="headerlink" href="#access-keys-api" title="Permalink to this headline">¶</a></h3>
 <p><strong>Get All Keys:</strong> <cite>/api/networks/{network id}/keys</cite>, <cite>GET</cite></p>
 <p><strong>Create Key:</strong> <cite>/api/networks/{network id}/keys</cite>, <cite>GET</cite></p>
 <p><strong>Delete Key:</strong> <cite>/api/networks/{network id}/keys/{keyname}</cite>, <cite>DELETE</cite></p>
 
 
-<h2 id="access-keys-api-call-examples">Access Keys API Call Examples<a class="headerlink" href="#access-keys-api-call-examples" title="Permalink to this headline">¶</a></h2>
+<h3 id="access-keys-api-call-examples">Access Keys API Call Examples<a class="headerlink" href="#access-keys-api-call-examples" title="Permalink to this headline">¶</a></h3>
 <p><strong>Get All Keys:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet/keys | jq</cite></p>
 <p><strong>Create Key:</strong> <cite>curl -d ‘{“uses”:10,”name”:”mykey”}’ -H “Authorization: Bearer YOUR_SECRET_KEY” -H ‘Content-Type: application/json’ localhost:8081/api/networks/skynet/keys</cite></p>
 <p><strong>Delete Key:</strong> <cite>curl -X DELETE -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet/keys/mykey</cite></p>
 
 
-<h2 id="nodes-api">Nodes API<a class="headerlink" href="#nodes-api" title="Permalink to this headline">¶</a></h2>
+<h3 id="nodes-api">Nodes API<a class="headerlink" href="#nodes-api" title="Permalink to this headline">¶</a></h3>
 <p><strong>Get All Nodes:</strong> <cite>/api/nodes</cite>, <cite>GET</cite></p>
 <p><strong>Get Network Nodes:</strong> <cite>/api/nodes/{network id}</cite>, <cite>GET</cite></p>
 <p><strong>Create Node:</strong> <cite>/api/nodes/{network id}</cite>, <cite>POST</cite></p>
@@ -668,8 +693,8 @@
 <p><strong>Authenticate:</strong> <cite>/api/nodes/adm/{network id}/authenticate</cite>, <cite>POST</cite></p>
 
 
-<h2 id="nodes-api-call-examples">Nodes API Call Examples<a class="headerlink" href="#nodes-api-call-examples" title="Permalink to this headline">¶</a></h2>
-<p><a href="#id1"><span class="problematic" id="id2">**</span></a>Get All Nodes:<a href="#id3"><span class="problematic" id="id4">**</span></a><cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/nodes | jq</cite></p>
+<h3 id="nodes-api-call-examples">Nodes API Call Examples<a class="headerlink" href="#nodes-api-call-examples" title="Permalink to this headline">¶</a></h3>
+<p><strong>Get All Nodes:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/nodes | jq</cite></p>
 <p><strong>Get Network Nodes:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/nodes/skynet | jq</cite></p>
 <p><strong>Create Node:</strong> <cite>curl  -d  ‘{ “endpoint”: 100.200.100.200, “publickey”: aorijqalrik3ajflaqrdajhkr,”macaddress”: “8c:90:b5:06:f1:d9”,”password”: “reallysecret”,”localaddress”: “172.16.16.1”,”accesskey”: “aA3bVG0rnItIRXDx”,”listenport”: 6400}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/nodes/skynet</cite></p>
 <p><strong>Get Node:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/nodes/skynet/{macaddress} | jq</cite></p>
@@ -682,7 +707,7 @@
 <p><strong>Authenticate:</strong> <cite>curl -d  ‘{“macaddress”: “8c:90:b5:06:f1:d9”, “password”: “YOUR_PASSWORD”}’ -H ‘Content-Type: application/json’ localhost:8081/api/nodes/adm/skynet/authenticate</cite></p>
 
 
-<h2 id="users-api">Users API<a class="headerlink" href="#users-api" title="Permalink to this headline">¶</a></h2>
+<h3 id="users-api">Users API<a class="headerlink" href="#users-api" title="Permalink to this headline">¶</a></h3>
 <p><strong>Note:</strong> Only able to create Admin user at this time. The “user” is only used by the [user interface](<a class="reference external" href="https://github.com/gravitl/netmaker-ui">https://github.com/gravitl/netmaker-ui</a>) to authenticate the  single  admin user.</p>
 <p><strong>Get User:</strong> <cite>/api/users/{username}</cite>, <cite>GET</cite></p>
 <p><strong>Update User:</strong> <cite>/api/users/{username}</cite>, <cite>PUT</cite></p>
@@ -692,16 +717,16 @@
 <p><strong>Authenticate:</strong> <cite>/api/users/adm/authenticate</cite>, <cite>POST</cite></p>
 
 
-<h2 id="users-api-calls-examples">Users API Calls Examples<a class="headerlink" href="#users-api-calls-examples" title="Permalink to this headline">¶</a></h2>
-<p><a href="#id5"><span class="problematic" id="id6">**</span></a>Get User:<a href="#id7"><span class="problematic" id="id8">**</span></a><cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/users/{username} | jq</cite></p>
+<h3 id="users-api-calls-examples">Users API Calls Examples<a class="headerlink" href="#users-api-calls-examples" title="Permalink to this headline">¶</a></h3>
+<p><strong>Get User:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/users/{username} | jq</cite></p>
 <p><strong>Update User:</strong> <cite>curl -X PUT -d ‘{“password”:”noonewillguessthis”}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/users/{username}</cite></p>
 <p><strong>Delete User:</strong> <cite>curl -X DELETE -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/users/{username}</cite></p>
-<p><a href="#id9"><span class="problematic" id="id10">**</span></a>Check for Admin User:<a href="#id11"><span class="problematic" id="id12">**</span></a><cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/users/adm/hasadmin</cite></p>
+<p><strong>Check for Admin User:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/users/adm/hasadmin</cite></p>
 <p><strong>Create Admin User:</strong> <cite>curl -d ‘{ “username”: “smartguy”, “password”: “YOUR_PASS”}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/users/adm/createadmin</cite></p>
 <p><strong>Authenticate:</strong> <cite>curl -d  ‘{“username”: “smartguy”, “password”: “YOUR_PASS”}’ -H ‘Content-Type: application/json’ localhost:8081/api/nodes/adm/skynet/authenticate</cite></p>
 
 
-<h2 id="server-management-api">Server Management API<a class="headerlink" href="#server-management-api" title="Permalink to this headline">¶</a></h2>
+<h3 id="server-management-api">Server Management API<a class="headerlink" href="#server-management-api" title="Permalink to this headline">¶</a></h3>
 <p>The Server Mgmt. API allows you to add and remove the server from networks.</p>
 <p><strong>Add to Network:</strong> <cite>/api/server/addnetwork/{network id}</cite>, <cite>POST</cite></p>
 <p><strong>Remove from Network:</strong> <cite>/api/server/removenetwork/{network id}</cite>, <cite>DELETE</cite></p>
@@ -709,9 +734,10 @@
 <p><strong>Remove from Network:</strong> <cite>curl -X DELETE -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/server/removenetwork/{network id}</cite></p>
 
 
-<h2 id="file-server-api">File Server API<a class="headerlink" href="#file-server-api" title="Permalink to this headline">¶</a></h2>
+<h3 id="file-server-api">File Server API<a class="headerlink" href="#file-server-api" title="Permalink to this headline">¶</a></h3>
 <p><strong>Get File:</strong> <cite>/meshclient/files/{filename}</cite>, <cite>GET</cite></p>
 <p><strong>Example:</strong> <cite>curl localhost:8081/meshclient/files/meshclient</cite></p>
+
 
 
 
@@ -739,12 +765,12 @@
             </a>
           
           
-            <a href="conduct.html" title="Code of Conduct"
+            <a href="support.html" title="Support"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Code of Conduct </span>
+                class="md-footer-nav__direction"> Next </span> Support </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
