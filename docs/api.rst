@@ -131,7 +131,7 @@ Nodes API Call Examples
 Users API
 -----------------------
   
-**Note:** Only able to create Admin user at this time. The "user" is only used by the [user interface](https://github.com/gravitl/netmaker-ui) to authenticate the  single  admin user.
+**Note:** Only able to create Admin user at this time. The "user" is only used by the `user interface <https://github.com/gravitl/netmaker-ui>`_ to authenticate the  single  admin user.
 
 **Get User:** `/api/users/{username}`, `GET`  
   
