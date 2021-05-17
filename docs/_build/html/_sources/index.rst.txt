@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 
-.. image:: netmaker.png
+.. image:: images/netmaker.png
    :width: 100%
    :alt: Netmaker WireGuard
    :align: center
@@ -100,10 +100,21 @@ A reference document for the Netmaker Server API, and example API calls for vari
 
    api
 
+Troubleshooting
+----------------
+
+Help with common Netmaker/netclient issues.
+
+.. toctree::
+   :maxdepth: 2
+
+   troubleshoot
+
+
 Support
 ----------------
 
-A few helpful documents for if you run into issues with Netmaker.
+Where to go for help, and a FAQ.
 
 .. toctree::
    :maxdepth: 2

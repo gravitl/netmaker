@@ -7,7 +7,7 @@ What is Netmaker?
 
 Netmaker is a tool for creating and managing virtual overlay networks. If you have at least two machines with internet access which you need to connect with a secure tunnel, Netmaker is for you. If you have thousands of servers spread across multiple locations, data centers, or clouds, Netmaker is also for you. Netmaker connects machines securely, wherever they are.
 
-.. image:: mesh-diagram.png
+.. image:: images/mesh-diagram.png
    :width: 50%
    :alt: WireGuard Mesh
    :align: center

@@ -5,25 +5,6 @@ Support
 FAQ
 =====
 
-Troubleshooting
-=================
-
-Common Issues
----------------
-
-Server
--------
-
-UI
-----
-
-Agent
--------
-
-CoreDNS
---------
-
-
 Contact
 ========
 If you need help, try the discord or open a GitHub ticket.

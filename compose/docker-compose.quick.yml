@@ -25,7 +25,6 @@ services:
     image: gravitl/netmaker:v0.3
     restart: always
     environment:
-      MONGO_HOST: "mongodb"
       SERVER_HOST: "HOST_IP"
       DNS_MODE: "off"
       CLIENT_MODE: "off"

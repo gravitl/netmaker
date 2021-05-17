@@ -2,7 +2,7 @@
 Architecture
 ===============
 
-.. image:: nm-diagram.jpg
+.. image:: images/nm-diagram.jpg
    :width: 45%
    :alt: Netmaker Architecture Diagram
    :align: center
@@ -28,7 +28,7 @@ Mesh Network
 
 When we refer to a mesh network in these documents we are typically referring to a "full mesh."
 
-.. image:: mesh.png
+.. image:: images/mesh.png
    :width: 33%
    :alt: Full Mesh Network Diagram
    :align: center
