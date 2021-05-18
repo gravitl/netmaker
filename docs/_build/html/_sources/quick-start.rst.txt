@@ -18,7 +18,7 @@ Prerequisites
 Install
 ==============
 #. ``ssh root@your-host``
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.quick.yml``
+#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.slim.yml``
 #. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
 #. ``docker-compose up -d``
 
@@ -133,5 +133,5 @@ Uninstalling the netclient
 Uninstralling Netmaker
 ===========================
 
-To uninstall Netmaker from the server, simply run `docker-compose down`
+To uninstall Netmaker from the server, simply run ``docker-compose down`` or ``docker-compose down --volumes`` to remove the docker volumes for a future installation.
 

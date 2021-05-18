@@ -56,7 +56,7 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Server Installation" href="server-installation.html" />
+    <link rel="next" title="Server Installation Notes" href="server-installation.html" />
     <link rel="prev" title="Architecture" href="architecture.html" />
   
    
@@ -376,8 +376,10 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Server Installation</a>
-      <ul class="md-nav__list"> 
+      <a href="server-installation.html" class="md-nav__link">Server Installation Notes</a>
+      
+    
+    </li>
     <li class="md-nav__item">
     
     
@@ -388,14 +390,96 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#prerequisites" class="md-nav__link">Prerequisites</a>
+      <a href="server-installation.html#dns-mode-prereqisite-setup-ubuntu" class="md-nav__link">DNS Mode Prereqisite Setup (Ubuntu)</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#installing-netmaker" class="md-nav__link">Installing Netmaker</a>
+      <a href="server-installation.html#docker-compose-install" class="md-nav__link">Docker Compose Install</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#slim-install-no-dns-and-no-client-mode" class="md-nav__link">Slim Install - No DNS and No Client Mode</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#full-install-dns-and-client-mode-enabled" class="md-nav__link">Full Install - DNS and Client Mode Enabled</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#server-only-install-ui-dns-client-disabled" class="md-nav__link">Server Only Install - UI, DNS, Client Disabled</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#no-dns-coredns-disabled-client-enabled" class="md-nav__link">No DNS - CoreDNS Disabled, Client Enabled</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#no-client-client-enabled-coredns-disabled" class="md-nav__link">No Client - Client Enabled, CoreDNS Disabled</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#reference-compose-file-annotated" class="md-nav__link">Reference Compose File - Annotated</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#kubernetes-install" class="md-nav__link">Kubernetes Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#configuration" class="md-nav__link">Configuration</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#defaults" class="md-nav__link">Defaults</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#config-file" class="md-nav__link">Config File</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#environment-variables" class="md-nav__link">Environment Variables</a>
       
     
     </li></ul>
@@ -735,7 +819,7 @@
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permalink to this headline">¶</a></h2>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">ssh</span> <span class="pre">root@your-host</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.quick.yml</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.slim.yml</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">‘s/HOST_IP/&lt;</span> <span class="pre">Insert</span> <span class="pre">your-host</span> <span class="pre">IP</span> <span class="pre">Address</span> <span class="pre">Here</span> <span class="pre">&gt;/g’</span> <span class="pre">docker-compose.yml</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code></p></li>
 </ol>
@@ -811,7 +895,7 @@
 
 
 <h2 id="uninstralling-netmaker">Uninstralling Netmaker<a class="headerlink" href="#uninstralling-netmaker" title="Permalink to this headline">¶</a></h2>
-<p>To uninstall Netmaker from the server, simply run <cite>docker-compose down</cite></p>
+<p>To uninstall Netmaker from the server, simply run <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code> or <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span> <span class="pre">--volumes</span></code> to remove the docker volumes for a future installation.</p>
 
 
 
@@ -839,12 +923,12 @@
             </a>
           
           
-            <a href="server-installation.html" title="Server Installation"
+            <a href="server-installation.html" title="Server Installation Notes"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Server Installation </span>
+                class="md-footer-nav__direction"> Next </span> Server Installation Notes </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
