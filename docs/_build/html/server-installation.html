@@ -812,7 +812,21 @@
 
 
 <h2 id="dns-mode-prereqisite-setup-ubuntu">DNS Mode Prereqisite Setup (Ubuntu)<a class="headerlink" href="#dns-mode-prereqisite-setup-ubuntu" title="Permalink to this headline">¶</a></h2>
-<p>If you plan on running the</p>
+<p>If you plan on running the server in DNS Mode, you will be deploying a CoreDNS server. We recommend binding CoreDNS to port 53 of the host system (which it will do by default). On some systems, this will conflift with existing processes. Specifically on linux systems running systemd-resolved, there may be a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. The following was tested on Ubuntu 20.04. This may have consequences for existing private DNS so proceed with caution:</p>
+<ol class="arabic simple">
+<li><p>systemctl stop systemd-resolved</p></li>
+<li><p>systemctl disable systemd-resolved</p></li>
+<li><dl class="simple">
+<dt>vim /etc/systemd/resolved.conf</dt><dd><ul class="simple">
+<li><p>uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference</p></li>
+<li><p>uncomment DNSStubListener and set to “no”</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf</p></li>
+</ol>
+<p>Port 53 should now be available for CoreDNS to use.</p>
 
 
 <h2 id="docker-compose-install">Docker Compose Install<a class="headerlink" href="#docker-compose-install" title="Permalink to this headline">¶</a></h2>

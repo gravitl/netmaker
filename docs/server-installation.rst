@@ -36,8 +36,16 @@ To run a non-docker installation, you are running the Netmaker binary, CoreDNS b
 DNS Mode Prereqisite Setup (Ubuntu)
 ====================================
 
-If you plan on running the
+If you plan on running the server in DNS Mode, you will be deploying a CoreDNS server. We recommend binding CoreDNS to port 53 of the host system (which it will do by default). On some systems, this will conflift with existing processes. Specifically on linux systems running systemd-resolved, there may be a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. The following was tested on Ubuntu 20.04. This may have consequences for existing private DNS so proceed with caution:
 
+1. systemctl stop systemd-resolved 
+2. systemctl disable systemd-resolved 
+3. vim /etc/systemd/resolved.conf
+    * uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference
+    * uncomment DNSStubListener and set to "no"
+4. sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+
+Port 53 should now be available for CoreDNS to use.
 
 Docker Compose Install
 =======================
