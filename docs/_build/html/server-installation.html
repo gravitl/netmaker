@@ -1094,7 +1094,7 @@
 <p><strong>Description:</strong> Set to make the HTTP and GRPC functions available via different interfaces/networks.</p>
 </dd>
 <dt>API_PORT:</dt><dd><p><strong>Default:</strong> 8081</p>
-<p><strong>Description:</strong> The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.</p>
+<p><strong>Description:</strong> The HTTP API port for Netmaker. Used for API calls / communication from front end.</p>
 </dd>
 <dt>GRPC_PORT:</dt><dd><p><strong>Default:</strong> 50051</p>
 <p><strong>Description:</strong> The GRPC port for Netmaker. Used for communications from nodes.</p>
@@ -1115,22 +1115,22 @@
 <p><strong>Description:</strong> Enables Client Mode, meaning netclient will be deployed on server and will be manageable from UI. Change to “off” to turn off.</p>
 </dd>
 <dt>DNS_MODE:</dt><dd><p><strong>Default:</strong> “on”</p>
-<p><strong>Description:</strong> Enables DNS Mode, meaning config files will be generated for CoreDNS. Note, turning “off” does not remove CoreDNS. You still need to remove CoreDNS from compose file.</p>
+<p><strong>Description:</strong> Enables DNS Mode, meaning config files will be generated for CoreDNS.</p>
 </dd>
 <dt>DISABLE_REMOTE_IP_CHECK:</dt><dd><p><strong>Default:</strong> “off”</p>
 <p><strong>Description:</strong> If turned “on”, Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned “off” by default.</p>
 </dd>
 <dt>MONGO_ADMIN:</dt><dd><p><strong>Default:</strong> “mongoadmin”</p>
-<p><strong>Description:</strong> Admin user for MongoDB. Change to match above MongoDB instance</p>
+<p><strong>Description:</strong> Admin user for MongoDB.</p>
 </dd>
 <dt>MONGO_PASS:</dt><dd><p><strong>Default:</strong> “mongopass”</p>
-<p><strong>Description:</strong> Admin password for MongoDB. Change to match above MongoDB instance</p>
+<p><strong>Description:</strong> Admin password for MongoDB.</p>
 </dd>
 <dt>MONGO_HOST:</dt><dd><p><strong>Default:</strong> “127.0.0.1”</p>
-<p><strong>Description:</strong> Address of MongoDB. Change if necessary.</p>
+<p><strong>Description:</strong> Address of MongoDB.</p>
 </dd>
 <dt>MONGO_PORT:</dt><dd><p><strong>Default:</strong> “27017”</p>
-<p><strong>Description:</strong> Port of MongoDB. Change if necessary.</p>
+<p><strong>Description:</strong> Port of MongoDB.</p>
 </dd>
 <dt>MONGO_OPTS:</dt><dd><p><strong>Default:</strong> “/?authSource=admin”</p>
 <p><strong>Description:</strong> Opts to enable admin login for Mongo.</p>

@@ -232,7 +232,7 @@ SERVER_GRPC_HOST:
 API_PORT:  
     **Default:** 8081 
 
-    **Description:** The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.
+    **Description:** The HTTP API port for Netmaker. Used for API calls / communication from front end.
 
 GRPC_PORT:  
     **Default:** 50051
@@ -267,7 +267,7 @@ CLIENT_MODE:
 DNS_MODE:  
     **Default:** "on"
 
-    **Description:** Enables DNS Mode, meaning config files will be generated for CoreDNS. Note, turning "off" does not remove CoreDNS. You still need to remove CoreDNS from compose file.
+    **Description:** Enables DNS Mode, meaning config files will be generated for CoreDNS.
 
 DISABLE_REMOTE_IP_CHECK:  
     **Default:** "off" 
@@ -277,22 +277,22 @@ DISABLE_REMOTE_IP_CHECK:
 MONGO_ADMIN:  
     **Default:** "mongoadmin" 
 
-    **Description:** Admin user for MongoDB. Change to match above MongoDB instance
+    **Description:** Admin user for MongoDB.
 
 MONGO_PASS:  
     **Default:** "mongopass" 
 
-    **Description:** Admin password for MongoDB. Change to match above MongoDB instance
+    **Description:** Admin password for MongoDB.
 
 MONGO_HOST:  
     **Default:** "127.0.0.1"
 
-    **Description:** Address of MongoDB. Change if necessary.
+    **Description:** Address of MongoDB.
 
 MONGO_PORT:  
     **Default:** "27017"
 
-    **Description:** Port of MongoDB. Change if necessary.
+    **Description:** Port of MongoDB.
 
 MONGO_OPTS:  
     **Default:** "/?authSource=admin"
