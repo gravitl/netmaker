@@ -579,7 +579,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		{"$set", bson.D{
 			{"postup", nodechange.PostUp},
 			{"postdown", nodechange.PostDown},
-			{"isgateway", nodechange.IsEgressGateway},
+			{"isegressgateway", nodechange.IsEgressGateway},
 			{"gatewayrange", nodechange.EgressGatewayRange},
 			{"lastmodified", nodechange.LastModified},
 		}},
@@ -652,7 +652,7 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 		{"$set", bson.D{
 			{"postup", nodechange.PostUp},
 			{"postdown", nodechange.PostDown},
-			{"isgateway", nodechange.IsEgressGateway},
+			{"isegressgateway", nodechange.IsEgressGateway},
 			{"gatewayrange", nodechange.EgressGatewayRange},
 			{"lastmodified", nodechange.LastModified},
 		}},
@@ -699,7 +699,7 @@ func CreateIngressGateway(network string, macaddress string) (models.Node, error
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{
-			{"isingress", true},
+			{"isingressgateway", true},
 			{"lastmodified", time.Now().Unix()},
 		}},
 	}
@@ -745,7 +745,7 @@ func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
 	update := bson.D{
 		{"$set", bson.D{
 			{"lastmodified", time.Now().Unix()},
-			{"isingress", false},
+			{"isingressgateway", false},
 		}},
 	}
 	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
