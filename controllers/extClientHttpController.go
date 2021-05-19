@@ -9,7 +9,7 @@ import (
 	// "fmt"
 	"net/http"
 	"time"
-
+	"strconv"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -199,10 +199,15 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
                 returnErrorResponse(w, r, formatError(err, "internal"))
                 return
         }
-
+	keepalive := ""
+	if network.DefaultKeepalive != 0 {
+		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
+	}
+	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
 	config := fmt.Sprintf(`[Interface]
 Address = %s
 PrivateKey = %s
+%s
 
 [Peer]
 PublicKey = %s
@@ -211,9 +216,10 @@ Endpoint = %s
 
 `, extclient.Address + "/32",
    extclient.PrivateKey,
+   keepalive,
    gwnode.PublicKey,
    network.AddressRange,
-   network.DefaultKeepalive)
+   gwendpoint)
 
 	if params["type"] == "qr" {
 		bytes, err := qrcode.Encode(config, qrcode.Medium, 220)
