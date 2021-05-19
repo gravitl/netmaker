@@ -26,10 +26,10 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createGateway))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteGateway))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/createingress", securityCheck(http.HandlerFunc(createIngress))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleteingress", securityCheck(http.HandlerFunc(deleteIngress))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createEgressGateway))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/createingress", securityCheck(http.HandlerFunc(createIngressGateway))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleteingress", securityCheck(http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
@@ -526,8 +526,8 @@ func UncordonNode(network, macaddress string) (models.Node, error) {
 	return node, nil
 }
 
-func createGateway(w http.ResponseWriter, r *http.Request) {
-	var gateway models.GatewayRequest
+func createEgressGateway(w http.ResponseWriter, r *http.Request) {
+	var gateway models.EgressGatewayRequest
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewDecoder(r.Body).Decode(&gateway)
@@ -537,7 +537,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["macaddress"]
-	node, err := CreateGateway(gateway)
+	node, err := CreateEgressGateway(gateway)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -546,18 +546,18 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-func CreateGateway(gateway models.GatewayRequest) (models.Node, error) {
+func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
 	node, err := functions.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = ValidateGateway(gateway)
+	err = ValidateEgressGateway(gateway)
 	if err != nil {
 		return models.Node{}, err
 	}
 	var nodechange models.Node
-	nodechange.IsGateway = true
-	nodechange.GatewayRange = gateway.RangeString
+	nodechange.IsEgressGateway = true
+	nodechange.EgressGatewayRange = gateway.RangeString
 	if gateway.PostUp == "" {
 		nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	} else {
@@ -579,8 +579,8 @@ func CreateGateway(gateway models.GatewayRequest) (models.Node, error) {
 		{"$set", bson.D{
 			{"postup", nodechange.PostUp},
 			{"postdown", nodechange.PostDown},
-			{"isgateway", nodechange.IsGateway},
-			{"gatewayrange", nodechange.GatewayRange},
+			{"isgateway", nodechange.IsEgressGateway},
+			{"gatewayrange", nodechange.EgressGatewayRange},
 			{"lastmodified", nodechange.LastModified},
 		}},
 	}
@@ -602,7 +602,7 @@ func CreateGateway(gateway models.GatewayRequest) (models.Node, error) {
 	return node, nil
 }
 
-func ValidateGateway(gateway models.GatewayRequest) error {
+func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	var err error
 	isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := gateway.RangeString == ""
@@ -616,10 +616,10 @@ func ValidateGateway(gateway models.GatewayRequest) error {
 	return err
 }
 
-func deleteGateway(w http.ResponseWriter, r *http.Request) {
+func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	node, err := DeleteGateway(params["network"], params["macaddress"])
+	node, err := DeleteEgressGateway(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -628,7 +628,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-func DeleteGateway(network, macaddress string) (models.Node, error) {
+func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 
 	var nodeupdate models.Node
 	var nodechange models.Node
@@ -637,8 +637,8 @@ func DeleteGateway(network, macaddress string) (models.Node, error) {
 		return models.Node{}, err
 	}
 
-	nodechange.IsGateway = false
-	nodechange.GatewayRange = ""
+	nodechange.IsEgressGateway = false
+	nodechange.EgressGatewayRange = ""
 	nodechange.PostUp = ""
 	nodechange.PostDown = ""
 
@@ -652,8 +652,8 @@ func DeleteGateway(network, macaddress string) (models.Node, error) {
 		{"$set", bson.D{
 			{"postup", nodechange.PostUp},
 			{"postdown", nodechange.PostDown},
-			{"isgateway", nodechange.IsGateway},
-			{"gatewayrange", nodechange.GatewayRange},
+			{"isgateway", nodechange.IsEgressGateway},
+			{"gatewayrange", nodechange.EgressGatewayRange},
 			{"lastmodified", nodechange.LastModified},
 		}},
 	}
@@ -674,10 +674,10 @@ func DeleteGateway(network, macaddress string) (models.Node, error) {
 	return node, nil
 }
 // == INGRESS ==
-func createIngress(w http.ResponseWriter, r *http.Request) {
+func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	node, err := CreateIngress(params["network"], params["macaddress"])
+	node, err := CreateIngressGateway(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -686,7 +686,7 @@ func createIngress(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-func CreateIngress(network string, macaddress string) (models.Node, error) {
+func CreateIngressGateway(network string, macaddress string) (models.Node, error) {
 	node, err := functions.GetNodeByMacAddress(network, macaddress)
 	if err != nil {
 		return models.Node{}, err
@@ -717,10 +717,10 @@ func CreateIngress(network string, macaddress string) (models.Node, error) {
 	return node, nil
 }
 
-func deleteIngress(w http.ResponseWriter, r *http.Request) {
+func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	node, err := DeleteIngress(params["network"], params["macaddress"])
+	node, err := DeleteIngressGateway(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -729,7 +729,7 @@ func deleteIngress(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-func DeleteIngress(network, macaddress string) (models.Node, error) {
+func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
 
 	var nodeupdate models.Node
 	node, err := functions.GetNodeByMacAddress(network, macaddress)

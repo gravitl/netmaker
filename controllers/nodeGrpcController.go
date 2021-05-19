@@ -347,8 +347,8 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 				Address:      peers[i].Address,
 				Address6:     peers[i].Address6,
 				Endpoint:     peers[i].Endpoint,
-				Gatewayrange: peers[i].GatewayRange,
-				Isgateway:    peers[i].IsGateway,
+				Egressgatewayrange: peers[i].EgressGatewayRange,
+				Isegressgateway:    peers[i].IsEgressGateway,
 				Publickey:    peers[i].PublicKey,
 				Keepalive:    peers[i].KeepAlive,
 				Listenport:   peers[i].ListenPort,
@@ -368,4 +368,44 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 	}
 
 	return nil
+}
+
+func (s *NodeServiceServer) GetExtPeers(req *nodepb.GetExtPeersReq, stream nodepb.NodeService_GetExtPeersServer) error {
+        // Initiate a NodeItem type to write decoded data to
+        //data := &models.PeersResponse{}
+        // collection.Find returns a cursor for our (empty) query
+        //cursor, err := s.NodeDB.Find(context.Background(), bson.M{})
+        peers, err := GetExtPeersList(req.GetNetwork(), req.GetMacaddress())
+
+        if err != nil {
+                return status.Errorf(codes.Internal, fmt.Sprintf("Unknown internal error: %v", err))
+        }
+        // cursor.Next() returns a boolean, if false there are no more items and loop will break
+        for i := 0; i < len(peers); i++ {
+
+                // If no error is found send node over stream
+                stream.Send(&nodepb.GetExtPeersRes{
+                        Extpeers: &nodepb.ExtPeersResponse{
+                                Address:      peers[i].Address,
+                                Address6:     peers[i].Address6,
+                                Endpoint:     peers[i].Endpoint,
+                                Publickey:    peers[i].PublicKey,
+                                Keepalive:    peers[i].KeepAlive,
+                                Listenport:   peers[i].ListenPort,
+                                Localaddress: peers[i].LocalAddress,
+                        },
+                })
+        }
+
+        node, err := functions.GetNodeByMacAddress(req.GetNetwork(), req.GetMacaddress())
+        if err != nil {
+                return status.Errorf(codes.Internal, fmt.Sprintf("Could not get node: %v", err))
+        }
+
+        err = TimestampNode(node, false, true, false)
+        if err != nil {
+                return status.Errorf(codes.Internal, fmt.Sprintf("Internal error occurred: %v", err))
+        }
+
+        return nil
 }

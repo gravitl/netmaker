@@ -95,13 +95,23 @@ type PeersResponse struct {
 	Address      string `json:"address" bson:"address"`
 	Address6     string `json:"address6" bson:"address6"`
 	LocalAddress string `json:"localaddress" bson:"localaddress"`
-	IsGateway    bool   `json:"isgateway" bson:"isgateway"`
-	GatewayRange string `json:"gatewayrange" bson:"gatewayrange"`
+	IsEgressGateway    bool   `json:"isgateway" bson:"isgateway"`
+	EgressGatewayRange string `json:"gatewayrange" bson:"gatewayrange"`
 	ListenPort   int32  `json:"listenport" bson:"listenport"`
 	KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
-type GatewayRequest struct {
+type ExtPeersResponse struct {
+        PublicKey    string `json:"publickey" bson:"publickey"`
+        Endpoint     string `json:"endpoint" bson:"endpoint"`
+        Address      string `json:"address" bson:"address"`
+        Address6     string `json:"address6" bson:"address6"`
+        LocalAddress string `json:"localaddress" bson:"localaddress"`
+        ListenPort   int32  `json:"listenport" bson:"listenport"`
+        KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
+}
+
+type EgressGatewayRequest struct {
 	NodeID      string   `json:"nodeid" bson:"nodeid"`
 	NetID       string   `json:"netid" bson:"netid"`
 	RangeString string   `json:"rangestring" bson:"rangestring"`

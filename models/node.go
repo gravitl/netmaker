@@ -43,8 +43,9 @@ type Node struct {
 	Password            string             `json:"password" bson:"password" validate:"required,min=6"`
 	Network             string             `json:"network" bson:"network" validate:"network_exists"`
 	IsPending           bool               `json:"ispending" bson:"ispending"`
-	IsGateway           bool               `json:"isgateway" bson:"isgateway"`
-	GatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
+	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
+	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
+	EgressGatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
 }
 
@@ -75,8 +76,9 @@ type NodeUpdate struct {
 	Password            string             `json:"password" bson:"password" validate:"omitempty,min=5"`
 	Network             string             `json:"network" bson:"network" validate:"network_exists"`
 	IsPending           bool               `json:"ispending" bson:"ispending"`
-	IsGateway           bool               `json:"isgateway" bson:"isgateway"`
-	GatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
+	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
+	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
+	EgressGatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
 }
 

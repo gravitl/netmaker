@@ -1,0 +1,283 @@
+package functions
+
+import (
+        "fmt"
+        "time"
+        "context"
+        "io"
+        "strings"
+        "log"
+        "net"
+        "strconv"
+        "github.com/gravitl/netmaker/netclient/config"
+        nodepb "github.com/gravitl/netmaker/grpc"
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/metadata"
+        "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+        //homedir "github.com/mitchellh/go-homedir"
+)
+
+func getPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
+        //need to  implement checkin on server side
+        hasGateway := false
+        var gateways []string
+        var peers []wgtypes.PeerConfig
+        var wcclient nodepb.NodeServiceClient
+        cfg, err := config.ReadConfig(network)
+        if err != nil {
+                log.Fatalf("Issue retrieving config for network: " + network +  ". Please investigate: %v", err)
+        }
+        nodecfg := cfg.Node
+        keepalive := nodecfg.KeepAlive
+        keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
+        if err != nil {
+                log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
+        }
+
+
+        fmt.Println("Registering with GRPC Server")
+        requestOpts := grpc.WithInsecure()
+        conn, err := grpc.Dial(server, requestOpts)
+        if err != nil {
+                log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+        }
+        // Instantiate the BlogServiceClient with our client connection to the server
+        wcclient = nodepb.NewNodeServiceClient(conn)
+
+        req := &nodepb.GetPeersReq{
+                Macaddress: macaddress,
+                Network: network,
+        }
+        ctx := context.Background()
+        fmt.Println("Authenticating with GRPC Server")
+        ctx, err = SetJWT(wcclient, network)
+        if err != nil {
+                fmt.Println("Failed to authenticate.")
+                return peers, hasGateway, gateways, err
+        }
+        var header metadata.MD
+
+        stream, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))
+        if err != nil {
+                fmt.Println("Error retrieving peers")
+                fmt.Println(err)
+                return nil, hasGateway, gateways, err
+        }
+        fmt.Println("Parsing peers response")
+        for {
+                res, err := stream.Recv()
+                // If end of stream, break the loop
+
+                if err == io.EOF {
+                        break
+                }
+                // if err, return an error
+                if err != nil {
+                        if strings.Contains(err.Error(), "mongo: no documents in result") {
+                                continue
+                        } else {
+                        fmt.Println("ERROR ENCOUNTERED WITH RESPONSE")
+                        fmt.Println(res)
+                        return peers, hasGateway, gateways, err
+                        }
+                }
+                pubkey, err := wgtypes.ParseKey(res.Peers.Publickey)
+                if err != nil {
+                        fmt.Println("error parsing key")
+                        return peers, hasGateway, gateways, err
+                }
+
+                if nodecfg.PublicKey == res.Peers.Publickey {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+                if nodecfg.Endpoint == res.Peers.Endpoint {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+
+                var peer wgtypes.PeerConfig
+                var peeraddr = net.IPNet{
+                        IP: net.ParseIP(res.Peers.Address),
+                        Mask: net.CIDRMask(32, 32),
+                }
+                var allowedips []net.IPNet
+                allowedips = append(allowedips, peeraddr)
+                if res.Peers.Isegressgateway {
+                        hasGateway = true
+                        gateways = append(gateways,res.Peers.Egressgatewayrange)
+                        _, ipnet, err := net.ParseCIDR(res.Peers.Egressgatewayrange)
+                        if err != nil {
+                                fmt.Println("ERROR ENCOUNTERED SETTING GATEWAY")
+                                fmt.Println("NOT SETTING GATEWAY")
+                                fmt.Println(err)
+                        } else {
+                                fmt.Println("    Gateway Range: "  + res.Peers.Egressgatewayrange)
+                                allowedips = append(allowedips, *ipnet)
+                        }
+                }
+                if res.Peers.Address6 != "" && dualstack {
+                        var addr6 = net.IPNet{
+                                IP: net.ParseIP(res.Peers.Address6),
+                                Mask: net.CIDRMask(128, 128),
+                        }
+                        allowedips = append(allowedips, addr6)
+                }
+                if keepalive != 0 {
+                peer = wgtypes.PeerConfig{
+                        PublicKey: pubkey,
+                        PersistentKeepaliveInterval: &keepalivedur,
+                        Endpoint: &net.UDPAddr{
+                                IP:   net.ParseIP(res.Peers.Endpoint),
+                                Port: int(res.Peers.Listenport),
+                        },
+                        ReplaceAllowedIPs: true,
+                        AllowedIPs: allowedips,
+                        }
+                } else {
+                peer = wgtypes.PeerConfig{
+                        PublicKey: pubkey,
+                        Endpoint: &net.UDPAddr{
+                                IP:   net.ParseIP(res.Peers.Endpoint),
+                                Port: int(res.Peers.Listenport),
+                        },
+                        ReplaceAllowedIPs: true,
+                        AllowedIPs: allowedips,
+                        }
+                }
+                peers = append(peers, peer)
+
+        }
+        if isIngressGateway {
+                fmt.Println("Adding external peers...")
+                extPeers, err := getExtPeers(macaddress, network, server, dualstack)
+                if err == nil {
+                        peers = append(peers, extPeers...)
+                        fmt.Println("Added " + strconv.Itoa(len(extPeers)) + " external clients.")
+                } else {
+                        fmt.Println("ERROR RETRIEVING EXTERNAL PEERS")
+                        fmt.Println(err)
+                }
+        }
+        fmt.Println("Finished parsing peers response")
+        return peers, hasGateway, gateways, err
+}
+
+func getExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
+        var peers []wgtypes.PeerConfig
+        var wcclient nodepb.NodeServiceClient
+        cfg, err := config.ReadConfig(network)
+        if err != nil {
+                log.Fatalf("Issue retrieving config for network: " + network +  ". Please investigate: %v", err)
+        }
+        nodecfg := cfg.Node
+        keepalive := nodecfg.KeepAlive
+        keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
+        if err != nil {
+                log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
+        }
+
+
+        fmt.Println("Registering with GRPC Server")
+        requestOpts := grpc.WithInsecure()
+        conn, err := grpc.Dial(server, requestOpts)
+        if err != nil {
+                log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+        }
+        // Instantiate the BlogServiceClient with our client connection to the server
+        wcclient = nodepb.NewNodeServiceClient(conn)
+
+        req := &nodepb.GetExtPeersReq{
+                Macaddress: macaddress,
+                Network: network,
+        }
+        ctx := context.Background()
+        fmt.Println("Authenticating with GRPC Server")
+        ctx, err = SetJWT(wcclient, network)
+        if err != nil {
+                fmt.Println("Failed to authenticate.")
+                return peers, err
+        }
+        var header metadata.MD
+
+        stream, err := wcclient.GetExtPeers(ctx, req, grpc.Header(&header))
+        if err != nil {
+                fmt.Println("Error retrieving peers")
+                fmt.Println(err)
+                return nil, err
+        }
+        fmt.Println("Parsing peers response")
+        for {
+                res, err := stream.Recv()
+                // If end of stream, break the loop
+
+                if err == io.EOF {
+                        break
+                }
+                // if err, return an error
+                if err != nil {
+                        if strings.Contains(err.Error(), "mongo: no documents in result") {
+                                continue
+                        } else {
+                        fmt.Println("ERROR ENCOUNTERED WITH RESPONSE")
+                        fmt.Println(res)
+                        return peers, err
+                        }
+                }
+                pubkey, err := wgtypes.ParseKey(res.Extpeers.Publickey)
+                if err != nil {
+                        fmt.Println("error parsing key")
+                        return peers, err
+                }
+
+                if nodecfg.PublicKey == res.Extpeers.Publickey {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+                if nodecfg.Endpoint == res.Extpeers.Endpoint {
+                        fmt.Println("Peer is self. Skipping")
+                        continue
+                }
+
+                var peer wgtypes.PeerConfig
+                var peeraddr = net.IPNet{
+                        IP: net.ParseIP(res.Extpeers.Address),
+                        Mask: net.CIDRMask(32, 32),
+                }
+                var allowedips []net.IPNet
+                allowedips = append(allowedips, peeraddr)
+
+		if res.Extpeers.Address6 != "" && dualstack {
+                        var addr6 = net.IPNet{
+                                IP: net.ParseIP(res.Extpeers.Address6),
+                                Mask: net.CIDRMask(128, 128),
+                        }
+                        allowedips = append(allowedips, addr6)
+                }
+                if keepalive != 0 {
+                peer = wgtypes.PeerConfig{
+                        PublicKey: pubkey,
+                        PersistentKeepaliveInterval: &keepalivedur,
+                        Endpoint: &net.UDPAddr{
+                                IP:   net.ParseIP(res.Extpeers.Endpoint),
+                                Port: int(res.Extpeers.Listenport),
+                        },
+                        ReplaceAllowedIPs: true,
+                        AllowedIPs: allowedips,
+                        }
+                } else {
+                peer = wgtypes.PeerConfig{
+                        PublicKey: pubkey,
+                        Endpoint: &net.UDPAddr{
+                                IP:   net.ParseIP(res.Extpeers.Endpoint),
+                                Port: int(res.Extpeers.Listenport),
+                        },
+                        ReplaceAllowedIPs: true,
+                        AllowedIPs: allowedips,
+                        }
+                }
+                peers = append(peers, peer)
+
+        }
+        return peers, err
+}

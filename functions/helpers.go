@@ -481,6 +481,34 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	return node, nil
 }
 
+func GetAllExtClients() ([]models.ExtClient, error) {
+        var extclient models.ExtClient
+        var extclients []models.ExtClient
+        collection := mongoconn.Client.Database("netmaker").Collection("extclients")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        // Filter out them ID's again
+        cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+        if err != nil {
+                return []models.ExtClient{}, err
+        }
+        defer cancel()
+        for cur.Next(context.TODO()) {
+                err := cur.Decode(&extclient)
+                if err != nil {
+                        return []models.ExtClient{}, err
+                }
+                // add node to our array
+                extclients = append(extclients, extclient)
+        }
+
+        //TODO: Fatal error
+        if err := cur.Err(); err != nil {
+                return []models.ExtClient{}, err
+        }
+        return extclients, nil
+}
+
+
 //This returns a unique address for a node to use
 //it iterates through the list of IP's in the subnet
 //and checks against all nodes to see if it's taken, until it finds one.
@@ -506,7 +534,7 @@ func UniqueAddress(networkName string) (string, error) {
 			offset = false
 			continue
 		}
-		if IsIPUnique(networkName, ip.String()) {
+		if IsIPUnique(networkName, ip.String())  && IsIPUniqueExtClients(networkName, ip.String()) {
 			return ip.String(), err
 		}
 	}
@@ -581,6 +609,33 @@ func GenKeyName() string {
 	}
 	return "key" + string(b)
 }
+
+func IsIPUniqueExtClients(network string, ip string) bool {
+
+        var extclient models.ExtClient
+
+        isunique := true
+
+        collection := mongoconn.Client.Database("netmaker").Collection("extclients")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"address": ip, "network": network}
+
+        err := collection.FindOne(ctx, filter).Decode(&extclient)
+
+        defer cancel()
+
+        if err != nil {
+                fmt.Println(err)
+                return isunique
+        }
+
+        if extclient.Address == ip {
+                isunique = false
+        }
+        return isunique
+}
+
 
 //checks if IP is unique in the address range
 //used by UniqueAddress
@@ -723,33 +778,6 @@ func Inc(ip net.IP) {
 }
 
 func GetAllNodes() ([]models.ReturnNode, error) {
-	var node models.ReturnNode
-	var nodes []models.ReturnNode
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	// Filter out them ID's again
-	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
-	if err != nil {
-		return []models.ReturnNode{}, err
-	}
-	defer cancel()
-	for cur.Next(context.TODO()) {
-		err := cur.Decode(&node)
-		if err != nil {
-			return []models.ReturnNode{}, err
-		}
-		// add node to our array
-		nodes = append(nodes, node)
-	}
-
-	//TODO: Fatal error
-	if err := cur.Err(); err != nil {
-		return []models.ReturnNode{}, err
-	}
-	return nodes, nil
-}
-
-func GetAllExternals() ([]models.ReturnNode, error) {
 	var node models.ReturnNode
 	var nodes []models.ReturnNode
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")

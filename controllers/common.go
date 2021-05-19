@@ -58,6 +58,49 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 	return peers, err
 }
 
+func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersResponse, error) {
+
+        var peers []models.ExtPeersResponse
+
+        //Connection mongoDB with mongoconn class
+        collection := mongoconn.Client.Database("netmaker").Collection("extclients")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        //Get all nodes in the relevant network which are NOT in pending state
+	filter := bson.M{"network": networkName, "gatewayid": macaddress}
+        cur, err := collection.Find(ctx, filter)
+
+        if err != nil {
+                return peers, err
+        }
+
+        // Close the cursor once finished and cancel if it takes too long
+        defer cancel()
+
+        for cur.Next(context.TODO()) {
+
+                var peer models.ExtPeersResponse
+                err := cur.Decode(&peer)
+                if err != nil {
+                        log.Fatal(err)
+                }
+
+                // add the node to our node array
+                //maybe better to just return this? But then that's just GetNodes...
+                peers = append(peers, peer)
+        }
+
+        //Uh oh, fatal error! This needs some better error handling
+        //TODO: needs appropriate error handling so the server doesnt shut down.
+        if err := cur.Err(); err != nil {
+                log.Fatal(err)
+        }
+
+        return peers, err
+}
+
+
 func ValidateNodeCreate(networkName string, node models.Node) error {
 	v := validator.New()
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
