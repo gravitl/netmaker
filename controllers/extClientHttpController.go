@@ -207,19 +207,19 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	config := fmt.Sprintf(`[Interface]
 Address = %s
 PrivateKey = %s
-%s
 
 [Peer]
 PublicKey = %s
 AllowedIPs = %s
 Endpoint = %s
+%s
 
 `, extclient.Address + "/32",
    extclient.PrivateKey,
-   keepalive,
    gwnode.PublicKey,
    network.AddressRange,
-   gwendpoint)
+   gwendpoint,
+   keepalive)
 
 	if params["type"] == "qr" {
 		bytes, err := qrcode.Encode(config, qrcode.Medium, 220)

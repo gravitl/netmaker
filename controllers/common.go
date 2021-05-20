@@ -68,7 +68,7 @@ func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersRe
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
         //Get all nodes in the relevant network which are NOT in pending state
-	filter := bson.M{"network": networkName, "gatewayid": macaddress}
+	filter := bson.M{"network": networkName, "ingressgatewayid": macaddress}
         cur, err := collection.Find(ctx, filter)
 
         if err != nil {
