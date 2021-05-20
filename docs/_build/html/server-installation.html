@@ -357,7 +357,7 @@
         </li>
         <li class="md-nav__item"><a href="#system-compatibility" class="md-nav__link">System Compatibility</a>
         </li>
-        <li class="md-nav__item"><a href="#dns-mode-prereqisite-setup-ubuntu" class="md-nav__link">DNS Mode Prereqisite Setup (Ubuntu)</a>
+        <li class="md-nav__item"><a href="#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#docker-compose-install" class="md-nav__link">Docker Compose Install</a><nav class="md-nav">
               <ul class="md-nav__list">
@@ -419,7 +419,7 @@
     <li class="md-nav__item">
     
     
-      <a href="#dns-mode-prereqisite-setup-ubuntu" class="md-nav__link">DNS Mode Prereqisite Setup (Ubuntu)</a>
+      <a href="#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
       
     
     </li>
@@ -739,7 +739,7 @@
         </li>
         <li class="md-nav__item"><a href="#system-compatibility" class="md-nav__link">System Compatibility</a>
         </li>
-        <li class="md-nav__item"><a href="#dns-mode-prereqisite-setup-ubuntu" class="md-nav__link">DNS Mode Prereqisite Setup (Ubuntu)</a>
+        <li class="md-nav__item"><a href="#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#docker-compose-install" class="md-nav__link">Docker Compose Install</a><nav class="md-nav">
               <ul class="md-nav__list">
@@ -811,20 +811,20 @@
 <p>To run a non-docker installation, you are running the Netmaker binary, CoreDNS binary, MongoDB, and a web server directly on your host. This requires all the requirements for those individual components. Our guided install assumes systemd-based linux, but there are many other ways to install Netmaker’s individual components onto machines that do not support Docker.</p>
 
 
-<h2 id="dns-mode-prereqisite-setup-ubuntu">DNS Mode Prereqisite Setup (Ubuntu)<a class="headerlink" href="#dns-mode-prereqisite-setup-ubuntu" title="Permalink to this headline">¶</a></h2>
+<h2 id="dns-mode-prereqisite-setup">DNS Mode Prereqisite Setup<a class="headerlink" href="#dns-mode-prereqisite-setup" title="Permalink to this headline">¶</a></h2>
 <p>If you plan on running the server in DNS Mode, you will be deploying a CoreDNS server. We recommend binding CoreDNS to port 53 of the host system (which it will do by default). On some systems, this will conflift with existing processes. Specifically on linux systems running systemd-resolved, there may be a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. The following was tested on Ubuntu 20.04. This may have consequences for existing private DNS so proceed with caution:</p>
 <ol class="arabic simple">
-<li><p>systemctl stop systemd-resolved</p></li>
-<li><p>systemctl disable systemd-resolved</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">stop</span> <span class="pre">systemd-resolved</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">disable</span> <span class="pre">systemd-resolved</span></code></p></li>
 <li><dl class="simple">
-<dt>vim /etc/systemd/resolved.conf</dt><dd><ul class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">vim</span> <span class="pre">/etc/systemd/resolved.conf</span></code></dt><dd><ul class="simple">
 <li><p>uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference</p></li>
 <li><p>uncomment DNSStubListener and set to “no”</p></li>
 </ul>
 </dd>
 </dl>
 </li>
-<li><p>sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ln</span> <span class="pre">-sf</span> <span class="pre">/run/systemd/resolve/resolv.conf</span> <span class="pre">/etc/resolv.conf</span></code></p></li>
 </ol>
 <p>Port 53 should now be available for CoreDNS to use.</p>
 

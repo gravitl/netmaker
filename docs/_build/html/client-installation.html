@@ -263,7 +263,7 @@
     <li class="md-nav__item">
     
     
-      <a href="architecture.html#compatible-systems" class="md-nav__link">Compatible Systems</a>
+      <a href="architecture.html#compatible-systems-for-netclient" class="md-nav__link">Compatible Systems for Netclient</a>
       
     
     </li>
@@ -280,7 +280,63 @@
     
     
       <a href="quick-start.html" class="md-nav__link">Quick Start</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
       
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#prerequisites" class="md-nav__link">Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#install" class="md-nav__link">Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#setup" class="md-nav__link">Setup</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#uninstralling-netmaker" class="md-nav__link">Uninstralling Netmaker</a>
+      
+    
+    </li></ul>
     
     </li>
     <li class="md-nav__item">
@@ -291,6 +347,13 @@
     <li class="md-nav__item">
     
     
+      <a href="server-installation.html#notes-on-optional-features" class="md-nav__link">Notes on Optional Features</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
       <a href="server-installation.html#system-compatibility" class="md-nav__link">System Compatibility</a>
       
     
@@ -298,14 +361,35 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#prerequisites" class="md-nav__link">Prerequisites</a>
+      <a href="server-installation.html#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#installing-netmaker" class="md-nav__link">Installing Netmaker</a>
+      <a href="server-installation.html#docker-compose-install" class="md-nav__link">Docker Compose Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#kubernetes-install" class="md-nav__link">Kubernetes Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#configuration-reference" class="md-nav__link">Configuration Reference</a>
       
     
     </li></ul>
@@ -329,17 +413,43 @@
         </li>
         <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
         </li>
-        <li class="md-nav__item"><a href="#installing-netclient" class="md-nav__link">Installing Netclient</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#configuration" class="md-nav__link">Configuration</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#linux" class="md-nav__link">Linux</a>
+        <li class="md-nav__item"><a href="#variable-reference" class="md-nav__link">Variable Reference</a>
         </li>
-        <li class="md-nav__item"><a href="#kubernetes-docker" class="md-nav__link">Kubernetes/Docker</a>
+        <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
-        <li class="md-nav__item"><a href="#customizing-your-installation" class="md-nav__link">Customizing your Installation</a>
+        <li class="md-nav__item"><a href="#cli-reference" class="md-nav__link">CLI Reference</a>
         </li></ul>
             </nav>
         </li>
-        <li class="md-nav__item"><a href="#unmanaged-clients-pure-wireguard" class="md-nav__link">Unmanaged Clients (Pure WireGuard)</a>
+        <li class="md-nav__item"><a href="#installation" class="md-nav__link">Installation</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#token" class="md-nav__link">Token</a>
+        </li>
+        <li class="md-nav__item"><a href="#access-key" class="md-nav__link">Access Key</a>
+        </li>
+        <li class="md-nav__item"><a href="#manual" class="md-nav__link">Manual</a>
+        </li>
+        <li class="md-nav__item"><a href="#config-file" class="md-nav__link">Config File</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#managing-netclient" class="md-nav__link">Managing Netclient</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#viewing-logs" class="md-nav__link">Viewing Logs</a>
+        </li>
+        <li class="md-nav__item"><a href="#making-updates" class="md-nav__link">Making Updates</a>
+        </li>
+        <li class="md-nav__item"><a href="#adding-removing-networks" class="md-nav__link">Adding/Removing Networks</a>
+        </li>
+        <li class="md-nav__item"><a href="#uninstalling" class="md-nav__link">Uninstalling</a>
+        </li>
+        <li class="md-nav__item"><a href="#troubleshooting" class="md-nav__link">Troubleshooting</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
         </li></ul>
             </nav>
         </li>
@@ -363,14 +473,28 @@
     <li class="md-nav__item">
     
     
-      <a href="#installing-netclient" class="md-nav__link">Installing Netclient</a>
+      <a href="#configuration" class="md-nav__link">Configuration</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#unmanaged-clients-pure-wireguard" class="md-nav__link">Unmanaged Clients (Pure WireGuard)</a>
+      <a href="#installation" class="md-nav__link">Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#managing-netclient" class="md-nav__link">Managing Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
       
     
     </li></ul>
@@ -463,19 +587,54 @@
     <li class="md-nav__item">
     
     
-      <a href="support.html" class="md-nav__link">Support</a>
+      <a href="troubleshoot.html" class="md-nav__link">Troubleshooting</a>
       <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
-      <a href="support.html#faq" class="md-nav__link">FAQ</a>
+      <a href="troubleshoot.html#common-issues" class="md-nav__link">Common Issues</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="support.html#troubleshooting" class="md-nav__link">Troubleshooting</a>
+      <a href="troubleshoot.html#server" class="md-nav__link">Server</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#ui" class="md-nav__link">UI</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#agent" class="md-nav__link">Agent</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#coredns" class="md-nav__link">CoreDNS</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html" class="md-nav__link">Support</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html#faq" class="md-nav__link">FAQ</a>
       
     
     </li>
@@ -592,17 +751,43 @@
         </li>
         <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
         </li>
-        <li class="md-nav__item"><a href="#installing-netclient" class="md-nav__link">Installing Netclient</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#configuration" class="md-nav__link">Configuration</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#linux" class="md-nav__link">Linux</a>
+        <li class="md-nav__item"><a href="#variable-reference" class="md-nav__link">Variable Reference</a>
         </li>
-        <li class="md-nav__item"><a href="#kubernetes-docker" class="md-nav__link">Kubernetes/Docker</a>
+        <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
-        <li class="md-nav__item"><a href="#customizing-your-installation" class="md-nav__link">Customizing your Installation</a>
+        <li class="md-nav__item"><a href="#cli-reference" class="md-nav__link">CLI Reference</a>
         </li></ul>
             </nav>
         </li>
-        <li class="md-nav__item"><a href="#unmanaged-clients-pure-wireguard" class="md-nav__link">Unmanaged Clients (Pure WireGuard)</a>
+        <li class="md-nav__item"><a href="#installation" class="md-nav__link">Installation</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#token" class="md-nav__link">Token</a>
+        </li>
+        <li class="md-nav__item"><a href="#access-key" class="md-nav__link">Access Key</a>
+        </li>
+        <li class="md-nav__item"><a href="#manual" class="md-nav__link">Manual</a>
+        </li>
+        <li class="md-nav__item"><a href="#config-file" class="md-nav__link">Config File</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#managing-netclient" class="md-nav__link">Managing Netclient</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#viewing-logs" class="md-nav__link">Viewing Logs</a>
+        </li>
+        <li class="md-nav__item"><a href="#making-updates" class="md-nav__link">Making Updates</a>
+        </li>
+        <li class="md-nav__item"><a href="#adding-removing-networks" class="md-nav__link">Adding/Removing Networks</a>
+        </li>
+        <li class="md-nav__item"><a href="#uninstalling" class="md-nav__link">Uninstalling</a>
+        </li>
+        <li class="md-nav__item"><a href="#troubleshooting" class="md-nav__link">Troubleshooting</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
         </li></ul>
             </nav>
         </li>
@@ -618,6 +803,7 @@
   
 <h1 id="client-installation--page-root">Client Installation<a class="headerlink" href="#client-installation--page-root" title="Permalink to this headline">¶</a></h1>
 <p>This document tells you how to install the netclient on machines that will be a part of your Netmaker network, as well as non-compatible systems.</p>
+<p>These steps should be run after the Netmaker server has been created and a network has been designated within Netmaker.</p>
 
 <h2 id="system-compatibility">System Compatibility<a class="headerlink" href="#system-compatibility" title="Permalink to this headline">¶</a></h2>
 
@@ -625,19 +811,52 @@
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
 
 
-<h2 id="installing-netclient">Installing Netclient<a class="headerlink" href="#installing-netclient" title="Permalink to this headline">¶</a></h2>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
 
-<h3 id="linux">Linux<a class="headerlink" href="#linux" title="Permalink to this headline">¶</a></h3>
-
-
-<h3 id="kubernetes-docker">Kubernetes/Docker<a class="headerlink" href="#kubernetes-docker" title="Permalink to this headline">¶</a></h3>
+<h3 id="variable-reference">Variable Reference<a class="headerlink" href="#variable-reference" title="Permalink to this headline">¶</a></h3>
 
 
-<h3 id="customizing-your-installation">Customizing your Installation<a class="headerlink" href="#customizing-your-installation" title="Permalink to this headline">¶</a></h3>
+<h3 id="config-file-reference">Config File Reference<a class="headerlink" href="#config-file-reference" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="cli-reference">CLI Reference<a class="headerlink" href="#cli-reference" title="Permalink to this headline">¶</a></h3>
 
 
 
-<h2 id="unmanaged-clients-pure-wireguard">Unmanaged Clients (Pure WireGuard)<a class="headerlink" href="#unmanaged-clients-pure-wireguard" title="Permalink to this headline">¶</a></h2>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="token">Token<a class="headerlink" href="#token" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="access-key">Access Key<a class="headerlink" href="#access-key" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="manual">Manual<a class="headerlink" href="#manual" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="config-file">Config File<a class="headerlink" href="#config-file" title="Permalink to this headline">¶</a></h3>
+
+
+
+<h2 id="managing-netclient">Managing Netclient<a class="headerlink" href="#managing-netclient" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="viewing-logs">Viewing Logs<a class="headerlink" href="#viewing-logs" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="making-updates">Making Updates<a class="headerlink" href="#making-updates" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="adding-removing-networks">Adding/Removing Networks<a class="headerlink" href="#adding-removing-networks" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permalink to this headline">¶</a></h3>
+
+
+<h3 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h3>
+
+
+
+<h2 id="unmanaged-external-clients">Unmanaged (External) Clients<a class="headerlink" href="#unmanaged-external-clients" title="Permalink to this headline">¶</a></h2>
 
 
 
