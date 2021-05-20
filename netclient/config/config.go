@@ -36,6 +36,7 @@ type NodeConfig struct {
         DNSOff bool `yaml:"dnsoff"`
         IsLocal bool `yaml:"islocal"`
         IsDualStack bool `yaml:"isdualstack"`
+        IsIngressGateway bool `yaml:"isingressgateway"`
         AllowedIPs string `yaml:"allowedips"`
         LocalRange string `yaml:"localrange"`
         PostUp string `yaml:"postup"`

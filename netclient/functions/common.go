@@ -423,6 +423,7 @@ func Install(accesskey string, password string, server string, network string, n
        fmt.Println("     Mac Address: " + node.Macaddress)
        fmt.Println("     Is Local?: " + strconv.FormatBool(node.Islocal))
        fmt.Println("     Is Dual Stack?: " + strconv.FormatBool(node.Isdualstack))
+       fmt.Println("     Is Ingress Gateway?: " + strconv.FormatBool(node.Isingressgateway))
        fmt.Println("     Local Range: " + node.Localrange)
 
        if node.Dnsoff==true && !nodecfg.DNSOff {
@@ -610,7 +611,7 @@ func modConfig(node *nodepb.Node) error{
         if node.Isdualstack == true {
                 nodecfg.IsDualStack = true
         }
-
+        nodecfg.IsIngressGateway = node.Isingressgateway
         if node.Localrange != "" && node.Islocal {
                 nodecfg.IsLocal = true
                 nodecfg.LocalRange = node.Localrange
@@ -1310,6 +1311,7 @@ func getNode(network string) nodepb.Node {
 	node.Password = nodecfg.Password
 	node.Dnsoff = nodecfg.DNSOff
 	node.Isdualstack = nodecfg.IsDualStack
+	node.Isingressgateway = nodecfg.IsIngressGateway
         return node
 }
 
