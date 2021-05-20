@@ -61,6 +61,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Checkininterval: node.CheckInInterval,
 			Dnsoff:          !servercfg.IsDNSMode(),
 			Ispending:       node.IsPending,
+			Isingressgateway:       node.IsIngressGateway,
 			Publickey:       node.PublicKey,
 			Listenport:      node.ListenPort,
 			Keepalive:       node.PersistentKeepalive,
