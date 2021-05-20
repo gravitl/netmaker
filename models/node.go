@@ -22,7 +22,7 @@ type Node struct {
 	Address             string             `json:"address" bson:"address" validate:"omitempty,ipv4"`
 	Address6            string             `json:"address6" bson:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"omitempty,ip"`
-	Name                string             `json:"name" bson:"name" validate:"omitempty,alphanum,max=12"`
+	Name                string             `json:"name" bson:"name" validate:"omitempty,max=12"`
 	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	PublicKey           string             `json:"publickey" bson:"publickey" validate:"required,base64"`
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"required,ip"`
@@ -55,7 +55,7 @@ type NodeUpdate struct {
 	Address             string             `json:"address" bson:"address" validate:"omitempty,ip"`
 	Address6            string             `json:"address6" bson:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"omitempty,ip"`
-	Name                string             `json:"name" bson:"name" validate:"omitempty,alphanum,max=12"`
+	Name                string             `json:"name" bson:"name" validate:"omitempty,max=12"`
 	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	PublicKey           string             `json:"publickey" bson:"publickey" validate:"omitempty,base64"`
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"omitempty,ip"`
