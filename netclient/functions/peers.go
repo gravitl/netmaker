@@ -171,12 +171,6 @@ func getExtPeers(macaddress string, network string, server string, dualstack boo
                 log.Fatalf("Issue retrieving config for network: " + network +  ". Please investigate: %v", err)
         }
         nodecfg := cfg.Node
-        keepalive := nodecfg.KeepAlive
-        keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
-        if err != nil {
-                log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
-        }
-
 
         fmt.Println("Registering with GRPC Server")
         requestOpts := grpc.WithInsecure()
@@ -234,10 +228,6 @@ func getExtPeers(macaddress string, network string, server string, dualstack boo
                         fmt.Println("Peer is self. Skipping")
                         continue
                 }
-                if nodecfg.Endpoint == res.Extpeers.Endpoint {
-                        fmt.Println("Peer is self. Skipping")
-                        continue
-                }
 
                 var peer wgtypes.PeerConfig
                 var peeraddr = net.IPNet{
@@ -254,28 +244,11 @@ func getExtPeers(macaddress string, network string, server string, dualstack boo
                         }
                         allowedips = append(allowedips, addr6)
                 }
-                if keepalive != 0 {
                 peer = wgtypes.PeerConfig{
                         PublicKey: pubkey,
-                        PersistentKeepaliveInterval: &keepalivedur,
-                        Endpoint: &net.UDPAddr{
-                                IP:   net.ParseIP(res.Extpeers.Endpoint),
-                                Port: int(res.Extpeers.Listenport),
-                        },
                         ReplaceAllowedIPs: true,
                         AllowedIPs: allowedips,
                         }
-                } else {
-                peer = wgtypes.PeerConfig{
-                        PublicKey: pubkey,
-                        Endpoint: &net.UDPAddr{
-                                IP:   net.ParseIP(res.Extpeers.Endpoint),
-                                Port: int(res.Extpeers.Listenport),
-                        },
-                        ReplaceAllowedIPs: true,
-                        AllowedIPs: allowedips,
-                        }
-                }
                 peers = append(peers, peer)
 
         }
