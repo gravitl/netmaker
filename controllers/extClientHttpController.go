@@ -313,8 +313,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var extclient models.ExtClient
 	extclient.Network = networkName
 	extclient.IngressGatewayID = macaddress
-	//get extclient from body of request
-	err := json.NewDecoder(r.Body).Decode(&extclient)
+	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
+
+	err = json.NewDecoder(r.Body).Decode(&extclient)
 	if err != nil && !errors.Is(err, io.EOF) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
