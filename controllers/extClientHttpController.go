@@ -3,8 +3,10 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"errors"
 	"fmt"
+        "math/rand"
 
 	// "fmt"
 	"net/http"
@@ -256,8 +258,6 @@ Endpoint = %s
 }
 
 func CreateExtClient(extclient models.ExtClient) error {
-	fmt.Println(extclient)
-	// Generate Private Key for new ExtClient
 	if extclient.PrivateKey == "" {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
@@ -275,6 +275,11 @@ func CreateExtClient(extclient models.ExtClient) error {
 		}
 		extclient.Address = newAddress
 	}
+        if extclient.ClientID == "" {
+                clientid := StringWithCharset(7, charset)
+                clientname := "client-" + clientid
+                extclient.ClientID = clientname
+        }
 
 	extclient.LastModified = time.Now().Unix()
 
@@ -308,10 +313,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var extclient models.ExtClient
 	extclient.Network = networkName
 	extclient.IngressGatewayID = macaddress
-
 	//get extclient from body of request
 	err := json.NewDecoder(r.Body).Decode(&extclient)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -320,7 +324,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
 	err = CreateExtClient(extclient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -417,3 +420,17 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }
+
+func StringWithCharset(length int, charset string) string {
+        b := make([]byte, length)
+        for i := range b {
+                b[i] = charset[seededRand.Intn(len(charset))]
+        }
+        return string(b)
+}
+
+const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var seededRand *rand.Rand = rand.New(
+        rand.NewSource(time.Now().UnixNano()))
+
