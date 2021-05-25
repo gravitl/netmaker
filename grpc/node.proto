@@ -84,6 +84,17 @@ message ExtPeersResponse {
     int32 keepalive = 13;
 }
 
+message Client {
+    string privatekey = 1;
+    string publickey = 2;
+    string accesskey = 3;
+    string address = 4;
+    string address6 = 5;
+    string serverendpoint = 6;
+    string serverport = 7;
+    string serverkey = 8;
+}
+
 message CreateNodeReq {
     Node node = 1; // Node id blank
 }

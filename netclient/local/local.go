@@ -1,8 +1,9 @@
-package functions
+package local
 
 import (
         //"github.com/davecgh/go-spew/spew"
-        "fmt"
+        "github.com/gravitl/netmaker/netclient/config"
+	"fmt"
         "io/ioutil"
 	"path/filepath"
         "io"
@@ -12,6 +13,19 @@ import (
         "os/exec"
 )
 
+func RunCmds(commands []string) error {
+        var err error
+        for _, command := range commands {
+                fmt.Println("Running command: " + command)
+                args := strings.Fields(command)
+                out, err := exec.Command(args[0], args[1:]...).Output()
+                fmt.Println(string(out))
+                if err != nil {
+                        return err
+                }
+        }
+        return err
+}
 
 func FileExists(f string) bool {
     info, err := os.Stat(f)
@@ -92,7 +106,7 @@ Wants=netclient.timer
 
 [Service]
 Type=simple
-ExecStart=/etc/netclient/netclient -c checkin -n %i
+ExecStart=/etc/netclient/netclient checkin -n %i
 
 [Install]
 WantedBy=multi-user.target
@@ -213,38 +227,11 @@ func RemoveSystemDServices(network string) error {
 		fmt.Println(err)
 	}
 
-	cmdSysDisableService := exec.Command("systemctl","disable","netclient@.service")/* &exec.Cmd {
-                Path: sysExec,
-                Args: []string{ sysExec, "disable", "netclient@.service"},
-                Stdout: os.Stdout,
-                Stderr: os.Stdout,
-        }*/
-        cmdSysDaemonReload := exec.Command("systemctl","daemon-reload")/*&exec.Cmd {
-                Path: sysExec,
-                Args: []string{ sysExec, "daemon-reload"},
-                Stdout: os.Stdout,
-                Stderr: os.Stdout,
-        }*/
-        cmdSysResetFailed := exec.Command("systemctl","reset-failed")/*&exec.Cmd {
-                Path: sysExec,
-                Args: []string{ sysExec, "reset-failed"},
-                Stdout: os.Stdout,
-                Stderr: os.Stdout,
-        }*/
-        cmdSysStopTimer := exec.Command("systemctl", "stop", "netclient-"+network+".timer")/*&exec.Cmd {
-                Path: sysExec,
-                Args: []string{ sysExec, "stop", "netclient-"+network+".timer" },
-                Stdout: os.Stdout,
-                Stderr: os.Stdout,
-        }*/
-        cmdSysDisableTimer :=  exec.Command("systemctl", "disable", "netclient-"+network+".timer")/*&exec.Cmd {
-                Path: sysExec,
-                Args: []string{ sysExec, "disable", "netclient-"+network+".timer"},
-                Stdout: os.Stdout,
-                Stderr: os.Stdout,
-        }*/
-
-        //err = cmdSysStopService.Run()
+	cmdSysDisableService := exec.Command("systemctl","disable","netclient@.service")
+        cmdSysDaemonReload := exec.Command("systemctl","daemon-reload")
+        cmdSysResetFailed := exec.Command("systemctl","reset-failed")
+        cmdSysStopTimer := exec.Command("systemctl", "stop", "netclient-"+network+".timer")
+        cmdSysDisableTimer :=  exec.Command("systemctl", "disable", "netclient-"+network+".timer")
         if  err  !=  nil {
                 fmt.Println("Error stopping netclient@.service. Please investigate.")
                 fmt.Println(err)
@@ -285,6 +272,52 @@ func RemoveSystemDServices(network string) error {
                 fmt.Println(err)
         }
 	return err
+
+}
+
+func WipeLocal(network string) error{
+        cfg, err := config.ReadConfig(network)
+        if err != nil {
+                return err
+        }
+        nodecfg := cfg.Node
+        ifacename := nodecfg.Interface
+
+        //home, err := homedir.Dir()
+        home := "/etc/netclient"
+        _ = os.Remove(home + "/netconfig-" + network)
+        _ = os.Remove(home + "/nettoken-" + network)
+        _ = os.Remove(home + "/wgkey-" + network)
+
+        ipExec, err := exec.LookPath("ip")
+
+        if ifacename != "" {
+        cmdIPLinkDel := &exec.Cmd {
+                Path: ipExec,
+                Args: []string{ ipExec, "link", "del", ifacename },
+                Stdout: os.Stdout,
+                Stderr: os.Stdout,
+        }
+        err = cmdIPLinkDel.Run()
+        if  err  !=  nil {
+                fmt.Println(err)
+        }
+        if nodecfg.PostDown != "" {
+                runcmds := strings.Split(nodecfg.PostDown, "; ")
+                err = RunCmds(runcmds)
+                if err != nil {
+                        fmt.Println("Error encountered running PostDown: " + err.Error())
+                }
+        }
+        }
+        return err
+
+}
+
+func HasNetwork(network string) bool{
+
+return  FileExists("/etc/systemd/system/netclient-"+network+".timer") ||
+	FileExists("/etc/netclient/netconfig-"+network)
 
 }
 

@@ -31,6 +31,7 @@ var Config *EnvironmentConfig
 type EnvironmentConfig struct {
   Server ServerConfig `yaml:"server"`
   MongoConn MongoConnConfig `yaml:"mongoconn"`
+  WG WG `yaml:"wg"`
 }
 
 // ServerConfig :
@@ -46,6 +47,18 @@ type ServerConfig struct {
   ClientMode string `yaml:"clientmode"`
   DNSMode string `yaml:"dnsmode"`
   DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
+}
+
+type WG struct {
+  RegisterKeyRequired  string  `yaml:"keyrequired"`
+  GRPCWireGuard  string  `yaml:"grpcwg"`
+  GRPCWGInterface  string `yaml:"grpciface"`
+  GRPCWGAddress  string `yaml:"grpcaddr"`
+  GRPCWGAddressRange  string `yaml:"grpcaddrrange"`
+  GRPCWGEndpoint  string `yaml:"grpcendpoint"`
+  GRPCWGPort  string  `yaml:"grpcport"`
+  GRPCWGPubKey  string  `yaml:"pubkey"`
+  GRPCWGPrivKey  string  `yaml:"privkey"`
 }
 
 type MongoConnConfig struct {

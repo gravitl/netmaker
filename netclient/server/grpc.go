@@ -1,23 +1,132 @@
-package functions
+package server
 
 import (
-        "fmt"
-        "time"
-        "context"
-        "io"
-        "strings"
-        "log"
-        "net"
-        "strconv"
-        "github.com/gravitl/netmaker/netclient/config"
+	"fmt"
+	"context"
+	"log"
+	"strings"
+	"strconv"
+	"net"
+	"time"
+	"io"
+        "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"github.com/gravitl/netmaker/netclient/config"
+        "github.com/gravitl/netmaker/netclient/auth"
+        "github.com/gravitl/netmaker/netclient/local"
         nodepb "github.com/gravitl/netmaker/grpc"
         "google.golang.org/grpc"
-        "google.golang.org/grpc/metadata"
-        "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-        //homedir "github.com/mitchellh/go-homedir"
+	"google.golang.org/grpc/metadata"
+	//homedir "github.com/mitchellh/go-homedir"
 )
 
-func getPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
+func GetNode(network string) nodepb.Node {
+
+        modcfg, err := config.ReadConfig(network)
+        if err != nil {
+                log.Fatalf("Error: %v", err)
+        }
+
+	nodecfg := modcfg.Node
+	var node nodepb.Node
+
+	node.Name = nodecfg.Name
+	node.Interface = nodecfg.Interface
+	node.Nodenetwork = nodecfg.Network
+	node.Localaddress = nodecfg.LocalAddress
+	node.Address = nodecfg.WGAddress
+	node.Address6 = nodecfg.WGAddress6
+	node.Listenport = nodecfg.Port
+	node.Keepalive = nodecfg.KeepAlive
+	node.Postup = nodecfg.PostUp
+	node.Postdown = nodecfg.PostDown
+	node.Publickey = nodecfg.PublicKey
+	node.Macaddress = nodecfg.MacAddress
+	node.Endpoint = nodecfg.Endpoint
+	node.Password = nodecfg.Password
+	if nodecfg.DNS == "on" {
+		node.Dnsoff = false
+	} else {
+		node.Dnsoff = true
+	}
+        if nodecfg.IsDualStack == "yes" {
+                node.Isdualstack = true
+        } else {
+                node.Isdualstack = false
+        }
+        if nodecfg.IsIngressGateway == "yes" {
+                node.Isingressgateway= true
+        } else {
+                node.Isingressgateway = false
+        }
+        return node
+}
+
+
+
+func RemoveNetwork(network string) error {
+        //need to  implement checkin on server side
+        cfg, err := config.ReadConfig(network)
+        if err != nil {
+                return err
+        }
+	servercfg := cfg.Server
+        node := cfg.Node
+	fmt.Println("Deleting remote node with MAC: " + node.MacAddress)
+
+
+        var wcclient nodepb.NodeServiceClient
+        var requestOpts grpc.DialOption
+        requestOpts = grpc.WithInsecure()
+        conn, err := grpc.Dial(servercfg.Address, requestOpts)
+	if err != nil {
+                log.Printf("Unable to establish client connection to " + servercfg.Address + ": %v", err)
+		//return err
+        }else {
+        wcclient = nodepb.NewNodeServiceClient(conn)
+
+        ctx := context.Background()
+        fmt.Println("Authenticating with GRPC Server")
+        ctx, err = auth.SetJWT(wcclient, network)
+        if err != nil {
+                //return err
+                log.Printf("Failed to authenticate: %v", err)
+        } else {
+        fmt.Println("Authenticated")
+
+        var header metadata.MD
+
+        _, err = wcclient.DeleteNode(
+                ctx,
+                &nodepb.DeleteNodeReq{
+                        Macaddress: node.MacAddress,
+                        NetworkName: node.Network,
+                },
+                grpc.Header(&header),
+        )
+        if err != nil {
+		log.Printf("Encountered error deleting node: %v", err)
+		fmt.Println(err)
+        } else {
+		fmt.Println("Deleted node " + node.MacAddress)
+	}
+	}
+	}
+	err = local.WipeLocal(network)
+	if err != nil {
+                log.Printf("Unable to wipe local config: %v", err)
+	}
+	err =  local.RemoveSystemDServices(network)
+        if err != nil {
+                return err
+                log.Printf("Unable to remove systemd services: %v", err)
+        }
+	fmt.Printf("Please investigate any stated errors to ensure proper removal.")
+	fmt.Printf("Failure to delete node from server via gRPC will mean node still exists and needs to be manually deleted by administrator.")
+
+	return nil
+}
+
+func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
         //need to  implement checkin on server side
         hasGateway := false
         var gateways []string
@@ -35,7 +144,6 @@ func getPeers(macaddress string, network string, server string, dualstack bool, 
         }
 
 
-        fmt.Println("Registering with GRPC Server")
         requestOpts := grpc.WithInsecure()
         conn, err := grpc.Dial(server, requestOpts)
         if err != nil {
@@ -49,8 +157,7 @@ func getPeers(macaddress string, network string, server string, dualstack bool, 
                 Network: network,
         }
         ctx := context.Background()
-        fmt.Println("Authenticating with GRPC Server")
-        ctx, err = SetJWT(wcclient, network)
+        ctx, err = auth.SetJWT(wcclient, network)
         if err != nil {
                 fmt.Println("Failed to authenticate.")
                 return peers, hasGateway, gateways, err
@@ -63,7 +170,6 @@ func getPeers(macaddress string, network string, server string, dualstack bool, 
                 fmt.Println(err)
                 return nil, hasGateway, gateways, err
         }
-        fmt.Println("Parsing peers response")
         for {
                 res, err := stream.Recv()
                 // If end of stream, break the loop
@@ -88,11 +194,9 @@ func getPeers(macaddress string, network string, server string, dualstack bool, 
                 }
 
                 if nodecfg.PublicKey == res.Peers.Publickey {
-                        fmt.Println("Peer is self. Skipping")
                         continue
                 }
                 if nodecfg.Endpoint == res.Peers.Endpoint {
-                        fmt.Println("Peer is self. Skipping")
                         continue
                 }
 
@@ -149,8 +253,7 @@ func getPeers(macaddress string, network string, server string, dualstack bool, 
 
         }
         if isIngressGateway {
-                fmt.Println("Adding external peers...")
-                extPeers, err := getExtPeers(macaddress, network, server, dualstack)
+                extPeers, err := GetExtPeers(macaddress, network, server, dualstack)
                 if err == nil {
                         peers = append(peers, extPeers...)
                         fmt.Println("Added " + strconv.Itoa(len(extPeers)) + " external clients.")
@@ -159,11 +262,10 @@ func getPeers(macaddress string, network string, server string, dualstack bool, 
                         fmt.Println(err)
                 }
         }
-        fmt.Println("Finished parsing peers response")
         return peers, hasGateway, gateways, err
 }
 
-func getExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
+func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
         var peers []wgtypes.PeerConfig
         var wcclient nodepb.NodeServiceClient
         cfg, err := config.ReadConfig(network)
@@ -186,8 +288,7 @@ func getExtPeers(macaddress string, network string, server string, dualstack boo
                 Network: network,
         }
         ctx := context.Background()
-        fmt.Println("Authenticating with GRPC Server")
-        ctx, err = SetJWT(wcclient, network)
+        ctx, err = auth.SetJWT(wcclient, network)
         if err != nil {
                 fmt.Println("Failed to authenticate.")
                 return peers, err
@@ -200,7 +301,6 @@ func getExtPeers(macaddress string, network string, server string, dualstack boo
                 fmt.Println(err)
                 return nil, err
         }
-        fmt.Println("Parsing peers response")
         for {
                 res, err := stream.Recv()
                 // If end of stream, break the loop
@@ -225,7 +325,6 @@ func getExtPeers(macaddress string, network string, server string, dualstack boo
                 }
 
                 if nodecfg.PublicKey == res.Extpeers.Publickey {
-                        fmt.Println("Peer is self. Skipping")
                         continue
                 }
 

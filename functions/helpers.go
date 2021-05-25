@@ -9,11 +9,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
-
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
@@ -79,6 +79,48 @@ func CreateServerToken(netID string) (string, error) {
 		return "", errN
 	}
 	return accesskey.AccessString, nil
+}
+
+func GetPeersList(networkName string) ([]models.PeersResponse, error) {
+
+        var peers []models.PeersResponse
+
+        //Connection mongoDB with mongoconn class
+        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        //Get all nodes in the relevant network which are NOT in pending state
+        filter := bson.M{"network": networkName, "ispending": false}
+        cur, err := collection.Find(ctx, filter)
+
+        if err != nil {
+                return peers, err
+        }
+
+        // Close the cursor once finished and cancel if it takes too long
+        defer cancel()
+
+        for cur.Next(context.TODO()) {
+
+                var peer models.PeersResponse
+                err := cur.Decode(&peer)
+                if err != nil {
+                        log.Fatal(err)
+                }
+
+                // add the node to our node array
+                //maybe better to just return this? But then that's just GetNodes...
+                peers = append(peers, peer)
+        }
+
+        //Uh oh, fatal error! This needs some better error handling
+        //TODO: needs appropriate error handling so the server doesnt shut down.
+        if err := cur.Err(); err != nil {
+                log.Fatal(err)
+        }
+
+        return peers, err
 }
 
 func IsFieldUnique(network string, field string, value string) bool {
@@ -342,6 +384,31 @@ func IsKeyValid(networkname string, keyvalue string) bool {
 		}
 	}
 	return isvalid
+}
+
+func IsKeyValidGlobal(keyvalue string) bool {
+
+        networks, _ := ListNetworks()
+        var key models.AccessKey
+        foundkey := false
+        isvalid := false
+	for _, network := range networks {
+		for i := len(network.AccessKeys) - 1; i >= 0; i-- {
+	                currentkey := network.AccessKeys[i]
+	                if currentkey.Value == keyvalue {
+	                        key = currentkey
+	                        foundkey = true
+				break
+	                }
+	        }
+		if foundkey { break }
+	}
+        if foundkey {
+                if key.Uses > 0 {
+                        isvalid = true
+                }
+        }
+        return isvalid
 }
 
 //TODO: Contains a fatal error return. Need to change

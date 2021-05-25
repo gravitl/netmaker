@@ -6,6 +6,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
+        "go.mongodb.org/mongo-driver/bson"
+        "go.mongodb.org/mongo-driver/mongo/options"
 	"io"
 	"time"
 	"context"
@@ -57,6 +59,62 @@ func CreateDefaultNetwork() (bool, error) {
         return iscreated, err
 
 
+}
+
+func GetServerWGConf() (models.ServerClient, error) {
+        var server models.ServerClient
+        collection := mongoconn.Client.Database("netmaker").Collection("serverclients")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	filter := bson.M{"network": "comms", "isserver": "yes"}
+        err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&server)
+	defer cancel()
+
+	return server, err
+}
+
+
+func CreateCommsNetwork() (bool, error) {
+
+        fmt.Println("Creating GRPC network...")
+
+        iscreated := false
+        exists, err := functions.NetworkExists("comms")
+
+        if exists || err != nil {
+                fmt.Println("GRPC network already exists. Skipping...")
+                return true, nil
+        } else {
+
+        var network models.Network
+
+        network.NetID = "comms"
+	network.IsIPv6 = "yes"
+	network.IsIPv4 = "no"
+	network.IsGRPCHub = "yes"
+        network.AddressRange6 = servercfg.GetGRPCWGAddressRange()
+        network.DisplayName = "comms"
+        network.SetDefaults()
+        network.SetNodesLastModified()
+        network.SetNetworkLastModified()
+        network.KeyUpdateTimeStamp = time.Now().Unix()
+        priv := false
+        network.IsLocal = &priv
+        network.KeyUpdateTimeStamp = time.Now().Unix()
+
+        fmt.Println("Creating comms network.")
+
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // insert our network into the network table
+        _, err = collection.InsertOne(ctx, network)
+        defer cancel()
+
+        }
+        if err == nil {
+                iscreated = true
+        }
+        return iscreated, err
 }
 
 func DownloadNetclient() error {

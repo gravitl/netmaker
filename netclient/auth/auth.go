@@ -1,4 +1,4 @@
-package functions
+package auth
 
 import (
     "github.com/gravitl/netmaker/netclient/config"
@@ -19,7 +19,6 @@ func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, e
 		home := "/etc/netclient"
 		tokentext, err := ioutil.ReadFile(home + "/nettoken-"+network)
                 if err != nil {
-			fmt.Println("Error reading token. Logging in to retrieve new token.")
 			err = AutoLogin(client, network)
 			if err != nil {
                                 return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong with Auto Login: %v", err))

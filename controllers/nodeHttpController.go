@@ -32,6 +32,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleteingress", securityCheck(http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
+	//r.HandleFunc("/api/register", registerClient).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 

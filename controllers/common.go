@@ -58,6 +58,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 	return peers, err
 }
 
+
 func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersResponse, error) {
 
         var peers []models.ExtPeersResponse

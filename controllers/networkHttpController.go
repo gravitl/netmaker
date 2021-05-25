@@ -30,6 +30,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(createAccessKey))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(getAccessKeys))).Methods("GET")
+        r.HandleFunc("/api/networks/{networkname}/signuptoken", securityCheck(http.HandlerFunc(getSignupToken))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
 }
 
@@ -639,6 +640,31 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	}
 	return accesskey, nil
 }
+
+func GetSignupToken(netID string) (models.AccessKey, error) {
+
+	var accesskey models.AccessKey
+        address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
+
+        accessstringdec := address + "|" + netID + "|" + "" + "|"
+        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+        return accesskey, nil
+}
+func getSignupToken(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        var params = mux.Vars(r)
+        netID := params["networkname"]
+
+	token, err := GetSignupToken(netID)
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(token)
+}
+
+
 
 //pretty simple get
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {
