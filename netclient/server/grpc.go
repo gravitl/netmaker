@@ -77,9 +77,9 @@ func RemoveNetwork(network string) error {
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
-        conn, err := grpc.Dial(servercfg.Address, requestOpts)
+        conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
 	if err != nil {
-                log.Printf("Unable to establish client connection to " + servercfg.Address + ": %v", err)
+                log.Printf("Unable to establish client connection to " + servercfg.GRPCAddress + ": %v", err)
 		//return err
         }else {
         wcclient = nodepb.NewNodeServiceClient(conn)

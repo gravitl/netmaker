@@ -25,7 +25,7 @@ func CheckIn(network string) error {
         }
 	nodecfg := cfg.Node
 	servercfg := cfg.Server
-	fmt.Println("Checking into server: " + servercfg.Address)
+	fmt.Println("Checking into server: " + servercfg.GRPCAddress)
 
 	setupcheck := true
 	ipchange := false
@@ -124,7 +124,7 @@ func CheckIn(network string) error {
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
-        conn, err := grpc.Dial(servercfg.Address, requestOpts)
+        conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
 		fmt.Printf("Cant dial GRPC server: %v", err)
 		return err
@@ -244,7 +244,7 @@ func CheckIn(network string) error {
         if checkinres.Checkinresponse.Needkeyupdate {
                 fmt.Println("Server has requested that node update key pairs.")
                 fmt.Println("Proceeding to re-generate key pairs for Wiregard.")
-                err = wireguard.SetWGKeyConfig(network, servercfg.Address)
+                err = wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
                 if err != nil {
                         return err
                         log.Fatalf("Unable to process reset keys request: %v", err)
@@ -274,7 +274,7 @@ func CheckIn(network string) error {
 	_, err := net.InterfaceByName(iface)
         if err != nil {
 		fmt.Println("interface " + iface + " does not currently exist. Setting up WireGuard.")
-                err = wireguard.SetWGKeyConfig(network, servercfg.Address)
+                err = wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
                 if err != nil {
                         return err
                         log.Fatalf("Error: %v", err)

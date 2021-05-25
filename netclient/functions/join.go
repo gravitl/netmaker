@@ -6,7 +6,6 @@ import (
 	"context"
 	"log"
 	"net"
-	"strconv"
         "github.com/gravitl/netmaker/netclient/config"
         "github.com/gravitl/netmaker/netclient/wireguard"
         "github.com/gravitl/netmaker/netclient/server"
@@ -128,7 +127,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 	var wcclient nodepb.NodeServiceClient
 	var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
-        conn, err := grpc.Dial(cfg.Server.Address, requestOpts)
+        conn, err := grpc.Dial(cfg.Server.GRPCAddress, requestOpts)
         if err != nil {
                 log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
         }
@@ -167,26 +166,6 @@ func JoinNetwork(cfg config.ClientConfig) error {
                 return err
         }
 
-       fmt.Println("Node Settings: ")
-       fmt.Println("     Password: " + node.Password)
-       fmt.Println("     WG Address: " + node.Address)
-       fmt.Println("     WG ipv6 Address: " + node.Address6)
-       fmt.Println("     Network: " + node.Nodenetwork)
-       fmt.Println("     Public  Endpoint: " + node.Endpoint)
-       fmt.Println("     Local Address: " + node.Localaddress)
-       fmt.Println("     Name: " + node.Name)
-       fmt.Println("     Interface: " + node.Interface)
-       fmt.Println("     PostUp: " + node.Postup)
-       fmt.Println("     PostDown: " + node.Postdown)
-       fmt.Println("     Port: " + strconv.FormatInt(int64(node.Listenport), 10))
-       fmt.Println("     KeepAlive: " + strconv.FormatInt(int64(node.Keepalive), 10))
-       fmt.Println("     Public Key: " + node.Publickey)
-       fmt.Println("     Mac Address: " + node.Macaddress)
-       fmt.Println("     Is Local?: " + strconv.FormatBool(node.Islocal))
-       fmt.Println("     Is Dual Stack?: " + strconv.FormatBool(node.Isdualstack))
-       fmt.Println("     Is Ingress Gateway?: " + strconv.FormatBool(node.Isingressgateway))
-       fmt.Println("     Local Range: " + node.Localrange)
-
        if node.Dnsoff==true  {
 		cfg.Node.DNS = "yes"
 	}
@@ -213,7 +192,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		}
 	}
 
-	peers, hasGateway, gateways, err := server.GetPeers(node.Macaddress, cfg.Network, cfg.Server.Address, node.Isdualstack, node.Isingressgateway)
+	peers, hasGateway, gateways, err := server.GetPeers(node.Macaddress, cfg.Network, cfg.Server.GRPCAddress, node.Isdualstack, node.Isingressgateway)
 
 	if err != nil {
                 return err

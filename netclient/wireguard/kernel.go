@@ -2,6 +2,8 @@ package wireguard
 
 import (
 	"fmt"
+	"strconv"
+	"errors"
 	"context"
         "io/ioutil"
 	"strings"
@@ -14,12 +16,120 @@ import (
         "github.com/gravitl/netmaker/netclient/auth"
         "github.com/gravitl/netmaker/netclient/server"
         nodepb "github.com/gravitl/netmaker/grpc"
+        "github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl"
         "google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	//homedir "github.com/mitchellh/go-homedir"
 )
+func InitGRPCWireguard(client models.ServerClient) error {
+        key, err := wgtypes.ParseKey(client.PrivateKey)
+        if err !=  nil {
+                return err
+        }
+        serverkey, err := wgtypes.ParseKey(client.ServerKey)
+        if err !=  nil {
+                return err
+        }
+	serverport, err := strconv.Atoi(client.ServerPort)
+        if err !=  nil {
+                return err
+        }
+
+        wgclient, err := wgctrl.New()
+        if err != nil {
+                log.Fatalf("failed to open client: %v", err)
+        }
+        defer wgclient.Close()
+
+        ifacename := "grpc-wg-001"
+        if client.Address6 == "" && client.Address == "" {
+                return errors.New("no address to configure")
+        }
+        cmdIPDevLinkAdd := exec.Command("ip","link", "add", "dev", ifacename, "type",  "wireguard" )
+        cmdIPAddrAdd := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
+        cmdIPAddr6Add := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
+        currentiface, err := net.InterfaceByName(ifacename)
+        if err != nil {
+                err = cmdIPDevLinkAdd.Run()
+	        if  err  !=  nil && !strings.Contains(err.Error(), "exists") {
+	                log.Println("Error creating interface")
+	        }
+        }
+        match := false
+        addrs, _ := currentiface.Addrs()
+
+	//Add IPv4Address (make into separate function)
+        for _, a := range addrs {
+                if strings.Contains(a.String(), client.Address){
+                        match = true
+                }
+        }
+        if !match {
+		err = cmdIPAddrAdd.Run()
+	        if  err  !=  nil {
+	                log.Println("Error adding address")
+	        }
+        }
+
+	//Add IPv6 Address (make into separate function)
+        for _, a := range addrs {
+                if strings.Contains(a.String(), client.Address6){
+                        match = true
+                }
+        }
+        if !match {
+                err = cmdIPAddr6Add.Run()
+                if  err  !=  nil {
+                        log.Println("Error adding address")
+                }
+        }
+	var peers []wgtypes.PeerConfig
+        var peeraddr = net.IPNet{
+                 IP: net.ParseIP(client.ServerAddress),
+                 Mask: net.CIDRMask(32, 32),
+        }
+	var allowedips []net.IPNet
+        allowedips = append(allowedips, peeraddr)
+
+	peer := wgtypes.PeerConfig{
+               PublicKey: serverkey,
+               Endpoint: &net.UDPAddr{
+                         IP:   net.ParseIP(client.ServerEndpoint),
+                         Port: serverport,
+               },
+               ReplaceAllowedIPs: true,
+               AllowedIPs: allowedips,
+        }
+	peers = append(peers, peer)
+        conf := wgtypes.Config{
+                PrivateKey: &key,
+                ReplacePeers: true,
+                Peers: peers,
+        }
+        _, err = wgclient.Device(ifacename)
+        if err != nil {
+                if os.IsNotExist(err) {
+                        log.Println("Device does not exist: ")
+                        log.Println(err)
+                } else {
+                        return err
+                }
+        }
+        err = wgclient.ConfigureDevice(ifacename, conf)
+
+        if err != nil {
+                if os.IsNotExist(err) {
+                        log.Println("Device does not exist: ")
+                        log.Println(err)
+                } else {
+                        log.Printf("This is inconvenient: %v", err)
+                }
+        }
+	return err
+}
+
 
 func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error  {
 
@@ -36,7 +146,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	//modcfg := config.Config
 	//modcfg.ReadConfig()
 	modcfg, err := config.ReadConfig(node.Nodenetwork)
-        if err != nil {
+	if err != nil {
                 return err
         }
 
@@ -50,7 +160,6 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
         }
         defer wgclient.Close()
 
-
 	ifacename := node.Interface
 	if nodecfg.Interface != "" {
 		ifacename = nodecfg.Interface
@@ -62,7 +171,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Address == "" {
 		log.Fatal("no address to configure")
 	}
-	nameserver := servercfg.Address
+	nameserver := servercfg.GRPCAddress
 	nameserver = strings.Split(nameserver, ":")[0]
 	network := node.Nodenetwork
         if nodecfg.Network != "" {
@@ -110,7 +219,6 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	var nodeport int
 	nodeport = int(node.Listenport)
-
 
 	//pubkey := privkey.PublicKey()
 	conf := wgtypes.Config{
@@ -293,7 +401,7 @@ func SetWGConfig(network string) error {
         nodecfg := cfg.Node
         node := server.GetNode(network)
 
-	peers, hasGateway, gateways, err := server.GetPeers(node.Macaddress, nodecfg.Network, servercfg.Address, node.Isdualstack, node.Isingressgateway)
+	peers, hasGateway, gateways, err := server.GetPeers(node.Macaddress, nodecfg.Network, servercfg.GRPCAddress, node.Isdualstack, node.Isingressgateway)
         if err != nil {
                 return err
         }

@@ -140,6 +140,7 @@ func RegisterClient(client models.ServerClient) (models.ServerClient, error) {
 		return client, err
 	}
 	client.ServerEndpoint = server.ServerEndpoint
+	client.ServerAddress = server.ServerAddress
 	client.ServerPort = server.ServerPort
 	client.ServerKey = server.ServerKey
 

@@ -11,7 +11,11 @@ import (
 	"log"
 	"gopkg.in/yaml.v3"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/models"
 )
+type GlobalConfig struct {
+	Client models.ServerClient
+}
 
 type ClientConfig struct {
 	Server ServerConfig `yaml:"server"`
@@ -21,7 +25,8 @@ type ClientConfig struct {
 	OperatingSystem string `yaml:"operatingsystem"`
 }
 type ServerConfig struct {
-        Address string `yaml:"address"`
+        GRPCAddress string `yaml:"grpcaddress"`
+        APIAddress string `yaml:"apiaddress"`
         AccessKey string `yaml:"accesskey"`
 }
 
@@ -77,6 +82,29 @@ func Write(config *ClientConfig, network string) error{
 	if err != nil {
 		return err
 	}
+        return err
+}
+//reading in the env file
+func WriteGlobal(config *GlobalConfig) error{
+        _, err := os.Stat("/etc/netclient") 
+        if os.IsNotExist(err) {
+                      os.Mkdir("/etc/netclient", 744)
+        } else if err != nil {
+                return err
+        }
+        home := "/etc/netclient"
+
+        if err != nil {
+                log.Fatal(err)
+        }
+        file := fmt.Sprintf(home + "/netconfig-global-001")
+        f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+        defer f.Close()
+
+        err = yaml.NewEncoder(f).Encode(config)
+        if err != nil {
+                return err
+        }
         return err
 }
 func WriteServer(server string, accesskey string, network string) error{
@@ -136,7 +164,7 @@ func WriteServer(server string, accesskey string, network string) error{
                         fmt.Println(err)
                 }
 
-		cfg.Server.Address = server
+		cfg.Server.GRPCAddress = server
 		cfg.Server.AccessKey = accesskey
 
 		err = yaml.NewEncoder(f).Encode(cfg)
@@ -148,7 +176,7 @@ func WriteServer(server string, accesskey string, network string) error{
 	} else {
                 fmt.Println("Creating new config file at " + home + "/netconfig-" + network)
 
-                cfg.Server.Address = server
+                cfg.Server.GRPCAddress = server
                 cfg.Server.AccessKey = accesskey
 
                 newf, err := os.Create(home + "/netconfig-" + network)
@@ -194,6 +222,48 @@ func(config *ClientConfig) ReadConfig() {
 		}
 	}
 }
+func ModGlobalConfig(cfg models.ServerClient) error{
+        var modconfig GlobalConfig
+        var err error
+        if FileExists("/etc/netclient/netconfig-global-001") {
+                useconfig, err := ReadGlobalConfig()
+                if err != nil {
+                        return err
+                }
+                modconfig = *useconfig
+        }
+        if cfg.ServerPort != ""{
+                modconfig.Client.ServerPort = cfg.ServerPort
+        }
+        if cfg.PublicKey != ""{
+                modconfig.Client.PublicKey = cfg.PublicKey
+        }
+        if cfg.PrivateKey != ""{
+                modconfig.Client.PrivateKey = cfg.PrivateKey
+        }
+        if cfg.ServerEndpoint != ""{
+                modconfig.Client.ServerEndpoint = cfg.ServerEndpoint
+        }
+        if cfg.ServerAddress != ""{
+                modconfig.Client.ServerAddress = cfg.ServerAddress
+        }
+	if cfg.Address != ""{
+                modconfig.Client.Address = cfg.Address
+        }
+        if cfg.Address6 != ""{
+                modconfig.Client.Address6 = cfg.Address6
+        }
+        if cfg.Network != ""{
+                modconfig.Client.Network = cfg.Network
+        }
+        if cfg.ServerKey != ""{
+                modconfig.Client.ServerKey = cfg.ServerKey
+        }
+        err = WriteGlobal(&modconfig)
+        return err
+}
+
+
 
 func ModConfig(node *nodepb.Node) error{
         network := node.Nodenetwork
@@ -285,15 +355,19 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 }
                 token := string(tokenbytes)
                 tokenvals := strings.Split(token, "|")
-                cfg.Server.Address = tokenvals[0]
-                cfg.Network = tokenvals[1]
-                cfg.Node.Network = tokenvals[1]
-                cfg.Server.AccessKey = tokenvals[2]
-                cfg.Node.LocalRange = tokenvals[3]
+                cfg.Server.GRPCAddress = tokenvals[0]
+                cfg.Server.APIAddress = tokenvals[1]
+                cfg.Network = tokenvals[2]
+                cfg.Node.Network = tokenvals[2]
+                cfg.Server.AccessKey = tokenvals[3]
+                cfg.Node.LocalRange = tokenvals[4]
 
-		if c.String("server") != "" {
-			cfg.Server.Address = c.String("server")
+		if c.String("grpcserver") != "" {
+			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}
+                if c.String("apiserver") != "" {
+                        cfg.Server.APIAddress = c.String("apiserver")
+                }
 		if c.String("key") != "" {
 			cfg.Server.AccessKey = c.String("key")
 		}
@@ -305,7 +379,8 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 			cfg.Node.LocalRange = c.String("localrange")
 		}
 	} else {
-		cfg.Server.Address = c.String("server")
+		cfg.Server.GRPCAddress = c.String("grpcserver")
+		cfg.Server.APIAddress = c.String("apiserver")
 		cfg.Server.AccessKey = c.String("key")
                 cfg.Network = c.String("network")
                 cfg.Node.Network = c.String("network")
@@ -336,6 +411,46 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 	return cfg, nil
 }
 
+func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
+        var cfg GlobalConfig
+        if c.String("token") != "" {
+                tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
+                if err  != nil {
+                        log.Println("error decoding token")
+                        return cfg, err
+                }
+                token := string(tokenbytes)
+                tokenvals := strings.Split(token, "|")
+                cfg.Client.ServerAddress = tokenvals[0]
+                cfg.Client.ServerEndpoint = tokenvals[1]
+                cfg.Client.ServerKey = tokenvals[3]
+
+                if c.String("grpcserver") != "" {
+                        cfg.Client.ServerAddress = c.String("grpcserver")
+                }
+                if c.String("apiserver") != "" {
+                        cfg.Client.ServerEndpoint = c.String("apiserver")
+                }
+                if c.String("key") != "" {
+                        cfg.Client.ServerKey = c.String("key")
+                }
+                if c.String("network") != "all" {
+                        cfg.Client.Network = c.String("network")
+                }
+        } else {
+                cfg.Client.ServerAddress = c.String("grpcserver")
+                cfg.Client.ServerEndpoint = c.String("apiserver")
+                cfg.Client.ServerKey = c.String("key")
+                cfg.Client.Network = c.String("network")
+        }
+        cfg.Client.Address = c.String("address")
+        cfg.Client.Address6 = c.String("addressIPV6")
+        cfg.Client.PublicKey = c.String("pubkey")
+        cfg.Client.PrivateKey = c.String("privkey")
+
+        return cfg, nil
+}
+
 
 func ReadConfig(network string) (*ClientConfig, error) {
         if network == "" {
@@ -363,6 +478,30 @@ func ReadConfig(network string) (*ClientConfig, error) {
 		}
 	}
 	return &cfg, err
+}
+
+func ReadGlobalConfig() (*GlobalConfig, error) {
+        nofile := false
+        home := "/etc/netclient"
+        file := fmt.Sprintf(home + "/netconfig-global-001")
+        f, err := os.Open(file)
+
+        if err != nil {
+                nofile = true
+        }
+        defer f.Close()
+
+        var cfg GlobalConfig
+
+        if !nofile {
+                decoder := yaml.NewDecoder(f)
+                err = decoder.Decode(&cfg)
+                if err != nil {
+                        fmt.Println("trouble decoding file")
+                        return nil, err
+                }
+        }
+        return &cfg, err
 }
 
 func FileExists(f string) bool {

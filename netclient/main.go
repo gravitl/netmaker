@@ -184,14 +184,14 @@ func main() {
     app.Commands = []*cli.Command{
         {
             Name:  "register",
-            Usage: "Register with Netmaker Server for secure GRPC communications."
+            Usage: "Register with Netmaker Server for secure GRPC communications.",
             Flags: cliFlags,
             Action: func(c *cli.Context) error {
-                cfg, err := config.GetCLIConfig(c)
+                cfg, err := config.GetCLIConfigRegister(c)
                 if err != nil {
                         return err
                 }
-                if cfg.Server.Address == "" {
+                if cfg.Client.ServerAddress == "" {
                         err = errors.New("No server address provided.")
                         return err
                 }
@@ -212,7 +212,7 @@ func main() {
 			err = errors.New("No network provided.")
 			return err
 		}
-                if cfg.Server.Address == "" {
+                if cfg.Server.GRPCAddress == "" {
                         err = errors.New("No server address provided.")
                         return err
                 }
