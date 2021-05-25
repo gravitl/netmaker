@@ -78,6 +78,15 @@ A detailed guide to installing the Netmaker agent (netclient) on devices and con
    
    client-installation
 
+External Clients
+--------------------
+
+A detailed guide to give clients outside of the Netmaker network access to network resources.
+
+.. toctree::
+   :maxdepth: 2
+   
+   external-clients
 
 Guides
 ----------------

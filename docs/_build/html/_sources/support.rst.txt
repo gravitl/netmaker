@@ -51,6 +51,14 @@ If you have concerns about the license leading to project restrictions down the 
 
 All that said, we will re-evaluate the license on a regular basis and determine if an OSI-approved license makes more sense. It's just easier to move from SSPL to another license than vice-versa.
 
+Issues, Bugs, and Feature Requests
+=====================================
+
+Issues / Bugs
+----------------
+
+Feature Requests
+-------------------
 
 Contact
 ===========

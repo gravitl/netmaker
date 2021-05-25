@@ -47,9 +47,9 @@
   
   
     <title>Client Installation &#8212; Netmaker 0.3.5 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -409,7 +409,17 @@
   <ul class="md-nav__list" data-md-scrollfix="">
         <li class="md-nav__item"><a href="#client-installation--page-root" class="md-nav__link">Client Installation</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#system-compatibility" class="md-nav__link">System Compatibility</a>
+        <li class="md-nav__item"><a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#cli" class="md-nav__link">CLI</a>
+        </li>
+        <li class="md-nav__item"><a href="#daemon" class="md-nav__link">Daemon</a>
+        </li>
+        <li class="md-nav__item"><a href="#private-dns-management" class="md-nav__link">Private DNS Management</a>
+        </li></ul>
+            </nav>
         </li>
         <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
         </li>
@@ -448,8 +458,6 @@
         <li class="md-nav__item"><a href="#troubleshooting" class="md-nav__link">Troubleshooting</a>
         </li></ul>
             </nav>
-        </li>
-        <li class="md-nav__item"><a href="#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
         </li></ul>
             </nav>
         </li>
@@ -459,7 +467,14 @@
     <li class="md-nav__item">
     
     
-      <a href="#system-compatibility" class="md-nav__link">System Compatibility</a>
+      <a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
       
     
     </li>
@@ -488,13 +503,6 @@
     
     
       <a href="#managing-netclient" class="md-nav__link">Managing Netclient</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
       
     
     </li></ul>
@@ -641,6 +649,13 @@
     <li class="md-nav__item">
     
     
+      <a href="support.html#issues-bugs-and-feature-requests" class="md-nav__link">Issues, Bugs, and Feature Requests</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
       <a href="support.html#contact" class="md-nav__link">Contact</a>
       
     
@@ -747,7 +762,17 @@
   <ul class="md-nav__list" data-md-scrollfix="">
         <li class="md-nav__item"><a href="#client-installation--page-root" class="md-nav__link">Client Installation</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#system-compatibility" class="md-nav__link">System Compatibility</a>
+        <li class="md-nav__item"><a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#cli" class="md-nav__link">CLI</a>
+        </li>
+        <li class="md-nav__item"><a href="#daemon" class="md-nav__link">Daemon</a>
+        </li>
+        <li class="md-nav__item"><a href="#private-dns-management" class="md-nav__link">Private DNS Management</a>
+        </li></ul>
+            </nav>
         </li>
         <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
         </li>
@@ -786,8 +811,6 @@
         <li class="md-nav__item"><a href="#troubleshooting" class="md-nav__link">Troubleshooting</a>
         </li></ul>
             </nav>
-        </li>
-        <li class="md-nav__item"><a href="#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
         </li></ul>
             </nav>
         </li>
@@ -805,10 +828,39 @@
 <p>This document tells you how to install the netclient on machines that will be a part of your Netmaker network, as well as non-compatible systems.</p>
 <p>These steps should be run after the Netmaker server has been created and a network has been designated within Netmaker.</p>
 
-<h2 id="system-compatibility">System Compatibility<a class="headerlink" href="#system-compatibility" title="Permalink to this headline">¶</a></h2>
+<h2 id="introduction-to-netclient">Introduction to Netclient<a class="headerlink" href="#introduction-to-netclient" title="Permalink to this headline">¶</a></h2>
+<p>At its heart, the netclient is a simple CLI for managing access to various WireGuard-based networks. It manages WireGuard on the host system, so that you don’t have to. Why is this necessary?</p>
+<p>If you are setting up a WireGuard-based virtual network, you must configure each machine with very specific settings, so that every machine can reach it, and it can reach every machine. Any changes to the settings of any one of these machines can break those connections. Any machine that is added, removed, or modified on the network requires reconfiguring every peer in the network. This can be very time consuming.</p>
+<p>The netmaker server holds configuration details about every machine in your network and how other machines should connect to it.</p>
+<p>The netclient agent connects to the server, pushing and pulling information when the network (or its local configuration) changes.</p>
+<p>The netclient agent then configures WireGuard (and other network properties) locally, so that the network stays intact.</p>
+
+
+<h2 id="modes-and-system-compatibility">Modes and System Compatibility<a class="headerlink" href="#modes-and-system-compatibility" title="Permalink to this headline">¶</a></h2>
+<p><strong>Note: If you would like to connect non-Linux/Unix machines to your network such as phones and Windows desktops, please see the documentation on External Clients</strong></p>
+<p>The netclient can be run in a few “modes”. System compatibility depends on which modes you intend to use. These modes can be mixed and matched across a network, meaning all machines do not have to run with the same “mode.”</p>
+
+<h3 id="cli">CLI<a class="headerlink" href="#cli" title="Permalink to this headline">¶</a></h3>
+<p>In its simplest form, the netclient can be treated as just a simple, manual, CLI tool, which a user can call to configure the machine. The cli can be compiled from source code to run on most systems, and has already been compiled for x86 and ARM devices.</p>
+<p>As a CLI, the netclient should function on any Linux or Unix based system that has the wireguard utility (callable with <strong>wg</strong>) installed.</p>
+
+
+<h3 id="daemon">Daemon<a class="headerlink" href="#daemon" title="Permalink to this headline">¶</a></h3>
+<p>The netclient is intended to be run as a system daemon. This allows it to automatically retrieve and send updates. To do this, the netclient can install itself as a systemd service.</p>
+<p>This requires a systemd-based linux operating system.</p>
+<p>If running the netclient on a non-systemd system, it is recommended to manually configure the netclient as a daemon using whatever method is acceptable on the chosen operating system.</p>
+
+
+<h3 id="private-dns-management">Private DNS Management<a class="headerlink" href="#private-dns-management" title="Permalink to this headline">¶</a></h3>
+<p>To manage private DNS, the netclient relies on systemd-resolved (resolvectl). Absent this, it cannot set private DNS for the machine.</p>
+<p>A user may choose to manually set a private DNS nameserver of &lt;netmaker server&gt;:53. However, beware, as netmaker sets split dns, and the system must be configured properly. Otherwise, this nameserver may break your local DNS.</p>
+
 
 
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<p><strong>For netclient cli:</strong> Linux/Unix with WireGuard installed (wg command available)</p>
+<p><strong>For netclient daemon:</strong> Systemd Linux + WireGuard</p>
+<p><strong>For Private DNS management:</strong> Resolvectl (systemd-resolved)</p>
 
 
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
@@ -854,9 +906,6 @@
 
 <h3 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h3>
 
-
-
-<h2 id="unmanaged-external-clients">Unmanaged (External) Clients<a class="headerlink" href="#unmanaged-external-clients" title="Permalink to this headline">¶</a></h2>
 
 
 
@@ -907,7 +956,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>
