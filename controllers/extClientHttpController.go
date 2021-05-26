@@ -276,6 +276,12 @@ func CreateExtClient(extclient models.ExtClient) error {
 		extclient.Address = newAddress
 	}
 
+        if extclient.ClientID == "" {
+                cid := StringWithCharset(7, charset)
+                clientid := "client-" + cid
+                extclient.ClientID = clientid
+        }
+
 	extclient.LastModified = time.Now().Unix()
 
 	collection := mongoconn.Client.Database("netmaker").Collection("extclients")
@@ -417,3 +423,12 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }
+
+func StringWithCharset(length int, charset string) string {
+        b := make([]byte, length)
+        for i := range b {
+                b[i] = charset[seededRand.Intn(len(charset))]
+        }
+        return string(b)
+}
+
