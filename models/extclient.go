@@ -41,5 +41,5 @@ type ExtClient struct {
 	Address        string             `json:"address" bson:"address"`
 	LastModified   int64              `json:"lastmodified" bson:"lastmodified"`
 	IngressGatewayID string             `json:"ingressgatewayid" bson:"ingressgatewayid"`
-	IngressGatewayEnpoint string             `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
+	IngressGatewayEndpoint string             `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
 }

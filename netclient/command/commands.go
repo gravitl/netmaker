@@ -2,7 +2,6 @@ package command
 
 import (
         "github.com/gravitl/netmaker/netclient/functions"
-        "github.com/gravitl/netmaker/models"
         "github.com/gravitl/netmaker/netclient/config"
         "github.com/gravitl/netmaker/netclient/local"
         "golang.zx2c4.com/wireguard/wgctrl"
@@ -20,8 +19,7 @@ var (
         wcclient nodepb.NodeServiceClient
 )
 
-func Register(cfg config.ClientConfig) error {
-
+func Register(cfg config.GlobalConfig) error {
         err := functions.Register(cfg)
         return err
 }

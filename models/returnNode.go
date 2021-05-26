@@ -18,9 +18,9 @@ type ReturnNode struct {
 	SaveConfig	*bool `json:"saveconfig" bson:"saveconfig"`
 	Interface	string `json:"interface" bson:"interface"`
 	Network	string `json:"network" bson:"network"`
-	IsPending	*bool `json:"ispending" bson:"ispending"`
-	IsEgressGateway	*bool `json:"isegressgateway" bson:"isegressgateway"`
-	IsIngressGateway	*bool `json:"isingressgateway" bson:"isingressgateway"`
+	IsPending	bool `json:"ispending" bson:"ispending"`
+	IsEgressGateway	bool `json:"isegressgateway" bson:"isegressgateway"`
+	IsIngressGateway	bool `json:"isingressgateway" bson:"isingressgateway"`
 	EgressGatewayRange	string `json:"egressgatewayrange" bson:"egressgatewayrange"`
         LocalAddress    string `json:"localaddress" bson:"localaddress" validate:"localaddress_check"`
         ExpirationDateTime      int64 `json:"expdatetime" bson:"expdatetime"`

@@ -3,8 +3,10 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"errors"
 	"fmt"
+        "math/rand"
 
 	// "fmt"
 	"net/http"
@@ -256,8 +258,6 @@ Endpoint = %s
 }
 
 func CreateExtClient(extclient models.ExtClient) error {
-	fmt.Println(extclient)
-	// Generate Private Key for new ExtClient
 	if extclient.PrivateKey == "" {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
@@ -275,6 +275,11 @@ func CreateExtClient(extclient models.ExtClient) error {
 		}
 		extclient.Address = newAddress
 	}
+        if extclient.ClientID == "" {
+                clientid := StringWithCharset(7, charset)
+                clientname := "client-" + clientid
+                extclient.ClientID = clientname
+        }
 
         if extclient.ClientID == "" {
                 cid := StringWithCharset(7, charset)
@@ -314,10 +319,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var extclient models.ExtClient
 	extclient.Network = networkName
 	extclient.IngressGatewayID = macaddress
+	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
 
-	//get extclient from body of request
-	err := json.NewDecoder(r.Body).Decode(&extclient)
-	if err != nil {
+	err = json.NewDecoder(r.Body).Decode(&extclient)
+	if err != nil && !errors.Is(err, io.EOF) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -326,7 +336,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
 	err = CreateExtClient(extclient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -432,3 +441,7 @@ func StringWithCharset(length int, charset string) string {
         return string(b)
 }
 
+const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var seededRand *rand.Rand = rand.New(
+        rand.NewSource(time.Now().UnixNano()))
