@@ -1,5 +1,8 @@
 version: "3.4"
 
+volumes:
+  dnsconfig:
+  driver: local
 services:
   mongodb:
     image: mongo:4.2
@@ -13,11 +16,13 @@ services:
       MONGO_INITDB_ROOT_USERNAME: mongoadmin
       MONGO_INITDB_ROOT_PASSWORD: mongopass
   netmaker:
-    privileged: true
     container_name: netmaker
     depends_on:
       - mongodb
     image: gravitl/netmaker:v0.3
+    ports:
+      - "8081:8081"
+      - "50051:50051"
     volumes:
       - ./:/local
       - /etc/netclient:/etc/netclient
@@ -27,33 +32,11 @@ services:
       - /run/systemd/system:/run/systemd/system
       - /etc/systemd/system:/etc/systemd/system
       - /sys/fs/cgroup:/sys/fs/cgroup
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
     restart: always
-    network_mode: host
-  netmaker-ui:
-    container_name: netmaker-ui
-    depends_on:
-      - netmaker
-    image: gravitl/netmaker-ui:v0.3
-    links:
-      - "netmaker:api"
-    ports:
-      - "80:80"
     environment:
-      BACKEND_URL: "http://your-ip:8081"
-  coredns:
-    depends_on:
-      - netmaker 
-    image: coredns/coredns
-    command: -conf /root/dnsconfig/Corefile
-    container_name: coredns
-    restart: always
-    ports:
-      - "53:53/udp"
-    volumes:
-      - dnsconfig:/root/dnsconfig
+      CLIENT_MODE: "off"
+      DNS_MODE: "off"
+      SERVER_HOST: "localhost"
 volumes:
   mongovol: {}
   dnsconfig: {}

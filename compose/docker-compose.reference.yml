@@ -1,0 +1,78 @@
+version: "3.4"
+
+services:
+  mongodb: # The MongoDB Instance that backs up Netmaker
+    image: mongo:4.2
+    ports:
+      - "27017:27017" # Port Mapping for MongoDB. Can be modified, but be sure to change the MONGO_PORT env var in netmaker
+    container_name: mongodb
+    volumes:
+      - mongovol:/data/db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin # Default username. Recommend changing for production installs. You will need to set MONGO_ADMIN netmaker env var.
+      MONGO_INITDB_ROOT_PASSWORD: mongopass # Default password. Recommend changing for production installs. You will need to set MONGO_PASS netmaker env var.
+  netmaker: # The Primary Server for running Netmaker
+    privileged: true # Necessary to run sudo/root level commands on host system. Take out if not running with CLIENT_MODE=on
+    container_name: netmaker
+    depends_on:
+      - mongodb
+    image: gravitl/netmaker:v0.3
+    volumes: # Volume mounts necessary for CLIENT_MODE to control netclient, wireguard, and networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
+      - ./:/local
+      - /etc/netclient:/etc/netclient
+      - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
+      - /usr/bin/wg:/usr/bin/wg
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+      - /run/systemd/system:/run/systemd/system
+      - /etc/systemd/system:/etc/systemd/system
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    cap_add: # Necessary for CLIENT_MODE. Should be removed if turned off. 
+      - NET_ADMIN
+      - SYS_MODULE
+    restart: always
+    network_mode: host # Necessary for CLIENT_MODE. Should be removed if turned off, but then need to add port mappings
+    environment:
+      SERVER_HOST: "" # All the Docker Compose files pre-populate this with HOST_IP, which you replace as part of the install instructions. This will set both HTTP and GRPC host.
+      SERVER_HTTP_HOST: "127.0.0.1" # Overrides SERVER_HOST if set. Useful for making HTTP and GRPC available via different interfaces/networks.
+      SERVER_GRPC_HOST: "127.0.0.1" # Overrides SERVER_HOST if set. Useful for making HTTP and GRPC available via different interfaces/networks.
+      API_PORT: 8081 # The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.
+      GRPC_PORT: 50051 # The GRPC port for Netmaker. Used for communications from nodes.
+      MASTER_KEY: "secretkey" # The admin master key for accessing the API. Change this in any production installation.
+      CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from.
+      REST_BACKEND: "on" # Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.
+      AGENT_BACKEND: "on" # Enables the AGENT backend (GRPC running on GRPC_PORT at SERVER_GRPC_HOST). Change to "off" to turn off.
+      CLIENT_MODE: "on" # Enables Client Mode, meaning netclient will be deployed on server and will be manageable from UI. Change to "off" to turn off.
+      DNS_MODE: "on" # Enables DNS Mode, meaning config files will be generated for CoreDNS. Note, turning "off" does not remove CoreDNS. You still need to remove CoreDNS from compose file.
+      DISABLE_REMOTE_IP_CHECK: "off" # If turned "on", Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned "off" by default.
+      MONGO_ADMIN: "mongoadmin" # Admin user for MongoDB. Change to match above MongoDB instance
+      MONGO_PASS: "mongopass" # Admin password for MongoDB. Change to match above MongoDB instance
+      MONGO_HOST: "127.0.0.1" # Address of MongoDB. Change if necessary.
+      MONGO_PORT: "27017" # Port of MongoDB. Change if necessary.
+      MONGO_OPTS: "/?authSource=admin" # Opts to enable admin login for Mongo.
+  netmaker-ui: # The Netmaker UI Component
+    container_name: netmaker-ui
+    depends_on:
+      - netmaker
+    image: gravitl/netmaker-ui:v0.3
+    links:
+      - "netmaker:api"
+    ports:
+      - "80:80"
+    environment:
+      BACKEND_URL: "http://HOST_IP:8081" # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
+      MASTER_KEY: "secretkey" # Master Key for API calls. Will be removed in v0.3.5
+  coredns: # The DNS Server. Remove this section if DNS_MODE="off"
+    depends_on:
+      - netmaker 
+    image: coredns/coredns
+    command: -conf /root/dnsconfig/Corefile # Config location for Corefile. This is the path of file which is also mounted to Netmaker for modification.
+    container_name: coredns
+    restart: always
+    ports:
+      - "53:53/udp" # Likely needs to run at port 53 for adequate nameserver usage.
+    volumes:
+      - dnsconfig:/root/dnsconfig
+volumes:
+  mongovol: {}
+  dnsconfig: {}

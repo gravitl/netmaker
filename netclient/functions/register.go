@@ -15,7 +15,7 @@ import (
 
 func Register(cfg config.GlobalConfig) error {
 
-        postclient := &models.ServerClient{
+        postclient := &models.IntClient{
                 AccessKey: cfg.Client.AccessKey,
                 PublicKey: cfg.Client.PublicKey,
                 PrivateKey: cfg.Client.PublicKey,
@@ -42,7 +42,7 @@ func Register(cfg config.GlobalConfig) error {
 	if err != nil {
 		return err
 	}
-	var wgclient models.ServerClient
+	var wgclient models.IntClient
 	json.Unmarshal(bodyBytes, &wgclient)
         spew.Dump(wgclient)
 	err = config.ModGlobalConfig(wgclient)

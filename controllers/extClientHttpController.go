@@ -282,6 +282,12 @@ func CreateExtClient(extclient models.ExtClient) error {
                 extclient.ClientID = clientname
         }
 
+        if extclient.ClientID == "" {
+                cid := StringWithCharset(7, charset)
+                clientid := "client-" + cid
+                extclient.ClientID = clientid
+        }
+
 	extclient.LastModified = time.Now().Unix()
 
 	collection := mongoconn.Client.Database("netmaker").Collection("extclients")
@@ -289,6 +295,12 @@ func CreateExtClient(extclient models.ExtClient) error {
 	// insert our network into the network table
 	_, err := collection.InsertOne(ctx, extclient)
 	defer cancel()
+	if err != nil {
+		return err
+	}
+
+	err = SetNetworkNodesLastModified(extclient.Network)
+
 	return err
 }
 
@@ -441,4 +453,3 @@ const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345
 
 var seededRand *rand.Rand = rand.New(
         rand.NewSource(time.Now().UnixNano()))
-
