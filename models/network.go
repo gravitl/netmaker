@@ -61,6 +61,9 @@ type NetworkUpdate struct {
 	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
 	IsLocal             *bool       `json:"islocal" bson:"islocal"`
 	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
+        IsIPv4         string       `json:"isipv4" bson:"isipv4"`
+        IsIPv6         string       `json:"isipv6" bson:"isipv6"`
+        IsGRPCHub         string       `json:"isgrpchub" bson:"isgrpchub"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`

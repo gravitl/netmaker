@@ -277,7 +277,7 @@ func TestDeleteKey(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
+		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
 	})
 }
 
@@ -302,7 +302,7 @@ func TestGetKeys(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Contains(t, "his network does not exist", message.Message)
+		assert.Contains(t, message.Message, "his network does not exist")
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("InvalidCredentials", func(t *testing.T) {
@@ -314,7 +314,7 @@ func TestGetKeys(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
+		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
 	})
 }
 
@@ -352,7 +352,7 @@ func TestUpdateNetwork(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, "his network does not exist.", message.Message)
+		assert.Contains(t, message.Message, "his network does not exist.")
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("UpdateAddress", func(t *testing.T) {
