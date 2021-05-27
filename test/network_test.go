@@ -26,7 +26,7 @@ func TestCreateNetwork(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
 	})
 	t.Run("CreateNetwork", func(t *testing.T) {
 		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
@@ -73,7 +73,7 @@ func TestGetNetworks(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
 	})
 }
 
@@ -99,7 +99,7 @@ func TestGetNetwork(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
 	})
 	t.Run("InvalidNetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/badnetwork", "secretkey")
@@ -108,7 +108,7 @@ func TestGetNetwork(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
+		assert.Contains(t, "his network does not exist", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 }
@@ -125,7 +125,7 @@ func TestDeleteNetwork(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+		assert.Contains(t, "You are unauthorized to access this endpoint", message.Message)
 	})
 	t.Run("Badnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/badnetwork", "secretkey")
@@ -134,7 +134,7 @@ func TestDeleteNetwork(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
+		assert.Contains(t, "his network does not exist", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("NodesExist", func(t *testing.T) {
@@ -222,7 +222,7 @@ func TestCreateKey(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
 	})
 	t.Run("Badnetwork", func(t *testing.T) {
 		response, err := api(t, key, http.MethodPost, baseURL+"/api/networks/badnetwork/keys", "secretkey")
@@ -231,7 +231,7 @@ func TestCreateKey(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
+		assert.Contains(t, "his network does not exist", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 }
@@ -265,7 +265,7 @@ func TestDeleteKey(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
+		assert.Contains(t, "his network does not exist", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("InvalidCredentials", func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestDeleteKey(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
 	})
 }
 
@@ -302,7 +302,7 @@ func TestGetKeys(t *testing.T) {
 		var message models.ErrorResponse
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
+		assert.Contains(t, "his network does not exist", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("InvalidCredentials", func(t *testing.T) {
@@ -314,7 +314,7 @@ func TestGetKeys(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: You are unauthorized to access this endpoint.", message.Message)
+		assert.Contains(t, "ou are unauthorized to access this endpoint", message.Message)
 	})
 }
 
@@ -352,7 +352,7 @@ func TestUpdateNetwork(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "W1R3: This network does not exist.", message.Message)
+		assert.Contains(t, "his network does not exist.", message.Message)
 		assert.Equal(t, http.StatusNotFound, response.StatusCode)
 	})
 	t.Run("UpdateAddress", func(t *testing.T) {

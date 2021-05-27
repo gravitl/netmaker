@@ -380,7 +380,7 @@ func TestCreateNode(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
-		assert.Contains(t, message.Message, "W1R3: Key invalid, or none provided")
+		assert.Contains(t, message.Message, "ey invalid, or none provided")
 	})
 	t.Run("BadMac", func(t *testing.T) {
 		var node models.Node
@@ -501,7 +501,7 @@ func TestCreateNode(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusNotFound, message.Code)
-		assert.Contains(t, "W1R3: Network does not exist! ", message.Message)
+		assert.Contains(t, "etwork does not exist", message.Message)
 	})
 	t.Run("Valid", func(t *testing.T) {
 		deleteNetworks(t)
@@ -561,7 +561,7 @@ func TestNodeAuthenticate(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, message.Code)
-		assert.Equal(t, "W1R3: Device 01:02:03:04:05:06 Authorized", message.Message)
+		assert.Contains(t, "Device 01:02:03:04:05:06 Authorized", message.Message)
 	})
 	t.Run("MacEmpty", func(t *testing.T) {
 		var authRequest models.AuthParams
@@ -575,7 +575,7 @@ func TestNodeAuthenticate(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Equal(t, "W1R3: MacAddress can't be empty", message.Message)
+		assert.Contains(t, "acAddress can't be empty", message.Message)
 	})
 	t.Run("EmptyPass", func(t *testing.T) {
 		var authRequest models.AuthParams
@@ -589,7 +589,7 @@ func TestNodeAuthenticate(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Equal(t, "W1R3: Password can't be empty", message.Message)
+		assert.Equal(t, "assword can't be empty", message.Message)
 	})
 	t.Run("BadPass", func(t *testing.T) {
 		var authRequest models.AuthParams
