@@ -40,7 +40,7 @@ func TestAdminCreation(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-		assert.Equal(t, "Admin already Exists", message.Message)
+		assert.Equal(t, "W1R3: Admin already exists! ", message.Message)
 	})
 }
 
@@ -69,7 +69,7 @@ func TestGetUser(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "Error Verifying Auth Token", message.Message)
+		assert.Equal(t, "token contains an invalid number of segments", message.Message)
 
 	})
 }

@@ -35,7 +35,7 @@ func TestGetAllNodes(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		var nodes []models.ReturnNode
+		var nodes []models.Node
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&nodes)
 		assert.Nil(t, err, err)
@@ -46,7 +46,7 @@ func TestGetAllNodes(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		var nodes []models.ReturnNode
+		var nodes []models.Node
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&nodes)
 		assert.Nil(t, err, err)
@@ -60,7 +60,7 @@ func TestGetNetworkNodes(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		var nodes []models.ReturnNode
+		var nodes []models.Node
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&nodes)
 		assert.Nil(t, err, err)
@@ -71,7 +71,7 @@ func TestGetNetworkNodes(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
-		var nodes []models.ReturnNode
+		var nodes []models.Node
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&nodes)
 		assert.Nil(t, err, err)
@@ -269,10 +269,10 @@ func TestCheckIn(t *testing.T) {
 	})
 }
 
-func TestCreateGateway(t *testing.T) {
+func TestCreateEgressGateway(t *testing.T) {
 	setup(t)
-	//assert.False(t, node.IsGateway)
-	var gateway models.GatewayRequest
+	//assert.False(t, node.IsEgressGateway/g)
+	var gateway models.EgressGatewayRequest
 	t.Run("Valid", func(t *testing.T) {
 		gateway.RangeString = "0.0.0.0/0"
 		gateway.Interface = "eth0"
@@ -283,7 +283,7 @@ func TestCreateGateway(t *testing.T) {
 		var message models.Node
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
-		assert.True(t, message.IsGateway)
+		assert.True(t, message.IsEgressGateway)
 		t.Log(err)
 	})
 	t.Run("BadRange", func(t *testing.T) {
@@ -314,7 +314,7 @@ func TestCreateGateway(t *testing.T) {
 	})
 }
 
-func TestDeleteGateway(t *testing.T) {
+func TestDeleteEgressGateway(t *testing.T) {
 	setup(t)
 	response, err := api(t, "", http.MethodDelete, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/deletegateway", "secretkey")
 	assert.Nil(t, err, err)
@@ -323,7 +323,7 @@ func TestDeleteGateway(t *testing.T) {
 	var message models.Node
 	err = json.NewDecoder(response.Body).Decode(&message)
 	assert.Nil(t, err, err)
-	assert.False(t, message.IsGateway)
+	assert.False(t, message.IsEgressGateway)
 }
 
 func TestUncordonNode(t *testing.T) {
@@ -400,7 +400,7 @@ func TestCreateNode(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Contains(t, message.Message, "Field validation for 'MacAddress' failed on the 'mac' tag")
+		assert.Contains(t, message.Message, "Field validation for 'MacAddress' failed on the 'macaddress_valid' tag")
 	})
 	t.Run("BadPublicKey", func(t *testing.T) {
 		var node models.Node

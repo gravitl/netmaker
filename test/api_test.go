@@ -206,7 +206,7 @@ func deleteAllNodes(t *testing.T) {
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	var nodes []models.ReturnNode
+	var nodes []models.Node
 	defer response.Body.Close()
 	json.NewDecoder(response.Body).Decode(&nodes)
 	for _, node := range nodes {
