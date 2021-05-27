@@ -294,6 +294,12 @@ func CreateExtClient(extclient models.ExtClient) error {
 	// insert our network into the network table
 	_, err := collection.InsertOne(ctx, extclient)
 	defer cancel()
+	if err != nil {
+		return err
+	}
+
+	err = SetNetworkNodesLastModified(extclient.Network)
+
 	return err
 }
 

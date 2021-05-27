@@ -40,7 +40,7 @@ func GetGRPCWGInterface() string {
        return iface
 }
 func GetGRPCWGAddress() string {
-        address := "fd73:0093:84f3:a13d:0000:0000:0000:0001"
+        address := "10.101.0.1"
       if os.Getenv("SERVER_GRPC_WG_ADDRESS") != ""  {
               address = os.Getenv("SERVER_GRPC_WG_ADDRESS")
       } else if config.Config.WG.GRPCWGAddress != "" {

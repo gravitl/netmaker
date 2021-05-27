@@ -2,10 +2,10 @@ package models
 
 import (
 )
-type ServerClient struct {
+type IntClient struct {
 	PrivateKey     string             `json:"privatekey" bson:"privatekey"`
 	PublicKey      string             `json:"publickey" bson:"publickey"`
-	AccessKey      string             `json:"publickey" bson:"accesskey"`
+	AccessKey      string             `json:"accesskey" bson:"accesskey"`
 	Address        string             `json:"address" bson:"address"`
 	Address6        string             `json:"address6" bson:"address6"`
 	Network        string             `json:"network" bson:"network"`

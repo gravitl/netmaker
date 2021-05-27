@@ -23,7 +23,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	//homedir "github.com/mitchellh/go-homedir"
 )
-func InitGRPCWireguard(client models.ServerClient) error {
+func InitGRPCWireguard(client models.IntClient) error {
         key, err := wgtypes.ParseKey(client.PrivateKey)
         if err !=  nil {
                 return err

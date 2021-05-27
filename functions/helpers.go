@@ -123,6 +123,47 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
         return peers, err
 }
 
+func GetIntPeersList() ([]models.PeersResponse, error) {
+
+        var peers []models.PeersResponse
+
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"isserver": ""}
+
+        cur, err := collection.Find(ctx, filter)
+
+        if err != nil {
+                return peers, err
+        }
+
+        // Close the cursor once finished and cancel if it takes too long
+        defer cancel()
+
+        for cur.Next(context.TODO()) {
+
+                var peer models.PeersResponse
+                err := cur.Decode(&peer)
+                if err != nil {
+                        log.Fatal(err)
+                }
+
+                // add the node to our node array
+                //maybe better to just return this? But then that's just GetNodes...
+                peers = append(peers, peer)
+        }
+
+        //Uh oh, fatal error! This needs some better error handling
+        //TODO: needs appropriate error handling so the server doesnt shut down.
+        if err := cur.Err(); err != nil {
+                log.Fatal(err)
+        }
+
+        return peers, err
+}
+
 func IsFieldUnique(network string, field string, value string) bool {
 
 	var node models.Node
@@ -146,6 +187,27 @@ func IsFieldUnique(network string, field string, value string) bool {
 	}
 
 	return isunique
+}
+
+func ServerIntClientExists() (bool, error) {
+
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"isserver": "yes"}
+
+        var result bson.M
+        err := collection.FindOne(ctx, filter).Decode(&result)
+
+        defer cancel()
+
+        if err != nil {
+                if err == mongo.ErrNoDocuments {
+                        return false, nil
+                }
+        }
+        return true, err
 }
 
 func NetworkExists(name string) (bool, error) {
@@ -548,6 +610,45 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	return node, nil
 }
 
+func DeleteAllIntClients() error {
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        // Filter out them ID's again
+        err := collection.Drop(ctx)
+        if err != nil {
+                return err
+        }
+        defer cancel()
+        return nil
+}
+
+func GetAllIntClients() ([]models.IntClient, error) {
+        var client models.IntClient
+        var clients []models.IntClient
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        // Filter out them ID's again
+        cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+        if err != nil {
+                return []models.IntClient{}, err
+        }
+        defer cancel()
+        for cur.Next(context.TODO()) {
+                err := cur.Decode(&client)
+                if err != nil {
+                        return []models.IntClient{}, err
+                }
+                // add node to our array
+                clients = append(clients, client)
+        }
+
+        //TODO: Fatal error
+        if err := cur.Err(); err != nil {
+                return []models.IntClient{}, err
+        }
+        return clients, nil
+}
+
 func GetAllExtClients() ([]models.ExtClient, error) {
         var extclient models.ExtClient
         var extclients []models.ExtClient
@@ -619,7 +720,9 @@ func UniqueAddress6(networkName string) (string, error) {
 		return "", err
 	}
 	if network.IsDualStack == nil || *network.IsDualStack == false {
-		return "", nil
+		if networkName != "comms" {
+			return "", nil
+		}
 	}
 
 	offset := true
@@ -633,8 +736,14 @@ func UniqueAddress6(networkName string) (string, error) {
 			offset = false
 			continue
 		}
-		if IsIP6Unique(networkName, ip.String()) {
-			return ip.String(), err
+		if networkName == "comms" {
+	                if IsIP6UniqueClients(networkName, ip.String()) {
+	                        return ip.String(), err
+	                }
+		} else {
+			if IsIP6Unique(networkName, ip.String()) {
+				return ip.String(), err
+			}
 		}
 	}
 	//TODO
@@ -693,7 +802,6 @@ func IsIPUniqueExtClients(network string, ip string) bool {
         defer cancel()
 
         if err != nil {
-                fmt.Println(err)
                 return isunique
         }
 
@@ -722,7 +830,6 @@ func IsIPUnique(network string, ip string) bool {
 	defer cancel()
 
 	if err != nil {
-		fmt.Println(err)
 		return isunique
 	}
 
@@ -750,7 +857,6 @@ func IsIP6Unique(network string, ip string) bool {
 	defer cancel()
 
 	if err != nil {
-		fmt.Println(err)
 		return isunique
 	}
 
@@ -758,6 +864,33 @@ func IsIP6Unique(network string, ip string) bool {
 		isunique = false
 	}
 	return isunique
+}
+
+//checks if IP is unique in the address range
+//used by UniqueAddress
+func IsIP6UniqueClients(network string, ip string) bool {
+
+        var client models.IntClient
+
+        isunique := true
+
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"address6": ip, "network": network}
+
+        err := collection.FindOne(ctx, filter).Decode(&client)
+
+        defer cancel()
+
+        if err != nil {
+                return isunique
+        }
+
+        if client.Address6 == ip {
+                isunique = false
+        }
+        return isunique
 }
 
 //called once key has been used by createNode
@@ -844,21 +977,21 @@ func Inc(ip net.IP) {
 	}
 }
 
-func GetAllNodes() ([]models.ReturnNode, error) {
-	var node models.ReturnNode
-	var nodes []models.ReturnNode
+func GetAllNodes() ([]models.Node, error) {
+	var node models.Node
+	var nodes []models.Node
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	// Filter out them ID's again
 	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
 	if err != nil {
-		return []models.ReturnNode{}, err
+		return []models.Node{}, err
 	}
 	defer cancel()
 	for cur.Next(context.TODO()) {
 		err := cur.Decode(&node)
 		if err != nil {
-			return []models.ReturnNode{}, err
+			return []models.Node{}, err
 		}
 		// add node to our array
 		nodes = append(nodes, node)
@@ -866,7 +999,7 @@ func GetAllNodes() ([]models.ReturnNode, error) {
 
 	//TODO: Fatal error
 	if err := cur.Err(); err != nil {
-		return []models.ReturnNode{}, err
+		return []models.Node{}, err
 	}
 	return nodes, nil
 }

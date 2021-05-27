@@ -70,6 +70,11 @@ func GetAPIHost() string {
 		serverhost = config.Config.Server.APIHost
         } else if os.Getenv("SERVER_HOST") != ""  {
                 serverhost = os.Getenv("SERVER_HOST")
+        } else {
+                remoteip, _ := GetPublicIP()
+                if remoteip != "" {
+                        serverhost = remoteip
+                }
         }
 	return serverhost
 }
@@ -91,6 +96,11 @@ func GetGRPCHost() string {
 	       serverhost = config.Config.Server.GRPCHost
 	} else if os.Getenv("SERVER_HOST") != ""  {
 	       serverhost = os.Getenv("SERVER_HOST")
+	} else {
+	        remoteip, _ := GetPublicIP()
+		if remoteip != "" {
+			serverhost = remoteip
+		}
 	}
         return serverhost
 }

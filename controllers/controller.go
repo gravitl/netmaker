@@ -32,7 +32,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
     fileHandlers(r)
     serverHandlers(r)
     extClientHandlers(r)
-
+    intClientHandlers(r)
 
 		port := servercfg.GetAPIPort()
 

@@ -61,9 +61,9 @@ func CreateDefaultNetwork() (bool, error) {
 
 }
 
-func GetServerWGConf() (models.ServerClient, error) {
-        var server models.ServerClient
-        collection := mongoconn.Client.Database("netmaker").Collection("serverclients")
+func GetServerWGConf() (models.IntClient, error) {
+        var server models.IntClient
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	filter := bson.M{"network": "comms", "isserver": "yes"}
         err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&server)
