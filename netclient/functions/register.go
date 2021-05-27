@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"log"
 	"io/ioutil"
 	"bytes"
         "github.com/gravitl/netmaker/netclient/config"
@@ -9,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"errors"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func Register(cfg config.GlobalConfig) error {
@@ -27,7 +29,9 @@ func Register(cfg config.GlobalConfig) error {
         }
 	jsonbytes := []byte(jsonstring)
 	body := bytes.NewBuffer(jsonbytes)
-	res, err := http.Post("http:/"+cfg.Client.ServerEndpoint+"/api/register","application/json",body)
+	log.Println(jsonstring)
+	log.Println("http://"+cfg.Client.ServerEndpoint+"/api/client/register","application/json")
+	res, err := http.Post("http://"+cfg.Client.ServerEndpoint+"/api/intclient/register","application/json",body)
         if err != nil {
                 return err
         }
@@ -40,7 +44,8 @@ func Register(cfg config.GlobalConfig) error {
 	}
 	var wgclient models.ServerClient
 	json.Unmarshal(bodyBytes, &wgclient)
-        err = config.ModGlobalConfig(wgclient)
+        spew.Dump(wgclient)
+	err = config.ModGlobalConfig(wgclient)
         if err != nil {
                 return err
         }

@@ -49,7 +49,7 @@ func InitGRPCWireguard(client models.ServerClient) error {
         }
         cmdIPDevLinkAdd := exec.Command("ip","link", "add", "dev", ifacename, "type",  "wireguard" )
         cmdIPAddrAdd := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
-        cmdIPAddr6Add := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
+        cmdIPAddr6Add := exec.Command("ip", "address", "add", "dev", ifacename, client.Address6+"/64")
         currentiface, err := net.InterfaceByName(ifacename)
         if err != nil {
                 err = cmdIPDevLinkAdd.Run()
@@ -58,6 +58,7 @@ func InitGRPCWireguard(client models.ServerClient) error {
 	        }
         }
         match := false
+        match6 := false
         addrs, _ := currentiface.Addrs()
 
 	//Add IPv4Address (make into separate function)
@@ -65,30 +66,28 @@ func InitGRPCWireguard(client models.ServerClient) error {
                 if strings.Contains(a.String(), client.Address){
                         match = true
                 }
-        }
-        if !match {
-		err = cmdIPAddrAdd.Run()
-	        if  err  !=  nil {
-	                log.Println("Error adding address")
-	        }
-        }
-
-	//Add IPv6 Address (make into separate function)
-        for _, a := range addrs {
                 if strings.Contains(a.String(), client.Address6){
-                        match = true
+                        match6 = true
                 }
         }
-        if !match {
+        if !match && client.Address != "" {
+		err = cmdIPAddrAdd.Run()
+	        if  err  !=  nil {
+	                log.Println("Error adding ipv4 address")
+		fmt.Println(err)
+	        }
+        }
+        if !match6 && client.Address6 !=""{
                 err = cmdIPAddr6Add.Run()
                 if  err  !=  nil {
-                        log.Println("Error adding address")
+                        log.Println("Error adding ipv6 address")
+                fmt.Println(err)
                 }
         }
 	var peers []wgtypes.PeerConfig
         var peeraddr = net.IPNet{
                  IP: net.ParseIP(client.ServerAddress),
-                 Mask: net.CIDRMask(32, 32),
+                 Mask: net.CIDRMask(64, 128),
         }
 	var allowedips []net.IPNet
         allowedips = append(allowedips, peeraddr)
@@ -129,7 +128,6 @@ func InitGRPCWireguard(client models.ServerClient) error {
         }
 	return err
 }
-
 
 func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error  {
 

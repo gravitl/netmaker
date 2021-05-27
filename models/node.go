@@ -46,6 +46,7 @@ type Node struct {
 	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
 	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
 	EgressGatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
+	IngressGatewayRange        string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
 }
 

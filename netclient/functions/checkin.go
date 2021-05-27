@@ -25,7 +25,7 @@ func CheckIn(network string) error {
         }
 	nodecfg := cfg.Node
 	servercfg := cfg.Server
-	fmt.Println("Checking into server: " + servercfg.GRPCAddress)
+	fmt.Println("Checking into server at " + servercfg.GRPCAddress)
 
 	setupcheck := true
 	ipchange := false

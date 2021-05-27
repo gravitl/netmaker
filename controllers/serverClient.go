@@ -21,7 +21,7 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-func serverClientHandlers(r *mux.Router) {
+func intClientHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/wgconf/{macaddress}", securityCheck(http.HandlerFunc(getWGClientConf))).Methods("GET")
 	r.HandleFunc("/api/register", securityCheck(http.HandlerFunc(registerClient))).Methods("POST")
@@ -116,7 +116,7 @@ Endpoint = %s
         json.NewEncoder(w).Encode(extclient)
 }
 
-func RegisterClient(client models.ServerClient) (models.ServerClient, error) {
+func RegisterClient(client models.IntClient) (models.IntClient, error) {
 	if client.PrivateKey == "" {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
@@ -145,7 +145,7 @@ func RegisterClient(client models.ServerClient) (models.ServerClient, error) {
 	client.ServerKey = server.ServerKey
 
 
-	collection := mongoconn.Client.Database("netmaker").Collection("serverclients")
+	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	// insert our network into the network table
 	_, err = collection.InsertOne(ctx, client)
@@ -166,7 +166,7 @@ func registerClient(w http.ResponseWriter, r *http.Request) {
                 Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
         }
 
-        var clientreq models.ServerClient
+        var clientreq models.IntClient
 
         //get node from body of request
         err := json.NewDecoder(r.Body).Decode(&clientreq)

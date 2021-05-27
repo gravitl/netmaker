@@ -275,6 +275,7 @@ func CreateExtClient(extclient models.ExtClient) error {
 		}
 		extclient.Address = newAddress
 	}
+
         if extclient.ClientID == "" {
                 clientid := StringWithCharset(7, charset)
                 clientname := "client-" + clientid
@@ -314,7 +315,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.Network = networkName
 	extclient.IngressGatewayID = macaddress
 	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
-        if err != nil {
+	if err != nil {
                 returnErrorResponse(w, r, formatError(err, "internal"))
                 return
         }
@@ -331,6 +332,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = CreateExtClient(extclient)
+
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

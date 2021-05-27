@@ -605,6 +605,7 @@ func UniqueAddress(networkName string) (string, error) {
 			return ip.String(), err
 		}
 	}
+
 	//TODO
 	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
@@ -693,7 +694,6 @@ func IsIPUniqueExtClients(network string, ip string) bool {
         defer cancel()
 
         if err != nil {
-                fmt.Println(err)
                 return isunique
         }
 
@@ -722,7 +722,6 @@ func IsIPUnique(network string, ip string) bool {
 	defer cancel()
 
 	if err != nil {
-		fmt.Println(err)
 		return isunique
 	}
 
@@ -750,7 +749,6 @@ func IsIP6Unique(network string, ip string) bool {
 	defer cancel()
 
 	if err != nil {
-		fmt.Println(err)
 		return isunique
 	}
 
