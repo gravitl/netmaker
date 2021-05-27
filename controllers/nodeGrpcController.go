@@ -62,6 +62,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Dnsoff:          !servercfg.IsDNSMode(),
 			Ispending:       node.IsPending,
 			Isingressgateway:       node.IsIngressGateway,
+			Ingressgatewayrange:       node.IngressGatewayRange,
 			Publickey:       node.PublicKey,
 			Listenport:      node.ListenPort,
 			Keepalive:       node.PersistentKeepalive,
@@ -77,7 +78,7 @@ func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*
         // Get the protobuf node type from the protobuf request type
         // Essentially doing req.Node to access the struct with a nil check
         // Now we have to convert this into a NodeItem type to convert into BSON
-        clientreq := models.ServerClient{
+        clientreq := models.IntClient{
                 // ID:       primitive.NilObjectID,
                 Address:             data.GetAddress(),
                 Address6:            data.GetAddress6(),
@@ -100,7 +101,7 @@ func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*
                         )
 		}
 	}
-	client, err := RegisterClient(clientreq)
+	client, err := RegisterIntClient(clientreq)
 
         if err != nil {
                 // return internal gRPC error to be handled later

@@ -44,7 +44,7 @@ func InitServerWireGuard() error {
 			return err
 		}
 	}
-	address, err := netlink.ParseAddr(wgconfig.GRPCWGAddress + "/32")
+	address, err := netlink.ParseAddr(wgconfig.GRPCWGAddress + "/24")
 	if err != nil {
 		return err
 	}
@@ -63,18 +63,20 @@ func InitServerWireGuard() error {
 		log.Println("could not bring up wireguard interface")
 		return err
 	}
-	var client models.ServerClient
-	client.PrivateKey = servercfg.GetGRPCWGPrivKey()
-	client.PublicKey = servercfg.GetGRPCWGPubKey()
-	client.ServerEndpoint = servercfg.GetGRPCHost()
-	client.Address6 = servercfg.GetGRPCWGAddress()
+	var client models.IntClient
+	client.PrivateKey = wgconfig.GRPCWGPrivKey
+	client.PublicKey = wgconfig.GRPCWGPubKey
+	client.ServerEndpoint = wgconfig.GRPCWGEndpoint
+	client.ServerAddress = wgconfig.GRPCWGAddress
+	client.ServerPort = wgconfig.GRPCWGPort
+	client.Address = wgconfig.GRPCWGAddress
 	client.IsServer = "yes"
 	client.Network = "comms"
 	err = RegisterServer(client)
         return err
 }
 
-func RegisterServer(client models.ServerClient) error {
+func RegisterServer(client models.IntClient) error {
         if client.PrivateKey == "" {
                 privateKey, err := wgtypes.GeneratePrivateKey()
                 if err != nil {
@@ -86,16 +88,19 @@ func RegisterServer(client models.ServerClient) error {
         }
 
         if client.Address == "" {
-                newAddress, err := functions.UniqueAddress6(client.Network)
+                newAddress, err := functions.UniqueAddress(client.Network)
                 if err != nil {
                         return err
                 }
-                client.Address6 = newAddress
+		if newAddress == "" {
+			return errors.New("Could not retrieve address")
+		}
+                client.Address = newAddress
         }
 	if client.Network == "" { client.Network = "comms" }
         client.ServerKey = client.PublicKey
 
-        collection := mongoconn.Client.Database("netmaker").Collection("serverclients")
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
         // insert our network into the network table
         _, err := collection.InsertOne(ctx, client)
@@ -120,7 +125,7 @@ func ReconfigureServerWireGuard() error {
                 return err
         }
 
-	peers, err := functions.GetPeersList("comms")
+	peers, err := functions.GetIntPeersList()
         if err != nil {
                 return err
         }
@@ -141,7 +146,7 @@ func ReconfigureServerWireGuard() error {
                 if peer.Address != "" {
 			var peeraddr = net.IPNet{
 	                        IP: net.ParseIP(peer.Address),
-	                        Mask: net.CIDRMask(32, 32),
+	                        Mask: net.CIDRMask(128, 128),
 	                }
 	                allowedips = append(allowedips, peeraddr)
 		}
@@ -154,10 +159,6 @@ func ReconfigureServerWireGuard() error {
                 }
 		peercfg = wgtypes.PeerConfig{
                         PublicKey: pubkey,
-                        Endpoint: &net.UDPAddr{
-                                IP:   net.ParseIP(peer.Endpoint),
-                                Port: int(peer.ListenPort),
-                        },
                         ReplaceAllowedIPs: true,
                         AllowedIPs: allowedips,
                 }

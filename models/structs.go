@@ -95,8 +95,8 @@ type PeersResponse struct {
 	Address      string `json:"address" bson:"address"`
 	Address6     string `json:"address6" bson:"address6"`
 	LocalAddress string `json:"localaddress" bson:"localaddress"`
-	IsEgressGateway    bool   `json:"isgateway" bson:"isgateway"`
-	EgressGatewayRange string `json:"gatewayrange" bson:"gatewayrange"`
+	IsEgressGateway    bool   `json:"isegressgateway" bson:"isegressgateway"`
+	EgressGatewayRange string `json:"egressgatewayrange" bson:"egressgatewayrange"`
 	ListenPort   int32  `json:"listenport" bson:"listenport"`
 	KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }

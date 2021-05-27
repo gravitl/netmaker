@@ -14,7 +14,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 type GlobalConfig struct {
-	Client models.ServerClient
+	Client models.IntClient
 }
 
 type ClientConfig struct {
@@ -222,7 +222,7 @@ func(config *ClientConfig) ReadConfig() {
 		}
 	}
 }
-func ModGlobalConfig(cfg models.ServerClient) error{
+func ModGlobalConfig(cfg models.IntClient) error{
         var modconfig GlobalConfig
         var err error
         if FileExists("/etc/netclient/netconfig-global-001") {
