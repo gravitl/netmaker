@@ -83,7 +83,7 @@ Note, this installs Netmaker with CoreDNS and a Netclient (privileged).  If you 
 
 1. Clone this repo or just copy contents of "docker-compose.yml" to your Netmaker server (from prereqs).
 2. In docker-compose.yml, change BACKEND_URL to the public IP of your server.
-3. Run `sudo docker-compose up`
+3. Run `sudo docker-compose up -d`
 4. Navigate to your server's IP in the browser and you should see the Netmaker UI asking to create a new admin user.
 5. Create a new admin user
 6. You are now ready to begin using Netmaker. 
@@ -109,7 +109,7 @@ After Network creation, you can edit the network in the NETWORK DETAILS pane, mo
 	- **Install Command:** Use on machines that do not have the netclient utility
 
 ### Install Agent:
-For machines **without** netclient, run the install command (from above): `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.2/netclient-install.sh | KEY=<your access key> sh -`  
+For machines **without** netclient, run the install command (from above): `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.3/netclient-install.sh | KEY=<your access key> sh -`  
 For machines **with** netclient run the following (with access token from above): `sudo netclient -c install -t <access token>`
 For networks with **manual signup** enabled (see above), install using the network name: `sudo netclient -c install -n <network name>`
 

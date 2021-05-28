@@ -9,6 +9,7 @@ import (
     "github.com/gravitl/netmaker/servercfg"
     "github.com/gravitl/netmaker/serverctl"
     "github.com/gravitl/netmaker/mongoconn"
+    "github.com/gravitl/netmaker/functions"
     "fmt"
     "os"
     "os/exec"
@@ -59,6 +60,19 @@ func main() {
 		installserver = true
 	}
 
+	if servercfg.IsGRPCWireGuard() {
+		exists, err := functions.ServerIntClientExists()
+		if err == nil && !exists {
+			err = serverctl.InitServerWireGuard()
+	                if err != nil {
+	                        log.Fatal(err)
+	                }
+			err = serverctl.ReconfigureServerWireGuard()
+	                if err != nil {
+	                        log.Fatal(err)
+	                }
+		}
+	}
 	//NOTE: Removed Check and Logic for DNS Mode
 	//Reasoning. DNS Logic is very small on server. Can run with little/no impact. Just sets a tiny config file.
 	//Real work is done by CoreDNS
@@ -113,7 +127,7 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
 	listener, err := net.Listen("tcp", ":"+grpcport)
         // Handle errors if any
         if err != nil {
-                log.Fatalf("Unable to listen on port" + grpcport + ": %v", err)
+                log.Fatalf("Unable to listen on port " + grpcport + ", error: %v", err)
         }
 
          s := grpc.NewServer(

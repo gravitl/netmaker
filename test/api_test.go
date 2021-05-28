@@ -80,7 +80,7 @@ func api(t *testing.T, data interface{}, method, url, authorization string) (*ht
 }
 
 func addAdmin(t *testing.T) {
-	var admin models.User
+	var admin models.UserAuthParams
 	admin.UserName = "admin"
 	admin.Password = "password"
 	response, err := api(t, admin, http.MethodPost, baseURL+"/api/users/adm/createadmin", "secretkey")
@@ -206,7 +206,7 @@ func deleteAllNodes(t *testing.T) {
 	response, err := api(t, "", http.MethodGet, baseURL+"/api/nodes", "secretkey")
 	assert.Nil(t, err, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	var nodes []models.ReturnNode
+	var nodes []models.Node
 	defer response.Body.Close()
 	json.NewDecoder(response.Body).Decode(&nodes)
 	for _, node := range nodes {

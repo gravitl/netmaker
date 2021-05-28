@@ -61,6 +61,8 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Checkininterval: node.CheckInInterval,
 			Dnsoff:          !servercfg.IsDNSMode(),
 			Ispending:       node.IsPending,
+			Isingressgateway:       node.IsIngressGateway,
+			Ingressgatewayrange:       node.IngressGatewayRange,
 			Publickey:       node.PublicKey,
 			Listenport:      node.ListenPort,
 			Keepalive:       node.PersistentKeepalive,
@@ -70,6 +72,57 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 		},
 	}
 	return response, nil
+}
+
+func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*nodepb.Client, error) {
+        // Get the protobuf node type from the protobuf request type
+        // Essentially doing req.Node to access the struct with a nil check
+        // Now we have to convert this into a NodeItem type to convert into BSON
+        clientreq := models.IntClient{
+                // ID:       primitive.NilObjectID,
+                Address:             data.GetAddress(),
+                Address6:            data.GetAddress6(),
+                AccessKey:           data.GetAccesskey(),
+                PublicKey:           data.GetPublickey(),
+                PrivateKey:           data.GetPrivatekey(),
+                ServerPort:          data.GetServerport(),
+                ServerKey:          data.GetServerkey(),
+                ServerEndpoint:          data.GetServerendpoint(),
+        }
+
+        //Check to see if key is valid
+        //TODO: Triple inefficient!!! This is the third call to the DB we make for networks
+        if servercfg.IsRegisterKeyRequired() {
+		validKey := functions.IsKeyValidGlobal(clientreq.AccessKey)
+		if !validKey {
+			return nil, status.Errorf(
+                                codes.Internal,
+                                fmt.Sprintf("Invalid key, and server does not allow no-key signups"),
+                        )
+		}
+	}
+	client, err := RegisterIntClient(clientreq)
+
+        if err != nil {
+                // return internal gRPC error to be handled later
+                return nil, status.Errorf(
+                        codes.Internal,
+                        fmt.Sprintf("Internal error: %v", err),
+                )
+        }
+        // return the node in a CreateNodeRes type
+        response := &nodepb.Client{
+                        Privatekey:   client.PrivateKey,
+                        Publickey: client.PublicKey,
+                        Accesskey:         client.AccessKey,
+                        Address:      client.Address,
+                        Address6:     client.Address6,
+                        Serverendpoint:     client.ServerEndpoint,
+                        Serverport:     client.ServerPort,
+                        Serverkey:    client.ServerKey,
+        }
+
+        return response, nil
 }
 
 func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNodeReq) (*nodepb.CreateNodeRes, error) {
@@ -347,8 +400,8 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 				Address:      peers[i].Address,
 				Address6:     peers[i].Address6,
 				Endpoint:     peers[i].Endpoint,
-				Gatewayrange: peers[i].GatewayRange,
-				Isgateway:    peers[i].IsGateway,
+				Egressgatewayrange: peers[i].EgressGatewayRange,
+				Isegressgateway:    peers[i].IsEgressGateway,
 				Publickey:    peers[i].PublicKey,
 				Keepalive:    peers[i].KeepAlive,
 				Listenport:   peers[i].ListenPort,
@@ -368,4 +421,44 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 	}
 
 	return nil
+}
+
+func (s *NodeServiceServer) GetExtPeers(req *nodepb.GetExtPeersReq, stream nodepb.NodeService_GetExtPeersServer) error {
+        // Initiate a NodeItem type to write decoded data to
+        //data := &models.PeersResponse{}
+        // collection.Find returns a cursor for our (empty) query
+        //cursor, err := s.NodeDB.Find(context.Background(), bson.M{})
+        peers, err := GetExtPeersList(req.GetNetwork(), req.GetMacaddress())
+
+        if err != nil {
+                return status.Errorf(codes.Internal, fmt.Sprintf("Unknown internal error: %v", err))
+        }
+        // cursor.Next() returns a boolean, if false there are no more items and loop will break
+        for i := 0; i < len(peers); i++ {
+
+                // If no error is found send node over stream
+                stream.Send(&nodepb.GetExtPeersRes{
+                        Extpeers: &nodepb.ExtPeersResponse{
+                                Address:      peers[i].Address,
+                                Address6:     peers[i].Address6,
+                                Endpoint:     peers[i].Endpoint,
+                                Publickey:    peers[i].PublicKey,
+                                Keepalive:    peers[i].KeepAlive,
+                                Listenport:   peers[i].ListenPort,
+                                Localaddress: peers[i].LocalAddress,
+                        },
+                })
+        }
+
+        node, err := functions.GetNodeByMacAddress(req.GetNetwork(), req.GetMacaddress())
+        if err != nil {
+                return status.Errorf(codes.Internal, fmt.Sprintf("Could not get node: %v", err))
+        }
+
+        err = TimestampNode(node, false, true, false)
+        if err != nil {
+                return status.Errorf(codes.Internal, fmt.Sprintf("Internal error occurred: %v", err))
+        }
+
+        return nil
 }

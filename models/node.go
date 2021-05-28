@@ -22,7 +22,7 @@ type Node struct {
 	Address             string             `json:"address" bson:"address" validate:"omitempty,ipv4"`
 	Address6            string             `json:"address6" bson:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"omitempty,ip"`
-	Name                string             `json:"name" bson:"name" validate:"omitempty,alphanum,max=12"`
+	Name                string             `json:"name" bson:"name" validate:"omitempty,max=12,in_charset"`
 	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	PublicKey           string             `json:"publickey" bson:"publickey" validate:"required,base64"`
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"required,ip"`
@@ -43,8 +43,10 @@ type Node struct {
 	Password            string             `json:"password" bson:"password" validate:"required,min=6"`
 	Network             string             `json:"network" bson:"network" validate:"network_exists"`
 	IsPending           bool               `json:"ispending" bson:"ispending"`
-	IsGateway           bool               `json:"isgateway" bson:"isgateway"`
-	GatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
+	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
+	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
+	EgressGatewayRange        string             `json:"egressgatewayrange" bson:"egressgatewayrange"`
+	IngressGatewayRange        string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
 }
 
@@ -54,7 +56,7 @@ type NodeUpdate struct {
 	Address             string             `json:"address" bson:"address" validate:"omitempty,ip"`
 	Address6            string             `json:"address6" bson:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string             `json:"localaddress" bson:"localaddress" validate:"omitempty,ip"`
-	Name                string             `json:"name" bson:"name" validate:"omitempty,alphanum,max=12"`
+	Name                string             `json:"name" bson:"name" validate:"omitempty,max=12,in_charset"`
 	ListenPort          int32              `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	PublicKey           string             `json:"publickey" bson:"publickey" validate:"omitempty,base64"`
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"omitempty,ip"`
@@ -75,8 +77,10 @@ type NodeUpdate struct {
 	Password            string             `json:"password" bson:"password" validate:"omitempty,min=5"`
 	Network             string             `json:"network" bson:"network" validate:"network_exists"`
 	IsPending           bool               `json:"ispending" bson:"ispending"`
-	IsGateway           bool               `json:"isgateway" bson:"isgateway"`
-	GatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
+	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
+	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
+        IngressGatewayRange        string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
+	EgressGatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
 }
 

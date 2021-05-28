@@ -303,7 +303,7 @@ func TestValidateNodeCreate(t *testing.T) {
 			node: models.Node{
 				Name: "mynode*",
 			},
-			errorMessage: "Field validation for 'Name' failed on the 'alphanum' tag",
+			errorMessage: "Field validation for 'Name' failed on the 'in_charset' tag",
 		},
 		NodeValidationTC{
 			testname: "NameTooLong",
@@ -450,7 +450,7 @@ func TestValidateNodeUpdate(t *testing.T) {
 			node: models.NodeUpdate{
 				Name: "mynode*",
 			},
-			errorMessage: "Field validation for 'Name' failed on the 'alphanum' tag",
+			errorMessage: "Field validation for 'Name' failed on the 'in_charset' tag",
 		},
 		NodeValidationUpdateTC{
 			testname: "NameTooLong",

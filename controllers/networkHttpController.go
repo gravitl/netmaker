@@ -30,6 +30,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(createAccessKey))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(getAccessKeys))).Methods("GET")
+        r.HandleFunc("/api/networks/{networkname}/signuptoken", securityCheck(http.HandlerFunc(getSignupToken))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
 }
 
@@ -46,6 +47,9 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 		bearerToken := r.Header.Get("Authorization")
 		err := SecurityCheck(params["networkname"], bearerToken)
 		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") {
+				errorResponse.Code = http.StatusNotFound
+			}
 			errorResponse.Message = err.Error()
 			returnErrorResponse(w, r, errorResponse)
 			return
@@ -459,7 +463,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	count, err := DeleteNetwork(network)
 
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		errtype := "badrequest"
+		if strings.Contains(err.Error(), "Node check failed"){
+			errtype = "forbidden"
+		}
+		returnErrorResponse(w, r, formatError(err, errtype))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -582,17 +590,24 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models.AccessKey, error) {
-	fmt.Println(accesskey)
+
 	if accesskey.Name == "" {
 		accesskey.Name = functions.GenKeyName()
 	}
+
 	if accesskey.Value == "" {
 		accesskey.Value = functions.GenKey()
 	}
 	if accesskey.Uses == 0 {
 		accesskey.Uses = 1
 	}
-	for _, key := range network.AccessKeys {
+
+        checkkeys, err := GetKeys(network.NetID)
+        if err != nil {
+                return models.AccessKey{}, errors.New("could not retrieve network keys")
+        }
+
+	for _, key := range checkkeys {
 		if key.Name == accesskey.Name {
 			return models.AccessKey{}, errors.New("Duplicate AccessKey Name")
 		}
@@ -605,13 +620,14 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	}
 
 	netID := network.NetID
-	address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
+	grpcaddress := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
+	apiaddress := servercfg.GetAPIHost() + ":" + servercfg.GetAPIPort()
 
-	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
+	accessstringdec := grpcaddress + "|" + apiaddress + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 	//validate accesskey
 	v := validator.New()
-	err := v.Struct(accesskey)
+	err = v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
 			fmt.Println(e)
@@ -639,6 +655,31 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	}
 	return accesskey, nil
 }
+
+func GetSignupToken(netID string) (models.AccessKey, error) {
+
+	var accesskey models.AccessKey
+        address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
+
+        accessstringdec := address + "|" + netID + "|" + "" + "|"
+        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+        return accesskey, nil
+}
+func getSignupToken(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        var params = mux.Vars(r)
+        netID := params["networkname"]
+
+	token, err := GetSignupToken(netID)
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(token)
+}
+
+
 
 //pretty simple get
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {

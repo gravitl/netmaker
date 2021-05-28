@@ -31,14 +31,14 @@ func TestCheckIn(t *testing.T) {
 		assert.Greater(t, resp.LastCheckIn, node.LastCheckIn)
 	})
 }
-func TestCreateGateway(t *testing.T) {
-	var gateway models.GatewayRequest
+func TestCreateEgressGateway(t *testing.T) {
+	var gateway models.EgressGatewayRequest
 	gateway.Interface = "eth0"
 	gateway.RangeString = "10.100.100.0/24"
 	deleteNet(t)
 	createNet()
 	t.Run("NoNodes", func(t *testing.T) {
-		node, err := CreateGateway(gateway)
+		node, err := CreateEgressGateway(gateway)
 		assert.NotNil(t, err)
 		assert.Equal(t, models.Node{}, node)
 		assert.Equal(t, "mongo: no documents in result", err.Error())
@@ -48,15 +48,15 @@ func TestCreateGateway(t *testing.T) {
 		gateway.NetID = "skynet"
 		gateway.NodeID = testnode.MacAddress
 
-		node, err := CreateGateway(gateway)
+		node, err := CreateEgressGateway(gateway)
 		assert.Nil(t, err)
-		assert.Equal(t, true, node.IsGateway)
-		assert.Equal(t, "10.100.100.0/24", node.GatewayRange)
+		assert.Equal(t, true, node.IsEgressGateway)
+		assert.Equal(t, "10.100.100.0/24", node.EgressGatewayRange)
 	})
 
 }
-func TestDeleteGateway(t *testing.T) {
-	var gateway models.GatewayRequest
+func TestDeleteEgressGateway(t *testing.T) {
+	var gateway models.EgressGatewayRequest
 	deleteNet(t)
 	createNet()
 	createTestNode(t)
@@ -66,33 +66,33 @@ func TestDeleteGateway(t *testing.T) {
 	gateway.NetID = "skynet"
 	gateway.NodeID = testnode.MacAddress
 	t.Run("Success", func(t *testing.T) {
-		node, err := CreateGateway(gateway)
+		node, err := CreateEgressGateway(gateway)
 		assert.Nil(t, err)
-		assert.Equal(t, true, node.IsGateway)
-		assert.Equal(t, "10.100.100.0/24", node.GatewayRange)
-		node, err = DeleteGateway(gateway.NetID, gateway.NodeID)
+		assert.Equal(t, true, node.IsEgressGateway)
+		assert.Equal(t, "10.100.100.0/24", node.EgressGatewayRange)
+		node, err = DeleteEgressGateway(gateway.NetID, gateway.NodeID)
 		assert.Nil(t, err)
-		assert.Equal(t, false, node.IsGateway)
-		assert.Equal(t, "", node.GatewayRange)
+		assert.Equal(t, false, node.IsEgressGateway)
+		assert.Equal(t, "", node.EgressGatewayRange)
 		assert.Equal(t, "", node.PostUp)
 		assert.Equal(t, "", node.PostDown)
 	})
 	t.Run("NotGateway", func(t *testing.T) {
-		node, err := DeleteGateway(gateway.NetID, gateway.NodeID)
+		node, err := DeleteEgressGateway(gateway.NetID, gateway.NodeID)
 		assert.Nil(t, err)
-		assert.Equal(t, false, node.IsGateway)
-		assert.Equal(t, "", node.GatewayRange)
+		assert.Equal(t, false, node.IsEgressGateway)
+		assert.Equal(t, "", node.EgressGatewayRange)
 		assert.Equal(t, "", node.PostUp)
 		assert.Equal(t, "", node.PostDown)
 	})
 	t.Run("BadNode", func(t *testing.T) {
-		node, err := DeleteGateway(gateway.NetID, "01:02:03")
+		node, err := DeleteEgressGateway(gateway.NetID, "01:02:03")
 		assert.NotNil(t, err)
 		assert.Equal(t, "mongo: no documents in result", err.Error())
 		assert.Equal(t, models.Node{}, node)
 	})
 	t.Run("BadNet", func(t *testing.T) {
-		node, err := DeleteGateway("badnet", gateway.NodeID)
+		node, err := DeleteEgressGateway("badnet", gateway.NodeID)
 		assert.NotNil(t, err)
 		assert.Equal(t, "mongo: no documents in result", err.Error())
 		assert.Equal(t, models.Node{}, node)
@@ -121,19 +121,19 @@ func TestGetNetworkNodes(t *testing.T) {
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := GetNetworkNodes("badnet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.ReturnNode(nil), node)
+		assert.Equal(t, []models.Node(nil), node)
 		//assert.Equal(t, "mongo: no documents in result", err.Error())
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.ReturnNode(nil), node)
+		assert.Equal(t, []models.Node(nil), node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode(t)
 		node, err := GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.NotEqual(t, []models.ReturnNode(nil), node)
+		assert.NotEqual(t, []models.Node(nil), node)
 	})
 
 }
@@ -160,32 +160,32 @@ func TestUncordonNode(t *testing.T) {
 	})
 
 }
-func TestValidateGateway(t *testing.T) {
-	var gateway models.GatewayRequest
+func TestValidateEgressGateway(t *testing.T) {
+	var gateway models.EgressGatewayRequest
 	t.Run("InvalidRange", func(t *testing.T) {
 		gateway.Interface = "eth0"
 		gateway.RangeString = "helloworld"
-		err := ValidateGateway(gateway)
+		err := ValidateEgressGateway(gateway)
 		assert.NotNil(t, err)
 		assert.Equal(t, "IP Range Not Valid", err.Error())
 	})
 	t.Run("EmptyRange", func(t *testing.T) {
 		gateway.Interface = "eth0"
 		gateway.RangeString = ""
-		err := ValidateGateway(gateway)
+		err := ValidateEgressGateway(gateway)
 		assert.NotNil(t, err)
 		assert.Equal(t, "IP Range Not Valid", err.Error())
 	})
 	t.Run("EmptyInterface", func(t *testing.T) {
 		gateway.Interface = ""
-		err := ValidateGateway(gateway)
+		err := ValidateEgressGateway(gateway)
 		assert.NotNil(t, err)
 		assert.Equal(t, "Interface cannot be empty", err.Error())
 	})
 	t.Run("Success", func(t *testing.T) {
 		gateway.Interface = "eth0"
 		gateway.RangeString = "10.100.100.0/24"
-		err := ValidateGateway(gateway)
+		err := ValidateEgressGateway(gateway)
 		assert.Nil(t, err)
 	})
 }

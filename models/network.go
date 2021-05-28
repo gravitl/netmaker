@@ -31,6 +31,9 @@ type Network struct {
 	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
 	IsLocal             *bool       `json:"islocal" bson:"islocal"`
 	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
+	IsIPv4         string       `json:"isipv4" bson:"isipv4"`
+	IsIPv6         string       `json:"isipv6" bson:"isipv6"`
+	IsGRPCHub         string       `json:"isgrpchub" bson:"isgrpchub"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
@@ -58,6 +61,9 @@ type NetworkUpdate struct {
 	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
 	IsLocal             *bool       `json:"islocal" bson:"islocal"`
 	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
+        IsIPv4         string       `json:"isipv4" bson:"isipv4"`
+        IsIPv6         string       `json:"isipv6" bson:"isipv6"`
+        IsGRPCHub         string       `json:"isgrpchub" bson:"isgrpchub"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
@@ -102,5 +108,12 @@ func (network *Network) SetDefaults() {
 	if network.AllowManualSignUp == nil {
 		signup := false
 		network.AllowManualSignUp = &signup
+	}
+	if (network.IsDualStack != nil) && *network.IsDualStack {
+		network.IsIPv6 = "yes"
+		network.IsIPv4 = "yes"
+	} else if network.IsGRPCHub != "yes" {
+                network.IsIPv6 = "no"
+                network.IsIPv4 = "yes"
 	}
 }

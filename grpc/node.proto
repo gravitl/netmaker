@@ -9,6 +9,7 @@ service NodeService {
     rpc UpdateNode(UpdateNodeReq) returns (UpdateNodeRes);
     rpc DeleteNode(DeleteNodeReq) returns (DeleteNodeRes);
     rpc GetPeers(GetPeersReq) returns (stream GetPeersRes);
+    rpc GetExtPeers(GetExtPeersReq) returns (stream GetExtPeersRes);
     rpc CheckIn(CheckInReq) returns (CheckInRes);
 }
 
@@ -45,6 +46,8 @@ message Node {
     string postchanges = 21;
     string allowedips = 22;
     bool islocal = 23;
+    bool isingressgateway = 28;
+    string ingressgatewayrange = 29;
     bool isdualstack = 27;
     bool dnsoff = 24;
     string localrange = 25;
@@ -61,8 +64,9 @@ message CheckInResponse {
 }
 
 message PeersResponse {
-    bool isgateway = 1;
-    string gatewayrange = 2;
+    bool isegressgateway = 1;
+    string egressgatewayrange = 2;
+    string ingressgatewayrange = 9;
     string publickey = 5;
     string endpoint = 6;
     string address = 3;
@@ -70,6 +74,27 @@ message PeersResponse {
     int32 listenport = 4;
     string localaddress = 7;
     int32 keepalive = 13;
+}
+
+message ExtPeersResponse {
+    string publickey = 5;
+    string endpoint = 6;
+    string address = 3;
+    string address6 = 8;
+    int32 listenport = 4;
+    string localaddress = 7;
+    int32 keepalive = 13;
+}
+
+message Client {
+    string privatekey = 1;
+    string publickey = 2;
+    string accesskey = 3;
+    string address = 4;
+    string address6 = 5;
+    string serverendpoint = 6;
+    string serverport = 7;
+    string serverkey = 8;
 }
 
 message CreateNodeReq {
@@ -111,8 +136,17 @@ message GetPeersReq {
     string network = 2;
 }
 
+message GetExtPeersReq {
+    string macaddress = 1;
+    string network = 2;
+}
+
 message GetPeersRes {
     PeersResponse peers = 1;
+}
+
+message GetExtPeersRes {
+    ExtPeersResponse extpeers = 1;
 }
 
 message CheckInReq {

@@ -31,6 +31,8 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
     dnsHandlers(r)
     fileHandlers(r)
     serverHandlers(r)
+    extClientHandlers(r)
+    intClientHandlers(r)
 
 		port := servercfg.GetAPIPort()
 
