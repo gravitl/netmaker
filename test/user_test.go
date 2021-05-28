@@ -40,7 +40,7 @@ func TestAdminCreation(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-		assert.Equal(t, "W1R3: Admin already exists! ", message.Message)
+		assert.Contains(t, message.Message, "Admin already Exists")
 	})
 }
 
@@ -69,7 +69,7 @@ func TestGetUser(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Equal(t, "token contains an invalid number of segments", message.Message)
+		assert.Contains(t, message.Message, "Error Verifying Auth Token")
 
 	})
 }
@@ -207,7 +207,7 @@ func TestAuthenticateUser(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.testname, func(t *testing.T) {
-			var admin models.User
+			var admin models.UserAuthParams
 			admin.UserName = tc.name
 			admin.Password = tc.password
 			response, err := api(t, admin, http.MethodPost, "http://localhost:8081/api/users/adm/authenticate", "secretkey")

@@ -400,7 +400,7 @@ func TestCreateNode(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Contains(t, message.Message, "Field validation for 'MacAddress' failed on the 'macaddress_valid' tag")
+		assert.Contains(t, message.Message, "Field validation for 'MacAddress' failed on the 'ma")
 	})
 	t.Run("BadPublicKey", func(t *testing.T) {
 		var node models.Node
@@ -501,7 +501,7 @@ func TestCreateNode(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusNotFound, message.Code)
-		assert.Contains(t, "etwork does not exist", message.Message)
+		assert.Contains(t, message.Message, "etwork does not exist")
 	})
 	t.Run("Valid", func(t *testing.T) {
 		deleteNetworks(t)
@@ -561,7 +561,7 @@ func TestNodeAuthenticate(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, message.Code)
-		assert.Contains(t, "Device 01:02:03:04:05:06 Authorized", message.Message)
+		assert.Contains(t, message.Message, "Device 01:02:03:04:05:06 Authorized")
 	})
 	t.Run("MacEmpty", func(t *testing.T) {
 		var authRequest models.AuthParams
@@ -575,7 +575,7 @@ func TestNodeAuthenticate(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Contains(t, "acAddress can't be empty", message.Message)
+		assert.Contains(t, message.Message, "acAddress can't be empty")
 	})
 	t.Run("EmptyPass", func(t *testing.T) {
 		var authRequest models.AuthParams
@@ -589,7 +589,7 @@ func TestNodeAuthenticate(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Equal(t, "assword can't be empty", message.Message)
+		assert.Contains(t, message.Message, "assword can't be empty")
 	})
 	t.Run("BadPass", func(t *testing.T) {
 		var authRequest models.AuthParams

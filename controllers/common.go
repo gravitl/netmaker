@@ -112,6 +112,10 @@ func ValidateNodeCreate(networkName string, node models.Node) error {
 		_, err := node.GetNetwork()
 		return err == nil
 	})
+        _ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
+                isgood := functions.NameInNodeCharSet(node.Name)
+                return isgood
+        })
 	err := v.Struct(node)
 
 	if err != nil {
@@ -128,6 +132,10 @@ func ValidateNodeUpdate(networkName string, node models.NodeUpdate) error {
 		_, err := node.GetNetwork()
 		return err == nil
 	})
+        _ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
+                isgood := functions.NameInNodeCharSet(node.Name)
+                return isgood
+        })
 	err := v.Struct(node)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {

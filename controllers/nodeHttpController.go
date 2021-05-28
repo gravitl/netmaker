@@ -654,7 +654,7 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 			{"postup", nodechange.PostUp},
 			{"postdown", nodechange.PostDown},
 			{"isegressgateway", nodechange.IsEgressGateway},
-			{"gatewayrange", nodechange.EgressGatewayRange},
+			{"egressgatewayrange", nodechange.EgressGatewayRange},
 			{"lastmodified", nodechange.LastModified},
 		}},
 	}

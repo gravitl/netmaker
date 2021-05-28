@@ -80,7 +80,7 @@ func api(t *testing.T, data interface{}, method, url, authorization string) (*ht
 }
 
 func addAdmin(t *testing.T) {
-	var admin models.User
+	var admin models.UserAuthParams
 	admin.UserName = "admin"
 	admin.Password = "password"
 	response, err := api(t, admin, http.MethodPost, baseURL+"/api/users/adm/createadmin", "secretkey")

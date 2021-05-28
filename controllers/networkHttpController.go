@@ -47,6 +47,9 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 		bearerToken := r.Header.Get("Authorization")
 		err := SecurityCheck(params["networkname"], bearerToken)
 		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") {
+				errorResponse.Code = http.StatusNotFound
+			}
 			errorResponse.Message = err.Error()
 			returnErrorResponse(w, r, errorResponse)
 			return
@@ -460,7 +463,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	count, err := DeleteNetwork(network)
 
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		errtype := "badrequest"
+		if strings.Contains(err.Error(), "Node check failed"){
+			errtype = "forbidden"
+		}
+		returnErrorResponse(w, r, formatError(err, errtype))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -583,17 +590,24 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models.AccessKey, error) {
-	fmt.Println(accesskey)
+
 	if accesskey.Name == "" {
 		accesskey.Name = functions.GenKeyName()
 	}
+
 	if accesskey.Value == "" {
 		accesskey.Value = functions.GenKey()
 	}
 	if accesskey.Uses == 0 {
 		accesskey.Uses = 1
 	}
-	for _, key := range network.AccessKeys {
+
+        checkkeys, err := GetKeys(network.NetID)
+        if err != nil {
+                return models.AccessKey{}, errors.New("could not retrieve network keys")
+        }
+
+	for _, key := range checkkeys {
 		if key.Name == accesskey.Name {
 			return models.AccessKey{}, errors.New("Duplicate AccessKey Name")
 		}
@@ -613,7 +627,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 	//validate accesskey
 	v := validator.New()
-	err := v.Struct(accesskey)
+	err = v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
 			fmt.Println(e)
