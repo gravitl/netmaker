@@ -282,12 +282,6 @@ func CreateExtClient(extclient models.ExtClient) error {
                 extclient.ClientID = clientname
         }
 
-        if extclient.ClientID == "" {
-                cid := StringWithCharset(7, charset)
-                clientid := "client-" + cid
-                extclient.ClientID = clientid
-        }
-
 	extclient.LastModified = time.Now().Unix()
 
 	collection := mongoconn.Client.Database("netmaker").Collection("extclients")

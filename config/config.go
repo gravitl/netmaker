@@ -78,8 +78,8 @@ func readConfig() *EnvironmentConfig {
   if err != nil {
     //log.Fatal(err)
     //os.Exit(2)
-    log.Println("Unable to open config file at config/environments/" + getEnv())
-    log.Println("Will proceed with defaults or enironment variables (no config file).")
+    //log.Println("Unable to open config file at config/environments/" + getEnv())
+    //log.Println("Will proceed with defaults or enironment variables (no config file).")
     return &cfg
   }
   defer f.Close()

@@ -88,10 +88,10 @@ func CreateCommsNetwork() (bool, error) {
         var network models.Network
 
         network.NetID = "comms"
-	network.IsIPv6 = "yes"
-	network.IsIPv4 = "no"
+	network.IsIPv6 = "no"
+	network.IsIPv4 = "yes"
 	network.IsGRPCHub = "yes"
-        network.AddressRange6 = servercfg.GetGRPCWGAddressRange()
+        network.AddressRange = servercfg.GetGRPCWGAddressRange()
         network.DisplayName = "comms"
         network.SetDefaults()
         network.SetNodesLastModified()

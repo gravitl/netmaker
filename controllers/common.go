@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
@@ -299,6 +300,31 @@ func DeleteNode(macaddress string, network string) (bool, error) {
 	return deleted, err
 }
 
+func DeleteIntClient(clientid string) (bool, error) {
+
+        deleted := false
+
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+
+        filter := bson.M{"clientid": clientid}
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        result, err := collection.DeleteOne(ctx, filter)
+
+        deletecount := result.DeletedCount
+
+        if deletecount > 0 {
+                deleted = true
+        }
+
+        defer cancel()
+
+	err = serverctl.ReconfigureServerWireGuard()
+
+        return deleted, err
+}
+
 func GetNode(macaddress string, network string) (models.Node, error) {
 
 	var node models.Node
@@ -313,6 +339,22 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	defer cancel()
 
 	return node, err
+}
+
+func GetIntClient(clientid string) (models.IntClient, error) {
+
+        var client models.IntClient
+
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"clientid": clientid}
+        err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&clientid)
+
+        defer cancel()
+
+        return client, err
 }
 
 func CreateNode(node models.Node, networkName string) (models.Node, error) {

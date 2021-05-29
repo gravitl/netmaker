@@ -2,6 +2,7 @@ package functions
 
 import (
 	"fmt"
+	"encoding/json"
 	"errors"
 	"context"
         "net/http"
@@ -258,7 +259,21 @@ func GetNode(network string) nodepb.Node {
         return node
 }
 
-
+func Uninstall() error {
+	networks, err := GetNetworks()
+	if err != nil {
+		log.Println("unable to retrieve networks: ", err)
+		log.Println("continuing uninstall without leaving networks")
+	} else {
+		for _, network := range networks {
+			err = LeaveNetwork(network)
+			if err != nil {
+				log.Println("Encounter issue leaving network " + network + ": ", err)
+			}
+		}
+	}
+	return err
+}
 
 func LeaveNetwork(network string) error {
         //need to  implement checkin on server side
@@ -329,4 +344,60 @@ func DeleteInterface(ifacename string, postdown string) error{
                 }
         }
         return err
+}
+
+
+func List() error{
+
+	networks, err := GetNetworks()
+	if err != nil {
+		return err
+	}
+	for _, network := range networks {
+		cfg, err := config.ReadConfig(network)
+		if err == nil {
+			//cfg2 := *cfg
+			listconfig := &config.ListConfig{
+					Name: cfg.Node.Name,
+					Interface: cfg.Node.Interface,
+					PrivateIPv4: cfg.Node.WGAddress,
+					PrivateIPv6: cfg.Node.WGAddress6,
+					PublicEndpoint: cfg.Node.Endpoint,
+				}
+			jsoncfg, _ := json.Marshal(listconfig)
+			fmt.Println(network + ": " + string(jsoncfg))
+		} else {
+			fmt.Println(network + ": Could not retrieve network configuration.")
+		}
+	}
+	return nil
+
+}
+
+func GetNetworks() ([]string, error) {
+        var networks []string
+        files, err := ioutil.ReadDir("/etc/netclient")
+        if err != nil {
+                return networks, err
+        }
+        for _, f := range files {
+                if strings.Contains(f.Name(), "netconfig-") && !strings.Contains(f.Name(), "global-001"){
+                        networkname := stringAfter(f.Name(), "netconfig-")
+                        networks = append(networks, networkname)
+                }
+        }
+	return networks, err
+}
+
+func stringAfter(original string, substring string) string {
+	position := strings.LastIndex(original, substring)
+	if position == -1 {
+		return ""
+	}
+	adjustedPosition := position + len(substring)
+
+	if adjustedPosition >= len(original) {
+		return ""
+	}
+	return original[adjustedPosition:len(original)]
 }

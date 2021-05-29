@@ -72,9 +72,18 @@ func InitServerWireGuard() error {
 	client.Address = wgconfig.GRPCWGAddress
 	client.IsServer = "yes"
 	client.Network = "comms"
+	exists, _ := functions.ServerIntClientExists()
+	if exists {
+
+	}
 	err = RegisterServer(client)
         return err
 }
+
+func DeleteServerClient() error {
+	return nil
+}
+
 
 func RegisterServer(client models.IntClient) error {
         if client.PrivateKey == "" {
@@ -146,7 +155,7 @@ func ReconfigureServerWireGuard() error {
                 if peer.Address != "" {
 			var peeraddr = net.IPNet{
 	                        IP: net.ParseIP(peer.Address),
-	                        Mask: net.CIDRMask(128, 128),
+	                        Mask: net.CIDRMask(32, 32),
 	                }
 	                allowedips = append(allowedips, peeraddr)
 		}

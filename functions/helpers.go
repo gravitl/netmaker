@@ -702,9 +702,15 @@ func UniqueAddress(networkName string) (string, error) {
 			offset = false
 			continue
 		}
-		if IsIPUnique(networkName, ip.String())  && IsIPUniqueExtClients(networkName, ip.String()) {
-			return ip.String(), err
-		}
+                if networkName == "comms" {
+                        if IsIPUniqueClients(networkName, ip.String()) {
+                                return ip.String(), err
+                        }
+                } else {
+                        if IsIPUnique(networkName, ip.String()) && IsIPUniqueExtClients(networkName, ip.String()) {
+                                return ip.String(), err
+                        }
+                }
 	}
 
 	//TODO
@@ -889,6 +895,33 @@ func IsIP6UniqueClients(network string, ip string) bool {
         }
 
         if client.Address6 == ip {
+                isunique = false
+        }
+        return isunique
+}
+
+//checks if IP is unique in the address range
+//used by UniqueAddress
+func IsIPUniqueClients(network string, ip string) bool {
+
+        var client models.IntClient
+
+        isunique := true
+
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        filter := bson.M{"address": ip, "network": network}
+
+        err := collection.FindOne(ctx, filter).Decode(&client)
+
+        defer cancel()
+
+        if err != nil {
+                return isunique
+        }
+
+        if client.Address == ip {
                 isunique = false
         }
         return isunique
