@@ -72,9 +72,18 @@ func InitServerWireGuard() error {
 	client.Address = wgconfig.GRPCWGAddress
 	client.IsServer = "yes"
 	client.Network = "comms"
+	exists, _ := functions.ServerIntClientExists()
+	if exists {
+
+	}
 	err = RegisterServer(client)
         return err
 }
+
+func DeleteServerClient() error {
+	return nil
+}
+
 
 func RegisterServer(client models.IntClient) error {
         if client.PrivateKey == "" {
