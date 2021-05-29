@@ -1,8 +1,7 @@
 package models
 
-import (
-)
 type IntClient struct {
+        ClientID       string             `json:"clientid" bson:"clientid"`
 	PrivateKey     string             `json:"privatekey" bson:"privatekey"`
 	PublicKey      string             `json:"publickey" bson:"publickey"`
 	AccessKey      string             `json:"accesskey" bson:"accesskey"`

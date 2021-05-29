@@ -62,15 +62,17 @@ func main() {
 
 	if servercfg.IsGRPCWireGuard() {
 		exists, err := functions.ServerIntClientExists()
-		if err == nil && !exists {
-			err = serverctl.InitServerWireGuard()
-	                if err != nil {
-	                        log.Fatal(err)
-	                }
-			err = serverctl.ReconfigureServerWireGuard()
-	                if err != nil {
-	                        log.Fatal(err)
-	                }
+		if err == nil {
+			if !exists {
+				err = serverctl.InitServerWireGuard()
+		                if err != nil {
+		                        log.Fatal(err)
+		                }
+			}
+		}
+		err = serverctl.ReconfigureServerWireGuard()
+	        if err != nil {
+	                log.Fatal(err)
 		}
 	}
 	//NOTE: Removed Check and Logic for DNS Mode

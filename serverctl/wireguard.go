@@ -146,7 +146,7 @@ func ReconfigureServerWireGuard() error {
                 if peer.Address != "" {
 			var peeraddr = net.IPNet{
 	                        IP: net.ParseIP(peer.Address),
-	                        Mask: net.CIDRMask(128, 128),
+	                        Mask: net.CIDRMask(32, 32),
 	                }
 	                allowedips = append(allowedips, peeraddr)
 		}

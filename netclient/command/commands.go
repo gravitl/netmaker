@@ -87,12 +87,19 @@ func Pull(cfg config.ClientConfig) error {
         return nil
 }
 
+func List(cfg config.ClientConfig) error {
+	err := functions.List()
+	return err
+}
+
 func Status(cfg config.ClientConfig) error {
         log.Println("retrieving network status")
         return nil
 }
 
-func Uninstall(cfg config.ClientConfig) error {
-        log.Println("uninstalling")
-        return nil
+func Uninstall(cfg config.GlobalConfig) error {
+	log.Println("Uninstalling netclient")
+	err := functions.Uninstall()
+	err = functions.Unregister(cfg)
+        return err
 }

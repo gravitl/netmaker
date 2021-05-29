@@ -21,6 +21,6 @@ services:
     ports:
       - "80:80"
     environment:
-      BACKEND_URL: "http://34.228.52.243:8081"
+      BACKEND_URL: "http://localhost:8081"
 volumes:
   mongovol: {}

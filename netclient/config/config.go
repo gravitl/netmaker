@@ -30,6 +30,14 @@ type ServerConfig struct {
         AccessKey string `yaml:"accesskey"`
 }
 
+type ListConfig struct {
+        Name string `yaml:"name"`
+        Interface string `yaml:"interface"`
+        PrivateIPv4 string `yaml:"wgaddress"`
+        PrivateIPv6 string `yaml:"wgaddress6"`
+        PublicEndpoint string `yaml:"endpoint"`
+}
+
 type NodeConfig struct {
         Name string `yaml:"name"`
         Interface string `yaml:"interface"`
@@ -412,7 +420,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 }
 
 func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
-        var cfg GlobalConfig
+	var cfg GlobalConfig
         if c.String("token") != "" {
                 tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
                 if err  != nil {
