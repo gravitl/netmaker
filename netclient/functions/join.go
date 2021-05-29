@@ -24,6 +24,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for cfg.Network " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient -c remove -n " + cfg.Network + "'. Then re-run the install command.")
 		return err
 	}
+	log.Println("attempting to joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 	err := config.Write(&cfg, cfg.Network)
 	if err != nil {
 		return err
@@ -42,7 +43,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
                         return err
                 }
 		_, localrange, err := net.ParseCIDR(cfg.Node.LocalRange)
-                if err != nil {
+		if err != nil {
                         return err
                 }
 

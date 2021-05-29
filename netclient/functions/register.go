@@ -2,6 +2,7 @@ package functions
 
 import (
 	"time"
+	"os"
 	"log"
 	"io/ioutil"
 	"bytes"
@@ -17,6 +18,14 @@ import (
 
 func Register(cfg config.GlobalConfig) error {
 
+	_, err := os.Stat("/etc/netclient")
+        if os.IsNotExist(err) {
+                os.Mkdir("/etc/netclient", 744)
+        } else if err != nil {
+                log.Println("couldnt find or create /etc/netclient")
+                return err
+        }
+
         postclient := &models.IntClient{
                 AccessKey: cfg.Client.AccessKey,
                 PublicKey: cfg.Client.PublicKey,
@@ -31,8 +40,7 @@ func Register(cfg config.GlobalConfig) error {
         }
 	jsonbytes := []byte(jsonstring)
 	body := bytes.NewBuffer(jsonbytes)
-	log.Println(jsonstring)
-	log.Println("http://"+cfg.Client.ServerEndpoint+"/api/client/register","application/json")
+	log.Println("registering to http://"+cfg.Client.ServerAPIEndpoint+"/api/client/register")
 	res, err := http.Post("http://"+cfg.Client.ServerEndpoint+"/api/intclient/register","application/json",body)
         if err != nil {
                 return err
@@ -62,21 +70,36 @@ func Register(cfg config.GlobalConfig) error {
 
 func Unregister(cfg config.GlobalConfig) error {
 	client := &http.Client{ Timeout: 7 * time.Second,}
-	req, err := http.NewRequest("DELETE", "http://"+cfg.Client.ServerEndpoint+"/api/intclient/"+cfg.Client.ClientID, nil)
+	req, err := http.NewRequest("DELETE", "http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/"+cfg.Client.ClientID, nil)
         if err != nil {
                 return err
         }
 	res, err := client.Do(req)
         if res == nil {
+                return errors.New("server not reachable at " + "http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/"+cfg.Client.ClientID)
+
+	} else if res.StatusCode != http.StatusOK {
+                return errors.New("request to server failed: " + res.Status)
+                defer res.Body.Close()
+	} else {
 	        err = local.WipeGRPCClient()
 		if err == nil {
 			log.Println("successfully removed grpc client interface")
 		}
-	} else {
-		if res.StatusCode != http.StatusOK {
-			return errors.New("request to server failed: " + res.Status)
-			defer res.Body.Close()
-		}
 	}
 	return err
 }
+
+func Reregister(cfg config.GlobalConfig) error {
+	err := Unregister(cfg)
+	if err != nil {
+		log.Println("failed to un-register")
+		return err
+	}
+	err = Register(cfg)
+	if err != nil {
+		log.Println("failed to re-register after unregistering")
+	}
+	return err
+}
+
