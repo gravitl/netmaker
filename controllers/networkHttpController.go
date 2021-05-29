@@ -64,10 +64,6 @@ func SecurityCheck(netname, token string) error {
 		return err
 	}
 	if hasnetwork && !networkexists {
-		//errorResponse = models.ErrorResponse{
-		//	Code: http.StatusNotFound, Message: "W1R3: This network does not exist.",
-		//}
-		//returnErrorResponse(w, r, errorResponse)
 		return errors.New("This network does not exist")
 	}
 
@@ -81,14 +77,12 @@ func SecurityCheck(netname, token string) error {
 		authToken = tokenSplit[1]
 	}
 	//all endpoints here require master so not as complicated
-	//still might not be a good  way of doing this
 	if !hasBearer || !authenticateMaster(authToken) {
-		//errorResponse = models.ErrorResponse{
-		//	Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-		//	}
-		//	returnErrorResponse(w, r, errorResponse)
-		return errors.New("You are unauthorized to access this endpoint")
-	} //else {
+		_, isadmin, err := functions.VerifyUserToken(authToken)
+		if err != nil || !isadmin {
+			return errors.New("You are unauthorized to access this endpoint")
+		}
+	}
 	return nil
 }
 

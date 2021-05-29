@@ -32,7 +32,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleteingress", securityCheck(http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
-	//r.HandleFunc("/api/register", registerClient).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 
@@ -184,17 +183,24 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			//A: the token is the master password
 			//B: the token corresponds to a mac address, and if so, which one
 			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
-			macaddress, _, err := functions.VerifyToken(authToken)
-			if err != nil {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
+
+                        var isAuthorized = false
+			var macaddress = ""
+                        _, isadmin, errN := functions.VerifyUserToken(authToken)
+                        if errN == nil && isadmin {
+	                        macaddress = "mastermac"
+                                isAuthorized = true
+			} else {
+				mac, _, err := functions.VerifyToken(authToken)
+				if err != nil {
+					errorResponse = models.ErrorResponse{
+						Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
+					}
+					returnErrorResponse(w, r, errorResponse)
+					return
 				}
-				returnErrorResponse(w, r, errorResponse)
-				return
+				macaddress = mac
 			}
-
-			var isAuthorized = false
-
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if macaddress == "mastermac" {
 				isAuthorized = true
