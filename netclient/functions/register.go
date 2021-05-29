@@ -1,10 +1,12 @@
 package functions
 
 import (
+	"time"
 	"log"
 	"io/ioutil"
 	"bytes"
         "github.com/gravitl/netmaker/netclient/config"
+        "github.com/gravitl/netmaker/netclient/local"
         "github.com/gravitl/netmaker/netclient/wireguard"
         "github.com/gravitl/netmaker/models"
 	"encoding/json"
@@ -55,5 +57,26 @@ func Register(cfg config.GlobalConfig) error {
                 return err
         }
 
+	return err
+}
+
+func Unregister(cfg config.GlobalConfig) error {
+	client := &http.Client{ Timeout: 7 * time.Second,}
+	req, err := http.NewRequest("DELETE", "http://"+cfg.Client.ServerEndpoint+"/api/intclient/"+cfg.Client.ClientID, nil)
+        if err != nil {
+                return err
+        }
+	res, err := client.Do(req)
+        if res == nil {
+	        err = local.WipeGRPCClient()
+		if err == nil {
+			log.Println("successfully removed grpc client interface")
+		}
+	} else {
+		if res.StatusCode != http.StatusOK {
+			return errors.New("request to server failed: " + res.Status)
+			defer res.Body.Close()
+		}
+	}
 	return err
 }

@@ -281,8 +281,8 @@ func main() {
             },
         },
         {
-            Name:  "status",
-            Usage: "Check network status.",
+            Name:  "list",
+            Usage: "Get list of networks.",
             Flags: cliFlags,
             // the action, or code that will be executed when
             // we execute our `ns` command
@@ -291,7 +291,7 @@ func main() {
                 if err != nil {
                         return err
                 }
-                err = command.Status(cfg)
+                err = command.List(cfg)
                 return err
             },
         },
@@ -302,11 +302,13 @@ func main() {
             // the action, or code that will be executed when
             // we execute our `ns` command
             Action: func(c *cli.Context) error {
-                cfg, err := config.GetCLIConfig(c)
+                cfg, err := config.ReadGlobalConfig()
                 if err != nil {
                         return err
                 }
-                err = command.Uninstall(cfg)
+                var gconf config.GlobalConfig
+		gconf = *cfg
+		err = command.Uninstall(gconf)
                 return err
             },
         },

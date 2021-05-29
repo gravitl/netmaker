@@ -49,7 +49,7 @@ func GetGRPCWGAddress() string {
       return address
 }
 func GetGRPCWGAddressRange() string {
-        address := "fd73:0093:84f3:a13d::/64"
+        address := "10.101.0.0/16"
       if os.Getenv("SERVER_GRPC_WG_ADDRESS_RANGE") != ""  {
               address = os.Getenv("SERVER_GRPC_WG_ADDRESS_RANGE")
       } else if config.Config.WG.GRPCWGAddressRange != "" {

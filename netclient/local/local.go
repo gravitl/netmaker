@@ -314,6 +314,22 @@ func WipeLocal(network string) error{
 
 }
 
+func WipeGRPCClient() error{
+        home := "/etc/netclient"
+        _ = os.Remove(home + "/netconfig-global-001")
+
+	ipExec, err := exec.LookPath("ip")
+
+        cmdIPLinkDel := &exec.Cmd {
+                Path: ipExec,
+                Args: []string{ ipExec, "link", "del", "grpc-wg-001" },
+                Stdout: os.Stdout,
+                Stderr: os.Stdout,
+        }
+        err = cmdIPLinkDel.Run()
+        return err
+}
+
 func HasNetwork(network string) bool{
 
 return  FileExists("/etc/systemd/system/netclient-"+network+".timer") ||
