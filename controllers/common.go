@@ -304,7 +304,7 @@ func DeleteIntClient(clientid string) (bool, error) {
 
         deleted := false
 
-        collection := mongoconn.Client.Database("netmaker").Collection("clientid")
+        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
 
         filter := bson.M{"clientid": clientid}
 

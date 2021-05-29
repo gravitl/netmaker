@@ -20,7 +20,9 @@ func intClientHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(getIntClient))).Methods("GET")
 	r.HandleFunc("/api/intclients", securityCheck(http.HandlerFunc(getAllIntClients))).Methods("GET")
-        r.HandleFunc("/api/intclients/deleteall", securityCheck(http.HandlerFunc(deleteAllIntClients))).Methods("POST")
+        r.HandleFunc("/api/intclients/deleteall", securityCheck(http.HandlerFunc(deleteAllIntClients))).Methods("DELETE")
+        r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(deleteIntClient))).Methods("DELETE")
+        r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(updateIntClient))).Methods("PUT")
 	r.HandleFunc("/api/intclient/register", http.HandlerFunc(registerIntClient)).Methods("POST")
 	r.HandleFunc("/api/intclient/{clientid}", http.HandlerFunc(deleteIntClient)).Methods("DELETE")
 }
@@ -79,6 +81,40 @@ func getIntClient(w http.ResponseWriter, r *http.Request) {
         json.NewEncoder(w).Encode(client)
 }
 
+func updateIntClient(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+
+        var errorResponse = models.ErrorResponse{
+                Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+        }
+
+        var clientreq models.IntClient
+
+        //get node from body of request
+        err := json.NewDecoder(r.Body).Decode(&clientreq)
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+        if servercfg.IsRegisterKeyRequired() {
+                validKey := functions.IsKeyValidGlobal(clientreq.AccessKey)
+                if !validKey {
+                                errorResponse = models.ErrorResponse{
+                                        Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
+                                }
+                                returnErrorResponse(w, r, errorResponse)
+                                return
+                }
+        }
+        client, err := RegisterIntClient(clientreq)
+
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(client)
+}
 
 
 func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
@@ -108,6 +144,7 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 		return client, err
 	}
 	client.ServerEndpoint = server.ServerEndpoint
+	client.ServerAPIEndpoint = servercfg.GetAPIHost() + ":" + servercfg.GetAPIPort()
 	client.ServerAddress = server.ServerAddress
 	client.ServerPort = server.ServerPort
 	client.ServerKey = server.ServerKey
