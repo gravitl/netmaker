@@ -126,7 +126,7 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 
 		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
-		err := ValidateToken(bearerToken)
+		err := ValidateUserToken(bearerToken)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "unauthorized"))
 			return
@@ -135,7 +135,7 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 	}
 }
 
-func ValidateToken(token string) error {
+func ValidateUserToken(token string) error {
 	var tokenSplit = strings.Split(token, " ")
 
 	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
@@ -148,10 +148,6 @@ func ValidateToken(token string) error {
 		return errors.New("Missing Auth Token.")
 	}
 
-	//This checks if
-	//A: the token is the master password
-	//B: the token corresponds to a mac address, and if so, which one
-	//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
 	username, _, err := functions.VerifyUserToken(authToken)
 	if err != nil {
 		return errors.New("Error Verifying Auth Token")

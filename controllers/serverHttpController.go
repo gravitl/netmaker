@@ -2,6 +2,7 @@ package controller
 
 import (
     "github.com/gravitl/netmaker/models"
+    "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/serverctl"
     "github.com/gravitl/netmaker/servercfg"
     "encoding/json"
@@ -38,13 +39,16 @@ func securityCheckServer(next http.Handler) http.HandlerFunc {
 		}
 		//all endpoints here require master so not as complicated
 		//still might not be a good  way of doing this
-		if !hasBearer || !authenticateMasterServer(authToken) {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+                _, isadmin, err := functions.VerifyUserToken(authToken)
+                if err != nil || !isadmin {
+			if (!hasBearer || !authenticateMasterServer(authToken)) && !isadmin {
+				errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+				}
+				returnErrorResponse(w, r, errorResponse)
+			} else {
+				next.ServeHTTP(w, r)
 			}
-			returnErrorResponse(w, r, errorResponse)
-		} else {
-			next.ServeHTTP(w, r)
 		}
 	}
 }
