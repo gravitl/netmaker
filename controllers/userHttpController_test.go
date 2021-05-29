@@ -177,14 +177,14 @@ func TestUpdateUser(t *testing.T) {
 	})
 }
 
-func TestValidateToken(t *testing.T) {
+func TestValidateUserToken(t *testing.T) {
 	t.Run("EmptyToken", func(t *testing.T) {
-		err := ValidateToken("")
+		err := ValidateUserToken("")
 		assert.NotNil(t, err)
 		assert.Equal(t, "Missing Auth Token.", err.Error())
 	})
 	t.Run("InvalidToken", func(t *testing.T) {
-		err := ValidateToken("Bearer: badtoken")
+		err := ValidateUserToken("Bearer: badtoken")
 		assert.NotNil(t, err)
 		assert.Equal(t, "Error Verifying Auth Token", err.Error())
 	})
@@ -193,7 +193,7 @@ func TestValidateToken(t *testing.T) {
 		//need authorization
 	})
 	t.Run("ValidToken", func(t *testing.T) {
-		err := ValidateToken("Bearer: secretkey")
+		err := ValidateUserToken("Bearer: secretkey")
 		assert.Nil(t, err)
 	})
 }
