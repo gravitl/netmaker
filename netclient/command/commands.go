@@ -103,3 +103,12 @@ func Uninstall(cfg config.GlobalConfig) error {
 	err = functions.Unregister(cfg)
         return err
 }
+func Reregister(cfg config.GlobalConfig) error {
+        err := functions.Reregister(cfg)
+        return err
+}
+func Unregister(cfg config.GlobalConfig) error {
+        err := functions.Unregister(cfg)
+        return err
+}
+

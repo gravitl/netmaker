@@ -48,9 +48,9 @@ func InitGRPCWireguard(client models.IntClient) error {
                 return errors.New("no address to configure")
         }
         cmdIPDevLinkAdd := exec.Command("ip","link", "add", "dev", ifacename, "type",  "wireguard" )
-        cmdIPAddrAdd := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
-        cmdIPAddr6Add := exec.Command("ip", "address", "add", "dev", ifacename, client.Address6+"/64")
-        currentiface, err := net.InterfaceByName(ifacename)
+	cmdIPAddrAdd := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
+	cmdIPAddr6Add := exec.Command("ip", "address", "add", "dev", ifacename, client.Address6+"/64")
+	currentiface, err := net.InterfaceByName(ifacename)
         if err != nil {
                 err = cmdIPDevLinkAdd.Run()
 	        if  err  !=  nil && !strings.Contains(err.Error(), "exists") {
@@ -87,7 +87,7 @@ func InitGRPCWireguard(client models.IntClient) error {
 	var peers []wgtypes.PeerConfig
         var peeraddr = net.IPNet{
                  IP: net.ParseIP(client.ServerAddress),
-                 Mask: net.CIDRMask(64, 128),
+                 Mask: net.CIDRMask(32, 32),
         }
 	var allowedips []net.IPNet
         allowedips = append(allowedips, peeraddr)
@@ -126,6 +126,15 @@ func InitGRPCWireguard(client models.IntClient) error {
                         log.Printf("This is inconvenient: %v", err)
                 }
         }
+
+        cmdIPLinkUp := exec.Command("ip", "link", "set", "up", "dev", ifacename)
+        cmdIPLinkDown := exec.Command("ip", "link", "set", "down", "dev", ifacename)
+        err = cmdIPLinkDown.Run()
+        err = cmdIPLinkUp.Run()
+        if  err  !=  nil {
+                return err
+        }
+
 	return err
 }
 
