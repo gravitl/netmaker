@@ -97,16 +97,31 @@ func authenticateMaster(tokenString string) bool {
 //simple get all networks function
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
-	networks, err := functions.ListNetworks()
-
+	allnetworks, err := functions.ListNetworks()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
-	} else {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(networks)
-		return
 	}
+	networks := RemoveComms(allnetworks)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(networks)
+	return
+}
+
+func RemoveComms(networks []models.Network) []models.Network {
+	var index int = 100000001
+	for ind, net := range networks {
+		if net.NetID == "comms" {
+			index = ind
+		}
+	}
+	if index == 100000001 {
+		return networks
+	}
+	returnable := make([]models.Network, 0)
+	returnable = append(returnable, networks[:index]...)
+	return append(returnable, networks[index+1:]...)
 }
 
 func ValidateNetworkUpdate(network models.NetworkUpdate) error {

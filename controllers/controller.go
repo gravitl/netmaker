@@ -5,7 +5,7 @@ import (
     "github.com/gravitl/netmaker/servercfg"
     "os/signal"
     "os"
-    "fmt"
+    "log"
     "context"
     "net/http"
     "github.com/gorilla/mux"
@@ -39,13 +39,12 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 		srv := &http.Server{Addr: ":" + port, Handler: handlers.CORS(originsOk, headersOk, methodsOk)(r)}
 		go func(){
 		err := srv.ListenAndServe()
-		//err := http.ListenAndServe(":" + port,
-		//handlers.CORS(originsOk, headersOk, methodsOk)(r))
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 		}()
-		fmt.Println("REST Server succesfully started on port " + port + " (REST)")
+
+		log.Println("REST Server succesfully started on port " + port + " (REST)")
 		c := make(chan os.Signal)
 
 		// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
@@ -57,8 +56,8 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 		<-c
 
 		// After receiving CTRL+C Properly stop the server
-		fmt.Println("Stopping the REST server...")
+		log.Println("Stopping the REST server...")
 		srv.Shutdown(context.TODO())
-                fmt.Println("REST Server closed.")
+                log.Println("REST Server closed.")
 		mongoconn.Client.Disconnect(context.TODO())
 }

@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,12 +14,22 @@ func FileExists(f string) bool {
 	return !info.IsDir()
 }
 
+func SetDNSDir() error {
+        dir, err := os.Getwd()
+        if err != nil {
+                return err
+        }
+        _, err = os.Stat(dir + "/config/dnsconfig")
+        if os.IsNotExist(err) {
+                os.Mkdir(dir+"/config/dnsconfig", 744)
+        } else if err != nil {
+                log.Println("couldnt find or create /config/dnsconfig")
+                return err
+        }
+	return nil
+}
+
 func SetCorefile(domains string) error {
-	//does not work when executing tests
-	//dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	//if err != nil {
-	//	return err
-	//}
 	dir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -29,7 +38,7 @@ func SetCorefile(domains string) error {
 	if os.IsNotExist(err) {
 		os.Mkdir(dir+"/config/dnsconfig", 744)
 	} else if err != nil {
-		fmt.Println("couldnt find or create /config/dnsconfig")
+		log.Println("couldnt find or create /config/dnsconfig")
 		return err
 	}
 
