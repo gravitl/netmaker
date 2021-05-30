@@ -1,6 +1,7 @@
 package serverctl
 
 import (
+        //"github.com/davecgh/go-spew/spew"
 	"os"
 	"log"
 	"context"
@@ -38,8 +39,7 @@ func InitServerWireGuard() error {
 	err = netlink.LinkAdd(wglink)
 	if err != nil {
 		if os.IsExist(err) {
-			log.Println("interface " + ifaceSettings.Name + " already exists")
-			log.Println("continuing setup using existing interface")
+			log.Println("WireGuard interface " + ifaceSettings.Name + " already exists. Skipping...")
 		} else {
 			return err
 		}
@@ -50,13 +50,8 @@ func InitServerWireGuard() error {
 	}
 
 	err = netlink.AddrAdd(wglink, address)
-        if err != nil {
-                if os.IsExist(err) {
-                        log.Println("address " + wgconfig.GRPCWGAddress + " already exists")
-                        log.Println("continuing with existing setup")
-                } else {
+        if err != nil && !os.IsExist(err){
                         return err
-                }
         }
 	err = netlink.LinkSetUp(wglink)
 	if err != nil {
@@ -138,7 +133,6 @@ func ReconfigureServerWireGuard() error {
         if err != nil {
                 return err
         }
-
 	wgserver, err := wgctrl.New()
 	if err != nil {
 		return err
@@ -180,10 +174,10 @@ func ReconfigureServerWireGuard() error {
 		ReplacePeers: true,
 		Peers:        serverpeers,
 	}
-	err = wgserver.ConfigureDevice(servercfg.GetGRPCWGInterface(), wgconf)
+	wgiface := servercfg.GetGRPCWGInterface()
+	err = wgserver.ConfigureDevice(wgiface, wgconf)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
