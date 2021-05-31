@@ -565,17 +565,28 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	var nodechange models.Node
 	nodechange.IsEgressGateway = true
 	nodechange.EgressGatewayRange = gateway.RangeString
-	if gateway.PostUp == "" {
-		nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-	} else {
+	nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	if gateway.PostUp != "" {
 		nodechange.PostUp = gateway.PostUp
 	}
-	if gateway.PostDown == "" {
-		nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-	} else {
+	if gateway.PostDown != "" {
 		nodechange.PostDown = gateway.PostDown
 	}
-
+	if node.PostUp != "" {
+		if !strings.Contains(node.PostUp, nodechange.PostUp) {
+			nodechange.PostUp = node.PostUp + "; " + nodechange.PostUp
+		} else {
+			nodechange.PostUp = node.PostUp
+		}
+	}
+        if node.PostDown != "" {
+                if !strings.Contains(node.PostDown, nodechange.PostDown) {
+                        nodechange.PostDown = node.PostDown + "; " + nodechange.PostDown
+                } else {
+                        nodechange.PostDown = node.PostDown
+                }
+        }
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	// Create filter
@@ -705,16 +716,26 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 		log.Println("Could not find network.")
                 return models.Node{}, err
         }
+        var nodechange models.Node
+	nodechange.IngressGatewayRange = network.AddressRange
+        nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+        nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+        if node.PostUp != "" {
+                if !strings.Contains(node.PostUp, nodechange.PostUp) {
+                        nodechange.PostUp = node.PostUp + "; " + nodechange.PostUp
+                } else {
+                        nodechange.PostUp = node.PostUp
+                }
+        }
+        if node.PostDown != "" {
+                if !strings.Contains(node.PostDown, nodechange.PostDown) {
+                        nodechange.PostDown = node.PostDown + "; " + nodechange.PostDown
+                } else {
+                        nodechange.PostDown = node.PostDown
+                }
+        }
 
-	if node.IsEgressGateway {
-		errors.New("Node cannot be both Ingress and Egress Gateway in same network.")
-                return models.Node{}, err
-	}
-
-	node.IngressGatewayRange = network.AddressRange
-        node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-        node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
         // Create filter
         filter := bson.M{"macaddress": macaddress, "network": netid}
@@ -722,10 +743,10 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
         // prepare update model.
         update := bson.D{
                 {"$set", bson.D{
-                        {"postup", node.PostUp},
-                        {"postdown", node.PostDown},
+                        {"postup", nodechange.PostUp},
+                        {"postdown", nodechange.PostDown},
                         {"isingressgateway", true},
-                        {"ingressgatewayrange", node.IngressGatewayRange},
+                        {"ingressgatewayrange", nodechange.IngressGatewayRange},
                         {"lastmodified", node.LastModified},
                 }},
         }
