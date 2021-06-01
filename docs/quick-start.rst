@@ -7,7 +7,7 @@ Introduction
 
 This is a guide to getting up and running with Netmaker as quickly as possible. 
 
-By default, Netmaker ships with DNS Mode and Client Mode enabled. However, these features require special permissions and are not necessary for a simple setup, so we are going to deploy without them. To learn more about enabling these features, check out the :doc:`installation docs <./server-installation>`.
+By default, Netmaker ships with DNS Mode, Client Mode, and Secure GRPC enabled. However, these features require special permissions and are not necessary for a simple setup, so we are going to deploy without them. To learn more about enabling these features, check out the :doc:`installation docs <./server-installation>`.
 
 Prerequisites
 ==================
@@ -77,7 +77,7 @@ Deploy Nodes
   * ``which wg`` (should show wg binary present)
   * ``pidof systemd && echo "systemd found" || echo "systemd not found"``
 
-4. Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.3/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
+4. Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
 
 You should get output similar to the below. The netclient retrieves local settings, submits them to the server for processing, and retrieves updated settings. Then it sets the local network configuration. For more information about this process, see the :doc:`client installation <./client-installation>` documentation. If this process failed and you do not see your node in the console (see below), then reference the :doc:`troubleshooting <./troubleshoot>` documentation.
 
@@ -127,7 +127,7 @@ Nodes can be added/removed/modified on the network at any time. Nodes can also b
 Uninstalling the netclient
 =============================
 
-1. To remove your nodes from the default network, run the following on each node: ``sudo netclient -c remove -n default``
+1. To remove your nodes from the default network, run the following on each node: ``sudo netclient leave -n default``
 2. To remove the netclient entirely from each node, run ``sudo rm -rf /etc/netclient`` (after running the first step)
 
 Uninstralling Netmaker

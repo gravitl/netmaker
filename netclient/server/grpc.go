@@ -113,13 +113,10 @@ func RemoveNetwork(network string) error {
 	if err != nil {
                 log.Printf("Unable to wipe local config: %v", err)
 	}
-	err =  local.RemoveSystemDServices(network)
-        if err != nil {
-                return err
-                log.Printf("Unable to remove systemd services: %v", err)
-        }
-
-	return nil
+	if cfg.Daemon != "off" {
+		err =  local.RemoveSystemDServices(network)
+	}
+	return err
 }
 
 func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
