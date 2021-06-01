@@ -631,8 +631,9 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	netID := network.NetID
 	grpcaddress := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
 	apiaddress := servercfg.GetAPIHost() + ":" + servercfg.GetAPIPort()
+	wgport := servercfg.GetGRPWGCPort()
 
-	accessstringdec := grpcaddress + "|" + apiaddress + "|" + netID + "|" + accesskey.Value + "|" + privAddr
+	accessstringdec := wgport + "|" +grpcaddress + "|" + apiaddress + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 	//validate accesskey
 	v := validator.New()
