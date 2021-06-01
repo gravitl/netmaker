@@ -45,7 +45,7 @@ func CreateServerToken(netID string) (string, error) {
 		privAddr = network.LocalRange
 	}
 
-        accessstringdec := address + "|" + address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
+        accessstringdec := " " + "|"+ address + "|" + address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 

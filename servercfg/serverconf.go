@@ -57,8 +57,8 @@ func GetWGConfig() config.WG{
 	cfg.GRPCWGInterface = GetGRPCWGInterface()
 	cfg.GRPCWGAddress = GetGRPCWGAddress()
 	cfg.GRPCWGPort = GetGRPCWGPort()
-	cfg.GRPCWGEndpoint = GetGRPCHost()
-
+	cfg.GRPCWGPubKey =  GetGRPCWGPubKey()
+	cfg.GRPCWGPrivKey =  GetGRPCWGPrivKey()
 	return cfg
 }
 
@@ -110,14 +110,10 @@ func GetGRPCHost() string {
 }
 func GetGRPCPort() string {
         grpcport := "50051"
-        if IsGRPCWireGuard() {
-                grpcport = GetGRPCWGPort()
-        } else {
-	        if os.Getenv("GRPC_PORT") != "" {
-	                grpcport = os.Getenv("GRPC_PORT")
-	        } else if  config.Config.Server.GRPCPort != "" {
-	                grpcport = config.Config.Server.GRPCPort
-	        }
+	if os.Getenv("GRPC_PORT") != "" {
+	        grpcport = os.Getenv("GRPC_PORT")
+	} else if  config.Config.Server.GRPCPort != "" {
+	        grpcport = config.Config.Server.GRPCPort
 	}
         return grpcport
 }

@@ -240,8 +240,14 @@ func ModGlobalConfig(cfg models.IntClient) error{
                 }
                 modconfig = *useconfig
         }
-        if cfg.ServerPort != ""{
-                modconfig.Client.ServerPort = cfg.ServerPort
+        if cfg.ServerWGPort != ""{
+                modconfig.Client.ServerWGPort = cfg.ServerWGPort
+        }
+        if cfg.ServerGRPCPort != ""{
+                modconfig.Client.ServerGRPCPort = cfg.ServerGRPCPort
+        }
+        if cfg.ServerAPIPort != ""{
+                modconfig.Client.ServerAPIPort = cfg.ServerAPIPort
         }
         if cfg.PublicKey != ""{
                 modconfig.Client.PublicKey = cfg.PublicKey
@@ -249,11 +255,11 @@ func ModGlobalConfig(cfg models.IntClient) error{
         if cfg.PrivateKey != ""{
                 modconfig.Client.PrivateKey = cfg.PrivateKey
         }
-        if cfg.ServerWGEndpoint != ""{
-                modconfig.Client.ServerWGEndpoint = cfg.ServerWGEndpoint
+        if cfg.ServerPublicEndpoint != ""{
+                modconfig.Client.ServerPublicEndpoint = cfg.ServerPublicEndpoint
         }
-        if cfg.ServerAddress != ""{
-                modconfig.Client.ServerAddress = cfg.ServerAddress
+        if cfg.ServerPrivateAddress != ""{
+                modconfig.Client.ServerPrivateAddress = cfg.ServerPrivateAddress
         }
 	if cfg.Address != ""{
                 modconfig.Client.Address = cfg.Address
@@ -363,12 +369,12 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 }
                 token := string(tokenbytes)
                 tokenvals := strings.Split(token, "|")
-                cfg.Server.GRPCAddress = tokenvals[0]
-                cfg.Server.APIAddress = tokenvals[1]
-                cfg.Network = tokenvals[2]
-                cfg.Node.Network = tokenvals[2]
-                cfg.Server.AccessKey = tokenvals[3]
-                cfg.Node.LocalRange = tokenvals[4]
+                cfg.Server.GRPCAddress = tokenvals[1]
+                cfg.Server.APIAddress = tokenvals[2]
+                cfg.Network = tokenvals[3]
+                cfg.Node.Network = tokenvals[4]
+                cfg.Server.AccessKey = tokenvals[5]
+                cfg.Node.LocalRange = tokenvals[6]
 
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
@@ -429,21 +435,21 @@ func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
                 }
                 token := string(tokenbytes)
                 tokenvals := strings.Split(token, "|")
-                cfg.Client.ServerAddress = tokenvals[0]
-                cfg.Client.ServerAPIEndpoint = tokenvals[1]
-		servervals := strings.Split(tokenvals[1], ":")
-		wgvals := strings.Split(tokenvals[0], ":")
-		cfg.Client.ServerWGEndpoint = servervals[0]
-                cfg.Client.ServerAddress = wgvals[0]
-                cfg.Client.ServerPort = wgvals[1]
+		grpcvals := strings.Split(tokenvals[1],":")
+		apivals := strings.Split(tokenvals[2], ":")
+		cfg.Client.ServerWGPort = tokenvals[0]
+                cfg.Client.ServerPrivateAddress = grpcvals[0]
+                cfg.Client.ServerGRPCPort = grpcvals[1]
+                cfg.Client.ServerPublicEndpoint = apivals[0]
+                cfg.Client.ServerAPIPort = apivals[1]
 
-		cfg.Client.ServerKey = tokenvals[3]
+		cfg.Client.ServerKey = tokenvals[4]
 
                 if c.String("grpcserver") != "" {
-                        cfg.Client.ServerAddress = c.String("grpcserver")
+                        cfg.Client.ServerPrivateAddress = c.String("grpcserver")
                 }
                 if c.String("apiserver") != "" {
-                        cfg.Client.ServerAPIEndpoint = c.String("apiserver")
+                        cfg.Client.ServerPublicEndpoint = c.String("apiserver")
                 }
                 if c.String("key") != "" {
                         cfg.Client.ServerKey = c.String("key")
@@ -452,8 +458,8 @@ func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
                         cfg.Client.Network = c.String("network")
                 }
         } else {
-                cfg.Client.ServerAddress = c.String("grpcserver")
-                cfg.Client.ServerWGEndpoint = c.String("apiserver")
+                cfg.Client.ServerPrivateAddress = c.String("grpcserver")
+                cfg.Client.ServerPublicEndpoint = c.String("apiserver")
                 cfg.Client.ServerKey = c.String("key")
                 cfg.Client.Network = c.String("network")
         }

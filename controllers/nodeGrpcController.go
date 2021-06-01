@@ -73,7 +73,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 	}
 	return response, nil
 }
-
+/*
 func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*nodepb.Client, error) {
         // Get the protobuf node type from the protobuf request type
         // Essentially doing req.Node to access the struct with a nil check
@@ -124,7 +124,7 @@ func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*
 
         return response, nil
 }
-
+*/
 func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNodeReq) (*nodepb.CreateNodeRes, error) {
 	// Get the protobuf node type from the protobuf request type
 	// Essentially doing req.Node to access the struct with a nil check

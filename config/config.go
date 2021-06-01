@@ -55,7 +55,6 @@ type WG struct {
   GRPCWGInterface  string `yaml:"grpciface"`
   GRPCWGAddress  string `yaml:"grpcaddr"`
   GRPCWGAddressRange  string `yaml:"grpcaddrrange"`
-  GRPCWGEndpoint  string `yaml:"grpcendpoint"`
   GRPCWGPort  string  `yaml:"grpcport"`
   GRPCWGPubKey  string  `yaml:"pubkey"`
   GRPCWGPrivKey  string  `yaml:"privkey"`

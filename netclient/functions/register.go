@@ -41,8 +41,10 @@ func Register(cfg config.GlobalConfig) error {
         }
 	jsonbytes := []byte(jsonstring)
 	body := bytes.NewBuffer(jsonbytes)
-	log.Println("registering to http://"+cfg.Client.ServerAPIEndpoint+"/api/client/register")
-	res, err := http.Post("http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/register","application/json",body)
+	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
+
+	log.Println("registering to http://"+publicaddress+"/api/client/register")
+	res, err := http.Post("http://"+publicaddress+"/api/intclient/register","application/json",body)
         if err != nil {
                 return err
         }
@@ -60,9 +62,6 @@ func Register(cfg config.GlobalConfig) error {
         if err != nil {
                 return err
         }
-	if wgclient.ServerWGEndpoint == "" {
-		wgclient.ServerWGEndpoint = cfg.Client.ServerWGEndpoint
-	}
         spew.Dump(wgclient)
 	err = wireguard.InitGRPCWireguard(wgclient)
         if err != nil {
@@ -74,13 +73,14 @@ func Register(cfg config.GlobalConfig) error {
 
 func Unregister(cfg config.GlobalConfig) error {
 	client := &http.Client{ Timeout: 7 * time.Second,}
-	req, err := http.NewRequest("DELETE", "http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/"+cfg.Client.ClientID, nil)
+	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
+	req, err := http.NewRequest("DELETE", "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID, nil)
 	if err != nil {
                 log.Println(err)
         } else {
 		res, err := client.Do(req)
 		if res == nil {
-	                err = errors.New("server not reachable at " + "http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/"+cfg.Client.ClientID)
+	                err = errors.New("server not reachable at " + "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID)
 			log.Println(err)
 		} else if res.StatusCode != http.StatusOK {
 			err = errors.New("request to server failed: " + res.Status)
