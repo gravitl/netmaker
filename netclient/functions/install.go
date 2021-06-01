@@ -5,7 +5,7 @@ import (
         "github.com/gravitl/netmaker/netclient/local"
 )
 
-func Install(cfg config.ClientConfig) error {
+func InstallDaemon(cfg config.ClientConfig) error {
 
 	var err error
 	err = local.ConfigureSystemD(cfg.Network)

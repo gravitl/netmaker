@@ -47,9 +47,9 @@
   
   
     <title>Server Installation &#8212; Netmaker 0.3.5 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/material.css" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -361,9 +361,9 @@
         </li>
         <li class="md-nav__item"><a href="#docker-compose-install" class="md-nav__link">Docker Compose Install</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#slim-install-no-dns-and-no-client-mode" class="md-nav__link">Slim Install - No DNS and No Client Mode</a>
+        <li class="md-nav__item"><a href="#slim-install-no-dns-no-client-mode-no-secure-grpc" class="md-nav__link">Slim Install - No DNS, No Client Mode, No Secure GRPC</a>
         </li>
-        <li class="md-nav__item"><a href="#full-install-dns-and-client-mode-enabled" class="md-nav__link">Full Install - DNS and Client Mode Enabled</a>
+        <li class="md-nav__item"><a href="#full-install-dns-client-mode-and-secure-grpc-enabled" class="md-nav__link">Full Install - DNS, Client Mode, and Secure GRPC Enabled</a>
         </li>
         <li class="md-nav__item"><a href="#server-only-install-ui-dns-client-disabled" class="md-nav__link">Server Only Install - UI, DNS, Client Disabled</a>
         </li>
@@ -461,7 +461,14 @@
     <li class="md-nav__item">
     
     
-      <a href="client-installation.html#system-compatibility" class="md-nav__link">System Compatibility</a>
+      <a href="client-installation.html#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
       
     
     </li>
@@ -492,11 +499,18 @@
       <a href="client-installation.html#managing-netclient" class="md-nav__link">Managing Netclient</a>
       
     
+    </li></ul>
+    
     </li>
     <li class="md-nav__item">
     
     
-      <a href="client-installation.html#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
+      <a href="external-clients.html" class="md-nav__link">External Clients</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li></ul>
@@ -764,9 +778,9 @@
         </li>
         <li class="md-nav__item"><a href="#docker-compose-install" class="md-nav__link">Docker Compose Install</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#slim-install-no-dns-and-no-client-mode" class="md-nav__link">Slim Install - No DNS and No Client Mode</a>
+        <li class="md-nav__item"><a href="#slim-install-no-dns-no-client-mode-no-secure-grpc" class="md-nav__link">Slim Install - No DNS, No Client Mode, No Secure GRPC</a>
         </li>
-        <li class="md-nav__item"><a href="#full-install-dns-and-client-mode-enabled" class="md-nav__link">Full Install - DNS and Client Mode Enabled</a>
+        <li class="md-nav__item"><a href="#full-install-dns-client-mode-and-secure-grpc-enabled" class="md-nav__link">Full Install - DNS, Client Mode, and Secure GRPC Enabled</a>
         </li>
         <li class="md-nav__item"><a href="#server-only-install-ui-dns-client-disabled" class="md-nav__link">Server Only Install - UI, DNS, Client Disabled</a>
         </li>
@@ -820,20 +834,23 @@
 <p><strong>Client Mode:</strong> Client Mode enables Netmaker to control the underlying host server’s Network. This can make management a bit easier, because Netmaker can be added into networks via a button click in the UI. This is especially useful for things like Gateways, and will open up additional options in future versions, for instance, allowing Netmaker to easily become a relay server.</p>
 <p>Client Mode requires many additional privileges on the host machine, since Netmaker needs to control kernel WireGuard. Because of this, if running in Client Mode, you must run with root privileges and mount many system directories to the Netmaker container. Running without Client Mode allows you to install without privilege escalation and increases the number of compatible systems substantially.</p>
 <p><strong>DNS Mode:</strong> DNS Mode enables Netmaker to write configuration files for CoreDNS, which can be set as a DNS Server for nodes. DNS Mode, paired with a CoreDNS deployment, requires use of port 53. On many linux systems (such as Ubuntu), port 53 is already in use to support local DNS, via systemd-resolved. Running in DNS Mode may require making modifications on the host machine.</p>
+<p><strong>Secure GRPC</strong>: Secure GRPC ensures all communications between nodes and the server are encrypted. Netmaker sets up a default “comms” network that exists only for nodes to connect to the server. It acts as a hub-and-spoke WireGuard network. In the below installation instructions, when port 50555 needs to be open, this is referring to the WireGuard port for Netmaker’s GRPC comms. When it is port 50051, secure comms is not enabled.</p>
+<p>When Secure GRPC is enabled, before any nodes can join a Netmaker network, they request to join the comms network, and are given the appropriate WireGuard configs to connect to the server. Then they are able to make requests against the private netmaker endpoint specified for the comms network (10.101.0.1 by default). If switched off, communications are not secure between the hub and nodes over GRPC (it is like http vs https), and likewise, certificates must be added to gain secure communications.</p>
 <p><strong>Agent Backend:</strong> The Agent Backend is the GRPC server (by default running on port 50051). This port is not needed for the admin server. If your use case requires special access configuration, you can run two Netmaker instances, one for the admin server, and one for node access.</p>
 <p><strong>REST Backend:</strong> Similar to the above, the REST backend runs by default on port 8081, and is used for admin API and UI access. By enabling the REST backend while disabling the Agent backend, you can separate the two functions for more restricted environments.</p>
 
 
 <h2 id="system-compatibility">System Compatibility<a class="headerlink" href="#system-compatibility" title="Permalink to this headline">¶</a></h2>
-<p>Whether or not you run Netmaker in <strong>Client Mode</strong> is the main determination of system compatibility.</p>
-<p>With Client Mode <strong>disabled</strong>, Netmaker can be run on any system that supports Docker. This includes Windows, Mac, Linux, mainframes, and most Unix-based systems. It also requires no special privileges. Netmaker will only need ports for GRPC (50051 by default), the API (8081 by default), and CoreDNS (53, if enabled).</p>
-<p>With Client Mode <strong>enabled</strong> (the default), Netmaker has the same limitations as the <a class="reference internal" href="client-installation.html"><span class="doc">netclient</span></a> (client networking agent), because client mode just means that the Netmaker server is also running a netclient.</p>
-<p>This requires privileged (root) access to the host machine and multiple host directory mounts. It also requires WireGuard to be installed, and Linux with systemd installed (see <a class="reference internal" href="architecture.html"><span class="doc">compatible systems</span></a> for more details).</p>
-<p>To run a non-docker installation, you are running the Netmaker binary, CoreDNS binary, MongoDB, and a web server directly on your host. This requires all the requirements for those individual components. Our guided install assumes systemd-based linux, but there are many other ways to install Netmaker’s individual components onto machines that do not support Docker.</p>
+<p>Both <strong>Client Mode</strong> and <strong>Secure GRPC</strong> require WireGuard to be installed on the host system, and will require elevated privileges to perform network operations..</p>
+<p>When both of these features are <strong>disabled</strong>, Netmaker can be run on any system that supports Docker, including Windows, Mac, and Linux, and other systems. With these features disabled, no special privileges are required. Netmaker will only need ports for GRPC (50051 by default), the API (8081 by default), and CoreDNS (53, if enabled).</p>
+<p>With Client Mode and/or Secure GRPC <strong>enabled</strong> (the default), Netmaker has the same limitations as the <a class="reference internal" href="client-installation.html"><span class="doc">netclient</span></a> (client networking agent), because client mode just means that the Netmaker server is also running a netclient.</p>
+<p>These modes require privileged (root) access to the host machine. In addition, Client Mode requires multiple host directory mounts. WireGuard must be installed, the system must be systemd Linux (see <a class="reference internal" href="architecture.html"><span class="doc">compatible systems</span></a> for more details).</p>
+<p>To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, MongoDB, and a web server directly on the host. This requires all the requirements for those individual components. Our guided install assumes systemd-based linux, but there are many other ways to install Netmaker’s individual components onto machines that do not support Docker.</p>
 
 
 <h2 id="dns-mode-prereqisite-setup">DNS Mode Prereqisite Setup<a class="headerlink" href="#dns-mode-prereqisite-setup" title="Permalink to this headline">¶</a></h2>
-<p>If you plan on running the server in DNS Mode, you will be deploying a CoreDNS server. We recommend binding CoreDNS to port 53 of the host system (which it will do by default). On some systems, this will conflift with existing processes. Specifically on linux systems running systemd-resolved, there may be a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. The following was tested on Ubuntu 20.04. This may have consequences for existing private DNS so proceed with caution:</p>
+<p>If you plan on running the server in DNS Mode, know that a <a class="reference external" href="https://coredns.io/manual/toc/">CoreDNS Server</a> will be installed. CoreDNS is a light-weight, fast, and easy-to-configure DNS server. It is recommended to bind CoreDNS to port 53 of the host system, and it will do so by default. The clients will expect the nameserver to be on port 53, and many systems have issues resolving a different port.</p>
+<p>However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration. The following was tested on Ubuntu 20.04 and should be run prior to deploying the docker containers.</p>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">stop</span> <span class="pre">systemd-resolved</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">disable</span> <span class="pre">systemd-resolved</span></code></p></li>
@@ -853,7 +870,7 @@
 <h2 id="docker-compose-install">Docker Compose Install<a class="headerlink" href="#docker-compose-install" title="Permalink to this headline">¶</a></h2>
 <p>The most simple (and recommended) way of installing Netmaker is to use one of the provided <a class="reference external" href="https://github.com/gravitl/netmaker/tree/feature_v0.3.5_docs/compose">Docker Compose files</a>. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.</p>
 
-<h3 id="slim-install-no-dns-and-no-client-mode">Slim Install - No DNS and No Client Mode<a class="headerlink" href="#slim-install-no-dns-and-no-client-mode" title="Permalink to this headline">¶</a></h3>
+<h3 id="slim-install-no-dns-no-client-mode-no-secure-grpc">Slim Install - No DNS, No Client Mode, No Secure GRPC<a class="headerlink" href="#slim-install-no-dns-no-client-mode-no-secure-grpc" title="Permalink to this headline">¶</a></h3>
 <p>This is the same docker compose covered in the <a class="reference internal" href="quick-start.html"><span class="doc">quick start</span></a>. It requires no special privileges and can run on any system with Docker and Docker Compose. However, it also does not have the full feature set, and lacks Client Mode and DNS Mode.</p>
 <dl class="simple">
 <dt><strong>Prerequisites:</strong></dt><dd><ul class="simple">
@@ -875,7 +892,7 @@
 </ol>
 
 
-<h3 id="full-install-dns-and-client-mode-enabled">Full Install - DNS and Client Mode Enabled<a class="headerlink" href="#full-install-dns-and-client-mode-enabled" title="Permalink to this headline">¶</a></h3>
+<h3 id="full-install-dns-client-mode-and-secure-grpc-enabled">Full Install - DNS, Client Mode, and Secure GRPC Enabled<a class="headerlink" href="#full-install-dns-client-mode-and-secure-grpc-enabled" title="Permalink to this headline">¶</a></h3>
 <p>This installation gives you the fully-featured product with Client Mode and DNS Mode.</p>
 <dl class="simple">
 <dt><strong>Prerequisites:</strong></dt><dd><ul class="simple">
@@ -883,8 +900,8 @@
 <li><p>sudo privileges</p></li>
 <li><p>DNS Mode Prerequisite Setup (see above)</p></li>
 <li><p>WireGuard installed</p></li>
-<li><p>ports 80, 8081, 53, and 50051 are not blocked by firewall</p></li>
-<li><p>ports 80, 8081, 53, 50051, and 27017 are not in use</p></li>
+<li><p>ports 80, 8081, 53, and 50555 are not blocked by firewall</p></li>
+<li><p>ports 80, 8081, 53, 50555, and 27017 are not in use</p></li>
 </ul>
 </dd>
 <dt><strong>Notes:</strong></dt><dd><ul class="simple">
@@ -930,8 +947,8 @@
 <li><p>systemd linux (Debian or Ubuntu reccommended)</p></li>
 <li><p>sudo privileges</p></li>
 <li><p>WireGuard installed</p></li>
-<li><p>ports 80, 8081, and 50051 are not blocked by firewall</p></li>
-<li><p>ports 80, 8081, 50051, and 27017 are not in use</p></li>
+<li><p>ports 80, 8081, and 50555 are not blocked by firewall</p></li>
+<li><p>ports 80, 8081, 50555, and 27017 are not in use</p></li>
 </ul>
 </dd>
 <dt><strong>Notes:</strong></dt><dd><ul class="simple">
@@ -1025,6 +1042,13 @@
       <span class="nt">MONGO_HOST</span><span class="p">:</span> <span class="s">"127.0.0.1"</span> <span class="c1"># Address of MongoDB. Change if necessary.</span>
       <span class="nt">MONGO_PORT</span><span class="p">:</span> <span class="s">"27017"</span> <span class="c1"># Port of MongoDB. Change if necessary.</span>
       <span class="nt">MONGO_OPTS</span><span class="p">:</span> <span class="s">"/?authSource=admin"</span> <span class="c1"># Opts to enable admin login for Mongo.</span>
+      <span class="nt">SERVER_GRPC_WIREGUARD</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Whether to run GRPC over a WireGuard network. On by default. Secures server comms. Switch to "off" to turn off.</span>
+      <span class="nt">SERVER_GRPC_WG_INTERFACE</span><span class="p">:</span> <span class="s">"nm-grpc-wg"</span> <span class="c1"># Interface to use for GRPC WireGuard network if enabled</span>
+      <span class="nt">SERVER_GRPC_WG_ADDRESS</span><span class="p">:</span> <span class="s">"10.101.0.1"</span> <span class="c1"># Private Address to use for GRPC WireGuard network if enabled</span>
+      <span class="nt">SERVER_GRPC_WG_ADDRESS_RANGE</span><span class="p">:</span> <span class="s">"10.101.0.0/16"</span> <span class="c1"># Private Address range to use for GRPC WireGard clients if enabled</span>
+      <span class="nt">SERVER_GRPC_WG_PORT</span><span class="p">:</span> <span class="s">"50555"</span> <span class="c1"># Port to use for GRPC WireGuard if enabled</span>
+      <span class="nt">SERVER_GRPC_WG_PUBKEY</span><span class="p">:</span> <span class="s">"SERVER_GRPC_WG_PUBKEY"</span> <span class="c1"># PublicKey for GRPC WireGuard interface. Generated if blank.</span>
+      <span class="nt">SERVER_GRPC_WG_PRIVKEY</span><span class="p">:</span> <span class="s">"SERVER_GRPC_WG_PRIVKEY"</span> <span class="c1"># PrivateKey for GRPC WireGuard interface. Generated if blank.</span>
   <span class="nt">netmaker-ui</span><span class="p">:</span> <span class="c1"># The Netmaker UI Component</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>
@@ -1170,6 +1194,30 @@
 <dt>MONGO_OPTS:</dt><dd><p><strong>Default:</strong> “/?authSource=admin”</p>
 <p><strong>Description:</strong> Opts to enable admin login for Mongo.</p>
 </dd>
+<dt>SERVER_GRPC_WIREGUARD:</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> Whether to run GRPC over a WireGuard network. On by default. Secures the server comms. Switch to “off” to turn off. If off and running in production, make sure to have certificates installed to secure GRPC communications.</p>
+</dd>
+<dt>SERVER_GRPC_WG_INTERFACE:</dt><dd><p><strong>Default:</strong> “nm-grpc-wg”</p>
+<p><strong>Description:</strong> Interface to use for GRPC WireGuard network if enabled</p>
+</dd>
+<dt>SERVER_GRPC_WG_ADDRESS:</dt><dd><p><strong>Default:</strong> “10.101.0.1”</p>
+<p><strong>Description:</strong> Private Address to use for GRPC WireGuard network if enabled</p>
+</dd>
+<dt>SERVER_GRPC_WG_ADDRESS_RANGE:</dt><dd><p><strong>Default:</strong> “10.101.0.0/16”</p>
+<p><strong>Description:</strong> Private Address range to use for GRPC WireGard clients if enabled. Gives 65,534 total addresses for all of netmaker. If running a larger network, will need to configure addresses differently, for instance using ipv6, or use certificates instead.</p>
+</dd>
+<dt>SERVER_GRPC_WG_PORT:</dt><dd><p><strong>Default:</strong> 50555</p>
+<p><strong>Description:</strong> Port to use for GRPC WireGuard if enabled</p>
+</dd>
+<dt>SERVER_GRPC_WG_PUBKEY:</dt><dd><p><strong>Default:</strong> &lt; generated at startup &gt;</p>
+<p><strong>Description:</strong> PublicKey for GRPC WireGuard interface. Generated if left blank.</p>
+</dd>
+<dt>SERVER_GRPC_WG_PRIVKEY:</dt><dd><p><strong>Default:</strong> &lt; generated at startup &gt;</p>
+<p><strong>Description:</strong> PrivateKey for GRPC WireGuard interface. Generated if left blank.</p>
+</dd>
+<dt>SERVER_GRPC_WG_KEYREQUIRED</dt><dd><p><strong>Default:</strong> “”</p>
+<p><strong>Description:</strong> Determines if an Access Key is required to join the Comms network. Blank (meaning ‘no’) by default. Set to “yes” to turn on.</p>
+</dd>
 </dl>
 
 
@@ -1193,6 +1241,16 @@
   <span class="nt">host</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 127.0.0.1 or MONGO_HOST (if set)</span>
   <span class="nt">port</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 27017 or MONGO_PORT (if set)</span>
   <span class="nt">opts</span><span class="p">:</span> <span class="s">''</span> <span class="c1"># defaults to '/?authSource=admin' or MONGO_OPTS (if set)</span>
+<span class="nt">wg</span><span class="p">:</span>
+  <span class="nt">keyrequired</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "". If set to "yes", a key is required for signing up for the comms network </span>
+  <span class="nt">grpcwg</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "on" or SERVER_GRPC_WIREGUARD if set</span>
+  <span class="nt">grpciface</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to nm-grpc-wg or SERVER_GRPC_WG_INTERFACE if set</span>
+  <span class="nt">grpcaddr</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 10.101.0.1 or SERVER_GRPC_WG_ADDRESS if set</span>
+  <span class="nt">grpcaddrrange</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 10.101.0.0/16 or SERVER_GRPC_WG_ADDRESS_RANGE if set</span>
+  <span class="nt">grpcendpoint</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to SERVER_HOST if unset</span>
+  <span class="nt">grpcport</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 50555 or SERVER_GRPC_WG_PORT if set</span>
+  <span class="nt">pubkey</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to generated value or SERVER_GRPC_WG_PUBKEY if set</span>
+  <span class="nt">privkey</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to generated value or SERVER_GRPC_WG_PRIVKEY if set</span>
 </pre></div>
 </div>
 
@@ -1246,7 +1304,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

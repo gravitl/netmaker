@@ -249,8 +249,8 @@ func ModGlobalConfig(cfg models.IntClient) error{
         if cfg.PrivateKey != ""{
                 modconfig.Client.PrivateKey = cfg.PrivateKey
         }
-        if cfg.ServerEndpoint != ""{
-                modconfig.Client.ServerEndpoint = cfg.ServerEndpoint
+        if cfg.ServerWGEndpoint != ""{
+                modconfig.Client.ServerWGEndpoint = cfg.ServerWGEndpoint
         }
         if cfg.ServerAddress != ""{
                 modconfig.Client.ServerAddress = cfg.ServerAddress
@@ -430,14 +430,20 @@ func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
                 token := string(tokenbytes)
                 tokenvals := strings.Split(token, "|")
                 cfg.Client.ServerAddress = tokenvals[0]
-                cfg.Client.ServerEndpoint = tokenvals[1]
-                cfg.Client.ServerKey = tokenvals[3]
+                cfg.Client.ServerAPIEndpoint = tokenvals[1]
+		servervals := strings.Split(tokenvals[1], ":")
+		wgvals := strings.Split(tokenvals[0], ":")
+		cfg.Client.ServerWGEndpoint = servervals[0]
+                cfg.Client.ServerAddress = wgvals[0]
+                cfg.Client.ServerPort = wgvals[1]
+
+		cfg.Client.ServerKey = tokenvals[3]
 
                 if c.String("grpcserver") != "" {
                         cfg.Client.ServerAddress = c.String("grpcserver")
                 }
                 if c.String("apiserver") != "" {
-                        cfg.Client.ServerEndpoint = c.String("apiserver")
+                        cfg.Client.ServerAPIEndpoint = c.String("apiserver")
                 }
                 if c.String("key") != "" {
                         cfg.Client.ServerKey = c.String("key")
@@ -447,7 +453,7 @@ func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
                 }
         } else {
                 cfg.Client.ServerAddress = c.String("grpcserver")
-                cfg.Client.ServerEndpoint = c.String("apiserver")
+                cfg.Client.ServerWGEndpoint = c.String("apiserver")
                 cfg.Client.ServerKey = c.String("key")
                 cfg.Client.Network = c.String("network")
         }

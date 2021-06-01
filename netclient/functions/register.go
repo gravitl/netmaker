@@ -34,6 +34,7 @@ func Register(cfg config.GlobalConfig) error {
 		Address6: cfg.Client.Address6,
 		Network: "comms",
 	}
+
 	jsonstring, err := json.Marshal(postclient)
         if err != nil {
                 return err
@@ -41,7 +42,7 @@ func Register(cfg config.GlobalConfig) error {
 	jsonbytes := []byte(jsonstring)
 	body := bytes.NewBuffer(jsonbytes)
 	log.Println("registering to http://"+cfg.Client.ServerAPIEndpoint+"/api/client/register")
-	res, err := http.Post("http://"+cfg.Client.ServerEndpoint+"/api/intclient/register","application/json",body)
+	res, err := http.Post("http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/register","application/json",body)
         if err != nil {
                 return err
         }
@@ -59,7 +60,10 @@ func Register(cfg config.GlobalConfig) error {
         if err != nil {
                 return err
         }
-
+	if wgclient.ServerWGEndpoint == "" {
+		wgclient.ServerWGEndpoint = cfg.Client.ServerWGEndpoint
+	}
+        spew.Dump(wgclient)
 	err = wireguard.InitGRPCWireguard(wgclient)
         if err != nil {
                 return err
@@ -71,21 +75,22 @@ func Register(cfg config.GlobalConfig) error {
 func Unregister(cfg config.GlobalConfig) error {
 	client := &http.Client{ Timeout: 7 * time.Second,}
 	req, err := http.NewRequest("DELETE", "http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/"+cfg.Client.ClientID, nil)
-        if err != nil {
-                return err
-        }
-	res, err := client.Do(req)
-        if res == nil {
-                return errors.New("server not reachable at " + "http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/"+cfg.Client.ClientID)
-
-	} else if res.StatusCode != http.StatusOK {
-                return errors.New("request to server failed: " + res.Status)
-                defer res.Body.Close()
-	} else {
-	        err = local.WipeGRPCClient()
-		if err == nil {
-			log.Println("successfully removed grpc client interface")
+	if err != nil {
+                log.Println(err)
+        } else {
+		res, err := client.Do(req)
+		if res == nil {
+	                err = errors.New("server not reachable at " + "http://"+cfg.Client.ServerAPIEndpoint+"/api/intclient/"+cfg.Client.ClientID)
+			log.Println(err)
+		} else if res.StatusCode != http.StatusOK {
+			err = errors.New("request to server failed: " + res.Status)
+	                log.Println(err)
+			defer res.Body.Close()
 		}
+	}
+	err = local.WipeGRPCClient()
+	if err == nil {
+		log.Println("successfully removed grpc client interface")
 	}
 	return err
 }
