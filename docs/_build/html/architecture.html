@@ -47,9 +47,9 @@
   
   
     <title>Architecture &#8212; Netmaker 0.3.5 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/material.css" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -451,7 +451,14 @@
     <li class="md-nav__item">
     
     
-      <a href="client-installation.html#system-compatibility" class="md-nav__link">System Compatibility</a>
+      <a href="client-installation.html#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
       
     
     </li>
@@ -482,11 +489,18 @@
       <a href="client-installation.html#managing-netclient" class="md-nav__link">Managing Netclient</a>
       
     
+    </li></ul>
+    
     </li>
     <li class="md-nav__item">
     
     
-      <a href="client-installation.html#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
+      <a href="external-clients.html" class="md-nav__link">External Clients</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li></ul>
@@ -793,7 +807,7 @@
             
   
 <h1 id="architecture--page-root">Architecture<a class="headerlink" href="#architecture--page-root" title="Permalink to this headline">¶</a></h1>
-<a class="reference internal image-reference" href="_images/nm-diagram.jpg"><img alt="Netmaker Architecture Diagram" class="align-center" src="_images/nm-diagram.jpg" style="width: 45%;"/></a>
+<a class="reference internal image-reference" href="_images/nm-diagram-2.jpg"><img alt="Netmaker Architecture Diagram" class="align-center" src="_images/nm-diagram-2.jpg" style="width: 45%;"/></a>
 <p><em>Pictured Above: A diagram of Netmaker’s Architecture.</em></p>
 
 <h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permalink to this headline">¶</a></h2>
@@ -809,7 +823,7 @@
 <a class="reference internal image-reference" href="_images/mesh.png"><img alt="Full Mesh Network Diagram" class="align-center" src="_images/mesh.png" style="width: 33%;"/></a>
 <p>A full <a class="reference external" href="https://www.bbc.co.uk/bitesize/guides/zr3yb82/revision/2">mesh network</a> exists where each machine is able to directly talk to every other machine on the network. For example, on your home network, behind your router, all the computers are likely given private addresses and can reach each other directly.</p>
 <p>This is in contrast to a hub-and-spoke network, where each machine must first pass its traffic through a relay server before it can reach other machines.</p>
-<p>In certain situations you may either want or need a <em>partial mesh</em> network, where only some devices can reach each other directly, and other devices must route their traffic through a relay/gateway. Netmaker can use this model in some use cases where it makes sense.</p>
+<p>In certain situations you may either want or need a <em>partial mesh</em> network, where only some devices can reach each other directly, and other devices must route their traffic through a relay/gateway. Netmaker can use this model in some use cases where it makes sense. In the diagram at the top of this page, the setup is a partial mesh, because the servers (nodes A-D) are meshed, but then external clients come in via a gateway, and are not meshed.</p>
 <p>Mesh networks are generally faster than other topologies, but are also more complicated to set up. WireGuard on its own gives you the means to create encrypted tunnels between devices, but it does not provide a method for setting up a full network. This is where Netmaker comes in.</p>
 
 
@@ -969,7 +983,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

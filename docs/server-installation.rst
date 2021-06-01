@@ -15,6 +15,10 @@ Client Mode requires many additional privileges on the host machine, since Netma
 
 **DNS Mode:** DNS Mode enables Netmaker to write configuration files for CoreDNS, which can be set as a DNS Server for nodes. DNS Mode, paired with a CoreDNS deployment, requires use of port 53. On many linux systems (such as Ubuntu), port 53 is already in use to support local DNS, via systemd-resolved. Running in DNS Mode may require making modifications on the host machine.
 
+**Secure GRPC**: Secure GRPC ensures all communications between nodes and the server are encrypted. Netmaker sets up a default "comms" network that exists only for nodes to connect to the server. It acts as a hub-and-spoke WireGuard network. In the below installation instructions, when port 50555 needs to be open, this is referring to the WireGuard port for Netmaker's GRPC comms. When it is port 50051, secure comms is not enabled. 
+
+When Secure GRPC is enabled, before any nodes can join a Netmaker network, they request to join the comms network, and are given the appropriate WireGuard configs to connect to the server. Then they are able to make requests against the private netmaker endpoint specified for the comms network (10.101.0.1 by default). If switched off, communications are not secure between the hub and nodes over GRPC (it is like http vs https), and likewise, certificates must be added to gain secure communications.
+
 **Agent Backend:** The Agent Backend is the GRPC server (by default running on port 50051). This port is not needed for the admin server. If your use case requires special access configuration, you can run two Netmaker instances, one for the admin server, and one for node access.
 
 **REST Backend:** Similar to the above, the REST backend runs by default on port 8081, and is used for admin API and UI access. By enabling the REST backend while disabling the Agent backend, you can separate the two functions for more restricted environments.
@@ -23,20 +27,22 @@ Client Mode requires many additional privileges on the host machine, since Netma
 System Compatibility
 ====================
 
-Whether or not you run Netmaker in **Client Mode** is the main determination of system compatibility.
+Both **Client Mode** and **Secure GRPC** require WireGuard to be installed on the host system, and will require elevated privileges to perform network operations..
 
-With Client Mode **disabled**, Netmaker can be run on any system that supports Docker. This includes Windows, Mac, Linux, mainframes, and most Unix-based systems. It also requires no special privileges. Netmaker will only need ports for GRPC (50051 by default), the API (8081 by default), and CoreDNS (53, if enabled).
+When both of these features are **disabled**, Netmaker can be run on any system that supports Docker, including Windows, Mac, and Linux, and other systems. With these features disabled, no special privileges are required. Netmaker will only need ports for GRPC (50051 by default), the API (8081 by default), and CoreDNS (53, if enabled).
 
-With Client Mode **enabled** (the default), Netmaker has the same limitations as the :doc:`netclient <./client-installation>` (client networking agent), because client mode just means that the Netmaker server is also running a netclient. 
+With Client Mode and/or Secure GRPC **enabled** (the default), Netmaker has the same limitations as the :doc:`netclient <./client-installation>` (client networking agent), because client mode just means that the Netmaker server is also running a netclient. 
 
-This requires privileged (root) access to the host machine and multiple host directory mounts. It also requires WireGuard to be installed, and Linux with systemd installed (see :doc:`compatible systems <./architecture>` for more details).
+These modes require privileged (root) access to the host machine. In addition, Client Mode requires multiple host directory mounts. WireGuard must be installed, the system must be systemd Linux (see :doc:`compatible systems <./architecture>` for more details).
 
-To run a non-docker installation, you are running the Netmaker binary, CoreDNS binary, MongoDB, and a web server directly on your host. This requires all the requirements for those individual components. Our guided install assumes systemd-based linux, but there are many other ways to install Netmaker's individual components onto machines that do not support Docker. 
+To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, MongoDB, and a web server directly on the host. This requires all the requirements for those individual components. Our guided install assumes systemd-based linux, but there are many other ways to install Netmaker's individual components onto machines that do not support Docker. 
 
 DNS Mode Prereqisite Setup
 ====================================
 
-If you plan on running the server in DNS Mode, you will be deploying a CoreDNS server. We recommend binding CoreDNS to port 53 of the host system (which it will do by default). On some systems, this will conflift with existing processes. Specifically on linux systems running systemd-resolved, there may be a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. The following was tested on Ubuntu 20.04. This may have consequences for existing private DNS so proceed with caution:
+If you plan on running the server in DNS Mode, know that a `CoreDNS Server <https://coredns.io/manual/toc/>`_ will be installed. CoreDNS is a light-weight, fast, and easy-to-configure DNS server. It is recommended to bind CoreDNS to port 53 of the host system, and it will do so by default. The clients will expect the nameserver to be on port 53, and many systems have issues resolving a different port.
+
+However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration. The following was tested on Ubuntu 20.04 and should be run prior to deploying the docker containers.
 
 1. ``systemctl stop systemd-resolved`` 
 2. ``systemctl disable systemd-resolved`` 
@@ -52,8 +58,8 @@ Docker Compose Install
 
 The most simple (and recommended) way of installing Netmaker is to use one of the provided `Docker Compose files <https://github.com/gravitl/netmaker/tree/feature_v0.3.5_docs/compose>`_. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.
 
-Slim Install - No DNS and No Client Mode
---------------------------------------------
+Slim Install - No DNS, No Client Mode, No Secure GRPC
+--------------------------------------------------------
 
 This is the same docker compose covered in the :doc:`quick start <./quick-start>`. It requires no special privileges and can run on any system with Docker and Docker Compose. However, it also does not have the full feature set, and lacks Client Mode and DNS Mode.
 
@@ -71,8 +77,8 @@ Assuming you have Docker and Docker Compose installed, you can just run the foll
 #. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
 #. ``docker-compose up -d``
 
-Full Install - DNS and Client Mode Enabled
---------------------------------------------
+Full Install - DNS, Client Mode, and Secure GRPC Enabled
+----------------------------------------------------------
 
 This installation gives you the fully-featured product with Client Mode and DNS Mode. 
 
@@ -81,8 +87,8 @@ This installation gives you the fully-featured product with Client Mode and DNS 
   * sudo privileges
   * DNS Mode Prerequisite Setup (see above)
   * WireGuard installed
-  * ports 80, 8081, 53, and 50051 are not blocked by firewall
-  * ports 80, 8081, 53, 50051, and 27017 are not in use
+  * ports 80, 8081, 53, and 50555 are not blocked by firewall
+  * ports 80, 8081, 53, 50555, and 27017 are not in use
 
 **Notes:** 
   * You can change the port mappings in the Docker Compose if the listed ports are already in use.
@@ -123,8 +129,8 @@ DNS Mode is currently limited to clients that can run resolvectl (systemd-resolv
   * systemd linux (Debian or Ubuntu reccommended)
   * sudo privileges
   * WireGuard installed
-  * ports 80, 8081, and 50051 are not blocked by firewall
-  * ports 80, 8081, 50051, and 27017 are not in use
+  * ports 80, 8081, and 50555 are not blocked by firewall
+  * ports 80, 8081, 50555, and 27017 are not in use
 
 **Notes:** 
   * You can change the port mappings in the Docker Compose if the listed ports are already in use.
@@ -306,6 +312,47 @@ MONGO_OPTS:
     **Default:** "/?authSource=admin"
 
     **Description:** Opts to enable admin login for Mongo.
+
+SERVER_GRPC_WIREGUARD: 
+    **Default:** "on"
+
+    **Description:** Whether to run GRPC over a WireGuard network. On by default. Secures the server comms. Switch to "off" to turn off. If off and running in production, make sure to have certificates installed to secure GRPC communications. 
+
+SERVER_GRPC_WG_INTERFACE: 
+    **Default:** "nm-grpc-wg"
+
+    **Description:** Interface to use for GRPC WireGuard network if enabled
+
+SERVER_GRPC_WG_ADDRESS:
+    **Default:** "10.101.0.1"
+
+    **Description:** Private Address to use for GRPC WireGuard network if enabled
+
+SERVER_GRPC_WG_ADDRESS_RANGE:
+    **Default:** "10.101.0.0/16"
+
+    **Description:** Private Address range to use for GRPC WireGard clients if enabled. Gives 65,534 total addresses for all of netmaker. If running a larger network, will need to configure addresses differently, for instance using ipv6, or use certificates instead.
+
+SERVER_GRPC_WG_PORT:
+    **Default:** 50555
+
+    **Description:** Port to use for GRPC WireGuard if enabled
+
+SERVER_GRPC_WG_PUBKEY:
+    **Default:** < generated at startup >
+
+    **Description:** PublicKey for GRPC WireGuard interface. Generated if left blank.
+
+SERVER_GRPC_WG_PRIVKEY:
+    **Default:** < generated at startup >
+
+    **Description:** PrivateKey for GRPC WireGuard interface. Generated if left blank.
+
+SERVER_GRPC_WG_KEYREQUIRED
+    **Default:** ""
+
+    **Description:** Determines if an Access Key is required to join the Comms network. Blank (meaning 'no') by default. Set to "yes" to turn on.
+
 
 Config File Reference
 ----------------------

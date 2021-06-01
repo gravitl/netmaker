@@ -2,7 +2,7 @@
 Architecture
 ===============
 
-.. image:: images/nm-diagram.jpg
+.. image:: images/nm-diagram-2.jpg
    :width: 45%
    :alt: Netmaker Architecture Diagram
    :align: center
@@ -38,7 +38,7 @@ A full `mesh network <https://www.bbc.co.uk/bitesize/guides/zr3yb82/revision/2>`
 
 This is in contrast to a hub-and-spoke network, where each machine must first pass its traffic through a relay server before it can reach other machines.
 
-In certain situations you may either want or need a *partial mesh* network, where only some devices can reach each other directly, and other devices must route their traffic through a relay/gateway. Netmaker can use this model in some use cases where it makes sense.
+In certain situations you may either want or need a *partial mesh* network, where only some devices can reach each other directly, and other devices must route their traffic through a relay/gateway. Netmaker can use this model in some use cases where it makes sense. In the diagram at the top of this page, the setup is a partial mesh, because the servers (nodes A-D) are meshed, but then external clients come in via a gateway, and are not meshed.
 
 Mesh networks are generally faster than other topologies, but are also more complicated to set up. WireGuard on its own gives you the means to create encrypted tunnels between devices, but it does not provide a method for setting up a full network. This is where Netmaker comes in.
 

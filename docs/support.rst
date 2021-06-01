@@ -21,6 +21,12 @@ How do I install the Netclient on X?
 
 As per the above, there are many unsupported operating systems. You are still welcome to try, it is just an executable binary file after all. If the system is unix-based and has kernel WireGuard installed, netclient may very well mesh the device into the network. However, the service likely will encounter problems retrieving updates.
 
+Why MongoDB? SQL is better and smaller.
+----------------------------------------
+
+We are in a phase of rapid iteration. Every week the database schema changes. MongoDB makes our development process much more flexible. That said, we agree! SQL will be better for production, and indeed, we plan to switch over to SQL before v1.0, so please be patient with the resource consumption of MongoDB for the time being; it is helping to support a rapid pace of development. 
+
+
 Is Netmaker a VPN like NordNPN?
 --------------------------------
 
