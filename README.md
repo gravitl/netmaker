@@ -9,8 +9,8 @@
 ## Documentation
 
 ### Netmaker's documentation can be found at:  
-###  docs.netmaker.org  
-###  netmaker.readthedocs.io
+###  [docs.netmaker.org](docs.netmaker.org)
+###  [netmaker.readthedocs.io](https://netmaker.readthedocs.io)
   
 For information about installing and using Netmaker, including the [quick start guide](https://docs.netmaker.org/quick-start.html), please visit one of the above documentation sites, or read on for a short description of Netmaker.
 
