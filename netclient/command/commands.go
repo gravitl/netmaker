@@ -56,16 +56,15 @@ func Join(cfg config.ClientConfig) error {
 }
 
 func CheckIn(cfg config.ClientConfig) error {
-                        if cfg.Network == "nonetwork" || cfg.Network == "" {
-                                log.Println("Required, '-n'. No network provided. Exiting.")
-                                os.Exit(1)
-                        }
-			log.Println("Beginning node check in for network " + cfg.Network)
-			err := functions.CheckIn(cfg.Network)
-			if err != nil {
-				log.Println("Error checking in: ", err)
-				os.Exit(1)
-			}
+        if cfg.Network == "all" || cfg.Network == "" {
+		log.Println("Required, '-n'. No network provided. Exiting.")
+                os.Exit(1)
+        }
+	err := functions.CheckIn(cfg.Network)
+	if err != nil {
+		log.Println("Error checking in: ", err)
+		os.Exit(1)
+	}
 	return nil
 }
 
@@ -78,23 +77,58 @@ func Leave(cfg config.ClientConfig) error {
 }
 
 func Push(cfg config.ClientConfig) error {
-	log.Println("pushing to network")
-	return nil
+        var err error
+        if cfg.Network == "all" {
+                log.Println("No network selected. Running Push for all networks.")
+                networks, err := functions.GetNetworks()
+                if err != nil {
+                        log.Println("Error retrieving networks. Exiting.")
+                        return err
+                }
+                for _, network := range networks {
+                        err = functions.Push(network)
+                        if err != nil {
+                                log.Printf("Error pushing network configs for " + network + " network: ", err)
+                        } else {
+                                log.Println("pushed network config for " + network)
+                        }
+                }
+                err = nil
+        } else {
+                err = functions.Push(cfg.Network)
+        }
+        log.Println("Completed pushing network configs to remote server.")
+        return err
 }
 
 func Pull(cfg config.ClientConfig) error {
-        log.Println("pulling from network")
-        return nil
+        var err error
+	if cfg.Network == "all" {
+                log.Println("No network selected. Running Pull for all networks.")
+		networks, err := functions.GetNetworks()
+		if err != nil {
+			log.Println("Error retrieving networks. Exiting.")
+			return err
+		}
+		for _, network := range networks {
+			err = functions.Pull(network)
+			if err != nil {
+				log.Printf("Error pulling network config for " + network + " network: ", err)
+			} else {
+				log.Println("pulled network config for " + network)
+			}
+		}
+		err = nil
+	} else {
+	        err = functions.Pull(cfg.Network)
+	}
+	log.Println("Completed pulling network and peer configs.")
+        return err
 }
 
 func List(cfg config.ClientConfig) error {
 	err := functions.List()
 	return err
-}
-
-func Status(cfg config.ClientConfig) error {
-        log.Println("retrieving network status")
-        return nil
 }
 
 func Uninstall(cfg config.GlobalConfig) error {

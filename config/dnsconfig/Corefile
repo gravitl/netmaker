@@ -1,4 +1,4 @@
-default comms skynet poopynet poopynet2 newnet  {
+default comms  {
     reload 15s
     hosts /root/dnsconfig/netmaker.hosts {
 	fallthrough	

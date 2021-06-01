@@ -85,13 +85,11 @@ func RemoveNetwork(network string) error {
         wcclient = nodepb.NewNodeServiceClient(conn)
 
         ctx := context.Background()
-        fmt.Println("Authenticating with GRPC Server")
         ctx, err = auth.SetJWT(wcclient, network)
         if err != nil {
                 //return err
                 log.Printf("Failed to authenticate: %v", err)
         } else {
-        fmt.Println("Authenticated")
 
         var header metadata.MD
 
@@ -120,8 +118,6 @@ func RemoveNetwork(network string) error {
                 return err
                 log.Printf("Unable to remove systemd services: %v", err)
         }
-	fmt.Printf("Please investigate any stated errors to ensure proper removal.")
-	fmt.Printf("Failure to delete node from server via gRPC will mean node still exists and needs to be manually deleted by administrator.")
 
 	return nil
 }
@@ -256,7 +252,6 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                 extPeers, err := GetExtPeers(macaddress, network, server, dualstack)
                 if err == nil {
                         peers = append(peers, extPeers...)
-                        fmt.Println("Added " + strconv.Itoa(len(extPeers)) + " external clients.")
                 } else {
                         fmt.Println("ERROR RETRIEVING EXTERNAL PEERS")
                         fmt.Println(err)
@@ -274,7 +269,6 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
         }
         nodecfg := cfg.Node
 
-        fmt.Println("Registering with GRPC Server")
         requestOpts := grpc.WithInsecure()
         conn, err := grpc.Dial(server, requestOpts)
         if err != nil {

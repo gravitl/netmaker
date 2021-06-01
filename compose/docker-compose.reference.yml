@@ -50,6 +50,13 @@ services:
       MONGO_HOST: "127.0.0.1" # Address of MongoDB. Change if necessary.
       MONGO_PORT: "27017" # Port of MongoDB. Change if necessary.
       MONGO_OPTS: "/?authSource=admin" # Opts to enable admin login for Mongo.
+      SERVER_GRPC_WIREGUARD: "on" # Whether to run GRPC over a WireGuard network. On by default. Secures server comms. Switch to "off" to turn off.
+      SERVER_GRPC_WG_INTERFACE: "nm-grpc-wg" # Interface to use for GRPC WireGuard network if enabled
+      SERVER_GRPC_WG_ADDRESS: "10.101.0.1" # Private Address to use for GRPC WireGuard network if enabled
+      SERVER_GRPC_WG_ADDRESS_RANGE: "10.101.0.0/16" # Private Address range to use for GRPC WireGard clients if enabled
+      SERVER_GRPC_WG_PORT: "50555" # Port to use for GRPC WireGuard if enabled
+      SERVER_GRPC_WG_PUBKEY: "SERVER_GRPC_WG_PUBKEY" # PublicKey for GRPC WireGuard interface. Generated if blank.
+      SERVER_GRPC_WG_PRIVKEY: "SERVER_GRPC_WG_PRIVKEY" # PrivateKey for GRPC WireGuard interface. Generated if blank.
   netmaker-ui: # The Netmaker UI Component
     container_name: netmaker-ui
     depends_on:

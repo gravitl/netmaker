@@ -184,7 +184,7 @@ func RemoveNetwork(network string) (bool, error) {
                 log.Println("could not find /etc/netclient")
 		return false, err
 	}
-        cmdoutput, err := exec.Command("/etc/netclient/netclient","-c","remove","-n",network).Output()
+        cmdoutput, err := exec.Command("/etc/netclient/netclient","leave","-n",network).Output()
         if err != nil {
                 log.Println(string(cmdoutput))
                 return false, err
@@ -229,7 +229,7 @@ func AddNetwork(network string) (bool, error) {
                 return false, err
         }
 	log.Println("Client is ready. Running install.")
-	out, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker","-ip4",pubip).Output()
+	out, err := exec.Command("/etc/netclient/netclient","join","-t",token,"-name","netmaker","-endpoint",pubip).Output()
         log.Println(string(out))
 	if err != nil {
                 return false, errors.New(string(out) + err.Error())
