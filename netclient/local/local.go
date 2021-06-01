@@ -16,10 +16,11 @@ import (
 func RunCmds(commands []string) error {
         var err error
         for _, command := range commands {
-                fmt.Println("Running command: " + command)
                 args := strings.Fields(command)
                 out, err := exec.Command(args[0], args[1:]...).Output()
-                fmt.Println(string(out))
+                if string(out) != "" {
+			fmt.Println(string(out))
+		}
                 if err != nil {
                         return err
                 }

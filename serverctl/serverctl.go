@@ -54,7 +54,6 @@ func CreateDefaultNetwork() (bool, error) {
         if err == nil {
                 iscreated = true
         }
-	log.Println("1")
         return iscreated, err
 
 
@@ -184,7 +183,7 @@ func RemoveNetwork(network string) (bool, error) {
                 log.Println("could not find /etc/netclient")
 		return false, err
 	}
-        cmdoutput, err := exec.Command("/etc/netclient/netclient","-c","remove","-n",network).Output()
+        cmdoutput, err := exec.Command("/etc/netclient/netclient","leave","-n",network).Output()
         if err != nil {
                 log.Println(string(cmdoutput))
                 return false, err
@@ -208,17 +207,14 @@ func AddNetwork(network string) (bool, error) {
                 log.Println("could not find or create /etc/netclient")
                 return false, err
 	}
-	log.Println("Directory is ready.")
 	token, err := functions.CreateServerToken(network)
         if err != nil {
                 log.Println("could not create server token for " + network)
 		return false, err
         }
-	log.Println("Token is ready.")
         _, err = os.Stat("/etc/netclient/netclient")
 	if os.IsNotExist(err) {
 		err = DownloadNetclient()
-                log.Println("could not download netclient")
 		if err != nil {
 			return false, err
 		}
@@ -228,9 +224,10 @@ func AddNetwork(network string) (bool, error) {
                 log.Println("could not change netclient directory permissions")
                 return false, err
         }
-	log.Println("Client is ready. Running install.")
-	out, err := exec.Command("/etc/netclient/netclient","-c","install","-t",token,"-name","netmaker","-ip4",pubip).Output()
-        log.Println(string(out))
+	out, err := exec.Command("/etc/netclient/netclient","join","-t",token,"-name","netmaker","-endpoint",pubip).Output()
+        if string(out) != "" {
+	        log.Println(string(out))
+	}
 	if err != nil {
                 return false, errors.New(string(out) + err.Error())
         }

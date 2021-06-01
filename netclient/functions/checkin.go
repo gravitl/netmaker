@@ -284,3 +284,80 @@ func CheckIn(network string) error {
 	return nil
 }
 
+func Pull (network string) error{
+        node := server.GetNode(network)
+        cfg, err := config.ReadConfig(network)
+        if err != nil {
+                return err
+        }
+        servercfg := cfg.Server
+        var header metadata.MD
+
+	var wcclient nodepb.NodeServiceClient
+        var requestOpts grpc.DialOption
+        requestOpts = grpc.WithInsecure()
+        conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+        if err != nil {
+                fmt.Printf("Cant dial GRPC server: %v", err)
+                return err
+        }
+        wcclient = nodepb.NewNodeServiceClient(conn)
+
+        ctx := context.Background()
+        ctx, err = auth.SetJWT(wcclient, network)
+        if err != nil {
+                fmt.Printf("Failed to authenticate: %v", err)
+                return err
+        }
+
+        req := &nodepb.ReadNodeReq{
+                Macaddress: node.Macaddress,
+                Network: node.Nodenetwork,
+        }
+         readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
+         if err != nil {
+               return err
+         }
+         err = config.ModConfig(readres.Node)
+         if err != nil {
+                return err
+         }
+         err = wireguard.SetWGConfig(network)
+        if err != nil {
+                return err
+        }
+	return err
+}
+
+func Push (network string) error{
+        postnode := server.GetNode(network)
+        cfg, err := config.ReadConfig(network)
+        if err != nil {
+                return err
+        }
+        servercfg := cfg.Server
+        var header metadata.MD
+
+        var wcclient nodepb.NodeServiceClient
+        var requestOpts grpc.DialOption
+        requestOpts = grpc.WithInsecure()
+        conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+        if err != nil {
+                fmt.Printf("Cant dial GRPC server: %v", err)
+                return err
+        }
+        wcclient = nodepb.NewNodeServiceClient(conn)
+
+        ctx := context.Background()
+        ctx, err = auth.SetJWT(wcclient, network)
+        if err != nil {
+                fmt.Printf("Failed to authenticate: %v", err)
+                return err
+        }
+
+        req := &nodepb.UpdateNodeReq{
+                       Node: &postnode,
+                }
+        _, err = wcclient.UpdateNode(ctx, req, grpc.Header(&header))
+        return err
+}

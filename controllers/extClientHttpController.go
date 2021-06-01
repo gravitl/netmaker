@@ -369,24 +369,39 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	success, err := DeleteExtClient(params["network"], params["clientid"])
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	} else if !success {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	oldExtClient.ClientID = newExtClient.ClientID
-	CreateExtClient(oldExtClient)
+	newclient, err := UpdateExtClient(newExtClient.ClientID, params["network"], oldExtClient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(oldExtClient)
+	json.NewEncoder(w).Encode(newclient)
+}
+
+func UpdateExtClient(newclientid string, network string, client models.ExtClient) (models.ExtClient, error) {
+
+        //collection := mongoconn.ConnectDB()
+        collection := mongoconn.Client.Database("netmaker").Collection("extclients")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        // Create filter
+	filter := bson.M{"clientid": client.ClientID, "network": network}
+
+        // prepare update model.
+        update := bson.D{
+                {"$set", bson.D{
+                        {"clientid", newclientid},
+                }},
+        }
+        var clientupdate models.ExtClient
+
+        err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&clientupdate)
+
+        defer cancel()
+
+        return clientupdate, err
 }
 
 func DeleteExtClient(network string, clientid string) (bool, error) {

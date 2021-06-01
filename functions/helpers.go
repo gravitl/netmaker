@@ -27,7 +27,6 @@ import (
 //node has that value for the same field within the network
 
 func CreateServerToken(netID string) (string, error) {
-	fmt.Println("Creating token.")
 	var network models.Network
 	var accesskey models.AccessKey
 
@@ -46,11 +45,9 @@ func CreateServerToken(netID string) (string, error) {
 		privAddr = network.LocalRange
 	}
 
-	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
+        accessstringdec := address + "|" + address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
-
-	fmt.Println("          access string: " + accesskey.AccessString)
 
 	network.AccessKeys = append(network.AccessKeys, accesskey)
 

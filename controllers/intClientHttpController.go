@@ -116,7 +116,6 @@ func updateIntClient(w http.ResponseWriter, r *http.Request) {
         json.NewEncoder(w).Encode(client)
 }
 
-
 func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 	if client.PrivateKey == "" {
 		privateKey, err := wgtypes.GeneratePrivateKey()
