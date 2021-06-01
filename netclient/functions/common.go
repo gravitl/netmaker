@@ -319,7 +319,9 @@ func LeaveNetwork(network string) error {
 	if err != nil {
                 log.Printf("Unable to wipe local config: %v", err)
 	}
-	err =  local.RemoveSystemDServices(network)
+	if cfg.Daemon != "off" {
+		err =  local.RemoveSystemDServices(network)
+	}
 	return err
 }
 

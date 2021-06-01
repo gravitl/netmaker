@@ -47,9 +47,9 @@
   
   
     <title>Quick Start &#8212; Netmaker 0.3.5 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/material.css" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -437,7 +437,14 @@
     <li class="md-nav__item">
     
     
-      <a href="client-installation.html#system-compatibility" class="md-nav__link">System Compatibility</a>
+      <a href="client-installation.html#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
       
     
     </li>
@@ -468,11 +475,18 @@
       <a href="client-installation.html#managing-netclient" class="md-nav__link">Managing Netclient</a>
       
     
+    </li></ul>
+    
     </li>
     <li class="md-nav__item">
     
     
-      <a href="client-installation.html#unmanaged-external-clients" class="md-nav__link">Unmanaged (External) Clients</a>
+      <a href="external-clients.html" class="md-nav__link">External Clients</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li></ul>
@@ -768,7 +782,7 @@
 
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
 <p>This is a guide to getting up and running with Netmaker as quickly as possible.</p>
-<p>By default, Netmaker ships with DNS Mode and Client Mode enabled. However, these features require special permissions and are not necessary for a simple setup, so we are going to deploy without them. To learn more about enabling these features, check out the <a class="reference internal" href="server-installation.html"><span class="doc">installation docs</span></a>.</p>
+<p>By default, Netmaker ships with DNS Mode, Client Mode, and Secure GRPC enabled. However, these features require special permissions and are not necessary for a simple setup, so we are going to deploy without them. To learn more about enabling these features, check out the <a class="reference internal" href="server-installation.html"><span class="doc">installation docs</span></a>.</p>
 
 
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
@@ -834,7 +848,7 @@
 </ul>
 </div></blockquote>
 <ol class="arabic simple" start="4">
-<li><p>Run the install command, Ex: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/v0.3/scripts/netclient-install.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code></p></li>
+<li><p>Run the install command, Ex: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code></p></li>
 </ol>
 <p>You should get output similar to the below. The netclient retrieves local settings, submits them to the server for processing, and retrieves updated settings. Then it sets the local network configuration. For more information about this process, see the <a class="reference internal" href="client-installation.html"><span class="doc">client installation</span></a> documentation. If this process failed and you do not see your node in the console (see below), then reference the <a class="reference internal" href="troubleshoot.html"><span class="doc">troubleshooting</span></a> documentation.</p>
 <a class="reference internal image-reference" href="_images/nc-install-output.png"><img alt="Output from Netclient Install" class="align-center" src="_images/nc-install-output.png" style="width: 80%;"/></a>
@@ -854,7 +868,7 @@
 
 <h2 id="uninstalling-the-netclient">Uninstalling the netclient<a class="headerlink" href="#uninstalling-the-netclient" title="Permalink to this headline">¶</a></h2>
 <ol class="arabic simple">
-<li><p>To remove your nodes from the default network, run the following on each node: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">-c</span> <span class="pre">remove</span> <span class="pre">-n</span> <span class="pre">default</span></code></p></li>
+<li><p>To remove your nodes from the default network, run the following on each node: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">leave</span> <span class="pre">-n</span> <span class="pre">default</span></code></p></li>
 <li><p>To remove the netclient entirely from each node, run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">rm</span> <span class="pre">-rf</span> <span class="pre">/etc/netclient</span></code> (after running the first step)</p></li>
 </ol>
 
@@ -911,7 +925,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

@@ -1,6 +1,7 @@
 package wireguard
 
 import (
+"github.com/davecgh/go-spew/spew"
 	"fmt"
 	"strconv"
 	"errors"
@@ -91,11 +92,11 @@ func InitGRPCWireguard(client models.IntClient) error {
         }
 	var allowedips []net.IPNet
         allowedips = append(allowedips, peeraddr)
-
+	net.ParseIP(client.ServerWGEndpoint)
 	peer := wgtypes.PeerConfig{
                PublicKey: serverkey,
                Endpoint: &net.UDPAddr{
-                         IP:   net.ParseIP(client.ServerEndpoint),
+                         IP:   net.ParseIP(client.ServerWGEndpoint),
                          Port: serverport,
                },
                ReplaceAllowedIPs: true,
@@ -116,6 +117,7 @@ func InitGRPCWireguard(client models.IntClient) error {
                         return err
                 }
         }
+	spew.Dump(conf)
         err = wgclient.ConfigureDevice(ifacename, conf)
 
         if err != nil {

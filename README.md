@@ -24,7 +24,7 @@ Netmaker is a platform for creating and managing networks that are:
 - Zero-Trust
 - WireGuard-based
 
-Netmaker manages networks between computers that span data centers, clouds, and edge devices. Networking between environments can be a challenge, so Netmaker is designed to allow developers, DevOps engineers, SRE's, and more to manage virtual networks with as little pain as possible. You create a network with a few clicks, and add machines to that network with a single command.
+Netmaker manages networks between computers that span data centers, clouds, and edge devices. Networking between environments can be a challenge, so Netmaker is designed to allow developers, DevOps engineers, SRE's, and others to manage virtual networks with as little pain as possible. You create a network with a few clicks, and add machines to that network with a single command.
 
 ## Why Netmaker?
  1. Create a flat, secure network between multiple/hybrid cloud environments

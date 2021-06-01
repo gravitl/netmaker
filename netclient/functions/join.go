@@ -186,8 +186,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 	if node.Ispending {
 		fmt.Println("Node is marked as PENDING.")
 		fmt.Println("Awaiting approval from Admin before configuring WireGuard.")
-	        if cfg.Daemon != "no" {
-			fmt.Println("Configuring Netmaker Service.")
+	        if cfg.Daemon != "off" {
 			err = local.ConfigureSystemD(cfg.Network)
 			return err
 		}
@@ -206,7 +205,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
         if err != nil {
                 return err
         }
-	if cfg.Daemon == "off" {
+	if cfg.Daemon != "off" {
 		err = local.ConfigureSystemD(cfg.Network)
 	}
         if err != nil {

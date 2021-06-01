@@ -28,28 +28,29 @@ func securityCheckServer(next http.Handler) http.HandlerFunc {
 
 		bearerToken := r.Header.Get("Authorization")
 
-		var hasBearer = true
 		var tokenSplit = strings.Split(bearerToken, " ")
 		var  authToken = ""
-
 		if len(tokenSplit) < 2 {
-			hasBearer = false
-		} else {
+                      errorResponse = models.ErrorResponse{
+                                Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+                      }
+                      returnErrorResponse(w, r, errorResponse)
+			return 
+	        } else {
 			authToken = tokenSplit[1]
 		}
 		//all endpoints here require master so not as complicated
 		//still might not be a good  way of doing this
-                _, isadmin, err := functions.VerifyUserToken(authToken)
-                if err != nil || !isadmin {
-			if (!hasBearer || !authenticateMasterServer(authToken)) && !isadmin {
+                _, isadmin, _ := functions.VerifyUserToken(authToken)
+
+		if !isadmin && !authenticateMasterServer(authToken) {
 				errorResponse = models.ErrorResponse{
 					Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
 				}
 				returnErrorResponse(w, r, errorResponse)
-			} else {
-				next.ServeHTTP(w, r)
-			}
+				return
 		}
+		next.ServeHTTP(w, r)
 	}
 }
 //Consider a more secure way of setting master key
@@ -78,13 +79,12 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func getConfig(w http.ResponseWriter, r *http.Request) {
-        // Set header
+	// Set header
         w.Header().Set("Content-Type", "application/json")
 
         // get params
 
         scfg := servercfg.GetConfig()
-
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(scfg)
 }

@@ -28,29 +28,27 @@ func Join(cfg config.ClientConfig) error {
 
 	err := functions.JoinNetwork(cfg)
 	if err != nil {
-		 if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
-		 log.Println("Error installing: ", err)
-		 err = functions.LeaveNetwork(cfg.Network)
-		 if err != nil {
-			err = local.WipeLocal(cfg.Network)
+		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
+			log.Println("Error installing: ", err)
+			err = functions.LeaveNetwork(cfg.Network)
 			if err != nil {
-				log.Println("Error removing artifacts: ", err)
+				err = local.WipeLocal(cfg.Network)
+				if err != nil {
+					log.Println("Error removing artifacts: ", err)
+				}
 			}
-                        err = local.RemoveSystemDServices(cfg.Network)
-                        if err != nil {
-                                log.Println("Error removing services: ", err)
-                        }
+			if cfg.Daemon != "off" {
+	                        err = local.RemoveSystemDServices(cfg.Network)
+	                        if err != nil {
+	                                log.Println("Error removing services: ", err)
+	                        }
+			}
 		}
-		os.Exit(1)
-		} else {
-			log.Println(err.Error())
-			os.Exit(1)
-		}
+		return err
 	}
         log.Println("joined " + cfg.Network)
 	if cfg.Daemon != "off" {
-		err = functions.Install(cfg)
-	        log.Println("installed daemon")
+		err = functions.InstallDaemon(cfg)
 	}
 	return err
 }
