@@ -9,7 +9,7 @@
 ## Documentation
 
 ### Netmaker's documentation can be found at:  
-###  [docs.netmaker.org](docs.netmaker.org)
+###  [docs.netmaker.org](https://docs.netmaker.org)
 ###  [netmaker.readthedocs.io](https://netmaker.readthedocs.io)
   
 For information about installing and using Netmaker, including the [quick start guide](https://docs.netmaker.org/quick-start.html), please visit one of the above documentation sites, or read on for a short description of Netmaker.
@@ -24,7 +24,7 @@ Netmaker is a platform for creating and managing networks that are:
 - Zero-Trust
 - WireGuard-based
 
-Netmaker manages networks between computers that span data centers, clouds, and edge devices. Networking between environments can be a challenge, so Netmaker is designed to allow developers, DevOps engineers, SRE's, and more to manage virtual networks with as little pain as possible. You create a network with a few clicks, and add machines to that network with a single command.
+Netmaker manages networks between computers that span data centers, clouds, and edge devices. Networking between environments can be a challenge, so Netmaker is designed to allow developers, DevOps engineers, SRE's, and others to manage virtual networks with as little pain as possible. You create a network with a few clicks, and add machines to that network with a single command.
 
 ## Why Netmaker?
  1. Create a flat, secure network between multiple/hybrid cloud environments

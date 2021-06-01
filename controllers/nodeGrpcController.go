@@ -87,7 +87,7 @@ func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*
                 PrivateKey:           data.GetPrivatekey(),
                 ServerPort:          data.GetServerport(),
                 ServerKey:          data.GetServerkey(),
-                ServerEndpoint:          data.GetServerendpoint(),
+                ServerWGEndpoint:          data.GetServerwgendpoint(),
         }
 
         //Check to see if key is valid
@@ -117,7 +117,7 @@ func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*
                         Accesskey:         client.AccessKey,
                         Address:      client.Address,
                         Address6:     client.Address6,
-                        Serverendpoint:     client.ServerEndpoint,
+                        Serverwgendpoint:     client.ServerWGEndpoint,
                         Serverport:     client.ServerPort,
                         Serverkey:    client.ServerKey,
         }
