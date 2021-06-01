@@ -1,8 +1,6 @@
 package controller
 
 import (
-    "log"
-    "github.com/davecgh/go-spew/spew"
     "github.com/gravitl/netmaker/models"
     "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/serverctl"
@@ -81,14 +79,12 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func getConfig(w http.ResponseWriter, r *http.Request) {
-	log.Println("5")
 	// Set header
         w.Header().Set("Content-Type", "application/json")
 
         // get params
 
         scfg := servercfg.GetConfig()
-	spew.Dump(scfg)
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(scfg)
 }
