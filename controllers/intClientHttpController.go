@@ -142,9 +142,9 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 	if err != nil {
 		return client, err
 	}
-	gcfg := servercfg.GetConfig()
-	client.ServerEndpoint = server.ServerEndpoint
-	client.ServerAPIEndpoint = servercfg.APIHost + ":" + servercfg.APIPort
+  gcfg := servercfg.GetConfig()
+  client.ServerWGEndpoint = server.ServerWGEndpoint
+  client.ServerAPIEndpoint = gcfg.APIHost + ":" + gcfg.APIPort
 	client.ServerAddress = server.ServerAddress
 	client.ServerPort = server.ServerPort
 	client.ServerKey = server.ServerKey
