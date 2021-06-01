@@ -12,6 +12,7 @@ type IntClient struct {
 	ServerAPIEndpoint  string         `json:"serverapiendpoint" bson:"serverapiendpoint"`
 	ServerAddress  string             `json:"serveraddress" bson:"serveraddress"`
 	ServerPort     string             `json:"serverport" bson:"serverport"`
+	ServerGRPCPort     string             `json:"serverport" bson:"serverport"`
 	ServerKey      string             `json:"serverkey" bson:"serverkey"`
 	IsServer       string             `json:"isserver" bson:"isserver"`
 }

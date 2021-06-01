@@ -147,6 +147,7 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
   client.ServerAPIEndpoint = gcfg.APIHost + ":" + gcfg.APIPort
 	client.ServerAddress = server.ServerAddress
 	client.ServerPort = server.ServerPort
+	client.ServerGRPCPort = gcfg.GRPCPort
 	client.ServerKey = server.ServerKey
 
         if client.ClientID == "" {
