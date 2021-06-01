@@ -61,9 +61,11 @@ func InitServerWireGuard() error {
 	var client models.IntClient
 	client.PrivateKey = wgconfig.GRPCWGPrivKey
 	client.PublicKey = wgconfig.GRPCWGPubKey
-	client.ServerWGEndpoint = wgconfig.GRPCWGEndpoint
-	client.ServerAddress = wgconfig.GRPCWGAddress
-	client.ServerPort = wgconfig.GRPCWGPort
+	client.ServerPublicEndpoint = servercfg.GetAPIHost()
+	client.ServerAPIPort = servercfg.GetAPIPort()
+	client.ServerPrivateAddress = wgconfig.GRPCWGAddress
+	client.ServerWGPort = wgconfig.GRPCWGPort
+	client.ServerGRPCPort = servercfg.GetGRPCPort()
 	client.Address = wgconfig.GRPCWGAddress
 	client.IsServer = "yes"
 	client.Network = "comms"

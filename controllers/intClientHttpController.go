@@ -138,17 +138,13 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 		client.Address = newAddress
 	}
         if client.Network == "" { client.Network = "comms" }
-	server, err := serverctl.GetServerWGConf()
-	if err != nil {
-		return client, err
-	}
-  gcfg := servercfg.GetConfig()
-  client.ServerWGEndpoint = server.ServerWGEndpoint
-  client.ServerAPIEndpoint = gcfg.APIHost + ":" + gcfg.APIPort
-	client.ServerAddress = server.ServerAddress
-	client.ServerPort = server.ServerPort
-	client.ServerGRPCPort = gcfg.GRPCPort
-	client.ServerKey = server.ServerKey
+
+	wgconfig := servercfg.GetWGConfig()
+        client.ServerPublicEndpoint = servercfg.GetAPIHost()
+        client.ServerAPIPort = servercfg.GetAPIPort()
+        client.ServerPrivateAddress = wgconfig.GRPCWGAddress
+        client.ServerWGPort = wgconfig.GRPCWGPort
+        client.ServerGRPCPort = servercfg.GetGRPCPort()
 
         if client.ClientID == "" {
                 clientid := StringWithCharset(7, charset)
@@ -160,7 +156,7 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	// insert our network into the network table
-	_, err = collection.InsertOne(ctx, client)
+	_, err := collection.InsertOne(ctx, client)
 	defer cancel()
 
 	if err != nil {

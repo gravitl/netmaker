@@ -33,7 +33,7 @@ func InitGRPCWireguard(client models.IntClient) error {
         if err !=  nil {
                 return err
         }
-	serverport, err := strconv.Atoi(client.ServerPort)
+	serverport, err := strconv.Atoi(client.ServerWGPort)
         if err !=  nil {
                 return err
         }
@@ -87,16 +87,16 @@ func InitGRPCWireguard(client models.IntClient) error {
         }
 	var peers []wgtypes.PeerConfig
         var peeraddr = net.IPNet{
-                 IP: net.ParseIP(client.ServerAddress),
+                 IP: net.ParseIP(client.ServerPrivateAddress),
                  Mask: net.CIDRMask(32, 32),
         }
 	var allowedips []net.IPNet
         allowedips = append(allowedips, peeraddr)
-	net.ParseIP(client.ServerWGEndpoint)
+	net.ParseIP(client.ServerPublicEndpoint)
 	peer := wgtypes.PeerConfig{
                PublicKey: serverkey,
                Endpoint: &net.UDPAddr{
-                         IP:   net.ParseIP(client.ServerWGEndpoint),
+                         IP:   net.ParseIP(client.ServerPublicEndpoint),
                          Port: serverport,
                },
                ReplaceAllowedIPs: true,

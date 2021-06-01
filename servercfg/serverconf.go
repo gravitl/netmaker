@@ -57,8 +57,8 @@ func GetWGConfig() config.WG{
 	cfg.GRPCWGInterface = GetGRPCWGInterface()
 	cfg.GRPCWGAddress = GetGRPCWGAddress()
 	cfg.GRPCWGPort = GetGRPCWGPort()
-	cfg.GRPCWGEndpoint = GetGRPCHost()
-
+	cfg.GRPCWGPubKey =  GetGRPCWGPubKey()
+	cfg.GRPCWGPrivKey =  GetGRPCWGPrivKey()
 	return cfg
 }
 

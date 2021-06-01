@@ -191,7 +191,7 @@ func main() {
                 if err != nil {
                         return err
                 }
-                if cfg.Client.ServerAddress == "" {
+                if cfg.Client.ServerPrivateAddress == "" {
                         err = errors.New("No server address provided.")
                         return err
                 }
