@@ -134,7 +134,6 @@ OnCalendar=*:*:0/30
 WantedBy=timers.target
 `
 
-
 	servicebytes := []byte(systemservice)
 	timerbytes := []byte(systemtimer)
 
@@ -253,9 +252,13 @@ func RemoveSystemDServices(network string) error {
                 log.Println(err)
         }
 	if fullremove {
-	err = os.Remove("/etc/systemd/system/netclient@.service")
+		if FileExists("/etc/systemd/system/netclient@.service") {
+			err = os.Remove("/etc/systemd/system/netclient@.service")
+		}
 	}
-	err = os.Remove("/etc/systemd/system/netclient-"+network+".timer")
+	if FileExists("/etc/systemd/system/netclient-"+network+".timer") {
+		err = os.Remove("/etc/systemd/system/netclient-"+network+".timer")
+	}
 	if err != nil {
                 log.Println("Error removing file. Please investigate.")
                 log.Println(err)
@@ -284,9 +287,15 @@ func WipeLocal(network string) error{
 
         //home, err := homedir.Dir()
         home := "/etc/netclient"
-        _ = os.Remove(home + "/netconfig-" + network)
-        _ = os.Remove(home + "/nettoken-" + network)
-        _ = os.Remove(home + "/wgkey-" + network)
+	if FileExists(home + "/netconfig-" + network) {
+	        _ = os.Remove(home + "/netconfig-" + network)
+	}
+	if FileExists(home + "/nettoken-" + network) {
+		_ = os.Remove(home + "/nettoken-" + network)
+	}
+	if FileExists(home + "/wgkey-" + network) {
+		_ = os.Remove(home + "/wgkey-" + network)
+	}
 
         ipExec, err := exec.LookPath("ip")
 

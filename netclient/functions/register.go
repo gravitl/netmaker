@@ -43,12 +43,13 @@ func Register(cfg config.GlobalConfig) error {
 	body := bytes.NewBuffer(jsonbytes)
 	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
 
-	log.Println("registering to http://"+publicaddress+"/api/client/register")
 	res, err := http.Post("http://"+publicaddress+"/api/intclient/register","application/json",body)
         if err != nil {
+		log.Println("Failed to register to http://"+publicaddress+"/api/client/register")
                 return err
         }
 	if res.StatusCode != http.StatusOK {
+		log.Println("Failed to register to http://"+publicaddress+"/api/client/register")
 		return errors.New("request to server failed: " + res.Status)
 	}
 	bodyBytes, err := ioutil.ReadAll(res.Body)
@@ -69,7 +70,7 @@ func Register(cfg config.GlobalConfig) error {
         if err != nil {
                 return err
         }
-
+	log.Println("registered netclient to " + cfg.Client.ServerPrivateAddress)
 	return err
 }
 
