@@ -650,7 +650,6 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	// Create filter
 	filter := bson.M{"netid": network.NetID}
 	// Read update model from body request
-	fmt.Println("Adding key to " + network.NetID)
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{

@@ -57,9 +57,6 @@ func CreateServerToken(netID string) (string, error) {
 	// Create filter
 	filter := bson.M{"netid": netID}
 
-	// Read update model from body request
-	fmt.Println("Adding key to " + network.NetID)
-
 	// prepare update model.
 	update := bson.D{
 		{"$set", bson.D{

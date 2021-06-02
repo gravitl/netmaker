@@ -23,7 +23,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 
 	hasnet := local.HasNetwork(cfg.Network)
 	if hasnet {
-		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for cfg.Network " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient -c remove -n " + cfg.Network + "'. Then re-run the install command.")
+		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
 		return err
 	}
 	log.Println("attempting to joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
@@ -111,7 +111,6 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		}
         } else {
                 cfg.Node.Endpoint = cfg.Node.Endpoint
-		fmt.Println("Endpoint set in config. Setting to address: " + cfg.Node.Endpoint)
         }
 	if cfg.Node.PrivateKey == "" {
 		privatekey, err := wgtypes.GeneratePrivateKey()

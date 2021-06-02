@@ -44,7 +44,7 @@ services:
     ports:
       - "80:80"
     environment:
-      BACKEND_URL: "http://HOST_IP:8081"
+      BACKEND_URL: "http://3.236.59.246:8081"
   coredns:
     depends_on:
       - netmaker 
