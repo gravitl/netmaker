@@ -2,13 +2,13 @@ package local
 
 import (
         //"github.com/davecgh/go-spew/spew"
-        "github.com/gravitl/netmaker/netclient/config"
-	"fmt"
+	"errors"
+	"github.com/gravitl/netmaker/netclient/config"
+	"log"
         "io/ioutil"
 	"path/filepath"
         "io"
 	"strings"
-        "log"
         "os"
         "os/exec"
 )
@@ -19,7 +19,7 @@ func RunCmds(commands []string) error {
                 args := strings.Fields(command)
                 out, err := exec.Command(args[0], args[1:]...).Output()
                 if string(out) != "" {
-			fmt.Println(string(out))
+			log.Println(string(out))
 		}
                 if err != nil {
                         return err
@@ -72,13 +72,11 @@ func ConfigureSystemD(network string) error {
 	}
 	binarypath := dir  + "/netclient"
 
-	fmt.Println("Installing Binary from Path: " + binarypath)
-
 	_, err = os.Stat("/etc/netclient")
         if os.IsNotExist(err) {
                 os.Mkdir("/etc/netclient", 744)
         } else if err != nil {
-                fmt.Println("couldnt find or create /etc/netclient")
+                log.Println("couldnt find or create /etc/netclient")
                 return err
         }
 
@@ -136,7 +134,6 @@ OnCalendar=*:*:0/30
 WantedBy=timers.target
 `
 
-
 	servicebytes := []byte(systemservice)
 	timerbytes := []byte(systemtimer)
 
@@ -184,23 +181,23 @@ WantedBy=timers.target
 
         err = cmdSysEnableService.Run()
         if  err  !=  nil {
-                fmt.Println("Error enabling netclient@.service. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error enabling netclient@.service. Please investigate.")
+                log.Println(err)
         }
         err = cmdSysDaemonReload.Run()
         if  err  !=  nil {
-                fmt.Println("Error reloading system daemons. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error reloading system daemons. Please investigate.")
+                log.Println(err)
         }
         err = cmdSysEnableTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error enabling netclient.timer. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error enabling netclient.timer. Please investigate.")
+                log.Println(err)
         }
         err = cmdSysStartTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error starting netclient-"+network+".timer. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error starting netclient-"+network+".timer. Please investigate.")
+                log.Println(err)
         }
 	return nil
 }
@@ -225,7 +222,7 @@ func RemoveSystemDServices(network string) error {
 
 	fullremove, err := isOnlyService(network)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	cmdSysDisableService := exec.Command("systemctl","disable","netclient@.service")
@@ -234,43 +231,47 @@ func RemoveSystemDServices(network string) error {
         cmdSysStopTimer := exec.Command("systemctl", "stop", "netclient-"+network+".timer")
         cmdSysDisableTimer :=  exec.Command("systemctl", "disable", "netclient-"+network+".timer")
         if  err  !=  nil {
-                fmt.Println("Error stopping netclient@.service. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error stopping netclient@.service. Please investigate.")
+                log.Println(err)
         }
 	if fullremove {
         err = cmdSysDisableService.Run()
         if  err  !=  nil {
-                fmt.Println("Error disabling netclient@.service. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error disabling netclient@.service. Please investigate.")
+                log.Println(err)
         }
 	}
         err = cmdSysStopTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error stopping netclient-"+network+".timer. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error stopping netclient-"+network+".timer. Please investigate.")
+                log.Println(err)
         }
         err = cmdSysDisableTimer.Run()
         if  err  !=  nil {
-                fmt.Println("Error disabling netclient-"+network+".timer. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error disabling netclient-"+network+".timer. Please investigate.")
+                log.Println(err)
         }
 	if fullremove {
-	err = os.Remove("/etc/systemd/system/netclient@.service")
+		if FileExists("/etc/systemd/system/netclient@.service") {
+			err = os.Remove("/etc/systemd/system/netclient@.service")
+		}
 	}
-	err = os.Remove("/etc/systemd/system/netclient-"+network+".timer")
+	if FileExists("/etc/systemd/system/netclient-"+network+".timer") {
+		err = os.Remove("/etc/systemd/system/netclient-"+network+".timer")
+	}
 	if err != nil {
-                fmt.Println("Error removing file. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error removing file. Please investigate.")
+                log.Println(err)
 	}
         err = cmdSysDaemonReload.Run()
         if  err  !=  nil {
-                fmt.Println("Error reloading system daemons. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error reloading system daemons. Please investigate.")
+                log.Println(err)
         }
         err = cmdSysResetFailed.Run()
         if  err  !=  nil {
-                fmt.Println("Error reseting failed system services. Please investigate.")
-                fmt.Println(err)
+                log.Println("Error reseting failed system services. Please investigate.")
+                log.Println(err)
         }
 	return err
 
@@ -286,9 +287,15 @@ func WipeLocal(network string) error{
 
         //home, err := homedir.Dir()
         home := "/etc/netclient"
-        _ = os.Remove(home + "/netconfig-" + network)
-        _ = os.Remove(home + "/nettoken-" + network)
-        _ = os.Remove(home + "/wgkey-" + network)
+	if FileExists(home + "/netconfig-" + network) {
+	        _ = os.Remove(home + "/netconfig-" + network)
+	}
+	if FileExists(home + "/nettoken-" + network) {
+		_ = os.Remove(home + "/nettoken-" + network)
+	}
+	if FileExists(home + "/wgkey-" + network) {
+		_ = os.Remove(home + "/wgkey-" + network)
+	}
 
         ipExec, err := exec.LookPath("ip")
 
@@ -301,13 +308,13 @@ func WipeLocal(network string) error{
         }
         err = cmdIPLinkDel.Run()
         if  err  !=  nil {
-                fmt.Println(err)
+                log.Println(err)
         }
         if nodecfg.PostDown != "" {
                 runcmds := strings.Split(nodecfg.PostDown, "; ")
                 err = RunCmds(runcmds)
                 if err != nil {
-                        fmt.Println("Error encountered running PostDown: " + err.Error())
+                        log.Println("Error encountered running PostDown: " + err.Error())
                 }
         }
         }
@@ -345,7 +352,7 @@ func copy(src, dst string) (int64, error) {
         }
 
         if !sourceFileStat.Mode().IsRegular() {
-                return 0, fmt.Errorf("%s is not a regular file", src)
+                return 0, errors.New(src + " is not a regular file")
         }
 
         source, err := os.Open(src)

@@ -6,6 +6,8 @@ import (
 	"context"
 	"log"
 	"net"
+	"math/rand"
+	"time"
         "github.com/gravitl/netmaker/netclient/config"
         "github.com/gravitl/netmaker/netclient/wireguard"
         "github.com/gravitl/netmaker/netclient/server"
@@ -20,7 +22,7 @@ import (
 func JoinNetwork(cfg config.ClientConfig) error {
 
 	hasnet := local.HasNetwork(cfg.Network)
-	if hasnet { 
+	if hasnet {
 		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for cfg.Network " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient -c remove -n " + cfg.Network + "'. Then re-run the install command.")
 		return err
 	}
@@ -35,9 +37,12 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		return err
         }
         defer wgclient.Close()
-
+	if cfg.Node.Network == "" {
+		return errors.New("no network provided")
+	}
 	if cfg.Node.LocalRange != "" {
 	if cfg.Node.LocalAddress == "" {
+		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
 		ifaces, err := net.Interfaces()
                 if err != nil {
                         return err
@@ -90,6 +95,9 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		cfg.Node.LocalAddress = local
 	}
 	}
+	if cfg.Node.Password == "" {
+		cfg.Node.Password = GenPass()
+	}
         if cfg.Node.Endpoint == "" {
 		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress
@@ -124,7 +132,12 @@ func JoinNetwork(cfg config.ClientConfig) error {
 			cfg.Node.MacAddress  = macs[0]
 		}
 	}
-
+	if cfg.Node.Port == 0 {
+		cfg.Node.Port, err = GetFreePort(51821)
+		if err != nil {
+			fmt.Printf("Error retrieving port: %v", err)
+		}
+	}
 	var wcclient nodepb.NodeServiceClient
 	var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
@@ -214,3 +227,20 @@ func JoinNetwork(cfg config.ClientConfig) error {
 
 	return err
 }
+
+//generate an access key value
+func GenPass() string {
+
+        var seededRand *rand.Rand = rand.New(
+                rand.NewSource(time.Now().UnixNano()))
+
+        length := 16
+        charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+        b := make([]byte, length)
+        for i := range b {
+                b[i] = charset[seededRand.Intn(len(charset))]
+        }
+        return string(b)
+}
+

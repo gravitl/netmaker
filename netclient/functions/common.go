@@ -309,15 +309,17 @@ func LeaveNetwork(network string) error {
 			)
 			if err != nil {
 				log.Printf("Encountered error deleting node: %v", err)
-				fmt.Println(err)
+				log.Println(err)
 			} else {
-				fmt.Println("delete node " + node.MacAddress + "from remote server on network " + node.Network)
+				log.Println("Removed machine from " + node.Network + " network on remote server")
 			}
 		}
 	}
 	err = local.WipeLocal(network)
 	if err != nil {
                 log.Printf("Unable to wipe local config: %v", err)
+	} else {
+		log.Println("Removed " + node.Network + " network locally")
 	}
 	if cfg.Daemon != "off" {
 		err =  local.RemoveSystemDServices(network)
@@ -336,13 +338,13 @@ func DeleteInterface(ifacename string, postdown string) error{
         }
         err = cmdIPLinkDel.Run()
         if  err  !=  nil {
-                fmt.Println(err)
+                log.Println(err)
         }
         if postdown != "" {
                 runcmds := strings.Split(postdown, "; ")
                 err = local.RunCmds(runcmds)
                 if err != nil {
-                        fmt.Println("Error encountered running PostDown: " + err.Error())
+                        log.Println("Error encountered running PostDown: " + err.Error())
                 }
         }
         return err
@@ -367,9 +369,9 @@ func List() error{
 					PublicEndpoint: cfg.Node.Endpoint,
 				}
 			jsoncfg, _ := json.Marshal(listconfig)
-			fmt.Println(network + ": " + string(jsoncfg))
+			log.Println(network + ": " + string(jsoncfg))
 		} else {
-			fmt.Println(network + ": Could not retrieve network configuration.")
+			log.Println(network + ": Could not retrieve network configuration.")
 		}
 	}
 	return nil

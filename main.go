@@ -10,7 +10,6 @@ import (
     "github.com/gravitl/netmaker/serverctl"
     "github.com/gravitl/netmaker/mongoconn"
     "github.com/gravitl/netmaker/functions"
-    "fmt"
     "os"
     "os/exec"
     "net"
@@ -33,12 +32,12 @@ func main() {
 		output, err := cmd.Output()
 
 		if err != nil {
-			fmt.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
+			log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
 			log.Fatal(err)
 		}
 		i, err := strconv.Atoi(string(output[:len(output)-1]))
 		if err != nil {
-                        fmt.Println("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.")
+                        log.Println("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.")
 			log.Fatal(err)
 		}
 		if i != 0 {
@@ -147,7 +146,7 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
         log.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
 
 	if installserver {
-			fmt.Println("Adding server to default network")
+			log.Println("Adding server to default network")
                         success, err := serverctl.AddNetwork("default")
                         if err != nil {
                                 log.Printf("Error adding to default network: %v", err)

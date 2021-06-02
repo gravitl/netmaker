@@ -208,7 +208,7 @@ func AddNetwork(network string) (bool, error) {
                 return false, err
 	}
 	token, err := functions.CreateServerToken(network)
-        if err != nil {
+	if err != nil {
                 log.Println("could not create server token for " + network)
 		return false, err
         }
@@ -224,6 +224,7 @@ func AddNetwork(network string) (bool, error) {
                 log.Println("could not change netclient directory permissions")
                 return false, err
         }
+	log.Println("executing network join: " + "/etc/netclient/netclient "+"join "+"-t "+token+" -name "+"netmaker"+" -endpoint "+pubip)
 	out, err := exec.Command("/etc/netclient/netclient","join","-t",token,"-name","netmaker","-endpoint",pubip).Output()
         if string(out) != "" {
 	        log.Println(string(out))

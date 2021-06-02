@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"errors"
-	"github.com/davecgh/go-spew/spew"
+//	"github.com/davecgh/go-spew/spew"
 )
 
 func Register(cfg config.GlobalConfig) error {
@@ -43,37 +43,41 @@ func Register(cfg config.GlobalConfig) error {
 	body := bytes.NewBuffer(jsonbytes)
 	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
 
-	log.Println("registering to http://"+publicaddress+"/api/client/register")
 	res, err := http.Post("http://"+publicaddress+"/api/intclient/register","application/json",body)
         if err != nil {
+		log.Println("Failed to register to http://"+publicaddress+"/api/client/register")
                 return err
         }
 	if res.StatusCode != http.StatusOK {
+		log.Println("Failed to register to http://"+publicaddress+"/api/client/register")
 		return errors.New("request to server failed: " + res.Status)
 	}
 	bodyBytes, err := ioutil.ReadAll(res.Body)
+        //bodyString := string(bodyBytes)
+	//spew.Dump(bodyString)
 	if err != nil {
 		return err
 	}
 	var wgclient models.IntClient
 	json.Unmarshal(bodyBytes, &wgclient)
-        spew.Dump(wgclient)
+        //spew.Dump(wgclient)
 	err = config.ModGlobalConfig(wgclient)
         if err != nil {
                 return err
         }
-        spew.Dump(wgclient)
+        //spew.Dump(wgclient)
 	err = wireguard.InitGRPCWireguard(wgclient)
         if err != nil {
                 return err
         }
-
+	log.Println("registered netclient to " + cfg.Client.ServerPrivateAddress)
 	return err
 }
 
 func Unregister(cfg config.GlobalConfig) error {
 	client := &http.Client{ Timeout: 7 * time.Second,}
 	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
+	log.Println("sending delete request to: " + "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID)
 	req, err := http.NewRequest("DELETE", "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID, nil)
 	if err != nil {
                 log.Println(err)
@@ -94,17 +98,3 @@ func Unregister(cfg config.GlobalConfig) error {
 	}
 	return err
 }
-
-func Reregister(cfg config.GlobalConfig) error {
-	err := Unregister(cfg)
-	if err != nil {
-		log.Println("failed to un-register")
-		return err
-	}
-	err = Register(cfg)
-	if err != nil {
-		log.Println("failed to re-register after unregistering")
-	}
-	return err
-}
-

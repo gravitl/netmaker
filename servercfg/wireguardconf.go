@@ -40,7 +40,7 @@ func GetGRPCWGInterface() string {
        return iface
 }
 func GetGRPCWGAddress() string {
-        address := "10.101.0.1"
+      address := "10.101.0.1"
       if os.Getenv("SERVER_GRPC_WG_ADDRESS") != ""  {
               address = os.Getenv("SERVER_GRPC_WG_ADDRESS")
       } else if config.Config.WG.GRPCWGAddress != "" {
@@ -49,7 +49,7 @@ func GetGRPCWGAddress() string {
       return address
 }
 func GetGRPCWGAddressRange() string {
-        address := "10.101.0.0/16"
+      address := "10.101.0.0/16"
       if os.Getenv("SERVER_GRPC_WG_ADDRESS_RANGE") != ""  {
               address = os.Getenv("SERVER_GRPC_WG_ADDRESS_RANGE")
       } else if config.Config.WG.GRPCWGAddressRange != "" {
@@ -58,7 +58,7 @@ func GetGRPCWGAddressRange() string {
       return address
 }
 func GetGRPCWGPort() string {
-        port := "50555"
+      port := "50555"
       if os.Getenv("SERVER_GRPC_WG_PORT") != ""  {
               port = os.Getenv("SERVER_GRPC_WG_PORT")
       } else if config.Config.WG.GRPCWGPort != "" {
