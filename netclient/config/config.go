@@ -376,12 +376,12 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 }
                 token := string(tokenbytes)
                 tokenvals := strings.Split(token, "|")
-                cfg.Server.GRPCAddress = tokenvals[1]
-                cfg.Server.APIAddress = tokenvals[2]
+
+		cfg.Server.GRPCAddress = tokenvals[1]
                 cfg.Network = tokenvals[3]
-                cfg.Node.Network = tokenvals[4]
-                cfg.Server.AccessKey = tokenvals[5]
-                cfg.Node.LocalRange = tokenvals[6]
+                cfg.Node.Network = tokenvals[3]
+                cfg.Server.AccessKey = tokenvals[4]
+                cfg.Node.LocalRange = tokenvals[5]
 
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
