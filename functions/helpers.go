@@ -44,9 +44,10 @@ func CreateServerToken(netID string) (string, error) {
 	if *network.IsLocal {
 		privAddr = network.LocalRange
 	}
+	accessstringdec := servercfg.GetGRPCWGPort() + "|" + address + "|" + address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 
-        accessstringdec := " " + "|"+ address + "|" + address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
 
+	log.Println("Access String: " + accessstringdec)
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
 
 	network.AccessKeys = append(network.AccessKeys, accesskey)
