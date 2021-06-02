@@ -1,7 +1,8 @@
 package controller
 
 import (
-//	"fmt"
+	//	"fmt"
+	// "github.com/davecgh/go-spew/spew"
 	"errors"
 	"context"
 	"encoding/json"
@@ -21,7 +22,6 @@ func intClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(getIntClient))).Methods("GET")
 	r.HandleFunc("/api/intclients", securityCheck(http.HandlerFunc(getAllIntClients))).Methods("GET")
         r.HandleFunc("/api/intclients/deleteall", securityCheck(http.HandlerFunc(deleteAllIntClients))).Methods("DELETE")
-        r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(deleteIntClient))).Methods("DELETE")
         r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(updateIntClient))).Methods("PUT")
 	r.HandleFunc("/api/intclient/register", http.HandlerFunc(registerIntClient)).Methods("POST")
 	r.HandleFunc("/api/intclient/{clientid}", http.HandlerFunc(deleteIntClient)).Methods("DELETE")
@@ -138,13 +138,17 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 		client.Address = newAddress
 	}
         if client.Network == "" { client.Network = "comms" }
-
-	wgconfig := servercfg.GetWGConfig()
-        client.ServerPublicEndpoint = servercfg.GetAPIHost()
-        client.ServerAPIPort = servercfg.GetAPIPort()
-        client.ServerPrivateAddress = wgconfig.GRPCWGAddress
-        client.ServerWGPort = wgconfig.GRPCWGPort
-        client.ServerGRPCPort = servercfg.GetGRPCPort()
+	server, err := serverctl.GetServerWGConf()
+        //spew.Dump(server)
+	if err != nil {
+                return client, err
+        }
+	client.ServerPublicEndpoint = server.ServerPublicEndpoint
+        client.ServerAPIPort = server.ServerAPIPort
+        client.ServerPrivateAddress = server.ServerPrivateAddress
+        client.ServerWGPort = server.ServerWGPort
+        client.ServerGRPCPort = server.ServerGRPCPort
+        client.ServerKey = server.ServerKey
 
         if client.ClientID == "" {
                 clientid := StringWithCharset(7, charset)
@@ -152,11 +156,11 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
                 client.ClientID = clientname
         }
 
-
+	//spew.Dump(client)
 	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	// insert our network into the network table
-	_, err := collection.InsertOne(ctx, client)
+	_, err = collection.InsertOne(ctx, client)
 	defer cancel()
 
 	if err != nil {

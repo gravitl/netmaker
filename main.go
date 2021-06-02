@@ -146,7 +146,7 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
         }()
         log.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
 
-	if installserver {
+	if !installserver {
 			fmt.Println("Adding server to default network")
                         success, err := serverctl.AddNetwork("default")
                         if err != nil {

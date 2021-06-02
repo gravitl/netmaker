@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"errors"
-	"github.com/davecgh/go-spew/spew"
+//	"github.com/davecgh/go-spew/spew"
 )
 
 func Register(cfg config.GlobalConfig) error {
@@ -57,12 +57,12 @@ func Register(cfg config.GlobalConfig) error {
 	}
 	var wgclient models.IntClient
 	json.Unmarshal(bodyBytes, &wgclient)
-        spew.Dump(wgclient)
+        //spew.Dump(wgclient)
 	err = config.ModGlobalConfig(wgclient)
         if err != nil {
                 return err
         }
-        spew.Dump(wgclient)
+        //spew.Dump(wgclient)
 	err = wireguard.InitGRPCWireguard(wgclient)
         if err != nil {
                 return err

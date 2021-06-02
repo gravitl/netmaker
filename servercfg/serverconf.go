@@ -16,7 +16,7 @@ func SetHost() error {
 	os.Setenv("SERVER_HOST", remoteip)
 	return nil
 }
-func GetConfig() config.ServerConfig {
+func GetServerConfig() config.ServerConfig {
 	var cfg config.ServerConfig
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
@@ -56,6 +56,7 @@ func GetWGConfig() config.WG{
 	}
 	cfg.GRPCWGInterface = GetGRPCWGInterface()
 	cfg.GRPCWGAddress = GetGRPCWGAddress()
+        cfg.GRPCWGAddressRange = GetGRPCWGAddressRange()
 	cfg.GRPCWGPort = GetGRPCWGPort()
 	cfg.GRPCWGPubKey =  GetGRPCWGPubKey()
 	cfg.GRPCWGPrivKey =  GetGRPCWGPrivKey()

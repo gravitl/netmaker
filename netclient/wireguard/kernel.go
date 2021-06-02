@@ -1,7 +1,7 @@
 package wireguard
 
 import (
-"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 	"fmt"
 	"strconv"
 	"errors"
@@ -117,7 +117,7 @@ func InitGRPCWireguard(client models.IntClient) error {
                         return err
                 }
         }
-	spew.Dump(conf)
+	//spew.Dump(conf)
         err = wgclient.ConfigureDevice(ifacename, conf)
 
         if err != nil {
