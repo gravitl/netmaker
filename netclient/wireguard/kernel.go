@@ -1,7 +1,7 @@
 package wireguard
 
 import (
-"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"fmt"
 	"strconv"
 	"errors"
@@ -25,7 +25,9 @@ import (
 	//homedir "github.com/mitchellh/go-homedir"
 )
 func InitGRPCWireguard(client models.IntClient) error {
-        key, err := wgtypes.ParseKey(client.PrivateKey)
+        //spew.Dump(client)
+
+	key, err := wgtypes.ParseKey(client.PrivateKey)
         if err !=  nil {
                 return err
         }
@@ -117,7 +119,7 @@ func InitGRPCWireguard(client models.IntClient) error {
                         return err
                 }
         }
-	spew.Dump(conf)
+	//spew.Dump(conf)
         err = wgclient.ConfigureDevice(ifacename, conf)
 
         if err != nil {
@@ -142,6 +144,8 @@ func InitGRPCWireguard(client models.IntClient) error {
 
 func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error  {
 
+        //spew.Dump(node)
+        //spew.Dump(peers)
 	ipExec, err := exec.LookPath("ip")
 	if err !=  nil {
 		return err
@@ -246,7 +250,6 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 }
         }
 
-
 	err = wgclient.ConfigureDevice(ifacename, conf)
 
 	if err != nil {
@@ -284,13 +287,15 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	}
         //=========End DNS Setup=======\\
 
+
         cmdIPLinkUp := &exec.Cmd {
                 Path: ipExec,
                 Args: []string{ ipExec, "link", "set", "up", "dev", ifacename},
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
-        cmdIPLinkDown := &exec.Cmd {
+
+	cmdIPLinkDown := &exec.Cmd {
                 Path: ipExec,
                 Args: []string{ ipExec, "link", "set", "down", "dev", ifacename},
                 Stdout: os.Stdout,
@@ -334,6 +339,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                         fmt.Println("Error encountered adding ipv6: " + err.Error())
                 }
 	}
+
 	return err
 }
 

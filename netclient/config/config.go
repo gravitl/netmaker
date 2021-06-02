@@ -381,8 +381,9 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 cfg.Network = tokenvals[3]
                 cfg.Node.Network = tokenvals[3]
                 cfg.Server.AccessKey = tokenvals[4]
-                cfg.Node.LocalRange = tokenvals[5]
-
+                if len(tokenvals) > 4 {
+			cfg.Node.LocalRange = tokenvals[5]
+		}
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}
@@ -412,22 +413,22 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 	cfg.Node.Password = c.String("password")
 	cfg.Node.MacAddress = c.String("macaddress")
 	cfg.Node.LocalAddress = c.String("localaddress")
-	cfg.Node.LocalRange = c.String("localrange")
 	cfg.Node.WGAddress = c.String("address")
 	cfg.Node.WGAddress6 = c.String("addressIPV6")
-	cfg.Node.Roaming = c.String("")
-	cfg.Node.DNS = c.String("")
-	cfg.Node.IsLocal = c.String("")
-	cfg.Node.IsDualStack = c.String("")
-	cfg.Node.IsIngressGateway = c.String("")
-	cfg.Node.PostUp = c.String("")
-	cfg.Node.PostDown = c.String("")
-	cfg.Node.Port = int32(c.Int(""))
-	cfg.Node.KeepAlive = int32(c.Int(""))
-	cfg.Node.PublicKey = c.String("")
-	cfg.Node.PrivateKey = c.String("")
-	cfg.Node.Endpoint = c.String("")
-	cfg.Node.IPForwarding = c.String("")
+	cfg.Node.Roaming = c.String("roaming")
+	cfg.Node.DNS = c.String("dns")
+	cfg.Node.IsLocal = c.String("islocal")
+	cfg.Node.IsDualStack = c.String("isdualstack")
+	cfg.Node.PostUp = c.String("postup")
+	cfg.Node.PostDown = c.String("postdown")
+	cfg.Node.Port = int32(c.Int("port"))
+	cfg.Node.KeepAlive = int32(c.Int("keepalive"))
+	cfg.Node.PublicKey = c.String("publickey")
+	cfg.Node.PrivateKey = c.String("privatekey")
+	cfg.Node.Endpoint = c.String("endpoint")
+	cfg.Node.IPForwarding = c.String("ipforwarding")
+	cfg.OperatingSystem = c.String("operatingsystem")
+	cfg.Daemon = c.String("daemon")
 
 	return cfg, nil
 }
