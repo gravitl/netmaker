@@ -199,22 +199,6 @@ func main() {
                 return err
             },
         },
-        {
-            Name:  "reregister",
-            Usage: "Re-Register with Netmaker Server for secure GRPC communications.",
-            Flags: cliFlags,
-            Action: func(c *cli.Context) error {
-                cfg, err := config.ReadGlobalConfig()
-                if err != nil {
-                        return err
-                }
-                var gconf config.GlobalConfig
-                gconf = *cfg
-
-		err = command.Reregister(gconf)
-                return err
-            },
-        },
 	{
             Name:  "join",
             Usage: "Join a Netmaker network.",

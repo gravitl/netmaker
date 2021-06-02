@@ -273,6 +273,13 @@ func ModGlobalConfig(cfg models.IntClient) error{
         if cfg.ServerKey != ""{
                 modconfig.Client.ServerKey = cfg.ServerKey
         }
+        if cfg.AccessKey != ""{
+                modconfig.Client.AccessKey = cfg.AccessKey
+        }
+        if cfg.ClientID != ""{
+                modconfig.Client.ClientID = cfg.ClientID
+        }
+
         err = WriteGlobal(&modconfig)
         return err
 }

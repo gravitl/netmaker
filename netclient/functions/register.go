@@ -52,6 +52,8 @@ func Register(cfg config.GlobalConfig) error {
 		return errors.New("request to server failed: " + res.Status)
 	}
 	bodyBytes, err := ioutil.ReadAll(res.Body)
+        //bodyString := string(bodyBytes)
+	//spew.Dump(bodyString)
 	if err != nil {
 		return err
 	}
@@ -74,6 +76,7 @@ func Register(cfg config.GlobalConfig) error {
 func Unregister(cfg config.GlobalConfig) error {
 	client := &http.Client{ Timeout: 7 * time.Second,}
 	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
+	log.Println("sending delete request to: " + "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID)
 	req, err := http.NewRequest("DELETE", "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID, nil)
 	if err != nil {
                 log.Println(err)
@@ -94,17 +97,3 @@ func Unregister(cfg config.GlobalConfig) error {
 	}
 	return err
 }
-
-func Reregister(cfg config.GlobalConfig) error {
-	err := Unregister(cfg)
-	if err != nil {
-		log.Println("failed to un-register")
-		return err
-	}
-	err = Register(cfg)
-	if err != nil {
-		log.Println("failed to re-register after unregistering")
-	}
-	return err
-}
-

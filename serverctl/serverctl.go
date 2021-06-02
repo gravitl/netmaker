@@ -208,7 +208,7 @@ func AddNetwork(network string) (bool, error) {
                 return false, err
 	}
 	token, err := functions.CreateServerToken(network)
-        if err != nil {
+	if err != nil {
                 log.Println("could not create server token for " + network)
 		return false, err
         }
