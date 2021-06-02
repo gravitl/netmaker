@@ -72,6 +72,13 @@ func main() {
             Usage: "Default PersistentKeepAlive for Peers in WireGuard Interface.",
         },
         &cli.StringFlag{
+            Name:  "operatingsystem",
+            Aliases: []string{"os"},
+            EnvVars: []string{"NETCLIENT_OS"},
+            Value: "",
+            Usage: "Identifiable name for machine within Netmaker network.",
+        },
+        &cli.StringFlag{
             Name:  "name",
             EnvVars: []string{"NETCLIENT_NAME"},
             Value: "",
@@ -105,11 +112,16 @@ func main() {
             Usage: "WireGuard local network interface name.",
         },
         &cli.StringFlag{
-            Name:  "server",
-            Aliases: []string{"s"},
-            EnvVars: []string{"NETCLIENT_SERVER"},
+            Name:  "apiserver",
+            EnvVars: []string{"NETCLIENT_API_SERVER"},
             Value: "",
 	    Usage: "Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server.",
+        },
+        &cli.StringFlag{
+            Name:  "grpcserver",
+            EnvVars: []string{"NETCLIENT_GRPC_SERVER"},
+            Value: "",
+            Usage: "Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server.",
         },
         &cli.StringFlag{
             Name:  "key",
@@ -178,6 +190,12 @@ func main() {
             EnvVars: []string{"NETCLIENT_DAEMON"},
             Value: "on",
             Usage: "Installs daemon if 'on'. Ignores if 'off'. On by default.",
+        },
+        &cli.StringFlag{
+            Name:  "roaming",
+            EnvVars: []string{"NETCLIENT_ROAMING"},
+            Value: "on",
+            Usage: "Checks for IP changes if 'on'. Ignores if 'off'. On by default.",
         },
     }
 

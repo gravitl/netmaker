@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
-
+	"log"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -162,7 +162,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find network: %v", err))
 	} else {
-		fmt.Println("Creating node in network " + network.NetID)
+		log.Println("Creating node in network " + network.NetID)
 	}
 
 	if !validKey {
@@ -356,7 +356,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 }
 
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.DeleteNodeReq) (*nodepb.DeleteNodeRes, error) {
-	fmt.Println("beginning node delete")
 	macaddress := req.GetMacaddress()
 	network := req.GetNetworkName()
 
