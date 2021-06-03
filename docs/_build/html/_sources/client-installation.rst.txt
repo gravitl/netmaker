@@ -52,6 +52,8 @@ A user may choose to manually set a private DNS nameserver of <netmaker server>:
 Prerequisites
 =============
 
+To obtain the netclient, go to the GitHub releases: https://github.com/gravitl/netmaker/releases
+
 **For netclient cli:** Linux/Unix with WireGuard installed (wg command available)
 
 **For netclient daemon:** Systemd Linux + WireGuard
@@ -61,29 +63,48 @@ Prerequisites
 Configuration
 ===============
 
-Variable Reference
+The CLI has information about all commands and variables. This section shows the "help" output for these commands as well as some additional reference.
+
+CLI Reference
 --------------------
+``sudo netclient --help``
+
+.. literalinclude:: ./examplecode/netclient-help.txt
+  :language: YAML
+
+
+``sudo netclient join --help``
+
+.. literalinclude:: ./examplecode/netclient-join.txt
+  :language: YAML
+
 
 Config File Reference
 ------------------------
 
-CLI Reference
-------------------------
+There is a config file for each node under /etc/netconfig-<network name>. You can change these values and then set "postchanges" to "true", or go to the CLI and run ``netclient push -n <network>``
+
+
+.. literalinclude:: ./examplecode/netconfig-example.yml
+  :language: YAML
+
 
 Installation
 ======================
 
-Token
--------
 
-Access Key
-------------
+To install netmaker, you need a server token for a particular network, unless you're joining a network that allows manual signup, in which case you can join without a token, but the server will quarantine the machine until the admin approves it.
 
-Manual
----------
+An admin creates a token in the ACCESS KEYS section of the UI. Upon creating a token, it generates 3 values:
 
-Config File
-------------
+**Access Key:** The secret key to authenticate as a node in the network
+
+**Access Token:** The secret key plus information about how to access the server (addresses, ports), all decoded by the netclient to register with the server
+
+**Install Command:** A short script that will obtain the netclient binary, register with the server, and join the network, all in one
+
+For first time installations, you can run the Install Command. For additional networks, simply run ``netclient join -t <access token>``. The raw access key will not be needed unless there are special circumstances, mostly troubleshooting incorrect information in the token (you can instead manually specify the server location).
+
 
 Managing Netclient
 =====================
