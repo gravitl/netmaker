@@ -9,7 +9,7 @@ import (
     "github.com/gravitl/netmaker/servercfg"
     "github.com/gravitl/netmaker/serverctl"
     "github.com/gravitl/netmaker/mongoconn"
-    "fmt"
+    "github.com/gravitl/netmaker/functions"
     "os"
     "os/exec"
     "net"
@@ -25,24 +25,31 @@ import (
 //Start MongoDB Connection and start API Request Handler
 func main() {
 
+
 	//Client Mode Prereq Check
 	if servercfg.IsClientMode() {
 		cmd := exec.Command("id", "-u")
 		output, err := cmd.Output()
 
 		if err != nil {
-			fmt.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
+			log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
 			log.Fatal(err)
 		}
 		i, err := strconv.Atoi(string(output[:len(output)-1]))
 		if err != nil {
-                        fmt.Println("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.")
+                        log.Println("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.")
 			log.Fatal(err)
 		}
 		if i != 0 {
 			log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
 		}
 	}
+        if servercfg.IsDNSMode() {
+                err := functions.SetDNSDir()
+                if err != nil {
+                        log.Fatal(err)
+                }
+        }
 
 	//Start Mongodb
 	mongoconn.ConnectDatabase()
@@ -52,17 +59,19 @@ func main() {
 	//Create the default network (default: 10.10.10.0/24)
 	created, err := serverctl.CreateDefaultNetwork()
 	if err != nil {
-		fmt.Printf("Error creating default network: %v", err)
+		log.Printf("Error creating default network: %v", err)
 	}
 
 	if created && servercfg.IsClientMode() {
 		installserver = true
 	}
-
-	//NOTE: Removed Check and Logic for DNS Mode
-	//Reasoning. DNS Logic is very small on server. Can run with little/no impact. Just sets a tiny config file.
-	//Real work is done by CoreDNS
-	//We can just not run CoreDNS. On Agent side is only necessary check for IsDNSMode, which we will pass.
+	if servercfg.IsGRPCWireGuard() {
+                err = serverctl.InitServerWireGuard()
+		//err = serverctl.ReconfigureServerWireGuard()
+	        if err != nil {
+	                log.Fatal(err)
+		}
+	}
 
 	var waitnetwork sync.WaitGroup
 
@@ -71,7 +80,7 @@ func main() {
 	        if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
 			err := servercfg.SetHost()
 			if err != nil {
-				fmt.Println("Unable to Set host. Exiting.")
+				log.Println("Unable to Set host. Exiting...")
 				log.Fatal(err)
 			}
 		}
@@ -84,7 +93,7 @@ func main() {
                 if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
                         err := servercfg.SetHost()
                         if err != nil {
-                                fmt.Println("Unable to Set host. Exiting.")
+                                log.Println("Unable to Set host. Exiting...")
                                 log.Fatal(err)
                         }
                 }
@@ -92,10 +101,10 @@ func main() {
 		controller.HandleRESTRequests(&waitnetwork)
 	}
 	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
-		fmt.Println("Oops! No Server Mode selected. Nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
+		log.Println("No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
 	}
 	waitnetwork.Wait()
-	fmt.Println("Exiting now.")
+	log.Println("exiting")
 }
 
 
@@ -113,7 +122,7 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
 	listener, err := net.Listen("tcp", ":"+grpcport)
         // Handle errors if any
         if err != nil {
-                log.Fatalf("Unable to listen on port" + grpcport + ": %v", err)
+                log.Fatalf("Unable to listen on port " + grpcport + ", error: %v", err)
         }
 
          s := grpc.NewServer(
@@ -134,24 +143,23 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
                         log.Fatalf("Failed to serve: %v", err)
                 }
         }()
-        fmt.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
+        log.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
 
 	if installserver {
-			fmt.Println("Adding server to default network")
+			log.Println("Adding server to default network")
                         success, err := serverctl.AddNetwork("default")
                         if err != nil {
-                                fmt.Printf("Error adding to default network: %v", err)
-				fmt.Println("")
-				fmt.Println("Unable to add server to network. Continuing.")
-				fmt.Println("Please investigate client installation on server.")
+                                log.Printf("Error adding to default network: %v", err)
+				log.Println("Unable to add server to network. Continuing.")
+				log.Println("Please investigate client installation on server.")
 			} else if !success {
-                                fmt.Println("Unable to add server to network. Continuing.")
-                                fmt.Println("Please investigate client installation on server.")
+                                log.Println("Unable to add server to network. Continuing.")
+                                log.Println("Please investigate client installation on server.")
 			} else{
-                                fmt.Println("Server successfully added to default network.")
+                                log.Println("Server successfully added to default network.")
 			}
 	}
-        fmt.Println("Setup complete. You are ready to begin using netmaker.")
+        log.Println("Setup complete. You are ready to begin using netmaker.")
 
         // Right way to stop the server using a SHUTDOWN HOOK
         // Create a channel to receive OS signals
@@ -166,13 +174,13 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
         <-c
 
         // After receiving CTRL+C Properly stop the server
-        fmt.Println("Stopping the Agent server...")
+        log.Println("Stopping the Agent server...")
         s.Stop()
         listener.Close()
-        fmt.Println("Agent server closed..")
-        fmt.Println("Closing MongoDB connection")
+        log.Println("Agent server closed..")
+        log.Println("Closing MongoDB connection")
         mongoconn.Client.Disconnect(context.TODO())
-        fmt.Println("MongoDB connection closed.")
+        log.Println("MongoDB connection closed.")
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {

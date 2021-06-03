@@ -1,0 +1,44 @@
+version: "3.4"
+
+volumes:
+  dnsconfig:
+  driver: local
+services:
+  mongodb:
+    image: mongo:4.2
+    ports:
+      - "27017:27017"
+    container_name: mongodb
+    volumes:
+      - mongovol:/data/db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin
+      MONGO_INITDB_ROOT_PASSWORD: mongopass
+  netmaker:
+    container_name: netmaker
+    ports:
+      - "8081:8081"
+      - "50051:50051"
+    depends_on:
+      - mongodb
+    image: gravitl/netmaker:v0.3
+    restart: always
+    environment:
+      SERVER_HOST: "HOST_IP"
+      DNS_MODE: "off"
+      CLIENT_MODE: "off"
+      SERVER_GRPC_WIREGUARD: "off"
+  netmaker-ui:
+    container_name: netmaker-ui
+    depends_on:
+      - netmaker
+    image: gravitl/netmaker-ui:v0.3
+    links:
+      - "netmaker:api"
+    ports:
+      - "80:80"
+    environment:
+      BACKEND_URL: "http://HOST_IP:8081"
+volumes:
+  mongovol: {}

@@ -24,6 +24,7 @@ type NodeServiceClient interface {
 	UpdateNode(ctx context.Context, in *UpdateNodeReq, opts ...grpc.CallOption) (*UpdateNodeRes, error)
 	DeleteNode(ctx context.Context, in *DeleteNodeReq, opts ...grpc.CallOption) (*DeleteNodeRes, error)
 	GetPeers(ctx context.Context, in *GetPeersReq, opts ...grpc.CallOption) (NodeService_GetPeersClient, error)
+	GetExtPeers(ctx context.Context, in *GetExtPeersReq, opts ...grpc.CallOption) (NodeService_GetExtPeersClient, error)
 	CheckIn(ctx context.Context, in *CheckInReq, opts ...grpc.CallOption) (*CheckInRes, error)
 }
 
@@ -112,6 +113,38 @@ func (x *nodeServiceGetPeersClient) Recv() (*GetPeersRes, error) {
 	return m, nil
 }
 
+func (c *nodeServiceClient) GetExtPeers(ctx context.Context, in *GetExtPeersReq, opts ...grpc.CallOption) (NodeService_GetExtPeersClient, error) {
+	stream, err := c.cc.NewStream(ctx, &NodeService_ServiceDesc.Streams[1], "/node.NodeService/GetExtPeers", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &nodeServiceGetExtPeersClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type NodeService_GetExtPeersClient interface {
+	Recv() (*GetExtPeersRes, error)
+	grpc.ClientStream
+}
+
+type nodeServiceGetExtPeersClient struct {
+	grpc.ClientStream
+}
+
+func (x *nodeServiceGetExtPeersClient) Recv() (*GetExtPeersRes, error) {
+	m := new(GetExtPeersRes)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *nodeServiceClient) CheckIn(ctx context.Context, in *CheckInReq, opts ...grpc.CallOption) (*CheckInRes, error) {
 	out := new(CheckInRes)
 	err := c.cc.Invoke(ctx, "/node.NodeService/CheckIn", in, out, opts...)
@@ -131,6 +164,7 @@ type NodeServiceServer interface {
 	UpdateNode(context.Context, *UpdateNodeReq) (*UpdateNodeRes, error)
 	DeleteNode(context.Context, *DeleteNodeReq) (*DeleteNodeRes, error)
 	GetPeers(*GetPeersReq, NodeService_GetPeersServer) error
+	GetExtPeers(*GetExtPeersReq, NodeService_GetExtPeersServer) error
 	CheckIn(context.Context, *CheckInReq) (*CheckInRes, error)
 	mustEmbedUnimplementedNodeServiceServer()
 }
@@ -156,6 +190,9 @@ func (UnimplementedNodeServiceServer) DeleteNode(context.Context, *DeleteNodeReq
 }
 func (UnimplementedNodeServiceServer) GetPeers(*GetPeersReq, NodeService_GetPeersServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetPeers not implemented")
+}
+func (UnimplementedNodeServiceServer) GetExtPeers(*GetExtPeersReq, NodeService_GetExtPeersServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetExtPeers not implemented")
 }
 func (UnimplementedNodeServiceServer) CheckIn(context.Context, *CheckInReq) (*CheckInRes, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckIn not implemented")
@@ -284,6 +321,27 @@ func (x *nodeServiceGetPeersServer) Send(m *GetPeersRes) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _NodeService_GetExtPeers_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetExtPeersReq)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(NodeServiceServer).GetExtPeers(m, &nodeServiceGetExtPeersServer{stream})
+}
+
+type NodeService_GetExtPeersServer interface {
+	Send(*GetExtPeersRes) error
+	grpc.ServerStream
+}
+
+type nodeServiceGetExtPeersServer struct {
+	grpc.ServerStream
+}
+
+func (x *nodeServiceGetExtPeersServer) Send(m *GetExtPeersRes) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _NodeService_CheckIn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CheckInReq)
 	if err := dec(in); err != nil {
@@ -338,6 +396,11 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetPeers",
 			Handler:       _NodeService_GetPeers_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetExtPeers",
+			Handler:       _NodeService_GetExtPeers_Handler,
 			ServerStreams: true,
 		},
 	},

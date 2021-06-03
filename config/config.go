@@ -31,6 +31,7 @@ var Config *EnvironmentConfig
 type EnvironmentConfig struct {
   Server ServerConfig `yaml:"server"`
   MongoConn MongoConnConfig `yaml:"mongoconn"`
+  WG WG `yaml:"wg"`
 }
 
 // ServerConfig :
@@ -46,6 +47,17 @@ type ServerConfig struct {
   ClientMode string `yaml:"clientmode"`
   DNSMode string `yaml:"dnsmode"`
   DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
+}
+
+type WG struct {
+  RegisterKeyRequired  string  `yaml:"keyrequired"`
+  GRPCWireGuard  string  `yaml:"grpcwg"`
+  GRPCWGInterface  string `yaml:"grpciface"`
+  GRPCWGAddress  string `yaml:"grpcaddr"`
+  GRPCWGAddressRange  string `yaml:"grpcaddrrange"`
+  GRPCWGPort  string  `yaml:"grpcport"`
+  GRPCWGPubKey  string  `yaml:"pubkey"`
+  GRPCWGPrivKey  string  `yaml:"privkey"`
 }
 
 type MongoConnConfig struct {
@@ -65,8 +77,8 @@ func readConfig() *EnvironmentConfig {
   if err != nil {
     //log.Fatal(err)
     //os.Exit(2)
-    log.Println("Unable to open config file at config/environments/" + getEnv())
-    log.Println("Will proceed with defaults or enironment variables (no config file).")
+    //log.Println("Unable to open config file at config/environments/" + getEnv())
+    //log.Println("Will proceed with defaults or enironment variables (no config file).")
     return &cfg
   }
   defer f.Close()

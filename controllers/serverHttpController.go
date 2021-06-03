@@ -2,6 +2,7 @@ package controller
 
 import (
     "github.com/gravitl/netmaker/models"
+    "github.com/gravitl/netmaker/functions"
     "github.com/gravitl/netmaker/serverctl"
     "github.com/gravitl/netmaker/servercfg"
     "encoding/json"
@@ -13,6 +14,7 @@ import (
 func serverHandlers(r *mux.Router) {
     r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(http.HandlerFunc(addNetwork))).Methods("POST")
     r.HandleFunc("/api/server/getconfig", securityCheckServer(http.HandlerFunc(getConfig))).Methods("GET")
+    r.HandleFunc("/api/server/getwgconfig", securityCheckServer(http.HandlerFunc(getWGConfig))).Methods("GET")
     r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(http.HandlerFunc(removeNetwork))).Methods("DELETE")
 }
 
@@ -27,25 +29,29 @@ func securityCheckServer(next http.Handler) http.HandlerFunc {
 
 		bearerToken := r.Header.Get("Authorization")
 
-		var hasBearer = true
 		var tokenSplit = strings.Split(bearerToken, " ")
 		var  authToken = ""
-
 		if len(tokenSplit) < 2 {
-			hasBearer = false
-		} else {
+                      errorResponse = models.ErrorResponse{
+                                Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+                      }
+                      returnErrorResponse(w, r, errorResponse)
+			return 
+	        } else {
 			authToken = tokenSplit[1]
 		}
 		//all endpoints here require master so not as complicated
 		//still might not be a good  way of doing this
-		if !hasBearer || !authenticateMasterServer(authToken) {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-			}
-			returnErrorResponse(w, r, errorResponse)
-		} else {
-			next.ServeHTTP(w, r)
+                _, isadmin, _ := functions.VerifyUserToken(authToken)
+
+		if !isadmin && !authenticateMasterServer(authToken) {
+				errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+				}
+				returnErrorResponse(w, r, errorResponse)
+				return
 		}
+		next.ServeHTTP(w, r)
 	}
 }
 //Consider a more secure way of setting master key
@@ -74,16 +80,39 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func getConfig(w http.ResponseWriter, r *http.Request) {
+	// Set header
+        w.Header().Set("Content-Type", "application/json")
+
+        // get params
+
+        scfg := servercfg.GetServerConfig()
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(scfg)
+}
+
+func getWGConfig(w http.ResponseWriter, r *http.Request) {
         // Set header
         w.Header().Set("Content-Type", "application/json")
 
         // get params
 
-        scfg := servercfg.GetConfig()
-
+        wgcfg := servercfg.GetWGConfig()
         w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(scfg)
+        json.NewEncoder(w).Encode(wgcfg)
 }
+
+/*
+func getMongoConfig(w http.ResponseWriter, r *http.Request) {
+        // Set header
+        w.Header().Set("Content-Type", "application/json")
+
+        // get params
+
+        mcfg := servercfg.GetMongoConfig()
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(mcfg)
+}
+*/
 
 func addNetwork(w http.ResponseWriter, r *http.Request) {
         // Set header
