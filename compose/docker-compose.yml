@@ -33,7 +33,7 @@ services:
     restart: always
     network_mode: host
     environment:
-      SERVER_HOST: "3.235.190.90"
+      SERVER_HOST: "HOST_IP"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:

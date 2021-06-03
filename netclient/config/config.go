@@ -381,7 +381,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 cfg.Network = tokenvals[3]
                 cfg.Node.Network = tokenvals[3]
                 cfg.Server.AccessKey = tokenvals[4]
-                if len(tokenvals) > 5 {
+                if len(tokenvals) > 4 {
 			cfg.Node.LocalRange = tokenvals[5]
 		}
 		if c.String("grpcserver") != "" {

@@ -144,15 +144,9 @@ func main() {
             Usage: "Local Range if network is local, for instance 192.168.1.0/24.",
         },
         &cli.StringFlag{
-            Name:  "roaming",
-            EnvVars: []string{"NETCLIENT_ROAMING"},
-            Value: "on",
-            Usage: "Checks for changes in IP address during updates if 'on'. Stays static if 'off'. On by default.",
-        },
-        &cli.StringFlag{
             Name:  "dns",
             EnvVars: []string{"NETCLIENT_DNS"},
-            Value: "",
+            Value: "on",
             Usage: "Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset.",
         },
         &cli.StringFlag{

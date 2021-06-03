@@ -190,7 +190,11 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                         continue
                 }
                 if nodecfg.Endpoint == res.Peers.Endpoint {
-                        continue
+                        if nodecfg.LocalAddress != res.Peers.Localaddress && res.Peers.Localaddress != "" {
+				res.Peers.Endpoint = res.Peers.Localaddress
+			} else {
+				continue
+			}
                 }
 
                 var peer wgtypes.PeerConfig

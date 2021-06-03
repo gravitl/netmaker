@@ -260,30 +260,9 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 			fmt.Printf("This is inconvenient: %v", err)
 		}
 	}
-
 	//=========DNS Setup==========\\
 	if nodecfg.DNS == "on" {
-
-	        _, err := exec.LookPath("resolvectl")
-		if err != nil {
-			fmt.Println(err)
-			fmt.Println("WARNING: resolvectl not present. Unable to set dns. Install resolvectl or run manually.")
-		} else {
-			_, err = exec.Command("resolvectl", "domain", ifacename, "~"+network).Output()
-			if err != nil {
-				fmt.Println(err)
-				fmt.Println("WARNING: Error encountered setting dns. Aborted setting dns.")
-			} else {
-				_, err = exec.Command("resolvectl", "default-route", ifacename, "false").Output()
-				if err != nil {
-	                                fmt.Println(err)
-	                                fmt.Println("WARNING: Error encountered setting dns. Aborted setting dns.")
-				} else {
-					_, err = exec.Command("resolvectl", "dns", ifacename, nameserver).Output()
-					fmt.Println(err)
-				}
-			}
-		}
+		_ = local.UpdateDNS(ifacename, network, nameserver)
 	}
         //=========End DNS Setup=======\\
 
