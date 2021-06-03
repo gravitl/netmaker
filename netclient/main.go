@@ -146,7 +146,7 @@ func main() {
         &cli.StringFlag{
             Name:  "dns",
             EnvVars: []string{"NETCLIENT_DNS"},
-            Value: "",
+            Value: "on",
             Usage: "Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset.",
         },
         &cli.StringFlag{

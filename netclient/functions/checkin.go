@@ -286,7 +286,7 @@ func CheckIn(network string) error {
 
 func Pull (network string) error{
         node := server.GetNode(network)
-        cfg, err := config.ReadConfig(network)
+	cfg, err := config.ReadConfig(network)
         if err != nil {
                 return err
         }
@@ -326,6 +326,7 @@ func Pull (network string) error{
         if err != nil {
                 return err
         }
+
 	return err
 }
 
