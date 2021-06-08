@@ -28,6 +28,7 @@ services:
       SERVER_HOST: "HOST_IP"
       DNS_MODE: "off"
       CLIENT_MODE: "off"
+      MONGO_HOST: "mongodb"
       SERVER_GRPC_WIREGUARD: "off"
   netmaker-ui:
     container_name: netmaker-ui
