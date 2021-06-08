@@ -22,7 +22,7 @@ services:
       - "50051:50051"
     depends_on:
       - mongodb
-    image: gravitl/netmaker:v0.3
+    image: gravitl/netmaker:v0.5
     restart: always
     environment:
       SERVER_HOST: "HOST_IP"
@@ -33,7 +33,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.3
+    image: gravitl/netmaker-ui:v0.5
     links:
       - "netmaker:api"
     ports:
