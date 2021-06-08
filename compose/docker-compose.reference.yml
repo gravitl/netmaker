@@ -17,7 +17,7 @@ services:
     container_name: netmaker
     depends_on:
       - mongodb
-    image: gravitl/netmaker:v0.3
+    image: gravitl/netmaker:v0.5
     volumes: # Volume mounts necessary for CLIENT_MODE to control netclient, wireguard, and networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
       - ./:/local
       - /etc/netclient:/etc/netclient
@@ -61,7 +61,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.3
+    image: gravitl/netmaker-ui:v0.5
     links:
       - "netmaker:api"
     ports:
