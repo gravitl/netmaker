@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -629,8 +630,8 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	}
 
 	netID := network.NetID
-	grpcaddress := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
-	apiaddress := servercfg.GetAPIHost() + ":" + servercfg.GetAPIPort()
+	grpcaddress := net.JoinHostPort(servercfg.GetGRPCHost(), servercfg.GetGRPCPort())
+	apiaddress := net.JoinHostPort(servercfg.GetAPIHost(), servercfg.GetAPIPort())
 	wgport := servercfg.GetGRPCWGPort()
 
 	accessstringdec := wgport + "|" +grpcaddress + "|" + apiaddress + "|" + netID + "|" + accesskey.Value + "|" + privAddr
@@ -668,7 +669,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 func GetSignupToken(netID string) (models.AccessKey, error) {
 
 	var accesskey models.AccessKey
-        address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
+	address := net.JoinHostPort(servercfg.GetGRPCHost(), servercfg.GetGRPCPort())
 
         accessstringdec := address + "|" + netID + "|" + "" + "|"
         accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
