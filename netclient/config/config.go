@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 	"fmt"
+	"net"
 	"log"
 	"gopkg.in/yaml.v3"
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -435,22 +436,27 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 
 func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
 	var cfg GlobalConfig
-        if c.String("token") != "" {
-                tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
-                if err  != nil {
-                        log.Println("error decoding token")
-                        return cfg, err
-                }
-                token := string(tokenbytes)
-                tokenvals := strings.Split(token, "|")
-		grpcvals := strings.Split(tokenvals[1],":")
-		apivals := strings.Split(tokenvals[2], ":")
-		cfg.Client.ServerWGPort = tokenvals[0]
-                cfg.Client.ServerPrivateAddress = grpcvals[0]
-                cfg.Client.ServerGRPCPort = grpcvals[1]
-                cfg.Client.ServerPublicEndpoint = apivals[0]
-                cfg.Client.ServerAPIPort = apivals[1]
+	if c.String("token") != "" {
+		tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
+		if err != nil {
+			log.Println("error decoding token")
+			return cfg, err
+		}
+		token := string(tokenbytes)
+		tokenvals := strings.Split(token, "|")
 
+		cfg.Client.ServerPrivateAddress, cfg.Client.ServerGRPCPort, err = net.SplitHostPort(tokenvals[1])
+		if err != nil {
+			log.Println("error decoding token grpcserver")
+			return cfg, err
+		}
+		cfg.Client.ServerPublicEndpoint, cfg.Client.ServerAPIPort, err = net.SplitHostPort(tokenvals[2])
+		if err != nil {
+			log.Println("error decoding token apiserver")
+			return cfg, err
+		}
+
+		cfg.Client.ServerWGPort = tokenvals[0]
 		cfg.Client.ServerKey = tokenvals[4]
 
                 if c.String("grpcserver") != "" {
