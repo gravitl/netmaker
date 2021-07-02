@@ -1,0 +1,12 @@
+#first stage - builder
+
+FROM debian:latest
+
+COPY ./netclient/netclient /root/
+COPY ./netclient/checkin.sh /root/
+
+WORKDIR /root/
+
+RUN chmod +x checkin.sh
+
+CMD ["./checkin.sh"]

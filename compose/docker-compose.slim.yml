@@ -25,7 +25,7 @@ services:
     image: gravitl/netmaker:v0.5
     restart: always
     environment:
-      SERVER_HOST: "HOST_IP"
+      SERVER_HOST: "0.0.0.0"
       DNS_MODE: "off"
       CLIENT_MODE: "off"
       MONGO_HOST: "mongodb"
@@ -38,8 +38,8 @@ services:
     links:
       - "netmaker:api"
     ports:
-      - "80:80"
+      - "8082:80"
     environment:
-      BACKEND_URL: "http://HOST_IP:8081"
+      BACKEND_URL: "http://localhost:8081"
 volumes:
   mongovol: {}

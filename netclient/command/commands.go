@@ -54,14 +54,26 @@ func Join(cfg config.ClientConfig) error {
 }
 
 func CheckIn(cfg config.ClientConfig) error {
-        if cfg.Network == "all" || cfg.Network == "" {
-		log.Println("Required, '-n'. No network provided. Exiting.")
-                os.Exit(1)
-        }
-	err := functions.CheckIn(cfg.Network)
-	if err != nil {
-		log.Println("Error checking in: ", err)
-		os.Exit(1)
+	var err error
+	if cfg.Network == "all" || cfg.Network == "" {
+		nets, err := functions.GetNetworks()
+		if err != nil {
+                        log.Println("Error retrieving networks: ", err)
+                        os.Exit(1)
+                }
+		for _, n := range nets {
+			err = functions.CheckIn(n)
+			if err != nil {
+				log.Println("Error checking in to network " + n + ": ", err)
+				os.Exit(1)
+			}
+		}
+	} else {
+		err = functions.CheckIn(cfg.Network)
+		if err != nil {
+			log.Println("Error checking in: ", err)
+			os.Exit(1)
+		}
 	}
 	return nil
 }

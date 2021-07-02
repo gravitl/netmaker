@@ -1,0 +1,12 @@
+#first stage - builder
+
+FROM debian:latest
+
+RUN echo "deb http://deb.debian.org/debian/ unstable main" > /etc/apt/sources.list.d/unstable.list
+RUN \
+ echo "**** install dependencies ****" && \
+ apt-get update && \
+ apt-get install -y --no-install-recommends \
+	wireguard \
+	wireguard-tools
+#WORKDIR /root/
