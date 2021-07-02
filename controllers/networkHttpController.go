@@ -78,8 +78,15 @@ func SecurityCheck(netname, token string) error {
 	}
 	//all endpoints here require master so not as complicated
 	if !hasBearer || !authenticateMaster(authToken) {
-		_, isadmin, err := functions.VerifyUserToken(authToken)
-		if err != nil || !isadmin {
+		_, networks, isadmin, err := functions.VerifyUserToken(authToken)
+		if err != nil {
+                        return errors.New("Error verifying user token")
+		}
+		if !isadmin && netname != ""{
+			if !functions.SliceContains(networks, netname){
+				return errors.New("You are unauthorized to access this endpoint")
+			}
+		} else if !isadmin {
 			return errors.New("You are unauthorized to access this endpoint")
 		}
 	}

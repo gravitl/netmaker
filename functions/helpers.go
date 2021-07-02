@@ -26,6 +26,16 @@ import (
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the network
 
+func SliceContains(slice []string, item string) bool {
+    set := make(map[string]struct{}, len(slice))
+    for _, s := range slice {
+        set[s] = struct{}{}
+    }
+
+    _, ok := set[item] 
+    return ok
+}
+
 func CreateServerToken(netID string) (string, error) {
 	var network models.Network
 	var accesskey models.AccessKey

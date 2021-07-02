@@ -10,6 +10,7 @@ type AuthParams struct {
 type User struct {
 	UserName string `json:"username" bson:"username" validate:"alphanum,min=3"`
 	Password string `json:"password" bson:"password" validate:"required,min=5"`
+	Networks []string `json:"networks" bson:"networks"`
 	IsAdmin  bool   `json:"isadmin" bson:"isadmin"`
 }
 
@@ -21,6 +22,7 @@ type UserAuthParams struct {
 type UserClaims struct {
 	IsAdmin  bool
 	UserName string
+	Networks []string
 	jwt.StandardClaims
 }
 
