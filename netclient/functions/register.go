@@ -3,6 +3,7 @@ package functions
 import (
 	"time"
 	"os"
+	"net"
 	"log"
 	"io/ioutil"
 	"bytes"
@@ -41,7 +42,7 @@ func Register(cfg config.GlobalConfig) error {
         }
 	jsonbytes := []byte(jsonstring)
 	body := bytes.NewBuffer(jsonbytes)
-	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
+	publicaddress := net.JoinHostPort(cfg.Client.ServerPublicEndpoint, cfg.Client.ServerAPIPort)
 
 	res, err := http.Post("http://"+publicaddress+"/api/intclient/register","application/json",body)
         if err != nil {
@@ -76,7 +77,7 @@ func Register(cfg config.GlobalConfig) error {
 
 func Unregister(cfg config.GlobalConfig) error {
 	client := &http.Client{ Timeout: 7 * time.Second,}
-	publicaddress := cfg.Client.ServerPublicEndpoint + ":" + cfg.Client.ServerAPIPort
+	publicaddress := net.JoinHostPort(cfg.Client.ServerPublicEndpoint, cfg.Client.ServerAPIPort)
 	log.Println("sending delete request to: " + "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID)
 	req, err := http.NewRequest("DELETE", "http://"+publicaddress+"/api/intclient/"+cfg.Client.ClientID, nil)
 	if err != nil {
