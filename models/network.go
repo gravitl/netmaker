@@ -22,6 +22,7 @@ type Network struct {
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
 	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
+	NodeLimit	    int32       `json:"nodelimit" bson:"nodelimit"`
 	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
 	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
 	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
@@ -52,6 +53,7 @@ type NetworkUpdate struct {
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
 	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
+	NodeLimit	    int32       `json:"nodelimit" bson:"nodelimit"`
 	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
 	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
 	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
@@ -89,6 +91,9 @@ func (network *Network) SetDefaults() {
 	if network.DefaultListenPort == 0 {
 		network.DefaultListenPort = 51821
 	}
+        if network.NodeLimit == 0 {
+                network.NodeLimit = 999999999
+        }
 	if network.DefaultPostDown == "" {
 
 	}
