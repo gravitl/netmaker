@@ -186,8 +186,9 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 
                         var isAuthorized = false
 			var macaddress = ""
-                        _, isadmin, errN := functions.VerifyUserToken(authToken)
-                        if errN == nil && isadmin {
+                        _, networks, isadmin, errN := functions.VerifyUserToken(authToken)
+			isnetadmin := isadmin
+			if errN == nil && isadmin {
 	                        macaddress = "mastermac"
                                 isAuthorized = true
 			} else {
@@ -201,6 +202,11 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				}
 				macaddress = mac
 			}
+                        if !isadmin && params["network"] != ""{
+                                if functions.SliceContains(networks, params["network"]){
+                                        isnetadmin = true
+                                }
+                        }
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if macaddress == "mastermac" {
 				isAuthorized = true
@@ -212,8 +218,11 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				case "all":
 					isAuthorized = true
 				case "nodes":
-					isAuthorized = (macaddress != "")
+					isAuthorized = (macaddress != "") || isnetadmin
 				case "network":
+					if isnetadmin {
+						isAuthorized = true
+					} else {
 					node, err := functions.GetNodeByMacAddress(params["network"], macaddress)
 					if err != nil {
 						errorResponse = models.ErrorResponse{
@@ -223,8 +232,13 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 						return
 					}
 					isAuthorized = (node.Network == params["network"])
+					}
 				case "node":
-					isAuthorized = (macaddress == params["macaddress"])
+                                        if isnetadmin {
+                                                isAuthorized = true
+                                        } else {
+						isAuthorized = (macaddress == params["macaddress"])
+					}
 				case "master":
 					isAuthorized = (macaddress == "mastermac")
 				default:

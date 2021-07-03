@@ -42,7 +42,7 @@ func securityCheckServer(next http.Handler) http.HandlerFunc {
 		}
 		//all endpoints here require master so not as complicated
 		//still might not be a good  way of doing this
-                _, isadmin, _ := functions.VerifyUserToken(authToken)
+                _, _, isadmin, _ := functions.VerifyUserToken(authToken)
 
 		if !isadmin && !authenticateMasterServer(authToken) {
 				errorResponse = models.ErrorResponse{
