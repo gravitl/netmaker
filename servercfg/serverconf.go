@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"errors"
+	"strconv"
 )
 
 func SetHost() error {
@@ -87,6 +88,18 @@ func GetAPIPort() string {
 		apiport = config.Config.Server.APIPort
 	}
 	return apiport
+}
+
+func GetDefaultNodeLimit() int32 {
+        var limit int32
+	limit = 999999999
+	envlimit, err := strconv.Atoi(os.Getenv("DEFAULT_NODE_LIMIT"))
+	if err == nil && envlimit != 0 {
+                limit = int32(envlimit)
+        } else if  config.Config.Server.DefaultNodeLimit != 0 {
+                limit = config.Config.Server.DefaultNodeLimit
+        }
+        return limit
 }
 
 func GetGRPCHost() string {

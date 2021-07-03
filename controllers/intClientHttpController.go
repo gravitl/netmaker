@@ -19,10 +19,10 @@ import (
 
 func intClientHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(getIntClient))).Methods("GET")
-	r.HandleFunc("/api/intclients", securityCheck(http.HandlerFunc(getAllIntClients))).Methods("GET")
-        r.HandleFunc("/api/intclients/deleteall", securityCheck(http.HandlerFunc(deleteAllIntClients))).Methods("DELETE")
-        r.HandleFunc("/api/intclient/{clientid}", securityCheck(http.HandlerFunc(updateIntClient))).Methods("PUT")
+	r.HandleFunc("/api/intclient/{clientid}", securityCheck(false, http.HandlerFunc(getIntClient))).Methods("GET")
+	r.HandleFunc("/api/intclients", securityCheck(false, http.HandlerFunc(getAllIntClients))).Methods("GET")
+        r.HandleFunc("/api/intclients/deleteall", securityCheck(false, http.HandlerFunc(deleteAllIntClients))).Methods("DELETE")
+        r.HandleFunc("/api/intclient/{clientid}", securityCheck(false, http.HandlerFunc(updateIntClient))).Methods("PUT")
 	r.HandleFunc("/api/intclient/register", http.HandlerFunc(registerIntClient)).Methods("POST")
 	r.HandleFunc("/api/intclient/{clientid}", http.HandlerFunc(deleteIntClient)).Methods("DELETE")
 }
