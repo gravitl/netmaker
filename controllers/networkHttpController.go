@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -22,22 +23,23 @@ import (
 )
 
 func networkHandlers(r *mux.Router) {
-	r.HandleFunc("/api/networks", securityCheck(http.HandlerFunc(getNetworks))).Methods("GET")
-	r.HandleFunc("/api/networks", securityCheck(http.HandlerFunc(createNetwork))).Methods("POST")
-	r.HandleFunc("/api/networks/{networkname}", securityCheck(http.HandlerFunc(getNetwork))).Methods("GET")
-	r.HandleFunc("/api/networks/{networkname}", securityCheck(http.HandlerFunc(updateNetwork))).Methods("PUT")
-	r.HandleFunc("/api/networks/{networkname}", securityCheck(http.HandlerFunc(deleteNetwork))).Methods("DELETE")
-	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(http.HandlerFunc(keyUpdate))).Methods("POST")
-	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(createAccessKey))).Methods("POST")
-	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(http.HandlerFunc(getAccessKeys))).Methods("GET")
-        r.HandleFunc("/api/networks/{networkname}/signuptoken", securityCheck(http.HandlerFunc(getSignupToken))).Methods("GET")
-	r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
+	r.HandleFunc("/api/networks", securityCheck(true, http.HandlerFunc(getNetworks))).Methods("GET")
+	r.HandleFunc("/api/networks", securityCheck(true, http.HandlerFunc(createNetwork))).Methods("POST")
+	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(getNetwork))).Methods("GET")
+	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(updateNetwork))).Methods("PUT")
+	r.HandleFunc("/api/networks/{networkname}/nodelimit", securityCheck(true, http.HandlerFunc(updateNetworkNodeLimit))).Methods("PUT")
+	r.HandleFunc("/api/networks/{networkname}", securityCheck(true, http.HandlerFunc(deleteNetwork))).Methods("DELETE")
+	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(false, http.HandlerFunc(keyUpdate))).Methods("POST")
+	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(createAccessKey))).Methods("POST")
+	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(getAccessKeys))).Methods("GET")
+        r.HandleFunc("/api/networks/{networkname}/signuptoken", securityCheck(false, http.HandlerFunc(getSignupToken))).Methods("GET")
+	r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(false, http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
 //Only admin should have access to all these network-level actions
 //or maybe some Users once implemented
-func securityCheck(next http.Handler) http.HandlerFunc {
+func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: "W1R3: It's not you it's me.",
@@ -45,7 +47,7 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 
 		var params = mux.Vars(r)
 		bearerToken := r.Header.Get("Authorization")
-		err := SecurityCheck(params["networkname"], bearerToken)
+		err := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
 		if err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
 				errorResponse.Code = http.StatusNotFound
@@ -57,7 +59,8 @@ func securityCheck(next http.Handler) http.HandlerFunc {
 		next.ServeHTTP(w, r)
 	}
 }
-func SecurityCheck(netname, token string) error {
+
+func SecurityCheck(reqAdmin bool, netname, token string) error {
 	hasnetwork := netname != ""
 	networkexists, err := functions.NetworkExists(netname)
 	if err != nil {
@@ -78,8 +81,17 @@ func SecurityCheck(netname, token string) error {
 	}
 	//all endpoints here require master so not as complicated
 	if !hasBearer || !authenticateMaster(authToken) {
-		_, isadmin, err := functions.VerifyUserToken(authToken)
-		if err != nil || !isadmin {
+		_, networks, isadmin, err := functions.VerifyUserToken(authToken)
+		if err != nil {
+                        return errors.New("Error verifying user token")
+		}
+		if !isadmin && reqAdmin {
+                                return errors.New("You are unauthorized to access this endpoint")
+		} else if !isadmin && netname != ""{
+			if !functions.SliceContains(networks, netname){
+				return errors.New("You are unauthorized to access this endpoint")
+			}
+		} else if !isadmin {
 			return errors.New("You are unauthorized to access this endpoint")
 		}
 	}
@@ -343,6 +355,42 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(returnednetwork)
 }
+
+func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        var params = mux.Vars(r)
+        var network models.Network
+        network, err := functions.GetParentNetwork(params["networkname"])
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+
+        var networkChange models.NetworkUpdate
+
+        _ = json.NewDecoder(r.Body).Decode(&networkChange)
+
+        collection := mongoconn.Client.Database("netmaker").Collection("networks")
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        filter := bson.M{"netid": network.NetID}
+
+	if networkChange.NodeLimit !=0 {
+	        update := bson.D{
+	                {"$set", bson.D{
+	                        {"nodelimit", networkChange.NodeLimit},
+	                }},
+	        }
+	        err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
+	        defer cancel()
+	        if err != nil {
+	                returnErrorResponse(w, r, formatError(err, "badrequest"))
+	                return
+	        }
+	}
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(network)
+}
+
 
 func UpdateNetwork(networkChange models.NetworkUpdate, network models.Network) (models.Network, error) {
 	//NOTE: Network.NetID is intentionally NOT editable. It acts as a static ID for the network.
@@ -629,8 +677,8 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	}
 
 	netID := network.NetID
-	grpcaddress := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
-	apiaddress := servercfg.GetAPIHost() + ":" + servercfg.GetAPIPort()
+	grpcaddress := net.JoinHostPort(servercfg.GetGRPCHost(), servercfg.GetGRPCPort())
+	apiaddress := net.JoinHostPort(servercfg.GetAPIHost(), servercfg.GetAPIPort())
 	wgport := servercfg.GetGRPCWGPort()
 
 	accessstringdec := wgport + "|" +grpcaddress + "|" + apiaddress + "|" + netID + "|" + accesskey.Value + "|" + privAddr
@@ -668,7 +716,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 func GetSignupToken(netID string) (models.AccessKey, error) {
 
 	var accesskey models.AccessKey
-        address := servercfg.GetGRPCHost() + ":" + servercfg.GetGRPCPort()
+	address := net.JoinHostPort(servercfg.GetGRPCHost(), servercfg.GetGRPCPort())
 
         accessstringdec := address + "|" + netID + "|" + "" + "|"
         accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))

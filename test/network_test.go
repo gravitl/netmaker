@@ -26,7 +26,7 @@ func TestCreateNetwork(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
+		assert.Contains(t, message.Message, "rror verifying user toke")
 	})
 	t.Run("CreateNetwork", func(t *testing.T) {
 		response, err := api(t, network, http.MethodPost, baseURL+"/api/networks", "secretkey")
@@ -73,7 +73,7 @@ func TestGetNetworks(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
+		assert.Contains(t, message.Message, "rror verifying user toke")
 	})
 }
 
@@ -99,7 +99,7 @@ func TestGetNetwork(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
+		assert.Contains(t, message.Message, "rror verifying user toke")
 	})
 	t.Run("InvalidNetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodGet, baseURL+"/api/networks/badnetwork", "secretkey")
@@ -125,7 +125,7 @@ func TestDeleteNetwork(t *testing.T) {
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, message.Message, "You are unauthorized to access this endpoint")
+		assert.Contains(t, message.Message, "rror verifying user toke")
 	})
 	t.Run("Badnetwork", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, baseURL+"/api/networks/badnetwork", "secretkey")
@@ -222,7 +222,7 @@ func TestCreateKey(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
+		assert.Contains(t, message.Message, "rror verifying user toke")
 	})
 	t.Run("Badnetwork", func(t *testing.T) {
 		response, err := api(t, key, http.MethodPost, baseURL+"/api/networks/badnetwork/keys", "secretkey")
@@ -277,7 +277,7 @@ func TestDeleteKey(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
+		assert.Contains(t, message.Message, "rror verifying user toke")
 	})
 }
 
@@ -314,7 +314,7 @@ func TestGetKeys(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusUnauthorized, message.Code)
-		assert.Contains(t, message.Message, "ou are unauthorized to access this endpoint")
+		assert.Contains(t, message.Message, "rror verifying user toke")
 	})
 }
 

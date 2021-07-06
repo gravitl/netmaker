@@ -28,11 +28,12 @@ func CreateJWT(macaddress string, network string) (response string, err error) {
     return "", err
 }
 
-func CreateUserJWT(username string, isadmin bool) (response string, err error) {
+func CreateUserJWT(username string, networks []string, isadmin bool) (response string, err error) {
     expirationTime := time.Now().Add(60 * time.Minute)
     claims := &models.UserClaims{
         UserName: username,
-        IsAdmin: isadmin,
+	Networks: networks,
+	IsAdmin: isadmin,
         StandardClaims: jwt.StandardClaims{
             ExpiresAt: expirationTime.Unix(),
         },
@@ -47,11 +48,11 @@ func CreateUserJWT(username string, isadmin bool) (response string, err error) {
 }
 
 // VerifyToken func will used to Verify the JWT Token while using APIS
-func VerifyUserToken(tokenString string) (username string, isadmin bool, err error) {
+func VerifyUserToken(tokenString string) (username string, networks []string, isadmin bool, err error) {
     claims := &models.UserClaims{}
 
     if tokenString == servercfg.GetMasterKey() {
-        return "masteradministrator", true, nil
+        return "masteradministrator", nil, true, nil
     }
 
     token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -59,9 +60,9 @@ func VerifyUserToken(tokenString string) (username string, isadmin bool, err err
     })
 
     if token != nil {
-        return claims.UserName, claims.IsAdmin, nil
+        return claims.UserName, claims.Networks, claims.IsAdmin, nil
     }
-    return "", false, err
+    return "", nil, false, err
 }
 
 // VerifyToken func will used to Verify the JWT Token while using APIS

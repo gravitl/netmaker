@@ -26,8 +26,11 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}/adm", authorizeUserAdm(http.HandlerFunc(updateUserAdm))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}", authorizeUserAdm(http.HandlerFunc(createUser))).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
+        r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
 }
 
 //Node authenticates using its password and retrieves a JWT for authorization.
@@ -96,9 +99,9 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 		return "", errors.New("User " + authRequest.UserName + " not found")
 	}
 	// This is a a useless test as cannot create user that is not an an admin
-	if !result.IsAdmin {
-		return "", errors.New("User is not an admin")
-	}
+	//if !result.IsAdmin {
+	//	return "", errors.New("User is not an admin")
+	//}
 
 	//compare password from request to stored password in database
 	//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
@@ -109,7 +112,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	//Create a new JWT for the node
-	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, true)
+	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.Networks,  result.IsAdmin)
 	return tokenString, nil
 }
 
@@ -123,10 +126,11 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 func authorizeUser(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+	        var params = mux.Vars(r)
 
 		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
-		err := ValidateUserToken(bearerToken)
+		err := ValidateUserToken(bearerToken, params["username"], false)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "unauthorized"))
 			return
@@ -135,7 +139,24 @@ func authorizeUser(next http.Handler) http.HandlerFunc {
 	}
 }
 
-func ValidateUserToken(token string) error {
+func authorizeUserAdm(next http.Handler) http.HandlerFunc {
+        return func(w http.ResponseWriter, r *http.Request) {
+                w.Header().Set("Content-Type", "application/json")
+	        var params = mux.Vars(r)
+
+                //get the auth token
+                bearerToken := r.Header.Get("Authorization")
+                err := ValidateUserToken(bearerToken, params["username"], true)
+                if err != nil {
+                        returnErrorResponse(w, r, formatError(err, "unauthorized"))
+                        return
+                }
+                next.ServeHTTP(w, r)
+        }
+}
+
+
+func ValidateUserToken(token string, user string, adminonly bool) error {
 	var tokenSplit = strings.Split(token, " ")
 
 	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
@@ -148,12 +169,16 @@ func ValidateUserToken(token string) error {
 		return errors.New("Missing Auth Token.")
 	}
 
-	username, _, err := functions.VerifyUserToken(authToken)
+	username, _, isadmin, err := functions.VerifyUserToken(authToken)
 	if err != nil {
 		return errors.New("Error Verifying Auth Token")
 	}
-
-	isAuthorized := username != ""
+	isAuthorized := false
+	if adminonly {
+		isAuthorized = isadmin
+	} else {
+		isAuthorized = username == user || isadmin
+	}
 	if !isAuthorized {
 		return errors.New("You are unauthorized to access this endpoint.")
 	}
@@ -214,6 +239,42 @@ func GetUser(username string) (models.User, error) {
 	return user, err
 }
 
+func GetUsers() ([]models.User, error) {
+
+        var users []models.User
+
+        collection := mongoconn.Client.Database("netmaker").Collection("users")
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+        cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+
+        if err != nil {
+                return users, err
+        }
+
+        defer cancel()
+
+        for cur.Next(context.TODO()) {
+
+                var user models.User
+                err := cur.Decode(&user)
+                if err != nil {
+                        return users, err
+                }
+
+                // add network our array
+                users = append(users, user)
+        }
+
+        if err := cur.Err(); err != nil {
+                return users, err
+        }
+
+        return users, err
+}
+
+
 //Get an individual node. Nothin fancy here folks.
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -231,13 +292,27 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+//Get an individual node. Nothin fancy here folks.
+func getUsers(w http.ResponseWriter, r *http.Request) {
+        // set header.
+        w.Header().Set("Content-Type", "application/json")
+
+        users, err := GetUsers()
+
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+
+        json.NewEncoder(w).Encode(users)
+}
+
+
 func CreateUser(user models.User) (models.User, error) {
 	hasadmin, err := HasAdmin()
-	if hasadmin {
+	if hasadmin && user.IsAdmin {
 		return models.User{}, errors.New("Admin already Exists")
 	}
-
-	user.IsAdmin = true
 	err = ValidateUser("create", user)
 	if err != nil {
 		return models.User{}, err
@@ -251,7 +326,7 @@ func CreateUser(user models.User) (models.User, error) {
 	//set password to encrypted password
 	user.Password = string(hash)
 
-	tokenString, _ := functions.CreateUserJWT(user.UserName, user.IsAdmin)
+	tokenString, _ := functions.CreateUserJWT(user.UserName,user.Networks, user.IsAdmin)
 
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
@@ -275,7 +350,7 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	var admin models.User
 	//get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
-
+        admin.IsAdmin = true
 	admin, err := CreateUser(admin)
 
 	if err != nil {
@@ -285,6 +360,24 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(admin)
 }
+
+func createUser(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+
+        var user models.User
+        //get node from body of request
+        _ = json.NewDecoder(r.Body).Decode(&user)
+
+        user, err := CreateUser(user)
+
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "badrequest"))
+                return
+        }
+
+        json.NewEncoder(w).Encode(user)
+}
+
 
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 
@@ -298,6 +391,9 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	if userchange.UserName != "" {
 		user.UserName = userchange.UserName
 	}
+        if len(userchange.Networks) > 0  {
+                user.Networks = userchange.Networks
+        }
 	if userchange.Password != "" {
 		//encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
@@ -325,6 +421,7 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 		{"$set", bson.D{
 			{"username", user.UserName},
 			{"password", user.Password},
+			{"networks", user.Networks},
 			{"isadmin", user.IsAdmin},
 		}},
 	}
@@ -360,12 +457,38 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	userchange.Networks = nil
 	user, err = UpdateUser(userchange, user)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	json.NewEncoder(w).Encode(user)
+}
+
+func updateUserAdm(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        var params = mux.Vars(r)
+        var user models.User
+        //start here
+        user, err := GetUser(params["username"])
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+        var userchange models.User
+        // we decode our body request params
+        err = json.NewDecoder(r.Body).Decode(&userchange)
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
+	user, err = UpdateUser(userchange, user)
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "badrequest"))
+                return
+        }
+        json.NewEncoder(w).Encode(user)
 }
 
 func DeleteUser(user string) (bool, error) {

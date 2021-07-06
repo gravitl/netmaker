@@ -20,14 +20,14 @@ import (
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", securityCheck(http.HandlerFunc(getAllDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}/nodes", securityCheck(http.HandlerFunc(getNodeDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheck(http.HandlerFunc(getCustomDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}", securityCheck(http.HandlerFunc(getDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/{network}", securityCheck(http.HandlerFunc(createDNS))).Methods("POST")
-	r.HandleFunc("/api/dns/adm/pushdns", securityCheck(http.HandlerFunc(pushDNS))).Methods("POST")
-	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(deleteDNS))).Methods("DELETE")
-	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(updateDNS))).Methods("PUT")
+	r.HandleFunc("/api/dns", securityCheck(true, http.HandlerFunc(getAllDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/nodes", securityCheck(false, http.HandlerFunc(getNodeDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheck(false, http.HandlerFunc(getCustomDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}", securityCheck(false, http.HandlerFunc(getDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/{network}", securityCheck(false, http.HandlerFunc(createDNS))).Methods("POST")
+	r.HandleFunc("/api/dns/adm/pushdns", securityCheck(false, http.HandlerFunc(pushDNS))).Methods("POST")
+	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(false, http.HandlerFunc(deleteDNS))).Methods("DELETE")
+	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(false, http.HandlerFunc(updateDNS))).Methods("PUT")
 }
 
 //Gets all nodes associated with network, including pending nodes

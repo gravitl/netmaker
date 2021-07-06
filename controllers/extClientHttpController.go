@@ -24,13 +24,13 @@ import (
 
 func extClientHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/extclients", securityCheck(http.HandlerFunc(getAllExtClients))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}", securityCheck(http.HandlerFunc(getNetworkExtClients))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(http.HandlerFunc(getExtClient))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", securityCheck(http.HandlerFunc(getExtClientConf))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(http.HandlerFunc(updateExtClient))).Methods("PUT")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(http.HandlerFunc(deleteExtClient))).Methods("DELETE")
-	r.HandleFunc("/api/extclients/{network}/{macaddress}", securityCheck(http.HandlerFunc(createExtClient))).Methods("POST")
+	r.HandleFunc("/api/extclients", securityCheck(true, http.HandlerFunc(getAllExtClients))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}", securityCheck(false, http.HandlerFunc(getNetworkExtClients))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(getExtClient))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", securityCheck(false, http.HandlerFunc(getExtClientConf))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(updateExtClient))).Methods("PUT")
+	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(deleteExtClient))).Methods("DELETE")
+	r.HandleFunc("/api/extclients/{network}/{macaddress}", securityCheck(false, http.HandlerFunc(createExtClient))).Methods("POST")
 }
 
 // TODO: Implement Validation

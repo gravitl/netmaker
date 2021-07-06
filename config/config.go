@@ -40,6 +40,7 @@ type ServerConfig struct {
   APIPort   string `yaml:"apiport"`
   GRPCHost   string `yaml:"grpchost"`
   GRPCPort   string `yaml:"grpcport"`
+  DefaultNodeLimit   int32 `yaml:"defaultnodelimit"`
   MasterKey	string `yaml:"masterkey"`
   AllowedOrigin	string `yaml:"allowedorigin"`
   RestBackend string `yaml:"restbackend"`
