@@ -361,3 +361,66 @@ A config file may be placed under config/environments/<env-name>.yml. To read th
 .. literalinclude:: ../config/environments/dev.yaml
   :language: YAML
 
+
+Nginx Reverse Proxy Setup with https
+====================================
+
+The `Swag Proxy <https://github.com/linuxserver/docker-swag>`_ makes it easy to generate a valid ssl certificate for the config bellow. Here is the `documentation <https://docs.linuxserver.io/general/swag>`_ for the installation.
+
+The following file configures Netmaker as a subdomain. This config is an adaption from the swag proxy project.
+
+./netmaker.subdomain.conf:
+
+.. code-block:: nginx
+
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+
+        server_name netmaker.*; # The external URL
+        client_max_body_size 0;
+
+        # A valid https certificate is needed.
+        include /config/nginx/ssl.conf;
+
+        location / {
+            # This config file can be found at:
+            # https://github.com/linuxserver/docker-swag/blob/master/root/defaults/proxy.conf
+            include /config/nginx/proxy.conf;
+
+            # if you use a custom resolver to find your app, needed with swag proxy
+            # resolver 127.0.0.11 valid=30s;
+            set $upstream_app netmaker-ui;                             # The internal URL
+            set $upstream_port 80;                                     # The internal Port
+            set $upstream_proto http;                                  # the protocol that is being used
+            proxy_pass $upstream_proto://$upstream_app:$upstream_port; # combine the set variables from above
+            }
+        }
+
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+
+        server_name backend-netmaker.*; # The external URL
+        client_max_body_size 0;
+        underscores_in_headers on;
+
+        # A valid https certificate is needed.
+        include /config/nginx/ssl.conf;
+
+        location / {
+            # if you use a custom resolver to find your app, needed with swag proxy
+            # resolver 127.0.0.11 valid=30s;
+
+            set $upstream_app netmaker;                                # The internal URL
+            set $upstream_port 8081;                                   # The internal Port
+            set $upstream_proto http;                                  # the protocol that is being used
+            proxy_pass $upstream_proto://$upstream_app:$upstream_port; # combine the set variables from above
+
+            # Forces the header to be the one that is visible from the outside
+            proxy_set_header                Host backend.netmaker.example.org; # Please cange to your URL
+
+            # Pass all headers through to the backend
+            proxy_pass_request_headers      on;
+            }
+        }
