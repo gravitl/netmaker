@@ -36,10 +36,13 @@ type EnvironmentConfig struct {
 
 // ServerConfig :
 type ServerConfig struct {
+  APIConnString string `yaml:"apiconn"`
   APIHost   string  `yaml:"apihost"`
   APIPort   string `yaml:"apiport"`
+  GRPCConnString string `yaml:"grpcconn"`
   GRPCHost   string `yaml:"grpchost"`
   GRPCPort   string `yaml:"grpcport"`
+  GRPCSecure   string `yaml:"grpcsecure"`
   DefaultNodeLimit   int32 `yaml:"defaultnodelimit"`
   MasterKey	string `yaml:"masterkey"`
   AllowedOrigin	string `yaml:"allowedorigin"`
@@ -48,6 +51,8 @@ type ServerConfig struct {
   ClientMode string `yaml:"clientmode"`
   DNSMode string `yaml:"dnsmode"`
   DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
+  DisableDefaultNet string `yaml:"disabledefaultnet"`
+  GRPCSSL   string `yaml:"grpcssl"`
 }
 
 type WG struct {

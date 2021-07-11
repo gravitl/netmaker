@@ -6,11 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"strings"
 	"time"
-
+	"github.com/jinzhu/copier"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/functions"
@@ -194,13 +193,14 @@ func ValidateNetworkCreate(network models.Network) error {
 	//
 	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
 		isFieldUnique, _ := functions.IsNetworkNameUnique(fl.Field().String())
-		//		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
-		return isFieldUnique
+		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
+		return isFieldUnique && inCharSet
 	})
 	//
-	_ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
+	_ = v.RegisterValidation("displayname_valid", func(fl validator.FieldLevel) bool {
 		isFieldUnique, _ := functions.IsNetworkDisplayNameUnique(fl.Field().String())
-		return isFieldUnique
+		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
+		return isFieldUnique && inCharSet
 	})
 
 	err := v.Struct(network)
@@ -677,12 +677,28 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	}
 
 	netID := network.NetID
-	grpcaddress := net.JoinHostPort(servercfg.GetGRPCHost(), servercfg.GetGRPCPort())
-	apiaddress := net.JoinHostPort(servercfg.GetAPIHost(), servercfg.GetAPIPort())
-	wgport := servercfg.GetGRPCWGPort()
 
-	accessstringdec := wgport + "|" +grpcaddress + "|" + apiaddress + "|" + netID + "|" + accesskey.Value + "|" + privAddr
-	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+        var accessToken models.AccessToken
+        var tokensrvcfg models.ServerConfig
+        var tokenwgcfg models.WG
+        srvcfg := servercfg.GetServerConfig()
+        wgcfg := servercfg.GetWGConfig()
+        copier.Copy(tokensrvcfg, srvcfg)
+        copier.Copy(tokenwgcfg, wgcfg)
+
+        accessToken.ServerConfig = tokensrvcfg
+        accessToken.WG = tokenwgcfg
+	accessToken.ClientConfig.Network = netID
+	accessToken.ClientConfig.Key = accesskey.Value
+	accessToken.ClientConfig.LocalRange = privAddr
+
+        tokenjson, err := json.Marshal(accessToken)
+        if err != nil {
+                return accesskey, err
+        }
+
+        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
+
 	//validate accesskey
 	v := validator.New()
 	err = v.Struct(accesskey)
@@ -716,10 +732,23 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 func GetSignupToken(netID string) (models.AccessKey, error) {
 
 	var accesskey models.AccessKey
-	address := net.JoinHostPort(servercfg.GetGRPCHost(), servercfg.GetGRPCPort())
+	var accessToken models.AccessToken
+	var tokensrvcfg models.ServerConfig
+	var tokenwgcfg models.WG
+        srvcfg := servercfg.GetServerConfig()
+        wgcfg := servercfg.GetWGConfig()
+	copier.Copy(tokensrvcfg, srvcfg)
+	copier.Copy(tokenwgcfg, wgcfg)
 
-        accessstringdec := address + "|" + netID + "|" + "" + "|"
-        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+	accessToken.ServerConfig = tokensrvcfg
+	accessToken.WG = tokenwgcfg
+
+	tokenjson, err := json.Marshal(accessToken)
+        if err != nil {
+                return accesskey, err
+        }
+
+        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
         return accesskey, nil
 }
 func getSignupToken(w http.ResponseWriter, r *http.Request) {

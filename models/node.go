@@ -28,7 +28,7 @@ type Node struct {
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"required,ip"`
 	PostUp              string             `json:"postup" bson:"postup"`
 	PostDown            string             `json:"postdown" bson:"postdown"`
-	AllowedIPs          string             `json:"allowedips" bson:"allowedips"`
+	AllowedIPs          []string             `json:"allowedips" bson:"allowedips"`
 	PersistentKeepalive int32              `json:"persistentkeepalive" bson:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
 	SaveConfig          *bool              `json:"saveconfig" bson:"saveconfig"`
 	AccessKey           string             `json:"accesskey" bson:"accesskey"`
@@ -48,6 +48,8 @@ type Node struct {
 	EgressGatewayRanges        []string             `json:"egressgatewayranges" bson:"egressgatewayranges"`
 	IngressGatewayRange        string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
+        StaticIP         string             `json:"staticip" bson:"staticip"`
+        StaticPubKey         string             `json:"staticpubkey" bson:"staticpubkey"`
 }
 
 //node update struct --- only validations are different
@@ -62,7 +64,7 @@ type NodeUpdate struct {
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"omitempty,ip"`
 	PostUp              string             `json:"postup" bson:"postup"`
 	PostDown            string             `json:"postdown" bson:"postdown"`
-	AllowedIPs          string             `json:"allowedips" bson:"allowedips"`
+	AllowedIPs          []string             `json:"allowedips" bson:"allowedips"`
 	PersistentKeepalive int32              `json:"persistentkeepalive" bson:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
 	SaveConfig          *bool              `json:"saveconfig" bson:"saveconfig"`
 	AccessKey           string             `json:"accesskey" bson:"accesskey"`
@@ -80,8 +82,10 @@ type NodeUpdate struct {
 	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
 	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
         IngressGatewayRange        string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
-	EgressGatewayRange        string             `json:"gatewayrange" bson:"gatewayrange"`
+	EgressGatewayRanges        []string             `json:"egressgatewayranges" bson:"egressgatewayranges"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
+	StaticIP         string             `json:"staticip" bson:"staticip"`
+	StaticPubKey         string             `json:"staticpubkey" bson:"staticpubkey"`
 }
 
 //Duplicated function for NodeUpdates
@@ -191,6 +195,13 @@ func (node *Node) SetDefaults() {
 		postup := parentNetwork.DefaultPostUp
 		node.PostUp = postup
 	}
+	if node.StaticIP == "" {
+		node.StaticIP = "no"
+	}
+        if node.StaticPubKey == "" {
+                node.StaticPubKey = "no"
+        }
+
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
 
 }

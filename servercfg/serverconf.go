@@ -19,8 +19,10 @@ func SetHost() error {
 }
 func GetServerConfig() config.ServerConfig {
 	var cfg config.ServerConfig
+	cfg.APIConnString = GetAPIConnString()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
+	cfg.GRPCConnString = GetGRPCConnString()
 	cfg.GRPCHost = GetGRPCHost()
 	cfg.GRPCPort = GetGRPCPort()
 	cfg.MasterKey = "(hidden)"
@@ -41,10 +43,18 @@ func GetServerConfig() config.ServerConfig {
 	if IsDNSMode() {
 	        cfg.DNSMode = "on"
 	}
+        cfg.GRPCSSL = "off"
+        if IsGRPCSSL() {
+                cfg.GRPCSSL = "on"
+        }
 	cfg.DisableRemoteIPCheck = "off"
 	if DisableRemoteIPCheck() {
 		cfg.DisableRemoteIPCheck = "on"
 	}
+        cfg.DisableDefaultNet = "off"
+        if DisableDefaultNet() {
+                cfg.DisableRemoteIPCheck = "on"
+        }
 	return cfg
 }
 
@@ -63,7 +73,15 @@ func GetWGConfig() config.WG{
 	cfg.GRPCWGPrivKey =  GetGRPCWGPrivKey()
 	return cfg
 }
-
+func GetAPIConnString() string {
+        conn := ""
+        if os.Getenv("SERVER_API_CONN_STRING") != ""  {
+                conn = os.Getenv("SERVER_API_CONN_STRING")
+        } else if config.Config.Server.APIConnString != "" {
+                conn = config.Config.Server.APIConnString
+        }
+        return conn
+}
 func GetAPIHost() string {
         serverhost := "127.0.0.1"
         if os.Getenv("SERVER_HTTP_HOST") != ""  {
@@ -100,6 +118,15 @@ func GetDefaultNodeLimit() int32 {
                 limit = config.Config.Server.DefaultNodeLimit
         }
         return limit
+}
+func GetGRPCConnString() string {
+        conn := ""
+        if os.Getenv("SERVER_GRPC_CONN_STRING") != ""  {
+                conn = os.Getenv("SERVER_GRPC_CONN_STRING")
+        } else if config.Config.Server.GRPCConnString != "" {
+                conn = config.Config.Server.GRPCConnString
+        }
+        return conn
 }
 
 func GetGRPCHost() string {
@@ -201,6 +228,21 @@ func IsDNSMode() bool {
        }
        return isdns
 }
+
+func IsGRPCSSL() bool {
+        isssl := false
+        if os.Getenv("GRPC_SSL") != "" {
+                if os.Getenv("GRPC_SSL") == "on" {
+                        isssl = true
+                }
+        } else if config.Config.Server.DNSMode != "" {
+                if config.Config.Server.DNSMode == "on" {
+                        isssl = true
+                }
+       }
+       return isssl
+}
+
 func DisableRemoteIPCheck() bool {
         disabled := false
         if os.Getenv("DISABLE_REMOTE_IP_CHECK") != "" {
@@ -209,6 +251,19 @@ func DisableRemoteIPCheck() bool {
                 }
         } else if config.Config.Server.DisableRemoteIPCheck != "" {
                 if config.Config.Server.DisableRemoteIPCheck == "on" {
+                        disabled= true
+                }
+       }
+       return disabled
+}
+func DisableDefaultNet() bool {
+        disabled := false
+        if os.Getenv("DISABLE_DEFAULT_NET") != "" {
+                if os.Getenv("DISABLE_DEFAULT_NET") == "on" {
+                        disabled = true
+                }
+        } else if config.Config.Server.DisableDefaultNet != "" {
+                if config.Config.Server.DisableDefaultNet == "on" {
                         disabled= true
                 }
        }
