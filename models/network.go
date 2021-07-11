@@ -47,8 +47,8 @@ type NetworkUpdate struct {
 	//	AddressRange6          string             `json:"addressrange6" bson:"addressrange6" validate:"required_with=isdualstack true,cidrv6"`
 	AddressRange6 string `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
-	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,validnetid,min=1,max=20"`
-	NetID               string      `json:"netid" bson:"netid" validate:"omitempty,validnetid,min=1,max=15"`
+	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,netid_valid,min=1,max=20"`
+	NetID               string      `json:"netid" bson:"netid" validate:"omitempty,netid_valid,min=1,max=15"`
 	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`

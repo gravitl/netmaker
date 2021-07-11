@@ -137,6 +137,14 @@ func RemoveComms(networks []models.Network) []models.Network {
 func ValidateNetworkUpdate(network models.NetworkUpdate) error {
 	v := validator.New()
 
+        _ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
+                if fl.Field().String() == "" {
+			return true
+		}
+                inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
+                return inCharSet
+        })
+
 	//	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
 	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
 	//		return isvalid
