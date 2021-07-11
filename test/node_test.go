@@ -286,7 +286,6 @@ func TestCreateEgressGateway(t *testing.T) {
 		assert.True(t, message.IsEgressGateway)
 		t.Log(err)
 	})
-	})
 	t.Run("BadInterface", func(t *testing.T) {
 		gateway.Ranges = []string{"0.0.0.0/0"}
 		gateway.Interface = ""

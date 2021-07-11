@@ -34,7 +34,7 @@ func TestCheckIn(t *testing.T) {
 func TestCreateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
 	gateway.Interface = "eth0"
-	gateway.Ranges = ["10.100.100.0/24"]
+	gateway.Ranges = []string{"10.100.100.0/24"}
 	deleteNet(t)
 	createNet()
 	t.Run("NoNodes", func(t *testing.T) {
@@ -62,14 +62,14 @@ func TestDeleteEgressGateway(t *testing.T) {
 	createTestNode(t)
 	testnode := createTestNode(t)
 	gateway.Interface = "eth0"
-	gateway.Ranges = ["10.100.100.0/24"]
+	gateway.Ranges = []string{"10.100.100.0/24"}
 	gateway.NetID = "skynet"
 	gateway.NodeID = testnode.MacAddress
 	t.Run("Success", func(t *testing.T) {
 		node, err := CreateEgressGateway(gateway)
 		assert.Nil(t, err)
 		assert.Equal(t, true, node.IsEgressGateway)
-		assert.Equal(t, ["10.100.100.0/24"], node.EgressGatewayRanges)
+		assert.Equal(t, []string{"10.100.100.0/24"}, node.EgressGatewayRanges)
 		node, err = DeleteEgressGateway(gateway.NetID, gateway.NodeID)
 		assert.Nil(t, err)
 		assert.Equal(t, false, node.IsEgressGateway)
@@ -177,7 +177,7 @@ func TestValidateEgressGateway(t *testing.T) {
 	})
 	t.Run("Success", func(t *testing.T) {
 		gateway.Interface = "eth0"
-		gateway.Ranges = ["10.100.100.0/24"]
+		gateway.Ranges = []string{"10.100.100.0/24"}
 		err := ValidateEgressGateway(gateway)
 		assert.Nil(t, err)
 	})
