@@ -578,7 +578,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	var nodechange models.Node
 	nodechange.IsEgressGateway = true
-	nodechange.EgressGatewayRange = gateway.RangeString
+	nodechange.EgressGatewayRanges = gateway.Ranges
 	nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	if gateway.PostUp != "" {

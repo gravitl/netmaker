@@ -1,6 +1,8 @@
 package functions
 
 import (
+	"google.golang.org/grpc/credentials"
+	"crypto/tls"
 	"fmt"
 	"errors"
 	"context"
@@ -139,11 +141,18 @@ func JoinNetwork(cfg config.ClientConfig) error {
 	}
 	var wcclient nodepb.NodeServiceClient
 	var requestOpts grpc.DialOption
-        requestOpts = grpc.WithInsecure()
-        conn, err := grpc.Dial(cfg.Server.GRPCAddress, requestOpts)
+	log.Println("cant believe we made it")
+	//requestOpts = grpc.WithInsecure()
+	h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+	requestOpts = grpc.WithTransportCredentials(h2creds)
+
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, requestOpts)
+
         if err != nil {
                 log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
         }
+        log.Println("cant believe we made it 2")
+
         wcclient = nodepb.NewNodeServiceClient(conn)
 
         postnode := &nodepb.Node{
@@ -165,12 +174,16 @@ func JoinNetwork(cfg config.ClientConfig) error {
         if err != nil {
 		return err
         }
+        log.Println("cant believe we made it 3")
+
         res, err := wcclient.CreateNode(
                 context.TODO(),
                 &nodepb.CreateNodeReq{
                         Node: postnode,
                 },
         )
+	log.Println(res)
+        log.Println("cant believe we made it 3.5")
         if err != nil {
                 return err
         }
@@ -179,6 +192,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
                 return err
         }
 
+        log.Println("cant believe we made it 3.75")
        if node.Dnsoff==true  {
 		cfg.Node.DNS = "yes"
 	}
@@ -189,6 +203,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		}
 		node.Endpoint = node.Localaddress
 	}
+        log.Println("cant believe we made it 4")
 
         err = config.ModConfig(node)
         if err != nil {
