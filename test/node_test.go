@@ -274,7 +274,7 @@ func TestCreateEgressGateway(t *testing.T) {
 	//assert.False(t, node.IsEgressGateway/g)
 	var gateway models.EgressGatewayRequest
 	t.Run("Valid", func(t *testing.T) {
-		gateway.Ranges = ["0.0.0.0/0"]
+		gateway.Ranges = []string{"0.0.0.0/0"}
 		gateway.Interface = "eth0"
 		response, err := api(t, gateway, http.MethodPost, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/creategateway", "secretkey")
 		assert.Nil(t, err, err)
@@ -288,7 +288,7 @@ func TestCreateEgressGateway(t *testing.T) {
 	})
 	})
 	t.Run("BadInterface", func(t *testing.T) {
-		gateway.Ranges = ["0.0.0.0/0"]
+		gateway.Ranges = []string{"0.0.0.0/0"}
 		gateway.Interface = ""
 		response, err := api(t, gateway, http.MethodPost, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/creategateway", "secretkey")
 		assert.Nil(t, err, err)
