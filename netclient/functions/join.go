@@ -28,7 +28,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
 		return err
 	}
-	log.Println("attempting to joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+	log.Println("attempting to join " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 	err := config.Write(&cfg, cfg.Network)
 	if err != nil {
 		return err
@@ -141,17 +141,16 @@ func JoinNetwork(cfg config.ClientConfig) error {
 	}
 	var wcclient nodepb.NodeServiceClient
 	var requestOpts grpc.DialOption
-	log.Println("cant believe we made it")
-	//requestOpts = grpc.WithInsecure()
-	h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-	requestOpts = grpc.WithTransportCredentials(h2creds)
-
+	requestOpts = grpc.WithInsecure()
+	if cfg.Server.GRPCSSL == "on" {
+		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+		requestOpts = grpc.WithTransportCredentials(h2creds)
+	}
 	conn, err := grpc.Dial(cfg.Server.GRPCAddress, requestOpts)
 
         if err != nil {
-                log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+                log.Fatalf("Unable to establish client connection to " + cfg.Server.GRPCAddress + ": %v", err)
         }
-        log.Println("cant believe we made it 2")
 
         wcclient = nodepb.NewNodeServiceClient(conn)
 
@@ -174,7 +173,6 @@ func JoinNetwork(cfg config.ClientConfig) error {
         if err != nil {
 		return err
         }
-        log.Println("cant believe we made it 3")
 
         res, err := wcclient.CreateNode(
                 context.TODO(),
@@ -182,8 +180,6 @@ func JoinNetwork(cfg config.ClientConfig) error {
                         Node: postnode,
                 },
         )
-	log.Println(res)
-        log.Println("cant believe we made it 3.5")
         if err != nil {
                 return err
         }
@@ -192,7 +188,6 @@ func JoinNetwork(cfg config.ClientConfig) error {
                 return err
         }
 
-        log.Println("cant believe we made it 3.75")
        if node.Dnsoff==true  {
 		cfg.Node.DNS = "yes"
 	}
@@ -203,8 +198,6 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		}
 		node.Endpoint = node.Localaddress
 	}
-        log.Println("cant believe we made it 4")
-
         err = config.ModConfig(node)
         if err != nil {
                 return err

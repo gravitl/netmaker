@@ -24,8 +24,8 @@ type ServerConfig struct {
 
 type WG struct {
   GRPCWireGuard  string  `json:"grpcwg"`
-  GRPCWGAddress  string `json:"grpcaddr"`
-  GRPCWGPort  string  `json:"grpcport"`
-  GRPCWGPubKey  string  `json:"pubkey"`
-  GRPCWGEndpoint  string  `json:"endpoint"`
+  GRPCWGAddress  string `json:"grpcwgaddr"`
+  GRPCWGPort  string  `json:"grpcwgport"`
+  GRPCWGPubKey  string  `json:"grpcwgpubkey"`
+  GRPCWGEndpoint  string  `json:"grpcwgendpoint"`
 }

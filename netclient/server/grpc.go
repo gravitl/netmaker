@@ -1,6 +1,8 @@
 package server
 
 import (
+        "google.golang.org/grpc/credentials"
+        "crypto/tls"
 	"fmt"
 	"context"
 	"log"
@@ -73,10 +75,13 @@ func RemoveNetwork(network string) error {
         node := cfg.Node
 	fmt.Println("Deleting remote node with MAC: " + node.MacAddress)
 
-
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
+        if cfg.Server.GRPCSSL == "on" {
+                h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+                requestOpts = grpc.WithTransportCredentials(h2creds)
+        }
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
 	if err != nil {
                 log.Printf("Unable to establish client connection to " + servercfg.GRPCAddress + ": %v", err)

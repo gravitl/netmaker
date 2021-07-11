@@ -1,6 +1,8 @@
 package functions
 
 import (
+        "google.golang.org/grpc/credentials"
+        "crypto/tls"
 	"fmt"
 	"context"
 	"strings"
@@ -120,10 +122,13 @@ func CheckIn(network string) error {
 		nodecfg = cfg.Node
 	}
 
-
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
+        if cfg.Server.GRPCSSL == "on" {
+                h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+                requestOpts = grpc.WithTransportCredentials(h2creds)
+        }
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
 		fmt.Printf("Cant dial GRPC server: %v", err)
@@ -296,6 +301,10 @@ func Pull (network string) error{
 	var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
+        if cfg.Server.GRPCSSL == "on" {
+                h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+                requestOpts = grpc.WithTransportCredentials(h2creds)
+        }
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
                 fmt.Printf("Cant dial GRPC server: %v", err)
@@ -342,6 +351,10 @@ func Push (network string) error{
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
+        if cfg.Server.GRPCSSL == "on" {
+                h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+                requestOpts = grpc.WithTransportCredentials(h2creds)
+        }
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
                 fmt.Printf("Cant dial GRPC server: %v", err)

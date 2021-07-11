@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 type GlobalConfig struct {
+	GRPCWireGuard string `yaml:"grpcwg"`
 	Client models.IntClient
 }
 
@@ -478,6 +479,7 @@ func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
                         log.Println("error converting token json to object", tokenbytes )
                         return cfg, err
                 }
+		cfg.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
 		cfg.Client.ServerPrivateAddress = accesstoken.WG.GRPCWGAddress
 		cfg.Client.ServerGRPCPort = accesstoken.WG.GRPCWGPort
 		if err != nil {

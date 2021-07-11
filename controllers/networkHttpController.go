@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"github.com/jinzhu/copier"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/functions"
@@ -679,15 +678,27 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	netID := network.NetID
 
         var accessToken models.AccessToken
-        var tokensrvcfg models.ServerConfig
-        var tokenwgcfg models.WG
-        srvcfg := servercfg.GetServerConfig()
-        wgcfg := servercfg.GetWGConfig()
-        copier.Copy(tokensrvcfg, srvcfg)
-        copier.Copy(tokenwgcfg, wgcfg)
+        s := servercfg.GetServerConfig()
+        w := servercfg.GetWGConfig()
+	servervals := models.ServerConfig{
+			APIConnString: s.APIConnString,
+			APIHost: s.APIHost,
+			APIPort: s.APIPort,
+			GRPCConnString: s.GRPCConnString,
+			GRPCHost: s.GRPCHost,
+			GRPCPort: s.GRPCPort,
+			GRPCSSL: s.GRPCSSL,
+			}
+	wgvals := models.WG{
+			GRPCWireGuard: w.GRPCWireGuard,
+			GRPCWGAddress: w.GRPCWGAddress,
+			GRPCWGPort: w.GRPCWGPort,
+			GRPCWGPubKey: w.GRPCWGPubKey,
+			GRPCWGEndpoint: s.APIHost,
+		}
 
-        accessToken.ServerConfig = tokensrvcfg
-        accessToken.WG = tokenwgcfg
+        accessToken.ServerConfig = servervals
+        accessToken.WG = wgvals
 	accessToken.ClientConfig.Network = netID
 	accessToken.ClientConfig.Key = accesskey.Value
 	accessToken.ClientConfig.LocalRange = privAddr
@@ -733,15 +744,27 @@ func GetSignupToken(netID string) (models.AccessKey, error) {
 
 	var accesskey models.AccessKey
 	var accessToken models.AccessToken
-	var tokensrvcfg models.ServerConfig
-	var tokenwgcfg models.WG
-        srvcfg := servercfg.GetServerConfig()
-        wgcfg := servercfg.GetWGConfig()
-	copier.Copy(tokensrvcfg, srvcfg)
-	copier.Copy(tokenwgcfg, wgcfg)
+        s := servercfg.GetServerConfig()
+        w := servercfg.GetWGConfig()
+        servervals := models.ServerConfig{
+                        APIConnString: s.APIConnString,
+                        APIHost: s.APIHost,
+                        APIPort: s.APIPort,
+                        GRPCConnString: s.GRPCConnString,
+                        GRPCHost: s.GRPCHost,
+                        GRPCPort: s.GRPCPort,
+                        GRPCSSL: s.GRPCSSL,
+                        }
+        wgvals := models.WG{
+                        GRPCWireGuard: w.GRPCWireGuard,
+                        GRPCWGAddress: w.GRPCWGAddress,
+                        GRPCWGPort: w.GRPCWGPort,
+                        GRPCWGPubKey: w.GRPCWGPubKey,
+                        GRPCWGEndpoint: s.APIHost,
+                }
 
-	accessToken.ServerConfig = tokensrvcfg
-	accessToken.WG = tokenwgcfg
+        accessToken.ServerConfig = servervals
+        accessToken.WG = wgvals
 
 	tokenjson, err := json.Marshal(accessToken)
         if err != nil {

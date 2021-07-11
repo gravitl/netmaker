@@ -200,7 +200,11 @@ func main() {
             Flags: cliFlags,
             Action: func(c *cli.Context) error {
                 cfg, err := config.GetCLIConfigRegister(c)
-                if err != nil {
+		if err != nil {
+                        return err
+                }
+                if cfg.GRPCWireGuard == "off" {
+                        log.Println("Server is not using WireGuard to secure GRPC. Skipping.")
                         return err
                 }
                 if cfg.Client.ServerPrivateAddress == "" {

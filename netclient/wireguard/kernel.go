@@ -2,6 +2,8 @@ package wireguard
 
 import (
 	//"github.com/davecgh/go-spew/spew"
+        "google.golang.org/grpc/credentials"
+        "crypto/tls"
 	"fmt"
 	"strconv"
 	"errors"
@@ -328,10 +330,20 @@ func SetWGKeyConfig(network string, serveraddr string) error {
         ctx := context.Background()
         var header metadata.MD
 
+        cfg, err := config.ReadConfig(network)
+        if err != nil {
+                return err
+        }
+
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
-        conn, err := grpc.Dial(serveraddr, requestOpts)
+        if cfg.Server.GRPCSSL == "on" {
+                h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+                requestOpts = grpc.WithTransportCredentials(h2creds)
+        }
+
+	conn, err := grpc.Dial(serveraddr, requestOpts)
         if err != nil {
                 fmt.Printf("Cant dial GRPC server: %v", err)
                 return err
