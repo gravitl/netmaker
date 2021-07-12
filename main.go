@@ -1,6 +1,3 @@
-//TODO: Harden. Add failover for every method and agent calls
-//TODO: Figure out why mongodb keeps failing (log rotation?)
-
 package main
 
 import (
@@ -16,15 +13,13 @@ import (
     "context"
     "strconv"
     "sync"
-    "os/signal"
-    service "github.com/gravitl/netmaker/controllers"
+    "os/signal" 
+    service "github.com/gravitl/netmaker/controllers" // Importing controller above as well. Do we need that?
     nodepb "github.com/gravitl/netmaker/grpc"
     "google.golang.org/grpc"
 )
 
-//Start MongoDB Connection and start API Request Handler
 func main() {
-
 
 	//Client Mode Prereq Check
 	if servercfg.IsClientMode() {
@@ -45,26 +40,31 @@ func main() {
 		}
 	}
         if servercfg.IsDNSMode() {
-                err := functions.SetDNSDir()
+                err := functions.SetDNSDir() // On Kubernetes, this is not pushing files. Need to investigate. Can run pushDNS to set correctly. 
+		// maybe just run pushDNS here
                 if err != nil {
                         log.Fatal(err)
                 }
         }
-
+	
 	//Start Mongodb
 	mongoconn.ConnectDatabase()
 
 	installserver := false
 
+	// This is really annoying and people don't like it.
+	// AUDIT: if you delete the default network and restart the server, default net gets recreated.
 	//Create the default network (default: 10.10.10.0/24)
 	created, err := serverctl.CreateDefaultNetwork()
 	if err != nil {
 		log.Printf("Error creating default network: %v", err)
 	}
-
+	// AUDIT: Consider just not doing this. Doesn't add much value and complicates startup
 	if created && servercfg.IsClientMode() {
 		installserver = true
 	}
+	// AUDIT: Consider changing process so that no API call is necessary.
+	// AUDIT: Consider moving this under the GRPC section. This could lead to running WG for GRPC when we're not even serving GRPC
 	if servercfg.IsGRPCWireGuard() {
                 err = serverctl.InitServerWireGuard()
 		//err = serverctl.ReconfigureServerWireGuard()
@@ -138,6 +138,7 @@ func runGRPC(wg *sync.WaitGroup, installserver bool) {
          srv.NodeDB = mongoconn.NodeDB
 
         // Start the server in a child routine
+	// AUDIT: This is a separate child routine we don't wait for. This could cause problems. May want to add "wait" to this.
         go func() {
                 if err := s.Serve(listener); err != nil {
                         log.Fatalf("Failed to serve: %v", err)
