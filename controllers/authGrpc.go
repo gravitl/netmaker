@@ -84,7 +84,7 @@ func grpcAuthorize(ctx context.Context) error {
 		}
 		emptynode := models.Node{}
 		node, err := functions.GetNodeByMacAddress(network, mac)
-		if err != nil || node == emptynode {
+		if err != nil || node.MacAddress == emptynode.MacAddress {
                         return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 		}
 

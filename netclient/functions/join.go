@@ -1,6 +1,8 @@
 package functions
 
 import (
+	"google.golang.org/grpc/credentials"
+	"crypto/tls"
 	"fmt"
 	"errors"
 	"context"
@@ -26,7 +28,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		   err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
 		return err
 	}
-	log.Println("attempting to joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+	log.Println("attempting to join " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 	err := config.Write(&cfg, cfg.Network)
 	if err != nil {
 		return err
@@ -139,11 +141,17 @@ func JoinNetwork(cfg config.ClientConfig) error {
 	}
 	var wcclient nodepb.NodeServiceClient
 	var requestOpts grpc.DialOption
-        requestOpts = grpc.WithInsecure()
-        conn, err := grpc.Dial(cfg.Server.GRPCAddress, requestOpts)
+	requestOpts = grpc.WithInsecure()
+	if cfg.Server.GRPCSSL == "on" {
+		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+		requestOpts = grpc.WithTransportCredentials(h2creds)
+	}
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, requestOpts)
+
         if err != nil {
-                log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+                log.Fatalf("Unable to establish client connection to " + cfg.Server.GRPCAddress + ": %v", err)
         }
+
         wcclient = nodepb.NewNodeServiceClient(conn)
 
         postnode := &nodepb.Node{
@@ -165,6 +173,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
         if err != nil {
 		return err
         }
+
         res, err := wcclient.CreateNode(
                 context.TODO(),
                 &nodepb.CreateNodeReq{
@@ -189,7 +198,6 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		}
 		node.Endpoint = node.Localaddress
 	}
-
         err = config.ModConfig(node)
         if err != nil {
                 return err

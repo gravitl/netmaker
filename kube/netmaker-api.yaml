@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netmaker
+  labels:
+    app: netmaker
+spec:
+  selector:
+    matchLabels:
+      app: netmaker
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: netmaker
+    spec:
+      containers:
+      - name: netmaker
+        image: gravitl/netmaker:v0.5
+        ports:
+        - containerPort: 8081
+        env:
+        - name: SERVER_HOST
+          value: "api.test.netmaker.org"
+        - name: API_PORT
+          value: "8081"
+        - name: AGENT_BACKEND
+          value: "off"
+        - name: CLIENT_MODE
+          value: "off"
+        - name: DNS_MODE
+          value: "off"
+        - name: MASTER_KEY
+          value: "Unkn0wn!"
+        - name: SERVER_GRPC_WIREGUARD
+          value: "off"
+        - name: MASTER_KEY
+          value: "secretkey"
+        - name: CORS_ALLOWED_ORIGIN
+          value: "*"
+        - name: DISABLE_REMOTE_IP_CHECK
+          value: "on"
+        - name: MONGO_ADMIN
+          value: "mongoadmin"
+        - name: MONGO_PASS
+          value: "mongopass"
+        - name: MONGO_HOST
+          value: "mongo-0.mongo"
+        - name: MONGO_OPTS
+          value: "/?authSource=admin"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: netmaker
+  name: netmaker
+spec:
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: netmaker
+  sessionAffinity: None
+  type: ClusterIP

@@ -16,8 +16,8 @@ type Network struct {
 	//	AddressRange6          string             `json:"addressrange6" bson:"addressrange6" validate:"required_with=isdualstack true,cidrv6"`
 	AddressRange6 string `json:"addressrange6" bson:"addressrange6" validate:"addressrange6_valid"`
 	//can't have min=1 with omitempty
-	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,alphanum,min=2,max=20,displayname_unique"`
-	NetID               string      `json:"netid" bson:"netid" validate:"required,alphanum,min=1,max=12,netid_valid"`
+	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,min=1,max=20,displayname_valid"`
+	NetID               string      `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
 	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
@@ -47,8 +47,8 @@ type NetworkUpdate struct {
 	//	AddressRange6          string             `json:"addressrange6" bson:"addressrange6" validate:"required_with=isdualstack true,cidrv6"`
 	AddressRange6 string `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
-	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,alphanum,min=2,max=20"`
-	NetID               string      `json:"netid" bson:"netid" validate:"omitempty,alphanum,min=1,max=12"`
+	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,netid_valid,min=1,max=20"`
+	NetID               string      `json:"netid" bson:"netid" validate:"omitempty,netid_valid,min=1,max=15"`
 	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
@@ -86,7 +86,11 @@ func (network *Network) SetDefaults() {
 		network.DisplayName = network.NetID
 	}
 	if network.DefaultInterface == "" {
-		network.DefaultInterface = "nm-" + network.NetID
+		if len(network.NetID) < 13 {
+			network.DefaultInterface = "nm-" + network.NetID
+		} else {
+			network.DefaultInterface = network.NetID
+		}
 	}
 	if network.DefaultListenPort == 0 {
 		network.DefaultListenPort = 51821
