@@ -21,6 +21,7 @@ message LoginRequest {
 
 message LoginResponse { string accesstoken = 1; }
 
+// AUDIT: Consider moving node configurations to a single JSON string.
 message Node {
     string id = 1;
     string name = 2;
