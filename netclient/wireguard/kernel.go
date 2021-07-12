@@ -53,40 +53,27 @@ func InitGRPCWireguard(client models.IntClient) error {
                 return errors.New("no address to configure")
         }
         cmdIPDevLinkAdd := exec.Command("ip","link", "add", "dev", ifacename, "type",  "wireguard" )
+        cmdIPDevLinkDel := exec.Command("ip","link", "del", "dev", ifacename )
 	cmdIPAddrAdd := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
 	cmdIPAddr6Add := exec.Command("ip", "address", "add", "dev", ifacename, client.Address6+"/64")
-	currentiface, err := net.InterfaceByName(ifacename)
-        if err != nil {
-                err = cmdIPDevLinkAdd.Run()
-	        if  err  !=  nil && !strings.Contains(err.Error(), "exists") {
-	                log.Println("Error creating interface")
-	        }
-        }
-        match := false
-        match6 := false
-        addrs, _ := currentiface.Addrs()
-
-	//Add IPv4Address (make into separate function)
-        for _, a := range addrs {
-                if strings.Contains(a.String(), client.Address){
-                        match = true
-                }
-                if strings.Contains(a.String(), client.Address6){
-                        match6 = true
-                }
-        }
-        if !match && client.Address != "" {
+	_ = cmdIPDevLinkDel.Run()
+	err = cmdIPDevLinkAdd.Run()
+	if  err  !=  nil {
+	        log.Println("Error creating interface")
+		log.Println(err)
+	}
+        if client.Address != "" {
 		err = cmdIPAddrAdd.Run()
 	        if  err  !=  nil {
 	                log.Println("Error adding ipv4 address")
-		fmt.Println(err)
+			log.Println(err)
 	        }
         }
-        if !match6 && client.Address6 !=""{
+        if client.Address6 !=""{
                 err = cmdIPAddr6Add.Run()
                 if  err  !=  nil {
                         log.Println("Error adding ipv6 address")
-                fmt.Println(err)
+			log.Println(err)
                 }
         }
 	var peers []wgtypes.PeerConfig
@@ -200,6 +187,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 Stdout: os.Stdout,
                 Stderr: os.Stdout,
         }
+        cmdIPDevLinkDel := exec.Command("ip","link", "del", "dev", ifacename )
         cmdIPAddrAdd := &exec.Cmd {
                 Path: ipExec,
                 Args: []string{ ipExec, "address", "add", "dev", ifacename, node.Address+"/24"},
@@ -207,30 +195,16 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
                 Stderr: os.Stdout,
         }
 
-         currentiface, err := net.InterfaceByName(ifacename)
-
-
-        if err != nil {
-		err = cmdIPDevLinkAdd.Run()
-	if  err  !=  nil && !strings.Contains(err.Error(), "exists") {
-		fmt.Println("Error creating interface")
-		//fmt.Println(err.Error())
-		//return err
+	_ = cmdIPDevLinkDel.Run()
+	err = cmdIPDevLinkAdd.Run()
+	if  err  !=  nil  {
+		log.Println("Error creating interface")
+		log.Println(err.Error())
 	}
-	}
-	match := false
-	addrs, _ := currentiface.Addrs()
-	for _, a := range addrs {
-		if strings.Contains(a.String(), node.Address){
-			match = true
-		}
-	}
-	if !match {
         err = cmdIPAddrAdd.Run()
         if  err  !=  nil {
-		fmt.Println("Error adding address")
-                //return err
-        }
+		log.Println("Error adding address")
+		log.Println(err.Error())
 	}
 	var nodeport int
 	nodeport = int(node.Listenport)

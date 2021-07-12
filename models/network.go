@@ -36,6 +36,7 @@ type Network struct {
 	IsIPv6         string       `json:"isipv6" bson:"isipv6"`
 	IsGRPCHub         string       `json:"isgrpchub" bson:"isgrpchub"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
+	NextAvailableIP         string       `json:"nextavailableip" bson:"nextavailableip"`
 	//can't have min=1 with omitempty
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
 }
