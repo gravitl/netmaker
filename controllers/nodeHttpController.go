@@ -578,7 +578,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	var nodechange models.Node
 	nodechange.IsEgressGateway = true
-	nodechange.EgressGatewayRange = gateway.RangeString
+	nodechange.EgressGatewayRanges = gateway.Ranges
 	nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	if gateway.PostUp != "" {
@@ -612,7 +612,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 			{"postup", nodechange.PostUp},
 			{"postdown", nodechange.PostDown},
 			{"isegressgateway", nodechange.IsEgressGateway},
-			{"egressgatewayrange", nodechange.EgressGatewayRange},
+			{"egressgatewayranges", nodechange.EgressGatewayRanges},
 			{"lastmodified", nodechange.LastModified},
 		}},
 	}
@@ -636,10 +636,10 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 
 func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	var err error
-	isIp := functions.IsIpCIDR(gateway.RangeString)
-	empty := gateway.RangeString == ""
-	if empty || !isIp {
-		err = errors.New("IP Range Not Valid")
+	//isIp := functions.IsIpCIDR(gateway.RangeString)
+	empty := len(gateway.Ranges)==0
+	if empty {
+		err = errors.New("IP Ranges Cannot Be Empty")
 	}
 	empty = gateway.Interface == ""
 	if empty {
@@ -670,7 +670,7 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 	}
 
 	nodechange.IsEgressGateway = false
-	nodechange.EgressGatewayRange = ""
+	nodechange.EgressGatewayRanges = []string{}
 	nodechange.PostUp = ""
 	nodechange.PostDown = ""
 
@@ -685,7 +685,7 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 			{"postup", nodechange.PostUp},
 			{"postdown", nodechange.PostDown},
 			{"isegressgateway", nodechange.IsEgressGateway},
-			{"egressgatewayrange", nodechange.EgressGatewayRange},
+			{"egressgatewayranges", nodechange.EgressGatewayRanges},
 			{"lastmodified", nodechange.LastModified},
 		}},
 	}

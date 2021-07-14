@@ -6,15 +6,15 @@ import (
 	"os"
         "encoding/base64"
 	"errors"
-	"strings"
 	"fmt"
-	"net"
 	"log"
+        "encoding/json"
 	"gopkg.in/yaml.v3"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 )
 type GlobalConfig struct {
+	GRPCWireGuard string `yaml:"grpcwg"`
 	Client models.IntClient
 }
 
@@ -29,6 +29,8 @@ type ServerConfig struct {
         GRPCAddress string `yaml:"grpcaddress"`
         APIAddress string `yaml:"apiaddress"`
         AccessKey string `yaml:"accesskey"`
+        GRPCSSL string `yaml:"grpcssl"`
+        GRPCWireGuard string `yaml:"grpcwg"`
 }
 
 type ListConfig struct {
@@ -53,16 +55,19 @@ type NodeConfig struct {
         IsLocal string `yaml:"islocal"`
         IsDualStack string `yaml:"isdualstack"`
         IsIngressGateway string `yaml:"isingressgateway"`
-        AllowedIPs string `yaml:"allowedips"`
+        AllowedIPs []string `yaml:"allowedips"`
         LocalRange string `yaml:"localrange"`
         PostUp string `yaml:"postup"`
         PostDown string `yaml:"postdown"`
         Port int32 `yaml:"port"`
         KeepAlive int32 `yaml:"keepalive"`
         PublicKey string `yaml:"publickey"`
+        ServerPubKey string `yaml:"serverpubkey"`
         PrivateKey string `yaml:"privatekey"`
         Endpoint string `yaml:"endpoint"`
         PostChanges string `yaml:"postchanges"`
+        StaticIP string `yaml:"staticip"`
+        StaticPubKey string `yaml:"staticpubkey"`
         IPForwarding string `yaml:"ipforwarding"`
 }
 
@@ -375,16 +380,34 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 			log.Println("error decoding token")
 			return cfg, err
                 }
-                token := string(tokenbytes)
-                tokenvals := strings.Split(token, "|")
-
-		cfg.Server.GRPCAddress = tokenvals[1]
-                cfg.Network = tokenvals[3]
-                cfg.Node.Network = tokenvals[3]
-                cfg.Server.AccessKey = tokenvals[4]
-                if len(tokenvals) > 4 {
-			cfg.Node.LocalRange = tokenvals[5]
+		var accesstoken models.AccessToken
+		if err := json.Unmarshal(tokenbytes, &accesstoken); err != nil {
+			log.Println("error converting token json to object", tokenbytes )
+			return cfg, err
 		}
+
+		if accesstoken.ServerConfig.APIConnString != "" {
+			cfg.Server.APIAddress = accesstoken.ServerConfig.APIConnString
+		} else {
+			cfg.Server.APIAddress = accesstoken.ServerConfig.APIHost
+			if accesstoken.ServerConfig.APIPort != "" {
+				cfg.Server.APIAddress = cfg.Server.APIAddress + ":" + accesstoken.ServerConfig.APIPort
+			}
+		}
+                if accesstoken.ServerConfig.GRPCConnString != "" {
+                        cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCConnString
+                } else {
+                        cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCHost
+                        if accesstoken.ServerConfig.GRPCPort != "" {
+                                cfg.Server.GRPCAddress = cfg.Server.GRPCAddress + ":" + accesstoken.ServerConfig.GRPCPort
+                        }
+                }
+                cfg.Network = accesstoken.ClientConfig.Network
+                cfg.Node.Network = accesstoken.ClientConfig.Network
+                cfg.Server.AccessKey = accesstoken.ClientConfig.Key
+		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
+		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
+		cfg.Server.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}
@@ -401,6 +424,13 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 		if c.String("localrange") != "" {
 			cfg.Node.LocalRange = c.String("localrange")
 		}
+                if c.String("grpcssl") != "" {
+                        cfg.Server.GRPCSSL = c.String("grpcssl")
+                }
+                if c.String("grpcwg") != "" {
+                        cfg.Server.GRPCWireGuard = c.String("grpcwg")
+                }
+
 	} else {
 		cfg.Server.GRPCAddress = c.String("grpcserver")
 		cfg.Server.APIAddress = c.String("apiserver")
@@ -408,6 +438,8 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 cfg.Network = c.String("network")
                 cfg.Node.Network = c.String("network")
                 cfg.Node.LocalRange = c.String("localrange")
+                cfg.Server.GRPCWireGuard = c.String("grpcwg")
+                cfg.Server.GRPCSSL = c.String("grpcssl")
 	}
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")
@@ -442,22 +474,33 @@ func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
 			log.Println("error decoding token")
 			return cfg, err
 		}
-		token := string(tokenbytes)
-		tokenvals := strings.Split(token, "|")
-
-		cfg.Client.ServerPrivateAddress, cfg.Client.ServerGRPCPort, err = net.SplitHostPort(tokenvals[1])
+                var accesstoken models.AccessToken
+                if err := json.Unmarshal(tokenbytes, &accesstoken); err != nil {
+                        log.Println("error converting token json to object", tokenbytes )
+                        return cfg, err
+                }
+		cfg.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
+		cfg.Client.ServerPrivateAddress = accesstoken.WG.GRPCWGAddress
+		cfg.Client.ServerGRPCPort = accesstoken.WG.GRPCWGPort
 		if err != nil {
 			log.Println("error decoding token grpcserver")
 			return cfg, err
 		}
-		cfg.Client.ServerPublicEndpoint, cfg.Client.ServerAPIPort, err = net.SplitHostPort(tokenvals[2])
-		if err != nil {
-			log.Println("error decoding token apiserver")
-			return cfg, err
-		}
-
-		cfg.Client.ServerWGPort = tokenvals[0]
-		cfg.Client.ServerKey = tokenvals[4]
+                if err != nil {
+                        log.Println("error decoding token apiserver")
+                        return cfg, err
+                }
+                if accesstoken.ServerConfig.APIConnString != "" {
+                        cfg.Client.ServerPublicEndpoint = accesstoken.ServerConfig.APIConnString
+                } else {
+                        cfg.Client.ServerPublicEndpoint = accesstoken.ServerConfig.APIHost
+                        if accesstoken.ServerConfig.APIPort != "" {
+                                cfg.Client.ServerAPIPort = accesstoken.ServerConfig.APIPort
+                        }
+                }
+		cfg.Client.ServerWGPort = accesstoken.WG.GRPCWGPort
+		cfg.Client.ServerKey = accesstoken.ClientConfig.Key
+                cfg.Client.ServerKey = accesstoken.WG.GRPCWGPubKey
 
                 if c.String("grpcserver") != "" {
                         cfg.Client.ServerPrivateAddress = c.String("grpcserver")
@@ -465,8 +508,8 @@ func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error){
                 if c.String("apiserver") != "" {
                         cfg.Client.ServerPublicEndpoint = c.String("apiserver")
                 }
-                if c.String("key") != "" {
-                        cfg.Client.ServerKey = c.String("key")
+                if c.String("pubkey") != "" {
+                        cfg.Client.ServerKey = c.String("pubkey")
                 }
                 if c.String("network") != "all" {
                         cfg.Client.Network = c.String("network")

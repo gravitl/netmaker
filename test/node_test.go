@@ -274,7 +274,7 @@ func TestCreateEgressGateway(t *testing.T) {
 	//assert.False(t, node.IsEgressGateway/g)
 	var gateway models.EgressGatewayRequest
 	t.Run("Valid", func(t *testing.T) {
-		gateway.RangeString = "0.0.0.0/0"
+		gateway.Ranges = []string{"0.0.0.0/0"}
 		gateway.Interface = "eth0"
 		response, err := api(t, gateway, http.MethodPost, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/creategateway", "secretkey")
 		assert.Nil(t, err, err)
@@ -286,21 +286,8 @@ func TestCreateEgressGateway(t *testing.T) {
 		assert.True(t, message.IsEgressGateway)
 		t.Log(err)
 	})
-	t.Run("BadRange", func(t *testing.T) {
-		gateway.RangeString = "0.0.0.0/36"
-		gateway.Interface = "eth0"
-		response, err := api(t, gateway, http.MethodPost, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/creategateway", "secretkey")
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		defer response.Body.Close()
-		var message models.ErrorResponse
-		err = json.NewDecoder(response.Body).Decode(&message)
-		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusInternalServerError, message.Code)
-		assert.Equal(t, "IP Range Not Valid", message.Message)
-	})
 	t.Run("BadInterface", func(t *testing.T) {
-		gateway.RangeString = "0.0.0.0/0"
+		gateway.Ranges = []string{"0.0.0.0/0"}
 		gateway.Interface = ""
 		response, err := api(t, gateway, http.MethodPost, baseURL+"/api/nodes/skynet/01:02:03:04:05:06/creategateway", "secretkey")
 		assert.Nil(t, err, err)

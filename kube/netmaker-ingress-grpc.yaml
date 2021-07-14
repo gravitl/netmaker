@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    ingress.kubernetes.io/protocol: "h2c"
+  name: nm-grpc-ingress
+  namespace: netmaker
+spec:
+  rules:
+  - host: grpc.test.netmaker.org
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: netmaker-grpc
+          servicePort: 50051

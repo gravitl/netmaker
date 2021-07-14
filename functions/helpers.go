@@ -555,7 +555,7 @@ func GetNodeObj(id primitive.ObjectID) models.Node {
 //Switch to REGEX?
 func NameInNetworkCharSet(name string) bool {
 
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
 
 	for _, char := range name {
 		if !strings.Contains(charset, strings.ToLower(string(char))) {
