@@ -8,7 +8,7 @@ type AuthParams struct {
 }
 
 type User struct {
-	UserName string `json:"username" bson:"username" validate:"alphanum,min=3"`
+	UserName string `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
 	Password string `json:"password" bson:"password" validate:"required,min=5"`
 	Networks []string `json:"networks" bson:"networks"`
 	IsAdmin  bool   `json:"isadmin" bson:"isadmin"`
