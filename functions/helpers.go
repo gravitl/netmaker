@@ -7,6 +7,7 @@ package functions
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -53,18 +54,34 @@ func CreateServerToken(netID string) (string, error) {
 		return "", err
 	}
 
+	var accessToken models.AccessToken
+        servervals := models.ServerConfig{
+			APIConnString: "127.0.0.1" + servercfg.GetAPIPort(),
+                        GRPCConnString: "127.0.0.1" + servercfg.GetGRPCPort(),
+                        GRPCSSL: "off",
+	}
+        accessToken.ServerConfig = servervals
+        accessToken.ClientConfig.Network = netID
+        accessToken.ClientConfig.Key = GenKey()
+
 	accesskey.Name = GenKeyName()
 	accesskey.Value = GenKey()
 	accesskey.Uses = 1
-	address := "127.0.0.1:" + servercfg.GetGRPCPort()
 
+<<<<<<< HEAD
 	privAddr := ""
 	if *network.IsLocal {
 		privAddr = network.LocalRange
 	}
 	accessstringdec := address + "|" + address + "|" + address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
+=======
+        tokenjson, err := json.Marshal(accessToken)
+        if err != nil {
+                return accesskey.AccessString, err
+        }
+>>>>>>> 35826caa6fb2dfe3dbe65d25799d243f5a444999
 
-	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
+        accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
 
 	network.AccessKeys = append(network.AccessKeys, accesskey)
 

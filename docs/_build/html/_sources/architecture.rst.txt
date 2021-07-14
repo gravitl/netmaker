@@ -63,8 +63,7 @@ SystemD
 
 SystemD is a system service manager for a wide array of Linux operating systems. Not all Linux distributions have adopted systemd, but, for better or worse, it has become a fairly common standard in the Linux world. That said, any non-Linux operating system will not have systemd, and many Linux/Unix distributionshave alternative system service managers.
 
-Netmaker's netclient, the agent which controls networking on all nodes, relies heavily on systemd as of version 0.3. This reliance is being reduced but is currently a core dependency, causing most of the limitations and incompatibilities. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices.
-
+Netmaker's netclient, the agent which controls networking on all nodes, can be run as a CLI or as a system daemon. It runs as a daemon by default, and this requires systemd. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices. However, for the time being, the netclient should be run "unmanaged" (netclient join -daemon=off) on systems that do not run systemd, and some other method can be used like a cron job or custom script.
 
 Components
 ===========
@@ -88,15 +87,17 @@ The Netmaker server interacts with (as of v0.3) a MongoDB instance, which holds 
 Netclient
 ----------------
 
-The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker `GitHub Repository <https://github.com/gravitl/netmaker/tree/master/netclient>`_. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.3, it requires systemd in order to manage the host system appropriately. It may be installable, and it may even make the machine a part of the mesh network, but it will not function in entirely (see Compatible Systems for more info) without systemd.
+The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker `GitHub Repository <https://github.com/gravitl/netmaker/tree/master/netclient>`_. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.5, the netclient can be run as a system daemon on linux distributions with systemd, or as an "unmanaged" client on distributions without systemd.
 
-The netclient is installed via a simple bash script, which pulls the latest binary and runs install command.
+The netclient is installed via a simple bash script, which pulls the latest binary and runs 'register' and 'join' commands.
 
-The install command registers the machine with the Netmaker server using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered in the Netmaker network, which will return configuration details about how to set up the local network. 
+The 'register' command adds a WireGuard tunnel directly to the netmaker server, for all subsequent communication.
 
-The netclient then sets itself up in systemd, and configures WireGuard. At this point it should be part of the network.
+The 'join' command attempts to add the machine to the Netmaker network using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered into the Netmaker network, and will be returned necessary configuration details for how to set up its local network. 
 
-On a periodic basis (systemd timer), the netclient performs a "check in." It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network.
+The netclient then sets up the systemd daemon (if running in daemon mode), and configures WireGuard. At this point it should be part of the network.
+
+If running in daemon mode, on a periodic basis (systemd timer), the netclient performs a "check in." It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network. If not running in daemon mode, it is up to the operator to perform check ins (netclient checkin -n < network name >).
 
 The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.
 
@@ -104,7 +105,7 @@ The check in process is what allows Netmaker to create dynamic mesh networks. As
 MongoDB
 --------
 
-As of v0.3, Netmaker uses MongoDB as its database, and interacts with a MongoDB instance to store and retrieve information about nodes, networks, and users. Netmaker is rapidly evolving, and MongoDB provides a flexible database structure that accelerates development. However, MongoDB is also the heaviest component of Netmaker (high cpu/memory consumption), and is set to be replaced by a lighter-weight, SQL-based database in the future.
+As of v0.5, Netmaker uses MongoDB as its database, and interacts with a MongoDB instance to store and retrieve information about nodes, networks, and users. Netmaker is rapidly evolving, and MongoDB provides a flexible database structure that accelerates development. However, MongoDB is also the heaviest component of Netmaker (high cpu/memory consumption), and is set to be replaced by a lighter-weight, SQL-based database in the future.
 
 Netmaker UI
 ---------------
@@ -121,6 +122,16 @@ v0.3 introduced the concept of private DNS management for nodes. This requires a
 
 Worth considering is that CoreDNS requires port 53 on the Netmaker host system, which may cause conflicts depending on your operating system. This is explained in the :doc:`Server Installation <./server-installation>` guide.
 
+External Client
+----------------
+
+The external client is simply a manually configured WireGuard connection to your network, which Netmaker helps to manage.
+
+Most machines can run WireGuard. It is fairly simple to set up a WireGuard connection to a single endpoint. It is setting up mesh networks and other topologies like site-to-site which becomes complicated. 
+
+Netmaker v0.5 introduces the "external client" to handle any devices which are not currently compatible with the netclient, including Windows, iPhone, Android, and Mac. Over time, this list will be eliminated and there may not even be a need for the external client.
+
+External clients hook into a Netmaker network via an "Ingress Gateway," which is configured for a given node and allows traffic to flow into the network.
 
 Technical Process
 ====================
@@ -132,21 +143,24 @@ Below is a high level, step-by-step overview of the flow of communications withi
 3. Both of the above requests are routed to the server via an API call from the front end
 4. Admin runs the netclient install script on any given node (machine).
 5. Netclient decodes key, which contains the GRPC server location and port
-6. Netclient retrieves/sets local information, including open ports for WireGuard, public IP, and generating key pairs for peers
-7. Netclient reaches out to GRPC server with this information, authenticating via access key.
-8. Netmaker server verifies information and creates the node, setting default values for any missing information. 
-9. Timestamp is set for the network (see #16). 
-10. Netmaker returns settings as response to netclient. Some settings may be added or modified based on the network.
-11. Netclient recieves response. If successful, it takes any additional info returned from Netmaker and configures the local system/WireGuard
-12. Netclient sends another request to Netmaker's GRPC server, this time to retrieve the peers list (all other clients in the network).
-13. Netmaker sends back peers list, including current known configurations of all nodes in network.
-14. Netclient configures WireGuard with this information. At this point, the node is fully configured as a part of the network and should be able to reach the other nodes via private address.
-15. Netclient begins daemon (system timer) to run check in's with the server. It awaits changes, reporting local changes, and retrieving changes from any other nodes in the network.
-16. Other netclients on the network, upon checking in with the Netmaker server, will see that the timestamp has updated, and they will retrieve a new peers list, completing the update cycle.
+6. Netclient uses information to register and set up WireGuard tunnel to GRPC server
+7. Netclient retrieves/sets local information, including open ports for WireGuard, public IP, and generating key pairs for peers
+8. Netclient reaches out to GRPC server with this information, authenticating via access key.
+9. Netmaker server verifies information and creates the node, setting default values for any missing information. 
+10. Timestamp is set for the network (see #16). 
+11. Netmaker returns settings as response to netclient. Some settings may be added or modified based on the network.
+12. Netclient recieves response. If successful, it takes any additional info returned from Netmaker and configures the local system/WireGuard
+13. Netclient sends another request to Netmaker's GRPC server, this time to retrieve the peers list (all other clients in the network).
+14. Netmaker sends back peers list, including current known configurations of all nodes in network.
+15. Netclient configures WireGuard with this information. At this point, the node is fully configured as a part of the network and should be able to reach the other nodes via private address.
+16. Netclient begins daemon (system timer) to run check in's with the server. It awaits changes, reporting local changes, and retrieving changes from any other nodes in the network.
+17. Other netclients on the network, upon checking in with the Netmaker server, will see that the timestamp has updated, and they will retrieve a new peers list, completing the update cycle.
 
 
 Compatible Systems for Netclient
 ==================================
+
+To manage a node manually, the Netclient can be compiled and run for most linux distibutions, with a prerequisite of WireGuard.
 
 To manage a node automatically, the Netmaker client (netclient) requires **systemd-based linux.** Compatible systems include:
         - Fedora
@@ -173,4 +187,3 @@ Install limitations mostly include platform-specific limitations, such as needin
 
 - **Double NAT**: Netmaker is currently unable to route traffic for devices behind a "double NAT".
 - **CGNAT**: Netmaker is currently unable to route traffic for for devices behind a "carrier-grade NAT".
-- **Windows/iPhone/Android**: To reiterate the systemd limitation, Netmaker is not currently configured to support "end user" devices such as Windows desktops and phones generally. In v0.4, Netmaker will introduce external device gateways to allow this traffic (and many other sorts of devices).
