@@ -8,7 +8,7 @@ metadata:
   namespace: netmaker
 spec:
   rules:
-  - host: grpc.test.netmaker.org
+  - host: grpc.NETMAKER_BASE_DOMAIN
     http:
       paths:
       - path: /

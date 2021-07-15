@@ -21,7 +21,7 @@ spec:
         - containerPort: 80
         env:
         - name: BACKEND_URL
-          value: "https://api.test.netmaker.org"
+          value: "https://api.nm.k8s.gravitl.com"
 ---
 apiVersion: v1
 kind: Service

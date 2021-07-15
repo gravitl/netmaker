@@ -8,18 +8,18 @@ metadata:
     traefik.ingress.kubernetes.io/redirect-permanent: "true"
     traefik.ingress.kubernetes.io/rule-type: "PathPrefixStrip"
     cert-manager.io/cluster-issuer: wildcard-issuer
-  name: nm-ui-ingress
+  name: nm-api-ingress
   namespace: netmaker
 spec:
   rules:
-  - host: nm.test.netmaker.org
+  - host: api.NETMAKER_BASE_DOMAIN
     http:
       paths:
       - path: /
         backend:
-          serviceName: netmaker-ui
-          servicePort: 80
+          serviceName: netmaker
+          servicePort: 8081
   tls:
   - hosts: 
-    - nm.test.netmaker.org
-    secretName: cert-nm-ui
+    - api.NETMAKER_BASE_DOMAIN
+    secretName: cert-nm-api

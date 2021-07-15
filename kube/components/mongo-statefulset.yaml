@@ -44,16 +44,16 @@ spec:
       volumes:
       - name: mongovol
         persistentVolumeClaim:
-          claimName: mongo-pvc
+          claimName: mongodb-pvc
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mongo-pvc
+  name: mongodb-pvc
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 7Gi
-  storageClassName: longhorn
+  storageClassName: microk8s-hostpath

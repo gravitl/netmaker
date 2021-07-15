@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pingtest
+spec:
+  selector:
+    matchLabels:
+      app: pingtest
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: pingtest
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - pingtest
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["/bin/sh", "-ec", "sleep 10000"]

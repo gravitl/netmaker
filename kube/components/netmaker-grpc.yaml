@@ -16,16 +16,25 @@ spec:
     spec:
       containers:
       - name: netmaker-grpc
-        image: gravitl/netmaker:v0.5
+        image: gravitl/netmaker:v0.5.7
         ports:
-        - containerPort: 50051
+        - containerPort: 443
+        volumeMounts:
+        - name: nm-pvc
+          mountPath: /root/dnsconfig
         env:
-        - name: SERVER_HOST
-          value: "grpc.test.netmaker.org"
+        - name: SERVER_API_CONN_STRING
+          value: "api.nm.k8s.gravitl.com:443"
+        - name: SERVER_GRPC_CONN_STRING
+          value: "grpc.nm.k8s.gravitl.com:443"
+        - name: COREDNS_ADDR
+          value: "netmaker-dns"
+        - name: GRPC_SSL
+          value: "on"
         - name: CLIENT_MODE
           value: "off"
         - name: DNS_MODE
-          value: "off"
+          value: "on"
         - name: MASTER_KEY
           value: "Unkn0wn!"
         - name: SERVER_GRPC_WIREGUARD
@@ -47,9 +56,13 @@ spec:
         - name: SERVER_GRPC_HOST
           value: "0.0.0.0"
         - name: GRPC_PORT
-          value: "50051"
+          value: "443"
         - name: REST_BACKEND
           value: "off"
+      volumes:
+      - name: nm-pvc
+        persistentVolumeClaim:
+          claimName: nm-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -59,10 +72,11 @@ metadata:
   name: netmaker-grpc
 spec:
   ports:
-  - port: 50051
+  - port: 443
     protocol: TCP
-    targetPort: 50051
+    targetPort: 443
   selector:
     app: netmaker-grpc
   sessionAffinity: None
   type: ClusterIP
+
