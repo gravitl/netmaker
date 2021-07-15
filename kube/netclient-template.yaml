@@ -16,8 +16,8 @@ spec:
       hostNetwork: true
       containers:
       - name: netclient
-        image: gravitl/netclient:v0.5.8
-        command: ['bash', '-c', "/root/netclient join -t $ACCESS_TOKEN --daemon off --name $(echo $NODE_NAME| sed -e s/.$NETWORK//); while true; do /root/netclient checkin -n $NETWORK; sleep $SLEEP; done"]
+        image: gravitl/netclient:v0.5.11
+        command: ['bash', '-c', "/root/netclient join -t $ACCESS_TOKEN --daemon off --name $(echo $NODE_NAME| sed -e s/.$NETWORK//); while true; do /root/netclient checkin --dns on -n $NETWORK; sleep $SLEEP; done"]
         env:
         - name: ACCESS_TOKEN
           value: "ACCESS_TOKEN_VALUE"
@@ -38,9 +38,6 @@ spec:
           name: systemd-bus-socket
         securityContext:
           privileged: true
-          #capabilities:
-          #  add:
-          #  - ["NET_ADMIN","SYS_ADMIN","SYS_MODULE"]
       volumes:
       - hostPath:
           path: /etc/netclient
@@ -58,5 +55,3 @@ spec:
           path: /var/run/dbus/system_bus_socket
           type: ""
         name: systemd-bus-socket
-
-
