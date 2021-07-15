@@ -273,6 +273,8 @@
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
         <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#external-client" class="md-nav__link">External Client</a>
         </li></ul>
             </nav>
         </li>
@@ -785,6 +787,8 @@
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
         <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#external-client" class="md-nav__link">External Client</a>
         </li></ul>
             </nav>
         </li>
@@ -840,7 +844,7 @@
 
 <h3 id="systemd">SystemD<a class="headerlink" href="#systemd" title="Permalink to this headline">¶</a></h3>
 <p>SystemD is a system service manager for a wide array of Linux operating systems. Not all Linux distributions have adopted systemd, but, for better or worse, it has become a fairly common standard in the Linux world. That said, any non-Linux operating system will not have systemd, and many Linux/Unix distributionshave alternative system service managers.</p>
-<p>Netmaker’s netclient, the agent which controls networking on all nodes, relies heavily on systemd as of version 0.3. This reliance is being reduced but is currently a core dependency, causing most of the limitations and incompatibilities. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices.</p>
+<p>Netmaker’s netclient, the agent which controls networking on all nodes, can be run as a CLI or as a system daemon. It runs as a daemon by default, and this requires systemd. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices. However, for the time being, the netclient should be run “unmanaged” (netclient join -daemon=off) on systems that do not run systemd, and some other method can be used like a cron job or custom script.</p>
 
 
 
@@ -856,16 +860,17 @@
 
 
 <h3 id="netclient">Netclient<a class="headerlink" href="#netclient" title="Permalink to this headline">¶</a></h3>
-<p>The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/netclient">GitHub Repository</a>. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.3, it requires systemd in order to manage the host system appropriately. It may be installable, and it may even make the machine a part of the mesh network, but it will not function in entirely (see Compatible Systems for more info) without systemd.</p>
-<p>The netclient is installed via a simple bash script, which pulls the latest binary and runs install command.</p>
-<p>The install command registers the machine with the Netmaker server using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered in the Netmaker network, which will return configuration details about how to set up the local network.</p>
-<p>The netclient then sets itself up in systemd, and configures WireGuard. At this point it should be part of the network.</p>
-<p>On a periodic basis (systemd timer), the netclient performs a “check in.” It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network.</p>
+<p>The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/netclient">GitHub Repository</a>. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.5, the netclient can be run as a system daemon on linux distributions with systemd, or as an “unmanaged” client on distributions without systemd.</p>
+<p>The netclient is installed via a simple bash script, which pulls the latest binary and runs ‘register’ and ‘join’ commands.</p>
+<p>The ‘register’ command adds a WireGuard tunnel directly to the netmaker server, for all subsequent communication.</p>
+<p>The ‘join’ command attempts to add the machine to the Netmaker network using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered into the Netmaker network, and will be returned necessary configuration details for how to set up its local network.</p>
+<p>The netclient then sets up the systemd daemon (if running in daemon mode), and configures WireGuard. At this point it should be part of the network.</p>
+<p>If running in daemon mode, on a periodic basis (systemd timer), the netclient performs a “check in.” It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network. If not running in daemon mode, it is up to the operator to perform check ins (netclient checkin -n &lt; network name &gt;).</p>
 <p>The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.</p>
 
 
 <h3 id="mongodb">MongoDB<a class="headerlink" href="#mongodb" title="Permalink to this headline">¶</a></h3>
-<p>As of v0.3, Netmaker uses MongoDB as its database, and interacts with a MongoDB instance to store and retrieve information about nodes, networks, and users. Netmaker is rapidly evolving, and MongoDB provides a flexible database structure that accelerates development. However, MongoDB is also the heaviest component of Netmaker (high cpu/memory consumption), and is set to be replaced by a lighter-weight, SQL-based database in the future.</p>
+<p>As of v0.5, Netmaker uses MongoDB as its database, and interacts with a MongoDB instance to store and retrieve information about nodes, networks, and users. Netmaker is rapidly evolving, and MongoDB provides a flexible database structure that accelerates development. However, MongoDB is also the heaviest component of Netmaker (high cpu/memory consumption), and is set to be replaced by a lighter-weight, SQL-based database in the future.</p>
 
 
 <h3 id="netmaker-ui">Netmaker UI<a class="headerlink" href="#netmaker-ui" title="Permalink to this headline">¶</a></h3>
@@ -878,6 +883,13 @@
 <p>Worth considering is that CoreDNS requires port 53 on the Netmaker host system, which may cause conflicts depending on your operating system. This is explained in the <a class="reference internal" href="server-installation.html"><span class="doc">Server Installation</span></a> guide.</p>
 
 
+<h3 id="external-client">External Client<a class="headerlink" href="#external-client" title="Permalink to this headline">¶</a></h3>
+<p>The external client is simply a manually configured WireGuard connection to your network, which Netmaker helps to manage.</p>
+<p>Most machines can run WireGuard. It is fairly simple to set up a WireGuard connection to a single endpoint. It is setting up mesh networks and other topologies like site-to-site which becomes complicated.</p>
+<p>Netmaker v0.5 introduces the “external client” to handle any devices which are not currently compatible with the netclient, including Windows, iPhone, Android, and Mac. Over time, this list will be eliminated and there may not even be a need for the external client.</p>
+<p>External clients hook into a Netmaker network via an “Ingress Gateway,” which is configured for a given node and allows traffic to flow into the network.</p>
+
+
 
 <h2 id="technical-process">Technical Process<a class="headerlink" href="#technical-process" title="Permalink to this headline">¶</a></h2>
 <p>Below is a high level, step-by-step overview of the flow of communications within Netmaker (assuming Netmaker has already been installed):</p>
@@ -887,6 +899,7 @@
 <li><p>Both of the above requests are routed to the server via an API call from the front end</p></li>
 <li><p>Admin runs the netclient install script on any given node (machine).</p></li>
 <li><p>Netclient decodes key, which contains the GRPC server location and port</p></li>
+<li><p>Netclient uses information to register and set up WireGuard tunnel to GRPC server</p></li>
 <li><p>Netclient retrieves/sets local information, including open ports for WireGuard, public IP, and generating key pairs for peers</p></li>
 <li><p>Netclient reaches out to GRPC server with this information, authenticating via access key.</p></li>
 <li><p>Netmaker server verifies information and creates the node, setting default values for any missing information.</p></li>
@@ -902,6 +915,7 @@
 
 
 <h2 id="compatible-systems-for-netclient">Compatible Systems for Netclient<a class="headerlink" href="#compatible-systems-for-netclient" title="Permalink to this headline">¶</a></h2>
+<p>To manage a node manually, the Netclient can be compiled and run for most linux distibutions, with a prerequisite of WireGuard.</p>
 <dl class="simple">
 <dt>To manage a node automatically, the Netmaker client (netclient) requires <strong>systemd-based linux.</strong> Compatible systems include:</dt><dd><ul class="simple">
 <li><p>Fedora</p></li>
@@ -931,7 +945,6 @@
 <ul class="simple">
 <li><p><strong>Double NAT</strong>: Netmaker is currently unable to route traffic for devices behind a “double NAT”.</p></li>
 <li><p><strong>CGNAT</strong>: Netmaker is currently unable to route traffic for for devices behind a “carrier-grade NAT”.</p></li>
-<li><p><strong>Windows/iPhone/Android</strong>: To reiterate the systemd limitation, Netmaker is not currently configured to support “end user” devices such as Windows desktops and phones generally. In v0.4, Netmaker will introduce external device gateways to allow this traffic (and many other sorts of devices).</p></li>
 </ul>
 
 
