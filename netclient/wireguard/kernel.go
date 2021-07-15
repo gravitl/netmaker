@@ -186,8 +186,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Address == "" {
 		log.Fatal("no address to configure")
 	}
-	nameserver := servercfg.GRPCAddress
-	nameserver = strings.Split(nameserver, ":")[0]
+	nameserver := servercfg.CoreDNSAddr
 	network := node.Nodenetwork
         if nodecfg.Network != "" {
                 network = nodecfg.Network

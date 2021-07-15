@@ -20,6 +20,7 @@ func SetHost() error {
 func GetServerConfig() config.ServerConfig {
 	var cfg config.ServerConfig
 	cfg.APIConnString = GetAPIConnString()
+	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
 	cfg.GRPCConnString = GetGRPCConnString()
@@ -127,6 +128,16 @@ func GetGRPCConnString() string {
                 conn = config.Config.Server.GRPCConnString
         }
         return conn
+}
+
+func GetCoreDNSAddr() string {
+        addr, _ := GetPublicIP()
+        if os.Getenv("COREDNS_ADDR") != ""  {
+                addr = os.Getenv("COREDNS_ADDR")
+        } else if config.Config.Server.CoreDNSAddr != "" {
+                addr = config.Config.Server.GRPCConnString
+        }
+        return addr
 }
 
 func GetGRPCHost() string {

@@ -689,6 +689,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
         s := servercfg.GetServerConfig()
         w := servercfg.GetWGConfig()
 	servervals := models.ServerConfig{
+			CoreDNSAddr: s.CoreDNSAddr,
 			APIConnString: s.APIConnString,
 			APIHost: s.APIHost,
 			APIPort: s.APIPort,

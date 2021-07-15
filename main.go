@@ -87,7 +87,12 @@ func main() {
 		waitnetwork.Add(1)
 		go runGRPC(&waitnetwork, installserver)
 	}
-
+        if servercfg.IsDNSMode() {
+		err := controller.SetDNS()
+                if err != nil {
+                        log.Fatal(err)
+                }
+        }
 	//Run Rest Server
 	if servercfg.IsRestBackend() {
                 if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {

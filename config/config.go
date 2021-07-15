@@ -36,6 +36,7 @@ type EnvironmentConfig struct {
 
 // ServerConfig :
 type ServerConfig struct {
+  CoreDNSAddr string `yaml:"corednsaddr"`
   APIConnString string `yaml:"apiconn"`
   APIHost   string  `yaml:"apihost"`
   APIPort   string `yaml:"apiport"`
