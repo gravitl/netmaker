@@ -101,8 +101,6 @@ An admin creates a token in the ACCESS KEYS section of the UI. Upon creating a t
 
 **Access Token:** The secret key plus information about how to access the server (addresses, ports), all decoded by the netclient to register with the server
 
-**Install Command:** A short script that will obtain the netclient binary, register with the server, and join the network, all in one
-
 For first time installations, you can run the Install Command. For additional networks, simply run ``netclient join -t <access token>``. The raw access key will not be needed unless there are special circumstances, mostly troubleshooting incorrect information in the token (you can instead manually specify the server location).
 
 
