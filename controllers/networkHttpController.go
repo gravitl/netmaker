@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -585,6 +586,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	success, err := serverctl.AddNetwork(network.NetID)
+        if err != nil || !success {
+		if err == nil {
+			err = errors.New("Failed to add server to network " + network.DisplayName)
+		}
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
 	w.WriteHeader(http.StatusOK)
 	//json.NewEncoder(w).Encode(result)
 }
