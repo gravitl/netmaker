@@ -1,20 +1,21 @@
 package main
 
 import (
-	"errors"
-	"os/exec"
-	"strconv"
-	"github.com/urfave/cli/v2"
-	"os"
-	"github.com/gravitl/netmaker/netclient/command"
-	"github.com/gravitl/netmaker/netclient/config"
-	"log"
+    "errors"
+    "github.com/gravitl/netmaker/netclient/command"
+    "github.com/gravitl/netmaker/netclient/config"
+    "github.com/urfave/cli/v2"
+    "log"
+    "os"
+    "os/exec"
+    "strconv"
 )
 
 func main() {
         app := cli.NewApp()
         app.Name = "Netclient CLI"
         app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
+        app.Version = "v0.5.11"
 
     cliFlags := []cli.Flag{
         &cli.StringFlag{
