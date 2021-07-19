@@ -353,6 +353,20 @@ SERVER_GRPC_WG_KEYREQUIRED
 
     **Description:** Determines if an Access Key is required to join the Comms network. Blank (meaning 'no') by default. Set to "yes" to turn on.
 
+GRPC_SSL
+    **Default:** ""
+
+    **Description:** Specifies if GRPC is going over secure GRPC or SSL. This is a setting for the clients and is passed through the access token. Can be set to "on" and "off". Set to on if SSL is configured for GRPC.
+
+SERVER_API_CONN_STRING
+    **Default:** ""
+
+    **Description:**  Allows specification of the string used to connect to the server api. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
+
+SERVER_GRPC_CONN_STRING
+    **Default:** ""
+
+    **Description:**  Allows specification of the string used to connect to grpc. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
 
 Config File Reference
 ----------------------

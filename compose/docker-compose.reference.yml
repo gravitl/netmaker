@@ -57,6 +57,9 @@ services:
       SERVER_GRPC_WG_PORT: "50555" # Port to use for GRPC WireGuard if enabled
       SERVER_GRPC_WG_PUBKEY: "SERVER_GRPC_WG_PUBKEY" # PublicKey for GRPC WireGuard interface. Generated if blank.
       SERVER_GRPC_WG_PRIVKEY: "SERVER_GRPC_WG_PRIVKEY" # PrivateKey for GRPC WireGuard interface. Generated if blank.
+      GRPC_SSL: "off" # Tells clients to use SSL to connect to GRPC. Switch to on to turn on.
+      SERVER_API_CONN_STRING: "" # Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT
+      SERVER_GRPC_CONN_STRING: "" # Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT
   netmaker-ui: # The Netmaker UI Component
     container_name: netmaker-ui
     depends_on:
