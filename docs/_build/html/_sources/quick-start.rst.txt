@@ -52,7 +52,7 @@ Create Key
 #. Click ADD NEW ACCESS KEY
 #. Give it a name (ex: "mykey") and a number of uses (ex: 25)
 #. Click CREATE KEY (**Important:** Do not click out of the following screen until you have saved your key details. It will appear only once.)
-#. Copy the bottom command under "Your agent install command with access token" and save it somewhere locally. E.x: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.3/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
+#. Copy the bottom command under "Your agent install command with access token" and save it somewhere locally. E.x: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
 
 .. image:: images/access-key.png
    :width: 80%
@@ -77,7 +77,7 @@ Deploy Nodes
   * ``which wg`` (should show wg binary present)
   * ``pidof systemd && echo "systemd found" || echo "systemd not found"``
 
-4. Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
+4. Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
 
 You should get output similar to the below. The netclient retrieves local settings, submits them to the server for processing, and retrieves updated settings. Then it sets the local network configuration. For more information about this process, see the :doc:`client installation <./client-installation>` documentation. If this process failed and you do not see your node in the console (see below), then reference the :doc:`troubleshooting <./troubleshoot>` documentation.
 
