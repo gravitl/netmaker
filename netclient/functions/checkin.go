@@ -10,6 +10,7 @@ import (
 	"net"
 	"os/exec"
         "github.com/gravitl/netmaker/netclient/config"
+        "github.com/gravitl/netmaker/netclient/local"
         "github.com/gravitl/netmaker/netclient/wireguard"
         "github.com/gravitl/netmaker/netclient/server"
         "github.com/gravitl/netmaker/netclient/auth"
@@ -19,7 +20,8 @@ import (
 	//homedir "github.com/mitchellh/go-homedir"
 )
 
-func CheckIn(network string) error {
+func CheckIn(cliconf config.ClientConfig) error {
+	network := cliconf.Network
 	node := server.GetNode(network)
         cfg, err := config.ReadConfig(network)
         if err != nil {
@@ -31,6 +33,14 @@ func CheckIn(network string) error {
 
 	setupcheck := true
 	ipchange := false
+
+        if nodecfg.DNS == "on" || cliconf.Node.DNS == "on" {
+		fmt.Println("setting dns")
+		ifacename := node.Interface
+		nameserver := servercfg.CoreDNSAddr
+		network := node.Nodenetwork
+                _ = local.UpdateDNS(ifacename, network, nameserver)
+        }
 
 	if !(nodecfg.IPForwarding == "off") {
 		out, err := exec.Command("sysctl", "net.ipv4.ip_forward").Output()
@@ -125,10 +135,13 @@ func CheckIn(network string) error {
         var wcclient nodepb.NodeServiceClient
         var requestOpts grpc.DialOption
         requestOpts = grpc.WithInsecure()
-        if cfg.Server.GRPCSSL == "on" {
+        if servercfg.GRPCSSL == "on" {
+		log.Println("using SSL")
                 h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
                 requestOpts = grpc.WithTransportCredentials(h2creds)
-        }
+        } else {
+                log.Println("using insecure GRPC connection")
+	}
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
 		fmt.Printf("Cant dial GRPC server: %v", err)

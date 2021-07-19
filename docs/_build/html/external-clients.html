@@ -333,7 +333,7 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#uninstralling-netmaker" class="md-nav__link">Uninstralling Netmaker</a>
+      <a href="quick-start.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
       
     
     </li></ul>
@@ -459,6 +459,10 @@
         <li class="md-nav__item"><a href="#external-clients--page-root" class="md-nav__link">External Clients</a><nav class="md-nav">
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
+        </li>
+        <li class="md-nav__item"><a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+        </li>
+        <li class="md-nav__item"><a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
         </li></ul>
             </nav>
         </li>
@@ -469,6 +473,20 @@
     
     
       <a href="#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
       
     
     </li></ul>
@@ -729,6 +747,10 @@
         <li class="md-nav__item"><a href="#external-clients--page-root" class="md-nav__link">External Clients</a><nav class="md-nav">
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
+        </li>
+        <li class="md-nav__item"><a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+        </li>
+        <li class="md-nav__item"><a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
         </li></ul>
             </nav>
         </li>
@@ -757,6 +779,34 @@
 <p>By using this method, you can hook any machine into a netmaker network that can run WireGuard.</p>
 <p>It is recommended to run the netclient where compatible, but for all other cases, a machine can be configured as an external client.</p>
 <p>Important to note, an external client is not <strong>reachable</strong> by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource runnin on the virtual network, and <strong>not</strong> for use cases where one wishes to make a resource accessible on the network. For that, use netclient.</p>
+
+
+<h2 id="configuring-an-ingress-gateway">Configuring an Ingress Gateway<a class="headerlink" href="#configuring-an-ingress-gateway" title="Permalink to this headline">¶</a></h2>
+<p>External Clients must attach to an Ingress Gateway. By default, your network will not have an ingress gateway. To configure an ingress gateway, you can use any node in your network, but it should have a public IP address (not behind a NAT). Your Netmaker server can be an ingress gateway and makes for a good default choice if you are unsure of which node to select.</p>
+<a class="reference internal image-reference" href="_images/exclient1.png"><img alt="Gateway" class="align-center" src="_images/exclient1.png" style="width: 80%;"/></a>
+
+
+<h2 id="adding-clients-to-a-gateway">Adding Clients to a Gateway<a class="headerlink" href="#adding-clients-to-a-gateway" title="Permalink to this headline">¶</a></h2>
+<p>Once you have configured a node as a gateway, you can then add clients to that gateway. Clients will be able to access other nodes in the network just as the gateway node does.</p>
+<a class="reference internal image-reference" href="_images/exclient2.png"><img alt="Gateway" class="align-center" src="_images/exclient2.png" style="width: 80%;"/></a>
+<p>After creating a client, you can edit the name to something more logical.</p>
+<a class="reference internal image-reference" href="_images/exclient3.png"><img alt="Gateway" class="align-center" src="_images/exclient3.png" style="width: 80%;"/></a>
+<p>Then, you can either download the configuration file directly, or scan the QR code from your phone (assuming you have the WireGuard app installed). It will accept the configuration just as it would accept a typical WireGuard configuration file.</p>
+<a class="reference internal image-reference" href="_images/exclient4.png"><img alt="Gateway" class="align-center" src="_images/exclient4.png" style="width: 80%;"/></a>
+<p>Example config file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Interface</span><span class="p">]</span>
+<span class="n">Address</span> <span class="o">=</span> <span class="mf">10.7.11.5</span><span class="o">/</span><span class="mi">32</span>
+<span class="n">PrivateKey</span> <span class="o">=</span> <span class="n">EJf6Yy51M</span><span class="o">/</span><span class="n">YDaZgedRpuxMmrqul35WfjmHvRZR1rQ0U</span><span class="o">=</span>
+
+<span class="p">[</span><span class="n">Peer</span><span class="p">]</span>
+<span class="n">PublicKey</span> <span class="o">=</span> <span class="n">m</span><span class="o">/</span><span class="n">RPuMVsbpgQ</span><span class="o">+</span><span class="n">RkxlgK2mG</span><span class="o">+</span><span class="n">dDFlzqn</span><span class="o">+</span><span class="n">ua2zJt8Wn7GA</span><span class="o">=</span>
+<span class="n">AllowedIPs</span> <span class="o">=</span> <span class="mf">10.7.11.0</span><span class="o">/</span><span class="mi">24</span>
+<span class="n">Endpoint</span> <span class="o">=</span> <span class="mf">3.236.60.247</span><span class="p">:</span><span class="mi">51822</span>
+<span class="n">PersistentKeepalive</span> <span class="o">=</span> <span class="mi">20</span>
+
+</pre></div>
+</div>
+<p>Your client should now be able to access the network! A client can be invalidated at any time by simply deleting it from the UI.</p>
 
 
 

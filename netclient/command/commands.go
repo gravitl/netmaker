@@ -58,7 +58,7 @@ func CheckIn(cfg config.ClientConfig) error {
 		log.Println("Required, '-n'. No network provided. Exiting.")
                 os.Exit(1)
         }
-	err := functions.CheckIn(cfg.Network)
+	err := functions.CheckIn(cfg)
 	if err != nil {
 		log.Println("Error checking in: ", err)
 		os.Exit(1)

@@ -183,6 +183,7 @@ func JoinNetwork(cfg config.ClientConfig) error {
         if err != nil {
                 return err
         }
+	log.Println("node created on remote server...updating configs")
         node := res.Node
         if err != nil {
                 return err
@@ -211,16 +212,18 @@ func JoinNetwork(cfg config.ClientConfig) error {
 			return err
 		}
 	}
-
+	log.Println("retrieving remote peers")
 	peers, hasGateway, gateways, err := server.GetPeers(node.Macaddress, cfg.Network, cfg.Server.GRPCAddress, node.Isdualstack, node.Isingressgateway)
 
 	if err != nil {
+		log.Println("failed to retrieve peers")
                 return err
         }
 	err = wireguard.StorePrivKey(cfg.Node.PrivateKey, cfg.Network)
         if err != nil {
                 return err
         }
+        log.Println("starting wireguard")
 	err = wireguard.InitWireguard(node, cfg.Node.PrivateKey, peers, hasGateway, gateways)
         if err != nil {
                 return err

@@ -1,4 +1,4 @@
-default comms  {
+default k8scom tester textx comms  {
     reload 15s
     hosts /root/dnsconfig/netmaker.hosts {
 	fallthrough	

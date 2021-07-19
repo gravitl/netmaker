@@ -1009,7 +1009,7 @@
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">mongodb</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.3</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.5</span>
     <span class="nt">volumes</span><span class="p">:</span> <span class="c1"># Volume mounts necessary for CLIENT_MODE to control netclient, wireguard, and networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">./:/local</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/etc/netclient:/etc/netclient</span>
@@ -1053,7 +1053,7 @@
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker-ui:v0.3</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker-ui:v0.5</span>
     <span class="nt">links</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="s">"netmaker:api"</span>
     <span class="nt">ports</span><span class="p">:</span>

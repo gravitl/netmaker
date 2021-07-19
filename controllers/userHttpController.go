@@ -30,7 +30,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", authorizeUserAdm(http.HandlerFunc(createUser))).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
-        r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
+	r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
 }
 
 //Node authenticates using its password and retrieves a JWT for authorization.
@@ -63,12 +63,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	username := authRequest.UserName
 	var successResponse = models.SuccessResponse{
 		Code:    http.StatusOK,
-		Message: "W1R3: Device " + authRequest.UserName + " Authorized",
+		Message: "W1R3: Device " + username + " Authorized",
 		Response: models.SuccessfulUserLoginResponse{
 			AuthToken: jwt,
-			UserName:  authRequest.UserName,
+			UserName:  username,
 		},
 	}
 	//Send back the JWT
@@ -78,6 +79,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		returnErrorResponse(response, request, errorResponse)
 		return
 	}
+	functions.PrintUserLog(username, "was authenticated", 2)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
 }
@@ -112,7 +114,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	//Create a new JWT for the node
-	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.Networks,  result.IsAdmin)
+	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.Networks, result.IsAdmin)
 	return tokenString, nil
 }
 
@@ -126,35 +128,38 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 func authorizeUser(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-	        var params = mux.Vars(r)
+		var params = mux.Vars(r)
 
 		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
-		err := ValidateUserToken(bearerToken, params["username"], false)
+		username := params["username"]
+		err := ValidateUserToken(bearerToken, username, false)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "unauthorized"))
 			return
 		}
+		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
 	}
 }
 
 func authorizeUserAdm(next http.Handler) http.HandlerFunc {
-        return func(w http.ResponseWriter, r *http.Request) {
-                w.Header().Set("Content-Type", "application/json")
-	        var params = mux.Vars(r)
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var params = mux.Vars(r)
 
-                //get the auth token
-                bearerToken := r.Header.Get("Authorization")
-                err := ValidateUserToken(bearerToken, params["username"], true)
-                if err != nil {
-                        returnErrorResponse(w, r, formatError(err, "unauthorized"))
-                        return
-                }
-                next.ServeHTTP(w, r)
-        }
+		//get the auth token
+		bearerToken := r.Header.Get("Authorization")
+		username := params["username"]
+		err := ValidateUserToken(bearerToken, username, true)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "unauthorized"))
+			return
+		}
+		r.Header.Set("user", username)
+		next.ServeHTTP(w, r)
+	}
 }
-
 
 func ValidateUserToken(token string, user string, adminonly bool) error {
 	var tokenSplit = strings.Split(token, " ")
@@ -241,39 +246,38 @@ func GetUser(username string) (models.User, error) {
 
 func GetUsers() ([]models.User, error) {
 
-        var users []models.User
+	var users []models.User
 
-        collection := mongoconn.Client.Database("netmaker").Collection("users")
+	collection := mongoconn.Client.Database("netmaker").Collection("users")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
 
-        if err != nil {
-                return users, err
-        }
+	if err != nil {
+		return users, err
+	}
 
-        defer cancel()
+	defer cancel()
 
-        for cur.Next(context.TODO()) {
+	for cur.Next(context.TODO()) {
 
-                var user models.User
-                err := cur.Decode(&user)
-                if err != nil {
-                        return users, err
-                }
+		var user models.User
+		err := cur.Decode(&user)
+		if err != nil {
+			return users, err
+		}
 
-                // add network our array
-                users = append(users, user)
-        }
+		// add network our array
+		users = append(users, user)
+	}
 
-        if err := cur.Err(); err != nil {
-                return users, err
-        }
+	if err := cur.Err(); err != nil {
+		return users, err
+	}
 
-        return users, err
+	return users, err
 }
-
 
 //Get an individual node. Nothin fancy here folks.
 func getUser(w http.ResponseWriter, r *http.Request) {
@@ -281,39 +285,35 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
+	usernameFetched := params["username"]
+	user, err := GetUser(usernameFetched)
 
-	user, err := GetUser(params["username"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	functions.PrintUserLog(r.Header.Get("user"), "fetched user "+usernameFetched, 2)
+	json.NewEncoder(w).Encode(user)
+}
+
+//Get an individual node. Nothin fancy here folks.
+func getUsers(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	users, err := GetUsers()
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(user)
+	functions.PrintUserLog(r.Header.Get("user"), "fetched users", 2)
+	json.NewEncoder(w).Encode(users)
 }
-
-//Get an individual node. Nothin fancy here folks.
-func getUsers(w http.ResponseWriter, r *http.Request) {
-        // set header.
-        w.Header().Set("Content-Type", "application/json")
-
-        users, err := GetUsers()
-
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-
-        json.NewEncoder(w).Encode(users)
-}
-
 
 func CreateUser(user models.User) (models.User, error) {
-	hasadmin, err := HasAdmin()
-	if hasadmin && user.IsAdmin {
-		return models.User{}, errors.New("Admin already Exists")
-	}
-	err = ValidateUser("create", user)
+	err := ValidateUser("create", user)
 	if err != nil {
 		return models.User{}, err
 	}
@@ -326,7 +326,7 @@ func CreateUser(user models.User) (models.User, error) {
 	//set password to encrypted password
 	user.Password = string(hash)
 
-	tokenString, _ := functions.CreateUserJWT(user.UserName,user.Networks, user.IsAdmin)
+	tokenString, _ := functions.CreateUserJWT(user.UserName, user.Networks, user.IsAdmin)
 
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
@@ -350,34 +350,33 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	var admin models.User
 	//get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
-        admin.IsAdmin = true
+	admin.IsAdmin = true
 	admin, err := CreateUser(admin)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
+	functions.PrintUserLog(admin.UserName, "was made a new admin", 1)
 	json.NewEncoder(w).Encode(admin)
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 
-        var user models.User
-        //get node from body of request
-        _ = json.NewDecoder(r.Body).Decode(&user)
+	var user models.User
+	//get node from body of request
+	_ = json.NewDecoder(r.Body).Decode(&user)
 
-        user, err := CreateUser(user)
+	user, err := CreateUser(user)
 
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "badrequest"))
-                return
-        }
-
-        json.NewEncoder(w).Encode(user)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	functions.PrintUserLog(user.UserName, "was created", 1)
+	json.NewEncoder(w).Encode(user)
 }
-
 
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 
@@ -391,9 +390,9 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	if userchange.UserName != "" {
 		user.UserName = userchange.UserName
 	}
-        if len(userchange.Networks) > 0  {
-                user.Networks = userchange.Networks
-        }
+	if len(userchange.Networks) > 0 {
+		user.Networks = userchange.Networks
+	}
 	if userchange.Password != "" {
 		//encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
@@ -445,7 +444,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var user models.User
 	//start here
-	user, err := GetUser(params["username"])
+	username := params["username"]
+	user, err := GetUser(username)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -463,32 +463,35 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	functions.PrintUserLog(username, "was updated", 1)
 	json.NewEncoder(w).Encode(user)
 }
 
 func updateUserAdm(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        var params = mux.Vars(r)
-        var user models.User
-        //start here
-        user, err := GetUser(params["username"])
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        var userchange models.User
-        // we decode our body request params
-        err = json.NewDecoder(r.Body).Decode(&userchange)
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	var user models.User
+	//start here
+	username := params["username"]
+	user, err := GetUser(username)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	var userchange models.User
+	// we decode our body request params
+	err = json.NewDecoder(r.Body).Decode(&userchange)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	user, err = UpdateUser(userchange, user)
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "badrequest"))
-                return
-        }
-        json.NewEncoder(w).Encode(user)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	functions.PrintUserLog(username, "was updated (admin)", 1)
+	json.NewEncoder(w).Encode(user)
 }
 
 func DeleteUser(user string) (bool, error) {
@@ -521,7 +524,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	success, err := DeleteUser(params["username"])
+	username := params["username"]
+	success, err := DeleteUser(username)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -531,6 +535,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	functions.PrintUserLog(username, "was deleted", 1)
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
 }
 
