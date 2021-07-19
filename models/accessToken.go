@@ -13,6 +13,7 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
+  CoreDNSAddr string `json:"corednsaddr"`
   APIConnString string `json:"apiconn"`
   APIHost   string  `json:"apihost"`
   APIPort   string `json:"apiport"`

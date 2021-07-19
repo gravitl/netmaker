@@ -143,7 +143,12 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 
 
         requestOpts := grpc.WithInsecure()
-        conn, err := grpc.Dial(server, requestOpts)
+        if cfg.Server.GRPCSSL == "on" {
+                h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+                requestOpts = grpc.WithTransportCredentials(h2creds)
+        }
+
+	conn, err := grpc.Dial(server, requestOpts)
         if err != nil {
                 log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
         }
@@ -157,15 +162,15 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
         ctx := context.Background()
         ctx, err = auth.SetJWT(wcclient, network)
         if err != nil {
-                fmt.Println("Failed to authenticate.")
+                log.Println("Failed to authenticate.")
                 return peers, hasGateway, gateways, err
         }
         var header metadata.MD
 
         stream, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))
         if err != nil {
-                fmt.Println("Error retrieving peers")
-                fmt.Println(err)
+                log.Println("Error retrieving peers")
+                log.Println(err)
                 return nil, hasGateway, gateways, err
         }
         for {

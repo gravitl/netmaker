@@ -52,7 +52,10 @@ Create Key
 #. Click ADD NEW ACCESS KEY
 #. Give it a name (ex: "mykey") and a number of uses (ex: 25)
 #. Click CREATE KEY (**Important:** Do not click out of the following screen until you have saved your key details. It will appear only once.)
-#. Copy the bottom command under "Your agent install command with access token" and save it somewhere locally. E.x: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.3/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
+#. Copy the bottom command under "Your agent install command with access token" and save it somewhere locally. E.x: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``. **A change is required here. Change netclient-install.sh in this command to netclient-install.slim.sh, EX:**
+
+
+``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.slim.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
 
 .. image:: images/access-key.png
    :width: 80%
@@ -63,7 +66,12 @@ You will use this command to install the netclient on your nodes. There are thre
 
 * The **Access Key** value is the secret string that will allow your node to authenticate with the Netmaker network. This can be used with existing netclient installations where additional configurations (such as setting the server IP manually) may be required. This is not typical. E.g. ``netclient -c install -k <access key> -s 1.2.3.4 -p 50052``
 * The **Access Token** value is a base64 encoded string that contains the server IP and grpc port, as well as the access key. This is decoded by the netclient and can be used with existing netclient installations like this: ``netclient -c install -t <access token>``. You should use this method for adding a network to a node that is already on a network. For instance, Node A is in the **mynet** network and now you are adding it to **default**.
+<<<<<<< HEAD
 
+=======
+* The **install command** value is a curl command that can be run on Linux systems. It is a simple script that downloads the netclient binary and runs the install command all in one. However, this script is tailored for Secure GRPC Mode and contains an additional (unnecessary) command: **netclient register -k keyvalue**. This command will not work without secure GRPC enabled and will return a 500 error.
+  
+>>>>>>> c360eb1878a4fe89538235ab240da6f6890934a1
 Networks can also be enabled to allow nodes to sign up without keys at all. In this scenario, nodes enter a "pending state" and are not permitted to join the network until an admin approves them.
 
 Deploy Nodes
@@ -76,7 +84,7 @@ Deploy Nodes
   * ``which wg`` (should show wg binary present)
   * ``pidof systemd && echo "systemd found" || echo "systemd not found"``
 
-4. Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
+4. Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.slim.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
 
 You should get output similar to the below. The netclient retrieves local settings, submits them to the server for processing, and retrieves updated settings. Then it sets the local network configuration. For more information about this process, see the :doc:`client installation <./client-installation>` documentation. If this process failed and you do not see your node in the console (see below), then reference the :doc:`troubleshooting <./troubleshoot>` documentation.
 
@@ -129,7 +137,7 @@ Uninstalling the netclient
 1. To remove your nodes from the default network, run the following on each node: ``sudo netclient leave -n default``
 2. To remove the netclient entirely from each node, run ``sudo rm -rf /etc/netclient`` (after running the first step)
 
-Uninstralling Netmaker
+Uninstalling Netmaker
 ===========================
 
 To uninstall Netmaker from the server, simply run ``docker-compose down`` or ``docker-compose down --volumes`` to remove the docker volumes for a future installation.

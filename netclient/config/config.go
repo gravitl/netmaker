@@ -26,6 +26,7 @@ type ClientConfig struct {
 	OperatingSystem string `yaml:"operatingsystem"`
 }
 type ServerConfig struct {
+        CoreDNSAddr string `yaml:"corednsaddr"`
         GRPCAddress string `yaml:"grpcaddress"`
         APIAddress string `yaml:"apiaddress"`
         AccessKey string `yaml:"accesskey"`
@@ -55,7 +56,6 @@ type NodeConfig struct {
         IsLocal string `yaml:"islocal"`
         IsDualStack string `yaml:"isdualstack"`
         IsIngressGateway string `yaml:"isingressgateway"`
-        AllowedIPs []string `yaml:"allowedips"`
         LocalRange string `yaml:"localrange"`
         PostUp string `yaml:"postup"`
         PostDown string `yaml:"postdown"`
@@ -85,9 +85,6 @@ func Write(config *ClientConfig, network string) error{
         }
 	home := "/etc/netclient"
 
-        if err != nil {
-                log.Fatal(err)
-        }
         file := fmt.Sprintf(home + "/netconfig-" + network)
         f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
         defer f.Close()
@@ -408,6 +405,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
+		cfg.Server.CoreDNSAddr = accesstoken.ServerConfig.CoreDNSAddr
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}
@@ -427,6 +425,9 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 if c.String("grpcssl") != "" {
                         cfg.Server.GRPCSSL = c.String("grpcssl")
                 }
+                if c.String("corednsaddr") != "" {
+                        cfg.Server.CoreDNSAddr = c.String("corednsaddr")
+                }
                 if c.String("grpcwg") != "" {
                         cfg.Server.GRPCWireGuard = c.String("grpcwg")
                 }
@@ -440,6 +441,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error){
                 cfg.Node.LocalRange = c.String("localrange")
                 cfg.Server.GRPCWireGuard = c.String("grpcwg")
                 cfg.Server.GRPCSSL = c.String("grpcssl")
+                cfg.Server.CoreDNSAddr = c.String("corednsaddr")
 	}
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")

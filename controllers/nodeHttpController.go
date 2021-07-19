@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
-	"log"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -184,13 +185,13 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			//B: the token corresponds to a mac address, and if so, which one
 			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
 
-                        var isAuthorized = false
+			var isAuthorized = false
 			var macaddress = ""
-                        _, networks, isadmin, errN := functions.VerifyUserToken(authToken)
+			username, networks, isadmin, errN := functions.VerifyUserToken(authToken)
 			isnetadmin := isadmin
 			if errN == nil && isadmin {
-	                        macaddress = "mastermac"
-                                isAuthorized = true
+				macaddress = "mastermac"
+				isAuthorized = true
 			} else {
 				mac, _, err := functions.VerifyToken(authToken)
 				if err != nil {
@@ -202,11 +203,11 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				}
 				macaddress = mac
 			}
-                        if !isadmin && params["network"] != ""{
-                                if functions.SliceContains(networks, params["network"]){
-                                        isnetadmin = true
-                                }
-                        }
+			if !isadmin && params["network"] != "" {
+				if functions.SliceContains(networks, params["network"]) {
+					isnetadmin = true
+				}
+			}
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if macaddress == "mastermac" {
 				isAuthorized = true
@@ -223,20 +224,20 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 					if isnetadmin {
 						isAuthorized = true
 					} else {
-					node, err := functions.GetNodeByMacAddress(params["network"], macaddress)
-					if err != nil {
-						errorResponse = models.ErrorResponse{
-							Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
+						node, err := functions.GetNodeByMacAddress(params["network"], macaddress)
+						if err != nil {
+							errorResponse = models.ErrorResponse{
+								Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
+							}
+							returnErrorResponse(w, r, errorResponse)
+							return
 						}
-						returnErrorResponse(w, r, errorResponse)
-						return
-					}
-					isAuthorized = (node.Network == params["network"])
+						isAuthorized = (node.Network == params["network"])
 					}
 				case "node":
-                                        if isnetadmin {
-                                                isAuthorized = true
-                                        } else {
+					if isnetadmin {
+						isAuthorized = true
+					} else {
 						isAuthorized = (macaddress == params["macaddress"])
 					}
 				case "master":
@@ -253,6 +254,10 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				return
 			} else {
 				//If authorized, this function passes along it's request and output to the appropriate route function.
+				if username == "" {
+					username = "(user not found)"
+				}
+				r.Header.Set("user", username)
 				next.ServeHTTP(w, r)
 			}
 		}
@@ -266,13 +271,15 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	var nodes []models.Node
 	var params = mux.Vars(r)
-	nodes, err := GetNetworkNodes(params["network"])
+	networkName := params["network"]
+	nodes, err := GetNetworkNodes(networkName)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	//Returns all the nodes in JSON format
+	functions.PrintUserLog(r.Header.Get("user"), "fetched nodes on network"+networkName, 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
 }
@@ -319,6 +326,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//Return all the nodes in JSON format
+	functions.PrintUserLog(r.Header.Get("user"), "fetched nodes", 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
 }
@@ -391,6 +399,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"), "fetched node "+params["macaddress"], 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -409,6 +418,7 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"), "called last modified", 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network.NodesLastModified)
 }
@@ -503,6 +513,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"), "created new node "+node.Name+" on network "+node.Network, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -517,7 +528,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	fmt.Println("Node " + node.Name + " uncordoned.")
+	functions.PrintUserLog(r.Header.Get("user"), "uncordoned node "+node.Name, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
 }
@@ -563,6 +574,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"), "created egress gateway on node "+gateway.NodeID+" on network "+gateway.NetID, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -594,13 +606,13 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 			nodechange.PostUp = node.PostUp
 		}
 	}
-        if node.PostDown != "" {
-                if !strings.Contains(node.PostDown, nodechange.PostDown) {
-                        nodechange.PostDown = node.PostDown + "; " + nodechange.PostDown
-                } else {
-                        nodechange.PostDown = node.PostDown
-                }
-        }
+	if node.PostDown != "" {
+		if !strings.Contains(node.PostDown, nodechange.PostDown) {
+			nodechange.PostDown = node.PostDown + "; " + nodechange.PostDown
+		} else {
+			nodechange.PostDown = node.PostDown
+		}
+	}
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	// Create filter
@@ -637,7 +649,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	var err error
 	//isIp := functions.IsIpCIDR(gateway.RangeString)
-	empty := len(gateway.Ranges)==0
+	empty := len(gateway.Ranges) == 0
 	if empty {
 		err = errors.New("IP Ranges Cannot Be Empty")
 	}
@@ -651,11 +663,14 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	node, err := DeleteEgressGateway(params["network"], params["macaddress"])
+	nodeMac := params["macaddress"]
+	netid := params["network"]
+	node, err := DeleteEgressGateway(netid, nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"), "delete egress gateway "+nodeMac+" on network "+netid, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -705,15 +720,19 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 	}
 	return node, nil
 }
+
 // == INGRESS ==
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	node, err := CreateIngressGateway(params["network"], params["macaddress"])
+	nodeMac := params["macaddress"]
+	netid := params["network"]
+	node, err := CreateIngressGateway(netid, nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"), "created ingress gateway on node "+nodeMac+" on network "+netid, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -721,77 +740,79 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
 
 	node, err := functions.GetNodeByMacAddress(netid, macaddress)
-        if err != nil {
-                return models.Node{}, err
-        }
+	if err != nil {
+		return models.Node{}, err
+	}
 
-        network, err := functions.GetParentNetwork(netid)
-        if err != nil {
+	network, err := functions.GetParentNetwork(netid)
+	if err != nil {
 		log.Println("Could not find network.")
-                return models.Node{}, err
-        }
-        var nodechange models.Node
+		return models.Node{}, err
+	}
+	var nodechange models.Node
 	nodechange.IngressGatewayRange = network.AddressRange
-        nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-        nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-        if node.PostUp != "" {
-                if !strings.Contains(node.PostUp, nodechange.PostUp) {
-                        nodechange.PostUp = node.PostUp + "; " + nodechange.PostUp
-                } else {
-                        nodechange.PostUp = node.PostUp
-                }
-        }
-        if node.PostDown != "" {
-                if !strings.Contains(node.PostDown, nodechange.PostDown) {
-                        nodechange.PostDown = node.PostDown + "; " + nodechange.PostDown
-                } else {
-                        nodechange.PostDown = node.PostDown
-                }
-        }
+	nodechange.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	nodechange.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	if node.PostUp != "" {
+		if !strings.Contains(node.PostUp, nodechange.PostUp) {
+			nodechange.PostUp = node.PostUp + "; " + nodechange.PostUp
+		} else {
+			nodechange.PostUp = node.PostUp
+		}
+	}
+	if node.PostDown != "" {
+		if !strings.Contains(node.PostDown, nodechange.PostDown) {
+			nodechange.PostDown = node.PostDown + "; " + nodechange.PostDown
+		} else {
+			nodechange.PostDown = node.PostDown
+		}
+	}
 
 	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        // Create filter
-        filter := bson.M{"macaddress": macaddress, "network": netid}
-        node.SetLastModified()
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"postup", nodechange.PostUp},
-                        {"postdown", nodechange.PostDown},
-                        {"isingressgateway", true},
-                        {"ingressgatewayrange", nodechange.IngressGatewayRange},
-                        {"lastmodified", node.LastModified},
-                }},
-        }
-        var nodeupdate models.Node
-        err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
-        defer cancel()
-        if err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Create filter
+	filter := bson.M{"macaddress": macaddress, "network": netid}
+	node.SetLastModified()
+	// prepare update model.
+	update := bson.D{
+		{"$set", bson.D{
+			{"postup", nodechange.PostUp},
+			{"postdown", nodechange.PostDown},
+			{"isingressgateway", true},
+			{"ingressgatewayrange", nodechange.IngressGatewayRange},
+			{"lastmodified", node.LastModified},
+		}},
+	}
+	var nodeupdate models.Node
+	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
+	defer cancel()
+	if err != nil {
 		log.Println("error updating node to gateway")
-                return models.Node{}, err
-        }
-        err = SetNetworkNodesLastModified(netid)
-        if err != nil {
-                return node, err
-        }
-        //Get updated values to return
-        node, err = functions.GetNodeByMacAddress(netid, macaddress)
-        if err != nil {
+		return models.Node{}, err
+	}
+	err = SetNetworkNodesLastModified(netid)
+	if err != nil {
+		return node, err
+	}
+	//Get updated values to return
+	node, err = functions.GetNodeByMacAddress(netid, macaddress)
+	if err != nil {
 		log.Println("error finding node after update")
-                return node, err
-        }
-        return node, nil
+		return node, err
+	}
+	return node, nil
 }
 
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	node, err := DeleteIngressGateway(params["network"], params["macaddress"])
+	nodeMac := params["macaddress"]
+	node, err := DeleteIngressGateway(params["network"], nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"), "deleted ingress gateway"+nodeMac, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
