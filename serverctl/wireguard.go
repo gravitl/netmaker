@@ -1,21 +1,22 @@
 package serverctl
 
 import (
-        //"github.com/davecgh/go-spew/spew"
-	"os"
-	"log"
-	"context"
-	"time"
-	"net"
-	"strconv"
+	//"github.com/davecgh/go-spew/spew"
+
+	"encoding/json"
 	"errors"
+	"log"
+	"net"
+	"os"
+	"strconv"
+
+	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-        "github.com/gravitl/netmaker/servercfg"
-        "github.com/gravitl/netmaker/functions"
-        "github.com/gravitl/netmaker/models"
-        "github.com/gravitl/netmaker/mongoconn"
 )
 
 func InitServerWireGuard() error {
@@ -50,9 +51,9 @@ func InitServerWireGuard() error {
 	}
 
 	err = netlink.AddrAdd(wglink, address)
-        if err != nil && !os.IsExist(err){
-                        return err
-        }
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
 	err = netlink.LinkSetUp(wglink)
 	if err != nil {
 		log.Println("could not bring up wireguard interface")
@@ -69,105 +70,104 @@ func InitServerWireGuard() error {
 	client.Address = servercfg.GetGRPCWGAddress()
 	client.IsServer = "yes"
 	client.Network = "comms"
-	exists, _ := functions.ServerIntClientExists()
-	if exists {
-
+	exists, _ := functions.GetServerIntClient()
+	if exists != nil {
+		err = RegisterServer(client)
 	}
-	err = RegisterServer(client)
-        return err
+	return err
 }
 
 func DeleteServerClient() error {
 	return nil
 }
 
-
 func RegisterServer(client models.IntClient) error {
-        if client.PrivateKey == "" {
-                privateKey, err := wgtypes.GeneratePrivateKey()
-                if err != nil {
-                        return err
-                }
+	if client.PrivateKey == "" {
+		privateKey, err := wgtypes.GeneratePrivateKey()
+		if err != nil {
+			return err
+		}
 
-                client.PrivateKey = privateKey.String()
-                client.PublicKey = privateKey.PublicKey().String()
-        }
+		client.PrivateKey = privateKey.String()
+		client.PublicKey = privateKey.PublicKey().String()
+	}
 
-        if client.Address == "" {
-                newAddress, err := functions.UniqueAddress(client.Network)
-                if err != nil {
-                        return err
-                }
+	if client.Address == "" {
+		newAddress, err := functions.UniqueAddress(client.Network)
+		if err != nil {
+			return err
+		}
 		if newAddress == "" {
 			return errors.New("Could not retrieve address")
 		}
-                client.Address = newAddress
-        }
-	if client.Network == "" { client.Network = "comms" }
-        client.ServerKey = client.PublicKey
+		client.Address = newAddress
+	}
+	if client.Network == "" {
+		client.Network = "comms"
+	}
+	client.ServerKey = client.PublicKey
+	value, err := json.Marshal(client)
+	if err != nil {
+		return err
+	}
+	database.Insert(client.PublicKey, string(value), database.INT_CLIENTS_TABLE_NAME)
 
-        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        // insert our network into the network table
-        _, err := collection.InsertOne(ctx, client)
-        defer cancel()
+	ReconfigureServerWireGuard()
 
-        ReconfigureServerWireGuard()
-
-        return err
+	return err
 }
 
 func ReconfigureServerWireGuard() error {
-	server, err := GetServerWGConf()
+	server, err := functions.GetServerIntClient()
 	if err != nil {
-                return err
-        }
+		return err
+	}
 	serverkey, err := wgtypes.ParseKey(server.PrivateKey)
-        if err != nil {
-                return err
-        }
+	if err != nil {
+		return err
+	}
 	serverport, err := strconv.Atoi(servercfg.GetGRPCWGPort())
-        if err != nil {
-                return err
-        }
+	if err != nil {
+		return err
+	}
 
 	peers, err := functions.GetIntPeersList()
-        if err != nil {
-                return err
-        }
+	if err != nil {
+		return err
+	}
 	wgserver, err := wgctrl.New()
 	if err != nil {
 		return err
 	}
-        var serverpeers []wgtypes.PeerConfig
+	var serverpeers []wgtypes.PeerConfig
 	for _, peer := range peers {
 
-                pubkey, err := wgtypes.ParseKey(peer.PublicKey)
+		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return err
 		}
-                var peercfg wgtypes.PeerConfig
-                var allowedips []net.IPNet
-                if peer.Address != "" {
+		var peercfg wgtypes.PeerConfig
+		var allowedips []net.IPNet
+		if peer.Address != "" {
 			var peeraddr = net.IPNet{
-	                        IP: net.ParseIP(peer.Address),
-	                        Mask: net.CIDRMask(32, 32),
-	                }
-	                allowedips = append(allowedips, peeraddr)
+				IP:   net.ParseIP(peer.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			allowedips = append(allowedips, peeraddr)
 		}
 		if peer.Address6 != "" {
-                        var addr6 = net.IPNet{
-                                IP: net.ParseIP(peer.Address6),
-                                Mask: net.CIDRMask(128, 128),
-                        }
-                        allowedips = append(allowedips, addr6)
-                }
+			var addr6 = net.IPNet{
+				IP:   net.ParseIP(peer.Address6),
+				Mask: net.CIDRMask(128, 128),
+			}
+			allowedips = append(allowedips, addr6)
+		}
 		peercfg = wgtypes.PeerConfig{
-                        PublicKey: pubkey,
-                        ReplaceAllowedIPs: true,
-                        AllowedIPs: allowedips,
-                }
-                serverpeers = append(serverpeers, peercfg)
+			PublicKey:         pubkey,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        allowedips,
+		}
+		serverpeers = append(serverpeers, peercfg)
 	}
 
 	wgconf := wgtypes.Config{

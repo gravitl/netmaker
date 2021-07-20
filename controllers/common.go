@@ -2,11 +2,13 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mongoconn"
@@ -59,64 +61,41 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 	return peers, err
 }
 
-
 func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersResponse, error) {
 
-        var peers []models.ExtPeersResponse
+	var peers []models.ExtPeersResponse
+	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 
-        //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("netmaker").Collection("extclients")
+	if err != nil {
+		return peers, err
+	}
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        //Get all nodes in the relevant network which are NOT in pending state
-	filter := bson.M{"network": networkName, "ingressgatewayid": macaddress}
-        cur, err := collection.Find(ctx, filter)
-
-        if err != nil {
-                return peers, err
-        }
-
-        // Close the cursor once finished and cancel if it takes too long
-        defer cancel()
-
-        for cur.Next(context.TODO()) {
-
-                var peer models.ExtPeersResponse
-                err := cur.Decode(&peer)
-                if err != nil {
-                        log.Fatal(err)
-                }
-
-                // add the node to our node array
-                //maybe better to just return this? But then that's just GetNodes...
-                peers = append(peers, peer)
-        }
-
-        //Uh oh, fatal error! This needs some better error handling
-        //TODO: needs appropriate error handling so the server doesnt shut down.
-        if err := cur.Err(); err != nil {
-                log.Fatal(err)
-        }
-
-        return peers, err
+	for _, value := range records {
+		var peer models.ExtPeersResponse
+		err = json.Unmarshal([]byte(value), &peer)
+		if err != nil {
+			functions.PrintUserLog("netmaker", "failed to unmarshal ext client", 2)
+			continue
+		}
+		peers = append(peers, peer)
+	}
+	return peers, err
 }
-
 
 func ValidateNodeCreate(networkName string, node models.Node) error {
 	v := validator.New()
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
-		var isFieldUnique bool = functions.IsFieldUnique(networkName, "macaddress", node.MacAddress)
+		isFieldUnique, _ := functions.IsMacAddressUnique(node.MacAddress, networkName)
 		return isFieldUnique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := node.GetNetwork()
 		return err == nil
 	})
-        _ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-                isgood := functions.NameInNodeCharSet(node.Name)
-                return isgood
-        })
+	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
+		isgood := functions.NameInNodeCharSet(node.Name)
+		return isgood
+	})
 	err := v.Struct(node)
 
 	if err != nil {
@@ -133,10 +112,10 @@ func ValidateNodeUpdate(networkName string, node models.NodeUpdate) error {
 		_, err := node.GetNetwork()
 		return err == nil
 	})
-        _ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-                isgood := functions.NameInNodeCharSet(node.Name)
-                return isgood
-        })
+	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
+		isgood := functions.NameInNodeCharSet(node.Name)
+		return isgood
+	})
 	err := v.Struct(node)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
@@ -302,27 +281,27 @@ func DeleteNode(macaddress string, network string) (bool, error) {
 
 func DeleteIntClient(clientid string) (bool, error) {
 
-        deleted := false
+	deleted := false
 
-        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
 
-        filter := bson.M{"clientid": clientid}
+	filter := bson.M{"clientid": clientid}
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        result, err := collection.DeleteOne(ctx, filter)
+	result, err := collection.DeleteOne(ctx, filter)
 
-        deletecount := result.DeletedCount
+	deletecount := result.DeletedCount
 
-        if deletecount > 0 {
-                deleted = true
-        }
+	if deletecount > 0 {
+		deleted = true
+	}
 
-        defer cancel()
+	defer cancel()
 
 	err = serverctl.ReconfigureServerWireGuard()
 
-        return deleted, err
+	return deleted, err
 }
 
 func GetNode(macaddress string, network string) (models.Node, error) {
@@ -343,18 +322,18 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 
 func GetIntClient(clientid string) (models.IntClient, error) {
 
-        var client models.IntClient
+	var client models.IntClient
 
-        collection := mongoconn.Client.Database("netmaker").Collection("intclients")
+	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-        filter := bson.M{"clientid": clientid}
-        err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&clientid)
+	filter := bson.M{"clientid": clientid}
+	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&clientid)
 
-        defer cancel()
+	defer cancel()
 
-        return client, err
+	return client, err
 }
 
 func CreateNode(node models.Node, networkName string) (models.Node, error) {

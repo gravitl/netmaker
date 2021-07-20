@@ -545,7 +545,7 @@ func UpdateNetwork(networkChange models.NetworkUpdate, network models.Network) (
 		}
 	}
 	if haslocalrangeupdate {
-		err = functions.UpdateNetworkPrivateAddresses(network.NetID)
+		err = functions.UpdateNetworkLocalAddresses(network.NetID)
 		if err != nil {
 			return models.Network{}, err
 		}
@@ -734,14 +734,14 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	s := servercfg.GetServerConfig()
 	w := servercfg.GetWGConfig()
 	servervals := models.ServerConfig{
-			CoreDNSAddr: s.CoreDNSAddr,
-			APIConnString: s.APIConnString,
-			APIHost: s.APIHost,
-			APIPort: s.APIPort,
-			GRPCConnString: s.GRPCConnString,
-			GRPCHost: s.GRPCHost,
-			GRPCPort: s.GRPCPort,
-			GRPCSSL: s.GRPCSSL,
+		CoreDNSAddr:    s.CoreDNSAddr,
+		APIConnString:  s.APIConnString,
+		APIHost:        s.APIHost,
+		APIPort:        s.APIPort,
+		GRPCConnString: s.GRPCConnString,
+		GRPCHost:       s.GRPCHost,
+		GRPCPort:       s.GRPCPort,
+		GRPCSSL:        s.GRPCSSL,
 	}
 	wgvals := models.WG{
 		GRPCWireGuard:  w.GRPCWireGuard,
