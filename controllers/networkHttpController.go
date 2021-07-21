@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,13 +11,10 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
@@ -274,14 +270,15 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 
 func GetNetwork(name string) (models.Network, error) {
 	var network models.Network
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"netid": name}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
-	defer cancel()
+	record, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, name)
 	if err != nil {
+		return network, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &network); err != nil {
 		return models.Network{}, err
 	}
+
 	return network, nil
 }
 
@@ -305,61 +302,31 @@ func KeyUpdate(netname string) (models.Network, error) {
 		return models.Network{}, err
 	}
 	network.KeyUpdateTimeStamp = time.Now().Unix()
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"netid": netname}
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"addressrange", network.AddressRange},
-			{"addressrange6", network.AddressRange6},
-			{"displayname", network.DisplayName},
-			{"defaultlistenport", network.DefaultListenPort},
-			{"defaultpostup", network.DefaultPostUp},
-			{"defaultpostdown", network.DefaultPostDown},
-			{"defaultkeepalive", network.DefaultKeepalive},
-			{"keyupdatetimestamp", network.KeyUpdateTimeStamp},
-			{"defaultsaveconfig", network.DefaultSaveConfig},
-			{"defaultinterface", network.DefaultInterface},
-			{"nodeslastmodified", network.NodesLastModified},
-			{"networklastmodified", network.NetworkLastModified},
-			{"allowmanualsignup", network.AllowManualSignUp},
-			{"checkininterval", network.DefaultCheckInInterval},
-		}},
-	}
-	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-	defer cancel()
+	data, err := json.Marshal(&network)
 	if err != nil {
 		return models.Network{}, err
 	}
+	database.Insert(netname, string(data), database.NETWORKS_TABLE_NAME)
 	return network, nil
 }
 
 //Update a network
 func AlertNetwork(netid string) error {
 
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"netid": netid}
-
 	var network models.Network
-
 	network, err := functions.GetParentNetwork(netid)
 	if err != nil {
 		return err
 	}
 	updatetime := time.Now().Unix()
-	update := bson.D{
-		{"$set", bson.D{
-			{"nodeslastmodified", updatetime},
-			{"networklastmodified", updatetime},
-		}},
+	network.NodesLastModified = updatetime
+	network.NetworkLastModified = updatetime
+	data, err := json.Marshal(&network)
+	if err != nil {
+		return err
 	}
-
-	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-	defer cancel()
-
-	return err
+	database.Insert(netid, string(data), database.NETWORKS_TABLE_NAME)
+	return nil
 }
 
 //Update a network
@@ -418,24 +385,16 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 
 	_ = json.NewDecoder(r.Body).Decode(&networkChange)
 
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"netid": network.NetID}
-
 	if networkChange.NodeLimit != 0 {
-		update := bson.D{
-			{"$set", bson.D{
-				{"nodelimit", networkChange.NodeLimit},
-			}},
-		}
-		err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-		defer cancel()
+		network.NodeLimit = networkChange.NodeLimit
+		data, err := json.Marshal(&network)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "badrequest"))
 			return
 		}
+		database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
+		functions.PrintUserLog(r.Header.Get("user"), "updated network node limit on, "+netname, 1)
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "updated network node limit on, "+netname, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
 }
@@ -500,41 +459,16 @@ func UpdateNetwork(networkChange models.NetworkUpdate, network models.Network) (
 		haschange = true
 	}
 
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"netid": network.NetID}
-
 	if haschange {
 		network.SetNetworkLastModified()
 	}
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"addressrange", network.AddressRange},
-			{"addressrange6", network.AddressRange6},
-			{"displayname", network.DisplayName},
-			{"defaultlistenport", network.DefaultListenPort},
-			{"defaultpostup", network.DefaultPostUp},
-			{"defaultpostdown", network.DefaultPostDown},
-			{"defaultkeepalive", network.DefaultKeepalive},
-			{"defaultsaveconfig", network.DefaultSaveConfig},
-			{"defaultinterface", network.DefaultInterface},
-			{"nodeslastmodified", network.NodesLastModified},
-			{"networklastmodified", network.NetworkLastModified},
-			{"allowmanualsignup", network.AllowManualSignUp},
-			{"localrange", network.LocalRange},
-			{"islocal", network.IsLocal},
-			{"isdualstack", network.IsDualStack},
-			{"checkininterval", network.DefaultCheckInInterval},
-		}},
-	}
 
-	err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-	defer cancel()
-
+	data, err := json.Marshal(&network)
 	if err != nil {
 		return models.Network{}, err
 	}
+
+	database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
 
 	//Cycles through nodes and gives them new IP's based on the new range
 	//Pretty cool, but also pretty inefficient currently
@@ -565,7 +499,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	count, err := DeleteNetwork(network)
+	err := DeleteNetwork(network)
 
 	if err != nil {
 		errtype := "badrequest"
@@ -577,34 +511,20 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "deleted network "+network, 1)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(count)
+	json.NewEncoder(w).Encode("success")
 }
 
-func DeleteNetwork(network string) (*mongo.DeleteResult, error) {
-	none := &mongo.DeleteResult{}
+func DeleteNetwork(network string) error {
 
 	nodecount, err := functions.GetNetworkNodeNumber(network)
 	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "internal"))
-		return none, err
+		return err
 	} else if nodecount > 0 {
-		//errorResponse := models.ErrorResponse{
-		//	Code: http.StatusForbidden, Message: "W1R3: Node check failed. All nodes must be deleted before deleting network.",
-		//}
-		//returnErrorResponse(w, r, errorResponse)
-		return none, errors.New("Node check failed. All nodes must be deleted before deleting network")
+		return errors.New("node check failed. All nodes must be deleted before deleting network")
 	}
 
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	filter := bson.M{"netid": network}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	deleteResult, err := collection.DeleteOne(ctx, filter)
-	defer cancel()
-	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "internal"))
-		return none, err
-	}
-	return deleteResult, nil
+	database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+	return err
 }
 
 //Create a network
@@ -655,15 +575,14 @@ func CreateNetwork(network models.Network) error {
 	network.SetNetworkLastModified()
 	network.KeyUpdateTimeStamp = time.Now().Unix()
 
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// insert our network into the network table
-	_, err = collection.InsertOne(ctx, network)
-	defer cancel()
+	data, err := json.Marshal(&network)
 	if err != nil {
 		return err
 	}
+	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -718,7 +637,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 
 	for _, key := range checkkeys {
 		if key.Name == accesskey.Name {
-			return models.AccessKey{}, errors.New("Duplicate AccessKey Name")
+			return models.AccessKey{}, errors.New("duplicate AccessKey Name")
 		}
 	}
 	privAddr := ""
@@ -773,24 +692,16 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		}
 		return models.AccessKey{}, err
 	}
+
 	network.AccessKeys = append(network.AccessKeys, accesskey)
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	// Create filter
-	filter := bson.M{"netid": network.NetID}
-	// Read update model from body request
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"accesskeys", network.AccessKeys},
-		}},
-	}
-	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-	defer cancel()
+	data, err := json.Marshal(&network)
 	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "internal"))
 		return models.AccessKey{}, err
 	}
+	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
+		return models.AccessKey{}, err
+	}
+
 	return accesskey, nil
 }
 
@@ -859,12 +770,11 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 }
 func GetKeys(net string) ([]models.AccessKey, error) {
 
-	var network models.Network
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"netid": net}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&network)
-	defer cancel()
+	record, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, net)
+	if err != nil {
+		return []models.AccessKey{}, err
+	}
+	network, err := functions.ParseNetwork(record)
 	if err != nil {
 		return []models.AccessKey{}, err
 	}
@@ -904,21 +814,14 @@ func DeleteKey(keyname, netname string) error {
 	if !found {
 		return errors.New("key " + keyname + " does not exist")
 	}
-
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	// Create filter
-	filter := bson.M{"netid": netname}
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"accesskeys", updatedKeys},
-		}},
-	}
-	err = collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-	defer cancel()
+	network.AccessKeys = updatedKeys
+	data, err := json.Marshal(&network)
 	if err != nil {
 		return err
 	}
+	if err := database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -1,7 +1,6 @@
 package models
 
 import (
-	//  "../mongoconn"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -22,7 +21,7 @@ type Network struct {
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
 	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit	    int32       `json:"nodelimit" bson:"nodelimit"`
+	NodeLimit           int32       `json:"nodelimit" bson:"nodelimit"`
 	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
 	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
 	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
@@ -32,9 +31,9 @@ type Network struct {
 	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
 	IsLocal             *bool       `json:"islocal" bson:"islocal"`
 	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
-	IsIPv4         string       `json:"isipv4" bson:"isipv4"`
-	IsIPv6         string       `json:"isipv6" bson:"isipv6"`
-	IsGRPCHub         string       `json:"isgrpchub" bson:"isgrpchub"`
+	IsIPv4              string      `json:"isipv4" bson:"isipv4"`
+	IsIPv6              string      `json:"isipv6" bson:"isipv6"`
+	IsGRPCHub           string      `json:"isgrpchub" bson:"isgrpchub"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
@@ -53,7 +52,7 @@ type NetworkUpdate struct {
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
 	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
 	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit	    int32       `json:"nodelimit" bson:"nodelimit"`
+	NodeLimit           int32       `json:"nodelimit" bson:"nodelimit"`
 	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
 	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
 	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
@@ -63,9 +62,9 @@ type NetworkUpdate struct {
 	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
 	IsLocal             *bool       `json:"islocal" bson:"islocal"`
 	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
-        IsIPv4         string       `json:"isipv4" bson:"isipv4"`
-        IsIPv6         string       `json:"isipv6" bson:"isipv6"`
-        IsGRPCHub         string       `json:"isgrpchub" bson:"isgrpchub"`
+	IsIPv4              string      `json:"isipv4" bson:"isipv4"`
+	IsIPv6              string      `json:"isipv6" bson:"isipv6"`
+	IsGRPCHub           string      `json:"isgrpchub" bson:"isgrpchub"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	//can't have min=1 with omitempty
 	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
@@ -95,9 +94,9 @@ func (network *Network) SetDefaults() {
 	if network.DefaultListenPort == 0 {
 		network.DefaultListenPort = 51821
 	}
-        if network.NodeLimit == 0 {
-                network.NodeLimit = 999999999
-        }
+	if network.NodeLimit == 0 {
+		network.NodeLimit = 999999999
+	}
 	if network.DefaultPostDown == "" {
 
 	}
@@ -122,7 +121,7 @@ func (network *Network) SetDefaults() {
 		network.IsIPv6 = "yes"
 		network.IsIPv4 = "yes"
 	} else if network.IsGRPCHub != "yes" {
-                network.IsIPv6 = "no"
-                network.IsIPv4 = "yes"
+		network.IsIPv6 = "no"
+		network.IsIPv4 = "yes"
 	}
 }

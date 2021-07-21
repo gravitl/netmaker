@@ -1,8 +1,6 @@
 package database
 
 import (
-	"log"
-
 	"github.com/rqlite/gorqlite"
 )
 
@@ -95,6 +93,5 @@ func FetchRecords(tableName string) (map[string]string, error) {
 		row.Scan(&key, &value)
 		records[key] = value
 	}
-	log.Println(tableName, records)
 	return records, nil
 }

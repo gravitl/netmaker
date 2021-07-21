@@ -3,17 +3,17 @@ package controller
 import (
 	//	"fmt"
 	// "github.com/davecgh/go-spew/spew"
-	"errors"
-	"context"
+
 	"encoding/json"
+	"errors"
 	"net/http"
-	"time"
+
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
-	"github.com/gravitl/netmaker/serverctl"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
+	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -21,99 +21,98 @@ func intClientHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/intclient/{clientid}", securityCheck(false, http.HandlerFunc(getIntClient))).Methods("GET")
 	r.HandleFunc("/api/intclients", securityCheck(false, http.HandlerFunc(getAllIntClients))).Methods("GET")
-        r.HandleFunc("/api/intclients/deleteall", securityCheck(false, http.HandlerFunc(deleteAllIntClients))).Methods("DELETE")
-        r.HandleFunc("/api/intclient/{clientid}", securityCheck(false, http.HandlerFunc(updateIntClient))).Methods("PUT")
+	r.HandleFunc("/api/intclients/deleteall", securityCheck(false, http.HandlerFunc(deleteAllIntClients))).Methods("DELETE")
+	r.HandleFunc("/api/intclient/{clientid}", securityCheck(false, http.HandlerFunc(updateIntClient))).Methods("PUT")
 	r.HandleFunc("/api/intclient/register", http.HandlerFunc(registerIntClient)).Methods("POST")
 	r.HandleFunc("/api/intclient/{clientid}", http.HandlerFunc(deleteIntClient)).Methods("DELETE")
 }
 
 func getAllIntClients(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        clients, err := functions.GetAllIntClients()
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        //Return all the extclients in JSON format
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(clients)
+	w.Header().Set("Content-Type", "application/json")
+	clients, err := functions.GetAllIntClients()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	//Return all the extclients in JSON format
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(clients)
 }
 
 func deleteAllIntClients(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        err := functions.DeleteAllIntClients()
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	err := functions.DeleteAllIntClients()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func deleteIntClient(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        // get params
-        var params = mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	// get params
+	var params = mux.Vars(r)
 
-        success, err := DeleteIntClient(params["clientid"])
+	success, err := DeleteIntClient(params["clientid"])
 
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        } else if !success {
-                err = errors.New("Could not delete intclient " + params["clientid"])
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        returnSuccessResponse(w, r, params["clientid"]+" deleted.")
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	} else if !success {
+		err = errors.New("Could not delete intclient " + params["clientid"])
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }
 
-
 func getIntClient(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        var params = mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
 
 	client, err := GetIntClient(params["clientid"])
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(client)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(client)
 }
 
 func updateIntClient(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 
-        var errorResponse = models.ErrorResponse{
-                Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-        }
+	var errorResponse = models.ErrorResponse{
+		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+	}
 
-        var clientreq models.IntClient
+	var clientreq models.IntClient
 
-        //get node from body of request
-        err := json.NewDecoder(r.Body).Decode(&clientreq)
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        if servercfg.IsRegisterKeyRequired() {
-                validKey := functions.IsKeyValidGlobal(clientreq.AccessKey)
-                if !validKey {
-                                errorResponse = models.ErrorResponse{
-                                        Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
-                                }
-                                returnErrorResponse(w, r, errorResponse)
-                                return
-                }
-        }
-        client, err := RegisterIntClient(clientreq)
+	//get node from body of request
+	err := json.NewDecoder(r.Body).Decode(&clientreq)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if servercfg.IsRegisterKeyRequired() {
+		validKey := functions.IsKeyValidGlobal(clientreq.AccessKey)
+		if !validKey {
+			errorResponse = models.ErrorResponse{
+				Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
+			}
+			returnErrorResponse(w, r, errorResponse)
+			return
+		}
+	}
+	client, err := RegisterIntClient(clientreq)
 
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(client)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(client)
 }
 
 func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
@@ -137,33 +136,32 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 		}
 		client.Address = newAddress
 	}
-        if client.Network == "" { client.Network = "comms" }
+	if client.Network == "" {
+		client.Network = "comms"
+	}
 	server, err := serverctl.GetServerWGConf()
-        //spew.Dump(server)
+	//spew.Dump(server)
 	if err != nil {
-                return client, err
-        }
+		return client, err
+	}
 	client.ServerPublicEndpoint = server.ServerPublicEndpoint
-        client.ServerAPIPort = server.ServerAPIPort
-        client.ServerPrivateAddress = server.ServerPrivateAddress
-        client.ServerWGPort = server.ServerWGPort
-        client.ServerGRPCPort = server.ServerGRPCPort
-        client.ServerKey = server.ServerKey
+	client.ServerAPIPort = server.ServerAPIPort
+	client.ServerPrivateAddress = server.ServerPrivateAddress
+	client.ServerWGPort = server.ServerWGPort
+	client.ServerGRPCPort = server.ServerGRPCPort
+	client.ServerKey = server.ServerKey
 
-        if client.ClientID == "" {
-                clientid := StringWithCharset(7, charset)
-                clientname := "client-" + clientid
-                client.ClientID = clientname
-        }
+	if client.ClientID == "" {
+		clientid := StringWithCharset(7, charset)
+		clientname := "client-" + clientid
+		client.ClientID = clientname
+	}
 
-	//spew.Dump(client)
-	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	// insert our network into the network table
-	_, err = collection.InsertOne(ctx, client)
-	defer cancel()
-
+	data, err := json.Marshal(&client)
 	if err != nil {
+		return client, err
+	}
+	if err = database.Insert(client.ClientID, string(data), database.INT_CLIENTS_TABLE_NAME); err != nil {
 		return client, err
 	}
 
@@ -172,36 +170,36 @@ func RegisterIntClient(client models.IntClient) (models.IntClient, error) {
 	return client, err
 }
 func registerIntClient(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 
-        var errorResponse = models.ErrorResponse{
-                Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-        }
+	var errorResponse = models.ErrorResponse{
+		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+	}
 
-        var clientreq models.IntClient
+	var clientreq models.IntClient
 
-        //get node from body of request
-        err := json.NewDecoder(r.Body).Decode(&clientreq)
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        if servercfg.IsRegisterKeyRequired() {
-                validKey := functions.IsKeyValidGlobal(clientreq.AccessKey)
-                if !validKey {
-                                errorResponse = models.ErrorResponse{
-                                        Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
-                                }
-                                returnErrorResponse(w, r, errorResponse)
-                                return
-                }
-        }
-        client, err := RegisterIntClient(clientreq)
+	//get node from body of request
+	err := json.NewDecoder(r.Body).Decode(&clientreq)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if servercfg.IsRegisterKeyRequired() {
+		validKey := functions.IsKeyValidGlobal(clientreq.AccessKey)
+		if !validKey {
+			errorResponse = models.ErrorResponse{
+				Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
+			}
+			returnErrorResponse(w, r, errorResponse)
+			return
+		}
+	}
+	client, err := RegisterIntClient(clientreq)
 
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(client)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(client)
 }

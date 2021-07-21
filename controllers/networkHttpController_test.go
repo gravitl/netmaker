@@ -20,17 +20,15 @@ func deleteNet(t *testing.T) {
 	assert.Nil(t, err)
 	for _, node := range nodes {
 		t.Log("deleting node", node.Name)
-		result, err := DeleteNode(node.MacAddress, node.Network)
+		err := DeleteNode(node.MacAddress, node.Network)
 		assert.Nil(t, err)
-		assert.True(t, result)
 	}
 	dns, err := GetAllDNS()
 	assert.Nil(t, err)
 	for _, entry := range dns {
 		t.Log("deleting dns enty", entry.Name, entry.Network)
-		success, err := DeleteDNS(entry.Name, entry.Network)
+		err := DeleteDNS(entry.Name, entry.Network)
 		assert.Nil(t, err)
-		assert.True(t, success)
 	}
 	networks, _ := functions.ListNetworks()
 	for _, network := range networks {
@@ -78,10 +76,8 @@ func TestGetDeleteNetwork(t *testing.T) {
 		assert.Equal(t, "skynet", network.NetID)
 	})
 	t.Run("DeleteExistingNetwork", func(t *testing.T) {
-		result, err := DeleteNetwork("skynet")
+		err := DeleteNetwork("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, int64(1), result.DeletedCount)
-		t.Log(result.DeletedCount)
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
 		network, err := GetNetwork("skynet")
@@ -90,10 +86,8 @@ func TestGetDeleteNetwork(t *testing.T) {
 		assert.Equal(t, "", network.NetID)
 	})
 	t.Run("NonExistantNetwork", func(t *testing.T) {
-		result, err := DeleteNetwork("skynet")
+		err := DeleteNetwork("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, int64(0), result.DeletedCount)
-		t.Log(result.DeletedCount)
 	})
 }
 func TestGetNetwork(t *testing.T) {

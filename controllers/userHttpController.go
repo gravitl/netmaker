@@ -1,22 +1,17 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -87,30 +82,24 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	var result models.User
 	if authRequest.UserName == "" {
-		return "", errors.New("Username can't be empty")
+		return "", errors.New("username can't be empty")
 	} else if authRequest.Password == "" {
-		return "", errors.New("Password can't be empty")
+		return "", errors.New("password can't be empty")
 	}
 	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	var err = collection.FindOne(ctx, bson.M{"username": authRequest.UserName}).Decode(&result)
-
-	defer cancel()
+	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
 	if err != nil {
-		return "", errors.New("User " + authRequest.UserName + " not found")
+		return "", errors.New("user " + authRequest.UserName + " not found")
 	}
-	// This is a a useless test as cannot create user that is not an an admin
-	//if !result.IsAdmin {
-	//	return "", errors.New("User is not an admin")
-	//}
+	if err = json.Unmarshal([]byte(record), &result); err != nil {
+		return "", errors.New("user " + authRequest.UserName + " not found")
+	}
 
 	//compare password from request to stored password in database
 	//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
 	//TODO: Consider a way of hashing the password client side before sending, or using certificates
-	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
-	if err != nil {
-		return "", errors.New("Wrong Password")
+	if err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password)); err != nil {
+		return "", errors.New("wrong password")
 	}
 
 	//Create a new JWT for the node
@@ -193,27 +182,23 @@ func ValidateUserToken(token string, user string, adminonly bool) error {
 
 func HasAdmin() (bool, error) {
 
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"isadmin": true}
-
-	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
-	var result bson.M
-
-	err := collection.FindOne(ctx, filter).Decode(&result)
-
-	defer cancel()
-
+	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return false, nil
-		}
 		return false, err
-		fmt.Println(err)
 	}
-	return true, err
+
+	for _, value := range collection { // filter for isadmin true
+		var user models.User
+		err = json.Unmarshal([]byte(value), &user)
+		if err != nil {
+			continue
+		}
+		if user.IsAdmin {
+			return true, nil
+		}
+	}
+
+	return false, err
 }
 
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
@@ -231,16 +216,13 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 func GetUser(username string) (models.User, error) {
 
 	var user models.User
-
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"username": username}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&user)
-
-	defer cancel()
-
+	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
+	if err != nil {
+		return user, err
+	}
+	if err = json.Unmarshal([]byte(record), &user); err != nil {
+		return models.User{}, err
+	}
 	return user, err
 }
 
@@ -248,32 +230,20 @@ func GetUsers() ([]models.User, error) {
 
 	var users []models.User
 
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
+	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 
 	if err != nil {
 		return users, err
 	}
 
-	defer cancel()
-
-	for cur.Next(context.TODO()) {
+	for _, value := range collection {
 
 		var user models.User
-		err := cur.Decode(&user)
+		err = json.Unmarshal([]byte(value), &user)
 		if err != nil {
-			return users, err
+			continue // get users
 		}
-
-		// add network our array
 		users = append(users, user)
-	}
-
-	if err := cur.Err(); err != nil {
-		return users, err
 	}
 
 	return users, err
@@ -334,12 +304,11 @@ func CreateUser(user models.User) (models.User, error) {
 	}
 
 	// connect db
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// insert our node to the node db.
-	_, err = collection.InsertOne(ctx, user)
-	defer cancel()
+	data, err := json.Marshal(&user)
+	if err != nil {
+		return user, err
+	}
+	err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME)
 
 	return user, err
 }
@@ -405,38 +374,18 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 
 		user.Password = userchange.Password
 	}
-	//collection := mongoconn.ConnectDB()
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Create filter
-	filter := bson.M{"username": queryUser}
-
-	fmt.Println("Updating User " + user.UserName)
-
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"username", user.UserName},
-			{"password", user.Password},
-			{"networks", user.Networks},
-			{"isadmin", user.IsAdmin},
-		}},
+	if err = database.DeleteRecord(database.USERS_TABLE_NAME, queryUser); err != nil {
+		return models.User{}, err
 	}
-	var userupdate models.User
-
-	errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&userupdate)
-	if errN != nil {
-		fmt.Println("Could not update: ")
-		fmt.Println(errN)
-	} else {
-		fmt.Println("User updated  successfully.")
+	data, err := json.Marshal(&user)
+	if err != nil {
+		return models.User{}, err
 	}
-
-	defer cancel()
-
-	return user, errN
+	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
+		return models.User{}, err
+	}
+	functions.PrintUserLog("netmaker", "updated user "+queryUser, 1)
+	return user, nil
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
@@ -496,25 +445,11 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 
 func DeleteUser(user string) (bool, error) {
 
-	deleted := false
-
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	filter := bson.M{"username": user}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	result, err := collection.DeleteOne(ctx, filter)
-
-	deletecount := result.DeletedCount
-
-	if deletecount > 0 {
-		deleted = true
+	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
+	if err != nil {
+		return false, err
 	}
-
-	defer cancel()
-
-	return deleted, err
+	return true, nil
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {

@@ -3,17 +3,16 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type NodeServiceServer struct {
-	NodeDB *mongo.Collection
 	nodepb.UnimplementedNodeServiceServer
 }
 
@@ -46,32 +45,33 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 
 	response := &nodepb.ReadNodeRes{
 		Node: &nodepb.Node{
-			Macaddress:      node.MacAddress,
-			Name:            node.Name,
-			Address:         node.Address,
-			Address6:        node.Address6,
-			Endpoint:        node.Endpoint,
-			Password:        node.Password,
-			Nodenetwork:     node.Network,
-			Interface:       node.Interface,
-			Localaddress:    node.LocalAddress,
-			Postdown:        node.PostDown,
-			Postup:          node.PostUp,
-			Checkininterval: node.CheckInInterval,
-			Dnsoff:          !servercfg.IsDNSMode(),
-			Ispending:       node.IsPending,
-			Isingressgateway:       node.IsIngressGateway,
-			Ingressgatewayrange:       node.IngressGatewayRange,
-			Publickey:       node.PublicKey,
-			Listenport:      node.ListenPort,
-			Keepalive:       node.PersistentKeepalive,
-			Islocal:         localvar,
-			Isdualstack:     dualvar,
-			Localrange:      network.LocalRange,
+			Macaddress:          node.MacAddress,
+			Name:                node.Name,
+			Address:             node.Address,
+			Address6:            node.Address6,
+			Endpoint:            node.Endpoint,
+			Password:            node.Password,
+			Nodenetwork:         node.Network,
+			Interface:           node.Interface,
+			Localaddress:        node.LocalAddress,
+			Postdown:            node.PostDown,
+			Postup:              node.PostUp,
+			Checkininterval:     node.CheckInInterval,
+			Dnsoff:              !servercfg.IsDNSMode(),
+			Ispending:           node.IsPending,
+			Isingressgateway:    node.IsIngressGateway,
+			Ingressgatewayrange: node.IngressGatewayRange,
+			Publickey:           node.PublicKey,
+			Listenport:          node.ListenPort,
+			Keepalive:           node.PersistentKeepalive,
+			Islocal:             localvar,
+			Isdualstack:         dualvar,
+			Localrange:          network.LocalRange,
 		},
 	}
 	return response, nil
 }
+
 /*
 func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*nodepb.Client, error) {
         // Get the protobuf node type from the protobuf request type
@@ -356,9 +356,9 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.DeleteNo
 	macaddress := req.GetMacaddress()
 	network := req.GetNetworkName()
 
-	success, err := DeleteNode(macaddress, network)
+	err := DeleteNode(macaddress, network)
 
-	if err != nil || !success {
+	if err != nil {
 		fmt.Println("Error deleting node.")
 		fmt.Println(err)
 		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find/delete node with mac address %s", macaddress))
@@ -381,7 +381,6 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 	// Initiate a NodeItem type to write decoded data to
 	//data := &models.PeersResponse{}
 	// collection.Find returns a cursor for our (empty) query
-	//cursor, err := s.NodeDB.Find(context.Background(), bson.M{})
 	peers, err := GetPeersList(req.GetNetwork())
 
 	if err != nil {
@@ -393,11 +392,50 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 		// If no error is found send node over stream
 		stream.Send(&nodepb.GetPeersRes{
 			Peers: &nodepb.PeersResponse{
+				Address:            peers[i].Address,
+				Address6:           peers[i].Address6,
+				Endpoint:           peers[i].Endpoint,
+				Egressgatewayrange: peers[i].EgressGatewayRange,
+				Isegressgateway:    peers[i].IsEgressGateway,
+				Publickey:          peers[i].PublicKey,
+				Keepalive:          peers[i].KeepAlive,
+				Listenport:         peers[i].ListenPort,
+				Localaddress:       peers[i].LocalAddress,
+			},
+		})
+	}
+
+	node, err := functions.GetNodeByMacAddress(req.GetNetwork(), req.GetMacaddress())
+	if err != nil {
+		return status.Errorf(codes.Internal, fmt.Sprintf("Could not get node: %v", err))
+	}
+
+	err = TimestampNode(node, false, true, false)
+	if err != nil {
+		return status.Errorf(codes.Internal, fmt.Sprintf("Internal error occurred: %v", err))
+	}
+
+	return nil
+}
+
+func (s *NodeServiceServer) GetExtPeers(req *nodepb.GetExtPeersReq, stream nodepb.NodeService_GetExtPeersServer) error {
+	// Initiate a NodeItem type to write decoded data to
+	//data := &models.PeersResponse{}
+	// collection.Find returns a cursor for our (empty) query
+	peers, err := GetExtPeersList(req.GetNetwork(), req.GetMacaddress())
+
+	if err != nil {
+		return status.Errorf(codes.Internal, fmt.Sprintf("Unknown internal error: %v", err))
+	}
+	// cursor.Next() returns a boolean, if false there are no more items and loop will break
+	for i := 0; i < len(peers); i++ {
+
+		// If no error is found send node over stream
+		stream.Send(&nodepb.GetExtPeersRes{
+			Extpeers: &nodepb.ExtPeersResponse{
 				Address:      peers[i].Address,
 				Address6:     peers[i].Address6,
 				Endpoint:     peers[i].Endpoint,
-				Egressgatewayrange: peers[i].EgressGatewayRange,
-				Isegressgateway:    peers[i].IsEgressGateway,
 				Publickey:    peers[i].PublicKey,
 				Keepalive:    peers[i].KeepAlive,
 				Listenport:   peers[i].ListenPort,
@@ -417,44 +455,4 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 	}
 
 	return nil
-}
-
-func (s *NodeServiceServer) GetExtPeers(req *nodepb.GetExtPeersReq, stream nodepb.NodeService_GetExtPeersServer) error {
-        // Initiate a NodeItem type to write decoded data to
-        //data := &models.PeersResponse{}
-        // collection.Find returns a cursor for our (empty) query
-        //cursor, err := s.NodeDB.Find(context.Background(), bson.M{})
-        peers, err := GetExtPeersList(req.GetNetwork(), req.GetMacaddress())
-
-        if err != nil {
-                return status.Errorf(codes.Internal, fmt.Sprintf("Unknown internal error: %v", err))
-        }
-        // cursor.Next() returns a boolean, if false there are no more items and loop will break
-        for i := 0; i < len(peers); i++ {
-
-                // If no error is found send node over stream
-                stream.Send(&nodepb.GetExtPeersRes{
-                        Extpeers: &nodepb.ExtPeersResponse{
-                                Address:      peers[i].Address,
-                                Address6:     peers[i].Address6,
-                                Endpoint:     peers[i].Endpoint,
-                                Publickey:    peers[i].PublicKey,
-                                Keepalive:    peers[i].KeepAlive,
-                                Listenport:   peers[i].ListenPort,
-                                Localaddress: peers[i].LocalAddress,
-                        },
-                })
-        }
-
-        node, err := functions.GetNodeByMacAddress(req.GetNetwork(), req.GetMacaddress())
-        if err != nil {
-                return status.Errorf(codes.Internal, fmt.Sprintf("Could not get node: %v", err))
-        }
-
-        err = TimestampNode(node, false, true, false)
-        if err != nil {
-                return status.Errorf(codes.Internal, fmt.Sprintf("Internal error occurred: %v", err))
-        }
-
-        return nil
 }

@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net"
 	"os"
@@ -17,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	"google.golang.org/grpc"
@@ -133,8 +131,6 @@ func runGRPC(wg *sync.WaitGroup) {
 	// Register the service with the server
 	nodepb.RegisterNodeServiceServer(s, srv)
 
-	srv.NodeDB = mongoconn.NodeDB
-
 	// Start the server in a child routine
 	go func() {
 		if err := s.Serve(listener); err != nil {
@@ -160,9 +156,7 @@ func runGRPC(wg *sync.WaitGroup) {
 	s.Stop()
 	listener.Close()
 	log.Println("Agent server closed..")
-	log.Println("Closing MongoDB connection")
-	mongoconn.Client.Disconnect(context.TODO())
-	log.Println("MongoDB connection closed.")
+	log.Println("Closed DB connection.")
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {

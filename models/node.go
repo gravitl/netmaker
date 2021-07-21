@@ -1,13 +1,12 @@
 package models
 
 import (
-	"context"
+	"encoding/json"
 	"math/rand"
 	"net"
 	"time"
 
-	"github.com/gravitl/netmaker/mongoconn"
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/gravitl/netmaker/database"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -28,7 +27,7 @@ type Node struct {
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"required,ip"`
 	PostUp              string             `json:"postup" bson:"postup"`
 	PostDown            string             `json:"postdown" bson:"postdown"`
-	AllowedIPs          []string             `json:"allowedips" bson:"allowedips"`
+	AllowedIPs          []string           `json:"allowedips" bson:"allowedips"`
 	PersistentKeepalive int32              `json:"persistentkeepalive" bson:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
 	SaveConfig          *bool              `json:"saveconfig" bson:"saveconfig"`
 	AccessKey           string             `json:"accesskey" bson:"accesskey"`
@@ -43,13 +42,13 @@ type Node struct {
 	Password            string             `json:"password" bson:"password" validate:"required,min=6"`
 	Network             string             `json:"network" bson:"network" validate:"network_exists"`
 	IsPending           bool               `json:"ispending" bson:"ispending"`
-	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
-	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
-	EgressGatewayRanges        []string             `json:"egressgatewayranges" bson:"egressgatewayranges"`
-	IngressGatewayRange        string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
+	IsEgressGateway     bool               `json:"isegressgateway" bson:"isegressgateway"`
+	IsIngressGateway    bool               `json:"isingressgateway" bson:"isingressgateway"`
+	EgressGatewayRanges []string           `json:"egressgatewayranges" bson:"egressgatewayranges"`
+	IngressGatewayRange string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
-        StaticIP         string             `json:"staticip" bson:"staticip"`
-        StaticPubKey         string             `json:"staticpubkey" bson:"staticpubkey"`
+	StaticIP            string             `json:"staticip" bson:"staticip"`
+	StaticPubKey        string             `json:"staticpubkey" bson:"staticpubkey"`
 }
 
 //node update struct --- only validations are different
@@ -64,7 +63,7 @@ type NodeUpdate struct {
 	Endpoint            string             `json:"endpoint" bson:"endpoint" validate:"omitempty,ip"`
 	PostUp              string             `json:"postup" bson:"postup"`
 	PostDown            string             `json:"postdown" bson:"postdown"`
-	AllowedIPs          []string             `json:"allowedips" bson:"allowedips"`
+	AllowedIPs          []string           `json:"allowedips" bson:"allowedips"`
 	PersistentKeepalive int32              `json:"persistentkeepalive" bson:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
 	SaveConfig          *bool              `json:"saveconfig" bson:"saveconfig"`
 	AccessKey           string             `json:"accesskey" bson:"accesskey"`
@@ -79,60 +78,13 @@ type NodeUpdate struct {
 	Password            string             `json:"password" bson:"password" validate:"omitempty,min=5"`
 	Network             string             `json:"network" bson:"network" validate:"network_exists"`
 	IsPending           bool               `json:"ispending" bson:"ispending"`
-	IsIngressGateway           bool               `json:"isingressgateway" bson:"isingressgateway"`
-	IsEgressGateway           bool               `json:"isegressgateway" bson:"isegressgateway"`
-        IngressGatewayRange        string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
-	EgressGatewayRanges        []string             `json:"egressgatewayranges" bson:"egressgatewayranges"`
+	IsIngressGateway    bool               `json:"isingressgateway" bson:"isingressgateway"`
+	IsEgressGateway     bool               `json:"isegressgateway" bson:"isegressgateway"`
+	IngressGatewayRange string             `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
+	EgressGatewayRanges []string           `json:"egressgatewayranges" bson:"egressgatewayranges"`
 	PostChanges         string             `json:"postchanges" bson:"postchanges"`
-	StaticIP         string             `json:"staticip" bson:"staticip"`
-	StaticPubKey         string             `json:"staticpubkey" bson:"staticpubkey"`
-}
-
-//Duplicated function for NodeUpdates
-func (node *NodeUpdate) GetNetwork() (Network, error) {
-
-	var network Network
-
-	collection := mongoconn.NetworkDB
-	//collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"netid": node.Network}
-	err := collection.FindOne(ctx, filter).Decode(&network)
-
-	defer cancel()
-
-	if err != nil {
-		//log.Fatal(err)
-		return network, err
-	}
-
-	return network, err
-}
-
-//TODO: Contains a fatal error return. Need to change
-//Used in contexts where it's not the Parent network.
-func (node *Node) GetNetwork() (Network, error) {
-
-	var network Network
-
-	//collection := mongoconn.NetworkDB
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"netid": node.Network}
-	err := collection.FindOne(ctx, filter).Decode(&network)
-
-	defer cancel()
-
-	if err != nil {
-		//log.Fatal(err)
-		return network, err
-	}
-
-	return network, err
+	StaticIP            string             `json:"staticip" bson:"staticip"`
+	StaticPubKey        string             `json:"staticpubkey" bson:"staticpubkey"`
 }
 
 //TODO:
@@ -159,6 +111,19 @@ func (node *Node) SetDefaultName() {
 		nodename := "node-" + nodeid
 		node.Name = nodename
 	}
+}
+
+func (node *Node) GetNetwork() (Network, error) {
+
+	var network Network
+	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
+	if err != nil {
+		return network, err
+	}
+	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+		return Network{}, err
+	}
+	return network, nil
 }
 
 //TODO: I dont know why this exists
@@ -198,9 +163,9 @@ func (node *Node) SetDefaults() {
 	if node.StaticIP == "" {
 		node.StaticIP = "no"
 	}
-        if node.StaticPubKey == "" {
-                node.StaticPubKey = "no"
-        }
+	if node.StaticPubKey == "" {
+		node.StaticPubKey = "no"
+	}
 
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
 

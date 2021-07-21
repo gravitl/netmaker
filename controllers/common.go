@@ -1,61 +1,41 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 
 	var peers []models.PeersResponse
-
-	//Connection mongoDB with mongoconn class
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	//Get all nodes in the relevant network which are NOT in pending state
-	filter := bson.M{"network": networkName, "ispending": false}
-	cur, err := collection.Find(ctx, filter)
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 
 	if err != nil {
 		return peers, err
 	}
 
-	// Close the cursor once finished and cancel if it takes too long
-	defer cancel()
-
-	for cur.Next(context.TODO()) {
-
+	for _, value := range collection {
+		var node models.Node
 		var peer models.PeersResponse
-		err := cur.Decode(&peer)
+		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			log.Fatal(err)
+			continue
 		}
-
-		// add the node to our node array
-		//maybe better to just return this? But then that's just GetNodes...
-		peers = append(peers, peer)
-	}
-
-	//Uh oh, fatal error! This needs some better error handling
-	//TODO: needs appropriate error handling so the server doesnt shut down.
-	if err := cur.Err(); err != nil {
-		log.Fatal(err)
+		err = json.Unmarshal([]byte(value), &peer)
+		if err != nil {
+			continue
+		}
+		if node.Network == networkName && !node.IsPending {
+			peers = append(peers, peer)
+		}
 	}
 
 	return peers, err
@@ -72,12 +52,16 @@ func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersRe
 
 	for _, value := range records {
 		var peer models.ExtPeersResponse
+		var extClient models.ExtClient
 		err = json.Unmarshal([]byte(value), &peer)
+		err = json.Unmarshal([]byte(value), &extClient)
 		if err != nil {
 			functions.PrintUserLog("netmaker", "failed to unmarshal ext client", 2)
 			continue
 		}
-		peers = append(peers, peer)
+		if extClient.Network == networkName && extClient.IngressGatewayID == macaddress {
+			peers = append(peers, peer)
+		}
 	}
 	return peers, err
 }
@@ -109,7 +93,7 @@ func ValidateNodeCreate(networkName string, node models.Node) error {
 func ValidateNodeUpdate(networkName string, node models.NodeUpdate) error {
 	v := validator.New()
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := node.GetNetwork()
+		_, err := functions.GetParentNetwork(networkName)
 		return err == nil
 	})
 	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
@@ -128,8 +112,11 @@ func ValidateNodeUpdate(networkName string, node models.NodeUpdate) error {
 func UpdateNode(nodechange models.NodeUpdate, node models.Node) (models.Node, error) {
 	//Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
 	//Eventually, lets have a better way to check if any of the fields are filled out...
-	queryMac := node.MacAddress
-	queryNetwork := node.Network
+	oldkey, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	if err != nil {
+		return node, err
+	}
+
 	notifynetwork := false
 
 	if nodechange.Address != "" {
@@ -193,129 +180,75 @@ func UpdateNode(nodechange models.NodeUpdate, node models.Node) (models.Node, er
 		node.KeyUpdateTimeStamp = time.Now().Unix()
 		notifynetwork = true
 	}
-
-	//collection := mongoconn.ConnectDB()
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Create filter
-	filter := bson.M{"macaddress": queryMac, "network": queryNetwork}
-
-	node.SetLastModified()
-
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"address", node.Address},
-			{"address6", node.Address6},
-			{"name", node.Name},
-			{"password", node.Password},
-			{"listenport", node.ListenPort},
-			{"publickey", node.PublicKey},
-			{"keyupdatetimestamp", node.KeyUpdateTimeStamp},
-			{"expdatetime", node.ExpirationDateTime},
-			{"endpoint", node.Endpoint},
-			{"postup", node.PostUp},
-			{"postdown", node.PostDown},
-			{"macaddress", node.MacAddress},
-			{"localaddress", node.LocalAddress},
-			{"persistentkeepalive", node.PersistentKeepalive},
-			{"saveconfig", node.SaveConfig},
-			{"accesskey", node.AccessKey},
-			{"interface", node.Interface},
-			{"lastmodified", node.LastModified},
-		}},
+	newkey, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	if err != nil {
+		return node, err
 	}
-	var nodeupdate models.Node
-	errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
-	if errN != nil {
-		return nodeupdate, errN
+	if oldkey != newkey {
+		if err := database.DeleteRecord(database.NODES_TABLE_NAME, oldkey); err != nil {
+			return models.Node{}, err
+		}
+	}
+	value, err := json.Marshal(&node)
+	if err != nil {
+		return models.Node{}, err
 	}
 
-	if nodechange.MacAddress != "" {
-		queryMac = nodechange.MacAddress
-	}
-	returnnode, errN := GetNode(queryMac, queryNetwork)
-
-	defer cancel()
+	err = database.Insert(newkey, string(value), database.NODES_TABLE_NAME)
 
 	if notifynetwork {
-		errN = SetNetworkNodesLastModified(queryNetwork)
+		err = SetNetworkNodesLastModified(node.Network)
 	}
-	if servercfg.IsDNSMode() {
-		errN = SetDNS()
-	}
-
-	return returnnode, errN
-}
-
-func DeleteNode(macaddress string, network string) (bool, error) {
-
-	deleted := false
-
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	filter := bson.M{"macaddress": macaddress, "network": network}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	result, err := collection.DeleteOne(ctx, filter)
-
-	deletecount := result.DeletedCount
-
-	if deletecount > 0 {
-		deleted = true
-	}
-
-	defer cancel()
-
-	err = SetNetworkNodesLastModified(network)
-	fmt.Println("Deleted node " + macaddress + " from network " + network)
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
 	}
 
-	return deleted, err
+	return node, err
+}
+
+func DeleteNode(macaddress string, network string) error {
+
+	key, err := functions.GetRecordKey(macaddress, network)
+	if err != nil {
+		return err
+	}
+	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
+		return err
+	}
+
+	err = SetNetworkNodesLastModified(network)
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
+
+	return err
 }
 
 func DeleteIntClient(clientid string) (bool, error) {
 
-	deleted := false
-
-	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
-
-	filter := bson.M{"clientid": clientid}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	result, err := collection.DeleteOne(ctx, filter)
-
-	deletecount := result.DeletedCount
-
-	if deletecount > 0 {
-		deleted = true
+	err := database.DeleteRecord(database.INT_CLIENTS_TABLE_NAME, clientid)
+	if err != nil {
+		return false, err
 	}
 
-	defer cancel()
-
-	err = serverctl.ReconfigureServerWireGuard()
-
-	return deleted, err
+	return true, nil
 }
 
 func GetNode(macaddress string, network string) (models.Node, error) {
 
 	var node models.Node
 
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"macaddress": macaddress, "network": network}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&node)
-
-	defer cancel()
+	key, err := functions.GetRecordKey(macaddress, network)
+	if err != nil {
+		return node, err
+	}
+	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
+	if err != nil {
+		return node, err
+	}
+	if err = json.Unmarshal([]byte(data), &node); err != nil {
+		return node, err
+	}
 
 	return node, err
 }
@@ -324,16 +257,14 @@ func GetIntClient(clientid string) (models.IntClient, error) {
 
 	var client models.IntClient
 
-	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"clientid": clientid}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&clientid)
-
-	defer cancel()
-
-	return client, err
+	value, err := database.FetchRecord(database.INT_CLIENTS_TABLE_NAME, clientid)
+	if err != nil {
+		return client, err
+	}
+	if err = json.Unmarshal([]byte(value), &client); err != nil {
+		return models.IntClient{}, err
+	}
+	return client, nil
 }
 
 func CreateNode(node models.Node, networkName string) (models.Node, error) {
@@ -384,17 +315,16 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
 	}
+	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	if err != nil {
+		return node, err
+	}
+	nodebytes, err := json.Marshal(&node)
+	if err != nil {
+		return node, err
+	}
 
-	// connect db
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// insert our node to the node db.
-	result, err := collection.InsertOne(ctx, node)
-	_ = result
-
-	defer cancel()
-
+	err = database.Insert(key, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return node, err
 	}
@@ -422,7 +352,7 @@ func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, 
 		return response, err
 	}
 
-	parentnode, err := functions.GetNodeByMacAddress(networkName, node.MacAddress)
+	parentnode, err := GetNode(node.MacAddress, networkName)
 	if err != nil {
 		err = fmt.Errorf("%w; Couldnt Get Node "+node.MacAddress, err)
 		return response, err
@@ -456,7 +386,7 @@ func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, 
 	}
 	if time.Now().Unix() > parentnode.ExpirationDateTime {
 		response.NeedDelete = true
-		_, err = DeleteNode(node.MacAddress, networkName)
+		err = DeleteNode(node.MacAddress, networkName)
 	} else {
 		err = TimestampNode(parentnode, true, false, false)
 
@@ -474,28 +404,19 @@ func SetNetworkNodesLastModified(networkName string) error {
 
 	timestamp := time.Now().Unix()
 
-	collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Create filter
-	filter := bson.M{"netid": networkName}
-
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"nodeslastmodified", timestamp},
-		}},
+	network, err := functions.GetParentNetwork(networkName)
+	if err != nil {
+		return err
 	}
-
-	result := collection.FindOneAndUpdate(ctx, filter, update)
-
-	defer cancel()
-
-	if result.Err() != nil {
-		return result.Err()
+	network.NodesLastModified = timestamp
+	data, err := json.Marshal(&network)
+	if err != nil {
+		return err
 	}
-
+	err = database.Insert(networkName, string(data), database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -510,25 +431,16 @@ func TimestampNode(node models.Node, updatecheckin bool, updatepeers bool, updat
 		node.SetLastPeerUpdate()
 	}
 
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Create filter
-	filter := bson.M{"macaddress": node.MacAddress, "network": node.Network}
-
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"lastmodified", node.LastModified},
-			{"lastpeerupdate", node.LastPeerUpdate},
-			{"lastcheckin", node.LastCheckIn},
-		}},
+	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	if err != nil {
+		return err
+	}
+	value, err := json.Marshal(&node)
+	if err != nil {
+		return err
 	}
 
-	var nodeupdate models.Node
-	err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&nodeupdate)
-	defer cancel()
+	err = database.Insert(key, string(value), database.NODES_TABLE_NAME)
 
 	return err
 }

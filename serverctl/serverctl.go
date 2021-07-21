@@ -1,7 +1,6 @@
 package serverctl
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -13,21 +12,22 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/gravitl/netmaker/servercfg"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetServerWGConf() (models.IntClient, error) {
 	var server models.IntClient
-	collection := mongoconn.Client.Database("netmaker").Collection("intclients")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	filter := bson.M{"network": "comms", "isserver": "yes"}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&server)
-	defer cancel()
-
-	return server, err
+	collection, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
+	if err != nil {
+		return models.IntClient{}, errors.New("could not find comms server")
+	}
+	for _, value := range collection {
+		json.Unmarshal([]byte(value), &server)
+		if server.Network == "comms" && server.IsServer == "yes" {
+			return server, nil
+		}
+	}
+	return models.IntClient{}, errors.New("could not find comms server")
 }
 
 func CreateCommsNetwork() (bool, error) {

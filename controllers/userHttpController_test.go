@@ -1,23 +1,19 @@
 package controller
 
 import (
-	"context"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMain(m *testing.M) {
-	mongoconn.ConnectDatabase()
+/*func TestMain(m *testing.M) {
+	database.InitializeDatabase()
 	var gconf models.GlobalConfig
 	gconf.ServerGRPC = "localhost:8081"
 	gconf.PortGRPC = "50051"
 	//err := SetGlobalConfig(gconf)
-	collection := mongoconn.Client.Database("netmaker").Collection("config")
+	collection := REMOVE.Client.Database("netmaker").Collection("config")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	//create, _, err := functions.GetGlobalConfig()
@@ -28,7 +24,7 @@ func TestMain(m *testing.M) {
 	//drop network, nodes, and user collections
 	var collections = []string{"networks", "nodes", "users", "dns"}
 	for _, table := range collections {
-		collection := mongoconn.Client.Database("netmaker").Collection(table)
+		collection := REMOVE.Client.Database("netmaker").Collection(table)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		err := collection.Drop(ctx)
@@ -38,7 +34,7 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(m.Run())
 }
-
+*/
 func TestHasAdmin(t *testing.T) {
 	_, err := DeleteUser("admin")
 	assert.Nil(t, err)
@@ -179,12 +175,12 @@ func TestUpdateUser(t *testing.T) {
 
 func TestValidateUserToken(t *testing.T) {
 	t.Run("EmptyToken", func(t *testing.T) {
-		err := ValidateUserToken("","",false)
+		err := ValidateUserToken("", "", false)
 		assert.NotNil(t, err)
 		assert.Equal(t, "Missing Auth Token.", err.Error())
 	})
 	t.Run("InvalidToken", func(t *testing.T) {
-		err := ValidateUserToken("Bearer: badtoken","",false)
+		err := ValidateUserToken("Bearer: badtoken", "", false)
 		assert.NotNil(t, err)
 		assert.Equal(t, "Error Verifying Auth Token", err.Error())
 	})
@@ -193,7 +189,7 @@ func TestValidateUserToken(t *testing.T) {
 		//need authorization
 	})
 	t.Run("ValidToken", func(t *testing.T) {
-		err := ValidateUserToken("Bearer: secretkey","",true)
+		err := ValidateUserToken("Bearer: secretkey", "", true)
 		assert.Nil(t, err)
 	})
 }

@@ -27,6 +27,30 @@ func PrintUserLog(username string, message string, loglevel int) {
 	}
 }
 
+func ParseNetwork(value string) (models.Network, error) {
+	var network models.Network
+	err := json.Unmarshal([]byte(value), &network)
+	return network, err
+}
+
+func ParseNode(value string) (models.Node, error) {
+	var node models.Node
+	err := json.Unmarshal([]byte(value), &node)
+	return node, err
+}
+
+func ParseExtClient(value string) (models.ExtClient, error) {
+	var extClient models.ExtClient
+	err := json.Unmarshal([]byte(value), &extClient)
+	return extClient, err
+}
+
+func ParseIntClient(value string) (models.IntClient, error) {
+	var intClient models.IntClient
+	err := json.Unmarshal([]byte(value), &intClient)
+	return intClient, err
+}
+
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the network
 
@@ -150,6 +174,12 @@ func NetworkExists(name string) (bool, error) {
 		return false, err
 	}
 	return len(network) > 0, nil
+}
+func GetRecordKey(id string, network string) (string, error) {
+	if id == "" || network == "" {
+		return "", errors.New("unable to get record key")
+	}
+	return id + "###" + network, nil
 }
 
 //TODO: This is  very inefficient (N-squared). Need to find a better way.
@@ -391,8 +421,8 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 	if err != nil {
 		return network, err
 	}
-	if err = json.Unmarshal([]byte(networkData), network); err != nil {
-		return network, err
+	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+		return models.Network{}, err
 	}
 	return network, nil
 }
