@@ -145,8 +145,8 @@ func (node *Node) SetDefaults() {
 	//TODO: This is dumb and doesn't work
 	//Need to change
 	if node.SaveConfig == nil {
-		if parentNetwork.DefaultSaveConfig != nil {
-			defaultsave := *parentNetwork.DefaultSaveConfig
+		if parentNetwork.DefaultSaveConfig != "" {
+			defaultsave := parentNetwork.DefaultSaveConfig == "yes"
 			node.SaveConfig = &defaultsave
 		}
 	}

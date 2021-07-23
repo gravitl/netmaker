@@ -132,7 +132,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	allnetworks := []models.Network{}
 	err := errors.New("Networks Error")
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
-		allnetworks, err = functions.ListNetworks()
+		allnetworks, err = models.GetNetworks()
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
@@ -166,7 +166,7 @@ func RemoveComms(networks []models.Network) []models.Network {
 	return append(returnable, networks[index+1:]...)
 }
 
-func ValidateNetworkUpdate(network models.NetworkUpdate) error {
+func ValidateNetworkUpdate(network models.Network) error {
 	v := validator.New()
 
 	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
@@ -175,71 +175,6 @@ func ValidateNetworkUpdate(network models.NetworkUpdate) error {
 		}
 		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
 		return inCharSet
-	})
-
-	//	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
-	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-	//		return isvalid
-	//	})
-	//_ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
-	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-	//		return isvalid
-	//	})
-
-	//	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-	//		return isvalid
-	//	})
-
-	//	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-	//		return true
-	//	})
-
-	//	_ = v.RegisterValidation("displayname_unique", func(fl validator.FieldLevel) bool {
-	//		return true
-	//	})
-
-	err := v.Struct(network)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
-		}
-	}
-	return err
-}
-
-func ValidateNetworkCreate(network models.Network) error {
-
-	v := validator.New()
-
-	//	_ = v.RegisterValidation("addressrange_valid", func(fl validator.FieldLevel) bool {
-	//		isvalid := functions.IsIpCIDR(fl.Field().String())
-	//		return isvalid
-	//	})
-	_ = v.RegisterValidation("addressrange6_valid", func(fl validator.FieldLevel) bool {
-		isvalid := true
-		if *network.IsDualStack {
-			isvalid = functions.IsIpCIDR(fl.Field().String())
-		}
-		return isvalid
-	})
-	//
-	//	_ = v.RegisterValidation("localrange_valid", func(fl validator.FieldLevel) bool {
-	//		isvalid := fl.Field().String() == "" || functions.IsIpCIDR(fl.Field().String())
-	//		return isvalid
-	//	})
-	//
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique, _ := functions.IsNetworkNameUnique(fl.Field().String())
-		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
-		return isFieldUnique && inCharSet
-	})
-	//
-	_ = v.RegisterValidation("displayname_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique, _ := functions.IsNetworkDisplayNameUnique(fl.Field().String())
-		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
-		return isFieldUnique && inCharSet
 	})
 
 	err := v.Struct(network)
@@ -341,33 +276,36 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var networkChange models.NetworkUpdate
-
-	_ = json.NewDecoder(r.Body).Decode(&networkChange)
-	if networkChange.AddressRange == "" {
-		networkChange.AddressRange = network.AddressRange
-	}
-	if networkChange.AddressRange6 == "" {
-		networkChange.AddressRange6 = network.AddressRange6
-	}
-	if networkChange.NetID == "" {
-		networkChange.NetID = network.NetID
-	}
-
-	err = ValidateNetworkUpdate(networkChange)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return
-	}
-	returnednetwork, err := UpdateNetwork(networkChange, network)
+	var newNetwork models.Network
+	err = json.NewDecoder(r.Body).Decode(&newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
+	rangeupdate, localrangeupdate, err := network.Update(&newNetwork)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+
+	if rangeupdate {
+		err = functions.UpdateNetworkNodeAddresses(network.NetID)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+	}
+	if localrangeupdate {
+		err = functions.UpdateNetworkLocalAddresses(network.NetID)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+	}
 	functions.PrintUserLog(r.Header.Get("user"), "updated network "+netname, 1)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(returnednetwork)
+	json.NewEncoder(w).Encode(newNetwork)
 }
 
 func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
@@ -381,7 +319,7 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var networkChange models.NetworkUpdate
+	var networkChange models.Network
 
 	_ = json.NewDecoder(r.Body).Decode(&networkChange)
 
@@ -397,98 +335,6 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
-}
-
-func UpdateNetwork(networkChange models.NetworkUpdate, network models.Network) (models.Network, error) {
-	//NOTE: Network.NetID is intentionally NOT editable. It acts as a static ID for the network.
-	//DisplayName can be changed instead, which is what shows on the front end
-	if networkChange.NetID != network.NetID {
-		return models.Network{}, errors.New("NetID is not editable")
-	}
-
-	haschange := false
-	hasrangeupdate := false
-	haslocalrangeupdate := false
-
-	if networkChange.AddressRange != "" {
-		haschange = true
-		hasrangeupdate = true
-		network.AddressRange = networkChange.AddressRange
-	}
-	if networkChange.LocalRange != "" {
-		haschange = true
-		haslocalrangeupdate = true
-		network.LocalRange = networkChange.LocalRange
-	}
-	if networkChange.IsLocal != nil {
-		network.IsLocal = networkChange.IsLocal
-	}
-	if networkChange.IsDualStack != nil {
-		network.IsDualStack = networkChange.IsDualStack
-	}
-	if networkChange.DefaultListenPort != 0 {
-		network.DefaultListenPort = networkChange.DefaultListenPort
-		haschange = true
-	}
-	if networkChange.DefaultPostDown != "" {
-		network.DefaultPostDown = networkChange.DefaultPostDown
-		haschange = true
-	}
-	if networkChange.DefaultInterface != "" {
-		network.DefaultInterface = networkChange.DefaultInterface
-		haschange = true
-	}
-	if networkChange.DefaultPostUp != "" {
-		network.DefaultPostUp = networkChange.DefaultPostUp
-		haschange = true
-	}
-	if networkChange.DefaultKeepalive != 0 {
-		network.DefaultKeepalive = networkChange.DefaultKeepalive
-		haschange = true
-	}
-	if networkChange.DisplayName != "" {
-		network.DisplayName = networkChange.DisplayName
-		haschange = true
-	}
-	if networkChange.DefaultCheckInInterval != 0 {
-		network.DefaultCheckInInterval = networkChange.DefaultCheckInInterval
-		haschange = true
-	}
-	if networkChange.AllowManualSignUp != nil {
-		network.AllowManualSignUp = networkChange.AllowManualSignUp
-		haschange = true
-	}
-
-	if haschange {
-		network.SetNetworkLastModified()
-	}
-
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return models.Network{}, err
-	}
-
-	database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
-
-	//Cycles through nodes and gives them new IP's based on the new range
-	//Pretty cool, but also pretty inefficient currently
-	if hasrangeupdate {
-		err = functions.UpdateNetworkNodeAddresses(network.NetID)
-		if err != nil {
-			return models.Network{}, err
-		}
-	}
-	if haslocalrangeupdate {
-		err = functions.UpdateNetworkLocalAddresses(network.NetID)
-		if err != nil {
-			return models.Network{}, err
-		}
-	}
-	returnnetwork, err := functions.GetParentNetwork(network.NetID)
-	if err != nil {
-		return models.Network{}, err
-	}
-	return returnnetwork, nil
 }
 
 //Delete a network
@@ -553,27 +399,17 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateNetwork(network models.Network) error {
-	//TODO: Not really doing good validation here. Same as createNode, updateNode, and updateNetwork
-	//Need to implement some better validation across the board
 
-	if network.IsLocal == nil {
-		falsevar := false
-		network.IsLocal = &falsevar
-	}
-	if network.IsDualStack == nil {
-		falsevar := false
-		network.IsDualStack = &falsevar
-	}
-
-	err := ValidateNetworkCreate(network)
-	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return err
-	}
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
 	network.KeyUpdateTimeStamp = time.Now().Unix()
+
+	err := network.Validate()
+	if err != nil {
+		//returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return err
+	}
 
 	data, err := json.Marshal(&network)
 	if err != nil {
@@ -611,7 +447,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "created access key "+netname, 1)
+	functions.PrintUserLog(r.Header.Get("user"), "created access key "+accesskey.Name+" on "+netname, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(key)
 	//w.Write([]byte(accesskey.AccessString))
@@ -641,10 +477,8 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		}
 	}
 	privAddr := ""
-	if network.IsLocal != nil {
-		if *network.IsLocal {
-			privAddr = network.LocalRange
-		}
+	if network.IsLocal != "" {
+		privAddr = network.LocalRange
 	}
 
 	netID := network.NetID

@@ -8,10 +8,16 @@ type AuthParams struct {
 }
 
 type User struct {
-	UserName string `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
-	Password string `json:"password" bson:"password" validate:"required,min=5"`
+	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
+	Password string   `json:"password" bson:"password" validate:"required,min=5"`
 	Networks []string `json:"networks" bson:"networks"`
-	IsAdmin  bool   `json:"isadmin" bson:"isadmin"`
+	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
+}
+
+type ReturnUser struct {
+	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
+	Networks []string `json:"networks" bson:"networks"`
+	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
 }
 
 type UserAuthParams struct {
@@ -92,25 +98,25 @@ type CheckInResponse struct {
 }
 
 type PeersResponse struct {
+	PublicKey          string `json:"publickey" bson:"publickey"`
+	Endpoint           string `json:"endpoint" bson:"endpoint"`
+	Address            string `json:"address" bson:"address"`
+	Address6           string `json:"address6" bson:"address6"`
+	LocalAddress       string `json:"localaddress" bson:"localaddress"`
+	IsEgressGateway    bool   `json:"isegressgateway" bson:"isegressgateway"`
+	EgressGatewayRange string `json:"egressgatewayrange" bson:"egressgatewayrange"`
+	ListenPort         int32  `json:"listenport" bson:"listenport"`
+	KeepAlive          int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
+}
+
+type ExtPeersResponse struct {
 	PublicKey    string `json:"publickey" bson:"publickey"`
 	Endpoint     string `json:"endpoint" bson:"endpoint"`
 	Address      string `json:"address" bson:"address"`
 	Address6     string `json:"address6" bson:"address6"`
 	LocalAddress string `json:"localaddress" bson:"localaddress"`
-	IsEgressGateway    bool   `json:"isegressgateway" bson:"isegressgateway"`
-	EgressGatewayRange string `json:"egressgatewayrange" bson:"egressgatewayrange"`
 	ListenPort   int32  `json:"listenport" bson:"listenport"`
 	KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
-}
-
-type ExtPeersResponse struct {
-        PublicKey    string `json:"publickey" bson:"publickey"`
-        Endpoint     string `json:"endpoint" bson:"endpoint"`
-        Address      string `json:"address" bson:"address"`
-        Address6     string `json:"address6" bson:"address6"`
-        LocalAddress string `json:"localaddress" bson:"localaddress"`
-        ListenPort   int32  `json:"listenport" bson:"listenport"`
-        KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
 type EgressGatewayRequest struct {

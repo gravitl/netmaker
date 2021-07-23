@@ -1,73 +1,183 @@
 package models
 
 import (
+	"encoding/json"
+	"errors"
+	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/go-playground/validator/v10"
+	"github.com/gravitl/netmaker/database"
 )
 
 //Network Struct
 //At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
-	ID           primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	AddressRange string             `json:"addressrange" bson:"addressrange" validate:"required,cidr"`
-	// bug in validator --- required_with does not work with bools  issue#683
-	//	AddressRange6          string             `json:"addressrange6" bson:"addressrange6" validate:"required_with=isdualstack true,cidrv6"`
-	AddressRange6 string `json:"addressrange6" bson:"addressrange6" validate:"addressrange6_valid"`
-	//can't have min=1 with omitempty
-	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,min=1,max=20,displayname_valid"`
-	NetID               string      `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
-	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
-	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
-	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
-	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit           int32       `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
-	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
-	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
-	DefaultKeepalive    int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	DefaultSaveConfig   *bool       `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
-	AccessKeys          []AccessKey `json:"accesskeys" bson:"accesskeys"`
-	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
-	IsLocal             *bool       `json:"islocal" bson:"islocal"`
-	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
-	IsIPv4              string      `json:"isipv4" bson:"isipv4"`
-	IsIPv6              string      `json:"isipv6" bson:"isipv6"`
-	IsGRPCHub           string      `json:"isgrpchub" bson:"isgrpchub"`
-	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
-	//can't have min=1 with omitempty
-	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
+	AddressRange           string      `json:"addressrange" bson:"addressrange" validate:"required,cidr"`
+	AddressRange6          string      `json:"addressrange6" bson:"addressrange6" validate:"regexp=^s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:)))(%.+)?s*(\/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8]))?$"`
+	DisplayName            string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,min=1,max=20,displayname_valid"`
+	NetID                  string      `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
+	NodesLastModified      int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
+	NetworkLastModified    int64       `json:"networklastmodified" bson:"networklastmodified"`
+	DefaultInterface       string      `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=15"`
+	DefaultListenPort      int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
+	NodeLimit              int32       `json:"nodelimit" bson:"nodelimit"`
+	DefaultPostUp          string      `json:"defaultpostup" bson:"defaultpostup"`
+	DefaultPostDown        string      `json:"defaultpostdown" bson:"defaultpostdown"`
+	KeyUpdateTimeStamp     int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
+	DefaultKeepalive       int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
+	DefaultSaveConfig      string      `json:"defaultsaveconfig" bson:"defaultsaveconfig" validate:"regexp=^(yes|no)$"`
+	AccessKeys             []AccessKey `json:"accesskeys" bson:"accesskeys"`
+	AllowManualSignUp      string      `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"regexp=^(yes|no)$"`
+	IsLocal                string      `json:"islocal" bson:"islocal" validate:"regexp=^(yes|no)$"`
+	IsDualStack            string      `json:"isdualstack" bson:"isdualstack" validate:"regexp=^(yes|no)$"`
+	IsIPv4                 string      `json:"isipv4" bson:"isipv4" validate:"regexp=^(yes|no)$"`
+	IsIPv6                 string      `json:"isipv6" bson:"isipv6" validate:"regexp=^(yes|no)$"`
+	IsGRPCHub              string      `json:"isgrpchub" bson:"isgrpchub" validate:"regexp=^(yes|no)$"`
+	LocalRange             string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
+	DefaultCheckInInterval int32       `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
+	DefaultUDPHolePunch    string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"regexp=^(yes|no)$"`
 }
-type NetworkUpdate struct {
-	ID           primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	AddressRange string             `json:"addressrange" bson:"addressrange" validate:"omitempty,cidr"`
 
-	// bug in validator --- required_with does not work with bools  issue#683
-	//	AddressRange6          string             `json:"addressrange6" bson:"addressrange6" validate:"required_with=isdualstack true,cidrv6"`
-	AddressRange6 string `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidr"`
-	//can't have min=1 with omitempty
-	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,netid_valid,min=1,max=20"`
-	NetID               string      `json:"netid" bson:"netid" validate:"omitempty,netid_valid,min=1,max=15"`
-	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
-	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
-	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface"`
-	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit           int32       `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
-	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
-	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
-	DefaultKeepalive    int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	DefaultSaveConfig   *bool       `json:"defaultsaveconfig" bson:"defaultsaveconfig"`
-	AccessKeys          []AccessKey `json:"accesskeys" bson:"accesskeys"`
-	AllowManualSignUp   *bool       `json:"allowmanualsignup" bson:"allowmanualsignup"`
-	IsLocal             *bool       `json:"islocal" bson:"islocal"`
-	IsDualStack         *bool       `json:"isdualstack" bson:"isdualstack"`
-	IsIPv4              string      `json:"isipv4" bson:"isipv4"`
-	IsIPv6              string      `json:"isipv6" bson:"isipv6"`
-	IsGRPCHub           string      `json:"isgrpchub" bson:"isgrpchub"`
-	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
-	//can't have min=1 with omitempty
-	DefaultCheckInInterval int32 `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
+type SaveData struct { // put sensitive fields here
+	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
+}
+
+var FIELDS = map[string][]string{
+	// "id":                  {"ID", "string"},
+	"addressrange":        {"AddressRange", "string"},
+	"addressrange6":       {"AddressRange6", "string"},
+	"displayname":         {"DisplayName", "string"},
+	"netid":               {"NetID", "string"},
+	"nodeslastmodified":   {"NodesLastModified", "int64"},
+	"networklastmodified": {"NetworkLastModified", "int64"},
+	"defaultinterface":    {"DefaultInterface", "string"},
+	"defaultlistenport":   {"DefaultListenPort", "int32"},
+	"nodelimit":           {"NodeLimit", "int32"},
+	"defaultpostup":       {"DefaultPostUp", "string"},
+	"defaultpostdown":     {"DefaultPostDown", "string"},
+	"keyupdatetimestamp":  {"KeyUpdateTimeStamp", "int64"},
+	"defaultkeepalive":    {"DefaultKeepalive", "int32"},
+	"defaultsaveconfig":   {"DefaultSaveConfig", "string"},
+	"accesskeys":          {"AccessKeys", "[]AccessKey"},
+	"allowmanualsignup":   {"AllowManualSignUp", "string"},
+	"islocal":             {"IsLocal", "string"},
+	"isdualstack":         {"IsDualStack", "string"},
+	"isipv4":              {"IsIPv4", "string"},
+	"isipv6":              {"IsIPv6", "string"},
+	"isgrpchub":           {"IsGRPCHub", "string"},
+	"localrange":          {"LocalRange", "string"},
+	"checkininterval":     {"DefaultCheckInInterval", "int32"},
+	"defaultudpholepunch": {"DefaultUDPHolePunch", "string"},
+}
+
+func (network *Network) FieldExists(field string) bool {
+	return len(FIELDS[field]) > 0
+}
+
+func (network *Network) NetIDInNetworkCharSet() bool {
+
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
+
+	for _, char := range network.NetID {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
+}
+
+func (network *Network) DisplayNameInNetworkCharSet() bool {
+
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_./;% ^#()!@$*"
+
+	for _, char := range network.DisplayName {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
+}
+
+// Anyway, returns all the networks
+func GetNetworks() ([]Network, error) {
+	var networks []Network
+
+	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+
+	if err != nil {
+		return networks, err
+	}
+
+	for _, value := range collection {
+		var network Network
+		if err := json.Unmarshal([]byte(value), &network); err != nil {
+			return networks, err
+		}
+		// add network our array
+		networks = append(networks, network)
+	}
+
+	return networks, err
+}
+
+func (network *Network) IsNetworkDisplayNameUnique() (bool, error) {
+
+	isunique := true
+
+	records, err := GetNetworks()
+
+	if err != nil {
+		return false, err
+	}
+
+	for i := 0; i < len(records); i++ {
+
+		if network.NetID == records[i].DisplayName {
+			isunique = false
+		}
+	}
+
+	return isunique, nil
+}
+
+//Checks to see if any other networks have the same name (id)
+func (network *Network) IsNetworkNameUnique() (bool, error) {
+
+	isunique := true
+
+	dbs, err := GetNetworks()
+
+	if err != nil {
+		return false, err
+	}
+
+	for i := 0; i < len(dbs); i++ {
+
+		if network.NetID == dbs[i].NetID {
+			isunique = false
+		}
+	}
+
+	return isunique, nil
+}
+
+func (network *Network) Validate() error {
+	v := validator.New()
+	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
+		isFieldUnique, _ := network.IsNetworkNameUnique()
+		inCharSet := network.NetIDInNetworkCharSet()
+		return isFieldUnique && inCharSet
+	})
+	//
+	_ = v.RegisterValidation("displayname_valid", func(fl validator.FieldLevel) bool {
+		isFieldUnique, _ := network.IsNetworkDisplayNameUnique()
+		inCharSet := network.DisplayNameInNetworkCharSet()
+		return isFieldUnique && inCharSet
+	})
+
+	err := v.Struct(network)
+	return err
 }
 
 //TODO:
@@ -81,6 +191,15 @@ func (network *Network) SetNetworkLastModified() {
 }
 
 func (network *Network) SetDefaults() {
+	if network.DefaultUDPHolePunch == "" {
+		network.DefaultUDPHolePunch = "yes"
+	}
+	if network.IsLocal == "" {
+		network.IsLocal = "no"
+	}
+	if network.IsGRPCHub == "" {
+		network.IsGRPCHub = "no"
+	}
 	if network.DisplayName == "" {
 		network.DisplayName = network.NetID
 	}
@@ -97,31 +216,46 @@ func (network *Network) SetDefaults() {
 	if network.NodeLimit == 0 {
 		network.NodeLimit = 999999999
 	}
-	if network.DefaultPostDown == "" {
-
-	}
-	if network.DefaultSaveConfig == nil {
-		defaultsave := true
-		network.DefaultSaveConfig = &defaultsave
+	if network.DefaultSaveConfig == "" {
+		network.DefaultSaveConfig = "no"
 	}
 	if network.DefaultKeepalive == 0 {
 		network.DefaultKeepalive = 20
-	}
-	if network.DefaultPostUp == "" {
 	}
 	//Check-In Interval for Nodes, In Seconds
 	if network.DefaultCheckInInterval == 0 {
 		network.DefaultCheckInInterval = 30
 	}
-	if network.AllowManualSignUp == nil {
-		signup := false
-		network.AllowManualSignUp = &signup
+	if network.AllowManualSignUp == "" {
+		network.AllowManualSignUp = "no"
 	}
-	if (network.IsDualStack != nil) && *network.IsDualStack {
+	if network.IsDualStack == "" {
+		network.IsDualStack = "no"
+	}
+	if network.IsDualStack == "yes" {
 		network.IsIPv6 = "yes"
 		network.IsIPv4 = "yes"
-	} else if network.IsGRPCHub != "yes" {
+	} else {
 		network.IsIPv6 = "no"
 		network.IsIPv4 = "yes"
 	}
+}
+
+func (currentNetwork *Network) Update(newNetwork *Network) (bool, bool, error) {
+	if err := newNetwork.Validate(); err != nil {
+		return false, false, err
+	}
+	if newNetwork.NetID == currentNetwork.NetID {
+		hasrangeupdate := newNetwork.AddressRange != currentNetwork.AddressRange
+		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
+		if data, err := json.Marshal(newNetwork); err != nil {
+			return false, false, err
+		} else {
+			newNetwork.SetNetworkLastModified()
+			err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
+			return hasrangeupdate, localrangeupdate, err
+		}
+	}
+	// copy values
+	return false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }

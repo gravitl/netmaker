@@ -152,7 +152,6 @@ func authorizeUserAdm(next http.Handler) http.HandlerFunc {
 
 func ValidateUserToken(token string, user string, adminonly bool) error {
 	var tokenSplit = strings.Split(token, " ")
-
 	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
 	//There's probably a smarter way of handling this.
 	var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
@@ -213,7 +212,20 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func GetUser(username string) (models.User, error) {
+func GetUser(username string) (models.ReturnUser, error) {
+
+	var user models.ReturnUser
+	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
+	if err != nil {
+		return user, err
+	}
+	if err = json.Unmarshal([]byte(record), &user); err != nil {
+		return models.ReturnUser{}, err
+	}
+	return user, err
+}
+
+func GetUserInternal(username string) (models.User, error) {
 
 	var user models.User
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
@@ -226,9 +238,9 @@ func GetUser(username string) (models.User, error) {
 	return user, err
 }
 
-func GetUsers() ([]models.User, error) {
+func GetUsers() ([]models.ReturnUser, error) {
 
-	var users []models.User
+	var users []models.ReturnUser
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 
@@ -238,7 +250,7 @@ func GetUsers() ([]models.User, error) {
 
 	for _, value := range collection {
 
-		var user models.User
+		var user models.ReturnUser
 		err = json.Unmarshal([]byte(value), &user)
 		if err != nil {
 			continue // get users
@@ -394,7 +406,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	//start here
 	username := params["username"]
-	user, err := GetUser(username)
+	user, err := GetUserInternal(username)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -422,7 +434,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	//start here
 	username := params["username"]
-	user, err := GetUser(username)
+	user, err := GetUserInternal(username)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -445,6 +457,10 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 
 func DeleteUser(user string) (bool, error) {
 
+	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
+		return false, errors.New("user does not exist")
+	}
+
 	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
 	if err != nil {
 		return false, err
@@ -466,7 +482,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else if !success {
-		returnErrorResponse(w, r, formatError(errors.New("Delete unsuccessful."), "badrequest"))
+		returnErrorResponse(w, r, formatError(errors.New("delete unsuccessful."), "badrequest"))
 		return
 	}
 

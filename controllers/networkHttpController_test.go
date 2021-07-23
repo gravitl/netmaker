@@ -30,7 +30,7 @@ func deleteNet(t *testing.T) {
 		err := DeleteDNS(entry.Name, entry.Network)
 		assert.Nil(t, err)
 	}
-	networks, _ := functions.ListNetworks()
+	networks, _ := models.GetNetworks()
 	for _, network := range networks {
 		t.Log("deleting network", network.NetID)
 		success, err := DeleteNetwork(network.NetID)
@@ -54,7 +54,7 @@ func getNet() models.Network {
 }
 
 func TestGetNetworks(t *testing.T) {
-	//calls functions.ListNetworks --- nothing to be done
+	//calls models.GetNetworks --- nothing to be done
 }
 func TestCreateNetwork(t *testing.T) {
 	deleteNet(t)
@@ -108,14 +108,14 @@ func TestUpdateNetwork(t *testing.T) {
 	createNet()
 	network := getNet()
 	t.Run("NetID", func(t *testing.T) {
-		var networkupdate models.NetworkUpdate
+		var networkupdate models.Network
 		networkupdate.NetID = "wirecat"
 		_, err := UpdateNetwork(networkupdate, network)
 		assert.NotNil(t, err)
 		assert.Equal(t, "NetID is not editable", err.Error())
 	})
 	t.Run("LocalRange", func(t *testing.T) {
-		var networkupdate models.NetworkUpdate
+		var networkupdate models.Network
 		//NetID needs to be set as it will be in updateNetwork
 		networkupdate.NetID = "skynet"
 		networkupdate.LocalRange = "192.168.0.1/24"
@@ -372,7 +372,7 @@ func TestValidateNetworkUpdate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.testname, func(t *testing.T) {
-			network := models.NetworkUpdate(tc.network)
+			network := models.Network(tc.network)
 			err := ValidateNetworkUpdate(network)
 			assert.NotNil(t, err)
 			assert.Contains(t, err.Error(), tc.errMessage)

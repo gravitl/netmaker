@@ -54,6 +54,19 @@ func ParseIntClient(value string) (models.IntClient, error) {
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the network
 
+func GetUser(username string) (models.User, error) {
+
+	var user models.User
+	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
+	if err != nil {
+		return user, err
+	}
+	if err = json.Unmarshal([]byte(record), &user); err != nil {
+		return models.User{}, err
+	}
+	return user, err
+}
+
 func SliceContains(slice []string, item string) bool {
 	set := make(map[string]struct{}, len(slice))
 	for _, s := range slice {
@@ -252,32 +265,11 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 	return nil
 }
 
-//Checks to see if any other networks have the same name (id)
-func IsNetworkNameUnique(name string) (bool, error) {
-
-	isunique := true
-
-	dbs, err := ListNetworks()
-
-	if err != nil {
-		return false, err
-	}
-
-	for i := 0; i < len(dbs); i++ {
-
-		if name == dbs[i].NetID {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
-}
-
 func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
 	isunique := true
 
-	dbs, err := ListNetworks()
+	dbs, err := models.GetNetworks()
 	if err != nil {
 		return false, err
 	}
@@ -333,30 +325,6 @@ func GetNetworkNodeNumber(networkName string) (int, error) {
 	return count, nil
 }
 
-// Anyway, returns all the networks
-func ListNetworks() ([]models.Network, error) {
-
-	var networks []models.Network
-
-	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
-
-	if err != nil {
-		return networks, err
-	}
-
-	for _, value := range collection {
-
-		var network models.Network
-		if err := json.Unmarshal([]byte(value), &network); err != nil {
-			return networks, err
-		}
-		// add network our array
-		networks = append(networks, network)
-	}
-
-	return networks, err
-}
-
 //Checks to see if access key is valid
 //Does so by checking against all keys and seeing if any have the same value
 //may want to hash values before comparing...consider this
@@ -385,7 +353,7 @@ func IsKeyValid(networkname string, keyvalue string) bool {
 
 func IsKeyValidGlobal(keyvalue string) bool {
 
-	networks, _ := ListNetworks()
+	networks, _ := models.GetNetworks()
 	var key models.AccessKey
 	foundkey := false
 	isvalid := false
@@ -499,20 +467,21 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 
 	var node models.Node
 
-	records, err := database.FetchRecords(database.NODES_TABLE_NAME)
-
+	key, err := GetRecordKey(macaddress, network)
 	if err != nil {
 		return node, err
 	}
 
-	for _, value := range records {
-		json.Unmarshal([]byte(value), &node)
-		if node.MacAddress == macaddress && node.Network == network {
-			return node, nil
-		}
+	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
+	if err != nil {
+		return models.Node{}, err
 	}
 
-	return models.Node{}, nil
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+
+	return node, nil
 }
 
 func DeleteAllIntClients() error {
@@ -614,7 +583,7 @@ func UniqueAddress6(networkName string) (string, error) {
 		fmt.Println("Network Not Found")
 		return "", err
 	}
-	if network.IsDualStack == nil || *network.IsDualStack == false {
+	if network.IsDualStack == "no" {
 		if networkName != "comms" {
 			return "", nil
 		}

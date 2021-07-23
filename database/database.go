@@ -93,5 +93,6 @@ func FetchRecords(tableName string) (map[string]string, error) {
 		row.Scan(&key, &value)
 		records[key] = value
 	}
+	// log.Println(records)
 	return records, nil
 }

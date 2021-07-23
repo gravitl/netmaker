@@ -59,7 +59,7 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 
 func GetAllDNS() ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	networks, err := functions.ListNetworks()
+	networks, err := models.GetNetworks()
 	if err != nil {
 		return []models.DNSEntry{}, err
 	}
@@ -141,7 +141,7 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 func SetDNS() error {
 	hostfile := txeh.Hosts{}
 	var corefilestring string
-	networks, err := functions.ListNetworks()
+	networks, err := models.GetNetworks()
 	if err != nil {
 		return err
 	}

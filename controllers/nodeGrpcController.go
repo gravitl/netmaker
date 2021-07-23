@@ -34,14 +34,6 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 		}
 	*/
 	// Cast to ReadNodeRes type
-	dualvar := false
-	if network.IsDualStack != nil {
-		dualvar = *network.IsDualStack
-	}
-	localvar := false
-	if network.IsLocal != nil {
-		localvar = *network.IsLocal
-	}
 
 	response := &nodepb.ReadNodeRes{
 		Node: &nodepb.Node{
@@ -64,8 +56,8 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Publickey:           node.PublicKey,
 			Listenport:          node.ListenPort,
 			Keepalive:           node.PersistentKeepalive,
-			Islocal:             localvar,
-			Isdualstack:         dualvar,
+			Islocal:             network.IsLocal == "yes",
+			Isdualstack:         network.IsDualStack == "yes",
 			Localrange:          network.LocalRange,
 		},
 	}
@@ -165,7 +157,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 	if !validKey {
 		//Check to see if network will allow manual sign up
 		//may want to switch this up with the valid key check and avoid a DB call that way.
-		if *network.AllowManualSignUp {
+		if network.AllowManualSignUp == "yes" {
 			node.IsPending = true
 		} else {
 			return nil, status.Errorf(
@@ -183,14 +175,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 			codes.Internal,
 			fmt.Sprintf("Internal error: %v", err),
 		)
-	}
-	dualvar := false
-	if network.IsDualStack != nil {
-		dualvar = *network.IsDualStack
-	}
-	localvar := false
-	if network.IsLocal != nil {
-		localvar = *network.IsLocal
 	}
 
 	// return the node in a CreateNodeRes type
@@ -210,8 +194,8 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 			Publickey:    node.PublicKey,
 			Listenport:   node.ListenPort,
 			Keepalive:    node.PersistentKeepalive,
-			Islocal:      localvar,
-			Isdualstack:  dualvar,
+			Islocal:      network.IsLocal == "yes",
+			Isdualstack:  network.IsDualStack == "yes",
 			Localrange:   network.LocalRange,
 		},
 	}
@@ -318,15 +302,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 			fmt.Sprintf("Could not find node with supplied Mac Address: %v", err),
 		)
 	}
-	dualvar := false
-	if network.IsDualStack != nil {
-		dualvar = *network.IsDualStack
-	}
-	localvar := false
-	if network.IsLocal != nil {
-		localvar = *network.IsLocal
-	}
-
 	return &nodepb.UpdateNodeRes{
 		Node: &nodepb.Node{
 			Macaddress:   newnode.MacAddress,
@@ -345,8 +320,8 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 			Dnsoff:       !servercfg.IsDNSMode(),
 			Listenport:   newnode.ListenPort,
 			Keepalive:    newnode.PersistentKeepalive,
-			Islocal:      localvar,
-			Isdualstack:  dualvar,
+			Islocal:      network.IsLocal == "yes",
+			Isdualstack:  network.IsDualStack == "yes",
 			Localrange:   network.LocalRange,
 		},
 	}, nil

@@ -51,8 +51,7 @@ func CreateCommsNetwork() (bool, error) {
 		network.SetNodesLastModified()
 		network.SetNetworkLastModified()
 		network.KeyUpdateTimeStamp = time.Now().Unix()
-		priv := false
-		network.IsLocal = &priv
+		network.IsLocal = "no"
 		network.KeyUpdateTimeStamp = time.Now().Unix()
 
 		log.Println("Creating comms network...")

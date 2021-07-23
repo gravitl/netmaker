@@ -54,6 +54,10 @@ func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersRe
 		var peer models.ExtPeersResponse
 		var extClient models.ExtClient
 		err = json.Unmarshal([]byte(value), &peer)
+		if err != nil {
+			functions.PrintUserLog("netmaker", "failed to unmarshal peer", 2)
+			continue
+		}
 		err = json.Unmarshal([]byte(value), &extClient)
 		if err != nil {
 			functions.PrintUserLog("netmaker", "failed to unmarshal ext client", 2)
@@ -193,16 +197,13 @@ func UpdateNode(nodechange models.NodeUpdate, node models.Node) (models.Node, er
 	if err != nil {
 		return models.Node{}, err
 	}
-
 	err = database.Insert(newkey, string(value), database.NODES_TABLE_NAME)
-
 	if notifynetwork {
 		err = SetNetworkNodesLastModified(node.Network)
 	}
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
 	}
-
 	return node, err
 }
 

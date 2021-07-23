@@ -17,17 +17,17 @@ import (
 
 func nodeHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/nodes", authorize(false, "master", http.HandlerFunc(getAllNodes))).Methods("GET")
+	r.HandleFunc("/api/nodes", authorize(false, "user", http.HandlerFunc(getAllNodes))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}", authorize(true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "master", http.HandlerFunc(createEgressGateway))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "master", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "user", http.HandlerFunc(createEgressGateway))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "user", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleteingress", securityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "master", http.HandlerFunc(uncordonNode))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
@@ -147,7 +147,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 //TODO: Consider better RBAC implementations
 func authorize(networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 		}
@@ -155,7 +154,6 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 		var params = mux.Vars(r)
 
 		networkexists, _ := functions.NetworkExists(params["network"])
-
 		//check that the request is for a valid network
 		//if (networkCheck && !networkexists) || err != nil {
 		if networkCheck && !networkexists {
@@ -164,9 +162,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			}
 			returnErrorResponse(w, r, errorResponse)
 			return
-
 		} else {
-
 			w.Header().Set("Content-Type", "application/json")
 
 			//get the auth token
@@ -192,7 +188,6 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			//A: the token is the master password
 			//B: the token corresponds to a mac address, and if so, which one
 			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
-
 			var isAuthorized = false
 			var macaddress = ""
 			username, networks, isadmin, errN := functions.VerifyUserToken(authToken)
@@ -219,7 +214,6 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if macaddress == "mastermac" {
 				isAuthorized = true
-
 				//for everyone else, there's poor man's RBAC. The "cases" are defined in the routes in the handlers
 				//So each route defines which access network should be allowed to access it
 			} else {
@@ -248,8 +242,8 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 					} else {
 						isAuthorized = (macaddress == params["macaddress"])
 					}
-				case "master":
-					isAuthorized = (macaddress == "mastermac")
+				case "user":
+					isAuthorized = true
 				default:
 					isAuthorized = false
 				}
@@ -316,7 +310,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 //Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	nodes, err := functions.GetAllNodes()
+	nodes, err := getUsersNodes(r.Header.Get("user"))
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -325,6 +319,22 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	functions.PrintUserLog(r.Header.Get("user"), "fetched nodes", 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
+}
+
+func getUsersNodes(username string) ([]models.Node, error) {
+	var nodes []models.Node
+	user, err := functions.GetUser(username)
+	if err != nil {
+		return nodes, err
+	}
+	for _, networkName := range user.Networks {
+		tmpNodes, err := GetNetworkNodes(networkName)
+		if err != nil {
+			continue
+		}
+		nodes = append(nodes, tmpNodes...)
+	}
+	return nodes, err
 }
 
 //This function get's called when a node "checks in" at check in interval
@@ -460,7 +470,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	if !validKey {
 		//Check to see if network will allow manual sign up
 		//may want to switch this up with the valid key check and avoid a DB call that way.
-		if *network.AllowManualSignUp {
+		if network.AllowManualSignUp == "yes" {
 			node.IsPending = true
 		} else {
 			errorResponse = models.ErrorResponse{
@@ -678,6 +688,7 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 		log.Println("Could not find network.")
 		return models.Node{}, err
 	}
+	node.IsIngressGateway = true
 	node.IngressGatewayRange = network.AddressRange
 	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
@@ -748,6 +759,7 @@ func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
+	log.Println("update reached.")
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
@@ -756,7 +768,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	//id, _ := primitive.ObjectIDFromHex(params["id"])
 
 	var node models.Node
-
+	log.Println("Called", params["network"], params["macaddress"])
 	//start here
 	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
 	if err != nil {
