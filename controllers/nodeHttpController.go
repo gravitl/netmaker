@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -310,10 +312,24 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 //Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	nodes, err := getUsersNodes(r.Header.Get("user"))
+	user, err := functions.GetUser(r.Header.Get("user"))
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	var nodes []models.Node
+	if user.IsAdmin {
+		nodes, err = models.GetAllNodes()
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+	} else {
+		nodes, err = getUsersNodes(user)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
 	}
 	//Return all the nodes in JSON format
 	functions.PrintUserLog(r.Header.Get("user"), "fetched nodes", 2)
@@ -321,12 +337,9 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(nodes)
 }
 
-func getUsersNodes(username string) ([]models.Node, error) {
+func getUsersNodes(user models.User) ([]models.Node, error) {
 	var nodes []models.Node
-	user, err := functions.GetUser(username)
-	if err != nil {
-		return nodes, err
-	}
+	var err error
 	for _, networkName := range user.Networks {
 		tmpNodes, err := GetNetworkNodes(networkName)
 		if err != nil {
@@ -416,9 +429,6 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network.NodesLastModified)
 }
 
-//This one's a doozy
-//To create a node
-//Must have valid key and be unique
 func createNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -427,12 +437,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
-
 	networkName := params["network"]
-
-	//Check if network exists  first
-	//TODO: This is inefficient. Let's find a better way.
-	//Just a few rows down we grab the network anyway
 	networkexists, err := functions.NetworkExists(networkName)
 
 	if err != nil {
@@ -481,7 +486,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = ValidateNodeCreate(networkName, node)
+	err = node.Validate(false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -759,16 +764,11 @@ func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
-	log.Println("update reached.")
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
 
-	//Get id from parameters
-	//id, _ := primitive.ObjectIDFromHex(params["id"])
-
 	var node models.Node
-	log.Println("Called", params["network"], params["macaddress"])
 	//start here
 	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
 	if err != nil {
@@ -776,29 +776,32 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var nodechange models.NodeUpdate
-
+	var newNode models.Node
 	// we decode our body request params
-	_ = json.NewDecoder(r.Body).Decode(&nodechange)
-	if nodechange.Network == "" {
-		nodechange.Network = node.Network
-	}
-	if nodechange.MacAddress == "" {
-		nodechange.MacAddress = node.MacAddress
-	}
-	err = ValidateNodeUpdate(params["network"], nodechange)
+	err = json.NewDecoder(r.Body).Decode(&newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
-	node, err = UpdateNode(nodechange, node)
+	err = node.Update(&newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
+	if err = SetNetworkNodesLastModified(node.Network); err != nil {
+		fmt.Println(err)
+	}
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	functions.PrintUserLog(r.Header.Get("user"), "updated node "+node.MacAddress+" on network "+node.Network, 1)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(newNode)
 }
 
 //Delete a node

@@ -3,6 +3,8 @@ package models
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -26,49 +28,56 @@ type Network struct {
 	DefaultPostDown        string      `json:"defaultpostdown" bson:"defaultpostdown"`
 	KeyUpdateTimeStamp     int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
 	DefaultKeepalive       int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	DefaultSaveConfig      string      `json:"defaultsaveconfig" bson:"defaultsaveconfig" validate:"regexp=^(yes|no)$"`
+	DefaultSaveConfig      string      `json:"defaultsaveconfig" bson:"defaultsaveconfig" validate:"checkyesorno"`
 	AccessKeys             []AccessKey `json:"accesskeys" bson:"accesskeys"`
-	AllowManualSignUp      string      `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"regexp=^(yes|no)$"`
-	IsLocal                string      `json:"islocal" bson:"islocal" validate:"regexp=^(yes|no)$"`
-	IsDualStack            string      `json:"isdualstack" bson:"isdualstack" validate:"regexp=^(yes|no)$"`
-	IsIPv4                 string      `json:"isipv4" bson:"isipv4" validate:"regexp=^(yes|no)$"`
-	IsIPv6                 string      `json:"isipv6" bson:"isipv6" validate:"regexp=^(yes|no)$"`
-	IsGRPCHub              string      `json:"isgrpchub" bson:"isgrpchub" validate:"regexp=^(yes|no)$"`
+	AllowManualSignUp      string      `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
+	IsLocal                string      `json:"islocal" bson:"islocal" validate:"checkyesorno"`
+	IsDualStack            string      `json:"isdualstack" bson:"isdualstack" validate:"checkyesorno"`
+	IsIPv4                 string      `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
+	IsIPv6                 string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
+	IsGRPCHub              string      `json:"isgrpchub" bson:"isgrpchub" validate:"checkyesorno"`
 	LocalRange             string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	DefaultCheckInInterval int32       `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
-	DefaultUDPHolePunch    string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"regexp=^(yes|no)$"`
+	DefaultUDPHolePunch    string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 }
 
 type SaveData struct { // put sensitive fields here
 	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
 }
 
+const STRING_FIELD_TYPE = "string"
+const INT64_FIELD_TYPE = "int64"
+const INT32_FIELD_TYPE = "int32"
+const ACCESS_KEY_TYPE = "[]AccessKey"
+
+var FIELD_TYPES = []string{STRING_FIELD_TYPE, INT64_FIELD_TYPE, INT32_FIELD_TYPE, ACCESS_KEY_TYPE}
+
 var FIELDS = map[string][]string{
 	// "id":                  {"ID", "string"},
-	"addressrange":        {"AddressRange", "string"},
-	"addressrange6":       {"AddressRange6", "string"},
-	"displayname":         {"DisplayName", "string"},
-	"netid":               {"NetID", "string"},
-	"nodeslastmodified":   {"NodesLastModified", "int64"},
-	"networklastmodified": {"NetworkLastModified", "int64"},
-	"defaultinterface":    {"DefaultInterface", "string"},
-	"defaultlistenport":   {"DefaultListenPort", "int32"},
-	"nodelimit":           {"NodeLimit", "int32"},
-	"defaultpostup":       {"DefaultPostUp", "string"},
-	"defaultpostdown":     {"DefaultPostDown", "string"},
-	"keyupdatetimestamp":  {"KeyUpdateTimeStamp", "int64"},
-	"defaultkeepalive":    {"DefaultKeepalive", "int32"},
-	"defaultsaveconfig":   {"DefaultSaveConfig", "string"},
-	"accesskeys":          {"AccessKeys", "[]AccessKey"},
-	"allowmanualsignup":   {"AllowManualSignUp", "string"},
-	"islocal":             {"IsLocal", "string"},
-	"isdualstack":         {"IsDualStack", "string"},
-	"isipv4":              {"IsIPv4", "string"},
-	"isipv6":              {"IsIPv6", "string"},
-	"isgrpchub":           {"IsGRPCHub", "string"},
-	"localrange":          {"LocalRange", "string"},
-	"checkininterval":     {"DefaultCheckInInterval", "int32"},
-	"defaultudpholepunch": {"DefaultUDPHolePunch", "string"},
+	"addressrange":        {"AddressRange", STRING_FIELD_TYPE},
+	"addressrange6":       {"AddressRange6", STRING_FIELD_TYPE},
+	"displayname":         {"DisplayName", STRING_FIELD_TYPE},
+	"netid":               {"NetID", STRING_FIELD_TYPE},
+	"nodeslastmodified":   {"NodesLastModified", INT64_FIELD_TYPE},
+	"networklastmodified": {"NetworkLastModified", INT64_FIELD_TYPE},
+	"defaultinterface":    {"DefaultInterface", STRING_FIELD_TYPE},
+	"defaultlistenport":   {"DefaultListenPort", INT32_FIELD_TYPE},
+	"nodelimit":           {"NodeLimit", INT32_FIELD_TYPE},
+	"defaultpostup":       {"DefaultPostUp", STRING_FIELD_TYPE},
+	"defaultpostdown":     {"DefaultPostDown", STRING_FIELD_TYPE},
+	"keyupdatetimestamp":  {"KeyUpdateTimeStamp", INT64_FIELD_TYPE},
+	"defaultkeepalive":    {"DefaultKeepalive", INT32_FIELD_TYPE},
+	"defaultsaveconfig":   {"DefaultSaveConfig", STRING_FIELD_TYPE},
+	"accesskeys":          {"AccessKeys", ACCESS_KEY_TYPE},
+	"allowmanualsignup":   {"AllowManualSignUp", STRING_FIELD_TYPE},
+	"islocal":             {"IsLocal", STRING_FIELD_TYPE},
+	"isdualstack":         {"IsDualStack", STRING_FIELD_TYPE},
+	"isipv4":              {"IsIPv4", STRING_FIELD_TYPE},
+	"isipv6":              {"IsIPv6", STRING_FIELD_TYPE},
+	"isgrpchub":           {"IsGRPCHub", STRING_FIELD_TYPE},
+	"localrange":          {"LocalRange", STRING_FIELD_TYPE},
+	"checkininterval":     {"DefaultCheckInInterval", INT32_FIELD_TYPE},
+	"defaultudpholepunch": {"DefaultUDPHolePunch", STRING_FIELD_TYPE},
 }
 
 func (network *Network) FieldExists(field string) bool {
@@ -162,21 +171,35 @@ func (network *Network) IsNetworkNameUnique() (bool, error) {
 	return isunique, nil
 }
 
-func (network *Network) Validate() error {
+func (network *Network) Validate(isUpdate bool) error {
 	v := validator.New()
 	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique, _ := network.IsNetworkNameUnique()
 		inCharSet := network.NetIDInNetworkCharSet()
+		if isUpdate {
+			return inCharSet
+		}
+		isFieldUnique, _ := network.IsNetworkNameUnique()
 		return isFieldUnique && inCharSet
 	})
 	//
 	_ = v.RegisterValidation("displayname_valid", func(fl validator.FieldLevel) bool {
 		isFieldUnique, _ := network.IsNetworkDisplayNameUnique()
 		inCharSet := network.DisplayNameInNetworkCharSet()
+		if isUpdate {
+			return inCharSet
+		}
 		return isFieldUnique && inCharSet
 	})
-
+	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
+		return CheckYesOrNo(fl)
+	})
 	err := v.Struct(network)
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			fmt.Println(e)
+		}
+	}
+
 	return err
 }
 
@@ -241,8 +264,22 @@ func (network *Network) SetDefaults() {
 	}
 }
 
+func (network *Network) CopyValues(newNetwork *Network, fieldName string) {
+	reflection := reflect.ValueOf(newNetwork)
+	value := reflect.Indirect(reflection).FieldByName(FIELDS[fieldName][0])
+	if value.IsValid() && len(FIELDS[fieldName]) == 2 {
+		fieldData := FIELDS[fieldName]
+		for _, indexVal := range FIELD_TYPES {
+			if indexVal == fieldData[1] {
+				currentReflection := reflect.ValueOf(network)
+				reflect.Indirect(currentReflection).FieldByName(FIELDS[fieldName][0]).Set(value)
+			}
+		}
+	}
+}
+
 func (currentNetwork *Network) Update(newNetwork *Network) (bool, bool, error) {
-	if err := newNetwork.Validate(); err != nil {
+	if err := newNetwork.Validate(true); err != nil {
 		return false, false, err
 	}
 	if newNetwork.NetID == currentNetwork.NetID {

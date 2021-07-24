@@ -732,23 +732,3 @@ func Inc(ip net.IP) {
 		}
 	}
 }
-
-func GetAllNodes() ([]models.Node, error) {
-	var nodes []models.Node
-
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		return []models.Node{}, err
-	}
-
-	for _, value := range collection {
-		var node models.Node
-		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			return []models.Node{}, err
-		}
-		// add node to our array
-		nodes = append(nodes, node)
-	}
-
-	return nodes, nil
-}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -68,143 +67,6 @@ func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersRe
 		}
 	}
 	return peers, err
-}
-
-func ValidateNodeCreate(networkName string, node models.Node) error {
-	v := validator.New()
-	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
-		isFieldUnique, _ := functions.IsMacAddressUnique(node.MacAddress, networkName)
-		return isFieldUnique
-	})
-	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := node.GetNetwork()
-		return err == nil
-	})
-	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-		isgood := functions.NameInNodeCharSet(node.Name)
-		return isgood
-	})
-	err := v.Struct(node)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
-		}
-	}
-	return err
-}
-
-func ValidateNodeUpdate(networkName string, node models.NodeUpdate) error {
-	v := validator.New()
-	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := functions.GetParentNetwork(networkName)
-		return err == nil
-	})
-	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-		isgood := functions.NameInNodeCharSet(node.Name)
-		return isgood
-	})
-	err := v.Struct(node)
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
-		}
-	}
-	return err
-}
-
-func UpdateNode(nodechange models.NodeUpdate, node models.Node) (models.Node, error) {
-	//Question: Is there a better way  of doing  this than a bunch of "if" statements? probably...
-	//Eventually, lets have a better way to check if any of the fields are filled out...
-	oldkey, err := functions.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return node, err
-	}
-
-	notifynetwork := false
-
-	if nodechange.Address != "" {
-		node.Address = nodechange.Address
-		notifynetwork = true
-	}
-	if nodechange.Address6 != "" {
-		node.Address6 = nodechange.Address6
-		notifynetwork = true
-	}
-	if nodechange.Name != "" {
-		node.Name = nodechange.Name
-	}
-	if nodechange.LocalAddress != "" {
-		node.LocalAddress = nodechange.LocalAddress
-	}
-	if nodechange.ListenPort != 0 {
-		node.ListenPort = nodechange.ListenPort
-	}
-	if nodechange.ExpirationDateTime != 0 {
-		node.ExpirationDateTime = nodechange.ExpirationDateTime
-	}
-	if nodechange.PostDown != "" {
-		node.PostDown = nodechange.PostDown
-	}
-	if nodechange.Interface != "" {
-		node.Interface = nodechange.Interface
-	}
-	if nodechange.PostUp != "" {
-		node.PostUp = nodechange.PostUp
-	}
-	if nodechange.AccessKey != "" {
-		node.AccessKey = nodechange.AccessKey
-	}
-	if nodechange.Endpoint != "" {
-		node.Endpoint = nodechange.Endpoint
-		notifynetwork = true
-	}
-	if nodechange.SaveConfig != nil {
-		node.SaveConfig = nodechange.SaveConfig
-	}
-	if nodechange.PersistentKeepalive != 0 {
-		node.PersistentKeepalive = nodechange.PersistentKeepalive
-	}
-	if nodechange.Password != "" {
-		err := bcrypt.CompareHashAndPassword([]byte(nodechange.Password), []byte(node.Password))
-		if err != nil && nodechange.Password != node.Password {
-			hash, err := bcrypt.GenerateFromPassword([]byte(nodechange.Password), 5)
-			if err != nil {
-				return node, err
-			}
-			nodechange.Password = string(hash)
-			node.Password = nodechange.Password
-		}
-	}
-	if nodechange.MacAddress != "" {
-		node.MacAddress = nodechange.MacAddress
-	}
-	if nodechange.PublicKey != "" {
-		node.PublicKey = nodechange.PublicKey
-		node.KeyUpdateTimeStamp = time.Now().Unix()
-		notifynetwork = true
-	}
-	newkey, err := functions.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return node, err
-	}
-	if oldkey != newkey {
-		if err := database.DeleteRecord(database.NODES_TABLE_NAME, oldkey); err != nil {
-			return models.Node{}, err
-		}
-	}
-	value, err := json.Marshal(&node)
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = database.Insert(newkey, string(value), database.NODES_TABLE_NAME)
-	if notifynetwork {
-		err = SetNetworkNodesLastModified(node.Network)
-	}
-	if servercfg.IsDNSMode() {
-		err = SetDNS()
-	}
-	return node, err
 }
 
 func DeleteNode(macaddress string, network string) error {
@@ -270,7 +132,7 @@ func GetIntClient(clientid string) (models.IntClient, error) {
 
 func CreateNode(node models.Node, networkName string) (models.Node, error) {
 
-	//encrypt that password so we never see it again
+	//encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
 
 	if err != nil {
@@ -281,37 +143,17 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 
 	node.Network = networkName
 
-	//node.SetDefaults()
-	//Umm, why am I doing this again?
-	//TODO: Why am I using a local function instead of the struct function? I really dont know.
-	//I think I thought it didn't work but uhhh...idk
 	node.SetDefaults()
-
-	//Another DB call here...Inefficient
-	//Anyways, this scrolls through all the IP Addresses in the network range and checks against nodes
-	//until one is open and then returns it
 	node.Address, err = functions.UniqueAddress(networkName)
 	if err != nil {
 		return node, err
 	}
-
 	node.Address6, err = functions.UniqueAddress6(networkName)
-
 	if err != nil {
 		return node, err
 	}
-
-	//IDK why these aren't a part of "set defaults. Pretty dumb.
-	//TODO: This is dumb. Consolidate and fix.
-	node.SetLastModified()
-	node.SetDefaultName()
-	node.SetLastCheckIn()
-	node.SetLastPeerUpdate()
-	node.KeyUpdateTimeStamp = time.Now().Unix()
-
 	//Create a JWT for the node
 	tokenString, _ := functions.CreateJWT(node.MacAddress, networkName)
-
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
@@ -324,18 +166,13 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
-
 	err = database.Insert(key, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return node, err
 	}
-	//return response for if node  is pending
 	if !node.IsPending {
-
 		functions.DecrimentKey(node.Network, node.AccessKey)
-
 	}
-
 	SetNetworkNodesLastModified(node.Network)
 	if servercfg.IsDNSMode() {
 		err = SetDNS()

@@ -275,14 +275,12 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	var newNetwork models.Network
 	err = json.NewDecoder(r.Body).Decode(&newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
 	rangeupdate, localrangeupdate, err := network.Update(&newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -405,7 +403,7 @@ func CreateNetwork(network models.Network) error {
 	network.SetNetworkLastModified()
 	network.KeyUpdateTimeStamp = time.Now().Unix()
 
-	err := network.Validate()
+	err := network.Validate(false)
 	if err != nil {
 		//returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return err

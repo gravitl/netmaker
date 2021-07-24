@@ -15,12 +15,12 @@ generate_post_json ()
   "macaddress": "$MACADDRESS",
   "password": "$PASSWORD",
   "localaddress": "172.123.123.3",
-  "accesskey": "$ACCESSKEY"
+  "accesskey": "HskQMAoHVplC3l7E"
 }
 EOF
 }
 
 POST_JSON=$(generate_post_json)
 
-curl --max-time 5.0 -d "$POST_JSON" -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/nodes/my-net
+curl --max-time 5.0 -d "$POST_JSON" -H 'Content-Type: application/json' -H "authorization: Bearer secretkey" localhost:8081/api/nodes/network
 

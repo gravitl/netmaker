@@ -139,7 +139,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 		ListenPort:          data.GetListenport(),
 	}
 
-	err := ValidateNodeCreate(node.Network, node)
+	err := node.Validate(false)
 
 	if err != nil {
 		// return internal gRPC error to be handled later
@@ -257,7 +257,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	// Get the node data from the request
 	data := req.GetNode()
 	// Now we have to convert this into a NodeItem type to convert into BSON
-	nodechange := models.NodeUpdate{
+	newnode := models.Node{
 		// ID:       primitive.NilObjectID,
 		MacAddress:          data.GetMacaddress(),
 		Name:                data.GetName(),
@@ -277,11 +277,11 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	}
 
 	// Convert the Id string to a MongoDB ObjectId
-	macaddress := nodechange.MacAddress
-	networkName := nodechange.Network
+	macaddress := newnode.MacAddress
+	networkName := newnode.Network
 	network, _ := functions.GetParentNetwork(networkName)
 
-	err := ValidateNodeUpdate(networkName, nodechange)
+	err := newnode.Validate(true)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 		)
 	}
 
-	newnode, err := UpdateNode(nodechange, node)
+	err = node.Update(&newnode)
 
 	if err != nil {
 		return nil, status.Errorf(
