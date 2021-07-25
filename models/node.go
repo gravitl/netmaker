@@ -7,7 +7,7 @@ import (
 	"net"
 	"strings"
 	"time"
-
+	"log"
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 )
@@ -112,6 +112,8 @@ func (node *Node) SetDefaults() {
 	if node.SaveConfig == "" {
 		if parentNetwork.DefaultSaveConfig != "" {
 			node.SaveConfig = parentNetwork.DefaultSaveConfig
+		} else {
+			node.SaveConfig = "yes"
 		}
 	}
 	if node.Interface == "" {
@@ -132,6 +134,9 @@ func (node *Node) SetDefaults() {
 	}
 	if node.UDPHolePunch == "" {
 		node.UDPHolePunch = parentNetwork.DefaultUDPHolePunch
+		if node.UDPHolePunch == "" {
+			node.UDPHolePunch = "yes"
+		}
 	}
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
 
@@ -177,6 +182,7 @@ func IsIpv4Net(host string) bool {
 }
 
 func (node *Node) Validate(isUpdate bool) error {
+	log.Println("Node SaveConfig:",node.SaveConfig)
 	v := validator.New()
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
 		if isUpdate {

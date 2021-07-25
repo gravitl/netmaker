@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
+	"github.com/gravitl/netmaker/serverctl"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -391,6 +391,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	success, err := serverctl.AddNetwork(network.NetID)
+        if err != nil || !success {
+		if err == nil {
+			err = errors.New("Failed to add server to network " + network.DisplayName)
+		}
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
 	functions.PrintUserLog(r.Header.Get("user"), "created network "+network.NetID, 1)
 	w.WriteHeader(http.StatusOK)
 	//json.NewEncoder(w).Encode(result)

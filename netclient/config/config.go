@@ -72,6 +72,7 @@ type NodeConfig struct {
 	StaticPubKey     string `yaml:"staticpubkey"`
 	IPForwarding     string `yaml:"ipforwarding"`
 	UDPHolePunch     string `yaml:"udpholepunch"`
+	SaveConfig     string `yaml:"saveconfig"`
 }
 
 //reading in the env file
@@ -357,6 +358,9 @@ func ModConfig(node *nodepb.Node) error {
 	if node.Udpholepunch != "" {
 		nodecfg.UDPHolePunch = node.Udpholepunch
 	}
+        if node.Saveconfig != "" {
+                nodecfg.SaveConfig = node.Saveconfig
+        }
 	if node.Isingressgateway {
 		nodecfg.IsIngressGateway = "yes"
 	} else {

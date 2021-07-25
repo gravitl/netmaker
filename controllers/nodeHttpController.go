@@ -486,12 +486,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = node.Validate(false)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return
-	}
-
 	node, err = CreateNode(node, networkName)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))

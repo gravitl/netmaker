@@ -1,7 +1,8 @@
 package server
 
 import (
-        "google.golang.org/grpc/credentials"
+"github.com/davecgh/go-spew/spew"
+	"google.golang.org/grpc/credentials"
         "crypto/tls"
 	"fmt"
 	"context"
@@ -45,6 +46,8 @@ func GetNode(network string) nodepb.Node {
 	node.Macaddress = nodecfg.MacAddress
 	node.Endpoint = nodecfg.Endpoint
 	node.Password = nodecfg.Password
+	node.Saveconfig = nodecfg.SaveConfig
+	node.Udpholepunch = nodecfg.UDPHolePunch
 	if nodecfg.DNS == "on" {
 		node.Dnsoff = false
 	} else {
@@ -60,6 +63,8 @@ func GetNode(network string) nodepb.Node {
         } else {
                 node.Isingressgateway = false
         }
+	fmt.Println("GetNode:")
+	spew.Dump(node)
         return node
 }
 

@@ -20,6 +20,9 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 
 	var peers []models.PeersResponse
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+        if err != nil {
+                log.Println(err)
+        }
 	udppeers, errN := serverctl.GetPeers(networkName)
 	if errN != nil {
 		log.Println(errN)
@@ -175,6 +178,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
 	}
+        err = node.Validate(false)
+        if err != nil {
+                return node, err
+        }
+
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return node, err

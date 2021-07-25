@@ -169,6 +169,8 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		Publickey:    cfg.Node.PublicKey,
 		Name:         cfg.Node.Name,
 		Endpoint:     cfg.Node.Endpoint,
+		Saveconfig:     cfg.Node.SaveConfig,
+		Udpholepunch:     cfg.Node.UDPHolePunch,
 	}
 	err = config.ModConfig(postnode)
 	if err != nil {

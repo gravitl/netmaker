@@ -89,13 +89,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 		UDPHolePunch:        data.GetUdpholepunch(),
 	}
 
-	err := node.Validate(false)
-
-	if err != nil {
-		// return internal gRPC error to be handled later
-		return nil, err
-	}
-
 	//Check to see if key is valid
 	//TODO: Triple inefficient!!! This is the third call to the DB we make for networks
 	validKey := functions.IsKeyValid(node.Network, node.AccessKey)
@@ -227,6 +220,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 		PublicKey:           data.GetPublickey(),
 		ListenPort:          data.GetListenport(),
 		UDPHolePunch:        data.GetUdpholepunch(),
+		SaveConfig:        data.GetSaveconfig(),
 	}
 
 	// Convert the Id string to a MongoDB ObjectId

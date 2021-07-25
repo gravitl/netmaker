@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
+	"log"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -81,8 +81,12 @@ func grpcAuthorize(ctx context.Context) error {
 
 	}
 	emptynode := models.Node{}
+	log.Println("node:",mac)
+	log.Println("network:",network)
 	node, err := functions.GetNodeByMacAddress(network, mac)
 	if err != nil || node.MacAddress == emptynode.MacAddress {
+		log.Println(err)
+		log.Println(node.MacAddress,emptynode.MacAddress)
 		return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 	}
 
