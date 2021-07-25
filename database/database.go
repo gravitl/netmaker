@@ -1,6 +1,8 @@
 package database
 
 import (
+	"encoding/json"
+	"errors"
 	"github.com/rqlite/gorqlite"
 )
 
@@ -45,12 +47,21 @@ func createTable(tableName string) error {
 	return nil
 }
 
+func isJSONString(value string) bool {
+	var jsonInt interface{}
+	return json.Unmarshal([]byte(value), &jsonInt) == nil
+}
+
 func Insert(key string, value string, tableName string) error {
-	_, err := Database.WriteOne("INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES ('" + key + "', '" + value + "')")
-	if err != nil {
-		return err
+	if key != "" && value != "" && isJSONString(value) {
+		_, err := Database.WriteOne("INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES ('" + key + "', '" + value + "')")
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return errors.New("invalid insert " + key + " : " + value)
 	}
-	return nil
 }
 
 func DeleteRecord(tableName string, key string) error {

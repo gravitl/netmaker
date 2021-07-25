@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
-
+	"log"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -170,6 +170,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 		PersistentKeepalive: data.GetKeepalive(),
 		PublicKey:           data.GetPublickey(),
 		UDPHolePunch:        data.GetUdpholepunch(),
+		SaveConfig:        data.GetSaveconfig(),
 	}
 
 	checkinresponse, err := NodeCheckIn(node, node.Network)
@@ -201,6 +202,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNodeReq) (*nodepb.UpdateNodeRes, error) {
 	// Get the node data from the request
 	data := req.GetNode()
+	log.Println("DATA:",data)
 	// Now we have to convert this into a NodeItem type to convert into BSON
 	newnode := models.Node{
 		// ID:       primitive.NilObjectID,
@@ -228,11 +230,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	networkName := newnode.Network
 	network, _ := functions.GetParentNetwork(networkName)
 
-	err := newnode.Validate(true)
-	if err != nil {
-		return nil, err
-	}
-
+	log.Println("NODE SAVECONFIG:",newnode.SaveConfig)
 	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
 	if err != nil {
 		return nil, status.Errorf(

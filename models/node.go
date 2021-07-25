@@ -149,6 +149,7 @@ func (node *Node) SetDefaults() {
 }
 
 func (currentNode *Node) Update(newNode *Node) error {
+	log.Println("Node SaveConfig:",newNode.SaveConfig)
 	if err := newNode.Validate(true); err != nil {
 		return err
 	}
