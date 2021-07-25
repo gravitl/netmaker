@@ -59,63 +59,12 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Islocal:             network.IsLocal == "yes",
 			Isdualstack:         network.IsDualStack == "yes",
 			Localrange:          network.LocalRange,
+			Udpholepunch:        node.UDPHolePunch,
 		},
 	}
 	return response, nil
 }
 
-/*
-func (s *NodeServiceServer) GetConn(ctx context.Context, data *nodepb.Client) (*nodepb.Client, error) {
-        // Get the protobuf node type from the protobuf request type
-        // Essentially doing req.Node to access the struct with a nil check
-        // Now we have to convert this into a NodeItem type to convert into BSON
-        clientreq := models.IntClient{
-                // ID:       primitive.NilObjectID,
-                Address:             data.GetAddress(),
-                Address6:            data.GetAddress6(),
-                AccessKey:           data.GetAccesskey(),
-                PublicKey:           data.GetPublickey(),
-                PrivateKey:           data.GetPrivatekey(),
-                ServerPort:          data.GetServerport(),
-                ServerKey:          data.GetServerkey(),
-                ServerWGEndpoint:          data.GetServerwgendpoint(),
-        }
-
-        //Check to see if key is valid
-        //TODO: Triple inefficient!!! This is the third call to the DB we make for networks
-        if servercfg.IsRegisterKeyRequired() {
-		validKey := functions.IsKeyValidGlobal(clientreq.AccessKey)
-		if !validKey {
-			return nil, status.Errorf(
-                                codes.Internal,
-                                fmt.Sprintf("Invalid key, and server does not allow no-key signups"),
-                        )
-		}
-	}
-	client, err := RegisterIntClient(clientreq)
-
-        if err != nil {
-                // return internal gRPC error to be handled later
-                return nil, status.Errorf(
-                        codes.Internal,
-                        fmt.Sprintf("Internal error: %v", err),
-                )
-        }
-        // return the node in a CreateNodeRes type
-        response := &nodepb.Client{
-                        Privatekey:   client.PrivateKey,
-                        Publickey: client.PublicKey,
-                        Accesskey:         client.AccessKey,
-                        Address:      client.Address,
-                        Address6:     client.Address6,
-                        Serverwgendpoint:     client.ServerWGEndpoint,
-                        Serverport:     client.ServerPort,
-                        Serverkey:    client.ServerKey,
-        }
-
-        return response, nil
-}
-*/
 func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNodeReq) (*nodepb.CreateNodeRes, error) {
 	// Get the protobuf node type from the protobuf request type
 	// Essentially doing req.Node to access the struct with a nil check
@@ -137,6 +86,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 		IsPending:           data.GetIspending(),
 		PublicKey:           data.GetPublickey(),
 		ListenPort:          data.GetListenport(),
+		UDPHolePunch:        data.GetUdpholepunch(),
 	}
 
 	err := node.Validate(false)
@@ -197,6 +147,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 			Islocal:      network.IsLocal == "yes",
 			Isdualstack:  network.IsDualStack == "yes",
 			Localrange:   network.LocalRange,
+			Udpholepunch: node.UDPHolePunch,
 		},
 	}
 	err = SetNetworkNodesLastModified(node.Network)
@@ -225,6 +176,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 		ListenPort:          data.GetListenport(),
 		PersistentKeepalive: data.GetKeepalive(),
 		PublicKey:           data.GetPublickey(),
+		UDPHolePunch:        data.GetUdpholepunch(),
 	}
 
 	checkinresponse, err := NodeCheckIn(node, node.Network)
@@ -274,6 +226,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 		IsPending:           data.GetIspending(),
 		PublicKey:           data.GetPublickey(),
 		ListenPort:          data.GetListenport(),
+		UDPHolePunch:        data.GetUdpholepunch(),
 	}
 
 	// Convert the Id string to a MongoDB ObjectId
@@ -323,6 +276,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 			Islocal:      network.IsLocal == "yes",
 			Isdualstack:  network.IsDualStack == "yes",
 			Localrange:   network.LocalRange,
+			Udpholepunch: newnode.UDPHolePunch,
 		},
 	}, nil
 }

@@ -3,12 +3,16 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,11 +20,10 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 
 	var peers []models.PeersResponse
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-
-	if err != nil {
-		return peers, err
+	udppeers, errN := serverctl.GetPeers(networkName)
+	if errN != nil {
+		log.Println(errN)
 	}
-
 	for _, value := range collection {
 		var node models.Node
 		var peer models.PeersResponse
@@ -33,8 +36,22 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 			continue
 		}
 		if node.Network == networkName && !node.IsPending {
+			if node.UDPHolePunch == "yes" && errN == nil {
+				endpointstring := udppeers[peer.PublicKey]
+				endpointarr := strings.Split(endpointstring, ":")
+				if len(endpointarr) == 2 {
+					port, err := strconv.Atoi(endpointarr[1])
+					if err == nil {
+						peer.Endpoint = endpointarr[0]
+						peer.ListenPort = int32(port)
+					}
+				}
+			}
 			peers = append(peers, peer)
 		}
+	}
+	if err != nil {
+		return peers, err
 	}
 
 	return peers, err

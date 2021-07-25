@@ -3,6 +3,7 @@ module github.com/gravitl/netmaker
 go 1.15
 
 require (
+	github.com/aws/aws-sdk-go v1.34.28
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/validator/v10 v10.5.0

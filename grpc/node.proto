@@ -36,7 +36,7 @@ message Node {
     string postup = 11;
     string postdown = 12;
     int32 keepalive = 13;
-    bool saveconfig = 14;
+    string saveconfig = 14;
     string accesskey = 15;
     string interface = 16;
     string lastcheckin = 17;
@@ -51,6 +51,7 @@ message Node {
     bool isdualstack = 27;
     bool dnsoff = 24;
     string localrange = 25;
+    string udpholepunch = 30;
 }
 
 message CheckInResponse {
