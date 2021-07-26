@@ -157,6 +157,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 	data := req.GetNode()
 	//postchanges := req.GetPostchanges()
 	// Now we have to convert this into a NodeItem type to convert into BSON
+	log.Println("checkin data:",data)
 	node := models.Node{
 		// ID:       primitive.NilObjectID,
 		MacAddress:          data.GetMacaddress(),
@@ -244,7 +245,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	if err != nil {
 		return nil, status.Errorf(
 			codes.NotFound,
-			fmt.Sprintf("Could not find node with supplied Mac Address: %v", err),
+			fmt.Sprintf("Could not update node: %v", err),
 		)
 	}
 	return &nodepb.UpdateNodeRes{
