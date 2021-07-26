@@ -97,7 +97,7 @@ func CreateServerToken(netID string) (string, error) {
 	accessToken.ClientConfig.Key = GenKey()
 
 	accesskey.Name = GenKeyName()
-	accesskey.Value = GenKey()
+	accesskey.Value = accessToken.ClientConfig.Key
 	accesskey.Uses = 1
 
 	tokenjson, err := json.Marshal(accessToken)
