@@ -165,9 +165,14 @@ func AddNetwork(network string) (bool, error) {
 	log.Println("executing network join: " + "/etc/netclient/netclient " + "join " + "-t " + token + " -name " + "netmaker" + " -endpoint " + pubip)
 
 	joinCMD := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", "netmaker", "-endpoint", pubip)
-	err = joinCMD.Run()
+	err = joinCMD.Start()
 	if err != nil {
-		log.Println("Failed to add server to network " + network)
+		log.Println(err)
+	}
+	log.Println("Waiting for join command to finish...")
+	err = joinCMD.Wait()
+	if err != nil {
+		log.Println("Command finished with error: %v", err)
 		return false, err
 	}
 	log.Println("Server added to network " + network)
