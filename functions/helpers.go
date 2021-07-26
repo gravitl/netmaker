@@ -88,8 +88,8 @@ func CreateServerToken(netID string) (string, error) {
 
 	var accessToken models.AccessToken
 	servervals := models.ServerConfig{
-		APIConnString:  "127.0.0.1" + servercfg.GetAPIPort(),
-		GRPCConnString: "127.0.0.1" + servercfg.GetGRPCPort(),
+		APIConnString:  "127.0.0.1:" + servercfg.GetAPIPort(),
+		GRPCConnString: "127.0.0.1:" + servercfg.GetGRPCPort(),
 		GRPCSSL:        "off",
 	}
 	accessToken.ServerConfig = servervals
