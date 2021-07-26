@@ -32,10 +32,12 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 		var peer models.PeersResponse
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
+			log.Println(err)
 			continue
 		}
 		err = json.Unmarshal([]byte(value), &peer)
 		if err != nil {
+			log.Println(err)
 			continue
 		}
 		if node.Network == networkName && node.IsPending != "yes" {

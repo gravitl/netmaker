@@ -252,7 +252,7 @@ func CheckIn(cliconf config.ClientConfig) error {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
-		err = wireguard.SetWGConfig(network)
+		//err = wireguard.SetWGConfig(network)
                 if err != nil {
 			return err
                         log.Fatalf("Error: %v", err)

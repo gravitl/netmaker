@@ -232,7 +232,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	nodeport = int(node.Listenport)
 
 	conf := wgtypes.Config{}
-	if nodecfg.UDPHolePunch == "yes" {
+	if nodecfg.UDPHolePunch == "yes" && nodecfg.Name != "netmaker" {
 		conf = wgtypes.Config{
 			PrivateKey:   &key,
 			ReplacePeers: true,

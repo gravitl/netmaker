@@ -171,6 +171,8 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.PublicKey == "" {
 		newNode.PublicKey = currentNode.PublicKey
+	} else {
+		newNode.KeyUpdateTimeStamp = time.Now().Unix()
 	}
 	if newNode.Endpoint == "" {
 		newNode.Endpoint = currentNode.Endpoint
@@ -264,12 +266,13 @@ func (newNode *Node) Fill(currentNode *Node) {
 
 func (currentNode *Node) Update(newNode *Node) error {
 	log.Println("Node SaveConfig:", newNode.SaveConfig)
+        newNode.Fill(currentNode)
+	log.Println("Node SaveConfig 2:", newNode.SaveConfig)
 	if err := newNode.Validate(true); err != nil {
 		return err
 	}
 	newNode.SetID()
 	if newNode.ID == currentNode.ID {
-		newNode.Fill(currentNode)
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {

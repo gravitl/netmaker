@@ -317,7 +317,7 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 				Address6:           peers[i].Address6,
 				Endpoint:           peers[i].Endpoint,
 				Egressgatewayrange: peers[i].EgressGatewayRange,
-				Isegressgateway:    peers[i].IsEgressGateway,
+				Isegressgateway:    peers[i].IsEgressGateway == "yes",
 				Publickey:          peers[i].PublicKey,
 				Keepalive:          peers[i].KeepAlive,
 				Listenport:         peers[i].ListenPort,

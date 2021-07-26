@@ -473,7 +473,6 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	}
 
 	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	log.Println("RECORD:",record)
 	if err != nil {
 		return models.Node{}, err
 	}

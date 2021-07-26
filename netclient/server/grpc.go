@@ -142,6 +142,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
         nodecfg := cfg.Node
         keepalive := nodecfg.KeepAlive
         keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
+        keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
         if err != nil {
                 log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
         }
@@ -239,7 +240,14 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                         }
                         allowedips = append(allowedips, addr6)
                 }
-                if keepalive != 0 {
+                if nodecfg.Name == "netmaker" {
+                peer = wgtypes.PeerConfig{
+                        PublicKey: pubkey,
+                        PersistentKeepaliveInterval: &keepaliveserver,
+                        ReplaceAllowedIPs: true,
+                        AllowedIPs: allowedips,
+                        }
+		} else if keepalive != 0 {
                 peer = wgtypes.PeerConfig{
                         PublicKey: pubkey,
                         PersistentKeepaliveInterval: &keepalivedur,
