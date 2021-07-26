@@ -67,19 +67,7 @@ func CreateCommsNetwork() (bool, error) {
 	return iscreated, err
 }
 
-func DownloadNetclient() error {
-	/*
-			// Get the data
-			resp, err := http.Get("https://github.com/gravitl/netmaker/releases/download/latest/netclient")
-			if err != nil {
-		                log.Println("could not download netclient")
-				return err
-			}
-			defer resp.Body.Close()
-
-			// Create the file
-			out, err := os.Create("/etc/netclient/netclient")
-	*/
+func InstallNetclient() error {
 	if !FileExists("/etc/netclient/netclient") {
 		_, err := copy("./netclient/netclient", "/etc/netclient/netclient")
 		if err != nil {
@@ -87,10 +75,6 @@ func DownloadNetclient() error {
 			return err
 		}
 	}
-	//defer out.Close()
-
-	// Write the body to file
-	//_, err = io.Copy(out, resp.Body)
 	return nil
 }
 
@@ -168,7 +152,7 @@ func AddNetwork(network string) (bool, error) {
 	}
 	_, err = os.Stat("/etc/netclient/netclient")
 	if os.IsNotExist(err) {
-		err = DownloadNetclient()
+		err = InstallNetclient()
 		if err != nil {
 			return false, err
 		}
@@ -179,12 +163,12 @@ func AddNetwork(network string) (bool, error) {
 		return false, err
 	}
 	log.Println("executing network join: " + "/etc/netclient/netclient " + "join " + "-t " + token + " -name " + "netmaker" + " -endpoint " + pubip)
-	out, err := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", "netmaker", "-endpoint", pubip).Output()
-	if string(out) != "" {
-		log.Println(string(out))
-	}
+
+	joinCMD := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", "netmaker", "-endpoint", pubip)
+	err = joinCMD.Run()
 	if err != nil {
-		return false, errors.New(string(out) + err.Error())
+		log.Println("Failed to add server to network " + network)
+		return false, err
 	}
 	log.Println("Server added to network " + network)
 	return true, err
