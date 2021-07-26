@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -50,8 +51,8 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 			Postup:              node.PostUp,
 			Checkininterval:     node.CheckInInterval,
 			Dnsoff:              !servercfg.IsDNSMode(),
-			Ispending:           node.IsPending,
-			Isingressgateway:    node.IsIngressGateway,
+			Ispending:           node.IsPending == "yes",
+			Isingressgateway:    node.IsIngressGateway == "yes",
 			Ingressgatewayrange: node.IngressGatewayRange,
 			Publickey:           node.PublicKey,
 			Listenport:          node.ListenPort,
@@ -83,7 +84,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 		Password:            data.GetPassword(),
 		Interface:           data.GetInterface(),
 		Network:             data.GetNodenetwork(),
-		IsPending:           data.GetIspending(),
 		PublicKey:           data.GetPublickey(),
 		ListenPort:          data.GetListenport(),
 		UDPHolePunch:        data.GetUdpholepunch(),
@@ -101,7 +101,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 		//Check to see if network will allow manual sign up
 		//may want to switch this up with the valid key check and avoid a DB call that way.
 		if network.AllowManualSignUp == "yes" {
-			node.IsPending = true
+			node.IsPending = "yes"
 		} else {
 			return nil, status.Errorf(
 				codes.Internal,
@@ -133,7 +133,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.CreateNo
 			Interface:    node.Interface,
 			Nodenetwork:  node.Network,
 			Dnsoff:       !servercfg.IsDNSMode(),
-			Ispending:    node.IsPending,
+			Ispending:    node.IsPending == "yes",
 			Publickey:    node.PublicKey,
 			Listenport:   node.ListenPort,
 			Keepalive:    node.PersistentKeepalive,
@@ -157,7 +157,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 	data := req.GetNode()
 	//postchanges := req.GetPostchanges()
 	// Now we have to convert this into a NodeItem type to convert into BSON
-	log.Println("checkin data:",data)
+	log.Println("checkin data:", data)
 	node := models.Node{
 		// ID:       primitive.NilObjectID,
 		MacAddress:          data.GetMacaddress(),
@@ -171,7 +171,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 		PersistentKeepalive: data.GetKeepalive(),
 		PublicKey:           data.GetPublickey(),
 		UDPHolePunch:        data.GetUdpholepunch(),
-		SaveConfig:        data.GetSaveconfig(),
+		SaveConfig:          data.GetSaveconfig(),
 	}
 
 	checkinresponse, err := NodeCheckIn(node, node.Network)
@@ -203,7 +203,7 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNodeReq) (*nodepb.UpdateNodeRes, error) {
 	// Get the node data from the request
 	data := req.GetNode()
-	log.Println("DATA:",data)
+	log.Println("DATA:", data)
 	// Now we have to convert this into a NodeItem type to convert into BSON
 	newnode := models.Node{
 		// ID:       primitive.NilObjectID,
@@ -219,11 +219,10 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 		Interface:           data.GetInterface(),
 		PostDown:            data.GetPostdown(),
 		PostUp:              data.GetPostup(),
-		IsPending:           data.GetIspending(),
 		PublicKey:           data.GetPublickey(),
 		ListenPort:          data.GetListenport(),
 		UDPHolePunch:        data.GetUdpholepunch(),
-		SaveConfig:        data.GetSaveconfig(),
+		SaveConfig:          data.GetSaveconfig(),
 	}
 
 	// Convert the Id string to a MongoDB ObjectId
@@ -231,7 +230,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	networkName := newnode.Network
 	network, _ := functions.GetParentNetwork(networkName)
 
-	log.Println("NODE SAVECONFIG:",newnode.SaveConfig)
+	log.Println("NODE SAVECONFIG:", newnode.SaveConfig)
 	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
 	if err != nil {
 		return nil, status.Errorf(
@@ -261,7 +260,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 			Postdown:     newnode.PostDown,
 			Postup:       newnode.PostUp,
 			Nodenetwork:  newnode.Network,
-			Ispending:    newnode.IsPending,
+			Ispending:    newnode.IsPending == "yes",
 			Publickey:    newnode.PublicKey,
 			Dnsoff:       !servercfg.IsDNSMode(),
 			Listenport:   newnode.ListenPort,

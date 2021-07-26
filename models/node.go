@@ -3,13 +3,15 @@ package models
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
-	"log"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -43,9 +45,9 @@ type Node struct {
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval"`
 	Password            string   `json:"password" bson:"password" validate:"required,min=6"`
 	Network             string   `json:"network" bson:"network" validate:"network_exists"`
-	IsPending           bool     `json:"ispending" bson:"ispending"`
-	IsEgressGateway     bool     `json:"isegressgateway" bson:"isegressgateway"`
-	IsIngressGateway    bool     `json:"isingressgateway" bson:"isingressgateway"`
+	IsPending           string   `json:"ispending" bson:"ispending"`
+	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway"`
+	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges"`
 	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
 	PostChanges         string   `json:"postchanges" bson:"postchanges"`
@@ -148,13 +150,126 @@ func (node *Node) SetDefaults() {
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
+func (newNode *Node) Fill(currentNode *Node) {
+	if newNode.ID == "" {
+		newNode.ID = currentNode.ID
+	}
+	if newNode.Address == "" {
+		newNode.Address = currentNode.Address
+	}
+	if newNode.Address6 == "" {
+		newNode.Address6 = currentNode.Address6
+	}
+	if newNode.LocalAddress == "" {
+		newNode.LocalAddress = currentNode.LocalAddress
+	}
+	if newNode.Name == "" {
+		newNode.Name = currentNode.Name
+	}
+	if newNode.ListenPort == 0 {
+		newNode.ListenPort = currentNode.ListenPort
+	}
+	if newNode.PublicKey == "" {
+		newNode.PublicKey = currentNode.PublicKey
+	}
+	if newNode.Endpoint == "" {
+		newNode.Endpoint = currentNode.Endpoint
+	}
+	if newNode.PostUp == "" {
+		newNode.PostUp = currentNode.PostUp
+	}
+	if newNode.PostDown == "" {
+		newNode.PostDown = currentNode.PostDown
+	}
+	if newNode.AllowedIPs == nil {
+		newNode.AllowedIPs = currentNode.AllowedIPs
+	}
+	if newNode.PersistentKeepalive == 0 {
+		newNode.PersistentKeepalive = currentNode.PersistentKeepalive
+	}
+	if newNode.SaveConfig == "" {
+		newNode.SaveConfig = currentNode.SaveConfig
+	}
+	if newNode.AccessKey == "" {
+		newNode.AccessKey = currentNode.AccessKey
+	}
+	if newNode.Interface == "" {
+		newNode.Interface = currentNode.Interface
+	}
+	if newNode.LastModified == 0 {
+		newNode.LastModified = currentNode.LastModified
+	}
+	if newNode.KeyUpdateTimeStamp == 0 {
+		newNode.LastModified = currentNode.LastModified
+	}
+	if newNode.ExpirationDateTime == 0 {
+		newNode.ExpirationDateTime = currentNode.ExpirationDateTime
+	}
+	if newNode.LastPeerUpdate == 0 {
+		newNode.LastPeerUpdate = currentNode.LastPeerUpdate
+	}
+	if newNode.LastCheckIn == 0 {
+		newNode.LastCheckIn = currentNode.LastCheckIn
+	}
+	if newNode.MacAddress == "" {
+		newNode.MacAddress = currentNode.MacAddress
+	}
+	if newNode.CheckInInterval == 0 {
+		newNode.CheckInInterval = currentNode.CheckInInterval
+	}
+	if newNode.Password != "" {
+		err := bcrypt.CompareHashAndPassword([]byte(newNode.Password), []byte(currentNode.Password))
+		if err != nil && currentNode.Password != newNode.Password {
+			hash, err := bcrypt.GenerateFromPassword([]byte(newNode.Password), 5)
+			if err == nil {
+				newNode.Password = string(hash)
+			}
+		}
+	} else {
+		newNode.Password = currentNode.Password
+	}
+	if newNode.Network == "" {
+		newNode.Network = currentNode.Network
+	}
+	if newNode.IsPending == "" {
+		newNode.IsPending = currentNode.IsPending
+	}
+	if newNode.IsEgressGateway == "" {
+		newNode.IsEgressGateway = currentNode.IsEgressGateway
+	}
+	if newNode.IsIngressGateway == "" {
+		newNode.IsIngressGateway = currentNode.IsIngressGateway
+	}
+	if newNode.EgressGatewayRanges == nil {
+		newNode.EgressGatewayRanges = currentNode.EgressGatewayRanges
+	}
+	if newNode.IngressGatewayRange == "" {
+		newNode.IngressGatewayRange = currentNode.IngressGatewayRange
+	}
+	if newNode.StaticIP == "" {
+		newNode.StaticIP = currentNode.StaticIP
+	}
+	if newNode.StaticIP == "" {
+		newNode.StaticIP = currentNode.StaticIP
+	}
+	if newNode.StaticPubKey == "" {
+		newNode.StaticPubKey = currentNode.StaticPubKey
+	}
+	if newNode.UDPHolePunch == "" {
+		newNode.UDPHolePunch = currentNode.SaveConfig
+	}
+
+	newNode.PostChanges = "no"
+}
+
 func (currentNode *Node) Update(newNode *Node) error {
-	log.Println("Node SaveConfig:",newNode.SaveConfig)
+	log.Println("Node SaveConfig:", newNode.SaveConfig)
 	if err := newNode.Validate(true); err != nil {
 		return err
 	}
 	newNode.SetID()
 	if newNode.ID == currentNode.ID {
+		newNode.Fill(currentNode)
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
@@ -183,7 +298,7 @@ func IsIpv4Net(host string) bool {
 }
 
 func (node *Node) Validate(isUpdate bool) error {
-	log.Println("Node SaveConfig:",node.SaveConfig)
+	log.Println("Node SaveConfig:", node.SaveConfig)
 	v := validator.New()
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
 		if isUpdate {
@@ -246,4 +361,30 @@ func GetAllNodes() ([]Node, error) {
 	}
 
 	return nodes, nil
+}
+
+func GetNode(macaddress string, network string) (Node, error) {
+
+	var node Node
+
+	key, err := GetID(macaddress, network)
+	if err != nil {
+		return node, err
+	}
+	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
+	if err != nil {
+		return node, err
+	}
+	if err = json.Unmarshal([]byte(data), &node); err != nil {
+		return node, err
+	}
+
+	return node, err
+}
+
+func GetID(macaddress string, network string) (string, error) {
+	if macaddress == "" || network == "" {
+		return "", errors.New("unable to get record key")
+	}
+	return macaddress + "###" + network, nil
 }

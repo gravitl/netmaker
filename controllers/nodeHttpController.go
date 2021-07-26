@@ -83,7 +83,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				if err := json.Unmarshal([]byte(value), &result); err != nil {
 					continue
 				}
-				if result.MacAddress == authRequest.MacAddress && !result.IsPending && result.Network == networkname {
+				if result.MacAddress == authRequest.MacAddress && result.IsPending != "yes" && result.Network == networkname {
 					break
 				}
 			}
@@ -476,7 +476,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		//Check to see if network will allow manual sign up
 		//may want to switch this up with the valid key check and avoid a DB call that way.
 		if network.AllowManualSignUp == "yes" {
-			node.IsPending = true
+			node.IsPending = "yes"
 		} else {
 			errorResponse = models.ErrorResponse{
 				Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
@@ -517,7 +517,7 @@ func UncordonNode(network, macaddress string) (models.Node, error) {
 		return models.Node{}, err
 	}
 	node.SetLastModified()
-	node.IsPending = false
+	node.IsPending = "no"
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
@@ -561,7 +561,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
-	node.IsEgressGateway = true
+	node.IsEgressGateway = "yes"
 	node.EgressGatewayRanges = gateway.Ranges
 	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
@@ -635,7 +635,7 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 		return models.Node{}, err
 	}
 
-	node.IsEgressGateway = false
+	node.IsEgressGateway = "no"
 	node.EgressGatewayRanges = []string{}
 	node.PostUp = ""
 	node.PostDown = ""
@@ -687,7 +687,7 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 		log.Println("Could not find network.")
 		return models.Node{}, err
 	}
-	node.IsIngressGateway = true
+	node.IsIngressGateway = "yes"
 	node.IngressGatewayRange = network.AddressRange
 	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
@@ -740,7 +740,7 @@ func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
 		return models.Node{}, err
 	}
 	node.LastModified = time.Now().Unix()
-	node.IsIngressGateway = false
+	node.IsIngressGateway = "no"
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err

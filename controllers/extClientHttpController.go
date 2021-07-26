@@ -73,7 +73,7 @@ func checkIngressExists(network string, macaddress string) bool {
 	if err != nil {
 		return false
 	}
-	return node.IsIngressGateway
+	return node.IsIngressGateway == "yes"
 }
 
 //Gets all extclients associated with network, including pending extclients

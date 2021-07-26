@@ -20,9 +20,9 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 
 	var peers []models.PeersResponse
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-        if err != nil {
-                log.Println(err)
-        }
+	if err != nil {
+		log.Println(err)
+	}
 	udppeers, errN := serverctl.GetPeers(networkName)
 	if errN != nil {
 		log.Println(errN)
@@ -38,7 +38,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 		if err != nil {
 			continue
 		}
-		if node.Network == networkName && !node.IsPending {
+		if node.Network == networkName && node.IsPending != "yes" {
 			if node.UDPHolePunch == "yes" && errN == nil {
 				endpointstring := udppeers[peer.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
@@ -178,10 +178,10 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
 	}
-        err = node.Validate(false)
-        if err != nil {
-                return node, err
-        }
+	err = node.Validate(false)
+	if err != nil {
+		return node, err
+	}
 
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
@@ -195,7 +195,7 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
-	if !node.IsPending {
+	if node.IsPending != "yes" {
 		functions.DecrimentKey(node.Network, node.AccessKey)
 	}
 	SetNetworkNodesLastModified(node.Network)
@@ -220,7 +220,7 @@ func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, 
 		err = fmt.Errorf("%w; Couldnt Get Node "+node.MacAddress, err)
 		return response, err
 	}
-	if parentnode.IsPending {
+	if parentnode.IsPending == "yes" {
 		err = fmt.Errorf("%w; Node checking in is still pending: "+node.MacAddress, err)
 		response.IsPending = true
 		return response, err
