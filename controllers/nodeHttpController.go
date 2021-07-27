@@ -559,6 +559,8 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
+	log.Println("GATEWAY:",gateway)
+	log.Println("NODE:",node)
 	err = ValidateEgressGateway(gateway)
 	if err != nil {
 		return models.Node{}, err
@@ -575,23 +577,25 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
-			node.PostUp = node.PostUp + "; " + postUpCmd
+			postUpCmd = node.PostUp + "; " + postUpCmd
 		}
 	}
 	if node.PostDown != "" {
 		if !strings.Contains(node.PostDown, postDownCmd) {
-			node.PostDown = node.PostDown + "; " + postDownCmd
+			postDownCmd = node.PostDown + "; " + postDownCmd
 		}
 	}
 	key, err := functions.GetRecordKey(gateway.NodeID, gateway.NetID)
 	if err != nil {
 		return node, err
 	}
+	node.PostUp = postUpCmd
+	node.PostDown = postDownCmd
+	node.SetLastModified()
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
 	}
-	node.SetLastModified()
 	err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME)
 	// prepare update model.
 	if err != nil {

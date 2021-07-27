@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"math/rand"
 	"net"
 	"strings"
@@ -265,9 +264,7 @@ func (newNode *Node) Fill(currentNode *Node) {
 }
 
 func (currentNode *Node) Update(newNode *Node) error {
-	log.Println("Node SaveConfig:", newNode.SaveConfig)
         newNode.Fill(currentNode)
-	log.Println("Node SaveConfig 2:", newNode.SaveConfig)
 	if err := newNode.Validate(true); err != nil {
 		return err
 	}
@@ -301,7 +298,6 @@ func IsIpv4Net(host string) bool {
 }
 
 func (node *Node) Validate(isUpdate bool) error {
-	log.Println("Node SaveConfig:", node.SaveConfig)
 	v := validator.New()
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
 		if isUpdate {
