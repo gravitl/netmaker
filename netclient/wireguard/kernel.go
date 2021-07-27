@@ -1,7 +1,7 @@
 package wireguard
 
 import (
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -307,7 +307,10 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	if hasGateway {
+		spew.Dump(gateways)
 		for _, gateway := range gateways {
+			log.Println("Gateway:")
+			spew.Dump(gateway)
 			out, err := exec.Command(ipExec, "-4", "route", "add", gateway, "dev", ifacename).Output()
 			fmt.Println(string(out))
 			if err != nil {

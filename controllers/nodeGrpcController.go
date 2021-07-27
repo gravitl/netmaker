@@ -3,8 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"log"
-
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -28,12 +26,6 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.ReadNodeRe
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Something went wrong: %v", err))
 	}
-
-	/*
-		if node == nil {
-			return nil, status.Errorf(codes.NotFound, fmt.Sprintf("Could not find node with Mac Address %s: %v", req.GetMacaddress(), err))
-		}
-	*/
 	// Cast to ReadNodeRes type
 
 	response := &nodepb.ReadNodeRes{
@@ -157,7 +149,6 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 	data := req.GetNode()
 	//postchanges := req.GetPostchanges()
 	// Now we have to convert this into a NodeItem type to convert into BSON
-	log.Println("checkin data:", data)
 	node := models.Node{
 		// ID:       primitive.NilObjectID,
 		MacAddress:          data.GetMacaddress(),
@@ -203,7 +194,6 @@ func (s *NodeServiceServer) CheckIn(ctx context.Context, req *nodepb.CheckInReq)
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNodeReq) (*nodepb.UpdateNodeRes, error) {
 	// Get the node data from the request
 	data := req.GetNode()
-	log.Println("DATA:", data)
 	// Now we have to convert this into a NodeItem type to convert into BSON
 	newnode := models.Node{
 		// ID:       primitive.NilObjectID,
@@ -230,7 +220,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.UpdateNo
 	networkName := newnode.Network
 	network, _ := functions.GetParentNetwork(networkName)
 
-	log.Println("NODE SAVECONFIG:", newnode.SaveConfig)
 	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
 	if err != nil {
 		return nil, status.Errorf(
@@ -316,7 +305,7 @@ func (s *NodeServiceServer) GetPeers(req *nodepb.GetPeersReq, stream nodepb.Node
 				Address:            peers[i].Address,
 				Address6:           peers[i].Address6,
 				Endpoint:           peers[i].Endpoint,
-				Egressgatewayrange: peers[i].EgressGatewayRange,
+				Egressgatewayranges: peers[i].EgressGatewayRanges,
 				Isegressgateway:    peers[i].IsEgressGateway == "yes",
 				Publickey:          peers[i].PublicKey,
 				Keepalive:          peers[i].KeepAlive,

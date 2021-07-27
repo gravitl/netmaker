@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -197,7 +196,9 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			if errN == nil && isadmin {
 				macaddress = "mastermac"
 				isAuthorized = true
+				r.Header.Set("ismasterkey", "yes")
 			} else {
+                                r.Header.Set("ismasterkey", "")
 				mac, _, err := functions.VerifyToken(authToken)
 				if err != nil {
 					errorResponse = models.ErrorResponse{
@@ -216,6 +217,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if macaddress == "mastermac" {
 				isAuthorized = true
+				r.Header.Set("ismasterkey", "yes")
 				//for everyone else, there's poor man's RBAC. The "cases" are defined in the routes in the handlers
 				//So each route defines which access network should be allowed to access it
 			} else {
@@ -313,12 +315,12 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user, err := functions.GetUser(r.Header.Get("user"))
-	if err != nil {
+	if err != nil && r.Header.Get("ismasterkey") != "yes" {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	var nodes []models.Node
-	if user.IsAdmin {
+	if user.IsAdmin  || r.Header.Get("ismasterkey") == "yes" {
 		nodes, err = models.GetAllNodes()
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
@@ -784,7 +786,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = SetNetworkNodesLastModified(node.Network); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	if servercfg.IsDNSMode() {
 		err = SetDNS()

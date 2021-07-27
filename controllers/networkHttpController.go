@@ -4,11 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
-
+	"log"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -182,7 +181,7 @@ func ValidateNetworkUpdate(network models.Network) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
+			log.Println(e)
 		}
 	}
 	return err
@@ -529,7 +528,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	err = v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
+			log.Println(e)
 		}
 		return models.AccessKey{}, err
 	}

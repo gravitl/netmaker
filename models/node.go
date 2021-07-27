@@ -15,7 +15,7 @@ import (
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
+const TEN_YEARS_IN_SECONDS = 300000000
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
@@ -75,7 +75,7 @@ func (node *Node) SetID() {
 }
 
 func (node *Node) SetExpirationDateTime() {
-	node.ExpirationDateTime = time.Unix(33174902665, 0).Unix()
+	node.ExpirationDateTime = time.Now().Unix() + TEN_YEARS_IN_SECONDS
 }
 
 func (node *Node) SetDefaultName() {
@@ -106,7 +106,7 @@ func (node *Node) SetDefaults() {
 	//TODO: Maybe I should make Network a part of the node struct. Then we can just query the Network object for stuff.
 	parentNetwork, _ := node.GetNetwork()
 
-	node.ExpirationDateTime = time.Unix(33174902665, 0).Unix()
+	node.ExpirationDateTime = time.Now().Unix() + TEN_YEARS_IN_SECONDS
 
 	if node.ListenPort == 0 {
 		node.ListenPort = parentNetwork.DefaultListenPort

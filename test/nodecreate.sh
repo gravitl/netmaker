@@ -15,7 +15,7 @@ generate_post_json ()
   "macaddress": "$MACADDRESS",
   "password": "$PASSWORD",
   "localaddress": "172.123.123.3",
-  "accesskey": "PieOi5nsjA0RITf0"
+  "accesskey": "zKfzHn9W6uL5KuIg"
 }
 EOF
 }
