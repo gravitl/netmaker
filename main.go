@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 	"google.golang.org/grpc"
 )
 
@@ -28,8 +27,13 @@ func main() {
 	startControllers() // start the grpc or rest endpoints
 }
 
-func checkModes() { // Client Mode Prereq Check
+func initialize() { // Client Mode Prereq Check
 	var err error
+	if err = database.InitializeDatabase(); err != nil {
+		log.Println("Error connecting to database.")
+		log.Fatal(err)
+	}
+	log.Println("database successfully connected.")
 	cmd := exec.Command("id", "-u")
 	output, err := cmd.Output()
 
@@ -45,7 +49,6 @@ func checkModes() { // Client Mode Prereq Check
 	if uid != 0 {
 		log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
 	}
-	database.InitializeDatabase()
 
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
@@ -54,16 +57,6 @@ func checkModes() { // Client Mode Prereq Check
 		}
 	}
 
-}
-
-func initialize() {
-	checkModes() // check which flags are set and if root or not
-	if servercfg.IsGRPCWireGuard() {
-		if err := serverctl.InitServerWireGuard(); err != nil {
-			log.Fatal(err)
-		}
-	}
-	functions.PrintUserLog("netmaker", "successfully created db tables if not present", 1)
 }
 
 func startControllers() {
