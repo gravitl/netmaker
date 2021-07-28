@@ -1,33 +1,181 @@
-===========
-Quick Start
-===========
+====================
+Quick Install
+=====================
 
 Introduction
 ==============
 
-This is a guide to getting up and running with Netmaker as quickly as possible. 
+This is an **opinionated** guide for getting up and running with Netmaker as quickly as possible. If this configuration does not fit your use case, see the Advanced Installation docs. 
 
-By default, Netmaker ships with DNS Mode, Client Mode, and Secure GRPC enabled. However, these features require special permissions and are not necessary for a simple setup, so we are going to deploy without them. To learn more about enabling these features, check out the :doc:`installation docs <./server-installation>`.
+We assume for this installation that you want all of the features, want your server to be secure, and want it to be accessible from anywhere. 
 
-Prerequisites
+We assume you are not deploying for an enterprise-grade scenario. This instance will not be HA, and is not horizontally scalable. However, it should comfortably handle several hundred clients and most average use cases.
+
+By the end of this guide, you will have Netmaker installed on a public VM linked to your custom domain, secured behind an Nginx reverse proxy.
+
+
+0. Prerequisites
 ==================
- #. A Linux server to host Netmaker, with an external IP reachable by your nodes (will be referred to as **your-host** in  document).
+-  **Virtual Machine**
+   
+   - Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)
+   - Public, static IP 
+   - Min 2GB RAM, 1 CPU (4GB RAM, 2CPU preferred)
+   - 1GB+ of storage
+   - Ubuntu  20.04 Installed
+
+- **Domain**
+
+  - A publicly owned domain (e.x. example.com, mysite.biz) 
+  - Permission and access to modify DNS records via DNS service (e.x: Route53)
+
+
+
  #. Docker and Docker Compose installed on the above server. Follow the official `Docker instructions <https://docs.docker.com/engine/install/>`_ for installing Docker and Docker Compose on your system.
  #. All network nodes should be systemd-based (see Compatibility under :doc:`Architecture <./architecture>` docs)
 
-Install
-==============
-#. ``ssh root@your-host``
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.slim.yml``
-#. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
-#. ``docker-compose up -d``
+1. Install Dependencies
+========================
 
-Navigate to the IP address of your host in the browser. You should see the below screen. If not, please see the Quick Start section of the :doc:`troubleshooting <./support>` docs.
+  ``ssh root@your-host``
 
-.. image:: images/create-user.png
-   :width: 80%
-   :alt: Create User Screen
-   :align: center
+Install Docker
+---------------
+Begin by installing the community version of Docker and docker-compose (there are issues with the snap version).
+
+``sudo apt-get remove docker docker-engine docker.io containerd runc``
+ 
+``sudo apt-get update``
+ 
+    ``sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release``
+
+``curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg``
+  
+  ``echo \
+  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null``
+  
+``sudo apt-get update``
+  
+``sudo apt-get install docker-ce docker-ce-cli containerd.io``
+
+``sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose``
+
+``sudo chmod +x /usr/local/bin/docker-compose``
+
+``docker --version``
+
+``docker-compose --version``
+
+At this point Docker should be installed.
+
+Install Dependencies
+-----------------------------
+
+``sudo apt install wireguard wireguard-tools nginx certbot python3-certbot-nginx net-tools``
+
+ 
+2. Prepare VM
+===============================
+
+Prepare Domain
+----------------------------
+1. Choose a base domain or subdomain for Netmaker. If you own **example.com**, this should be something like **netmaker.example.com** 
+2. Add an A record pointing to your VM using your DNS service provider for *.netmaker.example.com (inserting your own subdomain of course).
+3. Netmaker will create three subdomains on top of this. For the example above those subdomains would be:
+
+    - dashboard.netmaker.example.com
+
+    - api.netmaker.example.com
+
+    - grpc.netmaker.example.com
+
+Moving forward we will refer to your base domain using **<your base domain>**. Replace these references with your domain (e.g. netmaker.example.com).
+
+4. ``nslookup host.<your base domain>`` (inserting your domain) should now return the IP of your VM.
+
+5. Generate SSL Certificates using certbot:
+
+  ``certbot certonly --manual \
+  --preferred-challenges=dns \
+  --email your@email.com \
+  --server https://acme-v02.api.letsencrypt.org/directory \
+  --agree-tos \
+  --manual-public-ip-logging-ok \
+  -d “*.<your base domain>”``
+
+The above command (using your domain instead of <your base domain>), will prompt you to enter a TXT record in your DNS service provider. Do this, and wait a few seconds before clicking enter, or it may fail and you will have to run the command again.
+
+Prepare Firewall
+-----------------
+
+Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 443. On the server you can run:
+
+``sudo ufw allow proto tcp from any to any port 443``
+``sudo ufw allow dns``
+
+Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on.
+
+Prepare Nginx
+-----------------
+
+Nginx will serve the SSL certificate with your chosen domain and forward traffic to netmaker.
+
+Add the nginx configuration file:
+
+``wget https://github.com/gravitl/netmaker/TEMPLATE.conf``
+
+Insert your domain in the configuration file and add to nginx:
+
+``sed -i ‘s/NETMAKER_BASE_DOMAIN/<your base domain>/g’ netmaker-nginx-template.conf``
+
+``sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf``
+``sudo cp netmaker-nginx-dns.conf /etc/nginx/nginx.conf``
+
+``nginx -t && nginx -s reload``
+
+``systemctl restart nginx``
+
+
+[NOTE: May not be necessary. Test with 5353] Prepare for DNS
+----------------------------------------------------------------
+
+On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution. 
+
+1. ``systemctl stop systemd-resolved`` 
+2. ``systemctl disable systemd-resolved`` 
+3. ``vim /etc/systemd/resolved.conf``
+    * uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference
+    * uncomment DNSStubListener and set to "no"
+4. ``ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf``
+
+Install Netmaker
+=================
+
+Prepare Templates
+------------------
+
+wget netmaker template
+
+``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml``
+``sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml``
+
+Generate a unique master key and insert it:
+``tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo ''``
+``sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.quickstart.yml``
+
+Start Netmaker
+----------------
+ docker-compose -f docker-compose.quickstart.yml up -d
+
+===========
+Quick Start
+===========
 
 Setup
 =================

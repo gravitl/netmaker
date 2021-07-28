@@ -10,12 +10,6 @@ server:
   clientmode: "" # defaults to "on" or CLIENT_MODE (if set)
   dnsmode: "" # defaults to "on" or DNS_MODE (if set)
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
-mongoconn:
-  user: "" # defaults to "mongoadmin" or MONGO_ADMIN (if set)
-  pass: "" # defaults to "mongopass" or MONGO_PASS (if set)
-  host: "" # defaults to 127.0.0.1 or MONGO_HOST (if set)
-  port: "" # defaults to 27017 or MONGO_PORT (if set)
-  opts: '' # defaults to '/?authSource=admin' or MONGO_OPTS (if set)
 wg:
   keyrequired: "" # defaults to "". If set to "yes", a key is required for signing up for the comms network 
   grpcwg: "" # defaults to "on" or SERVER_GRPC_WIREGUARD if set

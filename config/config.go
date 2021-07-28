@@ -2,7 +2,6 @@
 //Currently the only thing it does is set the master password
 //Should probably have it take over functions from OS such as port and mongodb connection details
 //Reads from the config/environments/dev.yaml file by default
-//TODO:  Add vars for mongo and remove from  OS vars in mongoconn
 package config
 
 import (
@@ -30,14 +29,13 @@ var Config *EnvironmentConfig
 
 // EnvironmentConfig :
 type EnvironmentConfig struct {
-	Server    ServerConfig    `yaml:"server"`
-	MongoConn MongoConnConfig `yaml:"mongoconn"`
-	WG        WG              `yaml:"wg"`
+	Server ServerConfig `yaml:"server"`
+	WG     WG           `yaml:"wg"`
 }
 
 // ServerConfig :
 type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
+	CoreDNSAddr          string `yaml:"corednsaddr"`
 	APIConnString        string `yaml:"apiconn"`
 	APIHost              string `yaml:"apihost"`
 	APIPort              string `yaml:"apiport"`
@@ -67,14 +65,6 @@ type WG struct {
 	GRPCWGPort          string `yaml:"grpcport"`
 	GRPCWGPubKey        string `yaml:"pubkey"`
 	GRPCWGPrivKey       string `yaml:"privkey"`
-}
-
-type MongoConnConfig struct {
-	User string `yaml:"user"`
-	Pass string `yaml:"pass"`
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
-	Opts string `yaml:"opts"`
 }
 
 //reading in the env file

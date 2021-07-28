@@ -237,7 +237,7 @@ func CheckIn(cliconf config.ClientConfig) error {
                 fmt.Println("Node has requested to update remote config.")
                 fmt.Println("Posting local config to remote server.")
 		postnode := server.GetNode(network)
-
+		fmt.Println("POSTING NODE: ",postnode.Macaddress,postnode.Saveconfig)
 		req := &nodepb.UpdateNodeReq{
                                Node: &postnode,
                         }
@@ -252,7 +252,7 @@ func CheckIn(cliconf config.ClientConfig) error {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
-		err = wireguard.SetWGConfig(network)
+		//err = wireguard.SetWGConfig(network)
                 if err != nil {
 			return err
                         log.Fatalf("Error: %v", err)

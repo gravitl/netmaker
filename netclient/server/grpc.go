@@ -1,7 +1,8 @@
 package server
 
 import (
-        "google.golang.org/grpc/credentials"
+"github.com/davecgh/go-spew/spew"
+	"google.golang.org/grpc/credentials"
         "crypto/tls"
 	"fmt"
 	"context"
@@ -45,6 +46,8 @@ func GetNode(network string) nodepb.Node {
 	node.Macaddress = nodecfg.MacAddress
 	node.Endpoint = nodecfg.Endpoint
 	node.Password = nodecfg.Password
+	node.Saveconfig = nodecfg.SaveConfig
+	node.Udpholepunch = nodecfg.UDPHolePunch
 	if nodecfg.DNS == "on" {
 		node.Dnsoff = false
 	} else {
@@ -137,6 +140,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
         nodecfg := cfg.Node
         keepalive := nodecfg.KeepAlive
         keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
+        keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
         if err != nil {
                 log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
         }
@@ -190,6 +194,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                         return peers, hasGateway, gateways, err
                         }
                 }
+	        spew.Dump(res.Peers)
                 pubkey, err := wgtypes.ParseKey(res.Peers.Publickey)
                 if err != nil {
                         fmt.Println("error parsing key")
@@ -216,16 +221,20 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                 allowedips = append(allowedips, peeraddr)
                 if res.Peers.Isegressgateway {
                         hasGateway = true
-                        gateways = append(gateways,res.Peers.Egressgatewayrange)
-                        _, ipnet, err := net.ParseCIDR(res.Peers.Egressgatewayrange)
+			log.Println(peeraddr.String(),"HAS GATEWAY",res.Peers.Egressgatewayranges)
+			ranges := strings.Split(res.Peers.Egressgatewayranges, ",")
+			for _, iprange := range ranges {
+			gateways = append(gateways,iprange)
+                        _, ipnet, err := net.ParseCIDR(iprange)
                         if err != nil {
                                 fmt.Println("ERROR ENCOUNTERED SETTING GATEWAY")
                                 fmt.Println("NOT SETTING GATEWAY")
                                 fmt.Println(err)
                         } else {
-                                fmt.Println("    Gateway Range: "  + res.Peers.Egressgatewayrange)
+                                fmt.Println("    Gateway Range: "  + iprange)
                                 allowedips = append(allowedips, *ipnet)
                         }
+			}
                 }
                 if res.Peers.Address6 != "" && dualstack {
                         var addr6 = net.IPNet{
@@ -234,7 +243,14 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                         }
                         allowedips = append(allowedips, addr6)
                 }
-                if keepalive != 0 {
+                if nodecfg.Name == "netmaker" {
+                peer = wgtypes.PeerConfig{
+                        PublicKey: pubkey,
+                        PersistentKeepaliveInterval: &keepaliveserver,
+                        ReplaceAllowedIPs: true,
+                        AllowedIPs: allowedips,
+                        }
+		} else if keepalive != 0 {
                 peer = wgtypes.PeerConfig{
                         PublicKey: pubkey,
                         PersistentKeepaliveInterval: &keepalivedur,
