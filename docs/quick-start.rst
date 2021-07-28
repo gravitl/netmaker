@@ -21,7 +21,7 @@ By the end of this guide, you will have Netmaker installed on a public VM linked
    - Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)
    - Public, static IP 
    - Min 2GB RAM, 1 CPU (4GB RAM, 2CPU preferred)
-   - 1GB+ of storage
+   - 5GB+ of storage
    - Ubuntu  20.04 Installed
 
 - **Domain**
