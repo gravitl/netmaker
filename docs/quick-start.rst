@@ -106,25 +106,29 @@ Prepare Firewall
 
 Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 443. On the server you can run:
 
-``sudo ufw allow proto tcp from any to any port 443 && sudo ufw allow dns``
+``sudo ufw allow proto tcp from any to any port 443 && sudo ufw allow dns && ``
 
-Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on.
+**Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on:**
+  - allow 443/tcp from all
+  - allow 1443/tcp from all
+  - allow 53/udp from all
 
 Prepare Nginx
 -----------------
 
 Nginx will serve the SSL certificate with your chosen domain and forward traffic to netmaker.
 
-Add the nginx configuration file:
+Add the nginx configuration files:
 
-``wget https://github.com/gravitl/netmaker/TEMPLATE.conf``
+``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/nginx/netmaker-nginx-template.conf``
+
+``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/nginx/netmaker-nginx-dns.conf``
 
 Insert your domain in the configuration file and add to nginx:
 
-``sed -i ‘s/NETMAKER_BASE_DOMAIN/<your base domain>/g’ netmaker-nginx-template.conf``
+``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' netmaker-nginx-template.conf ``
 
-``sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf``
-``sudo cp netmaker-nginx-dns.conf /etc/nginx/nginx.conf``
+``sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf && sudo cp netmaker-nginx-dns.conf /etc/nginx/nginx.conf``
 
 ``nginx -t && nginx -s reload``
 
