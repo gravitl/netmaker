@@ -4,9 +4,7 @@ services:
   rqlite:
     container_name: rqlite
     image: rqlite/rqlite
-    ports:
-      - "4001:4001"
-      - "4002:4002"
+    network_mode: host
     restart: always
     volumes:
       - sqldata:/rqlite/file/data
@@ -34,7 +32,7 @@ services:
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:1443"
-      COREDNS_ADDR: "159.89.81.223"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP"
       GRPC_SSL: "on"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
       SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
