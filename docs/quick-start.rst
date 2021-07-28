@@ -78,7 +78,10 @@ Install Dependencies
 
 Prepare Domain
 ----------------------------
-1. Choose a base domain or subdomain for Netmaker. If you own **example.com**, this should be something like **netmaker.example.com** 
+1. Choose a base domain or subdomain for Netmaker. If you own **example.com**, this should be something like **netmaker.example.com**
+
+    - You must point your wildcard domain to the public IP of your VM, e.x: *.example.com --> <your public ip>
+
 2. Add an A record pointing to your VM using your DNS service provider for *.netmaker.example.com (inserting your own subdomain of course).
 3. Netmaker will create three subdomains on top of this. For the example above those subdomains would be:
 
