@@ -23,7 +23,6 @@ import (
 
 //Start MongoDB Connection and start API Request Handler
 func main() {
-	checkModes() // check which flags are set and if root or not
 	initialize() // initial db and grpc server
 	defer database.Database.Close()
 	startControllers() // start the grpc or rest endpoints
@@ -46,6 +45,7 @@ func checkModes() { // Client Mode Prereq Check
 	if uid != 0 {
 		log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
 	}
+	database.InitializeDatabase()
 
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
@@ -57,7 +57,7 @@ func checkModes() { // Client Mode Prereq Check
 }
 
 func initialize() {
-	database.InitializeDatabase()
+	checkModes() // check which flags are set and if root or not
 	if servercfg.IsGRPCWireGuard() {
 		if err := serverctl.InitServerWireGuard(); err != nil {
 			log.Fatal(err)

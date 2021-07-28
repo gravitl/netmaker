@@ -1,7 +1,6 @@
 package wireguard
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -13,6 +12,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -203,30 +204,19 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		Stdout: os.Stdout,
 		Stderr: os.Stdout,
 	}
+	cmdIPLinkDelete := exec.Command("ip", "link", "delete", "dev", ifacename)
 
-	currentiface, err := net.InterfaceByName(ifacename)
-
-	if err != nil {
-		err = cmdIPDevLinkAdd.Run()
-		if err != nil && !strings.Contains(err.Error(), "exists") {
-			fmt.Println("Error creating interface")
-			//fmt.Println(err.Error())
-			//return err
-		}
+	delErr := cmdIPLinkDelete.Run()
+	addLinkErr := cmdIPDevLinkAdd.Run()
+	addErr := cmdIPAddrAdd.Run()
+	if delErr != nil {
+		log.Println(delErr)
 	}
-	match := false
-	addrs, _ := currentiface.Addrs()
-	for _, a := range addrs {
-		if strings.Contains(a.String(), node.Address) {
-			match = true
-		}
+	if addLinkErr != nil {
+		log.Println(addLinkErr)
 	}
-	if !match {
-		err = cmdIPAddrAdd.Run()
-		if err != nil {
-			fmt.Println("Error adding address")
-			//return err
-		}
+	if addErr != nil {
+		log.Println(addErr)
 	}
 	var nodeport int
 	nodeport = int(node.Listenport)
@@ -267,7 +257,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	//=========DNS Setup==========\\
-	log.Println("NODECFG.DNS:",nodecfg.DNS)
+	log.Println("NODECFG.DNS:", nodecfg.DNS)
 	if nodecfg.DNS == "on" {
 		_ = local.UpdateDNS(ifacename, network, nameserver)
 	}

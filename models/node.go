@@ -15,6 +15,7 @@ import (
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const TEN_YEARS_IN_SECONDS = 300000000
+
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
@@ -264,16 +265,16 @@ func (newNode *Node) Fill(currentNode *Node) {
 }
 
 func (currentNode *Node) Update(newNode *Node) error {
-        newNode.Fill(currentNode)
+	newNode.Fill(currentNode)
 	if err := newNode.Validate(true); err != nil {
 		return err
 	}
 	newNode.SetID()
 	if newNode.ID == currentNode.ID {
+		newNode.SetLastModified()
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
-			newNode.SetLastModified()
 			if err = database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME); err == nil {
 				if network, err := GetNetwork(newNode.Network); err == nil {
 					err = network.SetNetworkNodesLastModified()

@@ -198,7 +198,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
 			} else {
-                                r.Header.Set("ismasterkey", "")
+				r.Header.Set("ismasterkey", "")
 				mac, _, err := functions.VerifyToken(authToken)
 				if err != nil {
 					errorResponse = models.ErrorResponse{
@@ -320,7 +320,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var nodes []models.Node
-	if user.IsAdmin  || r.Header.Get("ismasterkey") == "yes" {
+	if user.IsAdmin || r.Header.Get("ismasterkey") == "yes" {
 		nodes, err = models.GetAllNodes()
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
@@ -706,8 +706,8 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 		}
 	}
 	node.SetLastModified()
-        node.PostUp = postUpCmd
-        node.PostDown = postDownCmd
+	node.PostUp = postUpCmd
+	node.PostDown = postDownCmd
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
@@ -788,9 +788,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = SetNetworkNodesLastModified(node.Network); err != nil {
-		log.Println(err)
-	}
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
 	}
