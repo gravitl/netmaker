@@ -267,6 +267,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	//=========DNS Setup==========\\
+	log.Println("NODECFG.DNS:",nodecfg.DNS)
 	if nodecfg.DNS == "on" {
 		_ = local.UpdateDNS(ifacename, network, nameserver)
 	}

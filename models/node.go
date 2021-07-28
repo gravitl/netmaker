@@ -274,11 +274,14 @@ func (currentNode *Node) Update(newNode *Node) error {
 			return err
 		} else {
 			newNode.SetLastModified()
-			err = database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
+			if err = database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME); err == nil {
+				if network, err := GetNetwork(newNode.Network); err == nil {
+					err = network.SetNetworkNodesLastModified()
+				}
+			}
 			return err
 		}
 	}
-	// copy values
 	return errors.New("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
 }
 

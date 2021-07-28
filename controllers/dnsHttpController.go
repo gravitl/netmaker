@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
+	"log"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -125,8 +125,7 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 	}
 	for _, value := range collection { // filter for entries based on network
 		var entry models.DNSEntry
-
-		if err := json.Unmarshal([]byte(value), entry); err != nil {
+		if err := json.Unmarshal([]byte(value), &entry); err != nil {
 			continue
 		}
 
@@ -245,6 +244,11 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+        err = SetDNS()
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(entry)
 }
@@ -295,7 +299,11 @@ func updateDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
+        err = SetDNS()
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
 	json.NewEncoder(w).Encode(entry)
 }
 
@@ -314,6 +322,11 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	entrytext := params["domain"] + "." + params["network"]
 	functions.PrintUserLog("netmaker", "deleted dns entry: "+entrytext, 1)
+        err = SetDNS()
+        if err != nil {
+                returnErrorResponse(w, r, formatError(err, "internal"))
+                return
+        }
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
 }
 
@@ -390,15 +403,13 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	log.Println("pushed DNS updates to nameserver")
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
 }
 
 func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	v := validator.New()
-	fmt.Println("Validating DNS: " + entry.Name)
-	fmt.Println("       Address: " + entry.Address)
-	fmt.Println("       Network: " + entry.Network)
 
 	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
 		num, err := GetDNSEntryNum(entry.Name, entry.Network)

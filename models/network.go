@@ -296,3 +296,32 @@ func (currentNetwork *Network) Update(newNetwork *Network) (bool, bool, error) {
 	// copy values
 	return false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
+
+func (network *Network) SetNetworkNodesLastModified() error {
+
+        timestamp := time.Now().Unix()
+
+        network.NodesLastModified = timestamp
+        data, err := json.Marshal(&network)
+        if err != nil {
+                return err
+        }
+        err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
+        if err != nil {
+                return err
+        }
+        return nil
+}
+
+func GetNetwork(networkname string) (Network, error) {
+
+        var network Network
+        networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
+        if err != nil {
+                return network, err
+        }
+        if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+                return Network{}, err
+        }
+        return network, nil
+}

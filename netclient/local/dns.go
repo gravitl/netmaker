@@ -40,12 +40,12 @@ func UpdateDNS(ifacename string, network string, nameserver string) error {
                         _, err = exec.Command("resolvectl", "domain", ifacename, "~"+network).Output()
                         if err != nil {
                                 log.Println(err)
-                                log.Println("WARNING: Error encountered setting dns. Aborted setting dns.")
+                                log.Println("WARNING: Error encountered setting domain on dns. Aborted setting dns.")
                         } else {
                                 _, err = exec.Command("resolvectl", "default-route", ifacename, "false").Output()
                                 if err != nil {
                                         log.Println(err)
-                                        log.Println("WARNING: Error encountered setting dns. Aborted setting dns.")
+                                        log.Println("WARNING: Error encountered setting default-route on dns. Aborted setting dns.")
                                 } else {
                                         _, err = exec.Command("resolvectl", "dns", ifacename, nameserver).Output()
                                         if err!= nil {
