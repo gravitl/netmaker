@@ -113,6 +113,18 @@ Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 
   - allow 1443/tcp from all
   - allow 53/udp from all
 
+Prepare for DNS
+----------------------------------------------------------------
+
+On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution.
+
+1. ``sudo systemctl stop systemd-resolved``
+2. ``sudo systemctl disable systemd-resolved``
+3. ``sudo vim /etc/systemd/resolved.conf``
+    * uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference
+    * uncomment DNSStubListener and set to "no"
+4. ``sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf``
+
 Prepare Nginx
 -----------------
 
@@ -135,36 +147,28 @@ Insert your domain in the configuration file and add to nginx:
 ``systemctl restart nginx``
 
 
-[NOTE: May not be necessary. Test with 5353] Prepare for DNS
-----------------------------------------------------------------
-
-On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution. 
-
-1. ``systemctl stop systemd-resolved`` 
-2. ``systemctl disable systemd-resolved`` 
-3. ``vim /etc/systemd/resolved.conf``
-    * uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference
-    * uncomment DNSStubListener and set to "no"
-4. ``ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf``
-
 Install Netmaker
 =================
 
 Prepare Templates
 ------------------
 
-wget netmaker template
+``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml``
 
 ``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml``
+
 ``sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml``
 
 Generate a unique master key and insert it:
+
 ``tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo ''``
+
 ``sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.quickstart.yml``
 
 Start Netmaker
 ----------------
- docker-compose -f docker-compose.quickstart.yml up -d
+
+``sudo docker-compose -f docker-compose.quickstart.yml up -d``
 
 ===========
 Quick Start
