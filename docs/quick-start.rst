@@ -9,7 +9,7 @@ This is an **opinionated** guide for getting up and running with Netmaker as qui
 
 We assume for this installation that you want all of the features, want your server to be secure, and want it to be accessible from anywhere. 
 
-This instance will not be HA, and is not horizontally scalable. However, it should comfortably handle several hundred clients and most average use cases.
+This instance will not be HA, and is not horizontally scalable. However, it should comfortably handle several hundred clients and most average use cases. If you are deploying for an enterprise use case, please contact info@gravitl.com for support.
 
 By the end of this guide, you will have Netmaker installed on a public VM linked to your custom domain, secured behind an Nginx reverse proxy.
 
