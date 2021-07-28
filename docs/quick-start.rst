@@ -106,8 +106,7 @@ Prepare Firewall
 
 Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 443. On the server you can run:
 
-``sudo ufw allow proto tcp from any to any port 443``
-``sudo ufw allow dns``
+``sudo ufw allow proto tcp from any to any port 443 && sudo ufw allow dns``
 
 Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on.
 
