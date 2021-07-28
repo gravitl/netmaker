@@ -97,7 +97,7 @@ Moving forward we will refer to your base domain using **<your base domain>**. R
 
 5. Generate SSL Certificates using certbot:
 
-  ``certbot certonly --manual --preferred-challenges=dns --email your@email.com --server https://acme-v02.api.letsencrypt.org/directory --agree-tos --manual-public-ip-logging-ok -d “*.<your base domain>”``
+  ``certbot certonly --manual --preferred-challenges=dns --email your@email.com --server https://acme-v02.api.letsencrypt.org/directory --agree-tos --manual-public-ip-logging-ok -d "*.<your base domain>"``
 
 The above command (using your domain instead of <your base domain>), will prompt you to enter a TXT record in your DNS service provider. Do this, and wait a few seconds before clicking enter, or it may fail and you will have to run the command again.
 
