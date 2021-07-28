@@ -109,8 +109,6 @@ spec:
           value: "secretkey"
         - name: CORS_ALLOWED_ORIGIN
           value: "*"
-        - name: DISABLE_REMOTE_IP_CHECK
-          value: "on"
         - name: MONGO_ADMIN
           value: "mongoadmin"
         - name: MONGO_PASS

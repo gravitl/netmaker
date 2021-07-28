@@ -87,6 +87,7 @@ func GetAPIConnString() string {
 }
 func GetAPIHost() string {
 	serverhost := "127.0.0.1"
+	remoteip, _ := GetPublicIP()
 	if os.Getenv("SERVER_HTTP_HOST") != "" {
 		serverhost = os.Getenv("SERVER_HTTP_HOST")
 	} else if config.Config.Server.APIHost != "" {
@@ -94,7 +95,6 @@ func GetAPIHost() string {
 	} else if os.Getenv("SERVER_HOST") != "" {
 		serverhost = os.Getenv("SERVER_HOST")
 	} else {
-		remoteip, _ := GetPublicIP()
 		if remoteip != "" {
 			serverhost = remoteip
 		}
@@ -144,6 +144,7 @@ func GetCoreDNSAddr() string {
 
 func GetGRPCHost() string {
 	serverhost := "127.0.0.1"
+	remoteip, _ := GetPublicIP()
 	if IsGRPCWireGuard() {
 		serverhost = GetGRPCWGAddress()
 	} else {
@@ -154,7 +155,6 @@ func GetGRPCHost() string {
 		} else if os.Getenv("SERVER_HOST") != "" {
 			serverhost = os.Getenv("SERVER_HOST")
 		} else {
-			remoteip, _ := GetPublicIP()
 			if remoteip != "" {
 				serverhost = remoteip
 			}
