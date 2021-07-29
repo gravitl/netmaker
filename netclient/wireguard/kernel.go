@@ -423,7 +423,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 
 func SetPeers(iface string, peers []wgtypes.PeerConfig) {
 	for _, peer := range peers {
-		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String() ,peer.Endpoint.String()).Run()
+		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String(),"endpoint",peer.Endpoint.String()).Run()
 		if err != nil {
 			log.Println("error setting peer",peer.Endpoint.String(),)
 		}
