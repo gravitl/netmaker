@@ -382,7 +382,7 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 	if err != nil {
 		return err
 	}
-	err = SetWGConfig(network)
+	err = SetWGConfig(network, false)
 	if err != nil {
 		return err
 		log.Fatalf("Error: %v", err)
@@ -391,7 +391,7 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 	return err
 }
 
-func SetWGConfig(network string) error {
+func SetWGConfig(network string, peerupdate bool) error {
 
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -409,13 +409,25 @@ func SetWGConfig(network string) error {
 	if err != nil {
 		return err
 	}
-
-	err = InitWireguard(&node, privkey, peers, hasGateway, gateways)
+	if peerupdate {
+		SetPeers(node.Interface, peers)
+	} else {
+		err = InitWireguard(&node, privkey, peers, hasGateway, gateways)
+	}
 	if err != nil {
 		return err
 	}
 
 	return err
+}
+
+func SetPeers(iface string, peers []wgtypes.PeerConfig) {
+	for _, peer := range peers {
+		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String() ,peer.Endpoint.String()).Run()
+		if err != nil {
+			log.Println("error setting peer",peer.Endpoint.String(),)
+		}
+	}
 }
 
 func StorePrivKey(key string, network string) error {

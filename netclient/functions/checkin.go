@@ -119,7 +119,7 @@ func CheckIn(cliconf config.ClientConfig) error {
                         return err
                         log.Fatalf("Error: %v", err)
                 }
-                err = wireguard.SetWGConfig(network)
+                err = wireguard.SetWGConfig(network, false)
                 if err != nil {
                         return err
                         log.Fatalf("Error: %v", err)
@@ -203,7 +203,7 @@ func CheckIn(cliconf config.ClientConfig) error {
                         if err != nil {
                                 fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
                         }
-                err = wireguard.SetWGConfig(network)
+                err = wireguard.SetWGConfig(network, false)
                 if err != nil {
                         log.Printf("Error updating interface: %v", err)
                 }
@@ -227,7 +227,7 @@ func CheckIn(cliconf config.ClientConfig) error {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
-                err = wireguard.SetWGConfig(network)
+                err = wireguard.SetWGConfig(network, false)
                 if err != nil {
 			return err
                         log.Fatalf("Error: %v", err)
@@ -252,7 +252,6 @@ func CheckIn(cliconf config.ClientConfig) error {
 			return err
                         log.Fatalf("Error: %v", err)
                 }
-		//err = wireguard.SetWGConfig(network)
                 if err != nil {
 			return err
                         log.Fatalf("Error: %v", err)
@@ -272,7 +271,7 @@ func CheckIn(cliconf config.ClientConfig) error {
         if checkinres.Checkinresponse.Needpeerupdate {
                 fmt.Println("Server has requested that node update peer list.")
                 fmt.Println("Updating peer list from remote server.")
-                err = wireguard.SetWGConfig(network)
+                err = wireguard.SetWGConfig(network, true)
                 if err != nil {
 			return err
                         log.Fatalf("Unable to process Set Peers request: %v", err)
@@ -344,7 +343,7 @@ func Pull (network string) error{
          if err != nil {
                 return err
          }
-         err = wireguard.SetWGConfig(network)
+         err = wireguard.SetWGConfig(network, false)
         if err != nil {
                 return err
         }

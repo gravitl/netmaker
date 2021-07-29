@@ -221,7 +221,6 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                 allowedips = append(allowedips, peeraddr)
                 if res.Peers.Isegressgateway {
                         hasGateway = true
-			log.Println(peeraddr.String(),"HAS GATEWAY",res.Peers.Egressgatewayranges)
 			ranges := strings.Split(res.Peers.Egressgatewayranges, ",")
 			for _, iprange := range ranges {
 			gateways = append(gateways,iprange)
