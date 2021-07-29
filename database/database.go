@@ -3,6 +3,7 @@ package database
 import (
 	"encoding/json"
 	"errors"
+
 	"github.com/rqlite/gorqlite"
 )
 
@@ -12,6 +13,7 @@ const USERS_TABLE_NAME = "users"
 const DNS_TABLE_NAME = "dns"
 const EXT_CLIENT_TABLE_NAME = "extclients"
 const INT_CLIENTS_TABLE_NAME = "intclients"
+const PEERS_TABLE_NAME = "peers"
 const DATABASE_FILENAME = "netmaker.db"
 
 var Database gorqlite.Connection
@@ -37,6 +39,7 @@ func createTables() {
 	createTable(DNS_TABLE_NAME)
 	createTable(EXT_CLIENT_TABLE_NAME)
 	createTable(INT_CLIENTS_TABLE_NAME)
+	createTable(PEERS_TABLE_NAME)
 }
 
 func createTable(tableName string) error {
@@ -61,6 +64,18 @@ func Insert(key string, value string, tableName string) error {
 		return nil
 	} else {
 		return errors.New("invalid insert " + key + " : " + value)
+	}
+}
+
+func InsertPeer(key string, value string) error {
+	if key != "" && value != "" {
+		_, err := Database.WriteOne("INSERT OR REPLACE INTO " + PEERS_TABLE_NAME + " (key, value) VALUES ('" + key + "', '" + value + "')")
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return errors.New("invalid peer insert " + key + " : " + value)
 	}
 }
 

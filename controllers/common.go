@@ -210,6 +210,14 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	return node, err
 }
 
+func NotifyNetworkCheck(networkName string) bool {
+	if currentPeersList, err := serverctl.GetPeers(networkName); err == nil {
+		return database.SetPeers(currentPeersList, networkName)
+	} else {
+		return false
+	}
+}
+
 func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, error) {
 
 	var response models.CheckInResponse
@@ -252,6 +260,15 @@ func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, 
 	if nkeyupdate < gkeyupdate {
 		response.NeedKeyUpdate = true
 	}
+	if parentnode.Name == "netmaker" {
+		if NotifyNetworkCheck(networkName) {
+			err := SetNetworkNodesLastModified(networkName)
+			if err != nil {
+				log.Println(err, "could not notify network to update peers")
+			}
+		}
+	}
+
 	if time.Now().Unix() > parentnode.ExpirationDateTime {
 		response.NeedDelete = true
 		err = DeleteNode(node.MacAddress, networkName)

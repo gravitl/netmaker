@@ -203,6 +203,5 @@ func GetPeers(networkName string) (map[string]string, error) {
 	for _, peer := range device.Peers {
 		peers[peer.PublicKey.String()] = peer.Endpoint.String()
 	}
-
 	return peers, nil
 }
