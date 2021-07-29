@@ -257,7 +257,6 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	//=========DNS Setup==========\\
-	log.Println("NODECFG.DNS:", nodecfg.DNS)
 	if nodecfg.DNS == "on" {
 		_ = local.UpdateDNS(ifacename, network, nameserver)
 	}
@@ -300,8 +299,6 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	if hasGateway {
 		spew.Dump(gateways)
 		for _, gateway := range gateways {
-			log.Println("Gateway:")
-			spew.Dump(gateway)
 			out, err := exec.Command(ipExec, "-4", "route", "add", gateway, "dev", ifacename).Output()
 			fmt.Println(string(out))
 			if err != nil {
@@ -409,7 +406,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	if peerupdate {
+	if peerupdate && node.Name != "netmaker" {
 		SetPeers(node.Interface, peers)
 	} else {
 		err = InitWireguard(&node, privkey, peers, hasGateway, gateways)
