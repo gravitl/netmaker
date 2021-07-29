@@ -1,7 +1,6 @@
 package server
 
 import (
-"github.com/davecgh/go-spew/spew"
 	"google.golang.org/grpc/credentials"
         "crypto/tls"
 	"fmt"
@@ -194,7 +193,6 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
                         return peers, hasGateway, gateways, err
                         }
                 }
-	        spew.Dump(res.Peers)
                 pubkey, err := wgtypes.ParseKey(res.Peers.Publickey)
                 if err != nil {
                         fmt.Println("error parsing key")
