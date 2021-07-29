@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -30,7 +29,6 @@ import (
 )
 
 func InitGRPCWireguard(client models.IntClient) error {
-	//spew.Dump(client)
 
 	key, err := wgtypes.ParseKey(client.PrivateKey)
 	if err != nil {
@@ -124,7 +122,6 @@ func InitGRPCWireguard(client models.IntClient) error {
 			return err
 		}
 	}
-	//spew.Dump(conf)
 	err = wgclient.ConfigureDevice(ifacename, conf)
 
 	if err != nil {
@@ -297,7 +294,6 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	if hasGateway {
-		spew.Dump(gateways)
 		for _, gateway := range gateways {
 			out, err := exec.Command(ipExec, "-4", "route", "add", gateway, "dev", ifacename).Output()
 			fmt.Println(string(out))
@@ -420,7 +416,8 @@ func SetWGConfig(network string, peerupdate bool) error {
 
 func SetPeers(iface string, peers []wgtypes.PeerConfig) {
 	for _, peer := range peers {
-		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String(),"endpoint",peer.Endpoint.String()).Run()
+		udpendpoint := peer.Endpoint.IP.String()+":"+peer.Endpoint.IP.String()
+		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String(),"endpoint",udpendpoint).Run()
 		if err != nil {
 			log.Println("error setting peer",peer.Endpoint.String(),)
 		}
