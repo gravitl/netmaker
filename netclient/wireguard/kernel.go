@@ -403,7 +403,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 		return err
 	}
 	if peerupdate && node.Name != "netmaker" {
-		SetPeers(node.Interface, peers)
+		SetPeers(node.Interface, node.Keepalive, peers)
 	} else {
 		err = InitWireguard(&node, privkey, peers, hasGateway, gateways)
 	}
@@ -414,10 +414,39 @@ func SetWGConfig(network string, peerupdate bool) error {
 	return err
 }
 
-func SetPeers(iface string, peers []wgtypes.PeerConfig) {
+func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
+	client, err := wgctrl.New()
+	if err != nil {
+		log.Println("failed to start wgctrl")
+		return
+	}
+	device, err := client.Device(iface)
+	if err != nil {
+		log.Println("failed to parse interface")
+		return
+	}
 	for _, peer := range peers {
+		
+		for _, currentPeer := range device.Peers {
+			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() && 
+			   currentPeer.PublicKey.String() == peer.PublicKey.String() {
+					err := exec.Command("wg","set",iface,"peer",currentPeer.PublicKey.String(),"delete").Run()
+					if err != nil {
+						log.Println("error setting peer",peer.Endpoint.String(),)
+					}		
+			}
+		}		
 		udpendpoint := peer.Endpoint.IP.String()+":"+peer.Endpoint.IP.String()
-		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String(),"endpoint",udpendpoint,"allowed-ips",peer.AllowedIPs[0].String()).Run()
+		var allowedips string
+		var iparr []string
+		for _, ipaddr := range peer.AllowedIPs {
+			iparr = append(iparr,ipaddr.String())
+		}
+		allowedips = strings.Join(iparr,",")
+		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String(),
+							"endpoint",udpendpoint,
+							"persistent-keepalive",string(keepalive),
+							"allowed-ips",allowedips)
 		if err != nil {
 			log.Println("error setting peer",peer.Endpoint.String(),)
 		}
