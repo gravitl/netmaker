@@ -246,7 +246,7 @@ func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, 
 		}
 		return models.CheckInResponse{
 			Success:true,
-			NeedPeerUpdate:false,
+			NeedPeerUpdate:true,
 			NeedKeyUpdate: false,
 			NeedConfigUpdate:false,
 			NeedDelete:false,

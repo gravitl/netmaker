@@ -402,7 +402,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	if peerupdate && node.Name != "netmaker" {
+	if peerupdate {
 		SetPeers(node.Interface, node.Keepalive, peers)
 	} else {
 		err = InitWireguard(&node, privkey, peers, hasGateway, gateways)
