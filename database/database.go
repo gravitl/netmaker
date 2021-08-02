@@ -68,7 +68,7 @@ func Insert(key string, value string, tableName string) error {
 }
 
 func InsertPeer(key string, value string) error {
-	if key != "" && value != "" {
+	if key != "" && value != "" && isJSONString(value) {
 		_, err := Database.WriteOne("INSERT OR REPLACE INTO " + PEERS_TABLE_NAME + " (key, value) VALUES ('" + key + "', '" + value + "')")
 		if err != nil {
 			return err
