@@ -3,7 +3,6 @@ package functions
 import (
         "google.golang.org/grpc/credentials"
         "crypto/tls"
-	"fmt"
 	"context"
 	"strings"
 	"log"
@@ -29,13 +28,13 @@ func CheckIn(cliconf config.ClientConfig) error {
         }
 	nodecfg := cfg.Node
 	servercfg := cfg.Server
-	fmt.Println("Checking into server at " + servercfg.GRPCAddress)
+	log.Println("Checking into server at " + servercfg.GRPCAddress)
 
 	setupcheck := true
 	ipchange := false
 
         if nodecfg.DNS == "on" || cliconf.Node.DNS == "on" {
-		fmt.Println("setting dns")
+		log.Println("setting dns")
 		ifacename := node.Interface
 		nameserver := servercfg.CoreDNSAddr
 		network := node.Nodenetwork
@@ -45,15 +44,15 @@ func CheckIn(cliconf config.ClientConfig) error {
 	if !(nodecfg.IPForwarding == "off") {
 		out, err := exec.Command("sysctl", "net.ipv4.ip_forward").Output()
                  if err != nil {
-	                 fmt.Println(err)
-			 fmt.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
+	                 log.Println(err)
+			 log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
                  } else {
                          s := strings.Fields(string(out))
                          if s[2] != "1" {
 				_, err = exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Output()
 				if err != nil {
-					fmt.Println(err)
-					fmt.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
+					log.Println(err)
+					log.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
 				}
 			}
 		}
@@ -61,15 +60,15 @@ func CheckIn(cliconf config.ClientConfig) error {
 
 	if nodecfg.Roaming != "off" {
 		if nodecfg.IsLocal != "yes" {
-		fmt.Println("Checking to see if public addresses have changed")
+		log.Println("Checking to see if public addresses have changed")
 		extIP, err := getPublicIP()
 		if err != nil {
-			fmt.Printf("Error encountered checking ip addresses: %v", err)
+			log.Println("Error encountered checking ip addresses: %v", err)
 		}
 		if nodecfg.Endpoint != extIP  && extIP != "" {
-	                fmt.Println("Endpoint has changed from " +
+	                log.Println("Endpoint has changed from " +
 			nodecfg.Endpoint + " to " + extIP)
-			fmt.Println("Updating address")
+			log.Println("Updating address")
 			nodecfg.Endpoint = extIP
 			nodecfg.PostChanges = "true"
 			node.Endpoint = extIP
@@ -78,12 +77,12 @@ func CheckIn(cliconf config.ClientConfig) error {
 		}
 		intIP, err := getPrivateAddr()
                 if err != nil {
-                        fmt.Printf("Error encountered checking ip addresses: %v", err)
+                        log.Println("Error encountered checking ip addresses: %v", err)
                 }
                 if nodecfg.LocalAddress != intIP  && intIP != "" {
-                        fmt.Println("Local Address has changed from " +
+                        log.Println("Local Address has changed from " +
 			nodecfg.LocalAddress + " to " + intIP)
-			fmt.Println("Updating address")
+			log.Println("Updating address")
 			nodecfg.LocalAddress = intIP
 			nodecfg.PostChanges = "true"
 			node.Localaddress = intIP
@@ -91,15 +90,15 @@ func CheckIn(cliconf config.ClientConfig) error {
 			ipchange = true
                 }
 		} else {
-                fmt.Println("Checking to see if local addresses have changed")
+                log.Println("Checking to see if local addresses have changed")
                 localIP, err := getLocalIP(nodecfg.LocalRange)
                 if err != nil {
-                        fmt.Printf("Error encountered checking ip addresses: %v", err)
+                        log.Println("Error encountered checking ip addresses: %v", err)
                 }
                 if nodecfg.Endpoint != localIP  && localIP != "" {
-                        fmt.Println("Endpoint has changed from " +
+                        log.Println("Endpoint has changed from " +
                         nodecfg.Endpoint + " to " + localIP)
-                        fmt.Println("Updating address")
+                        log.Println("Updating address")
                         nodecfg.Endpoint = localIP
                         nodecfg.LocalAddress = localIP
                         nodecfg.PostChanges = "true"
@@ -110,7 +109,7 @@ func CheckIn(cliconf config.ClientConfig) error {
                 }
 		}
 		if node.Postchanges != "true" {
-			fmt.Println("Addresses have not changed.")
+			log.Println("Addresses have not changed.")
 		}
 	}
 	if ipchange {
@@ -144,20 +143,20 @@ func CheckIn(cliconf config.ClientConfig) error {
 	}
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
-		fmt.Printf("Cant dial GRPC server: %v", err)
+		log.Println("Cant dial GRPC server: %v", err)
 		return err
         }
         wcclient = nodepb.NewNodeServiceClient(conn)
 
         ctx := context.Background()
-        fmt.Println("Authenticating with GRPC Server")
+        log.Println("Authenticating with GRPC Server")
         ctx, err = auth.SetJWT(wcclient, network)
         if err != nil {
-                fmt.Printf("Failed to authenticate: %v", err)
+                log.Println("Failed to authenticate: %v", err)
 		return err
 	}
-        fmt.Println("Authenticated")
-        fmt.Println("Checking In.")
+        log.Println("Authenticated")
+        log.Println("Checking In.")
 
         var header metadata.MD
 	node.Nodenetwork = network
@@ -170,15 +169,15 @@ func CheckIn(cliconf config.ClientConfig) error {
         )
         if err != nil {
         if  checkinres != nil && checkinres.Checkinresponse.Ispending {
-                fmt.Println("Node is in pending status. Waiting for Admin approval of  node before making further updates.")
+                log.Println("Node is in pending status. Waiting for Admin approval of  node before making further updates.")
                 return nil
         }
-                fmt.Printf("Unable to process Check In request: %v", err)
+                log.Println("Unable to process Check In request: %v", err)
 		return err
         }
-	fmt.Println("Checked in.")
+	log.Println("Checked in.")
 	if  checkinres.Checkinresponse.Ispending {
-		fmt.Println("Node is in pending status. Waiting for Admin approval of  node before making further updates.")
+		log.Println("Node is in pending status. Waiting for Admin approval of  node before making further updates.")
 		return err
 	}
 
@@ -189,30 +188,30 @@ func CheckIn(cliconf config.ClientConfig) error {
                 }
                 readres, err := wcclient.ReadNode(ctx, readreq, grpc.Header(&header))
                 if err != nil {
-                        fmt.Printf("Error: %v", err)
+                        log.Println("Error: %v", err)
                 } else {
                 currentiface := readres.Node.Interface
                 ifaceupdate := newinterface != currentiface
                 if err != nil {
-                        log.Printf("Error retrieving interface: %v", err)
+                        log.Println("Error retrieving interface: %v", err)
                 }
                 if ifaceupdate {
-			fmt.Println("Interface update: " + currentiface +
+			log.Println("Interface update: " + currentiface +
 			" >>>> " + newinterface)
                         err := DeleteInterface(currentiface, nodecfg.PostDown)
                         if err != nil {
-                                fmt.Println("ERROR DELETING INTERFACE: " + currentiface)
+                                log.Println("ERROR DELETING INTERFACE: " + currentiface)
                         }
                 err = wireguard.SetWGConfig(network, false)
                 if err != nil {
-                        log.Printf("Error updating interface: %v", err)
+                        log.Println("Error updating interface: %v", err)
                 }
 		}
 		}
 
 	if checkinres.Checkinresponse.Needconfigupdate {
-		fmt.Println("Server has requested that node update config.")
-		fmt.Println("Updating config from remote server.")
+		log.Println("Server has requested that node update config.")
+		log.Println("Updating config from remote server.")
                 req := &nodepb.ReadNodeReq{
                         Macaddress: node.Macaddress,
                         Network: node.Nodenetwork,
@@ -234,10 +233,10 @@ func CheckIn(cliconf config.ClientConfig) error {
                 }
 		setupcheck = false
 	} else if nodecfg.PostChanges == "true" {
-                fmt.Println("Node has requested to update remote config.")
-                fmt.Println("Posting local config to remote server.")
+                log.Println("Node has requested to update remote config.")
+                log.Println("Posting local config to remote server.")
 		postnode := server.GetNode(network)
-		fmt.Println("POSTING NODE: ",postnode.Macaddress,postnode.Saveconfig)
+		log.Println("POSTING NODE: ",postnode.Macaddress,postnode.Saveconfig)
 		req := &nodepb.UpdateNodeReq{
                                Node: &postnode,
                         }
@@ -259,8 +258,8 @@ func CheckIn(cliconf config.ClientConfig) error {
 		setupcheck = false
 	}
         if checkinres.Checkinresponse.Needkeyupdate {
-                fmt.Println("Server has requested that node update key pairs.")
-                fmt.Println("Proceeding to re-generate key pairs for Wiregard.")
+                log.Println("Server has requested that node update key pairs.")
+                log.Println("Proceeding to re-generate key pairs for Wiregard.")
                 err = wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
                 if err != nil {
                         return err
@@ -269,8 +268,8 @@ func CheckIn(cliconf config.ClientConfig) error {
                 setupcheck = false
         }
         if checkinres.Checkinresponse.Needpeerupdate {
-                fmt.Println("Server has requested that node update peer list.")
-                fmt.Println("Updating peer list from remote server.")
+                log.Println("Server has requested that node update peer list.")
+                log.Println("Updating peer list from remote server.")
                 err = wireguard.SetWGConfig(network, true)
                 if err != nil {
 			return err
@@ -279,7 +278,7 @@ func CheckIn(cliconf config.ClientConfig) error {
 		setupcheck = false
         }
 	if checkinres.Checkinresponse.Needdelete {
-		fmt.Println("This machine got the delete signal. Deleting.")
+		log.Println("This machine got the delete signal. Deleting.")
                 err := LeaveNetwork(network)
                 if err != nil {
                         return err
@@ -290,7 +289,7 @@ func CheckIn(cliconf config.ClientConfig) error {
 	iface := nodecfg.Interface
 	_, err := net.InterfaceByName(iface)
         if err != nil {
-		fmt.Println("interface " + iface + " does not currently exist. Setting up WireGuard.")
+		log.Println("interface " + iface + " does not currently exist. Setting up WireGuard.")
                 err = wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
                 if err != nil {
                         return err
@@ -320,7 +319,7 @@ func Pull (network string) error{
         }
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
-                fmt.Printf("Cant dial GRPC server: %v", err)
+                log.Println("Cant dial GRPC server: %v", err)
                 return err
         }
         wcclient = nodepb.NewNodeServiceClient(conn)
@@ -328,7 +327,7 @@ func Pull (network string) error{
         ctx := context.Background()
         ctx, err = auth.SetJWT(wcclient, network)
         if err != nil {
-                fmt.Printf("Failed to authenticate: %v", err)
+                log.Println("Failed to authenticate: %v", err)
                 return err
         }
 
@@ -370,7 +369,7 @@ func Push (network string) error{
         }
         conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
         if err != nil {
-                fmt.Printf("Cant dial GRPC server: %v", err)
+                log.Println("Cant dial GRPC server: %v", err)
                 return err
         }
         wcclient = nodepb.NewNodeServiceClient(conn)
@@ -378,7 +377,7 @@ func Push (network string) error{
         ctx := context.Background()
         ctx, err = auth.SetJWT(wcclient, network)
         if err != nil {
-                fmt.Printf("Failed to authenticate: %v", err)
+                log.Println("Failed to authenticate: %v", err)
                 return err
         }
 
