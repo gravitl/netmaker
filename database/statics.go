@@ -16,14 +16,19 @@ func SetPeers(newPeers map[string]string, networkName string) bool {
 	}
 	return !areEqual
 }
-
-func PeersAreEqual(toCompare map[string]string, networkName string) bool {
+func GetPeers(networkName string) (map[string]string, error) {
 	record, err := FetchRecord(PEERS_TABLE_NAME, networkName)
 	if err != nil {
-		return false
+		return nil, err
 	}
 	currentDataMap := make(map[string]string)
 	err = json.Unmarshal([]byte(record), &currentDataMap)
+	return currentDataMap, err
+}
+
+
+func PeersAreEqual(toCompare map[string]string, networkName string) bool {
+	currentDataMap, err := GetPeers(networkName)
 	if err != nil {
 		return false
 	}

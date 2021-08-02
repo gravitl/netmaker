@@ -23,8 +23,9 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 	if err != nil {
 		log.Println(err)
 	}
-	udppeers, errN := serverctl.GetPeers(networkName)
+	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
+		log.Println("failed to collect udp peers")
 		log.Println(errN)
 	}
 	for _, value := range collection {
@@ -47,9 +48,11 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 			if node.UDPHolePunch == "yes" && errN == nil {
 				endpointstring := udppeers[peer.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
+				log.Println("got values:",endpointstring,endpointarr)
 				if len(endpointarr) == 2 {
 					port, err := strconv.Atoi(endpointarr[1])
 					if err == nil {
+						log.Println("overriding:",endpointarr[0],int32(port))
 						peer.Endpoint = endpointarr[0]
 						peer.ListenPort = int32(port)
 					}
@@ -233,6 +236,25 @@ func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, 
 		err = fmt.Errorf("%w; Couldnt Get Node "+node.MacAddress, err)
 		return response, err
 	}
+
+	if parentnode.Name == "netmaker" {
+		if NotifyNetworkCheck(networkName) {
+			err := SetNetworkNodesLastModified(networkName)
+			if err != nil {
+				log.Println(err, "could not notify network to update peers")
+			}
+		}
+		return models.CheckInResponse{
+			Success:true,
+			NeedPeerUpdate:false,
+			NeedKeyUpdate: false,
+			NeedConfigUpdate:false,
+			NeedDelete:false,
+			NodeMessage:"",
+			IsPending:false,
+		}, nil
+	}
+
 	if parentnode.IsPending == "yes" {
 		err = fmt.Errorf("%w; Node checking in is still pending: "+node.MacAddress, err)
 		response.IsPending = true
@@ -259,14 +281,6 @@ func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, 
 	}
 	if nkeyupdate < gkeyupdate {
 		response.NeedKeyUpdate = true
-	}
-	if parentnode.Name == "netmaker" {
-		if NotifyNetworkCheck(networkName) {
-			err := SetNetworkNodesLastModified(networkName)
-			if err != nil {
-				log.Println(err, "could not notify network to update peers")
-			}
-		}
 	}
 
 	if time.Now().Unix() > parentnode.ExpirationDateTime {
