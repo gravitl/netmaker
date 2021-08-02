@@ -3,6 +3,7 @@ package wireguard
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -12,7 +13,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -53,12 +53,9 @@ func InitGRPCWireguard(client models.IntClient) error {
 	if client.Address6 == "" && client.Address == "" {
 		return errors.New("no address to configure")
 	}
-	cmdIPDevLinkAdd := exec.Command("ip", "link", "add", "dev", ifacename, "type", "wireguard")
-	cmdIPAddrAdd := exec.Command("ip", "address", "add", "dev", ifacename, client.Address+"/24")
-	cmdIPAddr6Add := exec.Command("ip", "address", "add", "dev", ifacename, client.Address6+"/64")
 	currentiface, err := net.InterfaceByName(ifacename)
 	if err != nil {
-		err = cmdIPDevLinkAdd.Run()
+		_, err = local.RunCmd("ip link add dev " + ifacename + " type wireguard")
 		if err != nil && !strings.Contains(err.Error(), "exists") {
 			log.Println("Error creating interface")
 		}
@@ -77,14 +74,14 @@ func InitGRPCWireguard(client models.IntClient) error {
 		}
 	}
 	if !match && client.Address != "" {
-		err = cmdIPAddrAdd.Run()
+		_, err = local.RunCmd("ip address add dev " + ifacename + " " + client.Address + "/24")
 		if err != nil {
 			log.Println("Error adding ipv4 address")
 			fmt.Println(err)
 		}
 	}
 	if !match6 && client.Address6 != "" {
-		err = cmdIPAddr6Add.Run()
+		_, err = local.RunCmd("ip address add dev" + ifacename + " " + client.Address6 + "/64")
 		if err != nil {
 			log.Println("Error adding ipv6 address")
 			fmt.Println(err)
@@ -133,10 +130,8 @@ func InitGRPCWireguard(client models.IntClient) error {
 		}
 	}
 
-	cmdIPLinkUp := exec.Command("ip", "link", "set", "up", "dev", ifacename)
-	cmdIPLinkDown := exec.Command("ip", "link", "set", "down", "dev", ifacename)
-	err = cmdIPLinkDown.Run()
-	err = cmdIPLinkUp.Run()
+	_, err = local.RunCmd("ip link set up dev " + ifacename)
+	_, err = local.RunCmd("ip link set down dev " + ifacename)
 	if err != nil {
 		return err
 	}
@@ -144,7 +139,7 @@ func InitGRPCWireguard(client models.IntClient) error {
 	return err
 }
 
-func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
+func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
 
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {
@@ -159,7 +154,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		return err
 	}
-	modcfg, err := config.ReadConfig(node.Nodenetwork)
+	modcfg, err := config.ReadConfig(node.Network)
 	if err != nil {
 		return err
 	}
@@ -183,29 +178,16 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		log.Fatal("no address to configure")
 	}
 	nameserver := servercfg.CoreDNSAddr
-	network := node.Nodenetwork
+	network := node.Network
 	if nodecfg.Network != "" {
 		network = nodecfg.Network
-	} else if node.Nodenetwork != "" {
-		network = node.Nodenetwork
+	} else if node.Network != "" {
+		network = node.Network
 	}
-	cmdIPDevLinkAdd := &exec.Cmd{
-		Path:   ipExec,
-		Args:   []string{ipExec, "link", "add", "dev", ifacename, "type", "wireguard"},
-		Stdout: os.Stdout,
-		Stderr: os.Stdout,
-	}
-	cmdIPAddrAdd := &exec.Cmd{
-		Path:   ipExec,
-		Args:   []string{ipExec, "address", "add", "dev", ifacename, node.Address + "/24"},
-		Stdout: os.Stdout,
-		Stderr: os.Stdout,
-	}
-	cmdIPLinkDelete := exec.Command("ip", "link", "delete", "dev", ifacename)
 
-	delErr := cmdIPLinkDelete.Run()
-	addLinkErr := cmdIPDevLinkAdd.Run()
-	addErr := cmdIPAddrAdd.Run()
+	_, delErr := local.RunCmd("ip link delete dev " + ifacename)
+	_, addLinkErr := local.RunCmd(ipExec + " link add dev " + ifacename + " type wireguard")
+	_, addErr := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address + "/24")
 	if delErr != nil {
 		log.Println(delErr)
 	}
@@ -216,7 +198,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		log.Println(addErr)
 	}
 	var nodeport int
-	nodeport = int(node.Listenport)
+	nodeport = int(node.ListenPort)
 
 	conf := wgtypes.Config{}
 	if nodecfg.UDPHolePunch == "yes" && nodecfg.Name != "netmaker" {
@@ -254,7 +236,7 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	//=========DNS Setup==========\\
-	if nodecfg.DNS == "on" {
+	if nodecfg.DNSOn == "yes" {
 		_ = local.UpdateDNS(ifacename, network, nameserver)
 	}
 	//=========End DNS Setup=======\\
@@ -295,16 +277,16 @@ func InitWireguard(node *nodepb.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	if hasGateway {
 		for _, gateway := range gateways {
-			out, err := exec.Command(ipExec, "-4", "route", "add", gateway, "dev", ifacename).Output()
+			out, err := local.RunCmd(ipExec + " -4 route add " + gateway + " dev " + ifacename)
 			fmt.Println(string(out))
 			if err != nil {
 				fmt.Println("Error encountered adding gateway: " + err.Error())
 			}
 		}
 	}
-	if node.Address6 != "" && node.Isdualstack {
+	if node.Address6 != "" && node.IsDualStack == "yes" {
 		fmt.Println("Adding address: " + node.Address6)
-		out, err := exec.Command(ipExec, "address", "add", "dev", ifacename, node.Address6+"/64").Output()
+		out, err := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address6 + "/64")
 		if err != nil {
 			fmt.Println(out)
 			fmt.Println("Error encountered adding ipv6: " + err.Error())
@@ -345,7 +327,7 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 		return err
 	}
 
-	node := server.GetNode(network)
+	node := config.GetNode(network)
 
 	privatekey, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
@@ -354,7 +336,7 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 	privkeystring := privatekey.String()
 	publickey := privatekey.PublicKey()
 
-	node.Publickey = publickey.String()
+	node.PublicKey = publickey.String()
 
 	err = StorePrivKey(privkeystring, network)
 	if err != nil {
@@ -365,10 +347,15 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 		return err
 	}
 
-	postnode := server.GetNode(network)
+	postnode := config.GetNode(network)
 
-	req := &nodepb.UpdateNodeReq{
-		Node: &postnode,
+	nodeData, err := json.Marshal(&postnode)
+	if err != nil {
+		return err
+	}
+	req := &nodepb.Object{
+		Data: string(nodeData),
+		Type: nodepb.NODE_TYPE,
 	}
 
 	_, err = wcclient.UpdateNode(ctx, req, grpc.Header(&header))
@@ -392,9 +379,9 @@ func SetWGConfig(network string, peerupdate bool) error {
 	}
 	servercfg := cfg.Server
 	nodecfg := cfg.Node
-	node := server.GetNode(network)
+	node := config.GetNode(network)
 
-	peers, hasGateway, gateways, err := server.GetPeers(node.Macaddress, nodecfg.Network, servercfg.GRPCAddress, node.Isdualstack, node.Isingressgateway)
+	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, nodecfg.Network, servercfg.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 	if err != nil {
 		return err
 	}
@@ -403,7 +390,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 		return err
 	}
 	if peerupdate {
-		SetPeers(node.Interface, node.Keepalive, peers)
+		SetPeers(node.Interface, node.PersistentKeepalive, peers)
 	} else {
 		err = InitWireguard(&node, privkey, peers, hasGateway, gateways)
 	}
@@ -426,29 +413,30 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 		return
 	}
 	for _, peer := range peers {
-		
+
 		for _, currentPeer := range device.Peers {
-			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() && 
-			   currentPeer.PublicKey.String() == peer.PublicKey.String() {
-					err := exec.Command("wg","set",iface,"peer",currentPeer.PublicKey.String(),"delete").Run()
-					if err != nil {
-						log.Println("error setting peer",peer.Endpoint.String(),)
-					}		
+			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
+				currentPeer.PublicKey.String() == peer.PublicKey.String() {
+				_, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " delete")
+				if err != nil {
+					log.Println("error setting peer", peer.Endpoint.String())
+				}
 			}
-		}		
-		udpendpoint := peer.Endpoint.IP.String()+":"+peer.Endpoint.IP.String()
+		}
+		udpendpoint := peer.Endpoint.IP.String() + ":" + peer.Endpoint.IP.String()
 		var allowedips string
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
-			iparr = append(iparr,ipaddr.String())
+			iparr = append(iparr, ipaddr.String())
 		}
-		allowedips = strings.Join(iparr,",")
-		err := exec.Command("wg","set",iface,"peer",peer.PublicKey.String(),
-							"endpoint",udpendpoint,
-							"persistent-keepalive",string(keepalive),
-							"allowed-ips",allowedips)
+		allowedips = strings.Join(iparr, ",")
+
+		_, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
+			" endpoint " + udpendpoint +
+			" persistent-keepalive " + string(keepalive) +
+			" allowed-ips " + allowedips)
 		if err != nil {
-			log.Println("error setting peer",peer.Endpoint.String(),)
+			log.Println("error setting peer", peer.Endpoint.String())
 		}
 	}
 }

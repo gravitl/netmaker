@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -22,7 +21,7 @@ type GlobalConfig struct {
 
 type ClientConfig struct {
 	Server          ServerConfig `yaml:"server"`
-	Node            NodeConfig   `yaml:"node"`
+	Node            models.Node  `yaml:"node"`
 	Network         string       `yaml:"network"`
 	Daemon          string       `yaml:"daemon"`
 	OperatingSystem string       `yaml:"operatingsystem"`
@@ -34,45 +33,6 @@ type ServerConfig struct {
 	AccessKey     string `yaml:"accesskey"`
 	GRPCSSL       string `yaml:"grpcssl"`
 	GRPCWireGuard string `yaml:"grpcwg"`
-}
-
-type ListConfig struct {
-	Name           string `yaml:"name"`
-	Interface      string `yaml:"interface"`
-	PrivateIPv4    string `yaml:"wgaddress"`
-	PrivateIPv6    string `yaml:"wgaddress6"`
-	PublicEndpoint string `yaml:"endpoint"`
-}
-
-type NodeConfig struct {
-	Name             string `yaml:"name"`
-	Interface        string `yaml:"interface"`
-	Network          string `yaml:"network"`
-	Password         string `yaml:"password"`
-	MacAddress       string `yaml:"macaddress"`
-	LocalAddress     string `yaml:"localaddress"`
-	WGAddress        string `yaml:"wgaddress"`
-	WGAddress6       string `yaml:"wgaddress6"`
-	Roaming          string `yaml:"roaming"`
-	DNS              string `yaml:"dns"`
-	IsLocal          string `yaml:"islocal"`
-	IsDualStack      string `yaml:"isdualstack"`
-	IsIngressGateway string `yaml:"isingressgateway"`
-	LocalRange       string `yaml:"localrange"`
-	PostUp           string `yaml:"postup"`
-	PostDown         string `yaml:"postdown"`
-	Port             int32  `yaml:"port"`
-	KeepAlive        int32  `yaml:"keepalive"`
-	PublicKey        string `yaml:"publickey"`
-	ServerPubKey     string `yaml:"serverpubkey"`
-	PrivateKey       string `yaml:"privatekey"`
-	Endpoint         string `yaml:"endpoint"`
-	PostChanges      string `yaml:"postchanges"`
-	StaticIP         string `yaml:"staticip"`
-	StaticPubKey     string `yaml:"staticpubkey"`
-	IPForwarding     string `yaml:"ipforwarding"`
-	UDPHolePunch     string `yaml:"udpholepunch"`
-	SaveConfig     string `yaml:"saveconfig"`
 }
 
 //reading in the env file
@@ -232,6 +192,7 @@ func (config *ClientConfig) ReadConfig() {
 			fmt.Println(err)
 			log.Fatal(err)
 		} else {
+			config.Node.SetID()
 			//config = cfg
 		}
 	}
@@ -289,10 +250,10 @@ func ModGlobalConfig(cfg models.IntClient) error {
 	return err
 }
 
-func ModConfig(node *nodepb.Node) error {
-	network := node.Nodenetwork
+func ModConfig(node *models.Node) error {
+	network := node.Network
 	if network == "" {
-		return errors.New("No Network Provided")
+		return errors.New("no network provided")
 	}
 	var modconfig ClientConfig
 	var err error
@@ -303,90 +264,23 @@ func ModConfig(node *nodepb.Node) error {
 		}
 		modconfig = *useconfig
 	}
-	nodecfg := modconfig.Node
-	if node.Name != "" {
-		nodecfg.Name = node.Name
-	}
-	if node.Interface != "" {
-		nodecfg.Interface = node.Interface
-	}
-	if node.Nodenetwork != "" {
-		nodecfg.Network = node.Nodenetwork
-	}
-	if node.Macaddress != "" {
-		nodecfg.MacAddress = node.Macaddress
-	}
-	if node.Localaddress != "" {
-		nodecfg.LocalAddress = node.Localaddress
-	}
-	if node.Postup != "" {
-		nodecfg.PostUp = node.Postup
-	}
-	if node.Postdown != "" {
-		nodecfg.PostDown = node.Postdown
-	}
-	if node.Listenport != 0 {
-		nodecfg.Port = node.Listenport
-	}
-	if node.Keepalive != 0 {
-		nodecfg.KeepAlive = node.Keepalive
-	}
-	if node.Publickey != "" {
-		nodecfg.PublicKey = node.Publickey
-	}
-	if node.Endpoint != "" {
-		nodecfg.Endpoint = node.Endpoint
-	}
-	if node.Password != "" {
-		nodecfg.Password = node.Password
-	}
-	if node.Address != "" {
-		nodecfg.WGAddress = node.Address
-	}
-	if node.Address6 != "" {
-		nodecfg.WGAddress6 = node.Address6
-	}
-	if node.Postchanges != "" {
-		nodecfg.PostChanges = node.Postchanges
-	}
-	if node.Dnsoff == true {
-		nodecfg.DNS = "off"
-	}
-	if node.Isdualstack == true {
-		nodecfg.IsDualStack = "yes"
-	}
-	if node.Udpholepunch != "" {
-		nodecfg.UDPHolePunch = node.Udpholepunch
-	}
-        if node.Saveconfig != "" {
-                nodecfg.SaveConfig = node.Saveconfig
-        }
-	if node.Isingressgateway {
-		nodecfg.IsIngressGateway = "yes"
-	} else {
-		nodecfg.IsIngressGateway = "no"
-	}
-	if node.Localrange != "" && node.Islocal {
-		nodecfg.IsLocal = "yes"
-		nodecfg.LocalRange = node.Localrange
-	}
-	modconfig.Node = nodecfg
+	modconfig.Node.Fill(node)
 	err = Write(&modconfig, network)
 	return err
 }
 
-func GetCLIConfig(c *cli.Context) (ClientConfig, error) {
+func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	var cfg ClientConfig
 	if c.String("token") != "" {
 		tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
 		if err != nil {
 			log.Println("error decoding token")
-			return cfg, err
+			return cfg, "", err
 		}
 		var accesstoken models.AccessToken
 		if err := json.Unmarshal(tokenbytes, &accesstoken); err != nil {
 			log.Println("error converting token json to object", tokenbytes)
-			return cfg, err
+			return cfg, "", err
 		}
 
 		if accesstoken.ServerConfig.APIConnString != "" {
@@ -454,87 +348,25 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, error) {
 	cfg.Node.Password = c.String("password")
 	cfg.Node.MacAddress = c.String("macaddress")
 	cfg.Node.LocalAddress = c.String("localaddress")
-	cfg.Node.WGAddress = c.String("address")
-	cfg.Node.WGAddress6 = c.String("addressIPV6")
+	cfg.Node.Address = c.String("address")
+	cfg.Node.Address6 = c.String("addressIPV6")
 	cfg.Node.Roaming = c.String("roaming")
-	cfg.Node.DNS = c.String("dns")
+	cfg.Node.DNSOn = c.String("dns")
 	cfg.Node.IsLocal = c.String("islocal")
 	cfg.Node.IsDualStack = c.String("isdualstack")
 	cfg.Node.PostUp = c.String("postup")
 	cfg.Node.PostDown = c.String("postdown")
-	cfg.Node.Port = int32(c.Int("port"))
-	cfg.Node.KeepAlive = int32(c.Int("keepalive"))
+	cfg.Node.ListenPort = int32(c.Int("port"))
+	cfg.Node.PersistentKeepalive = int32(c.Int("keepalive"))
 	cfg.Node.PublicKey = c.String("publickey")
-	cfg.Node.PrivateKey = c.String("privatekey")
+	privateKey := c.String("privatekey")
 	cfg.Node.Endpoint = c.String("endpoint")
 	cfg.Node.IPForwarding = c.String("ipforwarding")
 	cfg.OperatingSystem = c.String("operatingsystem")
 	cfg.Daemon = c.String("daemon")
 	cfg.Node.UDPHolePunch = c.String("udpholepunch")
 
-	return cfg, nil
-}
-
-func GetCLIConfigRegister(c *cli.Context) (GlobalConfig, error) {
-	var cfg GlobalConfig
-	if c.String("token") != "" {
-		tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
-		if err != nil {
-			log.Println("error decoding token")
-			return cfg, err
-		}
-		var accesstoken models.AccessToken
-		if err := json.Unmarshal(tokenbytes, &accesstoken); err != nil {
-			log.Println("error converting token json to object", tokenbytes)
-			return cfg, err
-		}
-		cfg.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
-		cfg.Client.ServerPrivateAddress = accesstoken.WG.GRPCWGAddress
-		cfg.Client.ServerGRPCPort = accesstoken.WG.GRPCWGPort
-		if err != nil {
-			log.Println("error decoding token grpcserver")
-			return cfg, err
-		}
-		if err != nil {
-			log.Println("error decoding token apiserver")
-			return cfg, err
-		}
-		if accesstoken.ServerConfig.APIConnString != "" {
-			cfg.Client.ServerPublicEndpoint = accesstoken.ServerConfig.APIConnString
-		} else {
-			cfg.Client.ServerPublicEndpoint = accesstoken.ServerConfig.APIHost
-			if accesstoken.ServerConfig.APIPort != "" {
-				cfg.Client.ServerAPIPort = accesstoken.ServerConfig.APIPort
-			}
-		}
-		cfg.Client.ServerWGPort = accesstoken.WG.GRPCWGPort
-		cfg.Client.ServerKey = accesstoken.ClientConfig.Key
-		cfg.Client.ServerKey = accesstoken.WG.GRPCWGPubKey
-
-		if c.String("grpcserver") != "" {
-			cfg.Client.ServerPrivateAddress = c.String("grpcserver")
-		}
-		if c.String("apiserver") != "" {
-			cfg.Client.ServerPublicEndpoint = c.String("apiserver")
-		}
-		if c.String("pubkey") != "" {
-			cfg.Client.ServerKey = c.String("pubkey")
-		}
-		if c.String("network") != "all" {
-			cfg.Client.Network = c.String("network")
-		}
-	} else {
-		cfg.Client.ServerPrivateAddress = c.String("grpcserver")
-		cfg.Client.ServerPublicEndpoint = c.String("apiserver")
-		cfg.Client.ServerKey = c.String("key")
-		cfg.Client.Network = c.String("network")
-	}
-	cfg.Client.Address = c.String("address")
-	cfg.Client.Address6 = c.String("addressIPV6")
-	cfg.Client.PublicKey = c.String("pubkey")
-	cfg.Client.PrivateKey = c.String("privkey")
-
-	return cfg, nil
+	return cfg, privateKey, nil
 }
 
 func ReadConfig(network string) (*ClientConfig, error) {
@@ -595,4 +427,16 @@ func FileExists(f string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func GetNode(network string) models.Node {
+
+	modcfg, err := ReadConfig(network)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+	var node models.Node
+	node.Fill(&modcfg.Node)
+
+	return node
 }

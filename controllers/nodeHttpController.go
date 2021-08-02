@@ -809,7 +809,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	err := DeleteNode(params["macaddress"], params["network"])
+	err := DeleteNode(params["macaddress"]+"###"+params["network"], false)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -16,9 +15,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetPeersList(networkName string) ([]models.PeersResponse, error) {
+func GetPeersList(networkName string) ([]models.Node, error) {
 
-	var peers []models.PeersResponse
+	var peers []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		log.Println(err)
@@ -30,35 +29,31 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 	}
 	for _, value := range collection {
 		var node models.Node
-		var peer models.PeersResponse
+		var peer models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-		err = json.Unmarshal([]byte(value), &peer)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
 		if node.IsEgressGateway == "yes" {
-			peer.EgressGatewayRanges = strings.Join(node.EgressGatewayRanges, ",")
+			peer.EgressGatewayRanges = node.EgressGatewayRanges
 		}
 		if node.Network == networkName && node.IsPending != "yes" {
-			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[peer.PublicKey]) {
-				endpointstring := udppeers[peer.PublicKey]
+			peer.PublicKey = node.PublicKey
+			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[node.PublicKey]) {
+				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
-				log.Println("got values:",endpointstring,endpointarr)
+				log.Println("got values:", endpointstring, endpointarr)
 				if len(endpointarr) == 2 {
 					port, err := strconv.Atoi(endpointarr[1])
 					if err == nil {
-						log.Println("overriding:",endpointarr[0],int32(port))
+						log.Println("overriding:", endpointarr[0], int32(port))
 						peer.Endpoint = endpointarr[0]
 						peer.ListenPort = int32(port)
 					}
 				}
 			}
-			log.Println("setting peer:",peer.PublicKey,peer.Endpoint,peer.ListenPort)
+			log.Println("setting peer:", peer.PublicKey, peer.Endpoint, peer.ListenPort)
 			peers = append(peers, peer)
 		}
 	}
@@ -98,21 +93,38 @@ func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersRe
 	return peers, err
 }
 
-func DeleteNode(macaddress string, network string) error {
-
-	key, err := functions.GetRecordKey(macaddress, network)
-	if err != nil {
+/**
+ * If being deleted by server, create a record in the DELETED_NODES_TABLE for the client to find
+ * If being deleted by the client, delete completely
+ */
+func DeleteNode(key string, exterminate bool) error {
+	var err error
+	if !exterminate {
+		args := strings.Split(key, "###")
+		node, err := GetNode(args[0], args[1])
+		if err != nil {
+			return err
+		}
+		node.Action = models.NODE_DELETE
+		nodedata, err := json.Marshal(&node)
+		if err != nil {
+			return err
+		}
+		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
+		if err != nil {
+			return err
+		}
+	} else {
+		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
+			log.Println(err)
+		}
+	}
+	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		return err
 	}
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
-	}
-
-	err = SetNetworkNodesLastModified(network)
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
 	}
-
 	return err
 }
 
@@ -136,6 +148,10 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	}
 	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
 	if err != nil {
+		if data == "" {
+			data, err = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+			err = json.Unmarshal([]byte(data), &node)
+		}
 		return node, err
 	}
 	if err = json.Unmarshal([]byte(data), &node); err != nil {
@@ -220,84 +236,6 @@ func NotifyNetworkCheck(networkName string) bool {
 	} else {
 		return false
 	}
-}
-
-func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, error) {
-
-	var response models.CheckInResponse
-
-	parentnetwork, err := functions.GetParentNetwork(networkName)
-	if err != nil {
-		err = fmt.Errorf("%w; Couldnt retrieve Network "+networkName+": ", err)
-		return response, err
-	}
-
-	parentnode, err := GetNode(node.MacAddress, networkName)
-	if err != nil {
-		err = fmt.Errorf("%w; Couldnt Get Node "+node.MacAddress, err)
-		return response, err
-	}
-
-	if parentnode.Name == "netmaker" {
-		if NotifyNetworkCheck(networkName) {
-			err := SetNetworkNodesLastModified(networkName)
-			if err != nil {
-				log.Println(err, "could not notify network to update peers")
-			}
-		}
-		return models.CheckInResponse{
-			Success:true,
-			NeedPeerUpdate:true,
-			NeedKeyUpdate: false,
-			NeedConfigUpdate:false,
-			NeedDelete:false,
-			NodeMessage:"",
-			IsPending:false,
-		}, nil
-	}
-
-	if parentnode.IsPending == "yes" {
-		err = fmt.Errorf("%w; Node checking in is still pending: "+node.MacAddress, err)
-		response.IsPending = true
-		return response, err
-	}
-
-	networklm := parentnetwork.NetworkLastModified
-	peerslm := parentnetwork.NodesLastModified
-	gkeyupdate := parentnetwork.KeyUpdateTimeStamp
-	nkeyupdate := parentnode.KeyUpdateTimeStamp
-	peerlistlm := parentnode.LastPeerUpdate
-	parentnodelm := parentnode.LastModified
-	parentnodelastcheckin := parentnode.LastCheckIn
-
-	if parentnodelastcheckin < parentnodelm {
-		response.NeedConfigUpdate = true
-	}
-
-	if parentnodelm < networklm {
-		response.NeedConfigUpdate = true
-	}
-	if peerlistlm < peerslm {
-		response.NeedPeerUpdate = true
-	}
-	if nkeyupdate < gkeyupdate {
-		response.NeedKeyUpdate = true
-	}
-
-	if time.Now().Unix() > parentnode.ExpirationDateTime {
-		response.NeedDelete = true
-		err = DeleteNode(node.MacAddress, networkName)
-	} else {
-		err = TimestampNode(parentnode, true, false, false)
-
-		if err != nil {
-			err = fmt.Errorf("%w; Couldnt Timestamp Node: ", err)
-			return response, err
-		}
-	}
-	response.Success = true
-
-	return response, err
 }
 
 func SetNetworkNodesLastModified(networkName string) error {

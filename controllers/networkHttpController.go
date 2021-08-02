@@ -4,10 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
-	"log"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -232,17 +233,11 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func KeyUpdate(netname string) (models.Network, error) {
-	network, err := functions.GetParentNetwork(netname)
+	err := functions.NetworkNodesUpdateKey(netname)
 	if err != nil {
 		return models.Network{}, err
 	}
-	network.KeyUpdateTimeStamp = time.Now().Unix()
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return models.Network{}, err
-	}
-	database.Insert(netname, string(data), database.NETWORKS_TABLE_NAME)
-	return network, nil
+	return models.Network{}, nil
 }
 
 //Update a network

@@ -9,12 +9,17 @@ import (
 
 const NETWORKS_TABLE_NAME = "networks"
 const NODES_TABLE_NAME = "nodes"
+const DELETED_NODES_TABLE_NAME = "deletednodes"
 const USERS_TABLE_NAME = "users"
 const DNS_TABLE_NAME = "dns"
 const EXT_CLIENT_TABLE_NAME = "extclients"
 const INT_CLIENTS_TABLE_NAME = "intclients"
 const PEERS_TABLE_NAME = "peers"
 const DATABASE_FILENAME = "netmaker.db"
+
+// == ERROR CONSTS ==
+const NO_RECORD = "no result found"
+const NO_RECORDS = "could not find any records"
 
 var Database gorqlite.Connection
 
@@ -35,6 +40,7 @@ func InitializeDatabase() error {
 func createTables() {
 	createTable(NETWORKS_TABLE_NAME)
 	createTable(NODES_TABLE_NAME)
+	createTable(DELETED_NODES_TABLE_NAME)
 	createTable(USERS_TABLE_NAME)
 	createTable(DNS_TABLE_NAME)
 	createTable(EXT_CLIENT_TABLE_NAME)
@@ -104,6 +110,9 @@ func FetchRecord(tableName string, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if results[key] == "" {
+		return "", errors.New(NO_RECORD)
+	}
 	return results[key], nil
 }
 
@@ -118,6 +127,9 @@ func FetchRecords(tableName string) (map[string]string, error) {
 		var value string
 		row.Scan(&key, &value)
 		records[key] = value
+	}
+	if len(records) == 0 {
+		return nil, errors.New(NO_RECORDS)
 	}
 	// log.Println(records)
 	return records, nil

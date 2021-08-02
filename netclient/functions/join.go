@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -11,6 +12,8 @@ import (
 	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/server"
@@ -22,7 +25,7 @@ import (
 	//homedir "github.com/mitchellh/go-homedir"
 )
 
-func JoinNetwork(cfg config.ClientConfig) error {
+func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 
 	hasnet := local.HasNetwork(cfg.Network)
 	if hasnet {
@@ -100,12 +103,12 @@ func JoinNetwork(cfg config.ClientConfig) error {
 	}
 	if cfg.Node.Password == "" {
 		cfg.Node.Password = GenPass()
+		auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
 	}
 	if cfg.Node.Endpoint == "" {
 		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress
 		} else {
-
 			cfg.Node.Endpoint, err = getPublicIP()
 			if err != nil {
 				fmt.Println("Error setting cfg.Node.Endpoint.")
@@ -115,13 +118,13 @@ func JoinNetwork(cfg config.ClientConfig) error {
 	} else {
 		cfg.Node.Endpoint = cfg.Node.Endpoint
 	}
-	if cfg.Node.PrivateKey == "" {
-		privatekey, err := wgtypes.GeneratePrivateKey()
+	if privateKey == "" {
+		wgPrivatekey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
 			log.Fatal(err)
 		}
-		cfg.Node.PrivateKey = privatekey.String()
-		cfg.Node.PublicKey = privatekey.PublicKey().String()
+		privateKey = wgPrivatekey.String()
+		cfg.Node.PublicKey = wgPrivatekey.PublicKey().String()
 	}
 
 	if cfg.Node.MacAddress == "" {
@@ -134,8 +137,8 @@ func JoinNetwork(cfg config.ClientConfig) error {
 			cfg.Node.MacAddress = macs[0]
 		}
 	}
-	if cfg.Node.Port == 0 {
-		cfg.Node.Port, err = GetFreePort(51821)
+	if cfg.Node.ListenPort == 0 {
+		cfg.Node.ListenPort, err = GetFreePort(51821)
 		if err != nil {
 			fmt.Printf("Error retrieving port: %v", err)
 		}
@@ -155,59 +158,65 @@ func JoinNetwork(cfg config.ClientConfig) error {
 
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
-	postnode := &nodepb.Node{
-		Password:     cfg.Node.Password,
-		Macaddress:   cfg.Node.MacAddress,
-		Accesskey:    cfg.Server.AccessKey,
-		Nodenetwork:  cfg.Network,
-		Listenport:   cfg.Node.Port,
-		Postup:       cfg.Node.PostUp,
-		Postdown:     cfg.Node.PostDown,
-		Keepalive:    cfg.Node.KeepAlive,
-		Localaddress: cfg.Node.LocalAddress,
-		Interface:    cfg.Node.Interface,
-		Publickey:    cfg.Node.PublicKey,
-		Name:         cfg.Node.Name,
-		Endpoint:     cfg.Node.Endpoint,
-		Saveconfig:     cfg.Node.SaveConfig,
-		Udpholepunch:     cfg.Node.UDPHolePunch,
+	postnode := &models.Node{
+		Password:            cfg.Node.Password,
+		MacAddress:          cfg.Node.MacAddress,
+		AccessKey:           cfg.Server.AccessKey,
+		Network:             cfg.Network,
+		ListenPort:          cfg.Node.ListenPort,
+		PostUp:              cfg.Node.PostUp,
+		PostDown:            cfg.Node.PostDown,
+		PersistentKeepalive: cfg.Node.PersistentKeepalive,
+		LocalAddress:        cfg.Node.LocalAddress,
+		Interface:           cfg.Node.Interface,
+		PublicKey:           cfg.Node.PublicKey,
+		Name:                cfg.Node.Name,
+		Endpoint:            cfg.Node.Endpoint,
+		SaveConfig:          cfg.Node.SaveConfig,
+		UDPHolePunch:        cfg.Node.UDPHolePunch,
 	}
-	err = config.ModConfig(postnode)
+	if err = config.ModConfig(postnode); err != nil {
+		return err
+	}
+	data, err := json.Marshal(&postnode)
 	if err != nil {
 		return err
 	}
 
 	res, err := wcclient.CreateNode(
 		context.TODO(),
-		&nodepb.CreateNodeReq{
-			Node: postnode,
+		&nodepb.Object{
+			Data: string(data),
+			Type: nodepb.NODE_TYPE,
 		},
 	)
 	if err != nil {
 		return err
 	}
 	log.Println("node created on remote server...updating configs")
-	node := res.Node
-	if err != nil {
+
+	nodeData := res.Data
+	var node models.Node
+	if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
 		return err
 	}
 
-	if node.Dnsoff == true {
-		cfg.Node.DNS = "yes"
+	if node.DNSOn == "yes" {
+		cfg.Node.DNSOn = "yes"
 	}
-	if !(cfg.Node.IsLocal == "yes") && node.Islocal && node.Localrange != "" {
-		node.Localaddress, err = getLocalIP(node.Localrange)
+	if !(cfg.Node.IsLocal == "yes") && node.IsLocal == "yes" && node.LocalRange != "" {
+		node.LocalAddress, err = getLocalIP(node.LocalRange)
 		if err != nil {
 			return err
 		}
-		node.Endpoint = node.Localaddress
+		node.Endpoint = node.LocalAddress
 	}
-	err = config.ModConfig(node)
+	err = config.ModConfig(&node)
 	if err != nil {
 		return err
 	}
 
-	if node.Ispending {
+	if node.IsPending == "yes" {
 		fmt.Println("Node is marked as PENDING.")
 		fmt.Println("Awaiting approval from Admin before configuring WireGuard.")
 		if cfg.Daemon != "off" {
@@ -216,18 +225,18 @@ func JoinNetwork(cfg config.ClientConfig) error {
 		}
 	}
 	log.Println("retrieving remote peers")
-	peers, hasGateway, gateways, err := server.GetPeers(node.Macaddress, cfg.Network, cfg.Server.GRPCAddress, node.Isdualstack, node.Isingressgateway)
+	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 
 	if err != nil {
 		log.Println("failed to retrieve peers")
 		return err
 	}
-	err = wireguard.StorePrivKey(cfg.Node.PrivateKey, cfg.Network)
+	err = wireguard.StorePrivKey(privateKey, cfg.Network)
 	if err != nil {
 		return err
 	}
 	log.Println("starting wireguard")
-	err = wireguard.InitWireguard(node, cfg.Node.PrivateKey, peers, hasGateway, gateways)
+	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways)
 	if err != nil {
 		return err
 	}

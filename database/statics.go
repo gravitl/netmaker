@@ -2,6 +2,7 @@ package database
 
 import (
 	"encoding/json"
+	"strings"
 )
 
 func SetPeers(newPeers map[string]string, networkName string) bool {
@@ -26,7 +27,6 @@ func GetPeers(networkName string) (map[string]string, error) {
 	return currentDataMap, err
 }
 
-
 func PeersAreEqual(toCompare map[string]string, networkName string) bool {
 	currentDataMap, err := GetPeers(networkName)
 	if err != nil {
@@ -36,9 +36,13 @@ func PeersAreEqual(toCompare map[string]string, networkName string) bool {
 		return false
 	}
 	for k := range currentDataMap {
-		if currentDataMap[k] != toCompare[k] {
+		if toCompare[k] != currentDataMap[k] {
 			return false
 		}
 	}
 	return true
+}
+
+func IsEmptyRecord(err error) bool {
+	return strings.Contains(err.Error(), NO_RECORD) || strings.Contains(err.Error(), NO_RECORDS)
 }

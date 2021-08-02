@@ -21,7 +21,7 @@ import (
 )
 
 func CheckEndpoint(endpoint string) bool {
-    endpointarr := strings.Split(endpoint,":")
+	endpointarr := strings.Split(endpoint, ":")
 	return net.ParseIP(endpointarr[0]) == nil
 }
 
@@ -200,9 +200,6 @@ func GetRecordKey(id string, network string) (string, error) {
 	return id + "###" + network, nil
 }
 
-//TODO: This is  very inefficient (N-squared). Need to find a better way.
-//Takes a list of  nodes in a network and iterates through
-//for each node, it gets a unique address. That requires checking against all other nodes once more
 func UpdateNetworkNodeAddresses(networkName string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -225,6 +222,33 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 		}
 
 		node.Address = ipaddr
+		data, err := json.Marshal(&node)
+		if err != nil {
+			return err
+		}
+		database.Insert(node.MacAddress, string(data), database.NODES_TABLE_NAME)
+	}
+
+	return nil
+}
+
+func NetworkNodesUpdateKey(networkName string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range collections {
+
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			fmt.Println("error in node address assignment!")
+			return err
+		}
+
+		node.Action = models.NODE_UPDATE_KEY
 		data, err := json.Marshal(&node)
 		if err != nil {
 			return err

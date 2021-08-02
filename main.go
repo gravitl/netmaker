@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strconv"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/servercfg"
 	"google.golang.org/grpc"
 )
@@ -34,8 +34,7 @@ func initialize() { // Client Mode Prereq Check
 		log.Fatal(err)
 	}
 	log.Println("database successfully connected.")
-	cmd := exec.Command("id", "-u")
-	output, err := cmd.Output()
+	output, err := local.RunCmd("id -u")
 
 	if err != nil {
 		log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")

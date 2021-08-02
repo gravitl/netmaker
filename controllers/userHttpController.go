@@ -183,7 +183,7 @@ func HasAdmin() (bool, error) {
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
-		return false, err
+		return true, err
 	}
 
 	for _, value := range collection { // filter for isadmin true
