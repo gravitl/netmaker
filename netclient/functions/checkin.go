@@ -298,7 +298,7 @@ func CheckIn(cliconf config.ClientConfig) error {
                 }
 	}
 	}
-        err = Pull(network)
+        //err = Pull(network)
 	return err
 }
 
