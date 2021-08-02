@@ -45,7 +45,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 			peer.EgressGatewayRanges = strings.Join(node.EgressGatewayRanges, ",")
 		}
 		if node.Network == networkName && node.IsPending != "yes" {
-			if node.UDPHolePunch == "yes" && errN == nil && functions.IsBase64(peer.PublicKey) && functions.CheckEndpoint(peer.Endpoint) {
+			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[peer.PublicKey]) {
 				endpointstring := udppeers[peer.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
 				log.Println("got values:",endpointstring,endpointarr)
