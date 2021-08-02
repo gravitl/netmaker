@@ -20,6 +20,11 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+func CheckEndpoint(endpoint string) bool {
+    endpointarr := strings.Split(endpoint,":")
+	return net.ParseIP(endpointarr[0]) == nil
+}
+
 func PrintUserLog(username string, message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
