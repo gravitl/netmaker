@@ -58,6 +58,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 					}
 				}
 			}
+			log.Println("setting peer:",peer.PublicKey,peer.Endpoint,peer.ListenPort)
 			peers = append(peers, peer)
 		}
 	}
