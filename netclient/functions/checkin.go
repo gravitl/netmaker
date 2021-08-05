@@ -228,9 +228,9 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			return &resNode, err
 		}
 	}
-	setDNS(&node, servercfg, &cfg.Node)
+	setDNS(&resNode, servercfg, &cfg.Node)
 
-	return &node, err
+	return &resNode, err
 }
 
 func Push(network string) error {
