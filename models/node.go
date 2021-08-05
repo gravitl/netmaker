@@ -195,6 +195,8 @@ func (node *Node) SetDefaults() {
 	node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
+	node.SetRoamingDefault()
+	node.SetPullChangesDefault()
 	node.SetID()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
@@ -320,6 +322,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.IPForwarding == "" {
 		newNode.IPForwarding = currentNode.IPForwarding
+	}
+	if newNode.PullChanges == "" {
+		newNode.PullChanges = currentNode.PullChanges
 	}
 	if newNode.Roaming == "" {
 		newNode.Roaming = currentNode.Roaming
