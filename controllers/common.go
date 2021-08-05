@@ -20,7 +20,11 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 	var peers []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return peers, nil
+		}
 		log.Println(err)
+		return nil, err
 	}
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {

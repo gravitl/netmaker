@@ -19,7 +19,7 @@ func SetPeers(newPeers map[string]string, networkName string) bool {
 }
 func GetPeers(networkName string) (map[string]string, error) {
 	record, err := FetchRecord(PEERS_TABLE_NAME, networkName)
-	if err != nil {
+	if err != nil && !IsEmptyRecord(err) {
 		return nil, err
 	}
 	currentDataMap := make(map[string]string)

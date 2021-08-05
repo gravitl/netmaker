@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -130,21 +131,23 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 }
 
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	var node models.Node
-	if err := json.Unmarshal([]byte(req.GetData()), &node); err != nil {
-		return nil, err
-	}
+	macAndNetwork := strings.Split(req.Data, "###")
+	if len(macAndNetwork) == 2 {
+		peers, err := GetPeersList(macAndNetwork[1])
+		if err != nil {
+			return nil, err
+		}
 
-	peers, err := GetPeersList(node.Network)
-	if err != nil {
-		return nil, err
+		peersData, err := json.Marshal(&peers)
+		return &nodepb.Object{
+			Data: string(peersData),
+			Type: nodepb.NODE_TYPE,
+		}, err
 	}
-
-	peersData, err := json.Marshal(&peers)
 	return &nodepb.Object{
-		Data: string(peersData),
+		Data: "",
 		Type: nodepb.NODE_TYPE,
-	}, nil
+	}, errors.New("could not fetch peers, invalid node id")
 }
 
 /**
