@@ -103,8 +103,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 	if cfg.Node.Password == "" {
 		cfg.Node.Password = GenPass()
-		auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
 	}
+	auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
 	if cfg.Node.Endpoint == "" {
 		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress

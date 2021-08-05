@@ -31,7 +31,7 @@ func main() {
 			Name:    "password",
 			Aliases: []string{"p"},
 			EnvVars: []string{"NETCLIENT_PASSWORD"},
-			Value:   "badpassword",
+			Value:   "",
 			Usage:   "Password for authenticating with netmaker.",
 		},
 		&cli.StringFlag{
