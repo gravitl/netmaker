@@ -18,17 +18,15 @@ type NodeServiceServer struct {
 
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// convert string id (from proto) to mongoDB ObjectId
-	var node models.Node
-	if err := json.Unmarshal([]byte(req.Data), &node); err != nil {
-		return nil, err
-	}
-	macaddress := node.MacAddress
-	networkName := node.Network
+	macAndNetwork := strings.Split(req.Data, "###")
 
-	node, err := GetNode(macaddress, networkName)
+	if len(macAndNetwork) != 2 {
+		return nil, errors.New("could not read node, invalid node id given")
+	}
+	node, err := GetNode(macAndNetwork[0], macAndNetwork[1])
 
 	if err != nil {
-		log.Println("could not get node "+macaddress+" "+networkName, err)
+		log.Println("could not get node "+macAndNetwork[0]+" "+macAndNetwork[1], err)
 		return nil, err
 	}
 	// Cast to ReadNodeRes type
