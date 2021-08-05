@@ -29,11 +29,13 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 		log.Println("could not get node "+macAndNetwork[0]+" "+macAndNetwork[1], err)
 		return nil, err
 	}
+	node.SetLastCheckIn()
 	// Cast to ReadNodeRes type
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
 		return nil, err
 	}
+	node.Update(&node)
 	response := &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
