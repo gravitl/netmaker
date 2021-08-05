@@ -23,7 +23,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{macaddress}/checkin", authorize(true, "node", http.HandlerFunc(checkIn))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "user", http.HandlerFunc(createEgressGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "user", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
@@ -355,49 +354,6 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 	return nodes, err
 }
 
-//This function get's called when a node "checks in" at check in interval
-//Honestly I'm not sure what all it should be doing
-//TODO: Implement the necessary stuff, including the below
-//Check the last modified of the network
-//Check the last modified of the nodes
-//Write functions for responding to these two thingies
-func checkIn(w http.ResponseWriter, r *http.Request) {
-
-	//TODO: Current thoughts:
-	//Dont bother with a networklastmodified
-	//Instead, implement a "configupdate" boolean on nodes
-	//when there is a network update  that requrires  a config update,  then the node will pull its new config
-
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-	node, err := CheckIn(params["network"], params["macaddress"])
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
-}
-func CheckIn(network string, macaddress string) (models.Node, error) {
-	var node models.Node
-
-	node, err := GetNode(macaddress, network)
-	key, err := functions.GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-	time := time.Now().Unix()
-	node.LastCheckIn = time
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return node, err
-	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
-	return node, err
-}
-
 //Get an individual node. Nothin fancy here folks.
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -523,6 +479,7 @@ func UncordonNode(network, macaddress string) (models.Node, error) {
 	}
 	node.SetLastModified()
 	node.IsPending = "no"
+	node.PullChanges = "yes"
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
@@ -593,6 +550,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
 	node.SetLastModified()
+	node.PullChanges = "yes"
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
@@ -647,6 +605,7 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 	node.PostUp = ""
 	node.PostDown = ""
 	node.SetLastModified()
+	node.PullChanges = "yes"
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
@@ -711,6 +670,7 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 	node.SetLastModified()
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
+	node.PullChanges = "yes"
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
@@ -785,6 +745,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	newNode.PullChanges = "yes"
 	err = node.Update(&newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
