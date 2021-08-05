@@ -138,12 +138,6 @@ func CheckConfig(cliconf config.ClientConfig) error {
 	if newNode.IsPending == "yes" {
 		return errors.New("node is pending")
 	}
-	// check for interface change
-	if cfg.Node.Interface != newNode.Interface {
-		if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
-			log.Println("could not delete old interface", cfg.Node.Interface)
-		}
-	}
 
 	actionCompleted := checkNodeActions(newNode, network, servercfg)
 	if actionCompleted == models.NODE_DELETE {
@@ -207,6 +201,12 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		return nil, err
 	}
 	if resNode.PullChanges == "yes" || manual {
+		// check for interface change
+		if cfg.Node.Interface != resNode.Interface {
+			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
+				log.Println("could not delete old interface", cfg.Node.Interface)
+			}
+		}
 		if err = config.ModConfig(&resNode); err != nil {
 			return nil, err
 		}
