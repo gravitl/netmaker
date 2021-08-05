@@ -69,14 +69,6 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, string) {
 
-	networkexists, err := functions.NetworkExists(netname)
-	if err != nil {
-		return err, nil, ""
-	}
-	if netname != "" && !networkexists {
-		return errors.New("This network does not exist"), nil, ""
-	}
-
 	var hasBearer = true
 	var tokenSplit = strings.Split(token, " ")
 	var authToken = ""
@@ -94,14 +86,22 @@ func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, strin
 		userName, networks, isadmin, err := functions.VerifyUserToken(authToken)
 		username = userName
 		if err != nil {
-			return errors.New("Error verifying user token"), nil, username
+			return errors.New("error verifying user token"), nil, username
 		}
 		if !isadmin && reqAdmin {
-			return errors.New("You are unauthorized to access this endpoint"), nil, username
+			return errors.New("you are unauthorized to access this endpoint"), nil, username
 		}
 		userNetworks = networks
 		if isadmin {
 			userNetworks = []string{ALL_NETWORK_ACCESS}
+		} else {
+			networkexists, err := functions.NetworkExists(netname)
+			if err != nil {
+				return err, nil, ""
+			}
+			if netname != "" && !networkexists {
+				return errors.New("this network does not exist"), nil, ""
+			}
 		}
 	} else if isMasterAuthenticated {
 		userNetworks = []string{ALL_NETWORK_ACCESS}
