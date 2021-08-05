@@ -44,5 +44,8 @@ func PeersAreEqual(toCompare map[string]string, networkName string) bool {
 }
 
 func IsEmptyRecord(err error) bool {
+	if err == nil {
+		return false
+	}
 	return strings.Contains(err.Error(), NO_RECORD) || strings.Contains(err.Error(), NO_RECORDS)
 }
