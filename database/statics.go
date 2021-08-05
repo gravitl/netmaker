@@ -23,6 +23,9 @@ func GetPeers(networkName string) (map[string]string, error) {
 		return nil, err
 	}
 	currentDataMap := make(map[string]string)
+	if IsEmptyRecord(err) {
+		return currentDataMap, nil
+	}
 	err = json.Unmarshal([]byte(record), &currentDataMap)
 	return currentDataMap, err
 }
