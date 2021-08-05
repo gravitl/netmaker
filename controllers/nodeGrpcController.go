@@ -162,7 +162,7 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 	if len(macAndNetwork) != 2 {
 		return nil, errors.New("did not receive valid node id when fetching ext peers")
 	}
-	peers, err := GetExtPeersList(macAndNetwork[1], macAndNetwork[2])
+	peers, err := GetExtPeersList(macAndNetwork[0], macAndNetwork[1])
 	if err != nil {
 		return nil, err
 	}

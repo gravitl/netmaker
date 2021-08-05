@@ -115,7 +115,6 @@ func runGRPC(wg *sync.WaitGroup) {
 
 	s := grpc.NewServer(
 		authServerUnaryInterceptor(),
-		authServerStreamInterceptor(),
 	)
 	// Create NodeService type
 	srv := &controller.NodeServiceServer{}
@@ -154,6 +153,7 @@ func runGRPC(wg *sync.WaitGroup) {
 func authServerUnaryInterceptor() grpc.ServerOption {
 	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)
 }
-func authServerStreamInterceptor() grpc.ServerOption {
-	return grpc.StreamInterceptor(controller.AuthServerStreamInterceptor)
-}
+
+// func authServerStreamInterceptor() grpc.ServerOption {
+// 	return grpc.StreamInterceptor(controller.AuthServerStreamInterceptor)
+// }
