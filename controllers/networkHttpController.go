@@ -354,16 +354,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteNetwork(network string) error {
-
-	nodecount, err := functions.GetNetworkNodeNumber(network)
-	if err != nil {
-		return err
-	} else if nodecount > 0 {
-		return errors.New("node check failed. All nodes must be deleted before deleting network")
+	_, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if database.IsEmptyRecord(err) {
+		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}
-
-	database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
-	return err
+	return errors.New("node check failed. All nodes must be deleted before deleting network")
 }
 
 //Create a network
