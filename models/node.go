@@ -20,6 +20,7 @@ const TEN_YEARS_IN_SECONDS = 300000000
 const NODE_UPDATE_KEY = "updatekey"
 const NODE_DELETE = "delete"
 const NODE_IS_PENDING = "pending"
+const NODE_NOOP = "noop"
 
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
@@ -66,6 +67,12 @@ type Node struct {
 	LocalRange          string   `json:"localrange" bson:"localrange" yaml:"localrange"`
 	Roaming             string   `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+}
+
+func (node *Node) SetDefaultAction() {
+	if node.Action == "" {
+		node.Action = NODE_NOOP
+	}
 }
 
 func (node *Node) SetRoamingDefault() {
@@ -197,6 +204,7 @@ func (node *Node) SetDefaults() {
 	node.SetLastPeerUpdate()
 	node.SetRoamingDefault()
 	node.SetPullChangesDefault()
+	node.SetDefaultAction()
 	node.SetID()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }

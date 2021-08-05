@@ -98,7 +98,7 @@ func checkNodeActions(node *models.Node, network string, servercfg config.Server
 			log.Println("Unable to process reset keys request:", err)
 			return ""
 		}
-		node.Action = ""
+		node.Action = models.NODE_NOOP
 		if err = config.ModConfig(node); err != nil {
 			return ""
 		}
