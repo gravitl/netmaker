@@ -146,10 +146,9 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	networks := RemoveComms(allnetworks)
 	functions.PrintUserLog(r.Header.Get("user"), "fetched networks.", 2)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(networks)
+	json.NewEncoder(w).Encode(allnetworks)
 }
 
 func RemoveComms(networks []models.Network) []models.Network {
