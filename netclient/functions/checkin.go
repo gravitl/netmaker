@@ -261,6 +261,7 @@ func Push(network string) error {
 		log.Println("Failed to authenticate:", err)
 		return err
 	}
+	postnode.SetLastCheckIn()
 	nodeData, err := json.Marshal(&postnode)
 	if err != nil {
 		return err
