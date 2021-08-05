@@ -136,7 +136,7 @@ func (network *Network) IsNetworkDisplayNameUnique() (bool, error) {
 
 	records, err := GetNetworks()
 
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return false, err
 	}
 
