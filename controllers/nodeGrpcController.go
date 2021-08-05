@@ -158,11 +158,11 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 	// Initiate a NodeItem type to write decoded data to
 	//data := &models.PeersResponse{}
 	// collection.Find returns a cursor for our (empty) query
-	var reqNode models.Node
-	if err := json.Unmarshal([]byte(req.Data), &reqNode); err != nil {
-		return nil, err
+	macAndNetwork := strings.Split(req.Data, "###")
+	if len(macAndNetwork) != 2 {
+		return nil, errors.New("did not receive valid node id when fetching ext peers")
 	}
-	peers, err := GetExtPeersList(reqNode.Network, reqNode.MacAddress)
+	peers, err := GetExtPeersList(macAndNetwork[1], macAndNetwork[2])
 	if err != nil {
 		return nil, err
 	}
