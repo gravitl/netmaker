@@ -294,6 +294,9 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 	var nodes []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return []models.Node{}, nil
+		}
 		return nodes, err
 	}
 	for _, value := range collection {

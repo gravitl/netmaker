@@ -418,6 +418,9 @@ func GetAllNodes() ([]Node, error) {
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return []Node{}, nil
+		}
 		return []Node{}, err
 	}
 
