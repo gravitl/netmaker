@@ -99,6 +99,10 @@ func checkNodeActions(node *models.Node, network string, servercfg config.Server
 			return ""
 		}
 		node.Action = ""
+		if err = config.ModConfig(node); err != nil {
+			return ""
+		}
+		Push(network)
 		return ""
 	}
 	if node.Action == models.NODE_DELETE {
