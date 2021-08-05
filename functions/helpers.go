@@ -300,7 +300,7 @@ func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
 	dbs, err := models.GetNetworks()
 	if err != nil {
-		return false, err
+		return database.IsEmptyRecord(err), err
 	}
 
 	for i := 0; i < len(dbs); i++ {
@@ -315,19 +315,9 @@ func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
 func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	_, err := database.FetchRecord(database.NODES_TABLE_NAME, macaddress+"###"+networkName)
 	if err != nil {
-		return false, err
-	}
-	for _, value := range collection {
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			return false, err
-		} else {
-			if node.MacAddress == macaddress && node.Network == networkName {
-				return false, nil
-			}
-		}
+		return database.IsEmptyRecord(err), err
 	}
 
 	return true, nil

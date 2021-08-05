@@ -68,6 +68,18 @@ type Node struct {
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 }
 
+func (node *Node) SetRoamingDefault() {
+	if node.Roaming == "" {
+		node.Roaming = "no"
+	}
+}
+
+func (node *Node) SetPullChangesDefault() {
+	if node.PullChanges == "" {
+		node.PullChanges = "no"
+	}
+}
+
 func (node *Node) SetIPForwardingDefault() {
 	if node.IPForwarding == "" {
 		node.IPForwarding = "no"
@@ -380,11 +392,8 @@ func (node *Node) Validate(isUpdate bool) error {
 }
 
 func (node *Node) IsIDUnique() (bool, error) {
-	record, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
-	if err != nil {
-		return false, err
-	}
-	return record == "", err
+	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
+	return database.IsEmptyRecord(err), err
 }
 
 func (node *Node) NameInNodeCharSet() bool {
