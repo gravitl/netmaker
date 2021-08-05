@@ -46,6 +46,9 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 			peer.PublicKey = node.PublicKey
 			peer.Endpoint = node.Endpoint
 			peer.ListenPort = node.ListenPort
+			peer.AllowedIPs = node.AllowedIPs
+			peer.Address = node.Address
+			peer.Address6 = node.Address6
 			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[node.PublicKey]) {
 				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
