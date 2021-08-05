@@ -313,7 +313,7 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 		return nil, err
 	}
 	var extPeers []models.Node
-	if err = json.Unmarshal([]byte(responseObject.Data), extPeers); err != nil {
+	if err = json.Unmarshal([]byte(responseObject.Data), &extPeers); err != nil {
 		return nil, err
 	}
 	for _, extPeer := range extPeers {
