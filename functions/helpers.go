@@ -323,6 +323,27 @@ func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 	return true, nil
 }
 
+func GetNetworkNodeCount(networkName string) (int, error) {
+
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	count := 0
+	if err != nil && !database.IsEmptyRecord(err) {
+		return count, err
+	}
+	for _, value := range collection {
+		var node models.Node
+		if err = json.Unmarshal([]byte(value), &node); err != nil {
+			return count, err
+		} else {
+			if node.Network == networkName {
+				count++
+			}
+		}
+	}
+
+	return count, nil
+}
+
 //Checks to see if access key is valid
 //Does so by checking against all keys and seeing if any have the same value
 //may want to hash values before comparing...consider this

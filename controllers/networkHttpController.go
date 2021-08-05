@@ -354,8 +354,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteNetwork(network string) error {
-	_, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if database.IsEmptyRecord(err) {
+	nodeCount, err := functions.GetNetworkNodeCount(network)
+	if nodeCount == 0 || database.IsEmptyRecord(err) {
 		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}
 	return errors.New("node check failed. All nodes must be deleted before deleting network")
