@@ -264,7 +264,7 @@ func ModConfig(node *models.Node) error {
 		}
 		modconfig = *useconfig
 	}
-	modconfig.Node.Fill(node)
+	modconfig.Node = (*node)
 	err = Write(&modconfig, network)
 	return err
 }
