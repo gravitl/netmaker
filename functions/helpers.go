@@ -215,18 +215,21 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			fmt.Println("error in node address assignment!")
 			return err
 		}
-		ipaddr, iperr := UniqueAddress(networkName)
-		if iperr != nil {
-			fmt.Println("error in node  address assignment!")
-			return iperr
-		}
+		if node.Network == networkName {
+			ipaddr, iperr := UniqueAddress(networkName)
+			if iperr != nil {
+				fmt.Println("error in node  address assignment!")
+				return iperr
+			}
 
-		node.Address = ipaddr
-		data, err := json.Marshal(&node)
-		if err != nil {
-			return err
+			node.Address = ipaddr
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
-		database.Insert(node.MacAddress, string(data), database.NODES_TABLE_NAME)
 	}
 
 	return nil
@@ -236,24 +239,28 @@ func NetworkNodesUpdateKey(networkName string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
 		return err
 	}
 
 	for _, value := range collections {
-
 		var node models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			fmt.Println("error in node address assignment!")
 			return err
 		}
-
-		node.Action = models.NODE_UPDATE_KEY
-		data, err := json.Marshal(&node)
-		if err != nil {
-			return err
+		if node.Network == networkName {
+			node.Action = models.NODE_UPDATE_KEY
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
-		database.Insert(node.MacAddress, string(data), database.NODES_TABLE_NAME)
 	}
 
 	return nil
@@ -276,19 +283,22 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 			fmt.Println("error in node address assignment!")
 			return err
 		}
-		ipaddr, iperr := UniqueAddress(networkName)
-		if iperr != nil {
-			fmt.Println("error in node  address assignment!")
-			return iperr
-		}
+		if node.Network == networkName {
+			ipaddr, iperr := UniqueAddress(networkName)
+			if iperr != nil {
+				fmt.Println("error in node  address assignment!")
+				return iperr
+			}
 
-		node.Address = ipaddr
-		newNodeData, err := json.Marshal(&node)
-		if err != nil {
-			fmt.Println("error in node  address assignment!")
-			return err
+			node.Address = ipaddr
+			newNodeData, err := json.Marshal(&node)
+			if err != nil {
+				fmt.Println("error in node  address assignment!")
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
 		}
-		database.Insert(node.MacAddress, string(newNodeData), database.NODES_TABLE_NAME)
 	}
 
 	return nil

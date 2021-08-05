@@ -365,7 +365,6 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 	err = SetWGConfig(network, false)
 	if err != nil {
 		return err
-		log.Fatalf("Error: %v", err)
 	}
 
 	return err
