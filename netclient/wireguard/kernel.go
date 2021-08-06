@@ -243,6 +243,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 }
 
 func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
+
 	client, err := wgctrl.New()
 	if err != nil {
 		log.Println("failed to start wgctrl")
@@ -253,9 +254,15 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 		log.Println("failed to parse interface")
 		return
 	}
+	devicePeers := device.Peers
+	if len(devicePeers) > 1 && len(peers) == 0 {
+		log.Println("no peers pulled")
+		return
+	}
+
 	for _, peer := range peers {
 
-		for _, currentPeer := range device.Peers {
+		for _, currentPeer := range devicePeers {
 			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
 				currentPeer.PublicKey.String() != peer.PublicKey.String() {
 				_, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " remove")
@@ -287,6 +294,23 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 		}
 		if err != nil {
 			log.Println("error setting peer", peer.PublicKey.String(), err)
+		}
+	}
+
+	for _, currentPeer := range devicePeers {
+		shouldDelete := true
+		for _, peer := range peers {
+			if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
+				shouldDelete = false
+			}
+		}
+		if shouldDelete {
+			_, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " remove")
+			if err != nil {
+				log.Println("error removing peer", currentPeer.PublicKey.String())
+			} else {
+				log.Println("removed peer " + currentPeer.PublicKey.String())
+			}
 		}
 	}
 }
