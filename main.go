@@ -75,7 +75,7 @@ func startControllers() {
 	if servercfg.IsDNSMode() {
 		err := controller.SetDNS()
 		if err != nil {
-			log.Fatal(err)
+			log.Println("error occurred initializing DNS:", err)
 		}
 	}
 	//Run Rest Server

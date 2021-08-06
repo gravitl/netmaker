@@ -54,17 +54,15 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[node.PublicKey]) {
 				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
-				log.Println("got values:", endpointstring, endpointarr)
 				if len(endpointarr) == 2 {
 					port, err := strconv.Atoi(endpointarr[1])
 					if err == nil {
-						log.Println("overriding:", endpointarr[0], int32(port))
 						peer.Endpoint = endpointarr[0]
 						peer.ListenPort = int32(port)
 					}
 				}
 			}
-			log.Println("setting peer:", peer.PublicKey, peer.Endpoint, peer.ListenPort)
+			functions.PrintUserLog("netmaker", "sending peer "+peer.MacAddress+" "+peer.Endpoint, 2)
 			peers = append(peers, peer)
 		}
 	}
