@@ -77,7 +77,7 @@ func (node *Node) SetDefaultAction() {
 
 func (node *Node) SetRoamingDefault() {
 	if node.Roaming == "" {
-		node.Roaming = "no"
+		node.Roaming = "yes"
 	}
 }
 
@@ -89,7 +89,7 @@ func (node *Node) SetPullChangesDefault() {
 
 func (node *Node) SetIPForwardingDefault() {
 	if node.IPForwarding == "" {
-		node.IPForwarding = "no"
+		node.IPForwarding = "yes"
 	}
 }
 
