@@ -239,11 +239,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	return node, err
 }
 
-func NotifyNetworkCheck(networkName string) bool {
+func SetNetworkServerPeers(networkName string) {
 	if currentPeersList, err := serverctl.GetPeers(networkName); err == nil {
-		return database.SetPeers(currentPeersList, networkName)
+		database.SetPeers(currentPeersList, networkName)
 	} else {
-		return false
+		log.Println("could not set server peers on network", networkName)
 	}
 }
 
