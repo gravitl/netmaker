@@ -151,8 +151,8 @@ func CheckConfig(cliconf config.ClientConfig) error {
  * Perform action if necessary
  */
 func Pull(network string, manual bool) (*models.Node, error) {
-	node := config.GetNode(network)
 	cfg, err := config.ReadConfig(network)
+	node := cfg.Node
 	if err != nil {
 		return nil, err
 	}
@@ -234,8 +234,8 @@ func Pull(network string, manual bool) (*models.Node, error) {
 }
 
 func Push(network string) error {
-	postnode := config.GetNode(network)
 	cfg, err := config.ReadConfig(network)
+	postnode := cfg.Node
 	if err != nil {
 		return err
 	}

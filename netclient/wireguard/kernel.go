@@ -295,7 +295,7 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 		return err
 	}
 
-	node := config.GetNode(network)
+	node := cfg.Node
 
 	privatekey, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
@@ -334,9 +334,8 @@ func SetWGConfig(network string, peerupdate bool) error {
 	}
 	servercfg := cfg.Server
 	nodecfg := cfg.Node
-	node := config.GetNode(network)
 
-	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, nodecfg.Network, servercfg.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
+	peers, hasGateway, gateways, err := server.GetPeers(nodecfg.MacAddress, nodecfg.Network, servercfg.GRPCAddress, nodecfg.IsDualStack == "yes", nodecfg.IsIngressGateway == "yes")
 	if err != nil {
 		return err
 	}
@@ -345,9 +344,9 @@ func SetWGConfig(network string, peerupdate bool) error {
 		return err
 	}
 	if peerupdate {
-		SetPeers(node.Interface, node.PersistentKeepalive, peers)
+		SetPeers(nodecfg.Interface, nodecfg.PersistentKeepalive, peers)
 	} else {
-		err = InitWireguard(&node, privkey, peers, hasGateway, gateways)
+		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways)
 	}
 	if err != nil {
 		return err
