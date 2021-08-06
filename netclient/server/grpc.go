@@ -213,15 +213,16 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			hasGateway = true
 			ranges := node.EgressGatewayRanges
 			for _, iprange := range ranges {
-				gateways = append(gateways, iprange)
 				_, ipnet, err := net.ParseCIDR(iprange)
+				nodeEndpointArr := strings.Split(node.Endpoint, ":")
+				if len(nodeEndpointArr) != 2 || ipnet.Contains(net.IP(nodeEndpointArr[0])) {
+					continue
+				}
+				gateways = append(gateways, iprange)
 				if err != nil {
 					log.Println("ERROR ENCOUNTERED SETTING GATEWAY")
 				} else {
-					nodeEndpointArr := strings.Split(node.Endpoint, ":")
-					if len(nodeEndpointArr) == 2 && !ipnet.Contains(net.IP(nodeEndpointArr[0])) {
-						allowedips = append(allowedips, *ipnet)
-					}
+					allowedips = append(allowedips, *ipnet)
 				}
 			}
 		}
