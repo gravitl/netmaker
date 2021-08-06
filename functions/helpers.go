@@ -22,7 +22,7 @@ import (
 
 func CheckEndpoint(endpoint string) bool {
 	endpointarr := strings.Split(endpoint, ":")
-	return net.ParseIP(endpointarr[0]) == nil
+	return len(endpointarr) == 2
 }
 
 func PrintUserLog(username string, message string, loglevel int) {
