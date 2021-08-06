@@ -707,6 +707,7 @@ func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
 	}
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
+	node.PullChanges = "yes"
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
