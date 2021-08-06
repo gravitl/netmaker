@@ -555,13 +555,13 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return node, err
 	}
-	err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME)
-	// prepare update model.
-	if err != nil {
+	if err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
-	err = SetNetworkNodesLastModified(gateway.NetID)
-	return node, err
+	if err = functions.NetworkNodesUpdateAction(node.Network, models.NODE_EGRESS_CHANGE); err != nil {
+		return models.Node{}, err
+	}
+	return node, nil
 }
 
 func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
@@ -614,12 +614,10 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
-	if err != nil {
+	if err = database.Insert(key, string(data), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
-	err = SetNetworkNodesLastModified(network)
-	if err != nil {
+	if err = functions.NetworkNodesUpdateAction(network, models.NODE_EGRESS_CHANGE); err != nil {
 		return models.Node{}, err
 	}
 	return node, nil

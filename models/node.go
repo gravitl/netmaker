@@ -20,6 +20,7 @@ const TEN_YEARS_IN_SECONDS = 300000000
 const NODE_UPDATE_KEY = "updatekey"
 const NODE_DELETE = "delete"
 const NODE_IS_PENDING = "pending"
+const NODE_EGRESS_CHANGE = "egresschange"
 const NODE_NOOP = "noop"
 
 var seededRand *rand.Rand = rand.New(

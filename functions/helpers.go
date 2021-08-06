@@ -235,7 +235,7 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 	return nil
 }
 
-func NetworkNodesUpdateKey(networkName string) error {
+func NetworkNodesUpdateAction(networkName string, action string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
@@ -253,7 +253,7 @@ func NetworkNodesUpdateKey(networkName string) error {
 			return err
 		}
 		if node.Network == networkName {
-			node.Action = models.NODE_UPDATE_KEY
+			node.Action = action
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err

@@ -232,7 +232,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func KeyUpdate(netname string) (models.Network, error) {
-	err := functions.NetworkNodesUpdateKey(netname)
+	err := functions.NetworkNodesUpdateAction(netname, models.NODE_UPDATE_KEY)
 	if err != nil {
 		return models.Network{}, err
 	}
