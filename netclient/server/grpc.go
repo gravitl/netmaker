@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -217,7 +218,8 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 				if err != nil {
 					log.Println("ERROR ENCOUNTERED SETTING GATEWAY")
 				} else {
-					if !ipnet.Contains(net.IP(node.Endpoint)) {
+					nodeEndpointArr := strings.Split(node.Endpoint, ":")
+					if len(nodeEndpointArr) == 2 && !ipnet.Contains(net.IP(nodeEndpointArr[0])) {
 						allowedips = append(allowedips, *ipnet)
 					}
 				}
