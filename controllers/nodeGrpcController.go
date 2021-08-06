@@ -24,10 +24,6 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 		return nil, errors.New("could not read node, invalid node id given")
 	}
 	node, err := GetNode(macAndNetwork[0], macAndNetwork[1])
-	// TODO: Make constant and new variable for isServer
-	if node.Name == "netmaker" {
-		SetNetworkServerPeers(macAndNetwork[1])
-	}
 	if err != nil {
 		log.Println("could not get node "+macAndNetwork[0]+" "+macAndNetwork[1], err)
 		return nil, err
@@ -136,6 +132,14 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	macAndNetwork := strings.Split(req.Data, "###")
 	if len(macAndNetwork) == 2 {
+		// TODO: Make constant and new variable for isServer
+		node, err := GetNode(macAndNetwork[0], macAndNetwork[1])
+		if err != nil {
+			return nil, err
+		}
+		if node.Name == "netmaker" {
+			SetNetworkServerPeers(macAndNetwork[1])
+		}
 		peers, err := GetPeersList(macAndNetwork[1])
 		if err != nil {
 			return nil, err
