@@ -39,8 +39,9 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 			log.Println(err)
 			continue
 		}
-		if node.IsEgressGateway == "yes" {
+		if node.IsEgressGateway == "yes" { // handle egress stuff
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
+			peer.IsEgressGateway = node.IsEgressGateway
 		}
 		if node.Network == networkName && node.IsPending != "yes" {
 			peer.PublicKey = node.PublicKey
