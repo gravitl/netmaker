@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -261,6 +262,19 @@ func Push(network string) error {
 		log.Println("Failed to authenticate:", err)
 		return err
 	}
+
+	privateKey, err := wireguard.RetrievePrivKey(network)
+	if err != nil {
+		return err
+	}
+	privateKeyWG, err := wgtypes.ParseKey(privateKey)
+	if err != nil {
+		return err
+	}
+	if postnode.PublicKey != privateKeyWG.PublicKey().String() {
+		postnode.PublicKey = privateKeyWG.PublicKey().String()
+	}
+
 	postnode.SetLastCheckIn()
 	nodeData, err := json.Marshal(&postnode)
 	if err != nil {
