@@ -342,6 +342,9 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 	if err != nil {
 		return err
 	}
+	if node.Action == models.NODE_UPDATE_KEY {
+		node.Action = models.NODE_NOOP
+	}
 	err = config.ModConfig(&node)
 	if err != nil {
 		return err

@@ -98,11 +98,6 @@ func checkNodeActions(node *models.Node, network string, servercfg config.Server
 			log.Println("Unable to process reset keys request:", err)
 			return ""
 		}
-		node.Action = models.NODE_NOOP
-		if err = config.ModConfig(node); err != nil {
-			return ""
-		}
-		Push(network)
 		return ""
 	}
 	if node.Action == models.NODE_DELETE {
@@ -127,12 +122,10 @@ func checkNodeActions(node *models.Node, network string, servercfg config.Server
 func CheckConfig(cliconf config.ClientConfig) error {
 
 	network := cliconf.Network
-	// node := server.GetNode(network)
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err
 	}
-	// nodecfg := cfg.Node
 	servercfg := cfg.Server
 
 	newNode, err := Pull(network, false)
@@ -230,6 +223,10 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		_, err = wcclient.UpdateNode(ctx, req, grpc.Header(&header))
 		if err != nil {
 			return &resNode, err
+		}
+	} else {
+		if err = wireguard.SetWGConfig(network, true); err != nil {
+			return nil, err
 		}
 	}
 	setDNS(&resNode, servercfg, &cfg.Node)
