@@ -203,13 +203,13 @@ func Pull(network string, manual bool) (*models.Node, error) {
 				log.Println("could not delete old interface", cfg.Node.Interface)
 			}
 		}
+		resNode.PullChanges = "no"
 		if err = config.ModConfig(&resNode); err != nil {
 			return nil, err
 		}
 		if err = wireguard.SetWGConfig(network, false); err != nil {
 			return nil, err
 		}
-		resNode.PullChanges = "no"
 		nodeData, err := json.Marshal(&resNode)
 		if err != nil {
 			return &resNode, err
