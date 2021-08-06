@@ -55,7 +55,6 @@ func initialize() { // Client Mode Prereq Check
 			log.Fatal(err)
 		}
 	}
-
 }
 
 func startControllers() {

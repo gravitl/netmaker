@@ -3,8 +3,9 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -148,14 +149,11 @@ func SetDNS() error {
 	for _, net := range networks {
 		corefilestring = corefilestring + net.NetID + " "
 		dns, err := GetDNS(net.NetID)
-		if err != nil {
+		if err != nil && !database.IsEmptyRecord(err) {
 			return err
 		}
 		for _, entry := range dns {
 			hostfile.AddHost(entry.Address, entry.Name+"."+entry.Network)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	if corefilestring == "" {
@@ -211,16 +209,16 @@ func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
 	dns, err := GetNodeDNS(network)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return dns, err
 	}
 	customdns, err := GetCustomDNS(network)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return dns, err
 	}
 
 	dns = append(dns, customdns...)
-	return dns, err
+	return dns, nil
 }
 
 func createDNS(w http.ResponseWriter, r *http.Request) {
@@ -244,11 +242,11 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-        err = SetDNS()
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
+	err = SetDNS()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(entry)
 }
@@ -299,11 +297,11 @@ func updateDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-        err = SetDNS()
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
+	err = SetDNS()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	json.NewEncoder(w).Encode(entry)
 }
 
@@ -322,11 +320,11 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	entrytext := params["domain"] + "." + params["network"]
 	functions.PrintUserLog("netmaker", "deleted dns entry: "+entrytext, 1)
-        err = SetDNS()
-        if err != nil {
-                returnErrorResponse(w, r, formatError(err, "internal"))
-                return
-        }
+	err = SetDNS()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
 }
 
