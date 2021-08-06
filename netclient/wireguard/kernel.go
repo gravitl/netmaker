@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/gravitl/netmaker/models"
@@ -257,9 +258,9 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 		for _, currentPeer := range device.Peers {
 			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
 				currentPeer.PublicKey.String() != peer.PublicKey.String() {
-				_, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " delete")
+				_, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " remove")
 				if err != nil {
-					log.Println("error setting peer", peer.Endpoint.String())
+					log.Println("error removing peer", peer.Endpoint.String())
 				}
 			}
 		}
@@ -270,11 +271,20 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 			iparr = append(iparr, ipaddr.String())
 		}
 		allowedips = strings.Join(iparr, ",")
-
-		_, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
-			" endpoint " + udpendpoint +
-			" persistent-keepalive " + string(keepalive) +
-			" allowed-ips " + allowedips)
+		keepAliveString := strconv.Itoa(int(keepalive))
+		if keepAliveString == "0" {
+			keepAliveString = "5"
+		}
+		if peer.Endpoint != nil {
+			_, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
+				" endpoint " + udpendpoint +
+				" persistent-keepalive " + keepAliveString +
+				" allowed-ips " + allowedips)
+		} else {
+			_, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
+				" persistent-keepalive " + keepAliveString +
+				" allowed-ips " + allowedips)
+		}
 		if err != nil {
 			log.Println("error setting peer", peer.Endpoint.String())
 		}
