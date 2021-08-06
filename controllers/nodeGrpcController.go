@@ -106,8 +106,10 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	nodeData, err := json.Marshal(&node)
-
+	nodeData, err := json.Marshal(&newnode)
+	if err != nil {
+		return nil, err
+	}
 	return &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
