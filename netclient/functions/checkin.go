@@ -99,7 +99,6 @@ func checkNodeActions(node *models.Node, network string, servercfg config.Server
 			log.Println("Unable to process reset keys request:", err)
 			return ""
 		}
-		return ""
 	}
 	if node.Action == models.NODE_DELETE || localNode.Action == models.NODE_DELETE {
 		err := LeaveNetwork(network)

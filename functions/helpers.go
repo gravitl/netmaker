@@ -266,6 +266,37 @@ func NetworkNodesUpdateAction(networkName string, action string) error {
 	return nil
 }
 
+func NetworkNodesUpdatePullChanges(networkName string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, value := range collections {
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			fmt.Println("error in node address assignment!")
+			return err
+		}
+		if node.Network == networkName {
+			node.PullChanges = "yes"
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+
+	return nil
+}
+
 func UpdateNetworkLocalAddresses(networkName string) error {
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
