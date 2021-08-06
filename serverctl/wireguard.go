@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -200,10 +201,9 @@ func GetPeers(networkName string) (map[string]string, error) {
 		return nil, err
 	}
 	for _, peer := range device.Peers {
-		if functions.IsBase64(peer.PublicKey.String()) && functions.CheckEndpoint(peer.Endpoint.String()) {
+		if functions.IsBase64(peer.PublicKey.String()) && peer.Endpoint != nil && functions.CheckEndpoint(peer.Endpoint.String()) {
 			peers[peer.PublicKey.String()] = peer.Endpoint.String()
 		}
 	}
 	return peers, nil
 }
-
