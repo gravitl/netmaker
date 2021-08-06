@@ -425,7 +425,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 				}
 			}
 		}
-		udpendpoint := peer.Endpoint.IP.String() + ":" + peer.Endpoint.IP.String()
+		udpendpoint := peer.Endpoint.String()
 		var allowedips string
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
