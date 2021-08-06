@@ -353,13 +353,7 @@ func (currentNode *Node) Update(newNode *Node) error {
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
-			if err = database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME); err == nil {
-				currentNode = newNode
-				if network, err := GetNetwork(newNode.Network); err == nil {
-					err = network.SetNetworkNodesLastModified()
-				}
-			}
-			return err
+			return database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
 	return errors.New("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
