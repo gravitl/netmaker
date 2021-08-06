@@ -286,7 +286,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 				" allowed-ips " + allowedips)
 		}
 		if err != nil {
-			log.Println("error setting peer", peer.Endpoint.String())
+			log.Println("error setting peer", peer.PublicKey.String(), err)
 		}
 	}
 }
