@@ -45,6 +45,7 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 		if node.Network == networkName && node.IsPending != "yes" {
 			peer.PublicKey = node.PublicKey
 			peer.Endpoint = node.Endpoint
+			peer.LocalAddress = node.LocalAddress
 			peer.ListenPort = node.ListenPort
 			peer.AllowedIPs = node.AllowedIPs
 			peer.Address = node.Address
