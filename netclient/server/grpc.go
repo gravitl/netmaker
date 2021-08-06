@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"log"
@@ -297,8 +296,8 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 		Data: macaddress + "###" + network,
 		Type: nodepb.STRING_TYPE,
 	}
-	ctx := context.Background()
-	ctx, err = auth.SetJWT(wcclient, network)
+
+	ctx, err := auth.SetJWT(wcclient, network)
 	if err != nil {
 		log.Println("Failed to authenticate.")
 		return peers, err
@@ -347,7 +346,6 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 			AllowedIPs:        allowedips,
 		}
 		peers = append(peers, peer)
-
 	}
 	return peers, err
 }

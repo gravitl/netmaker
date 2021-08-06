@@ -75,7 +75,7 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 	return peers, err
 }
 
-func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersResponse, error) {
+func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersResponse, error) {
 
 	var peers []models.ExtPeersResponse
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
