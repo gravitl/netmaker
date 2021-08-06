@@ -91,8 +91,8 @@ func setDNS(node *models.Node, servercfg config.ServerConfig, nodecfg *models.No
  *
  *
  */
-func checkNodeActions(node *models.Node, network string, servercfg config.ServerConfig) string {
-	if node.Action == models.NODE_UPDATE_KEY {
+func checkNodeActions(node *models.Node, network string, servercfg config.ServerConfig, localNode *models.Node) string {
+	if node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY {
 		err := wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
 		if err != nil {
 			log.Println("Unable to process reset keys request:", err)
@@ -100,7 +100,7 @@ func checkNodeActions(node *models.Node, network string, servercfg config.Server
 		}
 		return ""
 	}
-	if node.Action == models.NODE_DELETE {
+	if node.Action == models.NODE_DELETE || localNode.Action == models.NODE_DELETE {
 		err := LeaveNetwork(network)
 		if err != nil {
 			log.Println("Error:", err)
@@ -127,6 +127,7 @@ func CheckConfig(cliconf config.ClientConfig) error {
 		return err
 	}
 	servercfg := cfg.Server
+	currentNode := cfg.Node
 
 	newNode, err := Pull(network, false)
 	if err != nil {
@@ -136,15 +137,13 @@ func CheckConfig(cliconf config.ClientConfig) error {
 		return errors.New("node is pending")
 	}
 
-	actionCompleted := checkNodeActions(newNode, network, servercfg)
+	actionCompleted := checkNodeActions(newNode, network, servercfg, &currentNode)
 	if actionCompleted == models.NODE_DELETE {
 		return errors.New("node has been removed")
 	}
 	// Check if ip changed and push if so
-	if checkIP(newNode, servercfg, cliconf, network) {
-		err = Push(network)
-	}
-	return err
+	checkIP(newNode, servercfg, cliconf, network)
+	return Push(network)
 }
 
 /**

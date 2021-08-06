@@ -1,9 +1,6 @@
 package wireguard
 
 import (
-	"context"
-	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -14,17 +11,12 @@ import (
 	"strconv"
 	"strings"
 
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/server"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 	//homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -298,32 +290,8 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 func SetWGKeyConfig(network string, serveraddr string) error {
 
-	ctx := context.Background()
-	var header metadata.MD
-
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
-		return err
-	}
-
-	var wcclient nodepb.NodeServiceClient
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-
-	conn, err := grpc.Dial(serveraddr, requestOpts)
-	if err != nil {
-		fmt.Printf("Cant dial GRPC server: %v", err)
-		return err
-	}
-	wcclient = nodepb.NewNodeServiceClient(conn)
-
-	ctx, err = auth.SetJWT(wcclient, network)
-	if err != nil {
-		fmt.Printf("Failed to authenticate: %v", err)
 		return err
 	}
 
@@ -350,21 +318,6 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 		return err
 	}
 
-	postnode := config.GetNode(network)
-
-	nodeData, err := json.Marshal(&postnode)
-	if err != nil {
-		return err
-	}
-	req := &nodepb.Object{
-		Data: string(nodeData),
-		Type: nodepb.NODE_TYPE,
-	}
-
-	_, err = wcclient.UpdateNode(ctx, req, grpc.Header(&header))
-	if err != nil {
-		return err
-	}
 	err = SetWGConfig(network, false)
 	if err != nil {
 		return err
