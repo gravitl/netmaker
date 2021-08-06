@@ -393,6 +393,25 @@ func DeleteExtClient(network string, clientid string) error {
 	return err
 }
 
+/**
+ * Deletes ext clients based on gateway (mac) of ingress node and network
+ */
+func DeleteGatewayExtClients(gatewayID string, networkName string) error {
+	currentExtClients, err := GetNetworkExtClients(networkName)
+	if err != nil {
+		return err
+	}
+	for _, extClient := range currentExtClients {
+		if extClient.IngressGatewayID == gatewayID {
+			if err = DeleteExtClient(networkName, extClient.ClientID); err != nil {
+				functions.PrintUserLog("netmaker", "failed to remove ext client "+extClient.ClientID, 2)
+				continue
+			}
+		}
+	}
+	return nil
+}
+
 //Delete a extclient
 //Pretty straightforward
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {

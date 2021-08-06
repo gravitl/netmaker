@@ -669,6 +669,7 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
 	node.PullChanges = "yes"
+	node.UDPHolePunch = "no"
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
@@ -699,16 +700,27 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
+func DeleteIngressGateway(networkName string, macaddress string) (models.Node, error) {
 
-	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
 	if err != nil {
 		return models.Node{}, err
 	}
+	network, err := functions.GetParentNetwork(networkName)
+	if err != nil {
+		return models.Node{}, err
+	}
+	// delete ext clients belonging to ingress gateway
+	if err = DeleteGatewayExtClients(macaddress, networkName); err != nil {
+		return models.Node{}, err
+	}
+
+	node.UDPHolePunch = network.DefaultUDPHolePunch
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
 	node.IngressGatewayRange = ""
 	node.PullChanges = "yes"
+
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
@@ -721,7 +733,7 @@ func DeleteIngressGateway(network, macaddress string) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = SetNetworkNodesLastModified(network)
+	err = SetNetworkNodesLastModified(networkName)
 	return node, err
 }
 
