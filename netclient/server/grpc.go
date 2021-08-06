@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -19,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	//homedir "github.com/mitchellh/go-homedir"
 )
 
 func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
@@ -82,7 +80,7 @@ func RemoveNetwork(network string) error {
 	}
 	servercfg := cfg.Server
 	node := cfg.Node
-	fmt.Println("Deleting remote node with MAC: " + node.MacAddress)
+	log.Println("Deleting remote node with MAC: " + node.MacAddress)
 
 	var wcclient nodepb.NodeServiceClient
 	var requestOpts grpc.DialOption
@@ -115,9 +113,9 @@ func RemoveNetwork(network string) error {
 			)
 			if err != nil {
 				log.Printf("Encountered error deleting node: %v", err)
-				fmt.Println(err)
+				log.Println(err)
 			} else {
-				fmt.Println("Deleted node " + node.MacAddress)
+				log.Println("Deleted node " + node.MacAddress)
 			}
 		}
 	}
@@ -188,7 +186,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	for _, node := range nodes {
 		pubkey, err := wgtypes.ParseKey(node.PublicKey)
 		if err != nil {
-			fmt.Println("error parsing key")
+			log.Println("error parsing key")
 			return peers, hasGateway, gateways, err
 		}
 
@@ -217,12 +215,11 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 				gateways = append(gateways, iprange)
 				_, ipnet, err := net.ParseCIDR(iprange)
 				if err != nil {
-					fmt.Println("ERROR ENCOUNTERED SETTING GATEWAY")
-					fmt.Println("NOT SETTING GATEWAY")
-					fmt.Println(err)
+					log.Println("ERROR ENCOUNTERED SETTING GATEWAY")
 				} else {
-					fmt.Println("    Gateway Range: " + iprange)
-					allowedips = append(allowedips, *ipnet)
+					if !ipnet.Contains(net.IP(node.Endpoint)) {
+						allowedips = append(allowedips, *ipnet)
+					}
 				}
 			}
 		}
@@ -270,8 +267,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
-			fmt.Println("ERROR RETRIEVING EXTERNAL PEERS")
-			fmt.Println(err)
+			log.Println("ERROR RETRIEVING EXTERNAL PEERS")
 		}
 	}
 	return peers, hasGateway, gateways, err
@@ -301,15 +297,15 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 	ctx := context.Background()
 	ctx, err = auth.SetJWT(wcclient, network)
 	if err != nil {
-		fmt.Println("Failed to authenticate.")
+		log.Println("Failed to authenticate.")
 		return peers, err
 	}
 	var header metadata.MD
 
 	responseObject, err := wcclient.GetExtPeers(ctx, req, grpc.Header(&header))
 	if err != nil {
-		fmt.Println("Error retrieving peers")
-		fmt.Println(err)
+		log.Println("Error retrieving peers")
+		log.Println(err)
 		return nil, err
 	}
 	var extPeers []models.Node
@@ -319,7 +315,7 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 	for _, extPeer := range extPeers {
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
-			fmt.Println("error parsing key")
+			log.Println("error parsing key")
 			return peers, err
 		}
 

@@ -588,7 +588,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "delete egress gateway "+nodeMac+" on network "+netid, 1)
+	functions.PrintUserLog(r.Header.Get("user"), "deleted egress gateway "+nodeMac+" on network "+netid, 1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
