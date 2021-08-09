@@ -20,6 +20,11 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+func CheckEndpoint(endpoint string) bool {
+	endpointarr := strings.Split(endpoint, ":")
+	return len(endpointarr) == 2
+}
+
 func PrintUserLog(username string, message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
@@ -195,9 +200,6 @@ func GetRecordKey(id string, network string) (string, error) {
 	return id + "###" + network, nil
 }
 
-//TODO: This is  very inefficient (N-squared). Need to find a better way.
-//Takes a list of  nodes in a network and iterates through
-//for each node, it gets a unique address. That requires checking against all other nodes once more
 func UpdateNetworkNodeAddresses(networkName string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -213,18 +215,85 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			fmt.Println("error in node address assignment!")
 			return err
 		}
-		ipaddr, iperr := UniqueAddress(networkName)
-		if iperr != nil {
-			fmt.Println("error in node  address assignment!")
-			return iperr
-		}
+		if node.Network == networkName {
+			ipaddr, iperr := UniqueAddress(networkName)
+			if iperr != nil {
+				fmt.Println("error in node  address assignment!")
+				return iperr
+			}
 
-		node.Address = ipaddr
-		data, err := json.Marshal(&node)
+			node.Address = ipaddr
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+
+	return nil
+}
+
+func NetworkNodesUpdateAction(networkName string, action string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, value := range collections {
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
+			fmt.Println("error in node address assignment!")
 			return err
 		}
-		database.Insert(node.MacAddress, string(data), database.NODES_TABLE_NAME)
+		if action == models.NODE_UPDATE_KEY && node.IsStatic == "yes" {
+			continue
+		}
+		if node.Network == networkName {
+			node.Action = action
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+ 	}
+	return nil
+}
+
+func NetworkNodesUpdatePullChanges(networkName string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, value := range collections {
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			fmt.Println("error in node address assignment!")
+			return err
+		}
+		if node.Network == networkName {
+			node.PullChanges = "yes"
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
 	}
 
 	return nil
@@ -247,19 +316,22 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 			fmt.Println("error in node address assignment!")
 			return err
 		}
-		ipaddr, iperr := UniqueAddress(networkName)
-		if iperr != nil {
-			fmt.Println("error in node  address assignment!")
-			return iperr
-		}
+		if node.Network == networkName {
+			ipaddr, iperr := UniqueAddress(networkName)
+			if iperr != nil {
+				fmt.Println("error in node  address assignment!")
+				return iperr
+			}
 
-		node.Address = ipaddr
-		newNodeData, err := json.Marshal(&node)
-		if err != nil {
-			fmt.Println("error in node  address assignment!")
-			return err
+			node.Address = ipaddr
+			newNodeData, err := json.Marshal(&node)
+			if err != nil {
+				fmt.Println("error in node  address assignment!")
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
 		}
-		database.Insert(node.MacAddress, string(newNodeData), database.NODES_TABLE_NAME)
 	}
 
 	return nil
@@ -271,7 +343,7 @@ func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
 	dbs, err := models.GetNetworks()
 	if err != nil {
-		return false, err
+		return database.IsEmptyRecord(err), err
 	}
 
 	for i := 0; i < len(dbs); i++ {
@@ -286,29 +358,19 @@ func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
 func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	_, err := database.FetchRecord(database.NODES_TABLE_NAME, macaddress+"###"+networkName)
 	if err != nil {
-		return false, err
-	}
-	for _, value := range collection {
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			return false, err
-		} else {
-			if node.MacAddress == macaddress && node.Network == networkName {
-				return false, nil
-			}
-		}
+		return database.IsEmptyRecord(err), err
 	}
 
 	return true, nil
 }
 
-func GetNetworkNodeNumber(networkName string) (int, error) {
+func GetNetworkNodeCount(networkName string) (int, error) {
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	count := 0
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return count, err
 	}
 	for _, value := range collection {
@@ -703,7 +765,7 @@ func DecrimentKey(networkName string, keyvalue string) {
 	}
 
 	if newNetworkData, err := json.Marshal(&network); err != nil {
-		PrintUserLog("netmaker", "failed to decrement key", 2)
+		PrintUserLog(models.NODE_SERVER_NAME, "failed to decrement key", 2)
 		return
 	} else {
 		database.Insert(network.NetID, string(newNetworkData), database.NETWORKS_TABLE_NAME)

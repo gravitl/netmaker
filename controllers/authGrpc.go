@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -97,12 +98,17 @@ func grpcAuthorize(ctx context.Context) error {
 }
 
 //Node authenticates using its password and retrieves a JWT for authorization.
-func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest) (*nodepb.LoginResponse, error) {
+func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
 	//out := new(LoginResponse)
-	macaddress := req.GetMacaddress()
-	network := req.GetNetwork()
-	password := req.GetPassword()
+	var reqNode models.Node
+	if err := json.Unmarshal([]byte(req.Data), &reqNode); err != nil {
+		return nil, err
+	}
+
+	macaddress := reqNode.MacAddress
+	network := reqNode.Network
+	password := reqNode.Password
 
 	var result models.NodeAuth
 
@@ -148,8 +154,9 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.LoginRequest)
 				return nil, err
 			}
 
-			response := &nodepb.LoginResponse{
-				Accesstoken: tokenString,
+			response := &nodepb.Object{
+				Data: tokenString,
+				Type: nodepb.ACCESS_TOKEN,
 			}
 			return response, nil
 		}

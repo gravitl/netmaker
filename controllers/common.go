@@ -2,12 +2,9 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -16,36 +13,43 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetPeersList(networkName string) ([]models.PeersResponse, error) {
+func GetPeersList(networkName string) ([]models.Node, error) {
 
-	var peers []models.PeersResponse
+	var peers []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
-		log.Println(err)
+		if database.IsEmptyRecord(err) {
+			return peers, nil
+		}
+		functions.PrintUserLog("",err.Error(),2)
+		return nil, err
 	}
-	udppeers, errN := serverctl.GetPeers(networkName)
+	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
-		log.Println(errN)
+		functions.PrintUserLog("",errN.Error(),2)
 	}
 	for _, value := range collection {
 		var node models.Node
-		var peer models.PeersResponse
+		var peer models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			log.Println(err)
+			functions.PrintUserLog("",err.Error(),2)
 			continue
 		}
-		err = json.Unmarshal([]byte(value), &peer)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		if node.IsEgressGateway == "yes" {
-			peer.EgressGatewayRanges = strings.Join(node.EgressGatewayRanges, ",")
+		if node.IsEgressGateway == "yes" { // handle egress stuff
+			peer.EgressGatewayRanges = node.EgressGatewayRanges
+			peer.IsEgressGateway = node.IsEgressGateway
 		}
 		if node.Network == networkName && node.IsPending != "yes" {
-			if node.UDPHolePunch == "yes" && errN == nil {
-				endpointstring := udppeers[peer.PublicKey]
+			peer.PublicKey = node.PublicKey
+			peer.Endpoint = node.Endpoint
+			peer.LocalAddress = node.LocalAddress
+			peer.ListenPort = node.ListenPort
+			peer.AllowedIPs = node.AllowedIPs
+			peer.Address = node.Address
+			peer.Address6 = node.Address6
+			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[node.PublicKey]) {
+				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
 				if len(endpointarr) == 2 {
 					port, err := strconv.Atoi(endpointarr[1])
@@ -55,6 +59,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 					}
 				}
 			}
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "adding to peer list: "+peer.MacAddress+" "+peer.Endpoint, 3)
 			peers = append(peers, peer)
 		}
 	}
@@ -65,7 +70,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 	return peers, err
 }
 
-func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersResponse, error) {
+func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersResponse, error) {
 
 	var peers []models.ExtPeersResponse
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
@@ -79,12 +84,12 @@ func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersRe
 		var extClient models.ExtClient
 		err = json.Unmarshal([]byte(value), &peer)
 		if err != nil {
-			functions.PrintUserLog("netmaker", "failed to unmarshal peer", 2)
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to unmarshal peer", 2)
 			continue
 		}
 		err = json.Unmarshal([]byte(value), &extClient)
 		if err != nil {
-			functions.PrintUserLog("netmaker", "failed to unmarshal ext client", 2)
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to unmarshal ext client", 2)
 			continue
 		}
 		if extClient.Network == networkName && extClient.IngressGatewayID == macaddress {
@@ -94,21 +99,38 @@ func GetExtPeersList(networkName string, macaddress string) ([]models.ExtPeersRe
 	return peers, err
 }
 
-func DeleteNode(macaddress string, network string) error {
-
-	key, err := functions.GetRecordKey(macaddress, network)
-	if err != nil {
+/**
+ * If being deleted by server, create a record in the DELETED_NODES_TABLE for the client to find
+ * If being deleted by the client, delete completely
+ */
+func DeleteNode(key string, exterminate bool) error {
+	var err error
+	if !exterminate {
+		args := strings.Split(key, "###")
+		node, err := GetNode(args[0], args[1])
+		if err != nil {
+			return err
+		}
+		node.Action = models.NODE_DELETE
+		nodedata, err := json.Marshal(&node)
+		if err != nil {
+			return err
+		}
+		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
+		if err != nil {
+			return err
+		}
+	} else {
+		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
+			functions.PrintUserLog("",err.Error(),2)
+		}
+	}
+	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		return err
 	}
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
-	}
-
-	err = SetNetworkNodesLastModified(network)
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
 	}
-
 	return err
 }
 
@@ -132,6 +154,10 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	}
 	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
 	if err != nil {
+		if data == "" {
+			data, err = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+			err = json.Unmarshal([]byte(data), &node)
+		}
 		return node, err
 	}
 	if err = json.Unmarshal([]byte(data), &node); err != nil {
@@ -167,6 +193,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	node.Password = string(hash)
 
 	node.Network = networkName
+	if node.Name == models.NODE_SERVER_NAME {
+		if node.CheckIsServer() {
+			node.IsServer = "yes"
+		}
+	}
 
 	node.SetDefaults()
 	node.Address, err = functions.UniqueAddress(networkName)
@@ -187,7 +218,6 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
-
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return node, err
@@ -210,62 +240,15 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	return node, err
 }
 
-func NodeCheckIn(node models.Node, networkName string) (models.CheckInResponse, error) {
-
-	var response models.CheckInResponse
-
-	parentnetwork, err := functions.GetParentNetwork(networkName)
-	if err != nil {
-		err = fmt.Errorf("%w; Couldnt retrieve Network "+networkName+": ", err)
-		return response, err
-	}
-
-	parentnode, err := GetNode(node.MacAddress, networkName)
-	if err != nil {
-		err = fmt.Errorf("%w; Couldnt Get Node "+node.MacAddress, err)
-		return response, err
-	}
-	if parentnode.IsPending == "yes" {
-		err = fmt.Errorf("%w; Node checking in is still pending: "+node.MacAddress, err)
-		response.IsPending = true
-		return response, err
-	}
-
-	networklm := parentnetwork.NetworkLastModified
-	peerslm := parentnetwork.NodesLastModified
-	gkeyupdate := parentnetwork.KeyUpdateTimeStamp
-	nkeyupdate := parentnode.KeyUpdateTimeStamp
-	peerlistlm := parentnode.LastPeerUpdate
-	parentnodelm := parentnode.LastModified
-	parentnodelastcheckin := parentnode.LastCheckIn
-
-	if parentnodelastcheckin < parentnodelm {
-		response.NeedConfigUpdate = true
-	}
-
-	if parentnodelm < networklm {
-		response.NeedConfigUpdate = true
-	}
-	if peerlistlm < peerslm {
-		response.NeedPeerUpdate = true
-	}
-	if nkeyupdate < gkeyupdate {
-		response.NeedKeyUpdate = true
-	}
-	if time.Now().Unix() > parentnode.ExpirationDateTime {
-		response.NeedDelete = true
-		err = DeleteNode(node.MacAddress, networkName)
-	} else {
-		err = TimestampNode(parentnode, true, false, false)
-
-		if err != nil {
-			err = fmt.Errorf("%w; Couldnt Timestamp Node: ", err)
-			return response, err
+func SetNetworkServerPeers(networkName string) {
+	if currentPeersList, err := serverctl.GetPeers(networkName); err == nil {
+		if database.SetPeers(currentPeersList, networkName) {
+			functions.PrintUserLog(models.NODE_SERVER_NAME,"set new peers on network "+networkName,1)
 		}
+	} else {
+		functions.PrintUserLog(models.NODE_SERVER_NAME,"could not set peers on network "+networkName,1)
+		functions.PrintUserLog(models.NODE_SERVER_NAME,err.Error(),1)
 	}
-	response.Success = true
-
-	return response, err
 }
 
 func SetNetworkNodesLastModified(networkName string) error {

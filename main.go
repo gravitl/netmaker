@@ -4,10 +4,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strconv"
 	"sync"
@@ -16,23 +16,28 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 	"google.golang.org/grpc"
 )
 
 //Start MongoDB Connection and start API Request Handler
 func main() {
-	checkModes() // check which flags are set and if root or not
-	initialize() // initial db and grpc server
+	fmt.Println(models.RetrieveLogo()) // print the logo
+	initialize()                       // initial db and grpc server
 	defer database.Database.Close()
 	startControllers() // start the grpc or rest endpoints
 }
 
-func checkModes() { // Client Mode Prereq Check
+func initialize() { // Client Mode Prereq Check
 	var err error
-	cmd := exec.Command("id", "-u")
-	output, err := cmd.Output()
+	if err = database.InitializeDatabase(); err != nil {
+		log.Println("Error connecting to database.")
+		log.Fatal(err)
+	}
+	log.Println("database successfully connected.")
+	output, err := local.RunCmd("id -u")
 
 	if err != nil {
 		log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
@@ -53,17 +58,6 @@ func checkModes() { // Client Mode Prereq Check
 			log.Fatal(err)
 		}
 	}
-
-}
-
-func initialize() {
-	database.InitializeDatabase()
-	if servercfg.IsGRPCWireGuard() {
-		if err := serverctl.InitServerWireGuard(); err != nil {
-			log.Fatal(err)
-		}
-	}
-	functions.PrintUserLog("netmaker", "successfully created db tables if not present", 1)
 }
 
 func startControllers() {
@@ -83,7 +77,7 @@ func startControllers() {
 	if servercfg.IsDNSMode() {
 		err := controller.SetDNS()
 		if err != nil {
-			log.Fatal(err)
+			log.Println("error occurred initializing DNS:", err)
 		}
 	}
 	//Run Rest Server
@@ -123,7 +117,6 @@ func runGRPC(wg *sync.WaitGroup) {
 
 	s := grpc.NewServer(
 		authServerUnaryInterceptor(),
-		authServerStreamInterceptor(),
 	)
 	// Create NodeService type
 	srv := &controller.NodeServiceServer{}
@@ -162,6 +155,7 @@ func runGRPC(wg *sync.WaitGroup) {
 func authServerUnaryInterceptor() grpc.ServerOption {
 	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)
 }
-func authServerStreamInterceptor() grpc.ServerOption {
-	return grpc.StreamInterceptor(controller.AuthServerStreamInterceptor)
-}
+
+// func authServerStreamInterceptor() grpc.ServerOption {
+// 	return grpc.StreamInterceptor(controller.AuthServerStreamInterceptor)
+// }

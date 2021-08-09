@@ -4,9 +4,7 @@ services:
   rqlite:
     container_name: rqlite
     image: rqlite/rqlite
-    ports:
-      - "4001:4001"
-      - "4002:4002"
+    network_mode: host
     restart: always
     volumes:
       - sqldata:/rqlite/file/data
@@ -31,12 +29,24 @@ services:
     restart: always
     network_mode: host
     environment:
-      SERVER_HOST: "HOST_IP"
+      SERVER_HOST: "SERVER_PUBLIC_IP"
+      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
+      SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:1443"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP"
+      GRPC_SSL: "on"
+      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
+      API_PORT: "8081"
+      GRPC_PORT: "50051"
+      CLIENT_MODE: "on"
+      MASTER_KEY: "REPLACE_MASTER_KEY"
+      SERVER_GRPC_WIREGUARD: "off"
+      CORS_ALLOWED_ORIGIN: "*"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.5
+    image: gravitl/netmaker-ui:v0.7
     links:
       - "netmaker:api"
     ports:
@@ -51,7 +61,7 @@ services:
     container_name: coredns
     restart: always
     ports:
-      - "5353:53/udp"
+      - "53:53/udp"
     volumes:
       - dnsconfig:/root/dnsconfig
 volumes:

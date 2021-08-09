@@ -15,48 +15,117 @@ import (
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const TEN_YEARS_IN_SECONDS = 300000000
+
+// == ACTIONS == (can only be set by GRPC)
+const NODE_UPDATE_KEY = "updatekey"
+const NODE_SERVER_NAME = "netmaker"
+const NODE_DELETE = "delete"
+const NODE_IS_PENDING = "pending"
+const NODE_NOOP = "noop"
+
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
 //node struct
 type Node struct {
 	ID                  string   `json:"id,omitempty" bson:"id,omitempty"`
-	Address             string   `json:"address" bson:"address" validate:"omitempty,ipv4"`
-	Address6            string   `json:"address6" bson:"address6" validate:"omitempty,ipv6"`
-	LocalAddress        string   `json:"localaddress" bson:"localaddress" validate:"omitempty,ip"`
-	Name                string   `json:"name" bson:"name" validate:"omitempty,max=12,in_charset"`
-	ListenPort          int32    `json:"listenport" bson:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
-	PublicKey           string   `json:"publickey" bson:"publickey" validate:"required,base64"`
-	Endpoint            string   `json:"endpoint" bson:"endpoint" validate:"required,ip"`
-	PostUp              string   `json:"postup" bson:"postup"`
-	PostDown            string   `json:"postdown" bson:"postdown"`
-	AllowedIPs          []string `json:"allowedips" bson:"allowedips"`
-	PersistentKeepalive int32    `json:"persistentkeepalive" bson:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
-	SaveConfig          string   `json:"saveconfig" bson:"saveconfig" validate:"checkyesorno"`
-	AccessKey           string   `json:"accesskey" bson:"accesskey"`
-	Interface           string   `json:"interface" bson:"interface"`
-	LastModified        int64    `json:"lastmodified" bson:"lastmodified"`
-	KeyUpdateTimeStamp  int64    `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
-	ExpirationDateTime  int64    `json:"expdatetime" bson:"expdatetime"`
-	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate"`
-	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin"`
-	MacAddress          string   `json:"macaddress" bson:"macaddress" validate:"required,mac,macaddress_unique"`
-	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval"`
-	Password            string   `json:"password" bson:"password" validate:"required,min=6"`
-	Network             string   `json:"network" bson:"network" validate:"network_exists"`
-	IsPending           string   `json:"ispending" bson:"ispending"`
-	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway"`
-	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway"`
-	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges"`
-	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange"`
-	PostChanges         string   `json:"postchanges" bson:"postchanges"`
-	StaticIP            string   `json:"staticip" bson:"staticip"`
-	StaticPubKey        string   `json:"staticpubkey" bson:"staticpubkey"`
-	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" validate:"checkyesorno"`
+	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
+	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
+	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
+	Name                string   `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=12,in_charset"`
+	ListenPort          int32    `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
+	PublicKey           string   `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
+	Endpoint            string   `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`
+	PostUp              string   `json:"postup" bson:"postup" yaml:"postup"`
+	PostDown            string   `json:"postdown" bson:"postdown" yaml:"postdown"`
+	AllowedIPs          []string `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
+	PersistentKeepalive int32    `json:"persistentkeepalive" bson:"persistentkeepalive" yaml:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
+	SaveConfig          string   `json:"saveconfig" bson:"saveconfig" yaml:"saveconfig" validate:"checkyesorno"`
+	AccessKey           string   `json:"accesskey" bson:"accesskey" yaml:"accesskey"`
+	Interface           string   `json:"interface" bson:"interface" yaml:"interface"`
+	LastModified        int64    `json:"lastmodified" bson:"lastmodified" yaml:"lastmodified"`
+	KeyUpdateTimeStamp  int64    `json:"keyupdatetimestamp" bson:"keyupdatetimestamp" yaml:"keyupdatetimestamp"`
+	ExpirationDateTime  int64    `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
+	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
+	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
+	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"required,mac,macaddress_unique"`
+	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
+	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
+	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
+	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
+	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
+	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
+	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
+	IsStatic	        string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
+	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
+	PullChanges         string   `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
+	DNSOn               string   `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	IsDualStack         string   `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
+	IsServer            string   `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Action              string   `json:"action" bson:"action" yaml:"action"`
+	IsLocal             string   `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
+	LocalRange          string   `json:"localrange" bson:"localrange" yaml:"localrange"`
+	Roaming             string   `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
+	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 }
 
-//TODO:
-//Not sure if below two methods are necessary. May want to revisit
+func (node *Node) SetDefaultAction() {
+	if node.Action == "" {
+		node.Action = NODE_NOOP
+	}
+}
+
+func (node *Node) SetRoamingDefault() {
+	if node.Roaming == "" {
+		node.Roaming = "yes"
+	}
+}
+
+func (node *Node) SetPullChangesDefault() {
+	if node.PullChanges == "" {
+		node.PullChanges = "no"
+	}
+}
+
+func (node *Node) SetIPForwardingDefault() {
+	if node.IPForwarding == "" {
+		node.IPForwarding = "yes"
+	}
+}
+
+func (node *Node) SetIsLocalDefault() {
+	if node.IsLocal == "" {
+		node.IsLocal = "no"
+	}
+}
+
+func (node *Node) SetDNSOnDefault() {
+	if node.DNSOn == "" {
+		node.DNSOn = "no"
+	}
+}
+
+func (node *Node) SetIsDualStackDefault() {
+	if node.IsDualStack == "" {
+		node.IsDualStack = "no"
+	}
+}
+
+func (node *Node) SetIsServerDefault() {
+	if node.IsServer != "yes" {
+		node.IsServer = "no"
+	}
+}
+
+func (node *Node) SetIsStaticDefault() {
+	if node.IsServer == "yes" {
+		node.IsStatic = "yes"
+	} else if node.IsStatic != "yes" {
+		node.IsStatic = "no"
+	}
+}
+
 func (node *Node) SetLastModified() {
 	node.LastModified = time.Now().Unix()
 }
@@ -79,10 +148,25 @@ func (node *Node) SetExpirationDateTime() {
 
 func (node *Node) SetDefaultName() {
 	if node.Name == "" {
-		nodeid := StringWithCharset(5, charset)
-		nodename := "node-" + nodeid
-		node.Name = nodename
+		node.Name = GenerateNodeName()
 	}
+}
+
+func (node *Node) CheckIsServer() bool {
+	nodeData, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return false
+	}
+	for _, value := range nodeData {
+		var tmpNode Node
+		if err := json.Unmarshal([]byte(value), &tmpNode); err != nil {
+			continue
+		}
+		if tmpNode.Network == node.Network && tmpNode.MacAddress != node.MacAddress {
+			return false
+		}
+	}
+	return true
 }
 
 func (node *Node) GetNetwork() (Network, error) {
@@ -127,11 +211,8 @@ func (node *Node) SetDefaults() {
 		postup := parentNetwork.DefaultPostUp
 		node.PostUp = postup
 	}
-	if node.StaticIP == "" {
-		node.StaticIP = "no"
-	}
-	if node.StaticPubKey == "" {
-		node.StaticPubKey = "no"
+	if node.IsStatic == "" {
+		node.IsStatic = "no"
 	}
 	if node.UDPHolePunch == "" {
 		node.UDPHolePunch = parentNetwork.DefaultUDPHolePunch
@@ -140,12 +221,20 @@ func (node *Node) SetDefaults() {
 		}
 	}
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
-
+	node.SetIPForwardingDefault()
+	node.SetDNSOnDefault()
+	node.SetIsLocalDefault()
+	node.SetIsDualStackDefault()
 	node.SetLastModified()
 	node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
+	node.SetRoamingDefault()
+	node.SetPullChangesDefault()
+	node.SetDefaultAction()
 	node.SetID()
+	node.SetIsServerDefault()
+	node.SetIsStaticDefault()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
@@ -153,10 +242,10 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.ID == "" {
 		newNode.ID = currentNode.ID
 	}
-	if newNode.Address == "" {
+	if newNode.Address == ""  && newNode.IsStatic != "yes"{
 		newNode.Address = currentNode.Address
 	}
-	if newNode.Address6 == "" {
+	if newNode.Address6 == ""  && newNode.IsStatic != "yes"{
 		newNode.Address6 = currentNode.Address6
 	}
 	if newNode.LocalAddress == "" {
@@ -165,15 +254,15 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.Name == "" {
 		newNode.Name = currentNode.Name
 	}
-	if newNode.ListenPort == 0 {
+	if newNode.ListenPort == 0  && newNode.IsStatic != "yes"{
 		newNode.ListenPort = currentNode.ListenPort
 	}
-	if newNode.PublicKey == "" {
+	if newNode.PublicKey == "" && newNode.IsStatic != "yes" {
 		newNode.PublicKey = currentNode.PublicKey
 	} else {
 		newNode.KeyUpdateTimeStamp = time.Now().Unix()
 	}
-	if newNode.Endpoint == "" {
+	if newNode.Endpoint == ""  && newNode.IsStatic != "yes"{
 		newNode.Endpoint = currentNode.Endpoint
 	}
 	if newNode.PostUp == "" {
@@ -247,39 +336,51 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.IngressGatewayRange == "" {
 		newNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	}
-	if newNode.StaticIP == "" {
-		newNode.StaticIP = currentNode.StaticIP
-	}
-	if newNode.StaticIP == "" {
-		newNode.StaticIP = currentNode.StaticIP
-	}
-	if newNode.StaticPubKey == "" {
-		newNode.StaticPubKey = currentNode.StaticPubKey
+	if newNode.IsStatic == "" {
+		newNode.IsStatic = currentNode.IsStatic
 	}
 	if newNode.UDPHolePunch == "" {
 		newNode.UDPHolePunch = currentNode.SaveConfig
 	}
-
-	newNode.PostChanges = "no"
+	if newNode.DNSOn == "" {
+		newNode.DNSOn = currentNode.DNSOn
+	}
+	if newNode.IsDualStack == "" {
+		newNode.IsDualStack = currentNode.IsDualStack
+	}
+	if newNode.IsLocal == "" {
+		newNode.IsLocal = currentNode.IsLocal
+	}
+	if newNode.IPForwarding == "" {
+		newNode.IPForwarding = currentNode.IPForwarding
+	}
+	if newNode.PullChanges == "" {
+		newNode.PullChanges = currentNode.PullChanges
+	}
+	if newNode.Roaming == "" {
+		newNode.Roaming = currentNode.Roaming
+	}
+	if newNode.Action == "" {
+		newNode.Action = currentNode.Action
+	}
+	newNode.IsServer = currentNode.IsServer
+	if newNode.IsServer == "yes" {
+		newNode.IsStatic = "yes"
+	}
 }
 
 func (currentNode *Node) Update(newNode *Node) error {
-        newNode.Fill(currentNode)
+	newNode.Fill(currentNode)
 	if err := newNode.Validate(true); err != nil {
 		return err
 	}
 	newNode.SetID()
 	if newNode.ID == currentNode.ID {
+		newNode.SetLastModified()
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
-			newNode.SetLastModified()
-			if err = database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME); err == nil {
-				if network, err := GetNetwork(newNode.Network); err == nil {
-					err = network.SetNetworkNodesLastModified()
-				}
-			}
-			return err
+			return database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
 	return errors.New("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
@@ -326,11 +427,8 @@ func (node *Node) Validate(isUpdate bool) error {
 }
 
 func (node *Node) IsIDUnique() (bool, error) {
-	record, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
-	if err != nil {
-		return false, err
-	}
-	return record == "", err
+	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
+	return database.IsEmptyRecord(err), err
 }
 
 func (node *Node) NameInNodeCharSet() bool {
@@ -350,6 +448,9 @@ func GetAllNodes() ([]Node, error) {
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return []Node{}, nil
+		}
 		return []Node{}, err
 	}
 

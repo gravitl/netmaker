@@ -12,7 +12,7 @@ import (
 )
 
 func serverHandlers(r *mux.Router) {
-    //r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(http.HandlerFunc(addNetwork))).Methods("POST")
+    r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(http.HandlerFunc(addNetwork))).Methods("POST")
     r.HandleFunc("/api/server/getconfig", securityCheckServer(http.HandlerFunc(getConfig))).Methods("GET")
     r.HandleFunc("/api/server/getwgconfig", securityCheckServer(http.HandlerFunc(getWGConfig))).Methods("GET")
     r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(http.HandlerFunc(removeNetwork))).Methods("DELETE")

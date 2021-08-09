@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"log"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -68,14 +67,6 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, string) {
 
-	networkexists, err := functions.NetworkExists(netname)
-	if err != nil {
-		return err, nil, ""
-	}
-	if netname != "" && !networkexists {
-		return errors.New("This network does not exist"), nil, ""
-	}
-
 	var hasBearer = true
 	var tokenSplit = strings.Split(token, " ")
 	var authToken = ""
@@ -93,14 +84,22 @@ func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, strin
 		userName, networks, isadmin, err := functions.VerifyUserToken(authToken)
 		username = userName
 		if err != nil {
-			return errors.New("Error verifying user token"), nil, username
+			return errors.New("error verifying user token"), nil, username
 		}
 		if !isadmin && reqAdmin {
-			return errors.New("You are unauthorized to access this endpoint"), nil, username
+			return errors.New("you are unauthorized to access this endpoint"), nil, username
 		}
 		userNetworks = networks
 		if isadmin {
 			userNetworks = []string{ALL_NETWORK_ACCESS}
+		} else {
+			networkexists, err := functions.NetworkExists(netname)
+			if err != nil {
+				return err, nil, ""
+			}
+			if netname != "" && !networkexists {
+				return errors.New("this network does not exist"), nil, ""
+			}
 		}
 	} else if isMasterAuthenticated {
 		userNetworks = []string{ALL_NETWORK_ACCESS}
@@ -145,10 +144,9 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	networks := RemoveComms(allnetworks)
 	functions.PrintUserLog(r.Header.Get("user"), "fetched networks.", 2)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(networks)
+	json.NewEncoder(w).Encode(allnetworks)
 }
 
 func RemoveComms(networks []models.Network) []models.Network {
@@ -181,7 +179,7 @@ func ValidateNetworkUpdate(network models.Network) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			log.Println(e)
+			functions.PrintUserLog("validator",e.Error(),1)
 		}
 	}
 	return err
@@ -232,17 +230,11 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func KeyUpdate(netname string) (models.Network, error) {
-	network, err := functions.GetParentNetwork(netname)
+	err := functions.NetworkNodesUpdateAction(netname, models.NODE_UPDATE_KEY)
 	if err != nil {
 		return models.Network{}, err
 	}
-	network.KeyUpdateTimeStamp = time.Now().Unix()
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return models.Network{}, err
-	}
-	database.Insert(netname, string(data), database.NETWORKS_TABLE_NAME)
-	return network, nil
+	return models.Network{}, nil
 }
 
 //Update a network
@@ -359,16 +351,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteNetwork(network string) error {
-
-	nodecount, err := functions.GetNetworkNodeNumber(network)
-	if err != nil {
-		return err
-	} else if nodecount > 0 {
-		return errors.New("node check failed. All nodes must be deleted before deleting network")
+	nodeCount, err := functions.GetNetworkNodeCount(network)
+	if nodeCount == 0 || database.IsEmptyRecord(err) {
+		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}
-
-	database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
-	return err
+	return errors.New("node check failed. All nodes must be deleted before deleting network")
 }
 
 //Create a network
@@ -528,7 +515,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	err = v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			log.Println(e)
+			functions.PrintUserLog("validator",e.Error(),1)
 		}
 		return models.AccessKey{}, err
 	}

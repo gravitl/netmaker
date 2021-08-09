@@ -18,14 +18,14 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NodeServiceClient interface {
-	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
-	CreateNode(ctx context.Context, in *CreateNodeReq, opts ...grpc.CallOption) (*CreateNodeRes, error)
-	ReadNode(ctx context.Context, in *ReadNodeReq, opts ...grpc.CallOption) (*ReadNodeRes, error)
-	UpdateNode(ctx context.Context, in *UpdateNodeReq, opts ...grpc.CallOption) (*UpdateNodeRes, error)
-	DeleteNode(ctx context.Context, in *DeleteNodeReq, opts ...grpc.CallOption) (*DeleteNodeRes, error)
-	GetPeers(ctx context.Context, in *GetPeersReq, opts ...grpc.CallOption) (NodeService_GetPeersClient, error)
-	GetExtPeers(ctx context.Context, in *GetExtPeersReq, opts ...grpc.CallOption) (NodeService_GetExtPeersClient, error)
-	CheckIn(ctx context.Context, in *CheckInReq, opts ...grpc.CallOption) (*CheckInRes, error)
+	Login(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
+	CreateNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
+	ReadNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
+	UpdateNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
+	DeleteNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
+	GetPeers(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
+	GetExtPeers(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
+	CheckIn(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error)
 }
 
 type nodeServiceClient struct {
@@ -36,8 +36,8 @@ func NewNodeServiceClient(cc grpc.ClientConnInterface) NodeServiceClient {
 	return &nodeServiceClient{cc}
 }
 
-func (c *nodeServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
-	out := new(LoginResponse)
+func (c *nodeServiceClient) Login(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
 	err := c.cc.Invoke(ctx, "/node.NodeService/Login", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -45,8 +45,8 @@ func (c *nodeServiceClient) Login(ctx context.Context, in *LoginRequest, opts ..
 	return out, nil
 }
 
-func (c *nodeServiceClient) CreateNode(ctx context.Context, in *CreateNodeReq, opts ...grpc.CallOption) (*CreateNodeRes, error) {
-	out := new(CreateNodeRes)
+func (c *nodeServiceClient) CreateNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
 	err := c.cc.Invoke(ctx, "/node.NodeService/CreateNode", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -54,8 +54,8 @@ func (c *nodeServiceClient) CreateNode(ctx context.Context, in *CreateNodeReq, o
 	return out, nil
 }
 
-func (c *nodeServiceClient) ReadNode(ctx context.Context, in *ReadNodeReq, opts ...grpc.CallOption) (*ReadNodeRes, error) {
-	out := new(ReadNodeRes)
+func (c *nodeServiceClient) ReadNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
 	err := c.cc.Invoke(ctx, "/node.NodeService/ReadNode", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -63,8 +63,8 @@ func (c *nodeServiceClient) ReadNode(ctx context.Context, in *ReadNodeReq, opts 
 	return out, nil
 }
 
-func (c *nodeServiceClient) UpdateNode(ctx context.Context, in *UpdateNodeReq, opts ...grpc.CallOption) (*UpdateNodeRes, error) {
-	out := new(UpdateNodeRes)
+func (c *nodeServiceClient) UpdateNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
 	err := c.cc.Invoke(ctx, "/node.NodeService/UpdateNode", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -72,8 +72,8 @@ func (c *nodeServiceClient) UpdateNode(ctx context.Context, in *UpdateNodeReq, o
 	return out, nil
 }
 
-func (c *nodeServiceClient) DeleteNode(ctx context.Context, in *DeleteNodeReq, opts ...grpc.CallOption) (*DeleteNodeRes, error) {
-	out := new(DeleteNodeRes)
+func (c *nodeServiceClient) DeleteNode(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
 	err := c.cc.Invoke(ctx, "/node.NodeService/DeleteNode", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -81,72 +81,26 @@ func (c *nodeServiceClient) DeleteNode(ctx context.Context, in *DeleteNodeReq, o
 	return out, nil
 }
 
-func (c *nodeServiceClient) GetPeers(ctx context.Context, in *GetPeersReq, opts ...grpc.CallOption) (NodeService_GetPeersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &NodeService_ServiceDesc.Streams[0], "/node.NodeService/GetPeers", opts...)
+func (c *nodeServiceClient) GetPeers(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
+	err := c.cc.Invoke(ctx, "/node.NodeService/GetPeers", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &nodeServiceGetPeersClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type NodeService_GetPeersClient interface {
-	Recv() (*GetPeersRes, error)
-	grpc.ClientStream
-}
-
-type nodeServiceGetPeersClient struct {
-	grpc.ClientStream
-}
-
-func (x *nodeServiceGetPeersClient) Recv() (*GetPeersRes, error) {
-	m := new(GetPeersRes)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *nodeServiceClient) GetExtPeers(ctx context.Context, in *GetExtPeersReq, opts ...grpc.CallOption) (NodeService_GetExtPeersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &NodeService_ServiceDesc.Streams[1], "/node.NodeService/GetExtPeers", opts...)
+func (c *nodeServiceClient) GetExtPeers(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
+	err := c.cc.Invoke(ctx, "/node.NodeService/GetExtPeers", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &nodeServiceGetExtPeersClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type NodeService_GetExtPeersClient interface {
-	Recv() (*GetExtPeersRes, error)
-	grpc.ClientStream
-}
-
-type nodeServiceGetExtPeersClient struct {
-	grpc.ClientStream
-}
-
-func (x *nodeServiceGetExtPeersClient) Recv() (*GetExtPeersRes, error) {
-	m := new(GetExtPeersRes)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *nodeServiceClient) CheckIn(ctx context.Context, in *CheckInReq, opts ...grpc.CallOption) (*CheckInRes, error) {
-	out := new(CheckInRes)
+func (c *nodeServiceClient) CheckIn(ctx context.Context, in *Object, opts ...grpc.CallOption) (*Object, error) {
+	out := new(Object)
 	err := c.cc.Invoke(ctx, "/node.NodeService/CheckIn", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -158,14 +112,14 @@ func (c *nodeServiceClient) CheckIn(ctx context.Context, in *CheckInReq, opts ..
 // All implementations must embed UnimplementedNodeServiceServer
 // for forward compatibility
 type NodeServiceServer interface {
-	Login(context.Context, *LoginRequest) (*LoginResponse, error)
-	CreateNode(context.Context, *CreateNodeReq) (*CreateNodeRes, error)
-	ReadNode(context.Context, *ReadNodeReq) (*ReadNodeRes, error)
-	UpdateNode(context.Context, *UpdateNodeReq) (*UpdateNodeRes, error)
-	DeleteNode(context.Context, *DeleteNodeReq) (*DeleteNodeRes, error)
-	GetPeers(*GetPeersReq, NodeService_GetPeersServer) error
-	GetExtPeers(*GetExtPeersReq, NodeService_GetExtPeersServer) error
-	CheckIn(context.Context, *CheckInReq) (*CheckInRes, error)
+	Login(context.Context, *Object) (*Object, error)
+	CreateNode(context.Context, *Object) (*Object, error)
+	ReadNode(context.Context, *Object) (*Object, error)
+	UpdateNode(context.Context, *Object) (*Object, error)
+	DeleteNode(context.Context, *Object) (*Object, error)
+	GetPeers(context.Context, *Object) (*Object, error)
+	GetExtPeers(context.Context, *Object) (*Object, error)
+	CheckIn(context.Context, *Object) (*Object, error)
 	mustEmbedUnimplementedNodeServiceServer()
 }
 
@@ -173,28 +127,28 @@ type NodeServiceServer interface {
 type UnimplementedNodeServiceServer struct {
 }
 
-func (UnimplementedNodeServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
+func (UnimplementedNodeServiceServer) Login(context.Context, *Object) (*Object, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
 }
-func (UnimplementedNodeServiceServer) CreateNode(context.Context, *CreateNodeReq) (*CreateNodeRes, error) {
+func (UnimplementedNodeServiceServer) CreateNode(context.Context, *Object) (*Object, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNode not implemented")
 }
-func (UnimplementedNodeServiceServer) ReadNode(context.Context, *ReadNodeReq) (*ReadNodeRes, error) {
+func (UnimplementedNodeServiceServer) ReadNode(context.Context, *Object) (*Object, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadNode not implemented")
 }
-func (UnimplementedNodeServiceServer) UpdateNode(context.Context, *UpdateNodeReq) (*UpdateNodeRes, error) {
+func (UnimplementedNodeServiceServer) UpdateNode(context.Context, *Object) (*Object, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateNode not implemented")
 }
-func (UnimplementedNodeServiceServer) DeleteNode(context.Context, *DeleteNodeReq) (*DeleteNodeRes, error) {
+func (UnimplementedNodeServiceServer) DeleteNode(context.Context, *Object) (*Object, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteNode not implemented")
 }
-func (UnimplementedNodeServiceServer) GetPeers(*GetPeersReq, NodeService_GetPeersServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetPeers not implemented")
+func (UnimplementedNodeServiceServer) GetPeers(context.Context, *Object) (*Object, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPeers not implemented")
 }
-func (UnimplementedNodeServiceServer) GetExtPeers(*GetExtPeersReq, NodeService_GetExtPeersServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetExtPeers not implemented")
+func (UnimplementedNodeServiceServer) GetExtPeers(context.Context, *Object) (*Object, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetExtPeers not implemented")
 }
-func (UnimplementedNodeServiceServer) CheckIn(context.Context, *CheckInReq) (*CheckInRes, error) {
+func (UnimplementedNodeServiceServer) CheckIn(context.Context, *Object) (*Object, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckIn not implemented")
 }
 func (UnimplementedNodeServiceServer) mustEmbedUnimplementedNodeServiceServer() {}
@@ -211,7 +165,7 @@ func RegisterNodeServiceServer(s grpc.ServiceRegistrar, srv NodeServiceServer) {
 }
 
 func _NodeService_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LoginRequest)
+	in := new(Object)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -223,13 +177,13 @@ func _NodeService_Login_Handler(srv interface{}, ctx context.Context, dec func(i
 		FullMethod: "/node.NodeService/Login",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServiceServer).Login(ctx, req.(*LoginRequest))
+		return srv.(NodeServiceServer).Login(ctx, req.(*Object))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeService_CreateNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateNodeReq)
+	in := new(Object)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -241,13 +195,13 @@ func _NodeService_CreateNode_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/node.NodeService/CreateNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServiceServer).CreateNode(ctx, req.(*CreateNodeReq))
+		return srv.(NodeServiceServer).CreateNode(ctx, req.(*Object))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeService_ReadNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReadNodeReq)
+	in := new(Object)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -259,13 +213,13 @@ func _NodeService_ReadNode_Handler(srv interface{}, ctx context.Context, dec fun
 		FullMethod: "/node.NodeService/ReadNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServiceServer).ReadNode(ctx, req.(*ReadNodeReq))
+		return srv.(NodeServiceServer).ReadNode(ctx, req.(*Object))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeService_UpdateNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateNodeReq)
+	in := new(Object)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -277,13 +231,13 @@ func _NodeService_UpdateNode_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/node.NodeService/UpdateNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServiceServer).UpdateNode(ctx, req.(*UpdateNodeReq))
+		return srv.(NodeServiceServer).UpdateNode(ctx, req.(*Object))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeService_DeleteNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteNodeReq)
+	in := new(Object)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -295,55 +249,49 @@ func _NodeService_DeleteNode_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/node.NodeService/DeleteNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServiceServer).DeleteNode(ctx, req.(*DeleteNodeReq))
+		return srv.(NodeServiceServer).DeleteNode(ctx, req.(*Object))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NodeService_GetPeers_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetPeersReq)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _NodeService_GetPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Object)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(NodeServiceServer).GetPeers(m, &nodeServiceGetPeersServer{stream})
-}
-
-type NodeService_GetPeersServer interface {
-	Send(*GetPeersRes) error
-	grpc.ServerStream
-}
-
-type nodeServiceGetPeersServer struct {
-	grpc.ServerStream
-}
-
-func (x *nodeServiceGetPeersServer) Send(m *GetPeersRes) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _NodeService_GetExtPeers_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetExtPeersReq)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+	if interceptor == nil {
+		return srv.(NodeServiceServer).GetPeers(ctx, in)
 	}
-	return srv.(NodeServiceServer).GetExtPeers(m, &nodeServiceGetExtPeersServer{stream})
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/node.NodeService/GetPeers",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).GetPeers(ctx, req.(*Object))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type NodeService_GetExtPeersServer interface {
-	Send(*GetExtPeersRes) error
-	grpc.ServerStream
-}
-
-type nodeServiceGetExtPeersServer struct {
-	grpc.ServerStream
-}
-
-func (x *nodeServiceGetExtPeersServer) Send(m *GetExtPeersRes) error {
-	return x.ServerStream.SendMsg(m)
+func _NodeService_GetExtPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Object)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServiceServer).GetExtPeers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/node.NodeService/GetExtPeers",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).GetExtPeers(ctx, req.(*Object))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeService_CheckIn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CheckInReq)
+	in := new(Object)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -355,7 +303,7 @@ func _NodeService_CheckIn_Handler(srv interface{}, ctx context.Context, dec func
 		FullMethod: "/node.NodeService/CheckIn",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServiceServer).CheckIn(ctx, req.(*CheckInReq))
+		return srv.(NodeServiceServer).CheckIn(ctx, req.(*Object))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -388,21 +336,18 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _NodeService_DeleteNode_Handler,
 		},
 		{
+			MethodName: "GetPeers",
+			Handler:    _NodeService_GetPeers_Handler,
+		},
+		{
+			MethodName: "GetExtPeers",
+			Handler:    _NodeService_GetExtPeers_Handler,
+		},
+		{
 			MethodName: "CheckIn",
 			Handler:    _NodeService_CheckIn_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "GetPeers",
-			Handler:       _NodeService_GetPeers_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "GetExtPeers",
-			Handler:       _NodeService_GetExtPeers_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "grpc/node.proto",
 }

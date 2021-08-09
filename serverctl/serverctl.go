@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -121,7 +122,7 @@ func RemoveNetwork(network string) (bool, error) {
 		log.Println("could not find /etc/netclient")
 		return false, err
 	}
-	cmdoutput, err := exec.Command("/etc/netclient/netclient", "leave", "-n", network).Output()
+	cmdoutput, err := local.RunCmd("/etc/netclient/netclient leave -n " + network)
 	if err != nil {
 		log.Println(string(cmdoutput))
 		return false, err
@@ -162,10 +163,12 @@ func AddNetwork(network string) (bool, error) {
 		log.Println("could not change netclient directory permissions")
 		return false, err
 	}
-	log.Println("executing network join: " + "/etc/netclient/netclient " + "join " + "-t " + token + " -name " + "netmaker" + " -endpoint " + pubip)
+	functions.PrintUserLog(models.NODE_SERVER_NAME,"executing network join: " + "/etc/netclient/netclient " + "join " + "-t " + token + " -name " + models.NODE_SERVER_NAME + " -endpoint " + pubip,0)
 
-	joinCMD := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", "netmaker", "-endpoint", pubip)
+	joinCMD := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
 	err = joinCMD.Start()
+	
+	
 	if err != nil {
 		log.Println(err)
 	}

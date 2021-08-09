@@ -9,6 +9,7 @@ import (
 
 	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/urfave/cli/v2"
 )
 
@@ -16,7 +17,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = "v0.5.11"
+	app.Version = "v0.7.1"
 
 	cliFlags := []cli.Flag{
 		&cli.StringFlag{
@@ -30,7 +31,7 @@ func main() {
 			Name:    "password",
 			Aliases: []string{"p"},
 			EnvVars: []string{"NETCLIENT_PASSWORD"},
-			Value:   "badpassword",
+			Value:   "",
 			Usage:   "Password for authenticating with netmaker.",
 		},
 		&cli.StringFlag{
@@ -203,32 +204,11 @@ func main() {
 
 	app.Commands = []*cli.Command{
 		{
-			Name:  "register",
-			Usage: "Register with Netmaker Server for secure GRPC communications.",
-			Flags: cliFlags,
-			Action: func(c *cli.Context) error {
-				cfg, err := config.GetCLIConfigRegister(c)
-				if err != nil {
-					return err
-				}
-				if cfg.GRPCWireGuard == "off" {
-					log.Println("Server is not using WireGuard to secure GRPC. Skipping.")
-					return err
-				}
-				if cfg.Client.ServerPrivateAddress == "" {
-					err = errors.New("No server address provided.")
-					return err
-				}
-				err = command.Register(cfg)
-				return err
-			},
-		},
-		{
 			Name:  "join",
 			Usage: "Join a Netmaker network.",
 			Flags: cliFlags,
 			Action: func(c *cli.Context) error {
-				cfg, err := config.GetCLIConfig(c)
+				cfg, pvtKey, err := config.GetCLIConfig(c)
 				if err != nil {
 					return err
 				}
@@ -240,7 +220,7 @@ func main() {
 					err = errors.New("No server address provided.")
 					return err
 				}
-				err = command.Join(cfg)
+				err = command.Join(cfg, pvtKey)
 				return err
 			},
 		},
@@ -251,7 +231,7 @@ func main() {
 			// the action, or code that will be executed when
 			// we execute our `ns` command
 			Action: func(c *cli.Context) error {
-				cfg, err := config.GetCLIConfig(c)
+				cfg, _, err := config.GetCLIConfig(c)
 				if err != nil {
 					return err
 				}
@@ -266,7 +246,7 @@ func main() {
 			// the action, or code that will be executed when
 			// we execute our `ns` command
 			Action: func(c *cli.Context) error {
-				cfg, err := config.GetCLIConfig(c)
+				cfg, _, err := config.GetCLIConfig(c)
 				if err != nil {
 					return err
 				}
@@ -281,7 +261,7 @@ func main() {
 			// the action, or code that will be executed when
 			// we execute our `ns` command
 			Action: func(c *cli.Context) error {
-				cfg, err := config.GetCLIConfig(c)
+				cfg, _, err := config.GetCLIConfig(c)
 				if err != nil {
 					return err
 				}
@@ -296,7 +276,7 @@ func main() {
 			// the action, or code that will be executed when
 			// we execute our `ns` command
 			Action: func(c *cli.Context) error {
-				cfg, err := config.GetCLIConfig(c)
+				cfg, _, err := config.GetCLIConfig(c)
 				if err != nil {
 					return err
 				}
@@ -311,7 +291,7 @@ func main() {
 			// the action, or code that will be executed when
 			// we execute our `ns` command
 			Action: func(c *cli.Context) error {
-				cfg, err := config.GetCLIConfig(c)
+				cfg, _, err := config.GetCLIConfig(c)
 				if err != nil {
 					return err
 				}
@@ -356,8 +336,7 @@ func main() {
 	}
 
 	// start our application
-	getID := exec.Command("id", "-u")
-	out, err := getID.Output()
+	out, err := local.RunCmd("id -u")
 
 	if err != nil {
 		log.Fatal(err)

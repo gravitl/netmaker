@@ -3,16 +3,23 @@ package database
 import (
 	"encoding/json"
 	"errors"
+
 	"github.com/rqlite/gorqlite"
 )
 
 const NETWORKS_TABLE_NAME = "networks"
 const NODES_TABLE_NAME = "nodes"
+const DELETED_NODES_TABLE_NAME = "deletednodes"
 const USERS_TABLE_NAME = "users"
 const DNS_TABLE_NAME = "dns"
 const EXT_CLIENT_TABLE_NAME = "extclients"
 const INT_CLIENTS_TABLE_NAME = "intclients"
+const PEERS_TABLE_NAME = "peers"
 const DATABASE_FILENAME = "netmaker.db"
+
+// == ERROR CONSTS ==
+const NO_RECORD = "no result found"
+const NO_RECORDS = "could not find any records"
 
 var Database gorqlite.Connection
 
@@ -33,10 +40,12 @@ func InitializeDatabase() error {
 func createTables() {
 	createTable(NETWORKS_TABLE_NAME)
 	createTable(NODES_TABLE_NAME)
+	createTable(DELETED_NODES_TABLE_NAME)
 	createTable(USERS_TABLE_NAME)
 	createTable(DNS_TABLE_NAME)
 	createTable(EXT_CLIENT_TABLE_NAME)
 	createTable(INT_CLIENTS_TABLE_NAME)
+	createTable(PEERS_TABLE_NAME)
 }
 
 func createTable(tableName string) error {
@@ -61,6 +70,18 @@ func Insert(key string, value string, tableName string) error {
 		return nil
 	} else {
 		return errors.New("invalid insert " + key + " : " + value)
+	}
+}
+
+func InsertPeer(key string, value string) error {
+	if key != "" && value != "" && isJSONString(value) {
+		_, err := Database.WriteOne("INSERT OR REPLACE INTO " + PEERS_TABLE_NAME + " (key, value) VALUES ('" + key + "', '" + value + "')")
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return errors.New("invalid peer insert " + key + " : " + value)
 	}
 }
 
@@ -89,6 +110,9 @@ func FetchRecord(tableName string, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if results[key] == "" {
+		return "", errors.New(NO_RECORD)
+	}
 	return results[key], nil
 }
 
@@ -104,6 +128,8 @@ func FetchRecords(tableName string) (map[string]string, error) {
 		row.Scan(&key, &value)
 		records[key] = value
 	}
-	// log.Println(records)
+	if len(records) == 0 {
+		return nil, errors.New(NO_RECORDS)
+	}
 	return records, nil
 }

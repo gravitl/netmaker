@@ -183,9 +183,13 @@ func HasAdmin() (bool, error) {
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
-		return false, err
+		if database.IsEmptyRecord(err) {
+			return false, nil
+		} else {
+			return true, err
+	
+		}
 	}
-
 	for _, value := range collection { // filter for isadmin true
 		var user models.User
 		err = json.Unmarshal([]byte(value), &user)
@@ -204,9 +208,11 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	hasadmin, _ := HasAdmin()
-
-	//Returns all the nodes in JSON format
+	hasadmin, err := HasAdmin()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}	
 
 	json.NewEncoder(w).Encode(hasadmin)
 
@@ -396,7 +402,7 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
 		return models.User{}, err
 	}
-	functions.PrintUserLog("netmaker", "updated user "+queryUser, 1)
+	functions.PrintUserLog(models.NODE_SERVER_NAME, "updated user "+queryUser, 1)
 	return user, nil
 }
 

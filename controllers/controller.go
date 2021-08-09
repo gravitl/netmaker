@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/servercfg"

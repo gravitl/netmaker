@@ -6,12 +6,9 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-
-	// "fmt"
 	"net/http"
 	"strconv"
 	"time"
-
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -29,43 +26,6 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(updateExtClient))).Methods("PUT")
 	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(deleteExtClient))).Methods("DELETE")
 	r.HandleFunc("/api/extclients/{network}/{macaddress}", securityCheck(false, http.HandlerFunc(createExtClient))).Methods("POST")
-}
-
-// TODO: Implement Validation
-func ValidateExtClientCreate(networkName string, extclient models.ExtClient) error {
-	// 	v := validator.New()
-	// 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
-	// 		var isFieldUnique bool = functions.IsFieldUnique(networkName, "macaddress", extclient.MacAddress)
-	// 		return isFieldUnique
-	// 	})
-	// 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-	// 		_, err := extclient.GetNetwork()
-	// 		return err == nil
-	// 	})
-	// 	err := v.Struct(extclient)
-
-	// 	if err != nil {
-	// 		for _, e := range err.(validator.ValidationErrors) {
-	// 			fmt.Println(e)
-	// 		}
-	// 	}
-	return nil
-}
-
-// TODO: Implement Validation
-func ValidateExtClientUpdate(networkName string, extclient models.ExtClient) error {
-	// v := validator.New()
-	// _ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-	// 	_, err := extclient.GetNetwork()
-	// 	return err == nil
-	// })
-	// err := v.Struct(extclient)
-	// if err != nil {
-	// 	for _, e := range err.(validator.ValidationErrors) {
-	// 		fmt.Println(e)
-	// 	}
-	// }
-	return nil
 }
 
 func checkIngressExists(network string, macaddress string) bool {
@@ -178,14 +138,14 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 
 	gwnode, err := functions.GetNodeByMacAddress(client.Network, client.IngressGatewayID)
 	if err != nil {
-		fmt.Println("Could not retrieve Ingress Gateway Node " + client.IngressGatewayID)
+		functions.PrintUserLog(r.Header.Get("user"),"Could not retrieve Ingress Gateway Node " + client.IngressGatewayID,1)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	network, err := functions.GetParentNetwork(client.Network)
 	if err != nil {
-		fmt.Println("Could not retrieve Ingress Gateway Network " + client.Network)
+		functions.PrintUserLog(r.Header.Get("user"),"Could not retrieve Ingress Gateway Network " + client.Network,1)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -238,7 +198,7 @@ Endpoint = %s
 		}
 		return
 	}
-
+	functions.PrintUserLog(r.Header.Get("user"),"retrieved ext client config",2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
 }
@@ -263,9 +223,7 @@ func CreateExtClient(extclient models.ExtClient) error {
 	}
 
 	if extclient.ClientID == "" {
-		clientid := StringWithCharset(7, charset)
-		clientname := "client-" + clientid
-		extclient.ClientID = clientname
+		extclient.ClientID = models.GenerateNodeName()
 	}
 
 	extclient.LastModified = time.Now().Unix()
@@ -284,10 +242,10 @@ func CreateExtClient(extclient models.ExtClient) error {
 	err = SetNetworkNodesLastModified(extclient.Network)
 	return err
 }
-
-//This one's a doozy
-//To create a extclient
-//Must have valid key and be unique
+/**
+ * To create a extclient
+ * Must have valid key and be unique
+ */
 func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -295,9 +253,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	networkName := params["network"]
 	macaddress := params["macaddress"]
-	//Check if network exists  first
-	//TODO: This is inefficient. Let's find a better way.
-	//Just a few rows down we grab the network anyway
 	ingressExists := checkIngressExists(networkName, macaddress)
 	if !ingressExists {
 		returnErrorResponse(w, r, formatError(errors.New("ingress does not exist"), "internal"))
@@ -319,11 +274,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	err = ValidateExtClientCreate(params["network"], extclient)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return
-	}
 	err = CreateExtClient(extclient)
 
 	if err != nil {
@@ -340,14 +290,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var newExtClient models.ExtClient
 	var oldExtClient models.ExtClient
-	// we decode our body request params
 	_ = json.NewDecoder(r.Body).Decode(&newExtClient)
-	// TODO: Validation for update.
-	// err := ValidateExtClientUpdate(params["network"], params["clientid"], newExtClient)
-	// if err != nil {
-	// 	returnErrorResponse(w, r, formatError(err, "badrequest"))
-	// 	return
-	// }
+
 	key, err := functions.GetRecordKey(params["clientid"], params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -362,7 +306,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	newclient, err := UpdateExtClient(newExtClient.ClientID, params["network"], oldExtClient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -391,6 +334,25 @@ func DeleteExtClient(network string, clientid string) error {
 	}
 	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	return err
+}
+
+/**
+ * Deletes ext clients based on gateway (mac) of ingress node and network
+ */
+func DeleteGatewayExtClients(gatewayID string, networkName string) error {
+	currentExtClients, err := GetNetworkExtClients(networkName)
+	if err != nil {
+		return err
+	}
+	for _, extClient := range currentExtClients {
+		if extClient.IngressGatewayID == gatewayID {
+			if err = DeleteExtClient(networkName, extClient.ClientID); err != nil {
+				functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to remove ext client "+extClient.ClientID, 2)
+				continue
+			}
+		}
+	}
+	return nil
 }
 
 //Delete a extclient
