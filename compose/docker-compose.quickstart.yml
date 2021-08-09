@@ -61,7 +61,7 @@ services:
     container_name: coredns
     restart: always
     ports:
-      - "5353:53/udp"
+      - "53:53/udp"
     volumes:
       - dnsconfig:/root/dnsconfig
 volumes:

@@ -183,9 +183,13 @@ func HasAdmin() (bool, error) {
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
-		return true, err
+		if database.IsEmptyRecord(err) {
+			return false, nil
+		} else {
+			return true, err
+	
+		}
 	}
-
 	for _, value := range collection { // filter for isadmin true
 		var user models.User
 		err = json.Unmarshal([]byte(value), &user)
@@ -204,9 +208,11 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	hasadmin, _ := HasAdmin()
-
-	//Returns all the nodes in JSON format
+	hasadmin, err := HasAdmin()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}	
 
 	json.NewEncoder(w).Encode(hasadmin)
 
