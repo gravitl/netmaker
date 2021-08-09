@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -65,7 +66,7 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
-func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, string) {
+func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string, string) {
 
 	var hasBearer = true
 	var tokenSplit = strings.Split(token, " ")
@@ -94,7 +95,7 @@ func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, strin
 			userNetworks = []string{ALL_NETWORK_ACCESS}
 		} else {
 			networkexists, err := functions.NetworkExists(netname)
-			if err != nil {
+			if err != nil && !database.IsEmptyRecord(err) {
 				return err, nil, ""
 			}
 			if netname != "" && !networkexists {
@@ -179,7 +180,7 @@ func ValidateNetworkUpdate(network models.Network) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("validator",e.Error(),1)
+			functions.PrintUserLog("validator", e.Error(), 1)
 		}
 	}
 	return err
@@ -515,7 +516,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	err = v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("validator",e.Error(),1)
+			functions.PrintUserLog("validator", e.Error(), 1)
 		}
 		return models.AccessKey{}, err
 	}
