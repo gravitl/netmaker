@@ -133,9 +133,7 @@ func (node *Node) SetExpirationDateTime() {
 
 func (node *Node) SetDefaultName() {
 	if node.Name == "" {
-		nodeid := StringWithCharset(5, charset)
-		nodename := "node-" + nodeid
-		node.Name = nodename
+		node.Name = GenerateNodeName()
 	}
 }
 
