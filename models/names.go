@@ -183,7 +183,7 @@ var SMALL_NAMES = []string{
 
 func GenerateNodeName() string {
 	rand.Seed(time.Now().UnixNano())
-	return NAMES[rand.Intn(len(SMALL_NAMES))] + "-" + NAMES[seededRand.Intn(len(NAMES))]
+	return SMALL_NAMES[rand.Intn(len(SMALL_NAMES))] + "-" + NAMES[seededRand.Intn(len(NAMES))]
 }
 
 func RetrieveLogo() string {
