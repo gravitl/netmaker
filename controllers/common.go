@@ -59,7 +59,7 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 					}
 				}
 			}
-			functions.PrintUserLog(models.NODE_SERVER_NAME, "sending peer "+peer.MacAddress+" "+peer.Endpoint, 2)
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "adding to peer list: "+peer.MacAddress+" "+peer.Endpoint, 3)
 			peers = append(peers, peer)
 		}
 	}
@@ -193,7 +193,6 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	node.Password = string(hash)
 
 	node.Network = networkName
-
 	if node.Name == models.NODE_SERVER_NAME {
 		if node.CheckIsServer() {
 			node.IsServer = "yes"

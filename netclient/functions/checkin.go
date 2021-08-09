@@ -22,7 +22,7 @@ import (
 func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.ClientConfig, network string) bool {
 	ipchange := false
 	var err error
-	if node.Roaming == "yes" {
+	if node.Roaming == "yes" && node.IsStatic != "yes" {
 		if node.IsLocal == "no" {
 			log.Println("Checking to see if public addresses have changed")
 			extIP, err := getPublicIP()
@@ -88,12 +88,9 @@ func setDNS(node *models.Node, servercfg config.ServerConfig, nodecfg *models.No
 	}
 }
 
-/**
- *
- *
- */
 func checkNodeActions(node *models.Node, network string, servercfg config.ServerConfig, localNode *models.Node) string {
-	if node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY {
+	if (node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY) && 
+		node.IsStatic != "yes" {
 		err := wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
 		if err != nil {
 			log.Println("Unable to process reset keys request:", err)

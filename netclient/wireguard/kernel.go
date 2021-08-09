@@ -82,7 +82,8 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	conf := wgtypes.Config{}
 	if nodecfg.UDPHolePunch == "yes" &&  
 	nodecfg.IsServer == "no"  &&    
-	nodecfg.IsIngressGateway == "no" {
+	nodecfg.IsIngressGateway == "no" && 
+	nodecfg.IsStatic != "yes" {
 		conf = wgtypes.Config{
 			PrivateKey:   &key,
 			ReplacePeers: true,

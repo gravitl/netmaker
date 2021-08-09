@@ -57,8 +57,7 @@ type Node struct {
 	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
-	StaticPubKey        string   `json:"staticpubkey" bson:"staticpubkey" yaml:"staticpubkey" validate:"checkyesorno"`
-	StaticIP            string   `json:"staticip" bson:"staticip" yaml:"staticip" validate:"checkyesorno"`
+	IsStatic	        string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
 	PullChanges         string   `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
 	DNSOn               string   `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
@@ -204,11 +203,8 @@ func (node *Node) SetDefaults() {
 		postup := parentNetwork.DefaultPostUp
 		node.PostUp = postup
 	}
-	if node.StaticIP == "" {
-		node.StaticIP = "no"
-	}
-	if node.StaticPubKey == "" {
-		node.StaticPubKey = "no"
+	if node.IsStatic == "" {
+		node.IsStatic = "no"
 	}
 	if node.UDPHolePunch == "" {
 		node.UDPHolePunch = parentNetwork.DefaultUDPHolePunch
@@ -237,10 +233,10 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.ID == "" {
 		newNode.ID = currentNode.ID
 	}
-	if newNode.Address == "" {
+	if newNode.Address == ""  && newNode.IsStatic != "yes"{
 		newNode.Address = currentNode.Address
 	}
-	if newNode.Address6 == "" {
+	if newNode.Address6 == ""  && newNode.IsStatic != "yes"{
 		newNode.Address6 = currentNode.Address6
 	}
 	if newNode.LocalAddress == "" {
@@ -249,15 +245,15 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.Name == "" {
 		newNode.Name = currentNode.Name
 	}
-	if newNode.ListenPort == 0 {
+	if newNode.ListenPort == 0  && newNode.IsStatic != "yes"{
 		newNode.ListenPort = currentNode.ListenPort
 	}
-	if newNode.PublicKey == "" {
+	if newNode.PublicKey == "" && newNode.IsStatic != "yes" {
 		newNode.PublicKey = currentNode.PublicKey
 	} else {
 		newNode.KeyUpdateTimeStamp = time.Now().Unix()
 	}
-	if newNode.Endpoint == "" {
+	if newNode.Endpoint == ""  && newNode.IsStatic != "yes"{
 		newNode.Endpoint = currentNode.Endpoint
 	}
 	if newNode.PostUp == "" {
@@ -331,14 +327,8 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.IngressGatewayRange == "" {
 		newNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	}
-	if newNode.StaticIP == "" {
-		newNode.StaticIP = currentNode.StaticIP
-	}
-	if newNode.StaticIP == "" {
-		newNode.StaticIP = currentNode.StaticIP
-	}
-	if newNode.StaticPubKey == "" {
-		newNode.StaticPubKey = currentNode.StaticPubKey
+	if newNode.IsStatic == "" {
+		newNode.IsStatic = currentNode.IsStatic
 	}
 	if newNode.UDPHolePunch == "" {
 		newNode.UDPHolePunch = currentNode.SaveConfig
@@ -364,6 +354,7 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
 	}
+	newNode.IsServer = currentNode.IsServer
 }
 
 func (currentNode *Node) Update(newNode *Node) error {
