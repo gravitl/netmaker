@@ -31,7 +31,7 @@ func CreateJWT(macaddress string, network string) (response string, err error) {
 }
 
 func CreateUserJWT(username string, networks []string, isadmin bool) (response string, err error) {
-	expirationTime := time.Now().Add(1 * time.Minute)
+	expirationTime := time.Now().Add(60 * 24 * time.Minute)
 	claims := &models.UserClaims{
 		UserName: username,
 		Networks: networks,
