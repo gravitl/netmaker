@@ -130,17 +130,15 @@ Prepare Nginx
 
 Nginx will serve the SSL certificate with your chosen domain and forward traffic to netmaker.
 
-Add the nginx configuration files:
+Get the nginx configuration file:
 
 ``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/nginx/netmaker-nginx-template.conf``
 
-``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/nginx/netmaker-nginx-dns.conf``
-
 Insert your domain in the configuration file and add to nginx:
 
-``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' netmaker-nginx-template.conf ``
+``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' netmaker-nginx-template.conf``
 
-``sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf && sudo cp netmaker-nginx-dns.conf /etc/nginx/nginx.conf``
+``sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf``
 
 ``nginx -t && nginx -s reload``
 
@@ -153,22 +151,28 @@ Install Netmaker
 Prepare Templates
 ------------------
 
-``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml``
+``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml`` 
 
-``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml``
+``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml`` 
 
-``sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml``
+``sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml`` 
 
 Generate a unique master key and insert it:
 
-``tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo ''``
+``tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo ''`` 
 
-``sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.quickstart.yml``
+``sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.quickstart.yml`` 
 
 Start Netmaker
 ----------------
 
 ``sudo docker-compose -f docker-compose.quickstart.yml up -d``
+
+navigate to dashboard.<your base domain> to see your nginx instance!
+
+To troubleshoot any issues, try:
+
+``docker logs netmaker``
 
 ===========
 Quick Start
@@ -211,12 +215,8 @@ You will use this command to install the netclient on your nodes. There are thre
 
 * The **Access Key** value is the secret string that will allow your node to authenticate with the Netmaker network. This can be used with existing netclient installations where additional configurations (such as setting the server IP manually) may be required. This is not typical. E.g. ``netclient -c install -k <access key> -s 1.2.3.4 -p 50052``
 * The **Access Token** value is a base64 encoded string that contains the server IP and grpc port, as well as the access key. This is decoded by the netclient and can be used with existing netclient installations like this: ``netclient -c install -t <access token>``. You should use this method for adding a network to a node that is already on a network. For instance, Node A is in the **mynet** network and now you are adding it to **default**.
-<<<<<<< HEAD
-
-=======
 * The **install command** value is a curl command that can be run on Linux systems. It is a simple script that downloads the netclient binary and runs the install command all in one. However, this script is tailored for Secure GRPC Mode and contains an additional (unnecessary) command: **netclient register -k keyvalue**. This command will not work without secure GRPC enabled and will return a 500 error.
   
->>>>>>> c360eb1878a4fe89538235ab240da6f6890934a1
 Networks can also be enabled to allow nodes to sign up without keys at all. In this scenario, nodes enter a "pending state" and are not permitted to join the network until an admin approves them.
 
 Deploy Nodes

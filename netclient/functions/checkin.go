@@ -258,19 +258,19 @@ func Push(network string) error {
 		log.Println("Failed to authenticate:", err)
 		return err
 	}
-
-	privateKey, err := wireguard.RetrievePrivKey(network)
-	if err != nil {
-		return err
+	if postnode.IsPending != "yes" {
+		privateKey, err := wireguard.RetrievePrivKey(network)
+		if err != nil {
+			return err
+		}
+		privateKeyWG, err := wgtypes.ParseKey(privateKey)
+		if err != nil {
+			return err
+		}
+		if postnode.PublicKey != privateKeyWG.PublicKey().String() {
+			postnode.PublicKey = privateKeyWG.PublicKey().String()
+		}
 	}
-	privateKeyWG, err := wgtypes.ParseKey(privateKey)
-	if err != nil {
-		return err
-	}
-	if postnode.PublicKey != privateKeyWG.PublicKey().String() {
-		postnode.PublicKey = privateKeyWG.PublicKey().String()
-	}
-
 	postnode.SetLastCheckIn()
 	nodeData, err := json.Marshal(&postnode)
 	if err != nil {
