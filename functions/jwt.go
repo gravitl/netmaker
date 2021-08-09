@@ -3,8 +3,7 @@ package functions
 import (
 	"errors"
 	"time"
-
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -31,7 +30,7 @@ func CreateJWT(macaddress string, network string) (response string, err error) {
 }
 
 func CreateUserJWT(username string, networks []string, isadmin bool) (response string, err error) {
-	expirationTime := time.Now().Add(60 * 24 * time.Minute)
+	expirationTime := time.Now().Add(60 * 12 * time.Minute)
 	claims := &models.UserClaims{
 		UserName: username,
 		Networks: networks,
