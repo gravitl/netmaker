@@ -118,6 +118,14 @@ func (node *Node) SetIsServerDefault() {
 	}
 }
 
+func (node *Node) SetIsStaticDefault() {
+	if node.IsServer == "yes" {
+		node.IsStatic = "yes"
+	} else if node.IsStatic != "yes" {
+		node.IsStatic = "no"
+	}
+}
+
 func (node *Node) SetLastModified() {
 	node.LastModified = time.Now().Unix()
 }
@@ -226,6 +234,7 @@ func (node *Node) SetDefaults() {
 	node.SetDefaultAction()
 	node.SetID()
 	node.SetIsServerDefault()
+	node.SetIsStaticDefault()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
@@ -355,6 +364,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 		newNode.Action = currentNode.Action
 	}
 	newNode.IsServer = currentNode.IsServer
+	if newNode.IsServer == "yes" {
+		newNode.IsStatic = "yes"
+	}
 }
 
 func (currentNode *Node) Update(newNode *Node) error {
