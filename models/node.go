@@ -18,6 +18,7 @@ const TEN_YEARS_IN_SECONDS = 300000000
 
 // == ACTIONS == (can only be set by GRPC)
 const NODE_UPDATE_KEY = "updatekey"
+const NODE_SERVER_NAME = "netmaker"
 const NODE_DELETE = "delete"
 const NODE_IS_PENDING = "pending"
 const NODE_NOOP = "noop"
@@ -56,12 +57,13 @@ type Node struct {
 	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
-	StaticIP            string   `json:"staticip" bson:"staticip" yaml:"staticip"`
-	StaticPubKey        string   `json:"staticpubkey" bson:"staticpubkey" yaml:"staticpubkey"`
+	StaticPubKey        string   `json:"staticpubkey" bson:"staticpubkey" yaml:"staticpubkey" validate:"checkyesorno"`
+	StaticIP            string   `json:"staticip" bson:"staticip" yaml:"staticip" validate:"checkyesorno"`
 	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
 	PullChanges         string   `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
 	DNSOn               string   `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
 	IsDualStack         string   `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
+	IsServer            string   `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Action              string   `json:"action" bson:"action" yaml:"action"`
 	IsLocal             string   `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
 	LocalRange          string   `json:"localrange" bson:"localrange" yaml:"localrange"`
@@ -111,6 +113,12 @@ func (node *Node) SetIsDualStackDefault() {
 	}
 }
 
+func (node *Node) SetIsServerDefault() {
+	if node.IsServer != "yes" {
+		node.IsServer = "no"
+	}
+}
+
 func (node *Node) SetLastModified() {
 	node.LastModified = time.Now().Unix()
 }
@@ -135,6 +143,23 @@ func (node *Node) SetDefaultName() {
 	if node.Name == "" {
 		node.Name = GenerateNodeName()
 	}
+}
+
+func (node *Node) CheckIsServer() bool {
+	nodeData, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return false
+	}
+	for _, value := range nodeData {
+		var tmpNode Node
+		if err := json.Unmarshal([]byte(value), &tmpNode); err != nil {
+			continue
+		}
+		if tmpNode.Network == node.Network && tmpNode.MacAddress != node.MacAddress {
+			return false
+		}
+	}
+	return true
 }
 
 func (node *Node) GetNetwork() (Network, error) {
@@ -204,6 +229,7 @@ func (node *Node) SetDefaults() {
 	node.SetPullChangesDefault()
 	node.SetDefaultAction()
 	node.SetID()
+	node.SetIsServerDefault()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 

@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"strings"
-
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -25,7 +23,6 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	}
 	node, err := GetNode(macAndNetwork[0], macAndNetwork[1])
 	if err != nil {
-		log.Println("could not get node "+macAndNetwork[0]+" "+macAndNetwork[1], err)
 		return nil, err
 	}
 	node.SetLastCheckIn()
@@ -71,7 +68,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 
 	node, err = CreateNode(node, node.Network)
 	if err != nil {
-		log.Println("could not create node on network " + node.Network + " (gRPC controller)")
 		return nil, err
 	}
 	nodeData, err := json.Marshal(&node)
@@ -121,7 +117,6 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 
 	err := DeleteNode(nodeID, true)
 	if err != nil {
-		log.Println("Error deleting node (gRPC controller).")
 		return nil, err
 	}
 
@@ -139,7 +134,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		if err != nil {
 			return nil, err
 		}
-		if node.Name == "netmaker" {
+		if node.IsServer == "yes" {
 			SetNetworkServerPeers(macAndNetwork[1])
 		}
 		peers, err := GetPeersList(macAndNetwork[1])

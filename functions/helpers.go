@@ -252,6 +252,9 @@ func NetworkNodesUpdateAction(networkName string, action string) error {
 			fmt.Println("error in node address assignment!")
 			return err
 		}
+		if action == models.NODE_UPDATE_KEY && node.StaticPubKey == "yes" {
+			continue
+		}
 		if node.Network == networkName {
 			node.Action = action
 			data, err := json.Marshal(&node)
@@ -261,8 +264,7 @@ func NetworkNodesUpdateAction(networkName string, action string) error {
 			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
-	}
-
+ 	}
 	return nil
 }
 
@@ -763,7 +765,7 @@ func DecrimentKey(networkName string, keyvalue string) {
 	}
 
 	if newNetworkData, err := json.Marshal(&network); err != nil {
-		PrintUserLog("netmaker", "failed to decrement key", 2)
+		PrintUserLog(models.NODE_SERVER_NAME, "failed to decrement key", 2)
 		return
 	} else {
 		database.Insert(network.NetID, string(newNetworkData), database.NETWORKS_TABLE_NAME)

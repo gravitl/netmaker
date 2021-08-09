@@ -2,10 +2,7 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -319,7 +316,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	entrytext := params["domain"] + "." + params["network"]
-	functions.PrintUserLog("netmaker", "deleted dns entry: "+entrytext, 1)
+	functions.PrintUserLog(models.NODE_SERVER_NAME, "deleted dns entry: "+entrytext, 1)
 	err = SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -401,7 +398,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	log.Println("pushed DNS updates to nameserver")
+	functions.PrintUserLog(r.Header.Get("user"),"pushed DNS updates to nameserver",1)
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
 }
 
@@ -422,7 +419,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	err := v.Struct(entry)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
+			functions.PrintUserLog("", e.Error(),1)
 		}
 	}
 	return err
@@ -442,7 +439,9 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := functions.GetParentNetwork(change.Network)
-		fmt.Println(err, entry.Network)
+		if err != nil {
+			functions.PrintUserLog("",err.Error(),0)
+		}
 		return err == nil
 	})
 
@@ -464,7 +463,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
+			functions.PrintUserLog("", e.Error(),1)
 		}
 	}
 	return err

@@ -396,7 +396,7 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
 		return models.User{}, err
 	}
-	functions.PrintUserLog("netmaker", "updated user "+queryUser, 1)
+	functions.PrintUserLog(models.NODE_SERVER_NAME, "updated user "+queryUser, 1)
 	return user, nil
 }
 

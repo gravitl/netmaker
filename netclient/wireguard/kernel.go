@@ -80,7 +80,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	nodeport = int(node.ListenPort)
 
 	conf := wgtypes.Config{}
-	if nodecfg.UDPHolePunch == "yes" && nodecfg.Name != "netmaker" {
+	if nodecfg.UDPHolePunch == "yes" &&  
+	nodecfg.IsServer == "no"  &&    
+	nodecfg.IsIngressGateway == "no" {
 		conf = wgtypes.Config{
 			PrivateKey:   &key,
 			ReplacePeers: true,

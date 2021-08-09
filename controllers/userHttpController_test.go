@@ -13,7 +13,7 @@ import (
 	gconf.ServerGRPC = "localhost:8081"
 	gconf.PortGRPC = "50051"
 	//err := SetGlobalConfig(gconf)
-	collection := REMOVE.Client.Database("netmaker").Collection("config")
+	collection := REMOVE.Client.Database(models.NODE_SERVER_NAME).Collection("config")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	//create, _, err := functions.GetGlobalConfig()
@@ -24,7 +24,7 @@ import (
 	//drop network, nodes, and user collections
 	var collections = []string{"networks", "nodes", "users", "dns"}
 	for _, table := range collections {
-		collection := REMOVE.Client.Database("netmaker").Collection(table)
+		collection := REMOVE.Client.Database(models.NODE_SERVER_NAME).Collection(table)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		err := collection.Drop(ctx)

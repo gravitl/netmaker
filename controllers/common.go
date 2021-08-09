@@ -2,11 +2,9 @@ package controller
 
 import (
 	"encoding/json"
-	"log"
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -23,20 +21,19 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 		if database.IsEmptyRecord(err) {
 			return peers, nil
 		}
-		log.Println(err)
+		functions.PrintUserLog("",err.Error(),2)
 		return nil, err
 	}
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
-		log.Println("failed to collect udp peers")
-		log.Println(errN)
+		functions.PrintUserLog("",errN.Error(),2)
 	}
 	for _, value := range collection {
 		var node models.Node
 		var peer models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			log.Println(err)
+			functions.PrintUserLog("",err.Error(),2)
 			continue
 		}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
@@ -62,7 +59,7 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 					}
 				}
 			}
-			functions.PrintUserLog("netmaker", "sending peer "+peer.MacAddress+" "+peer.Endpoint, 2)
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "sending peer "+peer.MacAddress+" "+peer.Endpoint, 2)
 			peers = append(peers, peer)
 		}
 	}
@@ -87,12 +84,12 @@ func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersRe
 		var extClient models.ExtClient
 		err = json.Unmarshal([]byte(value), &peer)
 		if err != nil {
-			functions.PrintUserLog("netmaker", "failed to unmarshal peer", 2)
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to unmarshal peer", 2)
 			continue
 		}
 		err = json.Unmarshal([]byte(value), &extClient)
 		if err != nil {
-			functions.PrintUserLog("netmaker", "failed to unmarshal ext client", 2)
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to unmarshal ext client", 2)
 			continue
 		}
 		if extClient.Network == networkName && extClient.IngressGatewayID == macaddress {
@@ -125,7 +122,7 @@ func DeleteNode(key string, exterminate bool) error {
 		}
 	} else {
 		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			log.Println(err)
+			functions.PrintUserLog("",err.Error(),2)
 		}
 	}
 	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
@@ -197,6 +194,12 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 
 	node.Network = networkName
 
+	if node.Name == models.NODE_SERVER_NAME {
+		if node.CheckIsServer() {
+			node.IsServer = "yes"
+		}
+	}
+
 	node.SetDefaults()
 	node.Address, err = functions.UniqueAddress(networkName)
 	if err != nil {
@@ -216,7 +219,6 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
-
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return node, err
@@ -242,12 +244,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 func SetNetworkServerPeers(networkName string) {
 	if currentPeersList, err := serverctl.GetPeers(networkName); err == nil {
 		if database.SetPeers(currentPeersList, networkName) {
-			log.Println("set new peers on network", networkName)
-		} else {
-			log.Println("attempted to set peers on network", networkName)
+			functions.PrintUserLog(models.NODE_SERVER_NAME,"set new peers on network "+networkName,1)
 		}
 	} else {
-		log.Println("could not set server peers on network", networkName)
+		functions.PrintUserLog(models.NODE_SERVER_NAME,"could not set peers on network "+networkName,1)
+		functions.PrintUserLog(models.NODE_SERVER_NAME,err.Error(),1)
 	}
 }
 

@@ -163,10 +163,12 @@ func AddNetwork(network string) (bool, error) {
 		log.Println("could not change netclient directory permissions")
 		return false, err
 	}
-	log.Println("executing network join: " + "/etc/netclient/netclient " + "join " + "-t " + token + " -name " + "netmaker" + " -endpoint " + pubip)
+	functions.PrintUserLog(models.NODE_SERVER_NAME,"executing network join: " + "/etc/netclient/netclient " + "join " + "-t " + token + " -name " + models.NODE_SERVER_NAME + " -endpoint " + pubip,0)
 
-	joinCMD := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", "netmaker", "-endpoint", pubip)
+	joinCMD := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
 	err = joinCMD.Start()
+	
+	
 	if err != nil {
 		log.Println(err)
 	}

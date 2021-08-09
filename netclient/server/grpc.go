@@ -232,7 +232,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			}
 			allowedips = append(allowedips, addr6)
 		}
-		if nodecfg.Name == "netmaker" {
+		if nodecfg.IsServer == "yes" {
 			peer = wgtypes.PeerConfig{
 				PublicKey:                   pubkey,
 				PersistentKeepaliveInterval: &keepaliveserver,

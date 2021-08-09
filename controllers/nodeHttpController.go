@@ -3,11 +3,9 @@ package controller
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strings"
 	"time"
-
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -648,7 +646,6 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 
 	network, err := functions.GetParentNetwork(netid)
 	if err != nil {
-		log.Println("Could not find network.")
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = "yes"

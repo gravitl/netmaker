@@ -131,6 +131,5 @@ func FetchRecords(tableName string) (map[string]string, error) {
 	if len(records) == 0 {
 		return nil, errors.New(NO_RECORDS)
 	}
-	// log.Println(records)
 	return records, nil
 }
