@@ -60,29 +60,6 @@ func Write(config *ClientConfig, network string) error {
 	return err
 }
 
-//reading in the env file
-func WriteGlobal(config *GlobalConfig) error {
-	_, err := os.Stat("/etc/netclient")
-	if os.IsNotExist(err) {
-		os.Mkdir("/etc/netclient", 744)
-	} else if err != nil {
-		return err
-	}
-	home := "/etc/netclient"
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	file := fmt.Sprintf(home + "/netconfig-global-001")
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-	defer f.Close()
-
-	err = yaml.NewEncoder(f).Encode(config)
-	if err != nil {
-		return err
-	}
-	return err
-}
 func WriteServer(server string, accesskey string, network string) error {
 	if network == "" {
 		err := errors.New("No network provided. Exiting.")
@@ -196,58 +173,6 @@ func (config *ClientConfig) ReadConfig() {
 			//config = cfg
 		}
 	}
-}
-func ModGlobalConfig(cfg models.IntClient) error {
-	var modconfig GlobalConfig
-	var err error
-	if FileExists("/etc/netclient/netconfig-global-001") {
-		useconfig, err := ReadGlobalConfig()
-		if err != nil {
-			return err
-		}
-		modconfig = *useconfig
-	}
-	if cfg.ServerWGPort != "" {
-		modconfig.Client.ServerWGPort = cfg.ServerWGPort
-	}
-	if cfg.ServerGRPCPort != "" {
-		modconfig.Client.ServerGRPCPort = cfg.ServerGRPCPort
-	}
-	if cfg.ServerAPIPort != "" {
-		modconfig.Client.ServerAPIPort = cfg.ServerAPIPort
-	}
-	if cfg.PublicKey != "" {
-		modconfig.Client.PublicKey = cfg.PublicKey
-	}
-	if cfg.PrivateKey != "" {
-		modconfig.Client.PrivateKey = cfg.PrivateKey
-	}
-	if cfg.ServerPublicEndpoint != "" {
-		modconfig.Client.ServerPublicEndpoint = cfg.ServerPublicEndpoint
-	}
-	if cfg.ServerPrivateAddress != "" {
-		modconfig.Client.ServerPrivateAddress = cfg.ServerPrivateAddress
-	}
-	if cfg.Address != "" {
-		modconfig.Client.Address = cfg.Address
-	}
-	if cfg.Address6 != "" {
-		modconfig.Client.Address6 = cfg.Address6
-	}
-	if cfg.Network != "" {
-		modconfig.Client.Network = cfg.Network
-	}
-	if cfg.ServerKey != "" {
-		modconfig.Client.ServerKey = cfg.ServerKey
-	}
-	if cfg.AccessKey != "" {
-		modconfig.Client.AccessKey = cfg.AccessKey
-	}
-	if cfg.ClientID != "" {
-		modconfig.Client.ClientID = cfg.ClientID
-	}
-	err = WriteGlobal(&modconfig)
-	return err
 }
 
 func ModConfig(node *models.Node) error {
@@ -385,30 +310,6 @@ func ReadConfig(network string) (*ClientConfig, error) {
 	defer f.Close()
 
 	var cfg ClientConfig
-
-	if !nofile {
-		decoder := yaml.NewDecoder(f)
-		err = decoder.Decode(&cfg)
-		if err != nil {
-			fmt.Println("trouble decoding file")
-			return nil, err
-		}
-	}
-	return &cfg, err
-}
-
-func ReadGlobalConfig() (*GlobalConfig, error) {
-	nofile := false
-	home := "/etc/netclient"
-	file := fmt.Sprintf(home + "/netconfig-global-001")
-	f, err := os.Open(file)
-
-	if err != nil {
-		nofile = true
-	}
-	defer f.Close()
-
-	var cfg GlobalConfig
 
 	if !nofile {
 		decoder := yaml.NewDecoder(f)

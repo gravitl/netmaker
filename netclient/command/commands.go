@@ -121,7 +121,7 @@ func List(cfg config.ClientConfig) error {
 	return err
 }
 
-func Uninstall(cfg config.GlobalConfig) error {
+func Uninstall() error {
 	log.Println("Uninstalling netclient")
 	err := functions.Uninstall()
 	return err

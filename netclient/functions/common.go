@@ -362,7 +362,7 @@ func GetNetworks() ([]string, error) {
 		return networks, err
 	}
 	for _, f := range files {
-		if strings.Contains(f.Name(), "netconfig-") && !strings.Contains(f.Name(), "global-001") {
+		if strings.Contains(f.Name(), "netconfig-") {
 			networkname := stringAfter(f.Name(), "netconfig-")
 			networks = append(networks, networkname)
 		}
