@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/servercfg"
 	"google.golang.org/grpc"
@@ -22,7 +24,8 @@ import (
 
 //Start MongoDB Connection and start API Request Handler
 func main() {
-	initialize() // initial db and grpc server
+	fmt.Println(models.RetrieveLogo()) // print the logo
+	initialize()                       // initial db and grpc server
 	defer database.Database.Close()
 	startControllers() // start the grpc or rest endpoints
 }
