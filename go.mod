@@ -19,8 +19,6 @@ require (
 	github.com/txn2/txeh v1.3.0
 	github.com/urfave/cli v1.22.5 // indirect
 	github.com/urfave/cli/v2 v2.3.0
-	github.com/vishvananda/netlink v1.1.0
-	go.mongodb.org/mongo-driver v1.4.3
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
