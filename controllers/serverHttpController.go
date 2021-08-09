@@ -12,16 +12,16 @@ import (
 )
 
 func serverHandlers(r *mux.Router) {
-    r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(http.HandlerFunc(addNetwork))).Methods("POST")
-    r.HandleFunc("/api/server/getconfig", securityCheckServer(http.HandlerFunc(getConfig))).Methods("GET")
-    r.HandleFunc("/api/server/getwgconfig", securityCheckServer(http.HandlerFunc(getWGConfig))).Methods("GET")
-    r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(http.HandlerFunc(removeNetwork))).Methods("DELETE")
+    r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
+    r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
+    r.HandleFunc("/api/server/getwgconfig", securityCheckServer(true, http.HandlerFunc(getWGConfig))).Methods("GET")
+    r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
 //Only admin should have access to all these network-level actions
 //or maybe some Users once implemented
-func securityCheckServer(next http.Handler) http.HandlerFunc {
+func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
@@ -42,15 +42,16 @@ func securityCheckServer(next http.Handler) http.HandlerFunc {
 		}
 		//all endpoints here require master so not as complicated
 		//still might not be a good  way of doing this
-                _, _, isadmin, _ := functions.VerifyUserToken(authToken)
-
+                user, _, isadmin, err := functions.VerifyUserToken(authToken)
+                errorResponse = models.ErrorResponse{
+                        Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+                }
+                if !adminonly && (err != nil || user == "") {
+                        returnErrorResponse(w, r, errorResponse)
+                }
 		if !isadmin && !authenticateMasterServer(authToken) {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-				}
-				returnErrorResponse(w, r, errorResponse)
-				return
-		}
+                        returnErrorResponse(w, r, errorResponse)
+                }
 		next.ServeHTTP(w, r)
 	}
 }
