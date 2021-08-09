@@ -60,22 +60,6 @@ func GetServerConfig() config.ServerConfig {
 	}
 	return cfg
 }
-
-func GetWGConfig() config.WG {
-	var cfg config.WG
-	if IsGRPCWireGuard() {
-		cfg.GRPCWireGuard = "on"
-	} else {
-		cfg.GRPCWireGuard = "off"
-	}
-	cfg.GRPCWGInterface = GetGRPCWGInterface()
-	cfg.GRPCWGAddress = GetGRPCWGAddress()
-	cfg.GRPCWGAddressRange = GetGRPCWGAddressRange()
-	cfg.GRPCWGPort = GetGRPCWGPort()
-	cfg.GRPCWGPubKey = GetGRPCWGPubKey()
-	cfg.GRPCWGPrivKey = GetGRPCWGPrivKey()
-	return cfg
-}
 func GetAPIConnString() string {
 	conn := ""
 	if os.Getenv("SERVER_API_CONN_STRING") != "" {
@@ -145,19 +129,15 @@ func GetCoreDNSAddr() string {
 func GetGRPCHost() string {
 	serverhost := "127.0.0.1"
 	remoteip, _ := GetPublicIP()
-	if IsGRPCWireGuard() {
-		serverhost = GetGRPCWGAddress()
+	if os.Getenv("SERVER_GRPC_HOST") != "" {
+		serverhost = os.Getenv("SERVER_GRPC_HOST")
+	} else if config.Config.Server.GRPCHost != "" {
+		serverhost = config.Config.Server.GRPCHost
+	} else if os.Getenv("SERVER_HOST") != "" {
+		serverhost = os.Getenv("SERVER_HOST")
 	} else {
-		if os.Getenv("SERVER_GRPC_HOST") != "" {
-			serverhost = os.Getenv("SERVER_GRPC_HOST")
-		} else if config.Config.Server.GRPCHost != "" {
-			serverhost = config.Config.Server.GRPCHost
-		} else if os.Getenv("SERVER_HOST") != "" {
-			serverhost = os.Getenv("SERVER_HOST")
-		} else {
-			if remoteip != "" {
-				serverhost = remoteip
-			}
+		if remoteip != "" {
+			serverhost = remoteip
 		}
 	}
 	return serverhost

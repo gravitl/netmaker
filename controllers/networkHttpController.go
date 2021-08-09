@@ -417,9 +417,6 @@ func CreateNetwork(network models.Network) error {
 }
 
 // BEGIN KEY MANAGEMENT SECTION
-
-//TODO: Very little error handling
-//accesskey is created as a json string inside the Network collection item in mongo
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -479,7 +476,6 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
-	w := servercfg.GetWGConfig()
 	servervals := models.ServerConfig{
 		CoreDNSAddr:    s.CoreDNSAddr,
 		APIConnString:  s.APIConnString,
@@ -490,16 +486,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		GRPCPort:       s.GRPCPort,
 		GRPCSSL:        s.GRPCSSL,
 	}
-	wgvals := models.WG{
-		GRPCWireGuard:  w.GRPCWireGuard,
-		GRPCWGAddress:  w.GRPCWGAddress,
-		GRPCWGPort:     w.GRPCWGPort,
-		GRPCWGPubKey:   w.GRPCWGPubKey,
-		GRPCWGEndpoint: s.APIHost,
-	}
-
 	accessToken.ServerConfig = servervals
-	accessToken.WG = wgvals
 	accessToken.ClientConfig.Network = netID
 	accessToken.ClientConfig.Key = accesskey.Value
 	accessToken.ClientConfig.LocalRange = privAddr
@@ -538,7 +525,6 @@ func GetSignupToken(netID string) (models.AccessKey, error) {
 	var accesskey models.AccessKey
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
-	w := servercfg.GetWGConfig()
 	servervals := models.ServerConfig{
 		APIConnString:  s.APIConnString,
 		APIHost:        s.APIHost,
@@ -548,16 +534,7 @@ func GetSignupToken(netID string) (models.AccessKey, error) {
 		GRPCPort:       s.GRPCPort,
 		GRPCSSL:        s.GRPCSSL,
 	}
-	wgvals := models.WG{
-		GRPCWireGuard:  w.GRPCWireGuard,
-		GRPCWGAddress:  w.GRPCWGAddress,
-		GRPCWGPort:     w.GRPCWGPort,
-		GRPCWGPubKey:   w.GRPCWGPubKey,
-		GRPCWGEndpoint: s.APIHost,
-	}
-
 	accessToken.ServerConfig = servervals
-	accessToken.WG = wgvals
 
 	tokenjson, err := json.Marshal(accessToken)
 	if err != nil {

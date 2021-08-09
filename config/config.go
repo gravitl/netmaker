@@ -30,7 +30,6 @@ var Config *EnvironmentConfig
 // EnvironmentConfig :
 type EnvironmentConfig struct {
 	Server ServerConfig `yaml:"server"`
-	WG     WG           `yaml:"wg"`
 }
 
 // ServerConfig :
@@ -54,17 +53,6 @@ type ServerConfig struct {
 	DisableDefaultNet    string `yaml:"disabledefaultnet"`
 	GRPCSSL              string `yaml:"grpcssl"`
 	Verbosity            int32  `yaml:"verbosity"`
-}
-
-type WG struct {
-	RegisterKeyRequired string `yaml:"keyrequired"`
-	GRPCWireGuard       string `yaml:"grpcwg"`
-	GRPCWGInterface     string `yaml:"grpciface"`
-	GRPCWGAddress       string `yaml:"grpcaddr"`
-	GRPCWGAddressRange  string `yaml:"grpcaddrrange"`
-	GRPCWGPort          string `yaml:"grpcport"`
-	GRPCWGPubKey        string `yaml:"pubkey"`
-	GRPCWGPrivKey       string `yaml:"privkey"`
 }
 
 //reading in the env file

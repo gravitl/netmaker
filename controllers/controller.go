@@ -30,8 +30,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	fileHandlers(r)
 	serverHandlers(r)
 	extClientHandlers(r)
-	intClientHandlers(r)
-
+	
 	port := servercfg.GetAPIPort()
 
 	srv := &http.Server{Addr: ":" + port, Handler: handlers.CORS(originsOk, headersOk, methodsOk)(r)}

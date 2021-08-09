@@ -7,8 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"time"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -29,43 +27,6 @@ func GetServerWGConf() (models.IntClient, error) {
 		}
 	}
 	return models.IntClient{}, errors.New("could not find comms server")
-}
-
-func CreateCommsNetwork() (bool, error) {
-
-	iscreated := false
-	exists, err := functions.NetworkExists("comms")
-
-	if exists || err != nil {
-		log.Println("comms network already exists. Skipping...")
-		return true, err
-	} else {
-		var network models.Network
-
-		network.NetID = "comms"
-		network.IsIPv6 = "no"
-		network.IsIPv4 = "yes"
-		network.IsGRPCHub = "yes"
-		network.AddressRange = servercfg.GetGRPCWGAddressRange()
-		network.DisplayName = "comms"
-		network.SetDefaults()
-		network.SetNodesLastModified()
-		network.SetNetworkLastModified()
-		network.KeyUpdateTimeStamp = time.Now().Unix()
-		network.IsLocal = "no"
-		network.KeyUpdateTimeStamp = time.Now().Unix()
-
-		log.Println("Creating comms network...")
-		value, err := json.Marshal(network)
-		if err != nil {
-			return false, err
-		}
-		database.Insert(network.NetID, string(value), database.NETWORKS_TABLE_NAME)
-	}
-	if err == nil {
-		iscreated = true
-	}
-	return iscreated, err
 }
 
 func InstallNetclient() error {

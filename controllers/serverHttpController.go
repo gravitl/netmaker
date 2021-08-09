@@ -14,7 +14,6 @@ import (
 func serverHandlers(r *mux.Router) {
     r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
     r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
-    r.HandleFunc("/api/server/getwgconfig", securityCheckServer(true, http.HandlerFunc(getWGConfig))).Methods("GET")
     r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
 }
 
@@ -89,17 +88,6 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
         scfg := servercfg.GetServerConfig()
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(scfg)
-}
-
-func getWGConfig(w http.ResponseWriter, r *http.Request) {
-        // Set header
-        w.Header().Set("Content-Type", "application/json")
-
-        // get params
-
-        wgcfg := servercfg.GetWGConfig()
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(wgcfg)
 }
 
 /*

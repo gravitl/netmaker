@@ -2,16 +2,10 @@ server:
   host: "localhost"
   apiport: "8081"
   grpcport: "50051"
-  masterkey: "secretkey"
+  masterkey: ""
   allowedorigin: "*"
   restbackend: true            
   agentbackend: true
   defaultnetname: "default"
   defaultnetrange: "10.10.10.0/24"
   createdefault: true
-mongoconn:
-  user: "mongoadmin"
-  pass: "mongopass"
-  host: "localhost"
-  port: "27017"
-  opts: '/?authSource=admin'
