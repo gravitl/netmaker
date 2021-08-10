@@ -28,18 +28,10 @@ services:
     restart: always
     network_mode: host
     environment:
-      SERVER_HOST: "SERVER_PUBLIC_IP"
-      DNS_MODE: "off"
-      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
-      SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:1443"
-      GRPC_SSL: "on"
-      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
-      SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
+      GRPC_SSL: "off"
       API_PORT: "8081"
       GRPC_PORT: "50051"
-      CLIENT_MODE: "on"
-      MASTER_KEY: "REPLACE_MASTER_KEY"
-      SERVER_GRPC_WIREGUARD: "off"
+      DNS_MODE: "off"
       CORS_ALLOWED_ORIGIN: "*"
   netmaker-ui:
     container_name: netmaker-ui
@@ -49,8 +41,8 @@ services:
     links:
       - "netmaker:api"
     ports:
-      - "8082:80"
+      - "80:80"
     environment:
-      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
+      BACKEND_URL: "http://HOST_IP:8081"
 volumes:
   sqldata: {}

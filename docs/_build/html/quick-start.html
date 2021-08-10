@@ -46,7 +46,7 @@
   
   
   
-    <title>Quick Start &#8212; Netmaker 0.5 documentation</title>
+    <title>Quick Install &#8212; Netmaker 0.5 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
@@ -56,7 +56,7 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Server Installation" href="server-installation.html" />
+    <link rel="next" title="Getting Started" href="getting-started.html" />
     <link rel="prev" title="Architecture" href="architecture.html" />
   
    
@@ -94,7 +94,7 @@
       <div class="md-flex__cell md-flex__cell--stretch">
         <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
           <span class="md-header-nav__topic">Netmaker Docs</span>
-          <span class="md-header-nav__topic"> Quick Start </span>
+          <span class="md-header-nav__topic"> Quick Install </span>
         </div>
       </div>
       <div class="md-flex__cell md-flex__cell--shrink">
@@ -280,35 +280,47 @@
     
     
     <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    <label class="md-nav__link md-nav__link--active" for="__toc"> Quick Start </label>
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Quick Install </label>
     
-      <a href="#" class="md-nav__link md-nav__link--active">Quick Start</a>
+      <a href="#" class="md-nav__link md-nav__link--active">Quick Install</a>
       
         
 <nav class="md-nav md-nav--secondary">
     <label class="md-nav__title" for="__toc">Contents</label>
   <ul class="md-nav__list" data-md-scrollfix="">
-        <li class="md-nav__item"><a href="#quick-start--page-root" class="md-nav__link">Quick Start</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#quick-start--page-root" class="md-nav__link">Quick Install</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
+        <li class="md-nav__item"><a href="#introduction" class="md-nav__link">0. Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
+        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">1. Prerequisites</a>
         </li>
-        <li class="md-nav__item"><a href="#install" class="md-nav__link">Install</a>
-        </li>
-        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#create-key" class="md-nav__link">Create Key</a>
+        <li class="md-nav__item"><a href="#install-docker" class="md-nav__link">Install Docker</a>
+        </li>
+        <li class="md-nav__item"><a href="#id1" class="md-nav__link">Install Dependencies</a>
         </li></ul>
             </nav>
         </li>
-        <li class="md-nav__item"><a href="#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+        <li class="md-nav__item"><a href="#prepare-vm" class="md-nav__link">3. Prepare VM</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-domain" class="md-nav__link">Prepare Domain</a>
         </li>
-        <li class="md-nav__item"><a href="#manage-nodes" class="md-nav__link">Manage Nodes</a>
+        <li class="md-nav__item"><a href="#prepare-firewall" class="md-nav__link">Prepare Firewall</a>
         </li>
-        <li class="md-nav__item"><a href="#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+        <li class="md-nav__item"><a href="#prepare-for-dns" class="md-nav__link">Prepare for DNS</a>
         </li>
-        <li class="md-nav__item"><a href="#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+        <li class="md-nav__item"><a href="#prepare-nginx" class="md-nav__link">Prepare Nginx</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-templates" class="md-nav__link">Prepare Templates</a>
+        </li>
+        <li class="md-nav__item"><a href="#start-netmaker" class="md-nav__link">Start Netmaker</a>
+        </li></ul>
+            </nav>
         </li></ul>
             </nav>
         </li>
@@ -318,56 +330,35 @@
     <li class="md-nav__item">
     
     
-      <a href="#introduction" class="md-nav__link">Introduction</a>
+      <a href="#introduction" class="md-nav__link">0. Introduction</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#prerequisites" class="md-nav__link">Prerequisites</a>
+      <a href="#prerequisites" class="md-nav__link">1. Prerequisites</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#install" class="md-nav__link">Install</a>
+      <a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#setup" class="md-nav__link">Setup</a>
+      <a href="#prepare-vm" class="md-nav__link">3. Prepare VM</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#manage-nodes" class="md-nav__link">Manage Nodes</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      <a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
       
     
     </li></ul>
@@ -376,7 +367,49 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Server Installation</a>
+      <a href="getting-started.html" class="md-nav__link">Getting Started</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#setup" class="md-nav__link">Setup</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
       <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
@@ -424,6 +457,13 @@
     
     
       <a href="server-installation.html#configuration-reference" class="md-nav__link">Configuration Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
       
     
     </li></ul>
@@ -487,6 +527,20 @@
     
     
       <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
       
     
     </li></ul>
@@ -744,27 +798,39 @@
 <nav class="md-nav md-nav--secondary">
     <label class="md-nav__title" for="__toc">Contents</label>
   <ul class="md-nav__list" data-md-scrollfix="">
-        <li class="md-nav__item"><a href="#quick-start--page-root" class="md-nav__link">Quick Start</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#quick-start--page-root" class="md-nav__link">Quick Install</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
+        <li class="md-nav__item"><a href="#introduction" class="md-nav__link">0. Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
+        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">1. Prerequisites</a>
         </li>
-        <li class="md-nav__item"><a href="#install" class="md-nav__link">Install</a>
-        </li>
-        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#create-key" class="md-nav__link">Create Key</a>
+        <li class="md-nav__item"><a href="#install-docker" class="md-nav__link">Install Docker</a>
+        </li>
+        <li class="md-nav__item"><a href="#id1" class="md-nav__link">Install Dependencies</a>
         </li></ul>
             </nav>
         </li>
-        <li class="md-nav__item"><a href="#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+        <li class="md-nav__item"><a href="#prepare-vm" class="md-nav__link">3. Prepare VM</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-domain" class="md-nav__link">Prepare Domain</a>
         </li>
-        <li class="md-nav__item"><a href="#manage-nodes" class="md-nav__link">Manage Nodes</a>
+        <li class="md-nav__item"><a href="#prepare-firewall" class="md-nav__link">Prepare Firewall</a>
         </li>
-        <li class="md-nav__item"><a href="#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+        <li class="md-nav__item"><a href="#prepare-for-dns" class="md-nav__link">Prepare for DNS</a>
         </li>
-        <li class="md-nav__item"><a href="#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+        <li class="md-nav__item"><a href="#prepare-nginx" class="md-nav__link">Prepare Nginx</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-templates" class="md-nav__link">Prepare Templates</a>
+        </li>
+        <li class="md-nav__item"><a href="#start-netmaker" class="md-nav__link">Start Netmaker</a>
+        </li></ul>
+            </nav>
         </li></ul>
             </nav>
         </li>
@@ -778,104 +844,149 @@
           <article class="md-content__inner md-typeset" role="main">
             
   
-<h1 id="quick-start--page-root">Quick Start<a class="headerlink" href="#quick-start--page-root" title="Permalink to this headline">¶</a></h1>
+<h1 id="quick-start--page-root">Quick Install<a class="headerlink" href="#quick-start--page-root" title="Permalink to this headline">¶</a></h1>
+<p>This quick start guide is an <strong>opinionated</strong> guide for getting up and running with Netmaker as quickly as possible.</p>
 
-<h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
-<p>This is a guide to getting up and running with Netmaker as quickly as possible.</p>
-<p>By default, Netmaker ships with DNS Mode, Client Mode, and Secure GRPC enabled. However, these features require special permissions and are not necessary for a simple setup, so we are going to deploy without them. To learn more about enabling these features, check out the <a class="reference internal" href="server-installation.html"><span class="doc">installation docs</span></a>.</p>
-
-
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
-<blockquote>
-<div><ol class="arabic simple">
-<li><p>A Linux server to host Netmaker, with an external IP reachable by your nodes (will be referred to as <strong>your-host</strong> in  document).</p></li>
-<li><p>Docker and Docker Compose installed on the above server. Follow the official <a class="reference external" href="https://docs.docker.com/engine/install/">Docker instructions</a> for installing Docker and Docker Compose on your system.</p></li>
-<li><p>All network nodes should be systemd-based (see Compatibility under <a class="reference internal" href="architecture.html"><span class="doc">Architecture</span></a> docs)</p></li>
-</ol>
-</div></blockquote>
+<h2 id="introduction">0. Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>We assume for this installation that you want all of the Netmaker features enabled, want your server to be secure, and want it to be accessible from anywhere.</p>
+<p>This instance will not be HA. However, it should comfortably handle around one hundred concurrent clients and support most use cases.</p>
+<p>If you are deploying for an enterprise use case, please contact <a class="reference external" href="mailto:info%40gravitl.com">info<span>@</span>gravitl<span>.</span>com</a> for support.</p>
+<p>By the end of this guide, you will have Netmaker installed on a public VM linked to your custom domain, secured behind an Nginx reverse proxy.</p>
+<p>If this configuration does not fit your use case, see the <a class="reference internal" href="server-installation.html"><span class="doc">Advanced Installation</span></a> docs.</p>
 
 
-<h2 id="install">Install<a class="headerlink" href="#install" title="Permalink to this headline">¶</a></h2>
-<ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ssh</span> <span class="pre">root@your-host</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.slim.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">‘s/HOST_IP/&lt;</span> <span class="pre">Insert</span> <span class="pre">your-host</span> <span class="pre">IP</span> <span class="pre">Address</span> <span class="pre">Here</span> <span class="pre">&gt;/g’</span> <span class="pre">docker-compose.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code></p></li>
-</ol>
-<p>Navigate to the IP address of your host in the browser. You should see the below screen. If not, please see the Quick Start section of the <a class="reference internal" href="support.html"><span class="doc">troubleshooting</span></a> docs.</p>
-<a class="reference internal image-reference" href="_images/create-user.png"><img alt="Create User Screen" class="align-center" src="_images/create-user.png" style="width: 80%;"/></a>
-
-
-<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permalink to this headline">¶</a></h2>
-<ol class="arabic simple">
-<li><p>Create your admin user, with a username and password.</p></li>
-<li><p>Login with your new user</p></li>
-<li><p>Examine the <strong>default</strong> network. Click on DEFAULT under NETWORK DETAILS</p></li>
-</ol>
-<a class="reference internal image-reference" href="_images/default-net.png"><img alt="Create User Screen" class="align-center" src="_images/default-net.png" style="width: 80%;"/></a>
-<p>This displays information about the <strong>default</strong> network, which is created on server startup. You can delete this network if you do not need it, but for standard use cases this network should be enough to get started. Nodes will get an address from the network address range (ADDRESSRANGE). If the range conflicts with a pre-existing private network on your devices, you may want to change this, or make a new network instead. Nodes will also get default settings from here for unset configurations. For instance, the DEFAULTKEEPALIVE field will set the PersistenKeepAlive for nodes.</p>
-<p>To get started quickly, we can just use the existing default network.</p>
-
-<h3 id="create-key">Create Key<a class="headerlink" href="#create-key" title="Permalink to this headline">¶</a></h3>
-<ol class="arabic simple">
-<li><p>Click on the ACCESS KEYS tab and select the DEFAULT network.</p></li>
-<li><p>Click ADD NEW ACCESS KEY</p></li>
-<li><p>Give it a name (ex: “mykey”) and a number of uses (ex: 25)</p></li>
-<li><p>Click CREATE KEY (<strong>Important:</strong> Do not click out of the following screen until you have saved your key details. It will appear only once.)</p></li>
-<li><p>Copy the bottom command under “Your agent install command with access token” and save it somewhere locally. E.x: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code>. <strong>A change is required here. Change netclient-install.sh in this command to netclient-install.slim.sh, EX:</strong></p></li>
-</ol>
-<p><code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.slim.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code></p>
-<a class="reference internal image-reference" href="_images/access-key.png"><img alt="Access Key Screen" class="align-center" src="_images/access-key.png" style="width: 80%;"/></a>
-<p>You will use this command to install the netclient on your nodes. There are three different values for three different scenarios:</p>
+<h2 id="prerequisites">1. Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li><p>The <strong>Access Key</strong> value is the secret string that will allow your node to authenticate with the Netmaker network. This can be used with existing netclient installations where additional configurations (such as setting the server IP manually) may be required. This is not typical. E.g. <code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">-c</span> <span class="pre">install</span> <span class="pre">-k</span> <span class="pre">&lt;access</span> <span class="pre">key&gt;</span> <span class="pre">-s</span> <span class="pre">1.2.3.4</span> <span class="pre">-p</span> <span class="pre">50052</span></code></p></li>
-<li><p>The <strong>Access Token</strong> value is a base64 encoded string that contains the server IP and grpc port, as well as the access key. This is decoded by the netclient and can be used with existing netclient installations like this: <code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">-c</span> <span class="pre">install</span> <span class="pre">-t</span> <span class="pre">&lt;access</span> <span class="pre">token&gt;</span></code>. You should use this method for adding a network to a node that is already on a network. For instance, Node A is in the <strong>mynet</strong> network and now you are adding it to <strong>default</strong>.</p></li>
-<li><p>The <strong>install command</strong> value is a curl command that can be run on Linux systems. It is a simple script that downloads the netclient binary and runs the install command all in one. However, this script is tailored for Secure GRPC Mode and contains an additional (unnecessary) command: <strong>netclient register -k keyvalue</strong>. This command will not work without secure GRPC enabled and will return a 500 error.</p></li>
+<li><p><strong>Virtual Machine</strong></p>
+<ul>
+<li><p>Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)</p></li>
+<li><p>Public, static IP</p></li>
+<li><p>Min 2GB RAM, 1 CPU (4GB RAM, 2CPU preferred)</p></li>
+<li><p>5GB+ of storage</p></li>
+<li><p>Ubuntu  20.04 Installed</p></li>
 </ul>
-<p>Networks can also be enabled to allow nodes to sign up without keys at all. In this scenario, nodes enter a “pending state” and are not permitted to join the network until an admin approves them.</p>
+</li>
+<li><p><strong>Domain</strong></p>
+<ul>
+<li><p>A publicly owned domain (e.x. example.com, mysite.biz)</p></li>
+<li><p>Permission and access to modify DNS records via DNS service (e.x: Route53)</p></li>
+</ul>
+</li>
+</ul>
+
+
+<h2 id="install-dependencies">2. Install Dependencies<a class="headerlink" href="#install-dependencies" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ssh</span> <span class="pre">root@your-host</span></code></p>
+
+<h3 id="install-docker">Install Docker<a class="headerlink" href="#install-docker" title="Permalink to this headline">¶</a></h3>
+<p>Begin by installing the community version of Docker and docker-compose (there are issues with the snap version). You can follow the official <a class="reference external" href="https://docs.docker.com/engine/install/">Docker instructions here</a>. Or, you can use the below series of commands which should work on Ubuntu 20.04.</p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">remove</span> <span class="pre">docker</span> <span class="pre">docker-engine</span> <span class="pre">docker.io</span> <span class="pre">containerd</span> <span class="pre">runc</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">update</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">apt-transport-https</span> <span class="pre">ca-certificates</span> <span class="pre">curl</span> <span class="pre">gnupg</span> <span class="pre">lsb-release</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-fsSL</span> <span class="pre">https://download.docker.com/linux/ubuntu/gpg</span> <span class="pre">|</span> <span class="pre">sudo</span> <span class="pre">gpg</span> <span class="pre">--dearmor</span> <span class="pre">-o</span> <span class="pre">/usr/share/keyrings/docker-archive-keyring.gpg</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">echo</span> <span class="pre">"deb</span> <span class="pre">[arch=amd64</span> <span class="pre">signed-by=/usr/share/keyrings/docker-archive-keyring.gpg]</span> <span class="pre">https://download.docker.com/linux/ubuntu</span> <span class="pre">$(lsb_release</span> <span class="pre">-cs)</span> <span class="pre">stable"</span> <span class="pre">|</span> <span class="pre">sudo</span> <span class="pre">tee</span> <span class="pre">/etc/apt/sources.list.d/docker.list</span> <span class="pre">&gt;</span> <span class="pre">/dev/null</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">update</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">docker-ce</span> <span class="pre">docker-ce-cli</span> <span class="pre">containerd.io</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">curl</span> <span class="pre">-L</span> <span class="pre">"https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname</span> <span class="pre">-s)-$(uname</span> <span class="pre">-m)"</span> <span class="pre">-o</span> <span class="pre">/usr/local/bin/docker-compose</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">chmod</span> <span class="pre">+x</span> <span class="pre">/usr/local/bin/docker-compose</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">--version</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">--version</span></code></p>
+<p>At this point Docker should be installed.</p>
+
+
+<h3 id="id1">Install Dependencies<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>In addition to Docker, this installation requires WireGuard, Nginx, and Certbot.</p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">wireguard</span> <span class="pre">wireguard-tools</span> <span class="pre">nginx</span> <span class="pre">certbot</span> <span class="pre">python3-certbot-nginx</span> <span class="pre">net-tools</span></code></p>
 
 
 
-<h2 id="deploy-nodes">Deploy Nodes<a class="headerlink" href="#deploy-nodes" title="Permalink to this headline">¶</a></h2>
+<h2 id="prepare-vm">3. Prepare VM<a class="headerlink" href="#prepare-vm" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="prepare-domain">Prepare Domain<a class="headerlink" href="#prepare-domain" title="Permalink to this headline">¶</a></h3>
 <ol class="arabic simple">
-<li><p>SSH to each machine</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span> <span class="pre">-</span></code></p></li>
-<li><p><strong>Prerequisite Check:</strong> Every Linux machine on which you run the netclient must have WireGuard and systemd installed</p></li>
+<li><p>Choose a base domain or subdomain for Netmaker. If you own <strong>example.com</strong>, this should be something like <strong>netmaker.example.com</strong></p></li>
 </ol>
-<blockquote>
-<div><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">which</span> <span class="pre">wg</span></code> (should show wg binary present)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">pidof</span> <span class="pre">systemd</span> <span class="pre">&amp;&amp;</span> <span class="pre">echo</span> <span class="pre">"systemd</span> <span class="pre">found"</span> <span class="pre">||</span> <span class="pre">echo</span> <span class="pre">"systemd</span> <span class="pre">not</span> <span class="pre">found"</span></code></p></li>
+<ul class="simple">
+<li><p>You must point your wildcard domain to the public IP of your VM, e.x: <a href="#id2"><span class="problematic" id="id3">*</span></a>.example.com –&gt; &lt;your public ip&gt;</p></li>
 </ul>
-</div></blockquote>
+<ol class="arabic simple" start="2">
+<li><p>Add an A record pointing to your VM using your DNS service provider for <a href="#id4"><span class="problematic" id="id5">*</span></a>.netmaker.example.com (inserting your own subdomain of course).</p></li>
+<li><p>Netmaker will create three subdomains on top of this. For the example above those subdomains would be:</p></li>
+</ol>
+<ul class="simple">
+<li><p>dashboard.netmaker.example.com</p></li>
+<li><p>api.netmaker.example.com</p></li>
+<li><p>grpc.netmaker.example.com</p></li>
+</ul>
+<p>Moving forward we will refer to your base domain using <strong>&lt;your base domain&gt;</strong>. Replace these references with your domain (e.g. netmaker.example.com).</p>
 <ol class="arabic simple" start="4">
-<li><p>Run the install command, Ex: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/v0.5/scripts/netclient-install.slim.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nslookup</span> <span class="pre">host.&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;</span></code> (inserting your domain) should now return the IP of your VM.</p></li>
+<li><p>Generate SSL Certificates using certbot:</p></li>
 </ol>
-<p>You should get output similar to the below. The netclient retrieves local settings, submits them to the server for processing, and retrieves updated settings. Then it sets the local network configuration. For more information about this process, see the <a class="reference internal" href="client-installation.html"><span class="doc">client installation</span></a> documentation. If this process failed and you do not see your node in the console (see below), then reference the <a class="reference internal" href="troubleshoot.html"><span class="doc">troubleshooting</span></a> documentation.</p>
-<a class="reference internal image-reference" href="_images/nc-install-output.png"><img alt="Output from Netclient Install" class="align-center" src="_images/nc-install-output.png" style="width: 80%;"/></a>
-<a class="reference internal image-reference" href="_images/nm-node-success.png"><img alt="Node Success" class="align-center" src="_images/nm-node-success.png" style="width: 80%;"/></a>
-<p>Repeat the above steps for every machine you would like to add to your network. You can re-use the same install command so long as you do not run out of uses on your access key (after which it will be invalidated and deleted).</p>
-<p>Once installed on all nodes, you can test the connection by pinging the private address of any node from any other node.</p>
-<a class="reference internal image-reference" href="_images/ping-node.png"><img alt="Node Success" class="align-center" src="_images/ping-node.png" style="width: 80%;"/></a>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">certbot</span> <span class="pre">certonly</span> <span class="pre">--manual</span> <span class="pre">--preferred-challenges=dns</span> <span class="pre">--email</span> <span class="pre">your@email.com</span> <span class="pre">--server</span> <span class="pre">https://acme-v02.api.letsencrypt.org/directory</span> <span class="pre">--agree-tos</span> <span class="pre">--manual-public-ip-logging-ok</span> <span class="pre">-d</span> <span class="pre">"*.&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;"</span></code></p>
+<p>The above command (using your domain instead of &lt;your base domain&gt;), will prompt you to enter a TXT record in your DNS service provider. Do this, and <strong>wait one  minute</strong> before clicking enter, or it may fail and you will have to run the command again.</p>
 
 
-<h2 id="manage-nodes">Manage Nodes<a class="headerlink" href="#manage-nodes" title="Permalink to this headline">¶</a></h2>
-<p>Your machines should now be visible in the control pane.</p>
-<a class="reference internal image-reference" href="_images/nodes.png"><img alt="Node Success" class="align-center" src="_images/nodes.png" style="width: 80%;"/></a>
-<p>You can view/modify/delete any node by selecting it in the NODES tab. For instance, you can change the name to something more sensible like “workstation” or “api server”. You can also modify network settings here, such as keys or the WireGuard port. These settings will be picked up by the node on its next check in. For more information, see Advanced Configuration in the <a class="reference internal" href="usage.html"><span class="doc">Using Netmaker</span></a> docs.</p>
-<a class="reference internal image-reference" href="_images/node-details.png"><img alt="Node Success" class="align-center" src="_images/node-details.png" style="width: 80%;"/></a>
-<p>Nodes can be added/removed/modified on the network at any time. Nodes can also be added to multiple Netmaker networks. Any changes will get picked up by any nodes on a given network, and will take aboue ~30 seconds to take effect.</p>
+<h3 id="prepare-firewall">Prepare Firewall<a class="headerlink" href="#prepare-firewall" title="Permalink to this headline">¶</a></h3>
+<p>Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 443. On the server you can run:</p>
+<p><a href="#id6"><span class="problematic" id="id7">``</span></a>sudo ufw allow proto tcp from any to any port 443 &amp;&amp; sudo ufw allow dns &amp;&amp; ``</p>
+<dl class="simple">
+<dt><strong>Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on:</strong></dt><dd><ul class="simple">
+<li><p>allow 443/tcp from all</p></li>
+<li><p>allow 1443/tcp from all</p></li>
+<li><p>allow 53/udp from all</p></li>
+</ul>
+</dd>
+</dl>
 
 
-<h2 id="uninstalling-the-netclient">Uninstalling the netclient<a class="headerlink" href="#uninstalling-the-netclient" title="Permalink to this headline">¶</a></h2>
+<h3 id="prepare-for-dns">Prepare for DNS<a class="headerlink" href="#prepare-for-dns" title="Permalink to this headline">¶</a></h3>
+<p>On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution.</p>
 <ol class="arabic simple">
-<li><p>To remove your nodes from the default network, run the following on each node: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">leave</span> <span class="pre">-n</span> <span class="pre">default</span></code></p></li>
-<li><p>To remove the netclient entirely from each node, run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">rm</span> <span class="pre">-rf</span> <span class="pre">/etc/netclient</span></code> (after running the first step)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">stop</span> <span class="pre">systemd-resolved</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">disable</span> <span class="pre">systemd-resolved</span></code></p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">vim</span> <span class="pre">/etc/systemd/resolved.conf</span></code></dt><dd><ul class="simple">
+<li><p>uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference</p></li>
+<li><p>uncomment DNSStubListener and set to “no”</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">ln</span> <span class="pre">-sf</span> <span class="pre">/run/systemd/resolve/resolv.conf</span> <span class="pre">/etc/resolv.conf</span></code></p></li>
 </ol>
 
 
-<h2 id="uninstalling-netmaker">Uninstalling Netmaker<a class="headerlink" href="#uninstalling-netmaker" title="Permalink to this headline">¶</a></h2>
-<p>To uninstall Netmaker from the server, simply run <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code> or <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span> <span class="pre">--volumes</span></code> to remove the docker volumes for a future installation.</p>
+<h3 id="prepare-nginx">Prepare Nginx<a class="headerlink" href="#prepare-nginx" title="Permalink to this headline">¶</a></h3>
+<p>Nginx will serve the SSL certificate with your chosen domain and forward traffic to netmaker.</p>
+<p>Get the nginx configuration file:</p>
+<p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/develop/nginx/netmaker-nginx-template.conf</span></code></p>
+<p>Insert your domain in the configuration file and add to nginx:</p>
+<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/NETMAKER_BASE_DOMAIN/&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;/g'</span> <span class="pre">netmaker-nginx-template.conf</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">cp</span> <span class="pre">netmaker-nginx-template.conf</span> <span class="pre">/etc/nginx/conf.d/&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;.conf</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">nginx</span> <span class="pre">-t</span> <span class="pre">&amp;&amp;</span> <span class="pre">nginx</span> <span class="pre">-s</span> <span class="pre">reload</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">restart</span> <span class="pre">nginx</span></code></p>
+
+
+
+<h2 id="install-netmaker">4. Install Netmaker<a class="headerlink" href="#install-netmaker" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="prepare-templates">Prepare Templates<a class="headerlink" href="#prepare-templates" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/NETMAKER_BASE_DOMAIN/&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;/g'</span> <span class="pre">docker-compose.quickstart.yml</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/SERVER_PUBLIC_IP/&lt;your</span> <span class="pre">server</span> <span class="pre">ip&gt;/g'</span> <span class="pre">docker-compose.quickstart.yml</span></code></p>
+<p>Generate a unique master key and insert it:</p>
+<p><code class="docutils literal notranslate"><span class="pre">tr</span> <span class="pre">-dc</span> <span class="pre">A-Za-z0-9</span> <span class="pre">&lt;/dev/urandom</span> <span class="pre">|</span> <span class="pre">head</span> <span class="pre">-c</span> <span class="pre">30</span> <span class="pre">;</span> <span class="pre">echo</span> <span class="pre">''</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/REPLACE_MASTER_KEY/&lt;your</span> <span class="pre">generated</span> <span class="pre">key&gt;/g'</span> <span class="pre">docker-compose.quickstart.yml</span></code></p>
+
+
+<h3 id="start-netmaker">Start Netmaker<a class="headerlink" href="#start-netmaker" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">docker-compose</span> <span class="pre">-f</span> <span class="pre">docker-compose.quickstart.yml</span> <span class="pre">up</span> <span class="pre">-d</span></code></p>
+<p>navigate to dashboard.&lt;your base domain&gt; to see your nginx instance.</p>
+<p>To troubleshoot issues, start with:</p>
+<p><code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">logs</span> <span class="pre">netmaker</span></code></p>
+<p>Or check out the <a class="reference internal" href="troubleshoot.html"><span class="doc">troubleshoooting docs</span></a>.</p>
+
 
 
 
@@ -903,12 +1014,12 @@
             </a>
           
           
-            <a href="server-installation.html" title="Server Installation"
+            <a href="getting-started.html" title="Getting Started"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Server Installation </span>
+                class="md-footer-nav__direction"> Next </span> Getting Started </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>

@@ -1,41 +1,19 @@
-====================
-Server Installation
-====================
+=================================
+Advanced Server Installation
+=================================
 
-This section outlines installing the Netmaker server, including Netmaker, Netmaker UI, MongoDB, and CoreDNS
-
-Notes on Optional Features
-============================
-
-There are a few key options to keep in mind when deploying Netmaker. All of the following options are enabled by default but can be disabled with a single flag at runtime (see Customization). In addition to these options, there are many more Customizable components which will be discussed later on and help to solve for special challenges and use cases.
-
-**Client Mode:** Client Mode enables Netmaker to control the underlying host server's Network. This can make management a bit easier, because Netmaker can be added into networks via a button click in the UI. This is especially useful for things like Gateways, and will open up additional options in future versions, for instance, allowing Netmaker to easily become a relay server.
-
-Client Mode requires many additional privileges on the host machine, since Netmaker needs to control kernel WireGuard. Because of this, if running in Client Mode, you must run with root privileges and mount many system directories to the Netmaker container. Running without Client Mode allows you to install without privilege escalation and increases the number of compatible systems substantially.
-
-**DNS Mode:** DNS Mode enables Netmaker to write configuration files for CoreDNS, which can be set as a DNS Server for nodes. DNS Mode, paired with a CoreDNS deployment, requires use of port 53. On many linux systems (such as Ubuntu), port 53 is already in use to support local DNS, via systemd-resolved. Running in DNS Mode may require making modifications on the host machine.
-
-**Secure GRPC**: Secure GRPC ensures all communications between nodes and the server are encrypted. Netmaker sets up a default "comms" network that exists only for nodes to connect to the server. It acts as a hub-and-spoke WireGuard network. In the below installation instructions, when port 50555 needs to be open, this is referring to the WireGuard port for Netmaker's GRPC comms. When it is port 50051, secure comms is not enabled. 
-
-When Secure GRPC is enabled, before any nodes can join a Netmaker network, they request to join the comms network, and are given the appropriate WireGuard configs to connect to the server. Then they are able to make requests against the private netmaker endpoint specified for the comms network (10.101.0.1 by default). If switched off, communications are not secure between the hub and nodes over GRPC (it is like http vs https), and likewise, certificates must be added to gain secure communications.
-
-**Agent Backend:** The Agent Backend is the GRPC server (by default running on port 50051). This port is not needed for the admin server. If your use case requires special access configuration, you can run two Netmaker instances, one for the admin server, and one for node access.
-
-**REST Backend:** Similar to the above, the REST backend runs by default on port 8081, and is used for admin API and UI access. By enabling the REST backend while disabling the Agent backend, you can separate the two functions for more restricted environments.
-
+This section outlines installing the Netmaker server, including Netmaker, Netmaker UI, rqlite, and CoreDNS
 
 System Compatibility
 ====================
 
-Both **Client Mode** and **Secure GRPC** require WireGuard to be installed on the host system, and will require elevated privileges to perform network operations..
+Netmaker will require elevated privileges to perform network operations. Netmaker has similar limitations to :doc:`netclient <./client-installation>` (client networking agent). 
 
-When both of these features are **disabled**, Netmaker can be run on any system that supports Docker, including Windows, Mac, and Linux, and other systems. With these features disabled, no special privileges are required. Netmaker will only need ports for GRPC (50051 by default), the API (8081 by default), and CoreDNS (53, if enabled).
+Typically, Netmaker is run inside of containers (Docker). To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, rqlite, and a web server directly on the host. Each of these components have their own individual requirements.
 
-With Client Mode and/or Secure GRPC **enabled** (the default), Netmaker has the same limitations as the :doc:`netclient <./client-installation>` (client networking agent), because client mode just means that the Netmaker server is also running a netclient. 
+The quick install guide is recommended for first-time installs. 
 
-These modes require privileged (root) access to the host machine. In addition, Client Mode requires multiple host directory mounts. WireGuard must be installed, the system must be systemd Linux (see :doc:`compatible systems <./architecture>` for more details).
-
-To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, MongoDB, and a web server directly on the host. This requires all the requirements for those individual components. Our guided install assumes systemd-based linux, but there are many other ways to install Netmaker's individual components onto machines that do not support Docker. 
+The following documents are meant for special cases like Kubernetes and LXC, or for more advanced setups. 
 
 DNS Mode Prereqisite Setup
 ====================================
@@ -56,112 +34,38 @@ Port 53 should now be available for CoreDNS to use.
 Docker Compose Install
 =======================
 
-The most simple (and recommended) way of installing Netmaker is to use one of the provided `Docker Compose files <https://github.com/gravitl/netmaker/tree/feature_v0.3.5_docs/compose>`_. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.
+The most simple (and recommended) way of installing Netmaker is to use one of the provided `Docker Compose files <https://github.com/gravitl/netmaker/tree/master/compose>`_. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.
 
-Slim Install - No DNS, No Client Mode, No Secure GRPC
+Test Install - No DNS, No Secure GRPC
 --------------------------------------------------------
 
-This is the same docker compose covered in the :doc:`quick start <./quick-start>`. It requires no special privileges and can run on any system with Docker and Docker Compose. However, it also does not have the full feature set, and lacks Client Mode and DNS Mode.
+This install will run Netmaker on a server without HTTPS using an IP address. This is not secure and not recommended, but can be helpful for testing.
+
+It also does not run the CoreDNS server, to simplify the deployment
 
 **Prerequisites:**
-  * ports 80, 8081, and 50051 are not blocked by firewall
-  * ports 80, 8081, 50051, and 27017 are not in use 
+  * server ports 80, 8081, and 50051 are not blocked by firewall
 
 **Notes:** 
-  * You can still run the netclient on the host system even if Client Mode is not enabled. It will just be managed like the netclient on any other nodes, and will not be automatically managed by thhe server/UI.
   * You can change the port mappings in the Docker Compose if the listed ports are already in use.
 
 Assuming you have Docker and Docker Compose installed, you can just run the following, replacing **< Insert your-host IP Address Here >** with your host IP (or domain):
 
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.slim.yml``
-#. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
-#. ``docker-compose up -d``
-
-Full Install - DNS, Client Mode, and Secure GRPC Enabled
-----------------------------------------------------------
-
-This installation gives you the fully-featured product with Client Mode and DNS Mode. 
-
-**Prerequisites:**
-  * systemd linux (Debian or Ubuntu reccommended)
-  * sudo privileges
-  * DNS Mode Prerequisite Setup (see above)
-  * WireGuard installed
-  * ports 80, 8081, 53, and 50555 are not blocked by firewall
-  * ports 80, 8081, 53, 50555, and 27017 are not in use
-
-**Notes:** 
-  * You can change the port mappings in the Docker Compose if the listed ports are already in use.
-  * You can run CoreDNS on a non-53 port, but this likely will cause issues on the client side (DNS on non-standard port). We do not recommend this and do not cover how to manage running CoreDNS on a different port for clients, which will likely have problems resolving a nameserver on a non-53 port.
-
-Assuming you have Docker and Docker Compose installed, you can just run the following, replacing **< Insert your-host IP Address Here >** with your host IP (or domain):
-
-#. ``sudo su -``
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.yml``
+#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.test.yml``
 #. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
 #. ``docker-compose up -d``
 
 
-Server Only Install - UI, DNS, Client Disabled
-------------------------------------------------
-
-A "Server Only" install can be helpful for scenarios in which you do not want to run the UI. the UI is not mandatory for running a Netmaker network, but it makes the process easier. This mode also diables DNS and Client Modes, though you can add those back in if needed. There is no UI dependency on Client Mode or DNS Mode.
-
-**Prerequisites:**
-  * ports 8081 and 50051 are not blocked by firewall
-  * ports 8081, 50051, and 27017 are not in use
-
-**Notes:**
-  * You can still run the netclient on the host system even if Client Mode is not enabled. It will just be managed like the netclient on any other nodes, and will not be automatically managed by thhe server/UI.
-  * You can change the port mappings in the Docker Compose if the listed ports are already in use.
-
-Assuming you have Docker and Docker Compose installed, you can just run the following, replacing **< Insert your-host IP Address Here >** with your host IP (or domain):
-
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.server-only.yml``
-#. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
-
-No DNS - CoreDNS Disabled, Client Enabled
+No DNS - CoreDNS Disabled
 ----------------------------------------------
 
 DNS Mode is currently limited to clients that can run resolvectl (systemd-resolved, see :doc:`Architecture docs <./architecture>` for more info). You may wish to disable DNS mode for various reasons. This installation option gives you the full feature set minus CoreDNS.
 
-**Prerequisites:**
-  * systemd linux (Debian or Ubuntu reccommended)
-  * sudo privileges
-  * WireGuard installed
-  * ports 80, 8081, and 50555 are not blocked by firewall
-  * ports 80, 8081, 50555, and 27017 are not in use
-
-**Notes:** 
-  * You can change the port mappings in the Docker Compose if the listed ports are already in use.
-  * If you would like to run DNS Mode, but disable it on some clients, this is also an option. See the :doc:`client installation <./client-installation>` documentation for more details.
-
-Assuming you have Docker and Docker Compose installed, you can just run the following, replacing **< Insert your-host IP Address Here >** with your host IP (or domain):
+To run without DNS, follow the Quick Install guide, omitting the steps for DNS setup. In addition, when the guide has you pull (wget) the Netmaker docker-compose template, use the following link instead:
 
 #. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.nodns.yml``
-#. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
 
-No DNS - CoreDNS Disabled, Client Enabled
-
-No Client - DNS Enabled, Client Disabled
----------------------------------------------
-
-You may want to provide DNS, but do not want to run the server with special privileges, in which case you can run with just Client Mode disabled. It requires no special privileges and can run on any system with Docker and Docker Compose. 
-
-**Prerequisites:**
-  * ports 80, 8081, 53, and 50051 are not blocked by firewall
-  * ports 80, 8081, 53, 50051, and 27017 are not in use
-  * DNS Mode Prerequisite Setup (see above)
-
-**Notes:** 
-  * You can still run the netclient on the host system even if Client Mode is not enabled. It will just be managed like the netclient on any other nodes, and will not be automatically managed by thhe server/UI.
-  * You can change the port mappings in the Docker Compose if the listed ports are already in use.
-
-Assuming you have Docker and Docker Compose installed, you can just run the following, replacing **< Insert your-host IP Address Here >** with your host IP (or domain):
-
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.noclient.yml``
-#. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
-#. ``docker-compose up -d``
+This template is equivalent but omits CoreDNS.
 
 
 Reference Compose File - Annotated
@@ -180,15 +84,11 @@ Most systems support Docker, but some, such as LXC, do not. In such environments
 
 Below is a guided set of instructions for installing without Docker on Ubuntu 20.04. Depending on your system, the steps may vary.
 
-MongoDB Setup
+rqlite Setup
 ----------------
-1. Install MongoDB on your server:
-    * For Ubuntu: `sudo apt install -y mongodb`
-    * For more advanced installation or other operating systems, see  the `MongoDB documentation <https://docs.mongodb.com/manual/administration/install-community/>`_.
+1. Install rqlite on your server: https://github.com/rqlite/rqlite
 
-2. Create a user:
-    * ``mongo admin``  
-    * > `db.createUser({ user: "mongoadmin" , pwd: "mongopass", roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]})`
+2. Run rqlite: rqlited -node-id 1 ~/node.1
 
 Server Setup
 -------------
@@ -353,6 +253,20 @@ SERVER_GRPC_WG_KEYREQUIRED
 
     **Description:** Determines if an Access Key is required to join the Comms network. Blank (meaning 'no') by default. Set to "yes" to turn on.
 
+GRPC_SSL
+    **Default:** ""
+
+    **Description:** Specifies if GRPC is going over secure GRPC or SSL. This is a setting for the clients and is passed through the access token. Can be set to "on" and "off". Set to on if SSL is configured for GRPC.
+
+SERVER_API_CONN_STRING
+    **Default:** ""
+
+    **Description:**  Allows specification of the string used to connect to the server api. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
+
+SERVER_GRPC_CONN_STRING
+    **Default:** ""
+
+    **Description:**  Allows specification of the string used to connect to grpc. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
 
 Config File Reference
 ----------------------
@@ -361,3 +275,66 @@ A config file may be placed under config/environments/<env-name>.yml. To read th
 .. literalinclude:: ../config/environments/dev.yaml
   :language: YAML
 
+
+Nginx Reverse Proxy Setup with https
+====================================
+
+The `Swag Proxy <https://github.com/linuxserver/docker-swag>`_ makes it easy to generate a valid ssl certificate for the config bellow. Here is the `documentation <https://docs.linuxserver.io/general/swag>`_ for the installation.
+
+The following file configures Netmaker as a subdomain. This config is an adaption from the swag proxy project.
+
+./netmaker.subdomain.conf:
+
+.. code-block:: nginx
+
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+
+        server_name netmaker.*; # The external URL
+        client_max_body_size 0;
+
+        # A valid https certificate is needed.
+        include /config/nginx/ssl.conf;
+
+        location / {
+            # This config file can be found at:
+            # https://github.com/linuxserver/docker-swag/blob/master/root/defaults/proxy.conf
+            include /config/nginx/proxy.conf;
+
+            # if you use a custom resolver to find your app, needed with swag proxy
+            # resolver 127.0.0.11 valid=30s;
+            set $upstream_app netmaker-ui;                             # The internal URL
+            set $upstream_port 80;                                     # The internal Port
+            set $upstream_proto http;                                  # the protocol that is being used
+            proxy_pass $upstream_proto://$upstream_app:$upstream_port; # combine the set variables from above
+            }
+        }
+
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+
+        server_name backend-netmaker.*; # The external URL
+        client_max_body_size 0;
+        underscores_in_headers on;
+
+        # A valid https certificate is needed.
+        include /config/nginx/ssl.conf;
+
+        location / {
+            # if you use a custom resolver to find your app, needed with swag proxy
+            # resolver 127.0.0.11 valid=30s;
+
+            set $upstream_app netmaker;                                # The internal URL
+            set $upstream_port 8081;                                   # The internal Port
+            set $upstream_proto http;                                  # the protocol that is being used
+            proxy_pass $upstream_proto://$upstream_app:$upstream_port; # combine the set variables from above
+
+            # Forces the header to be the one that is visible from the outside
+            proxy_set_header                Host backend.netmaker.example.org; # Please cange to your URL
+
+            # Pass all headers through to the backend
+            proxy_pass_request_headers      on;
+            }
+        }

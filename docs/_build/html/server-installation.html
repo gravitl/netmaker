@@ -46,7 +46,7 @@
   
   
   
-    <title>Server Installation &#8212; Netmaker 0.5 documentation</title>
+    <title>Advanced Server Installation &#8212; Netmaker 0.5 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
@@ -57,7 +57,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Client Installation" href="client-installation.html" />
-    <link rel="prev" title="Quick Start" href="quick-start.html" />
+    <link rel="prev" title="Getting Started" href="getting-started.html" />
   
    
 
@@ -94,7 +94,7 @@
       <div class="md-flex__cell md-flex__cell--stretch">
         <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
           <span class="md-header-nav__topic">Netmaker Docs</span>
-          <span class="md-header-nav__topic"> Server Installation </span>
+          <span class="md-header-nav__topic"> Advanced Server Installation </span>
         </div>
       </div>
       <div class="md-flex__cell md-flex__cell--shrink">
@@ -279,61 +279,82 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html" class="md-nav__link">Quick Start</a>
+      <a href="quick-start.html" class="md-nav__link">Quick Install</a>
       <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
+      <a href="quick-start.html#introduction" class="md-nav__link">0. Introduction</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#prerequisites" class="md-nav__link">Prerequisites</a>
+      <a href="quick-start.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#install" class="md-nav__link">Install</a>
+      <a href="quick-start.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#setup" class="md-nav__link">Setup</a>
+      <a href="quick-start.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+      <a href="quick-start.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html" class="md-nav__link">Getting Started</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#setup" class="md-nav__link">Setup</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
+      <a href="getting-started.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+      <a href="getting-started.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#uninstralling-netmaker" class="md-nav__link">Uninstralling Netmaker</a>
+      <a href="getting-started.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
       
     
     </li></ul>
@@ -343,33 +364,25 @@
     
     
     <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-    <label class="md-nav__link md-nav__link--active" for="__toc"> Server Installation </label>
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Advanced Server Installation </label>
     
-      <a href="#" class="md-nav__link md-nav__link--active">Server Installation</a>
+      <a href="#" class="md-nav__link md-nav__link--active">Advanced Server Installation</a>
       
         
 <nav class="md-nav md-nav--secondary">
     <label class="md-nav__title" for="__toc">Contents</label>
   <ul class="md-nav__list" data-md-scrollfix="">
-        <li class="md-nav__item"><a href="#server-installation--page-root" class="md-nav__link">Server Installation</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#server-installation--page-root" class="md-nav__link">Advanced Server Installation</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#notes-on-optional-features" class="md-nav__link">Notes on Optional Features</a>
-        </li>
         <li class="md-nav__item"><a href="#system-compatibility" class="md-nav__link">System Compatibility</a>
         </li>
         <li class="md-nav__item"><a href="#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#docker-compose-install" class="md-nav__link">Docker Compose Install</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#slim-install-no-dns-no-client-mode-no-secure-grpc" class="md-nav__link">Slim Install - No DNS, No Client Mode, No Secure GRPC</a>
+        <li class="md-nav__item"><a href="#test-install-no-dns-no-secure-grpc" class="md-nav__link">Test Install - No DNS, No Secure GRPC</a>
         </li>
-        <li class="md-nav__item"><a href="#full-install-dns-client-mode-and-secure-grpc-enabled" class="md-nav__link">Full Install - DNS, Client Mode, and Secure GRPC Enabled</a>
-        </li>
-        <li class="md-nav__item"><a href="#server-only-install-ui-dns-client-disabled" class="md-nav__link">Server Only Install - UI, DNS, Client Disabled</a>
-        </li>
-        <li class="md-nav__item"><a href="#no-dns-coredns-disabled-client-enabled" class="md-nav__link">No DNS - CoreDNS Disabled, Client Enabled</a>
-        </li>
-        <li class="md-nav__item"><a href="#no-client-dns-enabled-client-disabled" class="md-nav__link">No Client - DNS Enabled, Client Disabled</a>
+        <li class="md-nav__item"><a href="#no-dns-coredns-disabled" class="md-nav__link">No DNS - CoreDNS Disabled</a>
         </li>
         <li class="md-nav__item"><a href="#reference-compose-file-annotated" class="md-nav__link">Reference Compose File - Annotated</a>
         </li></ul>
@@ -377,7 +390,7 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#mongodb-setup" class="md-nav__link">MongoDB Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
@@ -396,19 +409,14 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li></ul>
             </nav>
+        </li>
+        <li class="md-nav__item"><a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
         </li></ul>
             </nav>
         </li>
   </ul>
 </nav>
       <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="#notes-on-optional-features" class="md-nav__link">Notes on Optional Features</a>
-      
-    
-    </li>
     <li class="md-nav__item">
     
     
@@ -448,6 +456,13 @@
     
     
       <a href="#configuration-reference" class="md-nav__link">Configuration Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
       
     
     </li></ul>
@@ -511,6 +526,20 @@
     
     
       <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
       
     
     </li></ul>
@@ -768,25 +797,17 @@
 <nav class="md-nav md-nav--secondary">
     <label class="md-nav__title" for="__toc">Contents</label>
   <ul class="md-nav__list" data-md-scrollfix="">
-        <li class="md-nav__item"><a href="#server-installation--page-root" class="md-nav__link">Server Installation</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#server-installation--page-root" class="md-nav__link">Advanced Server Installation</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#notes-on-optional-features" class="md-nav__link">Notes on Optional Features</a>
-        </li>
         <li class="md-nav__item"><a href="#system-compatibility" class="md-nav__link">System Compatibility</a>
         </li>
         <li class="md-nav__item"><a href="#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#docker-compose-install" class="md-nav__link">Docker Compose Install</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#slim-install-no-dns-no-client-mode-no-secure-grpc" class="md-nav__link">Slim Install - No DNS, No Client Mode, No Secure GRPC</a>
+        <li class="md-nav__item"><a href="#test-install-no-dns-no-secure-grpc" class="md-nav__link">Test Install - No DNS, No Secure GRPC</a>
         </li>
-        <li class="md-nav__item"><a href="#full-install-dns-client-mode-and-secure-grpc-enabled" class="md-nav__link">Full Install - DNS, Client Mode, and Secure GRPC Enabled</a>
-        </li>
-        <li class="md-nav__item"><a href="#server-only-install-ui-dns-client-disabled" class="md-nav__link">Server Only Install - UI, DNS, Client Disabled</a>
-        </li>
-        <li class="md-nav__item"><a href="#no-dns-coredns-disabled-client-enabled" class="md-nav__link">No DNS - CoreDNS Disabled, Client Enabled</a>
-        </li>
-        <li class="md-nav__item"><a href="#no-client-dns-enabled-client-disabled" class="md-nav__link">No Client - DNS Enabled, Client Disabled</a>
+        <li class="md-nav__item"><a href="#no-dns-coredns-disabled" class="md-nav__link">No DNS - CoreDNS Disabled</a>
         </li>
         <li class="md-nav__item"><a href="#reference-compose-file-annotated" class="md-nav__link">Reference Compose File - Annotated</a>
         </li></ul>
@@ -794,7 +815,7 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#mongodb-setup" class="md-nav__link">MongoDB Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
@@ -813,6 +834,8 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li></ul>
             </nav>
+        </li>
+        <li class="md-nav__item"><a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
         </li></ul>
             </nav>
         </li>
@@ -826,26 +849,14 @@
           <article class="md-content__inner md-typeset" role="main">
             
   
-<h1 id="server-installation--page-root">Server Installation<a class="headerlink" href="#server-installation--page-root" title="Permalink to this headline">¶</a></h1>
-<p>This section outlines installing the Netmaker server, including Netmaker, Netmaker UI, MongoDB, and CoreDNS</p>
-
-<h2 id="notes-on-optional-features">Notes on Optional Features<a class="headerlink" href="#notes-on-optional-features" title="Permalink to this headline">¶</a></h2>
-<p>There are a few key options to keep in mind when deploying Netmaker. All of the following options are enabled by default but can be disabled with a single flag at runtime (see Customization). In addition to these options, there are many more Customizable components which will be discussed later on and help to solve for special challenges and use cases.</p>
-<p><strong>Client Mode:</strong> Client Mode enables Netmaker to control the underlying host server’s Network. This can make management a bit easier, because Netmaker can be added into networks via a button click in the UI. This is especially useful for things like Gateways, and will open up additional options in future versions, for instance, allowing Netmaker to easily become a relay server.</p>
-<p>Client Mode requires many additional privileges on the host machine, since Netmaker needs to control kernel WireGuard. Because of this, if running in Client Mode, you must run with root privileges and mount many system directories to the Netmaker container. Running without Client Mode allows you to install without privilege escalation and increases the number of compatible systems substantially.</p>
-<p><strong>DNS Mode:</strong> DNS Mode enables Netmaker to write configuration files for CoreDNS, which can be set as a DNS Server for nodes. DNS Mode, paired with a CoreDNS deployment, requires use of port 53. On many linux systems (such as Ubuntu), port 53 is already in use to support local DNS, via systemd-resolved. Running in DNS Mode may require making modifications on the host machine.</p>
-<p><strong>Secure GRPC</strong>: Secure GRPC ensures all communications between nodes and the server are encrypted. Netmaker sets up a default “comms” network that exists only for nodes to connect to the server. It acts as a hub-and-spoke WireGuard network. In the below installation instructions, when port 50555 needs to be open, this is referring to the WireGuard port for Netmaker’s GRPC comms. When it is port 50051, secure comms is not enabled.</p>
-<p>When Secure GRPC is enabled, before any nodes can join a Netmaker network, they request to join the comms network, and are given the appropriate WireGuard configs to connect to the server. Then they are able to make requests against the private netmaker endpoint specified for the comms network (10.101.0.1 by default). If switched off, communications are not secure between the hub and nodes over GRPC (it is like http vs https), and likewise, certificates must be added to gain secure communications.</p>
-<p><strong>Agent Backend:</strong> The Agent Backend is the GRPC server (by default running on port 50051). This port is not needed for the admin server. If your use case requires special access configuration, you can run two Netmaker instances, one for the admin server, and one for node access.</p>
-<p><strong>REST Backend:</strong> Similar to the above, the REST backend runs by default on port 8081, and is used for admin API and UI access. By enabling the REST backend while disabling the Agent backend, you can separate the two functions for more restricted environments.</p>
-
+<h1 id="server-installation--page-root">Advanced Server Installation<a class="headerlink" href="#server-installation--page-root" title="Permalink to this headline">¶</a></h1>
+<p>This section outlines installing the Netmaker server, including Netmaker, Netmaker UI, rqlite, and CoreDNS</p>
 
 <h2 id="system-compatibility">System Compatibility<a class="headerlink" href="#system-compatibility" title="Permalink to this headline">¶</a></h2>
-<p>Both <strong>Client Mode</strong> and <strong>Secure GRPC</strong> require WireGuard to be installed on the host system, and will require elevated privileges to perform network operations..</p>
-<p>When both of these features are <strong>disabled</strong>, Netmaker can be run on any system that supports Docker, including Windows, Mac, and Linux, and other systems. With these features disabled, no special privileges are required. Netmaker will only need ports for GRPC (50051 by default), the API (8081 by default), and CoreDNS (53, if enabled).</p>
-<p>With Client Mode and/or Secure GRPC <strong>enabled</strong> (the default), Netmaker has the same limitations as the <a class="reference internal" href="client-installation.html"><span class="doc">netclient</span></a> (client networking agent), because client mode just means that the Netmaker server is also running a netclient.</p>
-<p>These modes require privileged (root) access to the host machine. In addition, Client Mode requires multiple host directory mounts. WireGuard must be installed, the system must be systemd Linux (see <a class="reference internal" href="architecture.html"><span class="doc">compatible systems</span></a> for more details).</p>
-<p>To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, MongoDB, and a web server directly on the host. This requires all the requirements for those individual components. Our guided install assumes systemd-based linux, but there are many other ways to install Netmaker’s individual components onto machines that do not support Docker.</p>
+<p>Netmaker will require elevated privileges to perform network operations. Netmaker has similar limitations to <a class="reference internal" href="client-installation.html"><span class="doc">netclient</span></a> (client networking agent).</p>
+<p>Typically, Netmaker is run inside of containers (Docker). To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, rqlite, and a web server directly on the host. Each of these components have their own individual requirements.</p>
+<p>The quick install guide is recommended for first-time installs.</p>
+<p>The following documents are meant for special cases like Kubernetes and LXC, or for more advanced setups.</p>
 
 
 <h2 id="dns-mode-prereqisite-setup">DNS Mode Prereqisite Setup<a class="headerlink" href="#dns-mode-prereqisite-setup" title="Permalink to this headline">¶</a></h2>
@@ -868,124 +879,36 @@
 
 
 <h2 id="docker-compose-install">Docker Compose Install<a class="headerlink" href="#docker-compose-install" title="Permalink to this headline">¶</a></h2>
-<p>The most simple (and recommended) way of installing Netmaker is to use one of the provided <a class="reference external" href="https://github.com/gravitl/netmaker/tree/feature_v0.3.5_docs/compose">Docker Compose files</a>. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.</p>
+<p>The most simple (and recommended) way of installing Netmaker is to use one of the provided <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/compose">Docker Compose files</a>. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.</p>
 
-<h3 id="slim-install-no-dns-no-client-mode-no-secure-grpc">Slim Install - No DNS, No Client Mode, No Secure GRPC<a class="headerlink" href="#slim-install-no-dns-no-client-mode-no-secure-grpc" title="Permalink to this headline">¶</a></h3>
-<p>This is the same docker compose covered in the <a class="reference internal" href="quick-start.html"><span class="doc">quick start</span></a>. It requires no special privileges and can run on any system with Docker and Docker Compose. However, it also does not have the full feature set, and lacks Client Mode and DNS Mode.</p>
+<h3 id="test-install-no-dns-no-secure-grpc">Test Install - No DNS, No Secure GRPC<a class="headerlink" href="#test-install-no-dns-no-secure-grpc" title="Permalink to this headline">¶</a></h3>
+<p>This install will run Netmaker on a server without HTTPS using an IP address. This is not secure and not recommended, but can be helpful for testing.</p>
+<p>It also does not run the CoreDNS server, to simplify the deployment</p>
 <dl class="simple">
 <dt><strong>Prerequisites:</strong></dt><dd><ul class="simple">
-<li><p>ports 80, 8081, and 50051 are not blocked by firewall</p></li>
-<li><p>ports 80, 8081, 50051, and 27017 are not in use</p></li>
+<li><p>server ports 80, 8081, and 50051 are not blocked by firewall</p></li>
 </ul>
 </dd>
 <dt><strong>Notes:</strong></dt><dd><ul class="simple">
-<li><p>You can still run the netclient on the host system even if Client Mode is not enabled. It will just be managed like the netclient on any other nodes, and will not be automatically managed by thhe server/UI.</p></li>
 <li><p>You can change the port mappings in the Docker Compose if the listed ports are already in use.</p></li>
 </ul>
 </dd>
 </dl>
 <p>Assuming you have Docker and Docker Compose installed, you can just run the following, replacing <strong>&lt; Insert your-host IP Address Here &gt;</strong> with your host IP (or domain):</p>
 <ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.slim.yml</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.test.yml</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">‘s/HOST_IP/&lt;</span> <span class="pre">Insert</span> <span class="pre">your-host</span> <span class="pre">IP</span> <span class="pre">Address</span> <span class="pre">Here</span> <span class="pre">&gt;/g’</span> <span class="pre">docker-compose.yml</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code></p></li>
 </ol>
 
 
-<h3 id="full-install-dns-client-mode-and-secure-grpc-enabled">Full Install - DNS, Client Mode, and Secure GRPC Enabled<a class="headerlink" href="#full-install-dns-client-mode-and-secure-grpc-enabled" title="Permalink to this headline">¶</a></h3>
-<p>This installation gives you the fully-featured product with Client Mode and DNS Mode.</p>
-<dl class="simple">
-<dt><strong>Prerequisites:</strong></dt><dd><ul class="simple">
-<li><p>systemd linux (Debian or Ubuntu reccommended)</p></li>
-<li><p>sudo privileges</p></li>
-<li><p>DNS Mode Prerequisite Setup (see above)</p></li>
-<li><p>WireGuard installed</p></li>
-<li><p>ports 80, 8081, 53, and 50555 are not blocked by firewall</p></li>
-<li><p>ports 80, 8081, 53, 50555, and 27017 are not in use</p></li>
-</ul>
-</dd>
-<dt><strong>Notes:</strong></dt><dd><ul class="simple">
-<li><p>You can change the port mappings in the Docker Compose if the listed ports are already in use.</p></li>
-<li><p>You can run CoreDNS on a non-53 port, but this likely will cause issues on the client side (DNS on non-standard port). We do not recommend this and do not cover how to manage running CoreDNS on a different port for clients, which will likely have problems resolving a nameserver on a non-53 port.</p></li>
-</ul>
-</dd>
-</dl>
-<p>Assuming you have Docker and Docker Compose installed, you can just run the following, replacing <strong>&lt; Insert your-host IP Address Here &gt;</strong> with your host IP (or domain):</p>
-<ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span> <span class="pre">-</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">‘s/HOST_IP/&lt;</span> <span class="pre">Insert</span> <span class="pre">your-host</span> <span class="pre">IP</span> <span class="pre">Address</span> <span class="pre">Here</span> <span class="pre">&gt;/g’</span> <span class="pre">docker-compose.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code></p></li>
-</ol>
-
-
-<h3 id="server-only-install-ui-dns-client-disabled">Server Only Install - UI, DNS, Client Disabled<a class="headerlink" href="#server-only-install-ui-dns-client-disabled" title="Permalink to this headline">¶</a></h3>
-<p>A “Server Only” install can be helpful for scenarios in which you do not want to run the UI. the UI is not mandatory for running a Netmaker network, but it makes the process easier. This mode also diables DNS and Client Modes, though you can add those back in if needed. There is no UI dependency on Client Mode or DNS Mode.</p>
-<dl class="simple">
-<dt><strong>Prerequisites:</strong></dt><dd><ul class="simple">
-<li><p>ports 8081 and 50051 are not blocked by firewall</p></li>
-<li><p>ports 8081, 50051, and 27017 are not in use</p></li>
-</ul>
-</dd>
-<dt><strong>Notes:</strong></dt><dd><ul class="simple">
-<li><p>You can still run the netclient on the host system even if Client Mode is not enabled. It will just be managed like the netclient on any other nodes, and will not be automatically managed by thhe server/UI.</p></li>
-<li><p>You can change the port mappings in the Docker Compose if the listed ports are already in use.</p></li>
-</ul>
-</dd>
-</dl>
-<p>Assuming you have Docker and Docker Compose installed, you can just run the following, replacing <strong>&lt; Insert your-host IP Address Here &gt;</strong> with your host IP (or domain):</p>
-<ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.server-only.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">‘s/HOST_IP/&lt;</span> <span class="pre">Insert</span> <span class="pre">your-host</span> <span class="pre">IP</span> <span class="pre">Address</span> <span class="pre">Here</span> <span class="pre">&gt;/g’</span> <span class="pre">docker-compose.yml</span></code></p></li>
-</ol>
-
-
-<h3 id="no-dns-coredns-disabled-client-enabled">No DNS - CoreDNS Disabled, Client Enabled<a class="headerlink" href="#no-dns-coredns-disabled-client-enabled" title="Permalink to this headline">¶</a></h3>
+<h3 id="no-dns-coredns-disabled">No DNS - CoreDNS Disabled<a class="headerlink" href="#no-dns-coredns-disabled" title="Permalink to this headline">¶</a></h3>
 <p>DNS Mode is currently limited to clients that can run resolvectl (systemd-resolved, see <a class="reference internal" href="architecture.html"><span class="doc">Architecture docs</span></a> for more info). You may wish to disable DNS mode for various reasons. This installation option gives you the full feature set minus CoreDNS.</p>
-<dl class="simple">
-<dt><strong>Prerequisites:</strong></dt><dd><ul class="simple">
-<li><p>systemd linux (Debian or Ubuntu reccommended)</p></li>
-<li><p>sudo privileges</p></li>
-<li><p>WireGuard installed</p></li>
-<li><p>ports 80, 8081, and 50555 are not blocked by firewall</p></li>
-<li><p>ports 80, 8081, 50555, and 27017 are not in use</p></li>
-</ul>
-</dd>
-<dt><strong>Notes:</strong></dt><dd><ul class="simple">
-<li><p>You can change the port mappings in the Docker Compose if the listed ports are already in use.</p></li>
-<li><p>If you would like to run DNS Mode, but disable it on some clients, this is also an option. See the <a class="reference internal" href="client-installation.html"><span class="doc">client installation</span></a> documentation for more details.</p></li>
-</ul>
-</dd>
-</dl>
-<p>Assuming you have Docker and Docker Compose installed, you can just run the following, replacing <strong>&lt; Insert your-host IP Address Here &gt;</strong> with your host IP (or domain):</p>
+<p>To run without DNS, follow the Quick Install guide, omitting the steps for DNS setup. In addition, when the guide has you pull (wget) the Netmaker docker-compose template, use the following link instead:</p>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.nodns.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">‘s/HOST_IP/&lt;</span> <span class="pre">Insert</span> <span class="pre">your-host</span> <span class="pre">IP</span> <span class="pre">Address</span> <span class="pre">Here</span> <span class="pre">&gt;/g’</span> <span class="pre">docker-compose.yml</span></code></p></li>
 </ol>
-<p>No DNS - CoreDNS Disabled, Client Enabled</p>
-
-
-<h3 id="no-client-dns-enabled-client-disabled">No Client - DNS Enabled, Client Disabled<a class="headerlink" href="#no-client-dns-enabled-client-disabled" title="Permalink to this headline">¶</a></h3>
-<p>You may want to provide DNS, but do not want to run the server with special privileges, in which case you can run with just Client Mode disabled. It requires no special privileges and can run on any system with Docker and Docker Compose.</p>
-<dl class="simple">
-<dt><strong>Prerequisites:</strong></dt><dd><ul class="simple">
-<li><p>ports 80, 8081, 53, and 50051 are not blocked by firewall</p></li>
-<li><p>ports 80, 8081, 53, 50051, and 27017 are not in use</p></li>
-<li><p>DNS Mode Prerequisite Setup (see above)</p></li>
-</ul>
-</dd>
-<dt><strong>Notes:</strong></dt><dd><ul class="simple">
-<li><p>You can still run the netclient on the host system even if Client Mode is not enabled. It will just be managed like the netclient on any other nodes, and will not be automatically managed by thhe server/UI.</p></li>
-<li><p>You can change the port mappings in the Docker Compose if the listed ports are already in use.</p></li>
-</ul>
-</dd>
-</dl>
-<p>Assuming you have Docker and Docker Compose installed, you can just run the following, replacing <strong>&lt; Insert your-host IP Address Here &gt;</strong> with your host IP (or domain):</p>
-<ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">-O</span> <span class="pre">docker-compose.yml</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.noclient.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">‘s/HOST_IP/&lt;</span> <span class="pre">Insert</span> <span class="pre">your-host</span> <span class="pre">IP</span> <span class="pre">Address</span> <span class="pre">Here</span> <span class="pre">&gt;/g’</span> <span class="pre">docker-compose.yml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code></p></li>
-</ol>
+<p>This template is equivalent but omits CoreDNS.</p>
 
 
 <h3 id="reference-compose-file-annotated">Reference Compose File - Annotated<a class="headerlink" href="#reference-compose-file-annotated" title="Permalink to this headline">¶</a></h3>
@@ -1049,6 +972,9 @@
       <span class="nt">SERVER_GRPC_WG_PORT</span><span class="p">:</span> <span class="s">"50555"</span> <span class="c1"># Port to use for GRPC WireGuard if enabled</span>
       <span class="nt">SERVER_GRPC_WG_PUBKEY</span><span class="p">:</span> <span class="s">"SERVER_GRPC_WG_PUBKEY"</span> <span class="c1"># PublicKey for GRPC WireGuard interface. Generated if blank.</span>
       <span class="nt">SERVER_GRPC_WG_PRIVKEY</span><span class="p">:</span> <span class="s">"SERVER_GRPC_WG_PRIVKEY"</span> <span class="c1"># PrivateKey for GRPC WireGuard interface. Generated if blank.</span>
+      <span class="nt">GRPC_SSL</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># Tells clients to use SSL to connect to GRPC. Switch to on to turn on.</span>
+      <span class="nt">SERVER_API_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT</span>
+      <span class="nt">SERVER_GRPC_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT</span>
   <span class="nt">netmaker-ui</span><span class="p">:</span> <span class="c1"># The Netmaker UI Component</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>
@@ -1084,24 +1010,10 @@
 <p>Most systems support Docker, but some, such as LXC, do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional).</p>
 <p>Below is a guided set of instructions for installing without Docker on Ubuntu 20.04. Depending on your system, the steps may vary.</p>
 
-<h3 id="mongodb-setup">MongoDB Setup<a class="headerlink" href="#mongodb-setup" title="Permalink to this headline">¶</a></h3>
+<h3 id="rqlite-setup">rqlite Setup<a class="headerlink" href="#rqlite-setup" title="Permalink to this headline">¶</a></h3>
 <ol class="arabic simple">
-<li><dl class="simple">
-<dt>Install MongoDB on your server:</dt><dd><ul class="simple">
-<li><p>For Ubuntu: <cite>sudo apt install -y mongodb</cite></p></li>
-<li><p>For more advanced installation or other operating systems, see  the <a class="reference external" href="https://docs.mongodb.com/manual/administration/install-community/">MongoDB documentation</a>.</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>Create a user:</dt><dd><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">mongo</span> <span class="pre">admin</span></code></p></li>
-<li><p>&gt; <cite>db.createUser({ user: “mongoadmin” , pwd: “mongopass”, roles: [“userAdminAnyDatabase”, “dbAdminAnyDatabase”, “readWriteAnyDatabase”]})</cite></p></li>
-</ul>
-</dd>
-</dl>
-</li>
+<li><p>Install rqlite on your server: <a class="reference external" href="https://github.com/rqlite/rqlite">https://github.com/rqlite/rqlite</a></p></li>
+<li><p>Run rqlite: rqlited -node-id 1 ~/node.1</p></li>
 </ol>
 
 
@@ -1218,6 +1130,15 @@
 <dt>SERVER_GRPC_WG_KEYREQUIRED</dt><dd><p><strong>Default:</strong> “”</p>
 <p><strong>Description:</strong> Determines if an Access Key is required to join the Comms network. Blank (meaning ‘no’) by default. Set to “yes” to turn on.</p>
 </dd>
+<dt>GRPC_SSL</dt><dd><p><strong>Default:</strong> “”</p>
+<p><strong>Description:</strong> Specifies if GRPC is going over secure GRPC or SSL. This is a setting for the clients and is passed through the access token. Can be set to “on” and “off”. Set to on if SSL is configured for GRPC.</p>
+</dd>
+<dt>SERVER_API_CONN_STRING</dt><dd><p><strong>Default:</strong> “”</p>
+<p><strong>Description:</strong>  Allows specification of the string used to connect to the server api. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.</p>
+</dd>
+<dt>SERVER_GRPC_CONN_STRING</dt><dd><p><strong>Default:</strong> “”</p>
+<p><strong>Description:</strong>  Allows specification of the string used to connect to grpc. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.</p>
+</dd>
 </dl>
 
 
@@ -1235,25 +1156,68 @@
   <span class="nt">clientmode</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "on" or CLIENT_MODE (if set)</span>
   <span class="nt">dnsmode</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "on" or DNS_MODE (if set)</span>
   <span class="nt">disableremoteipcheck</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)</span>
-<span class="nt">mongoconn</span><span class="p">:</span>
-  <span class="nt">user</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "mongoadmin" or MONGO_ADMIN (if set)</span>
-  <span class="nt">pass</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "mongopass" or MONGO_PASS (if set)</span>
-  <span class="nt">host</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 127.0.0.1 or MONGO_HOST (if set)</span>
-  <span class="nt">port</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 27017 or MONGO_PORT (if set)</span>
-  <span class="nt">opts</span><span class="p">:</span> <span class="s">''</span> <span class="c1"># defaults to '/?authSource=admin' or MONGO_OPTS (if set)</span>
-<span class="nt">wg</span><span class="p">:</span>
-  <span class="nt">keyrequired</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "". If set to "yes", a key is required for signing up for the comms network </span>
-  <span class="nt">grpcwg</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "on" or SERVER_GRPC_WIREGUARD if set</span>
-  <span class="nt">grpciface</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to nm-grpc-wg or SERVER_GRPC_WG_INTERFACE if set</span>
-  <span class="nt">grpcaddr</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 10.101.0.1 or SERVER_GRPC_WG_ADDRESS if set</span>
-  <span class="nt">grpcaddrrange</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 10.101.0.0/16 or SERVER_GRPC_WG_ADDRESS_RANGE if set</span>
-  <span class="nt">grpcendpoint</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to SERVER_HOST if unset</span>
-  <span class="nt">grpcport</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to 50555 or SERVER_GRPC_WG_PORT if set</span>
-  <span class="nt">pubkey</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to generated value or SERVER_GRPC_WG_PUBKEY if set</span>
-  <span class="nt">privkey</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to generated value or SERVER_GRPC_WG_PRIVKEY if set</span>
 </pre></div>
 </div>
 
+
+
+<h2 id="nginx-reverse-proxy-setup-with-https">Nginx Reverse Proxy Setup with https<a class="headerlink" href="#nginx-reverse-proxy-setup-with-https" title="Permalink to this headline">¶</a></h2>
+<p>The <a class="reference external" href="https://github.com/linuxserver/docker-swag">Swag Proxy</a> makes it easy to generate a valid ssl certificate for the config bellow. Here is the <a class="reference external" href="https://docs.linuxserver.io/general/swag">documentation</a> for the installation.</p>
+<p>The following file configures Netmaker as a subdomain. This config is an adaption from the swag proxy project.</p>
+<p>./netmaker.subdomain.conf:</p>
+<div class="highlight-nginx notranslate"><div class="highlight"><pre><span></span><span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen</span> <span class="mi">443</span> <span class="s">ssl</span><span class="p">;</span>
+    <span class="kn">listen</span> <span class="s">[::]:443</span> <span class="s">ssl</span><span class="p">;</span>
+
+    <span class="kn">server_name</span> <span class="s">netmaker.*</span><span class="p">;</span> <span class="c1"># The external URL</span>
+    <span class="kn">client_max_body_size</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="c1"># A valid https certificate is needed.</span>
+    <span class="kn">include</span> <span class="s">/config/nginx/ssl.conf</span><span class="p">;</span>
+
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="c1"># This config file can be found at:</span>
+        <span class="c1"># https://github.com/linuxserver/docker-swag/blob/master/root/defaults/proxy.conf</span>
+        <span class="kn">include</span> <span class="s">/config/nginx/proxy.conf</span><span class="p">;</span>
+
+        <span class="c1"># if you use a custom resolver to find your app, needed with swag proxy</span>
+        <span class="c1"># resolver 127.0.0.11 valid=30s;</span>
+        <span class="kn">set</span> <span class="nv">$upstream_app</span> <span class="s">netmaker-ui</span><span class="p">;</span>                             <span class="c1"># The internal URL</span>
+        <span class="kn">set</span> <span class="nv">$upstream_port</span> <span class="mi">80</span><span class="p">;</span>                                     <span class="c1"># The internal Port</span>
+        <span class="kn">set</span> <span class="nv">$upstream_proto</span> <span class="s">http</span><span class="p">;</span>                                  <span class="c1"># the protocol that is being used</span>
+        <span class="kn">proxy_pass</span> <span class="nv">$upstream_proto://$upstream_app:$upstream_port</span><span class="p">;</span> <span class="c1"># combine the set variables from above</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+<span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen</span> <span class="mi">443</span> <span class="s">ssl</span><span class="p">;</span>
+    <span class="kn">listen</span> <span class="s">[::]:443</span> <span class="s">ssl</span><span class="p">;</span>
+
+    <span class="kn">server_name</span> <span class="s">backend-netmaker.*</span><span class="p">;</span> <span class="c1"># The external URL</span>
+    <span class="kn">client_max_body_size</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kn">underscores_in_headers</span> <span class="no">on</span><span class="p">;</span>
+
+    <span class="c1"># A valid https certificate is needed.</span>
+    <span class="kn">include</span> <span class="s">/config/nginx/ssl.conf</span><span class="p">;</span>
+
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="c1"># if you use a custom resolver to find your app, needed with swag proxy</span>
+        <span class="c1"># resolver 127.0.0.11 valid=30s;</span>
+
+        <span class="kn">set</span> <span class="nv">$upstream_app</span> <span class="s">netmaker</span><span class="p">;</span>                                <span class="c1"># The internal URL</span>
+        <span class="kn">set</span> <span class="nv">$upstream_port</span> <span class="mi">8081</span><span class="p">;</span>                                   <span class="c1"># The internal Port</span>
+        <span class="kn">set</span> <span class="nv">$upstream_proto</span> <span class="s">http</span><span class="p">;</span>                                  <span class="c1"># the protocol that is being used</span>
+        <span class="kn">proxy_pass</span> <span class="nv">$upstream_proto://$upstream_app:$upstream_port</span><span class="p">;</span> <span class="c1"># combine the set variables from above</span>
+
+        <span class="c1"># Forces the header to be the one that is visible from the outside</span>
+        <span class="kn">proxy_set_header</span>                <span class="s">Host</span> <span class="s">backend.netmaker.example.org</span><span class="p">;</span> <span class="c1"># Please cange to your URL</span>
+
+        <span class="c1"># Pass all headers through to the backend</span>
+        <span class="kn">proxy_pass_request_headers</span>      <span class="no">on</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
 
 
 
@@ -1267,7 +1231,7 @@
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
           
-            <a href="quick-start.html" title="Quick Start"
+            <a href="getting-started.html" title="Getting Started"
                class="md-flex md-footer-nav__link md-footer-nav__link--prev"
                rel="prev">
               <div class="md-flex__cell md-flex__cell--shrink">
@@ -1276,7 +1240,7 @@
               <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
                 <span class="md-flex__ellipsis">
                   <span
-                      class="md-footer-nav__direction"> Previous </span> Quick Start </span>
+                      class="md-footer-nav__direction"> Previous </span> Getting Started </span>
               </div>
             </a>
           
