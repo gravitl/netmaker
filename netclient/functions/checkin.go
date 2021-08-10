@@ -21,7 +21,7 @@ import (
 )
 
 func isDeleteError(err error) bool {
-	return strings.Contains(err.Error(), models.NODE_DELETE)
+	return err != nil && strings.Contains(err.Error(), models.NODE_DELETE)
 }
 
 func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.ClientConfig, network string) bool {
