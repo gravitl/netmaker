@@ -82,7 +82,19 @@ func grpcAuthorize(ctx context.Context) error {
 	}
 	emptynode := models.Node{}
 	node, err := functions.GetNodeByMacAddress(network, mac)
-	if err != nil || node.MacAddress == emptynode.MacAddress {
+	if !database.IsEmptyRecord(err) {
+		if node, err = functions.GetDeletedNodeByMacAddress(network, mac); err != nil {
+			if !database.IsEmptyRecord(err) {
+				return status.Errorf(codes.Unauthenticated, "Node does not exist.")
+			}
+		} else {
+			node.SetID()
+			if functions.RemoveDeletedNode(node.ID) {
+				return nil
+			}
+			return status.Errorf(codes.Unauthenticated, "Node does not exist.")
+		}
+	} else if err != nil || node.MacAddress == emptynode.MacAddress {
 		return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 	}
 

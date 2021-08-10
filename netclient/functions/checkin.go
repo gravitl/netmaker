@@ -89,7 +89,7 @@ func setDNS(node *models.Node, servercfg config.ServerConfig, nodecfg *models.No
 }
 
 func checkNodeActions(node *models.Node, network string, servercfg config.ServerConfig, localNode *models.Node) string {
-	if (node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY) && 
+	if (node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY) &&
 		node.IsStatic != "yes" {
 		err := wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
 		if err != nil {

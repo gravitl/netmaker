@@ -264,7 +264,7 @@ func NetworkNodesUpdateAction(networkName string, action string) error {
 			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
- 	}
+	}
 	return nil
 }
 
@@ -544,6 +544,31 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	}
 
 	return node, nil
+}
+
+func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node, error) {
+
+	var node models.Node
+
+	key, err := GetRecordKey(macaddress, network)
+	if err != nil {
+		return node, err
+	}
+
+	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+
+	return node, nil
+}
+
+func RemoveDeletedNode(nodeid string) bool {
+	return database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, nodeid) == nil
 }
 
 func DeleteAllIntClients() error {

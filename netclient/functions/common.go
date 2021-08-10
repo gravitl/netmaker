@@ -278,6 +278,7 @@ func LeaveNetwork(network string) error {
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
 		} else {
+			node.SetID()
 			var header metadata.MD
 			_, err = wcclient.DeleteNode(
 				ctx,
