@@ -68,7 +68,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	_, addLinkErr := local.RunCmd(ipExec + " link add dev " + ifacename + " type wireguard")
 	_, addErr := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address + "/24")
 	if delErr != nil {
-		log.Println(delErr)
+		// pass
 	}
 	if addLinkErr != nil {
 		log.Println(addLinkErr)
