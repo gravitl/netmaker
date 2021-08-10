@@ -29,7 +29,6 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 	var err error
 	if node.Roaming == "yes" && node.IsStatic != "yes" {
 		if node.IsLocal == "no" {
-			log.Println("Checking to see if public addresses have changed")
 			extIP, err := getPublicIP()
 			if err != nil {
 				log.Println("error encountered checking ip addresses:", err)
@@ -53,7 +52,6 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 				ipchange = true
 			}
 		} else {
-			log.Println("Checking to see if local addresses have changed")
 			localIP, err := getLocalIP(node.LocalRange)
 			if err != nil {
 				log.Println("error encountered checking ip addresses:", err)
@@ -85,11 +83,10 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 
 func setDNS(node *models.Node, servercfg config.ServerConfig, nodecfg *models.Node) {
 	if nodecfg.DNSOn == "yes" {
-		log.Println("setting dns")
 		ifacename := node.Interface
 		nameserver := servercfg.CoreDNSAddr
 		network := node.Network
-		_ = local.UpdateDNS(ifacename, network, nameserver)
+		local.UpdateDNS(ifacename, network, nameserver)
 	}
 }
 

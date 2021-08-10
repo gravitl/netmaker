@@ -118,7 +118,7 @@ func ConfigureSystemD(network string) error {
 	}
 
 	systemservice := `[Unit]
-Description=network check for remote peers and local config
+Description=Network Check
 Wants=netclient.timer
 
 [Service]
