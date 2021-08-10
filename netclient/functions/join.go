@@ -157,27 +157,27 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
-	// postnode := &models.Node{
-	// 	Password:            cfg.Node.Password,
-	// 	MacAddress:          cfg.Node.MacAddress,
-	// 	AccessKey:           cfg.Server.AccessKey,
-	// 	Network:             cfg.Network,
-	// 	ListenPort:          cfg.Node.ListenPort,
-	// 	PostUp:              cfg.Node.PostUp,
-	// 	PostDown:            cfg.Node.PostDown,
-	// 	PersistentKeepalive: cfg.Node.PersistentKeepalive,
-	// 	LocalAddress:        cfg.Node.LocalAddress,
-	// 	Interface:           cfg.Node.Interface,
-	// 	PublicKey:           cfg.Node.PublicKey,
-	// 	Name:                cfg.Node.Name,
-	// 	Endpoint:            cfg.Node.Endpoint,
-	// 	SaveConfig:          cfg.Node.SaveConfig,
-	// 	UDPHolePunch:        cfg.Node.UDPHolePunch,
-	// }
-	if err = config.ModConfig(&cfg.Node); err != nil {
+	postnode := &models.Node{
+		Password:            cfg.Node.Password,
+		MacAddress:          cfg.Node.MacAddress,
+		AccessKey:           cfg.Server.AccessKey,
+		Network:             cfg.Network,
+		ListenPort:          cfg.Node.ListenPort,
+		PostUp:              cfg.Node.PostUp,
+		PostDown:            cfg.Node.PostDown,
+		PersistentKeepalive: cfg.Node.PersistentKeepalive,
+		LocalAddress:        cfg.Node.LocalAddress,
+		Interface:           cfg.Node.Interface,
+		PublicKey:           cfg.Node.PublicKey,
+		Name:                cfg.Node.Name,
+		Endpoint:            cfg.Node.Endpoint,
+		SaveConfig:          cfg.Node.SaveConfig,
+		UDPHolePunch:        cfg.Node.UDPHolePunch,
+	}
+	if err = config.ModConfig(postnode); err != nil {
 		return err
 	}
-	data, err := json.Marshal(&cfg.Node)
+	data, err := json.Marshal(postnode)
 	if err != nil {
 		return err
 	}
