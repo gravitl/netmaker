@@ -106,7 +106,6 @@ func checkNodeActions(node *models.Node, networkName string, servercfg config.Se
 		err := RemoveLocalInstance(cfg, networkName)
 		if err != nil {
 			log.Println("Error:", err)
-			return ""
 		}
 		return models.NODE_DELETE
 	}
