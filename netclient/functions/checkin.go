@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -18,6 +19,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	//homedir "github.com/mitchellh/go-homedir"
 )
+
+func isDeleteError(err error) bool {
+	return strings.Contains(err.Error(), models.NODE_DELETE)
+}
 
 func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.ClientConfig, network string) bool {
 	ipchange := false
@@ -88,17 +93,17 @@ func setDNS(node *models.Node, servercfg config.ServerConfig, nodecfg *models.No
 	}
 }
 
-func checkNodeActions(node *models.Node, network string, servercfg config.ServerConfig, localNode *models.Node) string {
+func checkNodeActions(node *models.Node, networkName string, servercfg config.ServerConfig, localNode *models.Node, cfg *config.ClientConfig) string {
 	if (node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY) &&
 		node.IsStatic != "yes" {
-		err := wireguard.SetWGKeyConfig(network, servercfg.GRPCAddress)
+		err := wireguard.SetWGKeyConfig(networkName, servercfg.GRPCAddress)
 		if err != nil {
 			log.Println("Unable to process reset keys request:", err)
 			return ""
 		}
 	}
 	if node.Action == models.NODE_DELETE || localNode.Action == models.NODE_DELETE {
-		err := LeaveNetwork(network)
+		err := RemoveLocalInstance(cfg, networkName)
 		if err != nil {
 			log.Println("Error:", err)
 			return ""
@@ -127,6 +132,9 @@ func CheckConfig(cliconf config.ClientConfig) error {
 	currentNode := cfg.Node
 
 	newNode, err := Pull(network, false)
+	if isDeleteError(err) {
+		return RemoveLocalInstance(cfg, network)
+	}
 	if err != nil {
 		return err
 	}
@@ -134,7 +142,7 @@ func CheckConfig(cliconf config.ClientConfig) error {
 		return errors.New("node is pending")
 	}
 
-	actionCompleted := checkNodeActions(newNode, network, servercfg, &currentNode)
+	actionCompleted := checkNodeActions(newNode, network, servercfg, &currentNode, cfg)
 	if actionCompleted == models.NODE_DELETE {
 		return errors.New("node has been removed")
 	}

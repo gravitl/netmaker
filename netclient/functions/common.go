@@ -296,14 +296,18 @@ func LeaveNetwork(network string) error {
 			}
 		}
 	}
-	err = local.WipeLocal(network)
+	return RemoveLocalInstance(cfg, network)
+}
+
+func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
+	err := local.WipeLocal(networkName)
 	if err != nil {
 		log.Printf("Unable to wipe local config: %v", err)
 	} else {
-		log.Println("Removed " + node.Network + " network locally")
+		log.Println("Removed " + networkName + " network locally")
 	}
 	if cfg.Daemon != "off" {
-		err = local.RemoveSystemDServices(network)
+		err = local.RemoveSystemDServices(networkName)
 	}
 	return err
 }
