@@ -238,7 +238,10 @@ func (node *Node) SetDefaults() {
 			node.UDPHolePunch = "yes"
 		}
 	}
+	// == Parent Network settings ==
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
+	node.IsDualStack = parentNetwork.IsDualStack
+	// == node defaults if not set by parent ==
 	node.SetIPForwardingDefault()
 	node.SetDNSOnDefault()
 	node.SetIsLocalDefault()
