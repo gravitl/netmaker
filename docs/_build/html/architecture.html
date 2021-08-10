@@ -268,7 +268,7 @@
         </li>
         <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#mongodb" class="md-nav__link">MongoDB</a>
+        <li class="md-nav__item"><a href="#rqlite" class="md-nav__link">rqlite</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
@@ -341,17 +341,38 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#prerequisites" class="md-nav__link">Prerequisites</a>
+      <a href="quick-start.html#prerequisites" class="md-nav__link">0. Prerequisites</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#install" class="md-nav__link">Install</a>
+      <a href="quick-start.html#install-dependencies" class="md-nav__link">1. Install Dependencies</a>
       
     
     </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#prepare-vm" class="md-nav__link">2. Prepare VM</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#install-netmaker" class="md-nav__link">Install Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#id8" class="md-nav__link">Quick Start</a>
+      <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
@@ -383,7 +404,7 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#uninstralling-netmaker" class="md-nav__link">Uninstralling Netmaker</a>
+      <a href="quick-start.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
       
     
     </li></ul>
@@ -440,6 +461,13 @@
     
     
       <a href="server-installation.html#configuration-reference" class="md-nav__link">Configuration Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
       
     
     </li></ul>
@@ -503,6 +531,20 @@
     
     
       <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
       
     
     </li></ul>
@@ -782,7 +824,7 @@
         </li>
         <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#mongodb" class="md-nav__link">MongoDB</a>
+        <li class="md-nav__item"><a href="#rqlite" class="md-nav__link">rqlite</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
@@ -833,7 +875,7 @@
 
 <h3 id="netmaker">Netmaker<a class="headerlink" href="#netmaker" title="Permalink to this headline">¶</a></h3>
 <p>Netmaker is a platform built off of WireGuard which enables users to create mesh networks between their devices. Netmaker can create both full and partial mesh networks depending on the use case.</p>
-<p>When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, MongoDB, and UI webserver.</p>
+<p>When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver.</p>
 <p>From an end user perspective, they typically interact with the Netmaker UI, or even just run the install script for the netclient on their devices. The other components run in the background invisibly.</p>
 <p>Netmaker does a lot of work to set configurations for you, so that you don’t have to. This includes things like WireGuard ports, endpoints, public IPs, keys, and peers. Netmaker works to abstract away as much of the network management as possible, so that you can just click to create a network, and click to add a machine to a network. That said, every machine (node) is different, and may require special configuration. That is why, while Netmaker sets practical default settings, everything within Netmaker is fully configurable.</p>
 
@@ -856,7 +898,7 @@
 <p>The Netmaker server acts as an API to the front end, and as a GRPC server to the machines in the network. GRPC is much faster and more efficient than standard API calls, which increases the speed of transactions. For this reason, the Netmaker server exposes two ports: The default for the API is 8081, and the default for GRPC is 50051. Either the API or the GRPC server can be disabled on any given Netmaker instance can be disabled, allowing you to deploy two different servers for managing the API (which is largely for the admin’s use) and GRPC (which is largely for the nodes’ use).</p>
 <p>Most server settings are configurable via a config file, or by environment variables (which take precedence). If the server finds neither of these, it sets sensible defaults, including things like the server’s reachable IP, ports, and which “modes” to run in.</p>
 <p>These modes include client mode and dns mode. Either of these can be disabled but are enabled by default. Client mode allows you to treat the Netmaker host machine (operating system) as a network Node, installing the netclient and controlling the host network. DNS mode has the server write config settings for CoreDNS, a separate component and nameserver, which picks up the config settings to manage node DNS.</p>
-<p>The Netmaker server interacts with (as of v0.3) a MongoDB instance, which holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.</p>
+<p>The Netmaker server interacts with rqlite, a distributed version of sqlite, which holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.</p>
 
 
 <h3 id="netclient">Netclient<a class="headerlink" href="#netclient" title="Permalink to this headline">¶</a></h3>
@@ -869,8 +911,8 @@
 <p>The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.</p>
 
 
-<h3 id="mongodb">MongoDB<a class="headerlink" href="#mongodb" title="Permalink to this headline">¶</a></h3>
-<p>As of v0.5, Netmaker uses MongoDB as its database, and interacts with a MongoDB instance to store and retrieve information about nodes, networks, and users. Netmaker is rapidly evolving, and MongoDB provides a flexible database structure that accelerates development. However, MongoDB is also the heaviest component of Netmaker (high cpu/memory consumption), and is set to be replaced by a lighter-weight, SQL-based database in the future.</p>
+<h3 id="rqlite">rqlite<a class="headerlink" href="#rqlite" title="Permalink to this headline">¶</a></h3>
+<p>As of v0.7, Netmaker uses rqlite, a distributed (RAFT consensus) database, and interacts with this database to store and retrieve information about nodes, networks, and users. With the 0.7 refactor, additional database support is very easy to implement. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.</p>
 
 
 <h3 id="netmaker-ui">Netmaker UI<a class="headerlink" href="#netmaker-ui" title="Permalink to this headline">¶</a></h3>
@@ -879,7 +921,7 @@
 
 
 <h3 id="coredns">CoreDNS<a class="headerlink" href="#coredns" title="Permalink to this headline">¶</a></h3>
-<p>v0.3 introduced the concept of private DNS management for nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.</p>
+<p>Netmaker allows users to provide and manage Private DNS for their nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.</p>
 <p>Worth considering is that CoreDNS requires port 53 on the Netmaker host system, which may cause conflicts depending on your operating system. This is explained in the <a class="reference internal" href="server-installation.html"><span class="doc">Server Installation</span></a> guide.</p>
 
 
@@ -941,11 +983,8 @@
 
 
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h2>
-<p>Install limitations mostly include platform-specific limitations, such as needing systemd or systemd-resolved (see above). In addition the Netmaker platform has some additional limitations:</p>
-<ul class="simple">
-<li><p><strong>Double NAT</strong>: Netmaker is currently unable to route traffic for devices behind a “double NAT”.</p></li>
-<li><p><strong>CGNAT</strong>: Netmaker is currently unable to route traffic for for devices behind a “carrier-grade NAT”.</p></li>
-</ul>
+<p>Install limitations mostly include platform-specific limitations, such as needing systemd or systemd-resolved (see above).</p>
+<p>In addition the Netmaker is currently unable to route traffic for for devices behind a “carrier-grade NAT”. This will be solved in a future release with the introduction of relay servers.</p>
 
 
 

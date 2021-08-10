@@ -1,0 +1,133 @@
+services:
+  rqlite:
+    container_name: rqlite
+    image: rqlite/rqlite
+    network_mode: host
+    restart: always
+    volumes:
+      - sqldata:/rqlite/file/data
+  netmaker:
+    depends_on:
+      - rqlite
+    privileged: true
+    container_name: netmaker
+    image: gravitl/netmaker:v0.7
+    volumes:
+      - ./:/local
+      - /etc/netclient:/etc/netclient
+      - dnsconfig:/root/config/dnsconfig
+      - /usr/bin/wg:/usr/bin/wg
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+      - /run/systemd/system:/run/systemd/system
+      - /etc/systemd/system:/etc/systemd/system
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    cap_add: 
+      - NET_ADMIN
+      - SYS_MODULE
+    restart: always
+    network_mode: host
+    environment:
+      SERVER_HOST: "SERVER_PUBLIC_IP"
+      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
+      SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:1443"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP"
+      GRPC_SSL: "on"
+      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
+      API_PORT: "8081"
+      GRPC_PORT: "50051"
+      CLIENT_MODE: "on"
+      MASTER_KEY: "REPLACE_MASTER_KEY"
+      SERVER_GRPC_WIREGUARD: "off"
+      CORS_ALLOWED_ORIGIN: "*"
+  netmaker-ui:
+    container_name: netmaker-ui
+    depends_on:
+      - netmaker
+    image: gravitl/netmaker-ui:v0.7
+    links:
+      - "netmaker:api"
+    ports:
+      - "8082:80"
+    environment:
+      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
+  coredns:
+    depends_on:
+      - netmaker 
+    image: coredns/coredns
+    command: -conf /root/dnsconfig/Corefile
+    container_name: coredns
+    restart: always
+    ports:
+      - "53:53/udp"
+    volumes:
+      - dnsconfig:/root/dnsconfig
+
+
+version: "3.4"
+
+services:
+  rqlite: # The rqlite instance that backs up Netmaker
+    container_name: rqlite
+    image: rqlite/rqlite
+    network_mode: host
+    restart: always
+    volumes:
+      - sqldata:/rqlite/file/data
+  netmaker: # The Primary Server for running Netmaker
+    privileged: true # Necessary to run sudo/root level commands on host system. Take out if not running with CLIENT_MODE=on
+    container_name: netmaker
+    depends_on:
+      - mongodb
+    image: gravitl/netmaker:v0.7
+    volumes: # Volume mounts necessary for Netmaker to control netclient, wireguard, and networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
+      - ./:/local
+      - /etc/netclient:/etc/netclient
+      - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
+      - /usr/bin/wg:/usr/bin/wg
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+      - /run/systemd/system:/run/systemd/system
+      - /etc/systemd/system:/etc/systemd/system
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    cap_add: # Necessary for CLIENT_MODE. Should be removed if turned off. 
+      - NET_ADMIN
+      - SYS_MODULE
+    restart: always
+    network_mode: host # Necessary for CLIENT_MODE. Should be removed if turned off, but then need to add port mappings
+    environment:
+      GRPC_SSL: "off" # Tells clients to use SSL to connect to GRPC. Switch to on to turn on.
+      SERVER_API_CONN_STRING: "" # Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT
+      SERVER_GRPC_CONN_STRING: "" # Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT
+      SERVER_HOST: "" # All the Docker Compose files pre-populate this with HOST_IP, which you replace as part of the install instructions. This will set both HTTP and GRPC host.
+      API_PORT: 8081 # The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.
+      GRPC_PORT: 50051 # The GRPC port for Netmaker. Used for communications from nodes.
+      MASTER_KEY: "secretkey" # The admin master key for accessing the API. Change this in any production installation.
+      CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from.
+      REST_BACKEND: "on" # Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.
+      AGENT_BACKEND: "on" # Enables the AGENT backend (GRPC running on GRPC_PORT at SERVER_GRPC_HOST). Change to "off" to turn off.
+      DNS_MODE: "on" # Enables DNS Mode, meaning config files will be generated for CoreDNS. Note, turning "off" does not remove CoreDNS. You still need to remove CoreDNS from compose file.
+  netmaker-ui: # The Netmaker UI Component
+    container_name: netmaker-ui
+    depends_on:
+      - netmaker
+    image: gravitl/netmaker-ui:v0.7
+    links:
+      - "netmaker:api"
+    ports:
+      - "8082:80"
+    environment:
+      BACKEND_URL: "http://HOST_IP:8081" # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
+  coredns: # The DNS Server. Remove this section if DNS_MODE="off"
+    depends_on:
+      - netmaker 
+    image: coredns/coredns
+    command: -conf /root/dnsconfig/Corefile # Config location for Corefile. This is the path of file which is also mounted to Netmaker for modification.
+    container_name: coredns
+    restart: always
+    ports:
+      - "53:53/udp" # Likely needs to run at port 53 for adequate nameserver usage.
+    volumes:
+      - dnsconfig:/root/dnsconfig
+volumes:
+  sqldata: {}
+  dnsconfig: {}
