@@ -76,7 +76,7 @@ spec:
     spec:
       containers:
       - name: netmaker-backend
-        image: gravitl/netmaker:v0.5.8
+        image: gravitl/netmaker:v0.7
         ports:
         - containerPort: 8081
         volumeMounts:
@@ -256,7 +256,7 @@ spec:
     spec:
       containers:
       - name: netmaker-ui
-        image: gravitl/netmaker-ui:v0.5
+        image: gravitl/netmaker-ui:v0.7
         ports:
         - containerPort: 80
         env:

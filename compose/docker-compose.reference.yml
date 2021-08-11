@@ -1,23 +1,17 @@
-version: "3.4"
-
 services:
-  mongodb: # The MongoDB Instance that backs up Netmaker
-    image: mongo:4.2
-    ports:
-      - "27017:27017" # Port Mapping for MongoDB. Can be modified, but be sure to change the MONGO_PORT env var in netmaker
-    container_name: mongodb
-    volumes:
-      - mongovol:/data/db
+  rqlite:
+    container_name: rqlite
+    image: rqlite/rqlite
+    network_mode: host
     restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: mongoadmin # Default username. Recommend changing for production installs. You will need to set MONGO_ADMIN netmaker env var.
-      MONGO_INITDB_ROOT_PASSWORD: mongopass # Default password. Recommend changing for production installs. You will need to set MONGO_PASS netmaker env var.
+    volumes:
+      - sqldata:/rqlite/file/data
   netmaker: # The Primary Server for running Netmaker
     privileged: true # Necessary to run sudo/root level commands on host system. Take out if not running with CLIENT_MODE=on
     container_name: netmaker
     depends_on:
-      - mongodb
-    image: gravitl/netmaker:v0.5
+      - rqlite
+    image: gravitl/netmaker:v0.7
     volumes: # Volume mounts necessary for CLIENT_MODE to control netclient, wireguard, and networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
       - ./:/local
       - /etc/netclient:/etc/netclient
@@ -42,36 +36,23 @@ services:
       CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from.
       REST_BACKEND: "on" # Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.
       AGENT_BACKEND: "on" # Enables the AGENT backend (GRPC running on GRPC_PORT at SERVER_GRPC_HOST). Change to "off" to turn off.
-      CLIENT_MODE: "on" # Enables Client Mode, meaning netclient will be deployed on server and will be manageable from UI. Change to "off" to turn off.
       DNS_MODE: "on" # Enables DNS Mode, meaning config files will be generated for CoreDNS. Note, turning "off" does not remove CoreDNS. You still need to remove CoreDNS from compose file.
       DISABLE_REMOTE_IP_CHECK: "off" # If turned "on", Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned "off" by default.
-      MONGO_ADMIN: "mongoadmin" # Admin user for MongoDB. Change to match above MongoDB instance
-      MONGO_PASS: "mongopass" # Admin password for MongoDB. Change to match above MongoDB instance
-      MONGO_HOST: "127.0.0.1" # Address of MongoDB. Change if necessary.
-      MONGO_PORT: "27017" # Port of MongoDB. Change if necessary.
-      MONGO_OPTS: "/?authSource=admin" # Opts to enable admin login for Mongo.
-      SERVER_GRPC_WIREGUARD: "on" # Whether to run GRPC over a WireGuard network. On by default. Secures server comms. Switch to "off" to turn off.
-      SERVER_GRPC_WG_INTERFACE: "nm-grpc-wg" # Interface to use for GRPC WireGuard network if enabled
-      SERVER_GRPC_WG_ADDRESS: "10.101.0.1" # Private Address to use for GRPC WireGuard network if enabled
-      SERVER_GRPC_WG_ADDRESS_RANGE: "10.101.0.0/16" # Private Address range to use for GRPC WireGard clients if enabled
-      SERVER_GRPC_WG_PORT: "50555" # Port to use for GRPC WireGuard if enabled
-      SERVER_GRPC_WG_PUBKEY: "SERVER_GRPC_WG_PUBKEY" # PublicKey for GRPC WireGuard interface. Generated if blank.
-      SERVER_GRPC_WG_PRIVKEY: "SERVER_GRPC_WG_PRIVKEY" # PrivateKey for GRPC WireGuard interface. Generated if blank.
       GRPC_SSL: "off" # Tells clients to use SSL to connect to GRPC. Switch to on to turn on.
+      COREDNS_ADDR: "" # Address of the CoreDNS server. Defaults to SERVER_HOST
       SERVER_API_CONN_STRING: "" # Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT
       SERVER_GRPC_CONN_STRING: "" # Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT
   netmaker-ui: # The Netmaker UI Component
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.5
+    image: gravitl/netmaker-ui:v0.7
     links:
       - "netmaker:api"
     ports:
-      - "80:80"
+      - "8082:80"
     environment:
       BACKEND_URL: "http://HOST_IP:8081" # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
-      MASTER_KEY: "secretkey" # Master Key for API calls. Will be removed in v0.3.5
   coredns: # The DNS Server. Remove this section if DNS_MODE="off"
     depends_on:
       - netmaker 
@@ -84,5 +65,5 @@ services:
     volumes:
       - dnsconfig:/root/dnsconfig
 volumes:
-  mongovol: {}
+  sqldata: {}
   dnsconfig: {}

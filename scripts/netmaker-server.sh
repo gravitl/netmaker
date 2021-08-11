@@ -5,7 +5,6 @@ mkdir -p /etc/netmaker/config/environments
 wget -O /etc/netmaker/netmaker https://github.com/gravitl/netmaker/releases/download/latest/netmaker
 chmod +x /etc/netmaker/netmaker
 
-
 cat >/etc/netmaker/config/environments/dev.yaml<<EOL
 server:
   host:
@@ -15,15 +14,7 @@ server:
   allowedorigin: "*"
   restbackend: true            
   agentbackend: true
-  defaultnetname: "default"
-  defaultnetrange: "10.10.10.0/24"
-  createdefault: true
-mongoconn:
-  user: "mongoadmin"
-  pass: "mongopass"
-  host: "localhost"
-  port: "27017"
-  opts: '/?authSource=admin'
+  dnsmode: "on"
 EOL
 
 cat >/etc/systemd/system/netmaker.service<<EOL

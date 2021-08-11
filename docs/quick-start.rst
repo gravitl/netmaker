@@ -43,27 +43,19 @@ Install Docker
 ---------------
 Begin by installing the community version of Docker and docker-compose (there are issues with the snap version). You can follow the official `Docker instructions here <https://docs.docker.com/engine/install/>`_. Or, you can use the below series of commands which should work on Ubuntu 20.04.
 
-``sudo apt-get remove docker docker-engine docker.io containerd runc``
- 
-``sudo apt-get update``
- 
-``sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release``
+.. code-block::
 
-``curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg``
-  
-``echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null``
-  
-``sudo apt-get update``
-  
-``sudo apt-get install docker-ce docker-ce-cli containerd.io``
-
-``sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose``
-
-``sudo chmod +x /usr/local/bin/docker-compose``
-
-``docker --version``
-
-``docker-compose --version``
+  sudo apt-get remove docker docker-engine docker.io containerd runc
+  sudo apt-get update
+  sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg  
+  echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update
+  sudo apt-get install docker-ce docker-ce-cli containerd.io
+  sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  sudo chmod +x /usr/local/bin/docker-compose
+  docker --version
+  docker-compose --version
 
 At this point Docker should be installed.
 
@@ -108,11 +100,13 @@ Prepare Firewall
 
 Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 443. On the server you can run:
 
-``sudo ufw allow proto tcp from any to any port 443 && sudo ufw allow dns && ``
+
+.. code-block::
+
+  sudo ufw allow proto tcp from any to any port 443 && sudo ufw allow dns
 
 **Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on:**
   - allow 443/tcp from all
-  - allow 1443/tcp from all
   - allow 53/udp from all
 
 Prepare for DNS
@@ -120,12 +114,15 @@ Prepare for DNS
 
 On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution.
 
-1. ``sudo systemctl stop systemd-resolved``
-2. ``sudo systemctl disable systemd-resolved``
-3. ``sudo vim /etc/systemd/resolved.conf``
-    * uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference
-    * uncomment DNSStubListener and set to "no"
-4. ``sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf``
+.. code-block::
+
+  systemctl stop systemd-resolved
+  systemctl disable systemd-resolved 
+  vim /etc/systemd/resolved.conf
+    *  uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference  *
+    *  uncomment DNSStubListener and set to "no"  *
+  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+
 
 Prepare Nginx
 -----------------
@@ -138,14 +135,12 @@ Get the nginx configuration file:
 
 Insert your domain in the configuration file and add to nginx:
 
-``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' netmaker-nginx-template.conf``
+.. code-block::
 
-``sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf``
-
-``nginx -t && nginx -s reload``
-
-``systemctl restart nginx``
-
+  sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' netmaker-nginx-template.conf
+  sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf
+  nginx -t && nginx -s reload
+  systemctl restart nginx
 
 4. Install Netmaker
 ====================
@@ -153,17 +148,18 @@ Insert your domain in the configuration file and add to nginx:
 Prepare Templates
 ------------------
 
-``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml`` 
+.. code-block::
 
-``sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml`` 
-
-``sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml`` 
+  wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml
+  sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml
+  sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml
 
 Generate a unique master key and insert it:
 
-``tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo ''`` 
+.. code-block::
 
-``sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.quickstart.yml`` 
+  tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo ''
+  sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.quickstart.yml
 
 Start Netmaker
 ----------------

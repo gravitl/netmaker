@@ -46,7 +46,7 @@
   
   
   
-    <title>Quick Install &#8212; Netmaker 0.5 documentation</title>
+    <title>Quick Install &#8212; Netmaker 0.7 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.5 documentation"
+        <a href="index.html" title="Netmaker 0.7 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.5 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.7 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.5 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.7 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.5 documentation">Netmaker Docs</a>
+       title="Netmaker 0.7 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -414,13 +414,6 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#notes-on-optional-features" class="md-nav__link">Notes on Optional Features</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
       <a href="server-installation.html#system-compatibility" class="md-nav__link">System Compatibility</a>
       
     
@@ -428,7 +421,14 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
+      <a href="server-installation.html#server-configuration-reference" class="md-nav__link">Server Configuration Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#dns-mode-setup" class="md-nav__link">DNS Mode Setup</a>
       
     
     </li>
@@ -450,13 +450,6 @@
     
     
       <a href="server-installation.html#kubernetes-install" class="md-nav__link">Kubernetes Install</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="server-installation.html#configuration-reference" class="md-nav__link">Configuration Reference</a>
       
     
     </li>
@@ -880,17 +873,19 @@
 
 <h3 id="install-docker">Install Docker<a class="headerlink" href="#install-docker" title="Permalink to this headline">¶</a></h3>
 <p>Begin by installing the community version of Docker and docker-compose (there are issues with the snap version). You can follow the official <a class="reference external" href="https://docs.docker.com/engine/install/">Docker instructions here</a>. Or, you can use the below series of commands which should work on Ubuntu 20.04.</p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">remove</span> <span class="pre">docker</span> <span class="pre">docker-engine</span> <span class="pre">docker.io</span> <span class="pre">containerd</span> <span class="pre">runc</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">update</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">apt-transport-https</span> <span class="pre">ca-certificates</span> <span class="pre">curl</span> <span class="pre">gnupg</span> <span class="pre">lsb-release</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-fsSL</span> <span class="pre">https://download.docker.com/linux/ubuntu/gpg</span> <span class="pre">|</span> <span class="pre">sudo</span> <span class="pre">gpg</span> <span class="pre">--dearmor</span> <span class="pre">-o</span> <span class="pre">/usr/share/keyrings/docker-archive-keyring.gpg</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">echo</span> <span class="pre">"deb</span> <span class="pre">[arch=amd64</span> <span class="pre">signed-by=/usr/share/keyrings/docker-archive-keyring.gpg]</span> <span class="pre">https://download.docker.com/linux/ubuntu</span> <span class="pre">$(lsb_release</span> <span class="pre">-cs)</span> <span class="pre">stable"</span> <span class="pre">|</span> <span class="pre">sudo</span> <span class="pre">tee</span> <span class="pre">/etc/apt/sources.list.d/docker.list</span> <span class="pre">&gt;</span> <span class="pre">/dev/null</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">update</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">docker-ce</span> <span class="pre">docker-ce-cli</span> <span class="pre">containerd.io</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">curl</span> <span class="pre">-L</span> <span class="pre">"https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname</span> <span class="pre">-s)-$(uname</span> <span class="pre">-m)"</span> <span class="pre">-o</span> <span class="pre">/usr/local/bin/docker-compose</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">chmod</span> <span class="pre">+x</span> <span class="pre">/usr/local/bin/docker-compose</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">--version</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">--version</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">remove</span> <span class="n">docker</span> <span class="n">docker</span><span class="o">-</span><span class="n">engine</span> <span class="n">docker</span><span class="o">.</span><span class="n">io</span> <span class="n">containerd</span> <span class="n">runc</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">update</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">apt</span><span class="o">-</span><span class="n">transport</span><span class="o">-</span><span class="n">https</span> <span class="n">ca</span><span class="o">-</span><span class="n">certificates</span> <span class="n">curl</span> <span class="n">gnupg</span> <span class="n">lsb</span><span class="o">-</span><span class="n">release</span>
+<span class="n">curl</span> <span class="o">-</span><span class="n">fsSL</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">download</span><span class="o">.</span><span class="n">docker</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">ubuntu</span><span class="o">/</span><span class="n">gpg</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">gpg</span> <span class="o">--</span><span class="n">dearmor</span> <span class="o">-</span><span class="n">o</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">keyrings</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">archive</span><span class="o">-</span><span class="n">keyring</span><span class="o">.</span><span class="n">gpg</span>
+<span class="n">echo</span> <span class="s2">"deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">apt</span><span class="o">/</span><span class="n">sources</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">d</span><span class="o">/</span><span class="n">docker</span><span class="o">.</span><span class="n">list</span> <span class="o">&gt;</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">update</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">docker</span><span class="o">-</span><span class="n">ce</span> <span class="n">docker</span><span class="o">-</span><span class="n">ce</span><span class="o">-</span><span class="n">cli</span> <span class="n">containerd</span><span class="o">.</span><span class="n">io</span>
+<span class="n">sudo</span> <span class="n">curl</span> <span class="o">-</span><span class="n">L</span> <span class="s2">"https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)"</span> <span class="o">-</span><span class="n">o</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span>
+<span class="n">sudo</span> <span class="n">chmod</span> <span class="o">+</span><span class="n">x</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span>
+<span class="n">docker</span> <span class="o">--</span><span class="n">version</span>
+<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="o">--</span><span class="n">version</span>
+</pre></div>
+</div>
 <p>At this point Docker should be installed.</p>
 
 
@@ -929,11 +924,12 @@
 
 <h3 id="prepare-firewall">Prepare Firewall<a class="headerlink" href="#prepare-firewall" title="Permalink to this headline">¶</a></h3>
 <p>Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 443. On the server you can run:</p>
-<p><a href="#id6"><span class="problematic" id="id7">``</span></a>sudo ufw allow proto tcp from any to any port 443 &amp;&amp; sudo ufw allow dns &amp;&amp; ``</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="n">proto</span> <span class="n">tcp</span> <span class="kn">from</span> <span class="nn">any</span> <span class="n">to</span> <span class="nb">any</span> <span class="n">port</span> <span class="mi">443</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="n">dns</span>
+</pre></div>
+</div>
 <dl class="simple">
 <dt><strong>Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on:</strong></dt><dd><ul class="simple">
 <li><p>allow 443/tcp from all</p></li>
-<li><p>allow 1443/tcp from all</p></li>
 <li><p>allow 53/udp from all</p></li>
 </ul>
 </dd>
@@ -942,19 +938,14 @@
 
 <h3 id="prepare-for-dns">Prepare for DNS<a class="headerlink" href="#prepare-for-dns" title="Permalink to this headline">¶</a></h3>
 <p>On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution.</p>
-<ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">stop</span> <span class="pre">systemd-resolved</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">disable</span> <span class="pre">systemd-resolved</span></code></p></li>
-<li><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">vim</span> <span class="pre">/etc/systemd/resolved.conf</span></code></dt><dd><ul class="simple">
-<li><p>uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference</p></li>
-<li><p>uncomment DNSStubListener and set to “no”</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">ln</span> <span class="pre">-sf</span> <span class="pre">/run/systemd/resolve/resolv.conf</span> <span class="pre">/etc/resolv.conf</span></code></p></li>
-</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">systemctl</span> <span class="n">stop</span> <span class="n">systemd</span><span class="o">-</span><span class="n">resolved</span>
+<span class="n">systemctl</span> <span class="n">disable</span> <span class="n">systemd</span><span class="o">-</span><span class="n">resolved</span>
+<span class="n">vim</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">systemd</span><span class="o">/</span><span class="n">resolved</span><span class="o">.</span><span class="n">conf</span>
+  <span class="o">*</span>  <span class="n">uncomment</span> <span class="n">DNS</span> <span class="ow">and</span> <span class="n">add</span> <span class="mf">8.8.8.8</span> <span class="ow">or</span> <span class="n">whatever</span> <span class="n">reachable</span> <span class="n">nameserver</span> <span class="ow">is</span> <span class="n">your</span> <span class="n">preference</span>  <span class="o">*</span>
+  <span class="o">*</span>  <span class="n">uncomment</span> <span class="n">DNSStubListener</span> <span class="ow">and</span> <span class="nb">set</span> <span class="n">to</span> <span class="s2">"no"</span>  <span class="o">*</span>
+<span class="n">ln</span> <span class="o">-</span><span class="n">sf</span> <span class="o">/</span><span class="n">run</span><span class="o">/</span><span class="n">systemd</span><span class="o">/</span><span class="n">resolve</span><span class="o">/</span><span class="n">resolv</span><span class="o">.</span><span class="n">conf</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">resolv</span><span class="o">.</span><span class="n">conf</span>
+</pre></div>
+</div>
 
 
 <h3 id="prepare-nginx">Prepare Nginx<a class="headerlink" href="#prepare-nginx" title="Permalink to this headline">¶</a></h3>
@@ -962,22 +953,28 @@
 <p>Get the nginx configuration file:</p>
 <p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/develop/nginx/netmaker-nginx-template.conf</span></code></p>
 <p>Insert your domain in the configuration file and add to nginx:</p>
-<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/NETMAKER_BASE_DOMAIN/&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;/g'</span> <span class="pre">netmaker-nginx-template.conf</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">cp</span> <span class="pre">netmaker-nginx-template.conf</span> <span class="pre">/etc/nginx/conf.d/&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;.conf</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">nginx</span> <span class="pre">-t</span> <span class="pre">&amp;&amp;</span> <span class="pre">nginx</span> <span class="pre">-s</span> <span class="pre">reload</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">restart</span> <span class="pre">nginx</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="n">netmaker</span><span class="o">-</span><span class="n">nginx</span><span class="o">-</span><span class="n">template</span><span class="o">.</span><span class="n">conf</span>
+<span class="n">sudo</span> <span class="n">cp</span> <span class="n">netmaker</span><span class="o">-</span><span class="n">nginx</span><span class="o">-</span><span class="n">template</span><span class="o">.</span><span class="n">conf</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">conf</span><span class="o">.</span><span class="n">d</span><span class="o">/&lt;</span><span class="n">your</span> <span class="n">base</span> <span class="n">domain</span><span class="o">&gt;.</span><span class="n">conf</span>
+<span class="n">nginx</span> <span class="o">-</span><span class="n">t</span> <span class="o">&amp;&amp;</span> <span class="n">nginx</span> <span class="o">-</span><span class="n">s</span> <span class="n">reload</span>
+<span class="n">systemctl</span> <span class="n">restart</span> <span class="n">nginx</span>
+</pre></div>
+</div>
 
 
 
 <h2 id="install-netmaker">4. Install Netmaker<a class="headerlink" href="#install-netmaker" title="Permalink to this headline">¶</a></h2>
 
 <h3 id="prepare-templates">Prepare Templates<a class="headerlink" href="#prepare-templates" title="Permalink to this headline">¶</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">wget</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/NETMAKER_BASE_DOMAIN/&lt;your</span> <span class="pre">base</span> <span class="pre">domain&gt;/g'</span> <span class="pre">docker-compose.quickstart.yml</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/SERVER_PUBLIC_IP/&lt;your</span> <span class="pre">server</span> <span class="pre">ip&gt;/g'</span> <span class="pre">docker-compose.quickstart.yml</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">develop</span><span class="o">/</span><span class="n">compose</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/SERVER_PUBLIC_IP/&lt;your server ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
 <p>Generate a unique master key and insert it:</p>
-<p><code class="docutils literal notranslate"><span class="pre">tr</span> <span class="pre">-dc</span> <span class="pre">A-Za-z0-9</span> <span class="pre">&lt;/dev/urandom</span> <span class="pre">|</span> <span class="pre">head</span> <span class="pre">-c</span> <span class="pre">30</span> <span class="pre">;</span> <span class="pre">echo</span> <span class="pre">''</span></code></p>
-<p><code class="docutils literal notranslate"><span class="pre">sed</span> <span class="pre">-i</span> <span class="pre">'s/REPLACE_MASTER_KEY/&lt;your</span> <span class="pre">generated</span> <span class="pre">key&gt;/g'</span> <span class="pre">docker-compose.quickstart.yml</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tr</span> <span class="o">-</span><span class="n">dc</span> <span class="n">A</span><span class="o">-</span><span class="n">Za</span><span class="o">-</span><span class="n">z0</span><span class="o">-</span><span class="mi">9</span> <span class="o">&lt;/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span> <span class="o">|</span> <span class="n">head</span> <span class="o">-</span><span class="n">c</span> <span class="mi">30</span> <span class="p">;</span> <span class="n">echo</span> <span class="s1">''</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/REPLACE_MASTER_KEY/&lt;your generated key&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
 
 
 <h3 id="start-netmaker">Start Netmaker<a class="headerlink" href="#start-netmaker" title="Permalink to this headline">¶</a></h3>

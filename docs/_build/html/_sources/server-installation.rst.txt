@@ -15,111 +15,11 @@ The quick install guide is recommended for first-time installs.
 
 The following documents are meant for special cases like Kubernetes and LXC, or for more advanced setups. 
 
-DNS Mode Prereqisite Setup
-====================================
 
-If you plan on running the server in DNS Mode, know that a `CoreDNS Server <https://coredns.io/manual/toc/>`_ will be installed. CoreDNS is a light-weight, fast, and easy-to-configure DNS server. It is recommended to bind CoreDNS to port 53 of the host system, and it will do so by default. The clients will expect the nameserver to be on port 53, and many systems have issues resolving a different port.
+Server Configuration Reference
+==========================================
 
-However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration. The following was tested on Ubuntu 20.04 and should be run prior to deploying the docker containers.
-
-1. ``systemctl stop systemd-resolved`` 
-2. ``systemctl disable systemd-resolved`` 
-3. ``vim /etc/systemd/resolved.conf``
-    * uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference
-    * uncomment DNSStubListener and set to "no"
-4. ``ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf``
-
-Port 53 should now be available for CoreDNS to use.
-
-Docker Compose Install
-=======================
-
-The most simple (and recommended) way of installing Netmaker is to use one of the provided `Docker Compose files <https://github.com/gravitl/netmaker/tree/master/compose>`_. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.
-
-Test Install - No DNS, No Secure GRPC
---------------------------------------------------------
-
-This install will run Netmaker on a server without HTTPS using an IP address. This is not secure and not recommended, but can be helpful for testing.
-
-It also does not run the CoreDNS server, to simplify the deployment
-
-**Prerequisites:**
-  * server ports 80, 8081, and 50051 are not blocked by firewall
-
-**Notes:** 
-  * You can change the port mappings in the Docker Compose if the listed ports are already in use.
-
-Assuming you have Docker and Docker Compose installed, you can just run the following, replacing **< Insert your-host IP Address Here >** with your host IP (or domain):
-
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.test.yml``
-#. ``sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml``
-#. ``docker-compose up -d``
-
-
-No DNS - CoreDNS Disabled
-----------------------------------------------
-
-DNS Mode is currently limited to clients that can run resolvectl (systemd-resolved, see :doc:`Architecture docs <./architecture>` for more info). You may wish to disable DNS mode for various reasons. This installation option gives you the full feature set minus CoreDNS.
-
-To run without DNS, follow the Quick Install guide, omitting the steps for DNS setup. In addition, when the guide has you pull (wget) the Netmaker docker-compose template, use the following link instead:
-
-#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.nodns.yml``
-
-This template is equivalent but omits CoreDNS.
-
-
-Reference Compose File - Annotated
---------------------------------------
-
-All environment variables and options are enabled in this file. It is the equivalent to running the "full install" from the above section. However, all environment variables are included, and are set to the default values provided by Netmaker (if the environment variable was left unset, it would not change the installation). Comments are added to each option to show how you might use it to modify your installation.
-
-.. literalinclude:: ../compose/docker-compose.reference.yml
-  :language: YAML
-
-
-Linux Install without Docker
-=============================
-
-Most systems support Docker, but some, such as LXC, do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional). 
-
-Below is a guided set of instructions for installing without Docker on Ubuntu 20.04. Depending on your system, the steps may vary.
-
-rqlite Setup
-----------------
-1. Install rqlite on your server: https://github.com/rqlite/rqlite
-
-2. Run rqlite: rqlited -node-id 1 ~/node.1
-
-Server Setup
--------------
-1. **Run the install script:** ``sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.3.5/scripts/netmaker-server.sh | sh -``
-2. Check status:  ``sudo journalctl -u netmaker``
-3. If any settings are incorrect such as host or mongo credentials, change them under /etc/netmaker/config/environments/< your env >.yaml and then run ``sudo systemctl restart netmaker``
-
-UI Setup
------------
-
-The following uses NGinx as an http server. You may alternatively use Apache or any other web server that serves static web files.
-
-1. **Download UI asset files:** ``sudo wget -O /usr/share/nginx/html/netmaker-ui.zip https://github.com/gravitl/netmaker-ui/releases/download/latest/netmaker-ui.zip``
-2. **Unzip:** ``sudo unzip /usr/share/nginx/html/netmaker-ui.zip -d /usr/share/nginx/html``
-3. **Copy Config to Nginx:** ``sudo cp /usr/share/nginx/html/nginx.conf /etc/nginx/conf.d/default.conf``
-4. **Modify Default Config Path:** ``sudo sed -i 's/root \/var\/www\/html/root \/usr\/share\/nginx\/html/g' /etc/nginx/sites-available/default``
-5. **Change Backend URL:** ``sudo sh -c 'BACKEND_URL=http://<YOUR BACKEND API URL>:PORT /usr/share/nginx/html/generate_config_js.sh >/usr/share/nginx/html/config.js'``
-6. **Start Nginx:** ``sudo systemctl start nginx``
-
-CoreDNS Setup
-----------------
-
-Kubernetes Install
-=======================
-
-**This configuration is coming soon.** It will allow you to deploy Netmaker on a Kubernetes cluster.
-
-Configuration Reference
-=========================
-
-The "Reference Compose File" (above) explains many of these options. However, it is important to understand fundamentally how Netmaker sets its configuration:
+Netmaker sets its configuration in the following order of precendence:
 
 1. Defaults
 2. Config File
@@ -127,23 +27,43 @@ The "Reference Compose File" (above) explains many of these options. However, it
 
 Variable Description
 ----------------------
+VERBOSITY:
+    **Default:** 0
 
-SERVER_HOST: 
+    **Description:** Specify level of logging you would like on the server. Goes up to 3 for debugging.
+
+
+GRPC_SSL:
+    **Default:** "off"
+
+    **Description:** Specifies if GRPC is going over secure GRPC or SSL. This is a setting for the clients and is passed through the access token. Can be set to "on" and "off". Set to on if SSL is configured for GRPC.
+
+SERVER_API_CONN_STRING
+    **Default:** ""
+
+    **Description:**  Allows specification of the string used to connect to the server api. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
+
+SERVER_GRPC_CONN_STRING
+    **Default:** ""
+
+    **Description:**  Allows specification of the string used to connect to grpc. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
+
+SERVER_HOST: *(depreciated, use SERVER_API_CONN_STRING and SERVER_GRPC_CONN_STRING)* 
     **Default:** Server will perform an IP check and set automatically unless explicitly set, or DISABLE_REMOTE_IP_CHECK is set to true, in which case it defaults to 127.0.0.1
 
     **Description:** Sets the SERVER_HTTP_HOST and SERVER_GRPC_HOST variables if they are unset. The address where traffic comes in. 
 
-SERVER_HTTP_HOST: 
+SERVER_HTTP_HOST: *(depreciated, use SERVER_API_CONN_STRING and SERVER_GRPC_CONN_STRING)*
     **Default:** Equals SERVER_HOST if set, "127.0.0.1" if SERVER_HOST is unset.
     
     **Description:** Set to make the HTTP and GRPC functions available via different interfaces/networks.
 
-SERVER_GRPC_HOST: 
+SERVER_GRPC_HOST: *(depreciated, use SERVER_API_CONN_STRING and SERVER_GRPC_CONN_STRING)*
     **Default:** Equals SERVER_HOST if set, "127.0.0.1" if SERVER_HOST is unset.
 
     **Description:** Set to make the HTTP and GRPC functions available via different interfaces/networks.
 
-API_PORT:  
+API_PORT:
     **Default:** 8081 
 
     **Description:** The HTTP API port for Netmaker. Used for API calls / communication from front end.
@@ -173,108 +93,172 @@ AGENT_BACKEND:
 
     **Description:** Enables the AGENT backend (GRPC running on GRPC_PORT at SERVER_GRPC_HOST). Change to "off" to turn off.
 
-CLIENT_MODE:  
-    **Default:** "on" 
-
-    **Description:** Enables Client Mode, meaning netclient will be deployed on server and will be manageable from UI. Change to "off" to turn off.
-
 DNS_MODE:  
-    **Default:** "on"
+    **Default:** "off"
 
     **Description:** Enables DNS Mode, meaning config files will be generated for CoreDNS.
 
-DISABLE_REMOTE_IP_CHECK:  
-    **Default:** "off" 
-
-    **Description:** If turned "on", Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned "off" by default.
-
-MONGO_ADMIN:  
-    **Default:** "mongoadmin" 
-
-    **Description:** Admin user for MongoDB.
-
-MONGO_PASS:  
-    **Default:** "mongopass" 
-
-    **Description:** Admin password for MongoDB.
-
-MONGO_HOST:  
-    **Default:** "127.0.0.1"
-
-    **Description:** Address of MongoDB.
-
-MONGO_PORT:  
-    **Default:** "27017"
-
-    **Description:** Port of MongoDB.
-
-MONGO_OPTS:  
-    **Default:** "/?authSource=admin"
-
-    **Description:** Opts to enable admin login for Mongo.
-
-SERVER_GRPC_WIREGUARD: 
-    **Default:** "on"
-
-    **Description:** Whether to run GRPC over a WireGuard network. On by default. Secures the server comms. Switch to "off" to turn off. If off and running in production, make sure to have certificates installed to secure GRPC communications. 
-
-SERVER_GRPC_WG_INTERFACE: 
-    **Default:** "nm-grpc-wg"
-
-    **Description:** Interface to use for GRPC WireGuard network if enabled
-
-SERVER_GRPC_WG_ADDRESS:
-    **Default:** "10.101.0.1"
-
-    **Description:** Private Address to use for GRPC WireGuard network if enabled
-
-SERVER_GRPC_WG_ADDRESS_RANGE:
-    **Default:** "10.101.0.0/16"
-
-    **Description:** Private Address range to use for GRPC WireGard clients if enabled. Gives 65,534 total addresses for all of netmaker. If running a larger network, will need to configure addresses differently, for instance using ipv6, or use certificates instead.
-
-SERVER_GRPC_WG_PORT:
-    **Default:** 50555
-
-    **Description:** Port to use for GRPC WireGuard if enabled
-
-SERVER_GRPC_WG_PUBKEY:
-    **Default:** < generated at startup >
-
-    **Description:** PublicKey for GRPC WireGuard interface. Generated if left blank.
-
-SERVER_GRPC_WG_PRIVKEY:
-    **Default:** < generated at startup >
-
-    **Description:** PrivateKey for GRPC WireGuard interface. Generated if left blank.
-
-SERVER_GRPC_WG_KEYREQUIRED
-    **Default:** ""
-
-    **Description:** Determines if an Access Key is required to join the Comms network. Blank (meaning 'no') by default. Set to "yes" to turn on.
-
-GRPC_SSL
-    **Default:** ""
-
-    **Description:** Specifies if GRPC is going over secure GRPC or SSL. This is a setting for the clients and is passed through the access token. Can be set to "on" and "off". Set to on if SSL is configured for GRPC.
-
-SERVER_API_CONN_STRING
-    **Default:** ""
-
-    **Description:**  Allows specification of the string used to connect to the server api. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
-
-SERVER_GRPC_CONN_STRING
-    **Default:** ""
-
-    **Description:**  Allows specification of the string used to connect to grpc. Format: IP:PORT or DOMAIN:PORT. Defaults to SERVER_HOST if not specified.
-
 Config File Reference
 ----------------------
-A config file may be placed under config/environments/<env-name>.yml. To read this file at runtime, provide the environment variable ENV at runtime. For instance, dev.yml paired with ENV=dev. Netmaker will load the specified Config file. This allows you to store and manage configurations for different environments. Below is a reference Config File you may use.
+A config file may be placed under config/environments/<env-name>.yml. To read this file at runtime, provide the environment variable NETMAKER_ENV at runtime. For instance, dev.yml paired with ENV=dev. Netmaker will load the specified Config file. This allows you to store and manage configurations for different environments. Below is a reference Config File you may use.
 
 .. literalinclude:: ../config/environments/dev.yaml
   :language: YAML
 
+Compose File - Annotated
+--------------------------------------
+
+All environment variables and options are enabled in this file. It is the equivalent to running the "full install" from the above section. However, all environment variables are included, and are set to the default values provided by Netmaker (if the environment variable was left unset, it would not change the installation). Comments are added to each option to show how you might use it to modify your installation.
+
+.. literalinclude:: ../compose/docker-compose.reference.yml
+  :language: YAML
+
+
+DNS Mode Setup
+====================================
+
+If you plan on running the server in DNS Mode, know that a `CoreDNS Server <https://coredns.io/manual/toc/>`_ will be installed. CoreDNS is a light-weight, fast, and easy-to-configure DNS server. It is recommended to bind CoreDNS to port 53 of the host system, and it will do so by default. The clients will expect the nameserver to be on port 53, and many systems have issues resolving a different port.
+
+However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration. The following was tested on Ubuntu 20.04 and should be run prior to deploying the docker containers.
+
+.. code-block::
+
+  systemctl stop systemd-resolved
+  systemctl disable systemd-resolved 
+  vim /etc/systemd/resolved.conf
+    *  uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference  *
+    *  uncomment DNSStubListener and set to "no"  *
+  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+
+Port 53 should now be available for CoreDNS to use.
+
+
+Docker Compose Install
+=======================
+
+The most simple (and recommended) way of installing Netmaker is to use one of the provided `Docker Compose files <https://github.com/gravitl/netmaker/tree/master/compose>`_. Below are instructions for several different options to install Netmaker via Docker Compose, followed by an annotated reference Docker Compose in case your use case requires additional customization.
+
+Test Install - No DNS, No Secure GRPC
+--------------------------------------------------------
+
+This install will run Netmaker on a server without HTTPS using an IP address. This is not secure and not recommended, but can be helpful for testing.
+
+It also does not run the CoreDNS server, to simplify the deployment
+
+**Prerequisites:**
+  * server ports 80, 8081, and 50051 are not blocked by firewall
+
+**Notes:** 
+  * You can change the port mappings in the Docker Compose if the listed ports are already in use.
+
+Assuming you have Docker and Docker Compose installed, you can just run the following, replacing **< Insert your-host IP Address Here >** with your host IP (or domain):
+
+.. code-block::
+
+  wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.test.yml
+  sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml
+  docker-compose up -d`
+
+
+No DNS - CoreDNS Disabled
+----------------------------------------------
+
+DNS Mode is currently limited to clients that can run resolvectl (systemd-resolved, see :doc:`Architecture docs <./architecture>` for more info). You may wish to disable DNS mode for various reasons. This installation option gives you the full feature set minus CoreDNS.
+
+To run without DNS, follow the :doc:`Quick Install <./quick-start>` guide, omitting the steps for DNS setup. In addition, when the guide has you pull (wget) the Netmaker docker-compose template, use the following link instead:
+
+#. ``wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.nodns.yml``
+
+This template is equivalent but omits CoreDNS.
+
+
+Linux Install without Docker
+=============================
+
+Most systems support Docker, but some, such as LXC, do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional). 
+
+To start, we recommend following the Nginx instructions in the :doc:`Quick Install <./quick-start>` guide to enable SSL for your environment.
+
+Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.
+
+rqlite Setup
+----------------
+1. Install rqlite on your server: https://github.com/rqlite/rqlite
+
+2. Run rqlite: rqlited -node-id 1 ~/node.1
+
+Server Setup
+-------------
+1. **Run the install script:** 
+
+``sudo curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netmaker-server.sh | sh -``
+
+2. Check status:  ``sudo journalctl -u netmaker``
+3. If any settings are incorrect such as host or mongo credentials, change them under /etc/netmaker/config/environments/< your env >.yaml and then run ``sudo systemctl restart netmaker``
+
+UI Setup
+-----------
+
+The following uses Nginx as an http server. You may alternatively use Apache or any other web server that serves static web files.
+
+1. Download and Unzip UI asset files
+2. Copy Config to Nginx
+3. Modify Default Config Path
+4. Change Backend URL
+5. Start Nginx
+
+.. code-block::
+  
+  sudo wget -O /usr/share/nginx/html/netmaker-ui.zip https://github.com/gravitl/netmaker-ui/releases/download/latest/netmaker-ui.zip
+  sudo unzip /usr/share/nginx/html/netmaker-ui.zip -d /usr/share/nginx/html
+  sudo cp /usr/share/nginx/html/nginx.conf /etc/nginx/conf.d/default.conf
+  sudo sed -i 's/root \/var\/www\/html/root \/usr\/share\/nginx\/html/g' /etc/nginx/sites-available/default
+  sudo sh -c 'BACKEND_URL=http://<YOUR BACKEND API URL>:PORT /usr/share/nginx/html/generate_config_js.sh >/usr/share/nginx/html/config.js'
+  sudo systemctl start nginx
+
+CoreDNS Setup
+----------------
+
+Kubernetes Install
+=======================
+
+Server Install
+--------------------------
+
+This template assumes your cluster uses Nginx for ingress with valid wildcard certificates. If using an ingress controller other than Nginx (ex: Traefik), you will need to manually modify the Ingress entries in this template to match your environment.
+
+This template also requires RWX storage. Please change references to storageClassName in this template to your cluster's Storage Class.
+
+``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/kube/netmaker-template.yaml``
+
+Replace the NETMAKER_BASE_DOMAIN references to the base domain you would like for your Netmaker services (ui,api,grpc). Typically this will be something like **netmaker.yourwildcard.com**.
+
+``sed -i ‘s/NETMAKER_BASE_DOMAIN/<your base domain>/g’ netmaker-template.yaml``
+
+Now, assuming Ingress and Storage match correctly with your cluster configuration, you can install Netmaker.
+
+.. code-block::
+
+  kubectl create ns nm
+  kubectl config set-context --current --namespace=nm
+  kubectl apply -f netmaker-template.yaml -n nm
+
+In about 3 minutes, everything should be up and running:
+
+``kubectl get ingress nm-ui-ingress-nginx``
+
+Netclient Daemonset
+--------------------------
+
+The following instructions assume you have Netmaker running and a network you would like to add your cluster into. The Netmaker server does not need to be running inside of a cluster for this.
+
+.. code-block::
+
+  wget https://raw.githubusercontent.com/gravitl/netmaker/develop/kube/netclient-template.yaml
+  sed -i ‘s/ACCESS_TOKEN_VALUE/< your access token value>/g’ netclient-template.yaml
+  kubectl apply -f netclient-template.yaml
+
+For a more detailed guide on integrating Netmaker with MicroK8s, `check out this guide <https://itnext.io/how-to-deploy-a-cross-cloud-kubernetes-cluster-with-built-in-disaster-recovery-bbce27fcc9d7>`_. 
 
 Nginx Reverse Proxy Setup with https
 ====================================
