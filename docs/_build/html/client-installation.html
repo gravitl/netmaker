@@ -375,7 +375,14 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#dns-mode-prereqisite-setup" class="md-nav__link">DNS Mode Prereqisite Setup</a>
+      <a href="server-installation.html#server-configuration-reference" class="md-nav__link">Server Configuration Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#dns-mode-setup" class="md-nav__link">DNS Mode Setup</a>
       
     
     </li>
@@ -397,13 +404,6 @@
     
     
       <a href="server-installation.html#kubernetes-install" class="md-nav__link">Kubernetes Install</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="server-installation.html#configuration-reference" class="md-nav__link">Configuration Reference</a>
       
     
     </li>
@@ -463,8 +463,6 @@
         <li class="md-nav__item"><a href="#adding-removing-networks" class="md-nav__link">Adding/Removing Networks</a>
         </li>
         <li class="md-nav__item"><a href="#uninstalling" class="md-nav__link">Uninstalling</a>
-        </li>
-        <li class="md-nav__item"><a href="#troubleshooting" class="md-nav__link">Troubleshooting</a>
         </li></ul>
             </nav>
         </li></ul>
@@ -556,41 +554,6 @@
       <a href="usage.html#external-tutorials" class="md-nav__link">External Tutorials</a>
       
     
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#basic" class="md-nav__link">Basic</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#local-network" class="md-nav__link">Local Network</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#site-to-site" class="md-nav__link">Site-to-Site</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#dual-stack-with-ipv6" class="md-nav__link">Dual Stack with IPv6</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#kubernetes-node-network" class="md-nav__link">Kubernetes Node Network</a>
-      
-    
     </li></ul>
     
     </li>
@@ -680,13 +643,6 @@
     
     
       <a href="support.html#faq" class="md-nav__link">FAQ</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="support.html#issues-bugs-and-feature-requests" class="md-nav__link">Issues, Bugs, and Feature Requests</a>
       
     
     </li>
@@ -832,8 +788,6 @@
         <li class="md-nav__item"><a href="#adding-removing-networks" class="md-nav__link">Adding/Removing Networks</a>
         </li>
         <li class="md-nav__item"><a href="#uninstalling" class="md-nav__link">Uninstalling</a>
-        </li>
-        <li class="md-nav__item"><a href="#troubleshooting" class="md-nav__link">Troubleshooting</a>
         </li></ul>
             </nav>
         </li></ul>
@@ -917,7 +871,8 @@
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">join</span> <span class="pre">--help</span></code></p>
-<div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="nt">NAME</span><span class="p">:</span>
+<div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">alex@workstation:~$ sudo netclient join --help</span>
+<span class="l l-Scalar l-Scalar-Plain">NAME</span><span class="p p-Indicator">:</span>
    <span class="l l-Scalar l-Scalar-Plain">netclient join - Join a Netmaker network.</span>
 
 <span class="nt">USAGE</span><span class="p">:</span>
@@ -925,7 +880,7 @@
 
 <span class="nt">OPTIONS</span><span class="p">:</span>
    <span class="l l-Scalar l-Scalar-Plain">--network value, -n value            Network to perform specified action against. (default</span><span class="p p-Indicator">:</span> <span class="s">"all"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_NETWORK]</span>
-   <span class="l l-Scalar l-Scalar-Plain">--password value, -p value           Password for authenticating with netmaker. (default</span><span class="p p-Indicator">:</span> <span class="s">"badpassword"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_PASSWORD]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--password value, -p value           Password for authenticating with netmaker. [$NETCLIENT_PASSWORD]</span>
    <span class="l l-Scalar l-Scalar-Plain">--endpoint value, -e value           Reachable (usually public) address for WireGuard (not the private WG address). [$NETCLIENT_ENDPOINT]</span>
    <span class="l l-Scalar l-Scalar-Plain">--macaddress value, -m value         Mac Address for this machine. Used as a unique identifier within Netmaker network. [$NETCLIENT_MACADDRESS]</span>
    <span class="l l-Scalar l-Scalar-Plain">--publickey value, --pubkey value    Public Key for WireGuard Interface. [$NETCLIENT_PUBLICKEY]</span>
@@ -938,14 +893,15 @@
    <span class="l l-Scalar l-Scalar-Plain">--address value, -a value            WireGuard address for machine within Netmaker network. [$NETCLIENT_ADDRESS]</span>
    <span class="l l-Scalar l-Scalar-Plain">--addressIPv6 value, --a6 value      WireGuard address for machine within Netmaker network. [$NETCLIENT_ADDRESSIPV6]</span>
    <span class="l l-Scalar l-Scalar-Plain">--interface value, -i value          WireGuard local network interface name. [$NETCLIENT_INTERFACE]</span>
-   <span class="l l-Scalar l-Scalar-Plain">--apiserver value                    Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server. [$NETCLIENT_API_SERVER]</span>
-   <span class="l l-Scalar l-Scalar-Plain">--grpcserver value                   Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server. [$NETCLIENT_GRPC_SERVER]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--apiserver value                    Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server. [$NETCLIENT_API_SERVER]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--grpcserver value                   Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server. [$NETCLIENT_GRPC_SERVER]</span>
    <span class="l l-Scalar l-Scalar-Plain">--key value, -k value                Access Key for signing up machine with Netmaker server during initial 'add'. [$NETCLIENT_ACCESSKEY]</span>
    <span class="l l-Scalar l-Scalar-Plain">--token value, -t value              Access Token for signing up machine with Netmaker server during initial 'add'. [$NETCLIENT_ACCESSTOKEN]</span>
    <span class="l l-Scalar l-Scalar-Plain">--localrange value                   Local Range if network is local, for instance 192.168.1.0/24. [$NETCLIENT_LOCALRANGE]</span>
-   <span class="l l-Scalar l-Scalar-Plain">--dns value                          Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset. [$NETCLIENT_DNS]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--dns value                          Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_DNS]</span>
    <span class="l l-Scalar l-Scalar-Plain">--islocal value                      Sets endpoint to local address if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_IS_LOCAL]</span>
    <span class="l l-Scalar l-Scalar-Plain">--isdualstack value                  Sets ipv6 address if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_IS_DUALSTACK]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--udpholepunch value                 Turns on udp holepunching if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_UDP_HOLEPUNCH]</span>
    <span class="l l-Scalar l-Scalar-Plain">--ipforwarding value                 Sets ip forwarding on if 'on'. Ignores if 'off'. On by default. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_IPFORWARDING]</span>
    <span class="l l-Scalar l-Scalar-Plain">--postup value                       Sets PostUp command for WireGuard. [$NETCLIENT_POSTUP]</span>
    <span class="l l-Scalar l-Scalar-Plain">--postdown value                     Sets PostDown command for WireGuard. [$NETCLIENT_POSTDOWN]</span>
@@ -959,6 +915,7 @@
 <h3 id="config-file-reference">Config File Reference<a class="headerlink" href="#config-file-reference" title="Permalink to this headline">¶</a></h3>
 <p>There is a config file for each node under /etc/netconfig-&lt;network name&gt;. You can change these values and then set “postchanges” to “true”, or go to the CLI and run <code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">push</span> <span class="pre">-n</span> <span class="pre">&lt;network&gt;</span></code></p>
 <div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
+    <span class="nt">corednsaddr</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">147.182.251.203</span> <span class="c1"># Address of CoreDNS Server (set locally with resolvectl)</span>
     <span class="nt">grpcaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">10.101.0.1:50051</span> <span class="c1"># Address of GRPC Server (used for all interaction with server after registration)</span>
     <span class="nt">apiaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1.2.3.4:8081</span> <span class="c1"># Address of API Server (used only for registration/unregistration)</span>
     <span class="nt">accesskey</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">5qKTbTgsvb45y3qyRmWft</span> <span class="c1"># Key used to sign up with server. Used only during registration</span>
@@ -971,12 +928,12 @@
     <span class="nt">localaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">192.168.1.32</span> <span class="c1"># Address on local network, used as endpoint for other local nodes for faster comms</span>
     <span class="nt">wgaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">10.7.11.2</span> <span class="c1"># Private WG addres on network</span>
     <span class="nt">wgaddress6</span><span class="p">:</span> <span class="s">"f8:34:41:77:5c:15"</span> <span class="c1"># Private ipv6 address if network is dual stack</span>
-    <span class="nt">roaming</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Whether or not to grab new endpoint value automatically</span>
-    <span class="nt">dns</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># Whether or not to set local DNS based on Netmaker's Private DNS server</span>
+    <span class="nt">roaming</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># Whether or not to grab new endpoint value automatically</span>
+    <span class="nt">dnson</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># Whether or not to set local DNS based on Netmaker's Private DNS server</span>
     <span class="nt">islocal</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># Based on network. If yes, will use local IP as endpoint.</span>
     <span class="nt">isdualstack</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># Use IPv6 in addition to IPv4</span>
     <span class="nt">isingressgateway</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># whether or not node is an ingress gateway (will set iptables forwarding rules)</span>
-    <span class="nt">allowedips</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># not currently used</span>
+    <span class="nt">allowedips</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># additional IP's to add to client</span>
     <span class="nt">localrange</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># local range if it's a local network. For instance, 192.168.1.0/24</span>
     <span class="nt">postup</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># postup command, used by ingress/egress gateways to set iptables</span>
     <span class="nt">postdown</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># postdown command, used by ingress/egress gateways to set iptables</span>
@@ -986,9 +943,11 @@
     <span class="nt">privatekey</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># private key, set only for changing and then will revert to blank in config</span>
     <span class="nt">endpoint</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">78.170.22.168</span> <span class="c1"># public endpoint for reaching node </span>
     <span class="nt">postchanges</span><span class="p">:</span> <span class="s">"false"</span> <span class="c1"># if true, will post and config file changes on next checkin and then revert to false</span>
-    <span class="nt">ipforwarding</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># set ip forwarding; highly recommended to leave on</span>
-<span class="nt">network</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">home</span> <span class="c1"># the network (duplicate of node.network)</span>
-<span class="nt">daemon</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># whether or not to manage systemd</span>
+    <span class="nt">ipforwarding</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># set ip forwarding; highly recommended to leave on</span>
+    <span class="nt">isstatic</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># if yes, daemon will not change pubkey, endpoint, or address</span>
+    <span class="nt">udpholepunch</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># run UDP hole punching (will ignore port above, e.g. 51821)</span>
+    <span class="nt">network</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">home</span> <span class="c1"># the network (duplicate of node.network)</span>
+<span class="nt">daemon</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># whether or not to manage systemd</span>
 <span class="nt">operatingsystem</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># not currently in use</span>
 </pre></div>
 </div>
@@ -1007,18 +966,32 @@
 <h2 id="managing-netclient">Managing Netclient<a class="headerlink" href="#managing-netclient" title="Permalink to this headline">¶</a></h2>
 
 <h3 id="viewing-logs">Viewing Logs<a class="headerlink" href="#viewing-logs" title="Permalink to this headline">¶</a></h3>
+<dl class="simple">
+<dt><strong>to view current networks</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">list</span></code></p>
+</dd>
+<dt><strong>to tail logs</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span> <span class="pre">-f</span></code></p>
+</dd>
+<dt><strong>to view all logs</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span></code></p>
+</dd>
+<dt><strong>to get most recent log run</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">status</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span></code></p>
+</dd>
+</dl>
 
 
 <h3 id="making-updates">Making Updates<a class="headerlink" href="#making-updates" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">vim</span> <span class="pre">/etc/netclient/netconfig-&lt;network&gt;</span></code></p>
+<p>Change any of the variables in this file, and changes will be pushed to the server and processed locally on the next checkin.</p>
+<p>For instance, change the private address, endpoint, or name. See above example config file for details</p>
 
 
 <h3 id="adding-removing-networks">Adding/Removing Networks<a class="headerlink" href="#adding-removing-networks" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">join</span> <span class="pre">-t</span> <span class="pre">&lt;token&gt;</span></code></p>
+<p>Set any of the above flags (netclient join –help) to override settings for joining the network.
+If a key is provided (-k), then a token is unnecessary, but grpc, server, ports, and network must all be provided via flags.</p>
 
 
 <h3 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permalink to this headline">¶</a></h3>
-
-
-<h3 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">uninstall</span></code></p>
 
 
 

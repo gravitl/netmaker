@@ -10,21 +10,14 @@ Does/Will Netmaker Support X Operating System?
 
 Netmaker is initially available on a limited number of operating systems for good reason: Every operating system is designed differently. With a small team, we can either focus on making Netmaker do a lot on a few number of operating systems, or a little on a bunch of operating systems. We chose the first option. You can view the System Compatibility docs for more info, but in general, you should only be using Netmaker on systemd linux right now.
 
-However, as of v0.4, we will technically be able to bring any operating system into the network. This is a bit of a hack. v0.4 introduces Ingress Gateways. Think of it this way. You set up a private network. You want devices to access it. You set up a single node as an "Ingress Gateway" and generate config files for "external clients." These clients are unmanaged and unmeshed, meaning they can access the network but only via the gateway. It also means they will not automatically account for changes to the network, and the user will have to update the configs manually.
+However, via "external clients", any device that supports WireGuard can be added to the network. 
 
-This lets us immediately "support" any device which can run WireGuard, which includes most operating systems at this point including phones and Windows.
-
-As we stabilize the design and feature set of Netmaker, we will expand the operating system support for Netclient which configures dynamic, fully-meshed devices. Expect to see updates about new OS support every few weeks, until eventually the Ingress Gateway becomes unnecessary (though you will still want it for certain use cases).
+In future iterations will expand the operating system support for Netclient, and devices that must use the "external client" feature can switch to Netclient.
 
 How do I install the Netclient on X?
 ---------------------------------------
 
 As per the above, there are many unsupported operating systems. You are still welcome to try, it is just an executable binary file after all. If the system is unix-based and has kernel WireGuard installed, netclient may very well mesh the device into the network. However, the service likely will encounter problems retrieving updates.
-
-Why MongoDB? SQL is better and smaller.
-----------------------------------------
-
-We are in a phase of rapid iteration. Every week the database schema changes. MongoDB makes our development process much more flexible. That said, we agree! SQL will be better for production, and indeed, we plan to switch over to SQL before v1.0, so please be patient with the resource consumption of MongoDB for the time being; it is helping to support a rapid pace of development. 
 
 
 Is Netmaker a VPN like NordNPN?
@@ -41,10 +34,11 @@ https://github.com/pivpn/pivpn
 https://github.com/subspacecloud/subspace
 https://github.com/mullvad/mullvadvpn-app
 
-Do you offer any paid support?
----------------------------------
+Do you offer any enterprise support?
+--------------------------------------
 
-Not at this time, but eventually we will. If you are interested, or if you are interested in sponsoring the project generally, please contact Alex Feiszli (alex@gravitl.com).
+If you are interested in enterprise support for your project, please contact info@gravitl.com.
+
 
 Why the SSPL License?
 ----------------------
@@ -57,14 +51,6 @@ If you have concerns about the license leading to project restrictions down the 
 
 All that said, we will re-evaluate the license on a regular basis and determine if an OSI-approved license makes more sense. It's just easier to move from SSPL to another license than vice-versa.
 
-Issues, Bugs, and Feature Requests
-=====================================
-
-Issues / Bugs
-----------------
-
-Feature Requests
--------------------
 
 Contact
 ===========
