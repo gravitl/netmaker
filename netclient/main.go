@@ -147,10 +147,10 @@ func main() {
 			Usage:   "Local Range if network is local, for instance 192.168.1.0/24.",
 		},
 		&cli.StringFlag{
-			Name:    "dns",
+			Name:    "dnson",
 			EnvVars: []string{"NETCLIENT_DNS"},
-			Value:   "on",
-			Usage:   "Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset.",
+			Value:   "yes",
+			Usage:   "Sets private dns if 'yes'. Ignores if 'no'. Will retrieve from network if unset.",
 		},
 		&cli.StringFlag{
 			Name:    "islocal",

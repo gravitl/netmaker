@@ -1,23 +1,19 @@
 version: "3.4"
 
 services:
-  mongodb:
-    image: mongo:4.2
-    ports:
-      - "27017:27017"
-    container_name: mongodb
-    volumes:
-      - mongovol:/data/db
+  rqlite:
+    container_name: rqlite
+    image: rqlite/rqlite
+    network_mode: host
     restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: mongoadmin
-      MONGO_INITDB_ROOT_PASSWORD: mongopass
+    volumes:
+      - sqldata:/rqlite/file/data
   netmaker:
+    depends_on:
+      - rqlite
     privileged: true
     container_name: netmaker
-    depends_on:
-      - mongodb
-    image: gravitl/netmaker:v0.5
+    image: gravitl/netmaker:v0.7
     volumes:
       - ./:/local
       - /etc/netclient:/etc/netclient
@@ -33,18 +29,29 @@ services:
     restart: always
     network_mode: host
     environment:
-      SERVER_HOST: "HOST_IP"
+      SERVER_HOST: "SERVER_PUBLIC_IP"
+      SERVER_API_CONN_STRING: "SERVER_PUBLIC_IP:8081"
+      SERVER_GRPC_CONN_STRING: "SERVER_PUBLIC_IP:50051"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP"
+      GRPC_SSL: "off"
+      DNS_MODE: "on"
+      SERVER_HTTP_HOST: "SERVER_PUBLIC_IP"
+      SERVER_GRPC_HOST: "SERVER_PUBLIC_IP"
+      API_PORT: "8081"
+      GRPC_PORT: "50051"
+      MASTER_KEY: "REPLACE_MASTER_KEY"
+      CORS_ALLOWED_ORIGIN: "*"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.5
+    image: gravitl/netmaker-ui:v0.7
     links:
       - "netmaker:api"
     ports:
-      - "80:80"
+      - "8082:80"
     environment:
-      BACKEND_URL: "http://HOST_IP:8081"
+      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
   coredns:
     depends_on:
       - netmaker 
@@ -57,5 +64,5 @@ services:
     volumes:
       - dnsconfig:/root/dnsconfig
 volumes:
-  mongovol: {}
+  sqldata: {}
   dnsconfig: {}

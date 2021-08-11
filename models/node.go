@@ -120,7 +120,7 @@ func (node *Node) SetIsLocalDefault() {
 
 func (node *Node) SetDNSOnDefault() {
 	if node.DNSOn == "" {
-		node.DNSOn = "no"
+		node.DNSOn = "yes"
 	}
 }
 
