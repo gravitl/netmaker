@@ -136,16 +136,6 @@ Where to go for help, and a FAQ.
 
    support
 
-
-Contributing
------------------
-
-A guide on how to contribute to the Netmaker project.
-
-.. toctree:: 
-
-        contribute.rst
-
 Code of Conduct
 -----------------
 
