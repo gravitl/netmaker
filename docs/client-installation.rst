@@ -112,15 +112,40 @@ Managing Netclient
 Viewing Logs
 ---------------
 
+**to view current networks**
+  ``netclient list``
+
+**to tail logs**
+  ``journalctl -u netclient@<net name> -f``
+
+**to view all logs**
+  ``journalctl -u netclient@<net name>``
+
+**to get most recent log run**
+  ``systemctl status netclient@<net name>``
+
 Making Updates
 ----------------
+
+``vim /etc/netclient/netconfig-<network>``
+
+Change any of the variables in this file, and changes will be pushed to the server and processed locally on the next checkin.
+
+For instance, change the private address, endpoint, or name. See above example config file for details
+
 
 Adding/Removing Networks
 ---------------------------
 
+``netclient join -t <token>``
+
+Set any of the above flags (netclient join --help) to override settings for joining the network. 
+If a key is provided (-k), then a token is unnecessary, but grpc, server, ports, and network must all be provided via flags.
+
+
 Uninstalling
 ---------------
 
-Troubleshooting
------------------
+``netclient uninstall``
+
 

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -21,19 +22,19 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 		if database.IsEmptyRecord(err) {
 			return peers, nil
 		}
-		functions.PrintUserLog("",err.Error(),2)
+		functions.PrintUserLog("", err.Error(), 2)
 		return nil, err
 	}
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
-		functions.PrintUserLog("",errN.Error(),2)
+		functions.PrintUserLog("", errN.Error(), 2)
 	}
 	for _, value := range collection {
 		var node models.Node
 		var peer models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			functions.PrintUserLog("",err.Error(),2)
+			functions.PrintUserLog("", err.Error(), 2)
 			continue
 		}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
@@ -122,7 +123,7 @@ func DeleteNode(key string, exterminate bool) error {
 		}
 	} else {
 		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			functions.PrintUserLog("",err.Error(),2)
+			functions.PrintUserLog("", err.Error(), 2)
 		}
 	}
 	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
@@ -214,6 +215,9 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
 	}
+	if servercfg.IsDNSMode() {
+		node.DNSOn = "yes"
+	}
 	err = node.Validate(false)
 	if err != nil {
 		return node, err
@@ -243,11 +247,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 func SetNetworkServerPeers(networkName string) {
 	if currentPeersList, err := serverctl.GetPeers(networkName); err == nil {
 		if database.SetPeers(currentPeersList, networkName) {
-			functions.PrintUserLog(models.NODE_SERVER_NAME,"set new peers on network "+networkName,1)
+			functions.PrintUserLog(models.NODE_SERVER_NAME, "set new peers on network "+networkName, 1)
 		}
 	} else {
-		functions.PrintUserLog(models.NODE_SERVER_NAME,"could not set peers on network "+networkName,1)
-		functions.PrintUserLog(models.NODE_SERVER_NAME,err.Error(),1)
+		functions.PrintUserLog(models.NODE_SERVER_NAME, "could not set peers on network "+networkName, 1)
+		functions.PrintUserLog(models.NODE_SERVER_NAME, err.Error(), 1)
 	}
 }
 

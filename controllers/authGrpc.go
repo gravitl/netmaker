@@ -69,7 +69,6 @@ func grpcAuthorize(ctx context.Context) error {
 	authToken := authHeader[0]
 
 	mac, network, err := functions.VerifyToken(authToken)
-
 	if err != nil {
 		return err
 	}
@@ -78,23 +77,26 @@ func grpcAuthorize(ctx context.Context) error {
 
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "Unauthorized. Network does not exist: "+network)
-
 	}
 	emptynode := models.Node{}
 	node, err := functions.GetNodeByMacAddress(network, mac)
+	if database.IsEmptyRecord(err) {
+		if node, err = functions.GetDeletedNodeByMacAddress(network, mac); err == nil {
+			if functions.RemoveDeletedNode(node.ID) {
+				return status.Errorf(codes.Unauthenticated, models.NODE_DELETE)
+			}
+			return status.Errorf(codes.Unauthenticated, "Node does not exist.")
+		}
+		return status.Errorf(codes.Unauthenticated, "Empty record")
+	}
 	if err != nil || node.MacAddress == emptynode.MacAddress {
 		return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 	}
 
-	//check that the request is for a valid network
-	//if (networkCheck && !networkexists) || err != nil {
 	if !networkexists {
-
 		return status.Errorf(codes.Unauthenticated, "Network does not exist.")
-
-	} else {
-		return nil
 	}
+	return nil
 }
 
 //Node authenticates using its password and retrieves a JWT for authorization.

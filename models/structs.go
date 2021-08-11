@@ -1,6 +1,6 @@
 package models
 
-import jwt "github.com/dgrijalva/jwt-go"
+import jwt "github.com/golang-jwt/jwt/v4"
 
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`

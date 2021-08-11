@@ -278,6 +278,7 @@ func LeaveNetwork(network string) error {
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
 		} else {
+			node.SetID()
 			var header metadata.MD
 			_, err = wcclient.DeleteNode(
 				ctx,
@@ -295,14 +296,18 @@ func LeaveNetwork(network string) error {
 			}
 		}
 	}
-	err = local.WipeLocal(network)
+	return RemoveLocalInstance(cfg, network)
+}
+
+func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
+	err := local.WipeLocal(networkName)
 	if err != nil {
 		log.Printf("Unable to wipe local config: %v", err)
 	} else {
-		log.Println("Removed " + node.Network + " network locally")
+		log.Println("Removed " + networkName + " network locally")
 	}
 	if cfg.Daemon != "off" {
-		err = local.RemoveSystemDServices(network)
+		err = local.RemoveSystemDServices(networkName)
 	}
 	return err
 }
@@ -362,7 +367,7 @@ func GetNetworks() ([]string, error) {
 		return networks, err
 	}
 	for _, f := range files {
-		if strings.Contains(f.Name(), "netconfig-") && !strings.Contains(f.Name(), "global-001") {
+		if strings.Contains(f.Name(), "netconfig-") {
 			networkname := stringAfter(f.Name(), "netconfig-")
 			networks = append(networks, networkname)
 		}

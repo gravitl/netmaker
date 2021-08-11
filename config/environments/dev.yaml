@@ -10,13 +10,3 @@ server:
   clientmode: "" # defaults to "on" or CLIENT_MODE (if set)
   dnsmode: "" # defaults to "on" or DNS_MODE (if set)
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
-wg:
-  keyrequired: "" # defaults to "". If set to "yes", a key is required for signing up for the comms network 
-  grpcwg: "" # defaults to "on" or SERVER_GRPC_WIREGUARD if set
-  grpciface: "" # defaults to nm-grpc-wg or SERVER_GRPC_WG_INTERFACE if set
-  grpcaddr: "" # defaults to 10.101.0.1 or SERVER_GRPC_WG_ADDRESS if set
-  grpcaddrrange: "" # defaults to 10.101.0.0/16 or SERVER_GRPC_WG_ADDRESS_RANGE if set
-  grpcendpoint: "" # defaults to SERVER_HOST if unset
-  grpcport: "" # defaults to 50555 or SERVER_GRPC_WG_PORT if set
-  pubkey: "" # defaults to generated value or SERVER_GRPC_WG_PUBKEY if set
-  privkey: "" # defaults to generated value or SERVER_GRPC_WG_PRIVKEY if set

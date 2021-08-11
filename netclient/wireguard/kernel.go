@@ -68,7 +68,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	_, addLinkErr := local.RunCmd(ipExec + " link add dev " + ifacename + " type wireguard")
 	_, addErr := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address + "/24")
 	if delErr != nil {
-		log.Println(delErr)
+		// pass
 	}
 	if addLinkErr != nil {
 		log.Println(addLinkErr)
@@ -80,10 +80,10 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	nodeport = int(node.ListenPort)
 
 	conf := wgtypes.Config{}
-	if nodecfg.UDPHolePunch == "yes" &&  
-	nodecfg.IsServer == "no"  &&    
-	nodecfg.IsIngressGateway == "no" && 
-	nodecfg.IsStatic != "yes" {
+	if nodecfg.UDPHolePunch == "yes" &&
+		nodecfg.IsServer == "no" &&
+		nodecfg.IsIngressGateway != "yes" &&
+		nodecfg.IsStatic != "yes" {
 		conf = wgtypes.Config{
 			PrivateKey:   &key,
 			ReplacePeers: true,

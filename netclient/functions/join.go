@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/gravitl/netmaker/database"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
@@ -115,8 +116,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 				return err
 			}
 		}
-	} else {
-		cfg.Node.Endpoint = cfg.Node.Endpoint
 	}
 	if privateKey == "" {
 		wgPrivatekey, err := wgtypes.GeneratePrivateKey()
@@ -178,7 +177,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if err = config.ModConfig(postnode); err != nil {
 		return err
 	}
-	data, err := json.Marshal(&postnode)
+	data, err := json.Marshal(postnode)
 	if err != nil {
 		return err
 	}
@@ -216,6 +215,11 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
+	err = wireguard.StorePrivKey(privateKey, cfg.Network)
+	if err != nil {
+		return err
+	}
+
 	if node.IsPending == "yes" {
 		fmt.Println("Node is marked as PENDING.")
 		fmt.Println("Awaiting approval from Admin before configuring WireGuard.")
@@ -227,14 +231,11 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	log.Println("retrieving remote peers")
 	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 
-	if err != nil {
-		log.Println("failed to retrieve peers")
+	if err != nil && !database.IsEmptyRecord(err) {
+		log.Println("failed to retrieve peers", err)
 		return err
 	}
-	err = wireguard.StorePrivKey(privateKey, cfg.Network)
-	if err != nil {
-		return err
-	}
+
 	log.Println("starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways)
 	if err != nil {

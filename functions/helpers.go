@@ -264,7 +264,7 @@ func NetworkNodesUpdateAction(networkName string, action string) error {
 			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
- 	}
+	}
 	return nil
 }
 
@@ -546,6 +546,31 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	return node, nil
 }
 
+func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node, error) {
+
+	var node models.Node
+
+	key, err := GetRecordKey(macaddress, network)
+	if err != nil {
+		return node, err
+	}
+
+	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+
+	return node, nil
+}
+
+func RemoveDeletedNode(nodeid string) bool {
+	return database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, nodeid) == nil
+}
+
 func DeleteAllIntClients() error {
 	err := database.DeleteAllRecords(database.INT_CLIENTS_TABLE_NAME)
 	if err != nil {
@@ -646,9 +671,7 @@ func UniqueAddress6(networkName string) (string, error) {
 		return "", err
 	}
 	if network.IsDualStack == "no" {
-		if networkName != "comms" {
-			return "", nil
-		}
+		return "", nil
 	}
 
 	offset := true
@@ -662,14 +685,8 @@ func UniqueAddress6(networkName string) (string, error) {
 			offset = false
 			continue
 		}
-		if networkName == "comms" {
-			if IsIPUnique(networkName, ip.String(), database.INT_CLIENTS_TABLE_NAME, true) {
-				return ip.String(), err
-			}
-		} else {
-			if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, true) {
-				return ip.String(), err
-			}
+		if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, true) {
+			return ip.String(), err
 		}
 	}
 	//TODO

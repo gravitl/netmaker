@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -194,17 +195,6 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				macaddress = "mastermac"
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
-			} else {
-				r.Header.Set("ismasterkey", "")
-				mac, _, err := functions.VerifyToken(authToken)
-				if err != nil {
-					errorResponse = models.ErrorResponse{
-						Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
-					}
-					returnErrorResponse(w, r, errorResponse)
-					return
-				}
-				macaddress = mac
 			}
 			if !isadmin && params["network"] != "" {
 				if functions.SliceContains(networks, params["network"]) {

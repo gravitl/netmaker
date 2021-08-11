@@ -57,7 +57,7 @@ type Node struct {
 	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
-	IsStatic	        string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
+	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
 	PullChanges         string   `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
 	DNSOn               string   `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
@@ -68,6 +68,24 @@ type Node struct {
 	LocalRange          string   `json:"localrange" bson:"localrange" yaml:"localrange"`
 	Roaming             string   `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+}
+
+func (node *Node) SetDefaulIsPending() {
+	if node.IsPending == "" {
+		node.IsPending = "no"
+	}
+}
+
+func (node *Node) SetDefaultEgressGateway() {
+	if node.IsEgressGateway == "" {
+		node.IsEgressGateway = "no"
+	}
+}
+
+func (node *Node) SetDefaultIngressGateway() {
+	if node.IsIngressGateway == "" {
+		node.IsIngressGateway = "no"
+	}
 }
 
 func (node *Node) SetDefaultAction() {
@@ -220,7 +238,10 @@ func (node *Node) SetDefaults() {
 			node.UDPHolePunch = "yes"
 		}
 	}
+	// == Parent Network settings ==
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
+	node.IsDualStack = parentNetwork.IsDualStack
+	// == node defaults if not set by parent ==
 	node.SetIPForwardingDefault()
 	node.SetDNSOnDefault()
 	node.SetIsLocalDefault()
@@ -235,6 +256,9 @@ func (node *Node) SetDefaults() {
 	node.SetID()
 	node.SetIsServerDefault()
 	node.SetIsStaticDefault()
+	node.SetDefaultEgressGateway()
+	node.SetDefaultIngressGateway()
+	node.SetDefaulIsPending()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
@@ -242,10 +266,10 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.ID == "" {
 		newNode.ID = currentNode.ID
 	}
-	if newNode.Address == ""  && newNode.IsStatic != "yes"{
+	if newNode.Address == "" && newNode.IsStatic != "yes" {
 		newNode.Address = currentNode.Address
 	}
-	if newNode.Address6 == ""  && newNode.IsStatic != "yes"{
+	if newNode.Address6 == "" && newNode.IsStatic != "yes" {
 		newNode.Address6 = currentNode.Address6
 	}
 	if newNode.LocalAddress == "" {
@@ -254,7 +278,7 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.Name == "" {
 		newNode.Name = currentNode.Name
 	}
-	if newNode.ListenPort == 0  && newNode.IsStatic != "yes"{
+	if newNode.ListenPort == 0 && newNode.IsStatic != "yes" {
 		newNode.ListenPort = currentNode.ListenPort
 	}
 	if newNode.PublicKey == "" && newNode.IsStatic != "yes" {
@@ -262,7 +286,7 @@ func (newNode *Node) Fill(currentNode *Node) {
 	} else {
 		newNode.KeyUpdateTimeStamp = time.Now().Unix()
 	}
-	if newNode.Endpoint == ""  && newNode.IsStatic != "yes"{
+	if newNode.Endpoint == "" && newNode.IsStatic != "yes" {
 		newNode.Endpoint = currentNode.Endpoint
 	}
 	if newNode.PostUp == "" {

@@ -19,7 +19,7 @@ import (
 
 func extClientHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/extclients", securityCheck(true, http.HandlerFunc(getAllExtClients))).Methods("GET")
+	r.HandleFunc("/api/extclients", securityCheck(false, http.HandlerFunc(getAllExtClients))).Methods("GET")
 	r.HandleFunc("/api/extclients/{network}", securityCheck(false, http.HandlerFunc(getNetworkExtClients))).Methods("GET")
 	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(getExtClient))).Methods("GET")
 	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", securityCheck(false, http.HandlerFunc(getExtClientConf))).Methods("GET")
@@ -77,15 +77,36 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 //A separate function to get all extclients, not just extclients for a particular network.
 //Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllExtClients(w http.ResponseWriter, r *http.Request) {
+
 	w.Header().Set("Content-Type", "application/json")
-	extclients, err := functions.GetAllExtClients()
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+
+	headerNetworks := r.Header.Get("networks")
+	networksSlice := []string{}
+	marshalErr := json.Unmarshal([]byte(headerNetworks), &networksSlice)
+	if marshalErr != nil {
+		returnErrorResponse(w, r, formatError(marshalErr, "internal"))
 		return
 	}
+	clients := []models.ExtClient{}
+	err := errors.New("Networks Error")
+	if networksSlice[0] == ALL_NETWORK_ACCESS {
+		clients, err = functions.GetAllExtClients()
+		if err != nil && !database.IsEmptyRecord(err){
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+	} else {
+		for _, network := range networksSlice {
+			extclients, err := GetNetworkExtClients(network)
+			if err == nil {
+				clients = append(clients, extclients...)
+			}
+		}
+	}
+
 	//Return all the extclients in JSON format
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(extclients)
+	json.NewEncoder(w).Encode(clients)
 }
 
 //Get an individual extclient. Nothin fancy here folks.

@@ -47,7 +47,7 @@ Netmaker
 
 Netmaker is a platform built off of WireGuard which enables users to create mesh networks between their devices. Netmaker can create both full and partial mesh networks depending on the use case.
 
-When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, MongoDB, and UI webserver.
+When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver.
 
 From an end user perspective, they typically interact with the Netmaker UI, or even just run the install script for the netclient on their devices. The other components run in the background invisibly. 
 
@@ -81,7 +81,7 @@ Most server settings are configurable via a config file, or by environment varia
 
 These modes include client mode and dns mode. Either of these can be disabled but are enabled by default. Client mode allows you to treat the Netmaker host machine (operating system) as a network Node, installing the netclient and controlling the host network. DNS mode has the server write config settings for CoreDNS, a separate component and nameserver, which picks up the config settings to manage node DNS.
 
-The Netmaker server interacts with (as of v0.3) a MongoDB instance, which holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
+The Netmaker server interacts with rqlite, a distributed version of sqlite, which holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
 
 
 Netclient
@@ -102,10 +102,10 @@ If running in daemon mode, on a periodic basis (systemd timer), the netclient pe
 The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.
 
 
-MongoDB
+rqlite
 --------
 
-As of v0.5, Netmaker uses MongoDB as its database, and interacts with a MongoDB instance to store and retrieve information about nodes, networks, and users. Netmaker is rapidly evolving, and MongoDB provides a flexible database structure that accelerates development. However, MongoDB is also the heaviest component of Netmaker (high cpu/memory consumption), and is set to be replaced by a lighter-weight, SQL-based database in the future.
+As of v0.7, Netmaker uses rqlite, a distributed (RAFT consensus) database, and interacts with this database to store and retrieve information about nodes, networks, and users. With the 0.7 refactor, additional database support is very easy to implement. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.
 
 Netmaker UI
 ---------------
@@ -118,7 +118,7 @@ Netmaker can be used in its entirety without the UI, but the UI makes things a l
 CoreDNS
 --------
 
-v0.3 introduced the concept of private DNS management for nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.
+Netmaker allows users to provide and manage Private DNS for their nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.
 
 Worth considering is that CoreDNS requires port 53 on the Netmaker host system, which may cause conflicts depending on your operating system. This is explained in the :doc:`Server Installation <./server-installation>` guide.
 
@@ -183,7 +183,6 @@ To manage DNS (optional), the node must have systemd-resolved. Systems that have
 Limitations
 ===========
 
-Install limitations mostly include platform-specific limitations, such as needing systemd or systemd-resolved (see above). In addition the Netmaker platform has some additional limitations:
+Install limitations mostly include platform-specific limitations, such as needing systemd or systemd-resolved (see above). 
 
-- **Double NAT**: Netmaker is currently unable to route traffic for devices behind a "double NAT".
-- **CGNAT**: Netmaker is currently unable to route traffic for for devices behind a "carrier-grade NAT".
+In addition the Netmaker is currently unable to route traffic for for devices behind a "carrier-grade NAT". This will be solved in a future release with the introduction of relay servers.

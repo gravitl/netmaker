@@ -306,30 +306,7 @@ func main() {
 			// the action, or code that will be executed when
 			// we execute our `ns` command
 			Action: func(c *cli.Context) error {
-				cfg, err := config.ReadGlobalConfig()
-				if err != nil {
-					return err
-				}
-				var gconf config.GlobalConfig
-				gconf = *cfg
-				err = command.Uninstall(gconf)
-				return err
-			},
-		},
-		{
-			Name:  "unregister",
-			Usage: "Unregister the netclient from secure server GRPC.",
-			Flags: cliFlags,
-			// the action, or code that will be executed when
-			// we execute our `ns` command
-			Action: func(c *cli.Context) error {
-				cfg, err := config.ReadGlobalConfig()
-				if err != nil {
-					return err
-				}
-				var gconf config.GlobalConfig
-				gconf = *cfg
-				err = command.Unregister(gconf)
+				err := command.Uninstall()
 				return err
 			},
 		},

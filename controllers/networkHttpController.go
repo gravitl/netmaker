@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -65,7 +66,7 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
-func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, string) {
+func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string, string) {
 
 	var hasBearer = true
 	var tokenSplit = strings.Split(token, " ")
@@ -94,7 +95,7 @@ func SecurityCheck(reqAdmin bool, netname, token string) (error, []string, strin
 			userNetworks = []string{ALL_NETWORK_ACCESS}
 		} else {
 			networkexists, err := functions.NetworkExists(netname)
-			if err != nil {
+			if err != nil && !database.IsEmptyRecord(err) {
 				return err, nil, ""
 			}
 			if netname != "" && !networkexists {
@@ -179,7 +180,7 @@ func ValidateNetworkUpdate(network models.Network) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("validator",e.Error(),1)
+			functions.PrintUserLog("validator", e.Error(), 1)
 		}
 	}
 	return err
@@ -416,9 +417,6 @@ func CreateNetwork(network models.Network) error {
 }
 
 // BEGIN KEY MANAGEMENT SECTION
-
-//TODO: Very little error handling
-//accesskey is created as a json string inside the Network collection item in mongo
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -478,7 +476,6 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
-	w := servercfg.GetWGConfig()
 	servervals := models.ServerConfig{
 		CoreDNSAddr:    s.CoreDNSAddr,
 		APIConnString:  s.APIConnString,
@@ -489,16 +486,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		GRPCPort:       s.GRPCPort,
 		GRPCSSL:        s.GRPCSSL,
 	}
-	wgvals := models.WG{
-		GRPCWireGuard:  w.GRPCWireGuard,
-		GRPCWGAddress:  w.GRPCWGAddress,
-		GRPCWGPort:     w.GRPCWGPort,
-		GRPCWGPubKey:   w.GRPCWGPubKey,
-		GRPCWGEndpoint: s.APIHost,
-	}
-
 	accessToken.ServerConfig = servervals
-	accessToken.WG = wgvals
 	accessToken.ClientConfig.Network = netID
 	accessToken.ClientConfig.Key = accesskey.Value
 	accessToken.ClientConfig.LocalRange = privAddr
@@ -515,7 +503,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	err = v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("validator",e.Error(),1)
+			functions.PrintUserLog("validator", e.Error(), 1)
 		}
 		return models.AccessKey{}, err
 	}
@@ -537,7 +525,6 @@ func GetSignupToken(netID string) (models.AccessKey, error) {
 	var accesskey models.AccessKey
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
-	w := servercfg.GetWGConfig()
 	servervals := models.ServerConfig{
 		APIConnString:  s.APIConnString,
 		APIHost:        s.APIHost,
@@ -547,16 +534,7 @@ func GetSignupToken(netID string) (models.AccessKey, error) {
 		GRPCPort:       s.GRPCPort,
 		GRPCSSL:        s.GRPCSSL,
 	}
-	wgvals := models.WG{
-		GRPCWireGuard:  w.GRPCWireGuard,
-		GRPCWGAddress:  w.GRPCWGAddress,
-		GRPCWGPort:     w.GRPCWGPort,
-		GRPCWGPubKey:   w.GRPCWGPubKey,
-		GRPCWGEndpoint: s.APIHost,
-	}
-
 	accessToken.ServerConfig = servervals
-	accessToken.WG = wgvals
 
 	tokenjson, err := json.Marshal(accessToken)
 	if err != nil {
