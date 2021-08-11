@@ -1,0 +1,48 @@
+version: "3.4"
+
+services:
+  rqlite:
+    container_name: rqlite
+    image: rqlite/rqlite
+    network_mode: host
+    restart: always
+    volumes:
+      - sqldata:/rqlite/file/data
+  netmaker:
+    depends_on:
+      - rqlite
+    privileged: true
+    container_name: netmaker
+    image: gravitl/netmaker:v0.7
+    volumes:
+      - ./:/local
+      - /etc/netclient:/etc/netclient
+      - /usr/bin/wg:/usr/bin/wg
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+      - /run/systemd/system:/run/systemd/system
+      - /etc/systemd/system:/etc/systemd/system
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    cap_add: 
+      - NET_ADMIN
+      - SYS_MODULE
+    restart: always
+    network_mode: host
+    environment:
+      GRPC_SSL: "off"
+      API_PORT: "8081"
+      GRPC_PORT: "50051"
+      DNS_MODE: "off"
+      CORS_ALLOWED_ORIGIN: "*"
+  netmaker-ui:
+    container_name: netmaker-ui
+    depends_on:
+      - netmaker
+    image: gravitl/netmaker-ui:v0.7
+    links:
+      - "netmaker:api"
+    ports:
+      - "80:80"
+    environment:
+      BACKEND_URL: "http://HOST_IP:8081"
+volumes:
+  sqldata: {}

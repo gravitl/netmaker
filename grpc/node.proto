@@ -3,158 +3,18 @@ package node;
 option go_package = "google.golang.org/protobuf/types/known/nodepb";
 
 service NodeService {
-    rpc Login(LoginRequest) returns (LoginResponse);
-    rpc CreateNode(CreateNodeReq) returns (CreateNodeRes);
-    rpc ReadNode(ReadNodeReq) returns (ReadNodeRes);
-    rpc UpdateNode(UpdateNodeReq) returns (UpdateNodeRes);
-    rpc DeleteNode(DeleteNodeReq) returns (DeleteNodeRes);
-    rpc GetPeers(GetPeersReq) returns (stream GetPeersRes);
-    rpc GetExtPeers(GetExtPeersReq) returns (stream GetExtPeersRes);
-    rpc CheckIn(CheckInReq) returns (CheckInRes);
+    rpc Login(Object) returns (Object);
+    rpc CreateNode(Object) returns (Object);
+    rpc ReadNode(Object) returns (Object);
+    rpc UpdateNode(Object) returns (Object);
+    rpc DeleteNode(Object) returns (Object);
+    rpc GetPeers(Object) returns (Object);
+    rpc GetExtPeers(Object) returns (Object);
+    rpc CheckIn(Object) returns (Object);
 }
 
-message LoginRequest {
-  string macaddress = 1;
-  string password = 2;
-  string network = 3;
+message Object {  
+    string Data = 1;
+    string Type = 2;
+    string Metadata = 3;
 }
-
-message LoginResponse { string accesstoken = 1; }
-
-message Node {
-    string id = 1;
-    string name = 2;
-    string address = 3;
-    string address6 = 26;
-    int32 listenport = 4;
-    string publickey = 5;
-    string endpoint = 6;
-    string macaddress = 7;
-    string password = 8;
-    string nodenetwork = 9;
-    bool ispending = 10;
-    string postup = 11;
-    string postdown = 12;
-    int32 keepalive = 13;
-    bool saveconfig = 14;
-    string accesskey = 15;
-    string interface = 16;
-    string lastcheckin = 17;
-    string lastmodified = 18;
-    int32 checkininterval = 19;
-    string localaddress = 20;
-    string postchanges = 21;
-    string allowedips = 22;
-    bool islocal = 23;
-    bool isingressgateway = 28;
-    string ingressgatewayrange = 29;
-    bool isdualstack = 27;
-    bool dnsoff = 24;
-    string localrange = 25;
-}
-
-message CheckInResponse {
-    bool success = 1;
-    bool needpeerupdate = 2;
-    bool needconfigupdate = 3;
-    string nodemessage = 4;
-    bool ispending = 5;
-    bool needkeyupdate = 6;
-    bool needdelete = 7;
-}
-
-message PeersResponse {
-    bool isegressgateway = 1;
-    string egressgatewayrange = 2;
-    string ingressgatewayrange = 9;
-    string publickey = 5;
-    string endpoint = 6;
-    string address = 3;
-    string address6 = 8;
-    int32 listenport = 4;
-    string localaddress = 7;
-    int32 keepalive = 13;
-}
-
-message ExtPeersResponse {
-    string publickey = 5;
-    string endpoint = 6;
-    string address = 3;
-    string address6 = 8;
-    int32 listenport = 4;
-    string localaddress = 7;
-    int32 keepalive = 13;
-}
-
-message Client {
-    string privatekey = 1;
-    string publickey = 2;
-    string accesskey = 3;
-    string address = 4;
-    string address6 = 5;
-    string serverwgendpoint = 6;
-    string serverport = 7;
-    string serverkey = 8;
-}
-
-message CreateNodeReq {
-    Node node = 1; // Node id blank
-}
-
-message CreateNodeRes {
-    Node node = 1; // Node id filled in
-}
-
-message UpdateNodeReq {
-    Node node = 1;
-}
-
-message UpdateNodeRes {
-    Node node = 1;
-}
-
-message ReadNodeReq {
-    string macaddress = 1;
-    string network = 2;
-}
-
-message ReadNodeRes {
-    Node node = 1;
-}
-
-message DeleteNodeReq {
-    string macaddress = 1;
-    string networkName = 2;
-}
-
-message DeleteNodeRes {
-    bool success = 1;
-}
-
-message GetPeersReq {
-    string macaddress = 1;
-    string network = 2;
-}
-
-message GetExtPeersReq {
-    string macaddress = 1;
-    string network = 2;
-}
-
-message GetPeersRes {
-    PeersResponse peers = 1;
-}
-
-message GetExtPeersRes {
-    ExtPeersResponse extpeers = 1;
-}
-
-message CheckInReq {
-    Node node = 1;
- //   bool postchanges = 2;
-}
-
-message CheckInRes {
-    CheckInResponse checkinresponse = 1;
-}
-

@@ -1,8 +1,0 @@
-default comms  {
-    reload 15s
-    hosts /root/dnsconfig/netmaker.hosts {
-	fallthrough	
-    }
-    forward . 8.8.8.8 8.8.4.4
-    log
-}

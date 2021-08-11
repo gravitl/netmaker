@@ -12,7 +12,7 @@ import (
 
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
+	""
 	"github.com/stretchr/testify/assert"
 )
 

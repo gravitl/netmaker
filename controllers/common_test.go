@@ -1,14 +1,13 @@
 package controller
 
 import (
-	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type NodeValidationTC struct {
@@ -51,14 +50,12 @@ func TestDeleteNode(t *testing.T) {
 	createNet()
 	node := createTestNode(t)
 	t.Run("NodeExists", func(t *testing.T) {
-		deleted, err := DeleteNode(node.MacAddress, node.Network)
+		err := DeleteNode(node.MacAddress, node.Network)
 		assert.Nil(t, err)
-		assert.True(t, deleted)
 	})
 	t.Run("NonExistantNode", func(t *testing.T) {
-		deleted, err := DeleteNode(node.MacAddress, node.Network)
+		err := DeleteNode(node.MacAddress, node.Network)
 		assert.Nil(t, err)
-		assert.False(t, deleted)
 	})
 }
 func TestGetNode(t *testing.T) {
@@ -89,7 +86,7 @@ func TestGetNode(t *testing.T) {
 		assert.Equal(t, "mongo: no documents in result", err.Error())
 	})
 	t.Run("NoNode", func(t *testing.T) {
-		_, _ = DeleteNode("01:02:03:04:05:06", "skynet")
+		_ = DeleteNode("01:02:03:04:05:06", "skynet")
 		response, err := GetNode(node.MacAddress, node.Network)
 		assert.NotNil(t, err)
 		assert.Equal(t, models.Node{}, response)
@@ -110,7 +107,7 @@ func TestGetPeerList(t *testing.T) {
 		t.Log(peers)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
-		_, _ = DeleteNode("01:02:03:04:05:06", "skynet")
+		_ = DeleteNode("01:02:03:04:05:06", "skynet")
 		peers, err := GetPeersList("skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, []models.PeersResponse(nil), peers)
@@ -178,17 +175,12 @@ func TestNodeCheckIn(t *testing.T) {
 		newtime := time.Now().Add(time.Hour * 24).Unix()
 		t.Log(newtime, time.Now().Unix())
 		//this is cheating; but can't find away to update timestamp through existing api
-		collection := mongoconn.Client.Database("netmaker").Collection("networks")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		filter := bson.M{"netid": "skynet"}
-		update := bson.D{
-			{"$set", bson.D{
-				{"keyupdatetimestamp", newtime},
-			}},
-		}
-		defer cancel()
-		err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
+
+		record, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, "skynet")
 		assert.Nil(t, err)
+		err = json.Unmarshal([]byte(record), &network)
+		assert.Nil(t, err)
+		network.KeyUpdateTimeStamp = newtime
 		response, err := NodeCheckIn(node, "skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, true, response.Success)

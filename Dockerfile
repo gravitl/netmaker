@@ -8,13 +8,13 @@ WORKDIR /app
 
 ENV GO111MODULE=auto
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o app main.go
+RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o app main.go
 
 WORKDIR /app/netclient
 
 ENV GO111MODULE=auto
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o netclient main.go
+RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o netclient main.go
 
 #second stage
 
@@ -34,4 +34,3 @@ EXPOSE 8081
 EXPOSE 50051
 
 CMD ["./app"]
-

@@ -58,6 +58,11 @@ A quick start guide to getting up and running with Netmaker and WireGuard as qui
 
    quick-start
 
+.. toctree::
+   :maxdepth: 2
+
+   getting-started
+
 Server Installation
 --------------------
 

@@ -46,7 +46,7 @@
   
   
   
-    <title>Architecture &#8212; Netmaker 0.5 documentation</title>
+    <title>Architecture &#8212; Netmaker 0.7 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/material.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
@@ -56,7 +56,7 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Quick Start" href="quick-start.html" />
+    <link rel="next" title="Quick Install" href="quick-start.html" />
     <link rel="prev" title="About" href="about.html" />
   
    
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.5 documentation"
+        <a href="index.html" title="Netmaker 0.7 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.5 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.7 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.5 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.7 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.5 documentation">Netmaker Docs</a>
+       title="Netmaker 0.7 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -268,11 +268,13 @@
         </li>
         <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#mongodb" class="md-nav__link">MongoDB</a>
+        <li class="md-nav__item"><a href="#rqlite" class="md-nav__link">rqlite</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
         <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#external-client" class="md-nav__link">External Client</a>
         </li></ul>
             </nav>
         </li>
@@ -327,61 +329,40 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html" class="md-nav__link">Quick Start</a>
+      <a href="quick-start.html" class="md-nav__link">Quick Install</a>
       <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
+      <a href="quick-start.html#introduction" class="md-nav__link">0. Introduction</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#prerequisites" class="md-nav__link">Prerequisites</a>
+      <a href="quick-start.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#install" class="md-nav__link">Install</a>
+      <a href="quick-start.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#setup" class="md-nav__link">Setup</a>
+      <a href="quick-start.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#uninstralling-netmaker" class="md-nav__link">Uninstralling Netmaker</a>
+      <a href="quick-start.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
       
     
     </li></ul>
@@ -390,15 +371,50 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Server Installation</a>
+      <a href="getting-started.html" class="md-nav__link">Getting Started</a>
       <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html#notes-on-optional-features" class="md-nav__link">Notes on Optional Features</a>
+      <a href="getting-started.html#setup" class="md-nav__link">Setup</a>
       
     
     </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      <ul class="md-nav__list"> 
     <li class="md-nav__item">
     
     
@@ -438,6 +454,13 @@
     
     
       <a href="server-installation.html#configuration-reference" class="md-nav__link">Configuration Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
       
     
     </li></ul>
@@ -501,6 +524,20 @@
     
     
       <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
       
     
     </li></ul>
@@ -780,11 +817,13 @@
         </li>
         <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#mongodb" class="md-nav__link">MongoDB</a>
+        <li class="md-nav__item"><a href="#rqlite" class="md-nav__link">rqlite</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
         <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#external-client" class="md-nav__link">External Client</a>
         </li></ul>
             </nav>
         </li>
@@ -829,7 +868,7 @@
 
 <h3 id="netmaker">Netmaker<a class="headerlink" href="#netmaker" title="Permalink to this headline">¶</a></h3>
 <p>Netmaker is a platform built off of WireGuard which enables users to create mesh networks between their devices. Netmaker can create both full and partial mesh networks depending on the use case.</p>
-<p>When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, MongoDB, and UI webserver.</p>
+<p>When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver.</p>
 <p>From an end user perspective, they typically interact with the Netmaker UI, or even just run the install script for the netclient on their devices. The other components run in the background invisibly.</p>
 <p>Netmaker does a lot of work to set configurations for you, so that you don’t have to. This includes things like WireGuard ports, endpoints, public IPs, keys, and peers. Netmaker works to abstract away as much of the network management as possible, so that you can just click to create a network, and click to add a machine to a network. That said, every machine (node) is different, and may require special configuration. That is why, while Netmaker sets practical default settings, everything within Netmaker is fully configurable.</p>
 
@@ -840,7 +879,7 @@
 
 <h3 id="systemd">SystemD<a class="headerlink" href="#systemd" title="Permalink to this headline">¶</a></h3>
 <p>SystemD is a system service manager for a wide array of Linux operating systems. Not all Linux distributions have adopted systemd, but, for better or worse, it has become a fairly common standard in the Linux world. That said, any non-Linux operating system will not have systemd, and many Linux/Unix distributionshave alternative system service managers.</p>
-<p>Netmaker’s netclient, the agent which controls networking on all nodes, relies heavily on systemd as of version 0.3. This reliance is being reduced but is currently a core dependency, causing most of the limitations and incompatibilities. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices.</p>
+<p>Netmaker’s netclient, the agent which controls networking on all nodes, can be run as a CLI or as a system daemon. It runs as a daemon by default, and this requires systemd. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices. However, for the time being, the netclient should be run “unmanaged” (netclient join -daemon=off) on systems that do not run systemd, and some other method can be used like a cron job or custom script.</p>
 
 
 
@@ -852,20 +891,21 @@
 <p>The Netmaker server acts as an API to the front end, and as a GRPC server to the machines in the network. GRPC is much faster and more efficient than standard API calls, which increases the speed of transactions. For this reason, the Netmaker server exposes two ports: The default for the API is 8081, and the default for GRPC is 50051. Either the API or the GRPC server can be disabled on any given Netmaker instance can be disabled, allowing you to deploy two different servers for managing the API (which is largely for the admin’s use) and GRPC (which is largely for the nodes’ use).</p>
 <p>Most server settings are configurable via a config file, or by environment variables (which take precedence). If the server finds neither of these, it sets sensible defaults, including things like the server’s reachable IP, ports, and which “modes” to run in.</p>
 <p>These modes include client mode and dns mode. Either of these can be disabled but are enabled by default. Client mode allows you to treat the Netmaker host machine (operating system) as a network Node, installing the netclient and controlling the host network. DNS mode has the server write config settings for CoreDNS, a separate component and nameserver, which picks up the config settings to manage node DNS.</p>
-<p>The Netmaker server interacts with (as of v0.3) a MongoDB instance, which holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.</p>
+<p>The Netmaker server interacts with rqlite, a distributed version of sqlite, which holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.</p>
 
 
 <h3 id="netclient">Netclient<a class="headerlink" href="#netclient" title="Permalink to this headline">¶</a></h3>
-<p>The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/netclient">GitHub Repository</a>. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.3, it requires systemd in order to manage the host system appropriately. It may be installable, and it may even make the machine a part of the mesh network, but it will not function in entirely (see Compatible Systems for more info) without systemd.</p>
-<p>The netclient is installed via a simple bash script, which pulls the latest binary and runs install command.</p>
-<p>The install command registers the machine with the Netmaker server using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered in the Netmaker network, which will return configuration details about how to set up the local network.</p>
-<p>The netclient then sets itself up in systemd, and configures WireGuard. At this point it should be part of the network.</p>
-<p>On a periodic basis (systemd timer), the netclient performs a “check in.” It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network.</p>
+<p>The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/netclient">GitHub Repository</a>. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.5, the netclient can be run as a system daemon on linux distributions with systemd, or as an “unmanaged” client on distributions without systemd.</p>
+<p>The netclient is installed via a simple bash script, which pulls the latest binary and runs ‘register’ and ‘join’ commands.</p>
+<p>The ‘register’ command adds a WireGuard tunnel directly to the netmaker server, for all subsequent communication.</p>
+<p>The ‘join’ command attempts to add the machine to the Netmaker network using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered into the Netmaker network, and will be returned necessary configuration details for how to set up its local network.</p>
+<p>The netclient then sets up the systemd daemon (if running in daemon mode), and configures WireGuard. At this point it should be part of the network.</p>
+<p>If running in daemon mode, on a periodic basis (systemd timer), the netclient performs a “check in.” It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network. If not running in daemon mode, it is up to the operator to perform check ins (netclient checkin -n &lt; network name &gt;).</p>
 <p>The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.</p>
 
 
-<h3 id="mongodb">MongoDB<a class="headerlink" href="#mongodb" title="Permalink to this headline">¶</a></h3>
-<p>As of v0.3, Netmaker uses MongoDB as its database, and interacts with a MongoDB instance to store and retrieve information about nodes, networks, and users. Netmaker is rapidly evolving, and MongoDB provides a flexible database structure that accelerates development. However, MongoDB is also the heaviest component of Netmaker (high cpu/memory consumption), and is set to be replaced by a lighter-weight, SQL-based database in the future.</p>
+<h3 id="rqlite">rqlite<a class="headerlink" href="#rqlite" title="Permalink to this headline">¶</a></h3>
+<p>As of v0.7, Netmaker uses rqlite, a distributed (RAFT consensus) database, and interacts with this database to store and retrieve information about nodes, networks, and users. With the 0.7 refactor, additional database support is very easy to implement. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.</p>
 
 
 <h3 id="netmaker-ui">Netmaker UI<a class="headerlink" href="#netmaker-ui" title="Permalink to this headline">¶</a></h3>
@@ -874,8 +914,15 @@
 
 
 <h3 id="coredns">CoreDNS<a class="headerlink" href="#coredns" title="Permalink to this headline">¶</a></h3>
-<p>v0.3 introduced the concept of private DNS management for nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.</p>
+<p>Netmaker allows users to provide and manage Private DNS for their nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.</p>
 <p>Worth considering is that CoreDNS requires port 53 on the Netmaker host system, which may cause conflicts depending on your operating system. This is explained in the <a class="reference internal" href="server-installation.html"><span class="doc">Server Installation</span></a> guide.</p>
+
+
+<h3 id="external-client">External Client<a class="headerlink" href="#external-client" title="Permalink to this headline">¶</a></h3>
+<p>The external client is simply a manually configured WireGuard connection to your network, which Netmaker helps to manage.</p>
+<p>Most machines can run WireGuard. It is fairly simple to set up a WireGuard connection to a single endpoint. It is setting up mesh networks and other topologies like site-to-site which becomes complicated.</p>
+<p>Netmaker v0.5 introduces the “external client” to handle any devices which are not currently compatible with the netclient, including Windows, iPhone, Android, and Mac. Over time, this list will be eliminated and there may not even be a need for the external client.</p>
+<p>External clients hook into a Netmaker network via an “Ingress Gateway,” which is configured for a given node and allows traffic to flow into the network.</p>
 
 
 
@@ -887,6 +934,7 @@
 <li><p>Both of the above requests are routed to the server via an API call from the front end</p></li>
 <li><p>Admin runs the netclient install script on any given node (machine).</p></li>
 <li><p>Netclient decodes key, which contains the GRPC server location and port</p></li>
+<li><p>Netclient uses information to register and set up WireGuard tunnel to GRPC server</p></li>
 <li><p>Netclient retrieves/sets local information, including open ports for WireGuard, public IP, and generating key pairs for peers</p></li>
 <li><p>Netclient reaches out to GRPC server with this information, authenticating via access key.</p></li>
 <li><p>Netmaker server verifies information and creates the node, setting default values for any missing information.</p></li>
@@ -902,6 +950,7 @@
 
 
 <h2 id="compatible-systems-for-netclient">Compatible Systems for Netclient<a class="headerlink" href="#compatible-systems-for-netclient" title="Permalink to this headline">¶</a></h2>
+<p>To manage a node manually, the Netclient can be compiled and run for most linux distibutions, with a prerequisite of WireGuard.</p>
 <dl class="simple">
 <dt>To manage a node automatically, the Netmaker client (netclient) requires <strong>systemd-based linux.</strong> Compatible systems include:</dt><dd><ul class="simple">
 <li><p>Fedora</p></li>
@@ -927,12 +976,8 @@
 
 
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h2>
-<p>Install limitations mostly include platform-specific limitations, such as needing systemd or systemd-resolved (see above). In addition the Netmaker platform has some additional limitations:</p>
-<ul class="simple">
-<li><p><strong>Double NAT</strong>: Netmaker is currently unable to route traffic for devices behind a “double NAT”.</p></li>
-<li><p><strong>CGNAT</strong>: Netmaker is currently unable to route traffic for for devices behind a “carrier-grade NAT”.</p></li>
-<li><p><strong>Windows/iPhone/Android</strong>: To reiterate the systemd limitation, Netmaker is not currently configured to support “end user” devices such as Windows desktops and phones generally. In v0.4, Netmaker will introduce external device gateways to allow this traffic (and many other sorts of devices).</p></li>
-</ul>
+<p>Install limitations mostly include platform-specific limitations, such as needing systemd or systemd-resolved (see above).</p>
+<p>In addition the Netmaker is currently unable to route traffic for for devices behind a “carrier-grade NAT”. This will be solved in a future release with the introduction of relay servers.</p>
 
 
 
@@ -960,12 +1005,12 @@
             </a>
           
           
-            <a href="quick-start.html" title="Quick Start"
+            <a href="quick-start.html" title="Quick Install"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Quick Start </span>
+                class="md-footer-nav__direction"> Next </span> Quick Install </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>

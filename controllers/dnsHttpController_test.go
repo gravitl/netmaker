@@ -54,21 +54,19 @@ func TestUpdateDNS(t *testing.T) {
 }
 func TestDeleteDNS(t *testing.T) {
 	t.Run("EntryExists", func(t *testing.T) {
-		success, err := DeleteDNS("myhost", "skynet")
+		err := DeleteDNS("myhost", "skynet")
 		assert.Nil(t, err)
-		assert.True(t, success)
 	})
 	t.Run("NoEntry", func(t *testing.T) {
-		success, err := DeleteDNS("myhost", "skynet")
+		err := DeleteDNS("myhost", "skynet")
 		assert.Nil(t, err)
-		assert.False(t, success)
 	})
 
 }
 
 func TestValidateDNSUpdate(t *testing.T) {
 	entry := models.DNSEntry{"10.0.0.2", "myhost", "skynet"}
-	_, _ = DeleteDNS("mynode", "skynet")
+	_ = DeleteDNS("mynode", "skynet")
 	t.Run("BadNetwork", func(t *testing.T) {
 		change := models.DNSEntry{"10.0.0.2", "myhost", "badnet"}
 		err := ValidateDNSUpdate(change, entry)
@@ -129,7 +127,7 @@ func TestValidateDNSUpdate(t *testing.T) {
 
 }
 func TestValidateDNSCreate(t *testing.T) {
-	_, _ = DeleteDNS("mynode", "skynet")
+	_ = DeleteDNS("mynode", "skynet")
 	t.Run("NoNetwork", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "myhost", "badnet"}
 		err := ValidateDNSCreate(entry)

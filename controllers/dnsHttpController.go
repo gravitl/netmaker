@@ -1,33 +1,26 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
-	"time"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/txn2/txeh"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", securityCheck(http.HandlerFunc(getAllDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}/nodes", securityCheck(http.HandlerFunc(getNodeDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheck(http.HandlerFunc(getCustomDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}", securityCheck(http.HandlerFunc(getDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/{network}", securityCheck(http.HandlerFunc(createDNS))).Methods("POST")
-	r.HandleFunc("/api/dns/adm/pushdns", securityCheck(http.HandlerFunc(pushDNS))).Methods("POST")
-	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(deleteDNS))).Methods("DELETE")
-	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(http.HandlerFunc(updateDNS))).Methods("PUT")
+	r.HandleFunc("/api/dns", securityCheck(true, http.HandlerFunc(getAllDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/nodes", securityCheck(false, http.HandlerFunc(getNodeDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheck(false, http.HandlerFunc(getCustomDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}", securityCheck(false, http.HandlerFunc(getDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/{network}", securityCheck(false, http.HandlerFunc(createDNS))).Methods("POST")
+	r.HandleFunc("/api/dns/adm/pushdns", securityCheck(false, http.HandlerFunc(pushDNS))).Methods("POST")
+	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(false, http.HandlerFunc(deleteDNS))).Methods("DELETE")
+	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(false, http.HandlerFunc(updateDNS))).Methods("PUT")
 }
 
 //Gets all nodes associated with network, including pending nodes
@@ -64,7 +57,7 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 
 func GetAllDNS() ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	networks, err := functions.ListNetworks()
+	networks, err := models.GetNetworks()
 	if err != nil {
 		return []models.DNSEntry{}, err
 	}
@@ -82,39 +75,23 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
 
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"network": network}
-
-	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
-
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		return dns, err
 	}
 
-	defer cancel()
-
-	for cur.Next(context.TODO()) {
-
+	for _, value := range collection {
 		var entry models.DNSEntry
-
-		err := cur.Decode(&entry)
-		if err != nil {
-			return dns, err
+		var node models.Node
+		if err = json.Unmarshal([]byte(value), &node); err != nil {
+			continue
 		}
-
-		// add item our array of nodes
-		dns = append(dns, entry)
+		if err = json.Unmarshal([]byte(value), &entry); node.Network == network && err == nil {
+			dns = append(dns, entry)
+		}
 	}
 
-	//TODO: Another fatal error we should take care of.
-	if err := cur.Err(); err != nil {
-		return dns, err
-	}
-
-	return dns, err
+	return dns, nil
 }
 
 //Gets all nodes associated with network, including pending nodes
@@ -140,36 +117,19 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
 
-	collection := mongoconn.Client.Database("netmaker").Collection("dns")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"network": network}
-
-	cur, err := collection.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 0}))
-
+	collection, err := database.FetchRecords(database.DNS_TABLE_NAME)
 	if err != nil {
 		return dns, err
 	}
-
-	defer cancel()
-
-	for cur.Next(context.TODO()) {
-
+	for _, value := range collection { // filter for entries based on network
 		var entry models.DNSEntry
-
-		err := cur.Decode(&entry)
-		if err != nil {
-			return dns, err
+		if err := json.Unmarshal([]byte(value), &entry); err != nil {
+			continue
 		}
 
-		// add item our array of nodes
-		dns = append(dns, entry)
-	}
-
-	//TODO: Another fatal error we should take care of.
-	if err := cur.Err(); err != nil {
-		return dns, err
+		if entry.Network == network {
+			dns = append(dns, entry)
+		}
 	}
 
 	return dns, err
@@ -178,7 +138,7 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 func SetDNS() error {
 	hostfile := txeh.Hosts{}
 	var corefilestring string
-	networks, err := functions.ListNetworks()
+	networks, err := models.GetNetworks()
 	if err != nil {
 		return err
 	}
@@ -186,14 +146,11 @@ func SetDNS() error {
 	for _, net := range networks {
 		corefilestring = corefilestring + net.NetID + " "
 		dns, err := GetDNS(net.NetID)
-		if err != nil {
+		if err != nil && !database.IsEmptyRecord(err) {
 			return err
 		}
 		for _, entry := range dns {
 			hostfile.AddHost(entry.Address, entry.Name+"."+entry.Network)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	if corefilestring == "" {
@@ -249,16 +206,16 @@ func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
 	dns, err := GetNodeDNS(network)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return dns, err
 	}
 	customdns, err := GetCustomDNS(network)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return dns, err
 	}
 
 	dns = append(dns, customdns...)
-	return dns, err
+	return dns, nil
 }
 
 func createDNS(w http.ResponseWriter, r *http.Request) {
@@ -278,6 +235,11 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entry, err = CreateDNS(entry)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	err = SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -332,7 +294,11 @@ func updateDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
+	err = SetDNS()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	json.NewEncoder(w).Encode(entry)
 }
 
@@ -343,109 +309,83 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	success, err := DeleteDNS(params["domain"], params["network"])
+	err := DeleteDNS(params["domain"], params["network"])
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
-	} else if !success {
-		returnErrorResponse(w, r, formatError(errors.New("Delete unsuccessful."), "badrequest"))
+	}
+	entrytext := params["domain"] + "." + params["network"]
+	functions.PrintUserLog(models.NODE_SERVER_NAME, "deleted dns entry: "+entrytext, 1)
+	err = SetDNS()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	json.NewEncoder(w).Encode(params["domain"] + " deleted.")
+	json.NewEncoder(w).Encode(entrytext + " deleted.")
 }
 
 func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 
-	// connect db
-	collection := mongoconn.Client.Database("netmaker").Collection("dns")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// insert our node to the node db.
-	_, err := collection.InsertOne(ctx, entry)
-
-	defer cancel()
+	data, err := json.Marshal(&entry)
+	if err != nil {
+		return models.DNSEntry{}, err
+	}
+	key, err := functions.GetRecordKey(entry.Name, entry.Network)
+	if err != nil {
+		return models.DNSEntry{}, err
+	}
+	err = database.Insert(key, string(data), database.DNS_TABLE_NAME)
 
 	return entry, err
 }
 
 func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 	var entry models.DNSEntry
-
-	collection := mongoconn.Client.Database("netmaker").Collection("dns")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"name": domain, "network": network}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&entry)
-
-	defer cancel()
-
+	key, err := functions.GetRecordKey(domain, network)
+	if err != nil {
+		return entry, err
+	}
+	record, err := database.FetchRecord(database.DNS_TABLE_NAME, key)
+	if err != nil {
+		return entry, err
+	}
+	err = json.Unmarshal([]byte(record), &entry)
 	return entry, err
 }
 
 func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntry, error) {
 
-	queryDNS := entry.Name
-
+	key, err := functions.GetRecordKey(entry.Name, entry.Network)
+	if err != nil {
+		return entry, err
+	}
 	if dnschange.Name != "" {
 		entry.Name = dnschange.Name
 	}
 	if dnschange.Address != "" {
 		entry.Address = dnschange.Address
 	}
-	//collection := mongoconn.ConnectDB()
-	collection := mongoconn.Client.Database("netmaker").Collection("dns")
+	newkey, err := functions.GetRecordKey(entry.Name, entry.Network)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Create filter
-	filter := bson.M{"name": queryDNS}
-
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"name", entry.Name},
-			{"address", entry.Address},
-		}},
-	}
-	var dnsupdate models.DNSEntry
-
-	errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&dnsupdate)
-	if errN != nil {
-		fmt.Println("Could not update: ")
-		fmt.Println(errN)
-	} else {
-		fmt.Println("DNS Entry updated successfully.")
+	err = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+	if err != nil {
+		return entry, err
 	}
 
-	defer cancel()
+	data, err := json.Marshal(&entry)
+	err = database.Insert(newkey, string(data), database.DNS_TABLE_NAME)
+	return entry, err
 
-	return dnsupdate, errN
 }
 
-func DeleteDNS(domain string, network string) (bool, error) {
-	fmt.Println("delete dns entry ", domain, network)
-	deleted := false
-
-	collection := mongoconn.Client.Database("netmaker").Collection("dns")
-
-	filter := bson.M{"name": domain, "network": network}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	result, err := collection.DeleteOne(ctx, filter)
-
-	deletecount := result.DeletedCount
-
-	if deletecount > 0 {
-		deleted = true
+func DeleteDNS(domain string, network string) error {
+	key, err := functions.GetRecordKey(domain, network)
+	if err != nil {
+		return err
 	}
-
-	defer cancel()
-
-	return deleted, err
+	err = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+	return err
 }
 
 func pushDNS(w http.ResponseWriter, r *http.Request) {
@@ -458,15 +398,13 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	functions.PrintUserLog(r.Header.Get("user"),"pushed DNS updates to nameserver",1)
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
 }
 
 func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	v := validator.New()
-	fmt.Println("Validating DNS: " + entry.Name)
-	fmt.Println("       Address: " + entry.Address)
-	fmt.Println("       Network: " + entry.Network)
 
 	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
 		num, err := GetDNSEntryNum(entry.Name, entry.Network)
@@ -481,7 +419,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	err := v.Struct(entry)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
+			functions.PrintUserLog("", e.Error(),1)
 		}
 	}
 	return err
@@ -501,7 +439,9 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := functions.GetParentNetwork(change.Network)
-		fmt.Println(err, entry.Network)
+		if err != nil {
+			functions.PrintUserLog("",err.Error(),0)
+		}
 		return err == nil
 	})
 
@@ -523,7 +463,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
+			functions.PrintUserLog("", e.Error(),1)
 		}
 	}
 	return err

@@ -1,53 +1,56 @@
 version: "3.4"
 
-volumes:
-  dnsconfig:
-  driver: local
 services:
-  mongodb:
-    image: mongo:4.2
-    ports:
-      - "27017:27017"
-    container_name: mongodb
-    volumes:
-      - mongovol:/data/db
+  rqlite:
+    container_name: rqlite
+    image: rqlite/rqlite
+    network_mode: host
     restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: mongoadmin
-      MONGO_INITDB_ROOT_PASSWORD: mongopass
+    volumes:
+      - sqldata:/rqlite/file/data
   netmaker:
+    depends_on:
+      - rqlite
     privileged: true
     container_name: netmaker
-    depends_on:
-      - mongodb
-    image: gravitl/netmaker:v0.5
+    image: gravitl/netmaker:v0.7
     volumes:
       - ./:/local
       - /etc/netclient:/etc/netclient
-      - dnsconfig:/root/config/dnsconfig
-      - /usr/bin/wg:/usr/bin/wg:ro
+      - /usr/bin/wg:/usr/bin/wg
       - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
       - /run/systemd/system:/run/systemd/system
       - /etc/systemd/system:/etc/systemd/system
       - /sys/fs/cgroup:/sys/fs/cgroup
-    cap_add:
+    cap_add: 
       - NET_ADMIN
       - SYS_MODULE
     restart: always
     network_mode: host
     environment:
+      SERVER_HOST: "SERVER_PUBLIC_IP"
       DNS_MODE: "off"
+      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
+      SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:443"
+      GRPC_SSL: "on"
+      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
+      API_PORT: "8081"
+      GRPC_PORT: "50051"
+      CLIENT_MODE: "on"
+      MASTER_KEY: "REPLACE_MASTER_KEY"
+      SERVER_GRPC_WIREGUARD: "off"
+      CORS_ALLOWED_ORIGIN: "*"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.5
+    image: gravitl/netmaker-ui:v0.7
     links:
       - "netmaker:api"
     ports:
-      - "80:80"
+      - "8082:80"
     environment:
-      BACKEND_URL: "http://HOST_IP:8081"
+      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
 volumes:
-  mongovol: {}
-  dnsconfig: {}
+  sqldata: {}

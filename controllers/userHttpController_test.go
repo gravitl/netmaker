@@ -1,23 +1,19 @@
 package controller
 
 import (
-	"context"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMain(m *testing.M) {
-	mongoconn.ConnectDatabase()
+/*func TestMain(m *testing.M) {
+	database.InitializeDatabase()
 	var gconf models.GlobalConfig
 	gconf.ServerGRPC = "localhost:8081"
 	gconf.PortGRPC = "50051"
 	//err := SetGlobalConfig(gconf)
-	collection := mongoconn.Client.Database("netmaker").Collection("config")
+	collection := REMOVE.Client.Database(models.NODE_SERVER_NAME).Collection("config")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	//create, _, err := functions.GetGlobalConfig()
@@ -28,7 +24,7 @@ func TestMain(m *testing.M) {
 	//drop network, nodes, and user collections
 	var collections = []string{"networks", "nodes", "users", "dns"}
 	for _, table := range collections {
-		collection := mongoconn.Client.Database("netmaker").Collection(table)
+		collection := REMOVE.Client.Database(models.NODE_SERVER_NAME).Collection(table)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		err := collection.Drop(ctx)
@@ -38,11 +34,11 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(m.Run())
 }
-
+*/
 func TestHasAdmin(t *testing.T) {
 	_, err := DeleteUser("admin")
 	assert.Nil(t, err)
-	user := models.User{"admin", "password", true}
+	user := models.User{"admin", "password", nil, true}
 	_, err = CreateUser(user)
 	assert.Nil(t, err)
 	t.Run("AdminExists", func(t *testing.T) {
@@ -60,7 +56,7 @@ func TestHasAdmin(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	user := models.User{"admin", "password", true}
+	user := models.User{"admin", "password", nil, true}
 	t.Run("NoUser", func(t *testing.T) {
 		_, err := DeleteUser("admin")
 		assert.Nil(t, err)
@@ -79,7 +75,7 @@ func TestDeleteUser(t *testing.T) {
 	hasadmin, err := HasAdmin()
 	assert.Nil(t, err)
 	if !hasadmin {
-		user := models.User{"admin", "pasword", true}
+		user := models.User{"admin", "pasword", nil, true}
 		_, err := CreateUser(user)
 		assert.Nil(t, err)
 	}
@@ -138,7 +134,7 @@ func TestValidateUser(t *testing.T) {
 
 func TestGetUser(t *testing.T) {
 	t.Run("UserExisits", func(t *testing.T) {
-		user := models.User{"admin", "password", true}
+		user := models.User{"admin", "password", nil, true}
 		hasadmin, err := HasAdmin()
 		assert.Nil(t, err)
 		if !hasadmin {
@@ -159,8 +155,8 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	user := models.User{"admin", "password", true}
-	newuser := models.User{"hello", "world", true}
+	user := models.User{"admin", "password", nil, true}
+	newuser := models.User{"hello", "world", nil, true}
 	t.Run("UserExisits", func(t *testing.T) {
 		_, err := DeleteUser("admin")
 		_, err = CreateUser(user)
@@ -179,12 +175,12 @@ func TestUpdateUser(t *testing.T) {
 
 func TestValidateUserToken(t *testing.T) {
 	t.Run("EmptyToken", func(t *testing.T) {
-		err := ValidateUserToken("")
+		err := ValidateUserToken("", "", false)
 		assert.NotNil(t, err)
 		assert.Equal(t, "Missing Auth Token.", err.Error())
 	})
 	t.Run("InvalidToken", func(t *testing.T) {
-		err := ValidateUserToken("Bearer: badtoken")
+		err := ValidateUserToken("Bearer: badtoken", "", false)
 		assert.NotNil(t, err)
 		assert.Equal(t, "Error Verifying Auth Token", err.Error())
 	})
@@ -193,7 +189,7 @@ func TestValidateUserToken(t *testing.T) {
 		//need authorization
 	})
 	t.Run("ValidToken", func(t *testing.T) {
-		err := ValidateUserToken("Bearer: secretkey")
+		err := ValidateUserToken("Bearer: secretkey", "", true)
 		assert.Nil(t, err)
 	})
 }
@@ -228,7 +224,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 	t.Run("Non-Admin", func(t *testing.T) {
 		//can't create a user that is not a an admin
 		t.Skip()
-		user := models.User{"admin", "admin", false}
+		user := models.User{"admin", "admin", nil, false}
 		_, err := CreateUser(user)
 		assert.Nil(t, err)
 		authRequest := models.UserAuthParams{"admin", "admin"}
@@ -239,7 +235,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 	})
 	t.Run("WrongPassword", func(t *testing.T) {
 		_, err := DeleteUser("admin")
-		user := models.User{"admin", "password", true}
+		user := models.User{"admin", "password", nil, true}
 		_, err = CreateUser(user)
 		assert.Nil(t, err)
 		authRequest := models.UserAuthParams{"admin", "badpass"}

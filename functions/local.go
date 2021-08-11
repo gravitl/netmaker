@@ -2,7 +2,6 @@ package functions
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 )
 
@@ -23,7 +22,7 @@ func SetDNSDir() error {
         if os.IsNotExist(err) {
                 os.Mkdir(dir+"/config/dnsconfig", 744)
         } else if err != nil {
-                log.Println("couldnt find or create /config/dnsconfig")
+                PrintUserLog("","couldnt find or create /config/dnsconfig",0)
                 return err
         }
 	return nil
@@ -38,7 +37,7 @@ func SetCorefile(domains string) error {
 	if os.IsNotExist(err) {
 		os.Mkdir(dir+"/config/dnsconfig", 744)
 	} else if err != nil {
-		log.Println("couldnt find or create /config/dnsconfig")
+		PrintUserLog("","couldnt find or create /config/dnsconfig",0)
 		return err
 	}
 
@@ -55,8 +54,6 @@ func SetCorefile(domains string) error {
 
 	err = ioutil.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
 	if err != nil {
-		log.Println(err)
-		log.Println("")
 		return err
 	}
 	return err
