@@ -208,6 +208,16 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		}
 		var allowedips []net.IPNet
 		allowedips = append(allowedips, peeraddr)
+		// handle manually set peers
+		for _, allowedIp := range node.AllowedIPs {
+			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
+				nodeEndpointArr := strings.Split(node.Endpoint, ":")
+				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) { // don't need to add an allowed ip that already exists..
+					allowedips = append(allowedips, *ipnet)
+				}
+			}
+		}
+		// handle egress gateway peers
 		if node.IsEgressGateway == "yes" {
 			hasGateway = true
 			ranges := node.EgressGatewayRanges
