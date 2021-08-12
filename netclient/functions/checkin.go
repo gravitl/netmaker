@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"os"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -226,7 +227,12 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		}
 	} else {
 		if err = wireguard.SetWGConfig(network, true); err != nil {
-			return nil, err
+			if errors.Is(err, os.ErrNotExist) {
+				log.Println("readding interface")
+				return Pull(network, true)
+			} else {
+				return nil, err
+			}
 		}
 	}
 	setDNS(&resNode, servercfg, &cfg.Node)
