@@ -234,7 +234,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 		return err
 	}
 	if peerupdate {
-		SetPeers(nodecfg.Interface, nodecfg.PersistentKeepalive, peers)
+		err = SetPeers(nodecfg.Interface, nodecfg.PersistentKeepalive, peers)
 	} else {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways)
 	}
@@ -245,22 +245,22 @@ func SetWGConfig(network string, peerupdate bool) error {
 	return err
 }
 
-func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
+func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 
 	client, err := wgctrl.New()
 	if err != nil {
 		log.Println("failed to start wgctrl")
-		return
+		return err
 	}
 	device, err := client.Device(iface)
 	if err != nil {
 		log.Println("failed to parse interface")
-		return
+		return err
 	}
 	devicePeers := device.Peers
 	if len(devicePeers) > 1 && len(peers) == 0 {
 		log.Println("no peers pulled")
-		return
+		return err
 	}
 
 	for _, peer := range peers {
@@ -316,6 +316,8 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) {
 			}
 		}
 	}
+	
+	return nil
 }
 
 func StorePrivKey(key string, network string) error {

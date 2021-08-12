@@ -211,11 +211,14 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		if node.IsEgressGateway == "yes" {
 			hasGateway = true
 			ranges := node.EgressGatewayRanges
-			for _, iprange := range ranges {
-				_, ipnet, err := net.ParseCIDR(iprange)
-				nodeEndpointArr := strings.Split(node.Endpoint, ":")
-				if len(nodeEndpointArr) != 2 || ipnet.Contains(net.IP(nodeEndpointArr[0])) {
-					continue
+			for _, iprange := range ranges { // go through each cidr for egress gateway
+				_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
+				if err != nil {
+					continue // if can't parse CIDR
+				}
+				nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
+				if ipnet.Contains(net.IP(nodeEndpointArr[0])) {      // ensuring egress gateway range does not contain public ip of node
+					continue // skip adding egress range if overlaps with nodes ip
 				}
 				gateways = append(gateways, iprange)
 				if err != nil {
@@ -262,7 +265,6 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			}
 		}
 		peers = append(peers, peer)
-
 	}
 	if isIngressGateway {
 		extPeers, err := GetExtPeers(macaddress, network, server, dualstack)
