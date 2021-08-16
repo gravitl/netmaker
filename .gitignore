@@ -1,4 +1,7 @@
 netmaker
 netclient/netclient
 netclient/files/netclient
+netclient/netclient-amd64
+netclient/netclient-arm
+netclient/netclient-arm64
 config/dnsconfig/

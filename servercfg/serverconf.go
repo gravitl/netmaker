@@ -58,6 +58,7 @@ func GetServerConfig() config.ServerConfig {
 	if DisableDefaultNet() {
 		cfg.DisableRemoteIPCheck = "on"
 	}
+	cfg.Version = GetVersion()
 	return cfg
 }
 func GetAPIConnString() string {
@@ -68,6 +69,13 @@ func GetAPIConnString() string {
 		conn = config.Config.Server.APIConnString
 	}
 	return conn
+}
+func GetVersion() string {
+	version := "0.7.1"
+	if config.Config.Server.Version != "" {
+		version = config.Config.Server.Version
+	}
+	return version
 }
 func GetAPIHost() string {
 	serverhost := "127.0.0.1"
@@ -117,13 +125,13 @@ func GetGRPCConnString() string {
 }
 
 func GetCoreDNSAddr() string {
-        addr, _ := GetPublicIP()
-        if os.Getenv("COREDNS_ADDR") != ""  {
-                addr = os.Getenv("COREDNS_ADDR")
-        } else if config.Config.Server.CoreDNSAddr != "" {
-                addr = config.Config.Server.GRPCConnString
-        }
-        return addr
+	addr, _ := GetPublicIP()
+	if os.Getenv("COREDNS_ADDR") != "" {
+		addr = os.Getenv("COREDNS_ADDR")
+	} else if config.Config.Server.CoreDNSAddr != "" {
+		addr = config.Config.Server.GRPCConnString
+	}
+	return addr
 }
 
 func GetGRPCHost() string {

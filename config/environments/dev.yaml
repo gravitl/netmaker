@@ -10,3 +10,4 @@ server:
   clientmode: "" # defaults to "on" or CLIENT_MODE (if set)
   dnsmode: "" # defaults to "on" or DNS_MODE (if set)
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
+  version: "0.7.1" # version of server
