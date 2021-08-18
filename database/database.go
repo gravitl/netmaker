@@ -3,9 +3,8 @@ package database
 import (
 	"encoding/json"
 	"errors"
-	"log"
+
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/rqlite/gorqlite"
 )
 
 const NETWORKS_TABLE_NAME = "networks"
@@ -22,19 +21,32 @@ const DATABASE_FILENAME = "netmaker.db"
 const NO_RECORD = "no result found"
 const NO_RECORDS = "could not find any records"
 
-var Database gorqlite.Connection
+// == Constants ==
+const INIT_DB = "init"
+const CREATE_TABLE = "createtable"
+const INSERT = "insert"
+const INSERT_PEER = "insertpeer"
+const DELETE = "delete"
+const DELETE_ALL = "deleteall"
+const FETCH_ALL = "fetchall"
+const CLOSE_DB = "closedb"
+
+func getCurrentDB() map[string]interface{} {
+	switch servercfg.GetDB() {
+	case "rqlite":
+		return RQLITE_FUNCTIONS
+	case "sqlite":
+		return SQLITE_FUNCTIONS
+	default:
+		return RQLITE_FUNCTIONS
+	}
+}
 
 func InitializeDatabase() error {
 
-	//log.Println("sql conn value:",servercfg.GetSQLConn())
-	conn, err := gorqlite.Open(servercfg.GetSQLConn())
-	if err != nil {
+	if err := getCurrentDB()[INIT_DB].(func() error)(); err != nil {
 		return err
 	}
-
-	// sqliteDatabase, _ := sql.Open("sqlite3", "./database/"+dbFilename)
-	Database = conn
-	Database.SetConsistencyLevel("strong")
 	createTables()
 	return nil
 }
@@ -51,52 +63,36 @@ func createTables() {
 }
 
 func createTable(tableName string) error {
-	_, err := Database.WriteOne("CREATE TABLE IF NOT EXISTS " + tableName + " (key TEXT NOT NULL UNIQUE PRIMARY KEY, value TEXT)")
-	if err != nil {
-		return err
-	}
-	return nil
+	return getCurrentDB()[CREATE_TABLE].(func(string) error)(tableName)
 }
 
-func isJSONString(value string) bool {
+func IsJSONString(value string) bool {
 	var jsonInt interface{}
 	return json.Unmarshal([]byte(value), &jsonInt) == nil
 }
 
 func Insert(key string, value string, tableName string) error {
-	if key != "" && value != "" && isJSONString(value) {
-		_, err := Database.WriteOne("INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES ('" + key + "', '" + value + "')")
-		if err != nil {
-			return err
-		}
-		return nil
+	if key != "" && value != "" && IsJSONString(value) {
+		return getCurrentDB()[INSERT].(func(string, string, string) error)(key, value, tableName)
 	} else {
 		return errors.New("invalid insert " + key + " : " + value)
 	}
 }
 
 func InsertPeer(key string, value string) error {
-	if key != "" && value != "" && isJSONString(value) {
-		_, err := Database.WriteOne("INSERT OR REPLACE INTO " + PEERS_TABLE_NAME + " (key, value) VALUES ('" + key + "', '" + value + "')")
-		if err != nil {
-			return err
-		}
-		return nil
+	if key != "" && value != "" && IsJSONString(value) {
+		return getCurrentDB()[INSERT_PEER].(func(string, string) error)(key, value)
 	} else {
 		return errors.New("invalid peer insert " + key + " : " + value)
 	}
 }
 
 func DeleteRecord(tableName string, key string) error {
-	_, err := Database.WriteOne("DELETE FROM " + tableName + " WHERE key = \"" + key + "\"")
-	if err != nil {
-		return err
-	}
-	return nil
+	return getCurrentDB()[DELETE].(func(string, string) error)(tableName, key)
 }
 
 func DeleteAllRecords(tableName string) error {
-	_, err := Database.WriteOne("DELETE TABLE " + tableName)
+	err := getCurrentDB()[DELETE_ALL].(func(string) error)(tableName)
 	if err != nil {
 		return err
 	}
@@ -119,19 +115,9 @@ func FetchRecord(tableName string, key string) (string, error) {
 }
 
 func FetchRecords(tableName string) (map[string]string, error) {
-	row, err := Database.QueryOne("SELECT * FROM " + tableName + " ORDER BY key")
-	if err != nil {
-		return nil, err
-	}
-	records := make(map[string]string)
-	for row.Next() { // Iterate and fetch the records from result cursor
-		var key string
-		var value string
-		row.Scan(&key, &value)
-		records[key] = value
-	}
-	if len(records) == 0 {
-		return nil, errors.New(NO_RECORDS)
-	}
-	return records, nil
+	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
+}
+
+func CloseDB() {
+	getCurrentDB()[CLOSE_DB].(func())()
 }

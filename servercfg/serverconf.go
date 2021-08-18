@@ -78,6 +78,15 @@ func GetVersion() string {
 	}
 	return version
 }
+func GetDB() string {
+	database := "rqlite"
+	if os.Getenv("DATABASE") == "sqlite" {
+		database = os.Getenv("DATABASE")
+	} else if config.Config.Server.Database == "sqlite" {
+		database = config.Config.Server.Database
+	}
+	return database
+}
 func GetAPIHost() string {
 	serverhost := "127.0.0.1"
 	remoteip, _ := GetPublicIP()
@@ -313,7 +322,7 @@ func GetSQLConn() string {
 	sqlconn := "http://"
 	if os.Getenv("SQL_CONN") != "" {
 		sqlconn = os.Getenv("SQL_CONN")
-	} else if config.Config.Server.SQLConn != ""  {
+	} else if config.Config.Server.SQLConn != "" {
 		sqlconn = config.Config.Server.SQLConn
 	}
 	return sqlconn

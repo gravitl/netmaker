@@ -64,17 +64,18 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		network = node.Network
 	}
 
-	_, delErr := local.RunCmd("ip link delete dev " + ifacename)
-	_, addLinkErr := local.RunCmd(ipExec + " link add dev " + ifacename + " type wireguard")
-	_, addErr := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address + "/24")
+	delOut, delErr := local.RunCmd("ip link delete dev " + ifacename)
+	addLinkOut, addLinkErr := local.RunCmd(ipExec + " link add dev " + ifacename + " type wireguard")
+	addOut, addErr := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address + "/24")
 	if delErr != nil {
 		// pass
+		log.Println(delOut, delErr)
 	}
 	if addLinkErr != nil {
-		log.Println(addLinkErr)
+		log.Println(addLinkOut, addLinkErr)
 	}
 	if addErr != nil {
-		log.Println(addErr)
+		log.Println(addOut, addErr)
 	}
 	var nodeport int
 	nodeport = int(node.ListenPort)
@@ -162,16 +163,16 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			out, err := local.RunCmd(ipExec + " -4 route add " + gateway + " dev " + ifacename)
 			fmt.Println(string(out))
 			if err != nil {
-				fmt.Println("Error encountered adding gateway: " + err.Error())
+				fmt.Println("error encountered adding gateway: " + err.Error())
 			}
 		}
 	}
 	if node.Address6 != "" && node.IsDualStack == "yes" {
-		fmt.Println("Adding address: " + node.Address6)
+		fmt.Println("adding address: " + node.Address6)
 		out, err := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address6 + "/64")
 		if err != nil {
 			fmt.Println(out)
-			fmt.Println("Error encountered adding ipv6: " + err.Error())
+			fmt.Println("error encountered adding ipv6: " + err.Error())
 		}
 	}
 
@@ -268,9 +269,9 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		for _, currentPeer := range devicePeers {
 			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
 				currentPeer.PublicKey.String() != peer.PublicKey.String() {
-				_, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " remove")
+				output, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " remove")
 				if err != nil {
-					log.Println("error removing peer", peer.Endpoint.String())
+					log.Println(output, "error removing peer", peer.Endpoint.String())
 				}
 			}
 		}
@@ -285,18 +286,19 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		if keepAliveString == "0" {
 			keepAliveString = "5"
 		}
+		var output string
 		if peer.Endpoint != nil {
-			_, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
+			output, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
 				" endpoint " + udpendpoint +
 				" persistent-keepalive " + keepAliveString +
 				" allowed-ips " + allowedips)
 		} else {
-			_, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
+			output, err = local.RunCmd("wg set " + iface + " peer " + peer.PublicKey.String() +
 				" persistent-keepalive " + keepAliveString +
 				" allowed-ips " + allowedips)
 		}
 		if err != nil {
-			log.Println("error setting peer", peer.PublicKey.String(), err)
+			log.Println(output, "error setting peer", peer.PublicKey.String(), err)
 		}
 	}
 
@@ -308,15 +310,15 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 			}
 		}
 		if shouldDelete {
-			_, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " remove")
+			output, err := local.RunCmd("wg set " + iface + " peer " + currentPeer.PublicKey.String() + " remove")
 			if err != nil {
-				log.Println("error removing peer", currentPeer.PublicKey.String())
+				log.Println(output, "error removing peer", currentPeer.PublicKey.String())
 			} else {
 				log.Println("removed peer " + currentPeer.PublicKey.String())
 			}
 		}
 	}
-	
+
 	return nil
 }
 

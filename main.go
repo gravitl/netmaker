@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
+
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -25,7 +26,7 @@ import (
 func main() {
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and grpc server
-	defer database.Database.Close()
+	defer database.CloseDB()
 	startControllers() // start the grpc or rest endpoints
 }
 
@@ -40,7 +41,7 @@ func initialize() { // Client Mode Prereq Check
 
 	if err != nil {
 		log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
-		log.Fatal(err)
+		log.Fatal(output, err)
 	}
 	uid, err := strconv.Atoi(string(output[:len(output)-1]))
 	if err != nil {
