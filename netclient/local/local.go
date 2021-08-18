@@ -274,6 +274,9 @@ func WipeLocal(network string) error {
 	if FileExists(home + "/nettoken-" + network) {
 		_ = os.Remove(home + "/nettoken-" + network)
 	}
+	if FileExists(home + "/secret-" + network) {
+		_ = os.Remove(home + "/secret-" + network)
+	}
 	if FileExists(home + "/wgkey-" + network) {
 		_ = os.Remove(home + "/wgkey-" + network)
 	}
