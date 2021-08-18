@@ -1,62 +1,56 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: mongo
+  name: rqlite
   labels:
-    name: mongo
+    name: rqlite
 spec:
   ports:
-    - port: 27017
-      targetPort: 27017
+    - port: 4001
+      targetPort: 4001
   clusterIP: None
   selector:
-    role: mongo
+    role: rqlite
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: mongo
+  name: rqlite
 spec:
-  serviceName: "mongo"
+  serviceName: "rqlite"
   replicas: 1
   selector:
     matchLabels:
-      role: mongo
+      role: rqlite
   template:
     metadata:
       labels:
-        app: mongo
-        role: mongo
+        app: rqlite
+        role: rqlite
     spec:
       containers:
-      - name: mongo
-        image: mongo
-        env:
-          - name: MONGO_INITDB_ROOT_USERNAME
-            value: mongoadmin
-          - name: MONGO_INITDB_ROOT_PASSWORD
-            value: mongopass
-        securityContext:
-          privileged: true
+      - name: rqlite
+        image: rqlite/rqlite
+        ports:
+        - containerPort: 4001
         volumeMounts:
-        - name: mongovol
-          mountPath: /data/db
+        - name: rqlitevol
+          mountPath: /rqlite/file/data
       volumes:
-      - name: mongovol
+      - name: rqlitevol
         persistentVolumeClaim:
-          claimName: mongodb-pvc
+          claimName: rqlite-pvc
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mongodb-pvc
+  name: rqlite-pvc
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 7Gi
-  storageClassName: microk8s-hostpath
+      storage: 1Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -89,6 +83,8 @@ spec:
           value: "grpc.NETMAKER_BASE_DOMAIN:443"
         - name: COREDNS_ADDR
           value: "10.152.183.53"
+        - name: SQL_CONN
+          value: "http://rqlite-0:4001"
         - name: GRPC_SSL
           value: "on"
         - name: SERVER_HTTP_HOST
@@ -103,20 +99,10 @@ spec:
           value: "off"
         - name: MASTER_KEY
           value: "Unkn0wn!"
-        - name: SERVER_GRPC_WIREGUARD
-          value: "off"
         - name: MASTER_KEY
           value: "secretkey"
         - name: CORS_ALLOWED_ORIGIN
           value: "*"
-        - name: MONGO_ADMIN
-          value: "mongoadmin"
-        - name: MONGO_PASS
-          value: "mongopass"
-        - name: MONGO_HOST
-          value: "mongo-0.mongo"
-        - name: MONGO_OPTS
-          value: "/?authSource=admin"
       volumes:
       - name: nm-pvc
         persistentVolumeClaim:
@@ -132,7 +118,6 @@ spec:
   resources:
     requests:
       storage: 128Mi
-  storageClassName: microk8s-hostpath
 ---
 apiVersion: v1
 kind: Service
@@ -288,7 +273,7 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
   tls:
   - hosts:
     - api.NETMAKER_BASE_DOMAIN
@@ -314,7 +299,7 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
     nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
   tls:
   - hosts:
     - grpc.NETMAKER_BASE_DOMAIN
@@ -340,7 +325,7 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
   tls:
   - hosts:
     - dashboard.NETMAKER_BASE_DOMAIN

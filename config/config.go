@@ -52,6 +52,7 @@ type ServerConfig struct {
 	DisableDefaultNet    string `yaml:"disabledefaultnet"`
 	GRPCSSL              string `yaml:"grpcssl"`
 	Version              string `yaml:"version"`
+	SQLConn              string `yaml:"sqlconn"`
 	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
 	Verbosity            int32  `yaml:"verbosity"`
 }

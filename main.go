@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
-
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"

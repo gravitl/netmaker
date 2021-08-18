@@ -3,7 +3,8 @@ package database
 import (
 	"encoding/json"
 	"errors"
-
+	"log"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/rqlite/gorqlite"
 )
 
@@ -25,7 +26,8 @@ var Database gorqlite.Connection
 
 func InitializeDatabase() error {
 
-	conn, err := gorqlite.Open("http://")
+	//log.Println("sql conn value:",servercfg.GetSQLConn())
+	conn, err := gorqlite.Open(servercfg.GetSQLConn())
 	if err != nil {
 		return err
 	}

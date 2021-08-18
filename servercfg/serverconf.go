@@ -31,6 +31,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.Verbosity = GetVerbose()
+	cfg.SQLConn = GetSQLConn()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -306,4 +307,14 @@ func GetVerbose() int32 {
 		level = 3
 	}
 	return int32(level)
+}
+
+func GetSQLConn() string {
+	sqlconn := "http://"
+	if os.Getenv("SQL_CONN") != "" {
+		sqlconn = os.Getenv("SQL_CONN")
+	} else if config.Config.Server.SQLConn != ""  {
+		sqlconn = config.Config.Server.SQLConn
+	}
+	return sqlconn
 }

@@ -9,5 +9,6 @@ server:
   agentbackend: "" # defaults to "on" or AGENT_BACKEND (if set)
   clientmode: "" # defaults to "on" or CLIENT_MODE (if set)
   dnsmode: "" # defaults to "on" or DNS_MODE (if set)
+  sqlconn: "" # defaults to "http://" or SQL_CONN (if set)
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
   version: "0.7.1" # version of server
