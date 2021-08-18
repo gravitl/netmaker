@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -29,12 +28,10 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 func initSqliteDB() error {
 	// == create db file if not present ==
 	if _, err := os.Stat("data"); os.IsNotExist(err) {
-		log.Println("Could not find data directory, creating it.")
 		os.Mkdir("data", 0644)
 	}
 	dbFilePath := filepath.Join("data", dbFilename)
 	if _, err := os.Stat(dbFilePath); os.IsNotExist(err) {
-		log.Println("Could not get database file, creating it.")
 		os.Create(dbFilePath)
 	}
 	// == "connect" the database ==
@@ -55,7 +52,6 @@ func sqliteCreateTable(tableName string) error {
 	if err != nil {
 		return err
 	}
-	log.Println(tableName, "table created")
 	return nil
 }
 
@@ -70,7 +66,6 @@ func sqliteInsert(key string, value string, tableName string) error {
 		if err != nil {
 			return err
 		}
-		log.Println("inserted", key, ":", value, "into ", tableName)
 		return nil
 	} else {
 		return errors.New("invalid insert " + key + " : " + value)

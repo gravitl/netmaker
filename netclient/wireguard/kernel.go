@@ -123,21 +123,11 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		_ = local.UpdateDNS(ifacename, network, nameserver)
 	}
 	//=========End DNS Setup=======\\
-
-	cmdIPLinkUp := &exec.Cmd{
-		Path:   ipExec,
-		Args:   []string{ipExec, "link", "set", "up", "dev", ifacename},
-		Stdout: os.Stdout,
-		Stderr: os.Stdout,
+	if ipLinkDownOut, err := local.RunCmd(ipExec + " link set down dev " + ifacename); err != nil {
+		log.Println(ipLinkDownOut, err)
+		return err
 	}
 
-	cmdIPLinkDown := &exec.Cmd{
-		Path:   ipExec,
-		Args:   []string{ipExec, "link", "set", "down", "dev", ifacename},
-		Stdout: os.Stdout,
-		Stderr: os.Stdout,
-	}
-	err = cmdIPLinkDown.Run()
 	if nodecfg.PostDown != "" {
 		runcmds := strings.Split(nodecfg.PostDown, "; ")
 		err = local.RunCmds(runcmds)
@@ -146,8 +136,8 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 
-	err = cmdIPLinkUp.Run()
-	if err != nil {
+	if ipLinkUpOut, err := local.RunCmd(ipExec + " link set up dev " + ifacename); err != nil {
+		log.Println(ipLinkUpOut, err)
 		return err
 	}
 
