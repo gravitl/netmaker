@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 )
@@ -215,7 +215,11 @@ func (network *Network) SetNetworkLastModified() {
 
 func (network *Network) SetDefaults() {
 	if network.DefaultUDPHolePunch == "" {
-		network.DefaultUDPHolePunch = "yes"
+		if servercfg.IsClientMode() {
+			network.DefaultUDPHolePunch = "yes"
+		} else {
+			network.DefaultUDPHolePunch = "no"
+		}
 	}
 	if network.IsLocal == "" {
 		network.IsLocal = "no"

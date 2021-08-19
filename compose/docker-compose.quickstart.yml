@@ -54,6 +54,7 @@ services:
       - "8082:80"
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
+    restart: always
   coredns:
     depends_on:
       - netmaker 

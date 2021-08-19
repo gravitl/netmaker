@@ -58,6 +58,9 @@ func GetServerConfig() config.ServerConfig {
 	if DisableDefaultNet() {
 		cfg.DisableRemoteIPCheck = "on"
 	}
+	cfg.Database = GetDB()
+	cfg.Platform = GetPlatform()
+	cfg.Version = GetVersion()
 	return cfg
 }
 func GetAPIConnString() string {
@@ -68,6 +71,22 @@ func GetAPIConnString() string {
 		conn = config.Config.Server.APIConnString
 	}
 	return conn
+}
+func GetVersion() string {
+	version := "0.7.2"
+	if config.Config.Server.Version != "" {
+		version = config.Config.Server.Version
+	}
+	return version
+}
+func GetDB() string {
+	database := "rqlite"
+	if os.Getenv("DATABASE") == "sqlite" {
+		database = os.Getenv("DATABASE")
+	} else if config.Config.Server.Database == "sqlite" {
+		database = config.Config.Server.Database
+	}
+	return database
 }
 func GetAPIHost() string {
 	serverhost := "127.0.0.1"
@@ -85,6 +104,14 @@ func GetAPIHost() string {
 	}
 	return serverhost
 }
+func GetPodIP() string {
+	podip := "127.0.0.1"
+	if os.Getenv("POD_IP") != "" {
+		podip = os.Getenv("POD_IP")
+	}
+	return podip
+}
+
 func GetAPIPort() string {
 	apiport := "8081"
 	if os.Getenv("API_PORT") != "" {
@@ -117,13 +144,13 @@ func GetGRPCConnString() string {
 }
 
 func GetCoreDNSAddr() string {
-        addr, _ := GetPublicIP()
-        if os.Getenv("COREDNS_ADDR") != ""  {
-                addr = os.Getenv("COREDNS_ADDR")
-        } else if config.Config.Server.CoreDNSAddr != "" {
-                addr = config.Config.Server.GRPCConnString
-        }
-        return addr
+	addr, _ := GetPublicIP()
+	if os.Getenv("COREDNS_ADDR") != "" {
+		addr = os.Getenv("COREDNS_ADDR")
+	} else if config.Config.Server.CoreDNSAddr != "" {
+		addr = config.Config.Server.GRPCConnString
+	}
+	return addr
 }
 
 func GetGRPCHost() string {
@@ -298,4 +325,24 @@ func GetVerbose() int32 {
 		level = 3
 	}
 	return int32(level)
+}
+
+func GetPlatform() string {
+	platform := "linux"
+	if os.Getenv("PLATFORM") != "" {
+		platform = os.Getenv("PLATFORM")
+	} else if config.Config.Server.Platform != ""  {
+		platform = config.Config.Server.SQLConn
+	}
+	return platform
+}
+
+func GetSQLConn() string {
+	sqlconn := "http://"
+	if os.Getenv("SQL_CONN") != "" {
+		sqlconn = os.Getenv("SQL_CONN")
+	} else if config.Config.Server.SQLConn != "" {
+		sqlconn = config.Config.Server.SQLConn
+	}
+	return sqlconn
 }

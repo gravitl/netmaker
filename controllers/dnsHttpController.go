@@ -58,7 +58,7 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 func GetAllDNS() ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
 	networks, err := models.GetNetworks()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.DNSEntry{}, err
 	}
 	for _, net := range networks {
@@ -139,7 +139,7 @@ func SetDNS() error {
 	hostfile := txeh.Hosts{}
 	var corefilestring string
 	networks, err := models.GetNetworks()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err){
 		return err
 	}
 
