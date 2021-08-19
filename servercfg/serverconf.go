@@ -31,7 +31,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.Verbosity = GetVerbose()
-	cfg.SQLConn = GetSQLConn()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
