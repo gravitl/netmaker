@@ -59,6 +59,7 @@ func GetServerConfig() config.ServerConfig {
 	if DisableDefaultNet() {
 		cfg.DisableRemoteIPCheck = "on"
 	}
+	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
 	return cfg
@@ -73,7 +74,7 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.7.1"
+	version := "0.7.2"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}

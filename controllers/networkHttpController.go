@@ -133,7 +133,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	err := errors.New("Networks Error")
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
 		allnetworks, err = models.GetNetworks()
-		if err != nil {
+		if err != nil && !database.IsEmptyRecord(err){
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
