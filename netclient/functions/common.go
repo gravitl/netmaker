@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -314,16 +313,12 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 
 func DeleteInterface(ifacename string, postdown string) error {
 	ipExec, err := exec.LookPath("ip")
-
-	cmdIPLinkDel := &exec.Cmd{
-		Path:   ipExec,
-		Args:   []string{ipExec, "link", "del", ifacename},
-		Stdout: os.Stdout,
-		Stderr: os.Stdout,
-	}
-	err = cmdIPLinkDel.Run()
 	if err != nil {
 		log.Println(err)
+	}
+	out, err := local.RunCmd(ipExec + " link del " + ifacename)
+	if err != nil {
+		log.Println(out, err)
 	}
 	if postdown != "" {
 		runcmds := strings.Split(postdown, "; ")

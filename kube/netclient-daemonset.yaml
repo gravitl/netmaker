@@ -17,13 +17,13 @@ spec:
       hostNetwork: true
       containers:
       - name: netclient
-        image: gravitl/netclient:v0.7
+        image: gravitl/netclient:v0.7.2
         command: ['bash', '-c', "netclient checkin -n $NETWORK; sleep $SLEEP"]
         env:
         - name: ACCESS_TOKEN
           value: "XXXX"
         - name: NETWORK
-          value: "default"
+          value: "YYYY"
         - name: SLEEP
           value: 30
         volumeMounts:
@@ -35,7 +35,7 @@ spec:
           privileged: true
       initContainers:
       - name: netclient-join
-        image: gravitl/netclient:v0.7
+        image: gravitl/netclient:v0.7.2
         command: ['bash', '-c', "netclient join -t $ACCESS_TOKEN --daemon off"]
         env:
         - name: ACCESS_TOKEN

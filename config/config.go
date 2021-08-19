@@ -42,7 +42,6 @@ type ServerConfig struct {
 	GRPCHost             string `yaml:"grpchost"`
 	GRPCPort             string `yaml:"grpcport"`
 	GRPCSecure           string `yaml:"grpcsecure"`
-	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
 	MasterKey            string `yaml:"masterkey"`
 	AllowedOrigin        string `yaml:"allowedorigin"`
 	RestBackend          string `yaml:"restbackend"`
@@ -52,6 +51,11 @@ type ServerConfig struct {
 	DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
 	DisableDefaultNet    string `yaml:"disabledefaultnet"`
 	GRPCSSL              string `yaml:"grpcssl"`
+	Version              string `yaml:"version"`
+	SQLConn              string `yaml:"sqlconn"`
+	Platform              string `yaml:"platform"`
+	Database             string `yaml:database`
+	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
 	Verbosity            int32  `yaml:"verbosity"`
 }
 

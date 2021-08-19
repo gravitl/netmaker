@@ -103,7 +103,7 @@ Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 
 
 .. code-block::
 
-  sudo ufw allow proto tcp from any to any port 443 && sudo ufw allow dns
+  sudo ufw allow proto tcp from any to any port 443 && sudo ufw allow 53/udp
 
 **Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on:**
   - allow 443/tcp from all

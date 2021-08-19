@@ -92,11 +92,25 @@ func CreateServerToken(netID string) (string, error) {
 	}
 
 	var accessToken models.AccessToken
-	servervals := models.ServerConfig{
-		APIConnString:  "127.0.0.1:" + servercfg.GetAPIPort(),
-		GRPCConnString: "127.0.0.1:" + servercfg.GetGRPCPort(),
-		GRPCSSL:        "off",
+	servervals := models.ServerConfig{}
+	if servercfg.GetPlatform() == "Kubernetes" {
+		log.Println("server on kubernetes")
+		servervals = models.ServerConfig{
+			APIConnString:  servercfg.GetPodIP() + ":" + servercfg.GetAPIPort(),
+			GRPCConnString: servercfg.GetPodIP() + ":" + servercfg.GetGRPCPort(),
+			GRPCSSL:        "off",
+		}
+	} else {
+		log.Println("server on linux")
+		servervals = models.ServerConfig{
+			APIConnString:  "127.0.0.1:" + servercfg.GetAPIPort(),
+			GRPCConnString: "127.0.0.1:" + servercfg.GetGRPCPort(),
+			GRPCSSL:        "off",
+		}
 	}
+	log.Println("APIConnString:",servervals.APIConnString)
+	log.Println("GRPCConnString:",servervals.GRPCConnString)
+	log.Println("GRPCSSL:",servervals.GRPCSSL)
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID
 	accessToken.ClientConfig.Key = GenKey()
@@ -104,14 +118,12 @@ func CreateServerToken(netID string) (string, error) {
 	accesskey.Name = GenKeyName()
 	accesskey.Value = accessToken.ClientConfig.Key
 	accesskey.Uses = 1
-
 	tokenjson, err := json.Marshal(accessToken)
 	if err != nil {
 		return accesskey.AccessString, err
 	}
-
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
-
+	log.Println("accessstring:",accesskey.AccessString)
 	network.AccessKeys = append(network.AccessKeys, accesskey)
 	if data, err := json.Marshal(network); err != nil {
 		return "", err

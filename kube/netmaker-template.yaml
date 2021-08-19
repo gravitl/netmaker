@@ -1,62 +1,14 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: mongo
-  labels:
-    name: mongo
-spec:
-  ports:
-    - port: 27017
-      targetPort: 27017
-  clusterIP: None
-  selector:
-    role: mongo
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: mongo
-spec:
-  serviceName: "mongo"
-  replicas: 1
-  selector:
-    matchLabels:
-      role: mongo
-  template:
-    metadata:
-      labels:
-        app: mongo
-        role: mongo
-    spec:
-      containers:
-      - name: mongo
-        image: mongo
-        env:
-          - name: MONGO_INITDB_ROOT_USERNAME
-            value: mongoadmin
-          - name: MONGO_INITDB_ROOT_PASSWORD
-            value: mongopass
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - name: mongovol
-          mountPath: /data/db
-      volumes:
-      - name: mongovol
-        persistentVolumeClaim:
-          claimName: mongodb-pvc
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mongodb-pvc
+  name: rqlite-pvc
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 7Gi
-  storageClassName: microk8s-hostpath
+      storage: 1Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -69,6 +21,8 @@ spec:
     matchLabels:
       app: netmaker-backend
   replicas: 1
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
@@ -77,11 +31,11 @@ spec:
       containers:
       - name: netmaker-backend
         image: gravitl/netmaker:v0.7
+        imagePullPolicy: Always
         ports:
         - containerPort: 8081
-        volumeMounts:
-        - name: nm-pvc
-          mountPath: /root/config/dnsconfig
+        securityContext:
+          privileged: true
         env:
         - name: SERVER_API_CONN_STRING
           value: "api.NETMAKER_BASE_DOMAIN:443"
@@ -89,6 +43,10 @@ spec:
           value: "grpc.NETMAKER_BASE_DOMAIN:443"
         - name: COREDNS_ADDR
           value: "10.152.183.53"
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: GRPC_SSL
           value: "on"
         - name: SERVER_HTTP_HOST
@@ -98,26 +56,27 @@ spec:
         - name: API_PORT
           value: "8081"
         - name: GRPC_PORT
-          value: "443"
+          value: "80"
         - name: CLIENT_MODE
           value: "off"
         - name: MASTER_KEY
           value: "Unkn0wn!"
-        - name: SERVER_GRPC_WIREGUARD
-          value: "off"
-        - name: MASTER_KEY
-          value: "secretkey"
+        - name: PLATFORM
+          value: "Kubernetes"
         - name: CORS_ALLOWED_ORIGIN
           value: "*"
-        - name: MONGO_ADMIN
-          value: "mongoadmin"
-        - name: MONGO_PASS
-          value: "mongopass"
-        - name: MONGO_HOST
-          value: "mongo-0.mongo"
-        - name: MONGO_OPTS
-          value: "/?authSource=admin"
+      - name: rqlite
+        image: rqlite/rqlite
+        ports:
+        - containerPort: 4001
+        - containerPort: 4002
+        volumeMounts:
+        - name: rqlitevol
+          mountPath: /rqlite/file/data
       volumes:
+      - name: rqlitevol
+        persistentVolumeClaim:
+          claimName: rqlite-pvc
       - name: nm-pvc
         persistentVolumeClaim:
           claimName: nm-pvc
@@ -132,7 +91,6 @@ spec:
   resources:
     requests:
       storage: 128Mi
-  storageClassName: microk8s-hostpath
 ---
 apiVersion: v1
 kind: Service
@@ -288,7 +246,7 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
   tls:
   - hosts:
     - api.NETMAKER_BASE_DOMAIN
@@ -314,7 +272,7 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
     nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
   tls:
   - hosts:
     - grpc.NETMAKER_BASE_DOMAIN
@@ -340,7 +298,7 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 spec:
-  ingressClassName: public
+  ingressClassName: nginx
   tls:
   - hosts:
     - dashboard.NETMAKER_BASE_DOMAIN
