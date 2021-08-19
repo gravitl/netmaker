@@ -64,12 +64,12 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		network = node.Network
 	}
 
-	delOut, delErr := local.RunCmd("ip link delete dev " + ifacename)
+	_, delErr := local.RunCmd("ip link delete dev " + ifacename)
 	addLinkOut, addLinkErr := local.RunCmd(ipExec + " link add dev " + ifacename + " type wireguard")
 	addOut, addErr := local.RunCmd(ipExec + " address add dev " + ifacename + " " + node.Address + "/24")
 	if delErr != nil {
-		// pass
-		log.Println(delOut, delErr)
+		// not displaying error
+		// log.Println(delOut, delErr)
 	}
 	if addLinkErr != nil {
 		log.Println(addLinkOut, addLinkErr)

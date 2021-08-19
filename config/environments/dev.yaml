@@ -11,4 +11,4 @@ server:
   dnsmode: "" # defaults to "on" or DNS_MODE (if set)
   sqlconn: "" # defaults to "http://" or SQL_CONN (if set)
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
-  version: "0.7.1" # version of server
+  version: "" # version of server
