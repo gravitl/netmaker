@@ -150,21 +150,6 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allnetworks)
 }
 
-func RemoveComms(networks []models.Network) []models.Network {
-	var index int = 100000001
-	for ind, net := range networks {
-		if net.NetID == "comms" {
-			index = ind
-		}
-	}
-	if index == 100000001 {
-		return networks
-	}
-	returnable := make([]models.Network, 0)
-	returnable = append(returnable, networks[:index]...)
-	return append(returnable, networks[index+1:]...)
-}
-
 func ValidateNetworkUpdate(network models.Network) error {
 	v := validator.New()
 
@@ -379,13 +364,15 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	success, err := serverctl.AddNetwork(network.NetID)
-	if err != nil || !success {
-		if err == nil {
-			err = errors.New("Failed to add server to network " + network.DisplayName)
+	if servercfg.IsClientMode() {
+		success, err := serverctl.AddNetwork(network.NetID)
+		if err != nil || !success {
+			if err == nil {
+				err = errors.New("Failed to add server to network " + network.DisplayName)
+			}
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
 		}
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "created network "+network.NetID, 1)
 	w.WriteHeader(http.StatusOK)

@@ -3,7 +3,6 @@ package database
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/rqlite/gorqlite"
 )

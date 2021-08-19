@@ -59,6 +59,7 @@ func GetServerConfig() config.ServerConfig {
 	if DisableDefaultNet() {
 		cfg.DisableRemoteIPCheck = "on"
 	}
+	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
 	return cfg
 }
@@ -94,6 +95,14 @@ func GetAPIHost() string {
 	}
 	return serverhost
 }
+func GetPodIP() string {
+	podip := "127.0.0.1"
+	if os.Getenv("POD_IP") != "" {
+		podip = os.Getenv("POD_IP")
+	}
+	return podip
+}
+
 func GetAPIPort() string {
 	apiport := "8081"
 	if os.Getenv("API_PORT") != "" {
@@ -307,6 +316,16 @@ func GetVerbose() int32 {
 		level = 3
 	}
 	return int32(level)
+}
+
+func GetPlatform() string {
+	platform := "linux"
+	if os.Getenv("PLATFORM") != "" {
+		platform = os.Getenv("PLATFORM")
+	} else if config.Config.Server.Platform != ""  {
+		platform = config.Config.Server.SQLConn
+	}
+	return platform
 }
 
 func GetSQLConn() string {
