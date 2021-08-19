@@ -51,7 +51,7 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 			return
 		} 
 		if adminonly && !isadmin && !authenticateMasterServer(authToken) {
-			returnErrorResponse(w, r, errorResponse)W
+			returnErrorResponse(w, r, errorResponse)
 			return
 		}
 		next.ServeHTTP(w, r)
