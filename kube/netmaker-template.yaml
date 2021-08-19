@@ -17,8 +17,6 @@ metadata:
   labels:
     app: netmaker-backend
 spec:
-  nodeSelector:
-    netmaker-server: true
   selector:
     matchLabels:
       app: netmaker-backend
@@ -36,28 +34,13 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8081
-        volumeMounts:
-        - name: nm-pvc
-          mountPath: /root/config/dnsconfig
-        - mountPath: /etc/netclient
-          name: etc-netclient
-        - mountPath: /usr/bin/wg
-          name: wg
-        - mountPath: /var/run/dbus/system_bus_socket
-          name: systemd-bus-socket
-        - mountPath: /sys/fs/cgroup
-          name: cgroup
-        - mountPath: /run/systemd/system
-          name: run-systemd
-        - mountPath: /etc/systemd/system
-          name: etc-systemd
         securityContext:
           privileged: true
         env:
         - name: SERVER_API_CONN_STRING
-          value: "api.netmaker.goallclouds.com:80"
+          value: "api.NETMAKER_BASE_DOMAIN:443"
         - name: SERVER_GRPC_CONN_STRING
-          value: "grpc.netmaker.goallclouds.com:80"
+          value: "grpc.NETMAKER_BASE_DOMAIN:443"
         - name: COREDNS_ADDR
           value: "10.152.183.53"
         - name: POD_IP
@@ -67,13 +50,13 @@ spec:
         - name: GRPC_SSL
           value: "on"
         - name: SERVER_HTTP_HOST
-          value: "api.netmaker.goallclouds.com:443"
+          value: "api.NETMAKER_BASE_DOMAIN"
         - name: SERVER_GRPC_HOST
-          value: "grpc.netmaker.goallclouds.com:443"
+          value: "grpc.NETMAKER_BASE_DOMAIN"
         - name: API_PORT
           value: "8081"
         - name: GRPC_PORT
-          value: "443"
+          value: "80"
         - name: CLIENT_MODE
           value: "off"
         - name: MASTER_KEY
@@ -97,34 +80,6 @@ spec:
       - name: nm-pvc
         persistentVolumeClaim:
           claimName: nm-pvc
-      - hostPath:
-          path: /etc/netclient
-          type: DirectoryOrCreate
-        name: etc-netclient
-      - hostPath:
-          path: /usr/bin/wg
-          type: File
-        name: wg
-      - hostPath:
-          path: /usr/bin/resolvectl
-          type: File
-        name: resolvectl
-      - hostPath:
-          path: /var/run/dbus/system_bus_socket
-          type: ""
-        name: systemd-bus-socket
-      - hostPath:
-          path: /etc/systemd/system
-          type: ""
-        name: etc-systemd
-      - hostPath:
-          path: /run/systemd/system
-          type: ""
-        name: run-systemd
-      - hostPath:
-          path: /sys/fs/cgroup
-          type: ""
-        name: cgroup
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
