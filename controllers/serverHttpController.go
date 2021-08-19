@@ -48,9 +48,11 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 		}
 		if !adminonly && (err != nil || user == "") {
 			returnErrorResponse(w, r, errorResponse)
-		}
-		if !isadmin && !authenticateMasterServer(authToken) {
-			returnErrorResponse(w, r, errorResponse)
+			return
+		} 
+		if adminonly && !isadmin && !authenticateMasterServer(authToken) {
+			returnErrorResponse(w, r, errorResponse)W
+			return
 		}
 		next.ServeHTTP(w, r)
 	}
@@ -88,22 +90,9 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	// get params
 
 	scfg := servercfg.GetServerConfig()
-	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(scfg)
+	//w.WriteHeader(http.StatusOK)
 }
-
-/*
-func getMongoConfig(w http.ResponseWriter, r *http.Request) {
-        // Set header
-        w.Header().Set("Content-Type", "application/json")
-
-        // get params
-
-        mcfg := servercfg.GetMongoConfig()
-        w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(mcfg)
-}
-*/
 
 func addNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
