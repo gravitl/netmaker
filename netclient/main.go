@@ -316,7 +316,7 @@ func main() {
 	out, err := local.RunCmd("id -u")
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(out, err)
 	}
 	id, err := strconv.Atoi(string(out[:len(out)-1]))
 

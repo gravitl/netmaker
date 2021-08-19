@@ -54,6 +54,7 @@ type ServerConfig struct {
 	Version              string `yaml:"version"`
 	SQLConn              string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
+	Database             string `yaml:database`
 	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
 	Verbosity            int32  `yaml:"verbosity"`
 }

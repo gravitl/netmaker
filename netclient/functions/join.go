@@ -136,12 +136,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			cfg.Node.MacAddress = macs[0]
 		}
 	}
-	if cfg.Node.ListenPort == 0 {
-		cfg.Node.ListenPort, err = GetFreePort(51821)
-		if err != nil {
-			fmt.Printf("Error retrieving port: %v", err)
-		}
-	}
+
 	var wcclient nodepb.NodeServiceClient
 	var requestOpts grpc.DialOption
 	requestOpts = grpc.WithInsecure()
@@ -174,6 +169,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 	}
+
 	if err = config.ModConfig(postnode); err != nil {
 		return err
 	}
@@ -198,6 +194,13 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	var node models.Node
 	if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
 		return err
+	}
+
+	if node.ListenPort == 0 {
+		node.ListenPort, err = GetFreePort(51821)
+		if err != nil {
+			fmt.Printf("Error retrieving port: %v", err)
+		}
 	}
 
 	if node.DNSOn == "yes" {

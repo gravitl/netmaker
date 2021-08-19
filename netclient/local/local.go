@@ -274,22 +274,21 @@ func WipeLocal(network string) error {
 	if FileExists(home + "/nettoken-" + network) {
 		_ = os.Remove(home + "/nettoken-" + network)
 	}
+	if FileExists(home + "/secret-" + network) {
+		_ = os.Remove(home + "/secret-" + network)
+	}
 	if FileExists(home + "/wgkey-" + network) {
 		_ = os.Remove(home + "/wgkey-" + network)
 	}
 
 	ipExec, err := exec.LookPath("ip")
-
+	if err != nil {
+		return err
+	}
 	if ifacename != "" {
-		cmdIPLinkDel := &exec.Cmd{
-			Path:   ipExec,
-			Args:   []string{ipExec, "link", "del", ifacename},
-			Stdout: os.Stdout,
-			Stderr: os.Stdout,
-		}
-		err = cmdIPLinkDel.Run()
+		out, err := RunCmd(ipExec + " link del " + ifacename)
 		if err != nil {
-			log.Println(err)
+			log.Println(out, err)
 		}
 		if nodecfg.PostDown != "" {
 			runcmds := strings.Split(nodecfg.PostDown, "; ")
