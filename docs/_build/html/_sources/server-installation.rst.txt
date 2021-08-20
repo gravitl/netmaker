@@ -175,7 +175,7 @@ This template is equivalent but omits CoreDNS.
 Linux Install without Docker
 =============================
 
-Most systems support Docker, but some, such as LXC, do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional). 
+Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional). 
 
 To start, we recommend following the Nginx instructions in the :doc:`Quick Install <./quick-start>` guide to enable SSL for your environment.
 
