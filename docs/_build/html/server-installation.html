@@ -562,41 +562,6 @@
       <a href="usage.html#external-tutorials" class="md-nav__link">External Tutorials</a>
       
     
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#basic" class="md-nav__link">Basic</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#local-network" class="md-nav__link">Local Network</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#site-to-site" class="md-nav__link">Site-to-Site</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#dual-stack-with-ipv6" class="md-nav__link">Dual Stack with IPv6</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#kubernetes-node-network" class="md-nav__link">Kubernetes Node Network</a>
-      
-    
     </li></ul>
     
     </li>
@@ -664,7 +629,7 @@
     <li class="md-nav__item">
     
     
-      <a href="troubleshoot.html#agent" class="md-nav__link">Agent</a>
+      <a href="troubleshoot.html#netclient" class="md-nav__link">Netclient</a>
       
     
     </li>
@@ -692,42 +657,7 @@
     <li class="md-nav__item">
     
     
-      <a href="support.html#issues-bugs-and-feature-requests" class="md-nav__link">Issues, Bugs, and Feature Requests</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
       <a href="support.html#contact" class="md-nav__link">Contact</a>
-      
-    
-    </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html" class="md-nav__link">Contribute</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#submitting-an-issue" class="md-nav__link">Submitting an Issue</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#submitting-an-enhancement" class="md-nav__link">Submitting an Enhancement</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#contributing-code" class="md-nav__link">Contributing Code</a>
       
     
     </li></ul>
@@ -939,7 +869,9 @@
   <span class="nt">agentbackend</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "on" or AGENT_BACKEND (if set)</span>
   <span class="nt">clientmode</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "on" or CLIENT_MODE (if set)</span>
   <span class="nt">dnsmode</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "on" or DNS_MODE (if set)</span>
+  <span class="nt">sqlconn</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "http://" or SQL_CONN (if set)</span>
   <span class="nt">disableremoteipcheck</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)</span>
+  <span class="nt">version</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># version of server</span>
 </pre></div>
 </div>
 
@@ -1069,7 +1001,7 @@ docker-compose up -d`
 
 
 <h2 id="linux-install-without-docker">Linux Install without Docker<a class="headerlink" href="#linux-install-without-docker" title="Permalink to this headline">¶</a></h2>
-<p>Most systems support Docker, but some, such as LXC, do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional).</p>
+<p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional).</p>
 <p>To start, we recommend following the Nginx instructions in the <a class="reference internal" href="quick-start.html"><span class="doc">Quick Install</span></a> guide to enable SSL for your environment.</p>
 <p>Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.</p>
 

@@ -62,7 +62,7 @@ UI
 **Can I have multiple nodes with the same name?**
   Yes, nodes can share names without issue. It may just be harder on you to know which is which.
 
-Agent
+Netclient
 -------
 **How do I connect a node to my Netmaker network with Netclient?**
   First get your access token (not just access key), then run ``sudo netclient join -t <access token>``.
@@ -83,6 +83,13 @@ Agent
 **I am done with the agent on my machine, can I uninstall it?**
   Yes, on the node simply run ``sudo /etc/netclient/netclient uninstall``. 
 
+**I am running SELinux and when I reboot my node I get a permission denied in my netclient logs and it doesn't connect anymore, why?**
+  If you're running SELinux, it will interfere with systemd's ability to restart the client properly. Therefore, please run the following:
+  .. code-block::
+  
+    sudo semanage fcontext -a -t bin_t '/etc/netclient/netclient' 
+    sudo chcon -Rv -u system_u -t bin_t '/etc/netclient/netclient' 
+    sudo restorecon -R -v /etc/netclient/netclient
 
 CoreDNS
 --------

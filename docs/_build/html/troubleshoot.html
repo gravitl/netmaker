@@ -504,41 +504,6 @@
       <a href="usage.html#external-tutorials" class="md-nav__link">External Tutorials</a>
       
     
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#basic" class="md-nav__link">Basic</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#local-network" class="md-nav__link">Local Network</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#site-to-site" class="md-nav__link">Site-to-Site</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#dual-stack-with-ipv6" class="md-nav__link">Dual Stack with IPv6</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#kubernetes-node-network" class="md-nav__link">Kubernetes Node Network</a>
-      
-    
     </li></ul>
     
     </li>
@@ -597,7 +562,7 @@
         </li>
         <li class="md-nav__item"><a href="#ui" class="md-nav__link">UI</a>
         </li>
-        <li class="md-nav__item"><a href="#agent" class="md-nav__link">Agent</a>
+        <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
         <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
         </li></ul>
@@ -630,7 +595,7 @@
     <li class="md-nav__item">
     
     
-      <a href="#agent" class="md-nav__link">Agent</a>
+      <a href="#netclient" class="md-nav__link">Netclient</a>
       
     
     </li>
@@ -659,34 +624,6 @@
     
     
       <a href="support.html#contact" class="md-nav__link">Contact</a>
-      
-    
-    </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html" class="md-nav__link">Contribute</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#submitting-an-issue" class="md-nav__link">Submitting an Issue</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#submitting-an-enhancement" class="md-nav__link">Submitting an Enhancement</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#contributing-code" class="md-nav__link">Contributing Code</a>
       
     
     </li></ul>
@@ -770,7 +707,7 @@
         </li>
         <li class="md-nav__item"><a href="#ui" class="md-nav__link">UI</a>
         </li>
-        <li class="md-nav__item"><a href="#agent" class="md-nav__link">Agent</a>
+        <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
         <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
         </li></ul>
@@ -843,8 +780,8 @@ Then delete the rogue access key.</p>
 </dl>
 
 
-<h2 id="agent">Agent<a class="headerlink" href="#agent" title="Permalink to this headline">¶</a></h2>
-<dl class="simple">
+<h2 id="netclient">Netclient<a class="headerlink" href="#netclient" title="Permalink to this headline">¶</a></h2>
+<dl>
 <dt><strong>How do I connect a node to my Netmaker network with Netclient?</strong></dt><dd><p>First get your access token (not just access key), then run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">join</span> <span class="pre">-t</span> <span class="pre">&lt;access</span> <span class="pre">token&gt;</span></code>.
 <strong>NOTE:</strong> netclient may be under /etc/netclient/, i.e run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">/etc/netclient/netclient</span> <span class="pre">join</span> <span class="pre">-t</span> <span class="pre">&lt;access</span> <span class="pre">token&gt;</span></code></p>
 </dd>
@@ -858,6 +795,14 @@ Note for journalctl: you should hit the <code class="docutils literal notranslat
 You can also see the current WireGuard configuration with <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">wg</span> <span class="pre">show</span></code></p>
 </dd>
 <dt><strong>I am done with the agent on my machine, can I uninstall it?</strong></dt><dd><p>Yes, on the node simply run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">/etc/netclient/netclient</span> <span class="pre">uninstall</span></code>.</p>
+</dd>
+<dt><strong>I am running SELinux and when I reboot my node I get a permission denied in my netclient logs and it doesn’t connect anymore, why?</strong></dt><dd><p>If you’re running SELinux, it will interfere with systemd’s ability to restart the client properly. Therefore, please run the following:
+.. code-block:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">semanage</span> <span class="n">fcontext</span> <span class="o">-</span><span class="n">a</span> <span class="o">-</span><span class="n">t</span> <span class="n">bin_t</span> <span class="s1">'/etc/netclient/netclient'</span>
+<span class="n">sudo</span> <span class="n">chcon</span> <span class="o">-</span><span class="n">Rv</span> <span class="o">-</span><span class="n">u</span> <span class="n">system_u</span> <span class="o">-</span><span class="n">t</span> <span class="n">bin_t</span> <span class="s1">'/etc/netclient/netclient'</span>
+<span class="n">sudo</span> <span class="n">restorecon</span> <span class="o">-</span><span class="n">R</span> <span class="o">-</span><span class="n">v</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">netclient</span><span class="o">/</span><span class="n">netclient</span>
+</pre></div>
+</div>
 </dd>
 </dl>
 
