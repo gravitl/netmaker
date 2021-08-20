@@ -281,7 +281,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS")
+			log.Println("ERROR RETRIEVING EXTERNAL PEERS",err)
 		}
 	}
 	return peers, hasGateway, gateways, err
@@ -297,7 +297,13 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 	nodecfg := cfg.Node
 
 	requestOpts := grpc.WithInsecure()
+	if cfg.Server.GRPCSSL == "on" {
+		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+		requestOpts = grpc.WithTransportCredentials(h2creds)
+	}
+
 	conn, err := grpc.Dial(server, requestOpts)
+	
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}
