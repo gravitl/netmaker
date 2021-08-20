@@ -117,10 +117,11 @@ On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS 
 .. code-block::
 
   systemctl stop systemd-resolved
-  systemctl disable systemd-resolved 
   vim /etc/systemd/resolved.conf
     *  uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference  *
     *  uncomment DNSStubListener and set to "no"  *
+  systemctl start systemd-resolved
+  systemctl disable --now systemd-resolved 
   ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
 
 
@@ -137,8 +138,10 @@ Insert your domain in the configuration file and add to nginx:
 
 .. code-block::
 
-  sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' netmaker-nginx-template.conf
-  sudo cp netmaker-nginx-template.conf /etc/nginx/conf.d/<your base domain>.conf
+  NETMAKER_BASE_DOMAIN=<your base domain>
+  sed -i 's/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g' netmaker-nginx-template.conf
+  sudo cp netmaker-nginx-template.conf /etc/nginx/sites-available/netmaker-nginx.conf
+  sudo ln -s /etc/nginx/sites-available/netmaker-nginx.conf /etc/nginx/sites-enabled/netmaker.nginx.conf
   nginx -t && nginx -s reload
   systemctl restart nginx
 
@@ -151,7 +154,7 @@ Prepare Templates
 .. code-block::
 
   wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml
-  sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml
+  sed -i 's/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g' docker-compose.quickstart.yml
   sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml
 
 Generate a unique master key and insert it:
