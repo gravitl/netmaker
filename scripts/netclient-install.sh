@@ -8,7 +8,7 @@ fi
 
 [ -z "$KEY" ] && KEY=nokey;
 
-wget -O netclient https://github.com/gravitl/netmaker/releases/download/v0.7.2/netclient
+wget -O netclient https://github.com/gravitl/netmaker/releases/download/latest/netclient
 chmod +x netclient
 sudo ./netclient join -t $KEY
 rm -f netclient

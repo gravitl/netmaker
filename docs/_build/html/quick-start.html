@@ -550,41 +550,6 @@
       <a href="usage.html#external-tutorials" class="md-nav__link">External Tutorials</a>
       
     
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#basic" class="md-nav__link">Basic</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#local-network" class="md-nav__link">Local Network</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#site-to-site" class="md-nav__link">Site-to-Site</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#dual-stack-with-ipv6" class="md-nav__link">Dual Stack with IPv6</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#kubernetes-node-network" class="md-nav__link">Kubernetes Node Network</a>
-      
-    
     </li></ul>
     
     </li>
@@ -652,7 +617,7 @@
     <li class="md-nav__item">
     
     
-      <a href="troubleshoot.html#agent" class="md-nav__link">Agent</a>
+      <a href="troubleshoot.html#netclient" class="md-nav__link">Netclient</a>
       
     
     </li>
@@ -680,42 +645,7 @@
     <li class="md-nav__item">
     
     
-      <a href="support.html#issues-bugs-and-feature-requests" class="md-nav__link">Issues, Bugs, and Feature Requests</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
       <a href="support.html#contact" class="md-nav__link">Contact</a>
-      
-    
-    </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html" class="md-nav__link">Contribute</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#submitting-an-issue" class="md-nav__link">Submitting an Issue</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#submitting-an-enhancement" class="md-nav__link">Submitting an Enhancement</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="contribute.html#contributing-code" class="md-nav__link">Contributing Code</a>
       
     
     </li></ul>
@@ -924,13 +854,13 @@
 
 <h3 id="prepare-firewall">Prepare Firewall<a class="headerlink" href="#prepare-firewall" title="Permalink to this headline">¶</a></h3>
 <p>Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 443. On the server you can run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="n">proto</span> <span class="n">tcp</span> <span class="kn">from</span> <span class="nn">any</span> <span class="n">to</span> <span class="nb">any</span> <span class="n">port</span> <span class="mi">443</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="n">dns</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="n">proto</span> <span class="n">tcp</span> <span class="kn">from</span> <span class="nn">any</span> <span class="n">to</span> <span class="nb">any</span> <span class="n">port</span> <span class="mi">443</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">53</span><span class="o">/</span><span class="n">udp</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">53</span><span class="o">/</span><span class="n">tcp</span>
 </pre></div>
 </div>
 <dl class="simple">
 <dt><strong>Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on:</strong></dt><dd><ul class="simple">
 <li><p>allow 443/tcp from all</p></li>
-<li><p>allow 53/udp from all</p></li>
+<li><p>allow 53/udp and 53/tcp from all</p></li>
 </ul>
 </dd>
 </dl>
