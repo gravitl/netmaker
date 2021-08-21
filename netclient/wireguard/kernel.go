@@ -72,9 +72,11 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		// log.Println(delOut, delErr)
 	}
 	if addLinkErr != nil {
+		log.Println("err1")
 		log.Println(addLinkOut, addLinkErr)
 	}
 	if addErr != nil {
+		log.Println("err2")
 		log.Println(addOut, addErr)
 	}
 	var nodeport int
@@ -100,6 +102,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	_, err = wgclient.Device(ifacename)
 	if err != nil {
+		log.Println("err3")
 		if os.IsNotExist(err) {
 			fmt.Println("Device does not exist: ")
 			fmt.Println(err)
@@ -111,6 +114,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	err = wgclient.ConfigureDevice(ifacename, conf)
 
 	if err != nil {
+		log.Println("err4")
 		if os.IsNotExist(err) {
 			fmt.Println("Device does not exist: ")
 			fmt.Println(err)
@@ -125,7 +129,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	//=========End DNS Setup=======\\
 	if ipLinkDownOut, err := local.RunCmd(ipExec + " link set down dev " + ifacename); err != nil {
 		log.Println(ipLinkDownOut, err)
-		return err
 	}
 
 	if nodecfg.PostDown != "" {
@@ -137,6 +140,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	if ipLinkUpOut, err := local.RunCmd(ipExec + " link set up dev " + ifacename); err != nil {
+		log.Println("failed to set ip link up for wireguard interface")
 		log.Println(ipLinkUpOut, err)
 		return err
 	}
