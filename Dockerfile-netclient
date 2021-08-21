@@ -21,6 +21,7 @@ WORKDIR /root/
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 COPY --from=builder /app/netclient/netclient .
+COPY --from=builder /app/netclient/netclient /usr/local/bin/
 
 CMD ["./netclient"]
 
