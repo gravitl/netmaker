@@ -73,7 +73,7 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.7.2"
+	version := "0.7.3"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
@@ -331,7 +331,7 @@ func GetPlatform() string {
 	platform := "linux"
 	if os.Getenv("PLATFORM") != "" {
 		platform = os.Getenv("PLATFORM")
-	} else if config.Config.Server.Platform != ""  {
+	} else if config.Config.Server.Platform != "" {
 		platform = config.Config.Server.SQLConn
 	}
 	return platform
