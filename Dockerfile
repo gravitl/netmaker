@@ -8,7 +8,7 @@ WORKDIR /app
 
 ENV GO111MODULE=auto
 
-RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o app main.go
+RUN GOARCH=amd64 CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o app main.go
 
 WORKDIR /app/netclient
 
