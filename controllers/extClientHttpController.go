@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -91,7 +92,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	err := errors.New("Networks Error")
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
 		clients, err = functions.GetAllExtClients()
-		if err != nil && !database.IsEmptyRecord(err){
+		if err != nil && !database.IsEmptyRecord(err) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -159,14 +160,14 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 
 	gwnode, err := functions.GetNodeByMacAddress(client.Network, client.IngressGatewayID)
 	if err != nil {
-		functions.PrintUserLog(r.Header.Get("user"),"Could not retrieve Ingress Gateway Node " + client.IngressGatewayID,1)
+		functions.PrintUserLog(r.Header.Get("user"), "Could not retrieve Ingress Gateway Node "+client.IngressGatewayID, 1)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	network, err := functions.GetParentNetwork(client.Network)
 	if err != nil {
-		functions.PrintUserLog(r.Header.Get("user"),"Could not retrieve Ingress Gateway Network " + client.Network,1)
+		functions.PrintUserLog(r.Header.Get("user"), "Could not retrieve Ingress Gateway Network "+client.Network, 1)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -175,6 +176,16 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
 	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
+	newAllowedIPs := network.AddressRange
+	if egressGatewayRanges, err := client.GetEgressRangesOnNetwork(); err == nil {
+		for _, egressGatewayRange := range egressGatewayRanges {
+			newAllowedIPs += "," + egressGatewayRange
+		}
+	}
+	defaultDNS := ""
+	if network.DefaultExtClientDNS != "" {
+		defaultDNS = "DNS = " + network.DefaultExtClientDNS
+	}
 	config := fmt.Sprintf(`[Interface]
 Address = %s
 PrivateKey = %s
@@ -184,13 +195,15 @@ PublicKey = %s
 AllowedIPs = %s
 Endpoint = %s
 %s
+%s
 
 `, client.Address+"/32",
 		client.PrivateKey,
 		gwnode.PublicKey,
-		network.AddressRange,
+		newAllowedIPs,
 		gwendpoint,
-		keepalive)
+		keepalive,
+		defaultDNS)
 
 	if params["type"] == "qr" {
 		bytes, err := qrcode.Encode(config, qrcode.Medium, 220)
@@ -219,7 +232,7 @@ Endpoint = %s
 		}
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"),"retrieved ext client config",2)
+	functions.PrintUserLog(r.Header.Get("user"), "retrieved ext client config", 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
 }
@@ -263,6 +276,7 @@ func CreateExtClient(extclient models.ExtClient) error {
 	err = SetNetworkNodesLastModified(extclient.Network)
 	return err
 }
+
 /**
  * To create a extclient
  * Must have valid key and be unique
@@ -289,7 +303,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
-
 	err = json.NewDecoder(r.Body).Decode(&extclient)
 	if err != nil && !errors.Is(err, io.EOF) {
 		returnErrorResponse(w, r, formatError(err, "internal"))

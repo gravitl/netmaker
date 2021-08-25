@@ -7,9 +7,10 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"github.com/gravitl/netmaker/servercfg"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 //Network Struct
@@ -39,6 +40,7 @@ type Network struct {
 	LocalRange             string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	DefaultCheckInInterval int32       `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
 	DefaultUDPHolePunch    string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
+	DefaultExtClientDNS    string      `json:"defaultextclientdns" bson:"defaultextclientdns"`
 }
 
 type SaveData struct { // put sensitive fields here
