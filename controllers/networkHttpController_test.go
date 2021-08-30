@@ -83,14 +83,6 @@ func TestCreateKey(t *testing.T) {
 	var accesskey models.AccessKey
 	var network models.Network
 	network.NetID = "skynet"
-	t.Run("InvalidName", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
-		assert.Nil(t, err)
-		accesskey.Name = "bad-name"
-		_, err = CreateAccessKey(accesskey, network)
-		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'alphanum' tag")
-	})
 	t.Run("NameTooLong", func(t *testing.T) {
 		network, err := GetNetwork("skynet")
 		assert.Nil(t, err)

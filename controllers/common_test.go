@@ -28,8 +28,14 @@ func TestGetPeerList(t *testing.T) {
 		CreateNode(createnode, "skynet")
 		peers, err := GetPeersList("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, node.Endpoint, peers[0].Endpoint)
-		assert.Equal(t, createnode.Endpoint, peers[1].Endpoint)
+		assert.Equal(t, len(peers), 2)
+		foundNodeEndpoint := false
+		for _, peer := range peers {
+			if foundNodeEndpoint = peer.Endpoint == createnode.Endpoint; foundNodeEndpoint {
+				break
+			}
+		}
+		assert.True(t, foundNodeEndpoint)
 	})
 }
 

@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"strings"
 	"os"
+	"runtime"
+	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -30,7 +32,7 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 	var err error
 	if node.Roaming == "yes" && node.IsStatic != "yes" {
 		if node.IsLocal == "no" {
-			extIP, err := getPublicIP()
+			extIP, err := netclientutils.GetPublicIP()
 			if err != nil {
 				log.Println("error encountered checking ip addresses:", err)
 			}
@@ -53,7 +55,7 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 				ipchange = true
 			}
 		} else {
-			localIP, err := getLocalIP(node.LocalRange)
+			localIP, err := netclientutils.GetLocalIP(node.LocalRange)
 			if err != nil {
 				log.Println("error encountered checking ip addresses:", err)
 			}
@@ -161,7 +163,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	servercfg := cfg.Server
 	var header metadata.MD
 
-	if cfg.Node.IPForwarding == "yes" {
+	if cfg.Node.IPForwarding == "yes" && !netclientutils.IsWindows() {
 		if err = local.SetIPForwarding(); err != nil {
 			return nil, err
 		}
@@ -198,6 +200,8 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	if err = json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
 		return nil, err
 	}
+	// ensure that the OS never changes
+	resNode.OS = runtime.GOOS
 	if resNode.PullChanges == "yes" || manual {
 		// check for interface change
 		if cfg.Node.Interface != resNode.Interface {
@@ -228,24 +232,27 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	} else {
 		if err = wireguard.SetWGConfig(network, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				log.Println("readding interface")
 				return Pull(network, true)
 			} else {
 				return nil, err
 			}
 		}
 	}
-	setDNS(&resNode, servercfg, &cfg.Node)
+	if !netclientutils.IsWindows() {
+		setDNS(&resNode, servercfg, &cfg.Node)
+	}
 
 	return &resNode, err
 }
 
 func Push(network string) error {
 	cfg, err := config.ReadConfig(network)
-	postnode := cfg.Node
 	if err != nil {
 		return err
 	}
+	postnode := cfg.Node
+	// always set the OS on client
+	postnode.OS = runtime.GOOS
 	servercfg := cfg.Server
 	var header metadata.MD
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 
 	//    "os"
 	"context"
@@ -19,15 +20,14 @@ import (
 
 // CreateJWT func will used to create the JWT while signing in and signing out
 func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, error) {
-	//home, err := os.UserHomeDir()
-	home := "/etc/netclient"
-	tokentext, err := ioutil.ReadFile(home + "/nettoken-" + network)
+	home := netclientutils.GetNetclientPathSpecific()
+	tokentext, err := ioutil.ReadFile(home + "nettoken-" + network)
 	if err != nil {
 		err = AutoLogin(client, network)
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong with Auto Login: %v", err))
 		}
-		tokentext, err = ioutil.ReadFile(home + "/nettoken-" + network)
+		tokentext, err = ioutil.ReadFile(home + "nettoken-" + network)
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong: %v", err))
 		}
@@ -42,9 +42,7 @@ func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, e
 }
 
 func AutoLogin(client nodepb.NodeServiceClient, network string) error {
-	//home, err := os.UserHomeDir()
-	home := "/etc/netclient"
-	//nodecfg := config.Config.Node
+	home := netclientutils.GetNetclientPathSpecific()
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err
@@ -72,7 +70,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 		return err
 	}
 	tokenstring := []byte(res.Data)
-	err = ioutil.WriteFile(home+"/nettoken-"+network, tokenstring, 0644)
+	err = ioutil.WriteFile(home+"nettoken-"+network, tokenstring, 0644)
 	if err != nil {
 		return err
 	}
@@ -81,12 +79,12 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 
 func StoreSecret(key string, network string) error {
 	d1 := []byte(key)
-	err := ioutil.WriteFile("/etc/netclient/secret-"+network, d1, 0644)
+	err := ioutil.WriteFile(netclientutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0644)
 	return err
 }
 
 func RetrieveSecret(network string) (string, error) {
-	dat, err := ioutil.ReadFile("/etc/netclient/secret-" + network)
+	dat, err := ioutil.ReadFile(netclientutils.GetNetclientPathSpecific() + "secret-" + network)
 	return string(dat), err
 }
 

@@ -10,3 +10,5 @@ netclient/netclient-arm
 netclient/netclient-arm64
 netclient/netclient-32
 config/dnsconfig/
+winsw.exe
+data/

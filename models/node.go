@@ -68,6 +68,14 @@ type Node struct {
 	LocalRange          string   `json:"localrange" bson:"localrange" yaml:"localrange"`
 	Roaming             string   `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	OS                  string   `json:"os" bson:"os" yaml:"os"`
+	MTU                 int32    `json:"mtu" bson:"mtu" yaml:"mtu"`
+}
+
+func (node *Node) SetDefaultMTU() {
+	if node.MTU == 0 {
+		node.MTU = 1280
+	}
 }
 
 func (node *Node) SetDefaulIsPending() {
@@ -241,6 +249,7 @@ func (node *Node) SetDefaults() {
 	// == Parent Network settings ==
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
 	node.IsDualStack = parentNetwork.IsDualStack
+	node.MTU = parentNetwork.DefaultMTU
 	// == node defaults if not set by parent ==
 	node.SetIPForwardingDefault()
 	node.SetDNSOnDefault()
@@ -259,6 +268,7 @@ func (node *Node) SetDefaults() {
 	node.SetDefaultEgressGateway()
 	node.SetDefaultIngressGateway()
 	node.SetDefaulIsPending()
+	node.SetDefaultMTU()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
@@ -390,6 +400,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	newNode.IsServer = currentNode.IsServer
 	if newNode.IsServer == "yes" {
 		newNode.IsStatic = "yes"
+	}
+	if newNode.MTU == 0 {
+		newNode.MTU = currentNode.MTU
 	}
 }
 

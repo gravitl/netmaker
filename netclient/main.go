@@ -1,3 +1,5 @@
+//go:generate goversioninfo -icon=windowsdata/resource/netmaker.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso
+
 package main
 
 import (
@@ -5,11 +7,15 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/ncwindows"
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/urfave/cli/v2"
 )
 
@@ -312,30 +318,49 @@ func main() {
 		},
 	}
 
-	// start our application
-	out, err := local.RunCmd("id -u")
+	if netclientutils.IsWindows() {
+		ncwindows.InitWindows()
+	} else {
+		// start our application
+		out, err := local.RunCmd("id -u")
 
-	if err != nil {
-		log.Fatal(out, err)
+		if err != nil {
+			log.Fatal(out, err)
+		}
+		id, err := strconv.Atoi(string(out[:len(out)-1]))
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if id != 0 {
+			log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
+		}
+
+		_, err = exec.LookPath("wg")
+		if err != nil {
+			log.Println(err)
+			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
+		}
 	}
-	id, err := strconv.Atoi(string(out[:len(out)-1]))
-
-	if err != nil {
-		log.Fatal(err)
+	if netclientutils.IsWindows() {
+		if !local.IsWindowsWGInstalled() {
+			log.Fatal("Please install Windows WireGuard before using Gravitl Netclient. https://download.wireguard.com/windows-client/wireguard-installer.exe")
+		}
 	}
-
-	if id != 0 {
-		log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
-	}
-
-	_, err = exec.LookPath("wg")
-	if err != nil {
-		log.Println(err)
-		log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
-	}
-
-	err = app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
+	if len(os.Args) == 1 && netclientutils.IsWindows() {
+		c := make(chan os.Signal)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-c
+			log.Println("closing Gravitl Netclient")
+			os.Exit(0)
+		}()
+		command.RunUserspaceDaemon()
+	} else {
+		err := app.Run(os.Args)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }

@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-//Start MongoDB Connection and start API Request Handler
+// Start DB Connection and start API Request Handler
 func main() {
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and grpc server
@@ -37,19 +37,20 @@ func initialize() { // Client Mode Prereq Check
 		log.Fatal(err)
 	}
 	log.Println("database successfully connected.")
-	output, err := local.RunCmd("id -u")
-
-	if err != nil {
-		log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
-		log.Fatal(output, err)
-	}
-	uid, err := strconv.Atoi(string(output[:len(output)-1]))
-	if err != nil {
-		log.Println("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.")
-		log.Fatal(err)
-	}
-	if uid != 0 {
-		log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
+	if servercfg.IsClientMode() {
+		output, err := local.RunCmd("id -u")
+		if err != nil {
+			log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
+			log.Fatal(output, err)
+		}
+		uid, err := strconv.Atoi(string(output[:len(output)-1]))
+		if err != nil {
+			log.Println("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.")
+			log.Fatal(err)
+		}
+		if uid != 0 {
+			log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
+		}
 	}
 
 	if servercfg.IsDNSMode() {

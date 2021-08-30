@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
@@ -38,19 +39,22 @@ type ServerConfig struct {
 //reading in the env file
 func Write(config *ClientConfig, network string) error {
 	if network == "" {
-		err := errors.New("No network provided. Exiting.")
+		err := errors.New("no network provided - exiting")
 		return err
 	}
-	_, err := os.Stat("/etc/netclient")
+	_, err := os.Stat(netclientutils.GetNetclientPath())
 	if os.IsNotExist(err) {
-		os.Mkdir("/etc/netclient", 744)
+		os.Mkdir(netclientutils.GetNetclientPath(), 0744)
 	} else if err != nil {
 		return err
 	}
-	home := "/etc/netclient"
+	home := netclientutils.GetNetclientPathSpecific()
 
-	file := fmt.Sprintf(home + "/netconfig-" + network)
+	file := fmt.Sprintf(home + "netconfig-" + network)
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
 	defer f.Close()
 
 	err = yaml.NewEncoder(f).Encode(config)
@@ -62,21 +66,21 @@ func Write(config *ClientConfig, network string) error {
 
 func WriteServer(server string, accesskey string, network string) error {
 	if network == "" {
-		err := errors.New("No network provided. Exiting.")
+		err := errors.New("no network provided - exiting")
 		return err
 	}
 	nofile := false
 	//home, err := homedir.Dir()
-	_, err := os.Stat("/etc/netclient")
+	_, err := os.Stat(netclientutils.GetNetclientPath())
 	if os.IsNotExist(err) {
-		os.Mkdir("/etc/netclient", 744)
+		os.Mkdir(netclientutils.GetNetclientPath(), 0744)
 	} else if err != nil {
-		fmt.Println("couldnt find or create /etc/netclient")
+		fmt.Println("couldnt find or create", netclientutils.GetNetclientPath())
 		return err
 	}
-	home := "/etc/netclient"
+	home := netclientutils.GetNetclientPathSpecific()
 
-	file := fmt.Sprintf(home + "/netconfig-" + network)
+	file := fmt.Sprintf(home + "netconfig-" + network)
 	//f, err := os.Open(file)
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0666)
 	//f, err := ioutil.ReadFile(file)
@@ -93,7 +97,7 @@ func WriteServer(server string, accesskey string, network string) error {
 	var cfg ClientConfig
 
 	if !nofile {
-		fmt.Println("Writing to existing config file at " + home + "/netconfig-" + network)
+		fmt.Println("Writing to existing config file at " + home + "netconfig-" + network)
 		decoder := yaml.NewDecoder(f)
 		err = decoder.Decode(&cfg)
 		//err = yaml.Unmarshal(f, &cfg)
@@ -127,12 +131,12 @@ func WriteServer(server string, accesskey string, network string) error {
 			return err
 		}
 	} else {
-		fmt.Println("Creating new config file at " + home + "/netconfig-" + network)
+		fmt.Println("Creating new config file at " + home + "netconfig-" + network)
 
 		cfg.Server.GRPCAddress = server
 		cfg.Server.AccessKey = accesskey
 
-		newf, err := os.Create(home + "/netconfig-" + network)
+		newf, err := os.Create(home + "netconfig-" + network)
 		err = yaml.NewEncoder(newf).Encode(cfg)
 		defer newf.Close()
 		if err != nil {
@@ -147,8 +151,8 @@ func (config *ClientConfig) ReadConfig() {
 
 	nofile := false
 	//home, err := homedir.Dir()
-	home := "/etc/netclient"
-	file := fmt.Sprintf(home + "/netconfig-" + config.Network)
+	home := netclientutils.GetNetclientPathSpecific()
+	file := fmt.Sprintf(home + "netconfig-" + config.Network)
 	//f, err := os.Open(file)
 	f, err := os.OpenFile(file, os.O_RDONLY, 0666)
 	if err != nil {
@@ -182,13 +186,14 @@ func ModConfig(node *models.Node) error {
 	}
 	var modconfig ClientConfig
 	var err error
-	if FileExists("/etc/netclient/netconfig-" + network) {
+	if FileExists(netclientutils.GetNetclientPathSpecific() + "netconfig-" + network) {
 		useconfig, err := ReadConfig(network)
 		if err != nil {
 			return err
 		}
 		modconfig = *useconfig
 	}
+
 	modconfig.Node = (*node)
 	err = Write(&modconfig, network)
 	return err
@@ -290,18 +295,19 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	cfg.OperatingSystem = c.String("operatingsystem")
 	cfg.Daemon = c.String("daemon")
 	cfg.Node.UDPHolePunch = c.String("udpholepunch")
+	cfg.Node.MTU = int32(c.Int("mtu"))
 
 	return cfg, privateKey, nil
 }
 
 func ReadConfig(network string) (*ClientConfig, error) {
 	if network == "" {
-		err := errors.New("No network provided. Exiting.")
+		err := errors.New("no network provided - exiting")
 		return nil, err
 	}
 	nofile := false
-	home := "/etc/netclient"
-	file := fmt.Sprintf(home + "/netconfig-" + network)
+	home := netclientutils.GetNetclientPathSpecific()
+	file := fmt.Sprintf(home + "netconfig-" + network)
 	f, err := os.Open(file)
 
 	if err != nil {
