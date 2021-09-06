@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
@@ -124,19 +125,18 @@ func AddNetwork(network string) (bool, error) {
 		log.Println("could not change netclient directory permissions")
 		return false, err
 	}
-	functions.PrintUserLog(models.NODE_SERVER_NAME,"executing network join: " + "/etc/netclient/netclient " + "join " + "-t " + token + " -name " + models.NODE_SERVER_NAME + " -endpoint " + pubip,0)
+	functions.PrintUserLog(models.NODE_SERVER_NAME, "executing network join: "+"/etc/netclient/netclient "+"join "+"-t "+token+" -name "+models.NODE_SERVER_NAME+" -endpoint "+pubip, 0)
 
 	joinCMD := exec.Command("/etc/netclient/netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
 	err = joinCMD.Start()
-	
-	
+
 	if err != nil {
 		log.Println(err)
 	}
 	log.Println("Waiting for join command to finish...")
 	err = joinCMD.Wait()
 	if err != nil {
-		log.Println("Command finished with error: %v", err)
+		log.Printf("Command finished with error: %v", err)
 		return false, err
 	}
 	log.Println("Server added to network " + network)
