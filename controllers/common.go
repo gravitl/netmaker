@@ -274,28 +274,3 @@ func SetNetworkNodesLastModified(networkName string) error {
 	}
 	return nil
 }
-
-func TimestampNode(node models.Node, updatecheckin bool, updatepeers bool, updatelm bool) error {
-	if updatelm {
-		node.SetLastModified()
-	}
-	if updatecheckin {
-		node.SetLastCheckIn()
-	}
-	if updatepeers {
-		node.SetLastPeerUpdate()
-	}
-
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return err
-	}
-	value, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-
-	err = database.Insert(key, string(value), database.NODES_TABLE_NAME)
-
-	return err
-}
