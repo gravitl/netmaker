@@ -3,56 +3,82 @@ package controller
 import (
 	"testing"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetNodeDNS(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	createTestNode()
 	dns, err := GetNodeDNS("skynet")
 	assert.Nil(t, err)
 	t.Log(dns)
 }
 func TestGetCustomDNS(t *testing.T) {
+	t.Skip()
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	createTestNode()
 	dns, err := GetCustomDNS("skynet")
 	assert.Nil(t, err)
 	t.Log(dns)
 }
 func TestGetDNSEntryNum(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	createTestNode()
 	num, err := GetDNSEntryNum("myhost", "skynet")
 	assert.Nil(t, err)
 	t.Log(num)
 }
 func TestGetDNS(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllNetworks()
 	dns, err := GetDNS("skynet")
 	assert.Nil(t, err)
 	t.Log(dns)
 }
 func TestCreateDNS(t *testing.T) {
-	deleteNet(t)
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	deleteAllDNS(t)
 	createNet()
 	//dns, err := GetDNS("skynet")
 	//assert.Nil(t, err)
 	//for _, entry := range dns {
 	//	_, _ = DeleteDNS(entry.Name, "skynet")
 	//}
-	entry := models.DNSEntry{"10.0.0.2", "myhost", "skynet"}
+	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
 	err := ValidateDNSCreate(entry)
 	assert.Nil(t, err)
 	if err != nil {
-		return
+		t.Log(err)
 	}
 	dns, err := CreateDNS(entry)
 	assert.Nil(t, err)
 	t.Log(dns)
 }
 func TestGetDNSEntry(t *testing.T) {
-	entry, err := GetDNSEntry("myhost", "skynet")
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	createTestNode()
+	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+	CreateDNS(entry)
+	entry, err := GetDNSEntry("newhost", "skynet")
 	assert.Nil(t, err)
 	t.Log(entry)
 }
 func TestUpdateDNS(t *testing.T) {
+	database.InitializeDatabase()
 }
 func TestDeleteDNS(t *testing.T) {
+	database.InitializeDatabase()
 	t.Run("EntryExists", func(t *testing.T) {
 		err := DeleteDNS("myhost", "skynet")
 		assert.Nil(t, err)
@@ -65,6 +91,7 @@ func TestDeleteDNS(t *testing.T) {
 }
 
 func TestValidateDNSUpdate(t *testing.T) {
+	database.InitializeDatabase()
 	entry := models.DNSEntry{"10.0.0.2", "myhost", "skynet"}
 	_ = DeleteDNS("mynode", "skynet")
 	t.Run("BadNetwork", func(t *testing.T) {
@@ -93,12 +120,6 @@ func TestValidateDNSUpdate(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'ip' tag")
 	})
-	t.Run("BadName", func(t *testing.T) {
-		change := models.DNSEntry{"10.0.0.2", "myhostr*", "skynet"}
-		err := ValidateDNSUpdate(change, entry)
-		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'alphanum' tag")
-	})
 	t.Run("EmptyName", func(t *testing.T) {
 		//this can't actually happen as change.Name is populated if is blank
 		change := models.DNSEntry{"10.0.0.2", "", "skynet"}
@@ -108,7 +129,7 @@ func TestValidateDNSUpdate(t *testing.T) {
 	})
 	t.Run("NameTooLong", func(t *testing.T) {
 		name := ""
-		for i := 1; i < 122; i++ {
+		for i := 1; i < 194; i++ {
 			name = name + "a"
 		}
 		change := models.DNSEntry{"10.0.0.2", name, "skynet"}
@@ -127,6 +148,7 @@ func TestValidateDNSUpdate(t *testing.T) {
 
 }
 func TestValidateDNSCreate(t *testing.T) {
+	database.InitializeDatabase()
 	_ = DeleteDNS("mynode", "skynet")
 	t.Run("NoNetwork", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "myhost", "badnet"}
@@ -146,12 +168,6 @@ func TestValidateDNSCreate(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'ip' tag")
 	})
-	t.Run("BadName", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.2", "myhostr*", "skynet"}
-		err := ValidateDNSCreate(entry)
-		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'alphanum' tag")
-	})
 	t.Run("EmptyName", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "", "skynet"}
 		err := ValidateDNSCreate(entry)
@@ -160,7 +176,7 @@ func TestValidateDNSCreate(t *testing.T) {
 	})
 	t.Run("NameTooLong", func(t *testing.T) {
 		name := ""
-		for i := 1; i < 122; i++ {
+		for i := 1; i < 194; i++ {
 			name = name + "a"
 		}
 		entry := models.DNSEntry{"10.0.0.2", name, "skynet"}
@@ -175,4 +191,15 @@ func TestValidateDNSCreate(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'name_unique' tag")
 	})
+}
+
+func deleteAllDNS(t *testing.T) {
+	dns, err := GetAllDNS()
+	t.Log(err)
+	t.Log(dns)
+	for _, record := range dns {
+		t.Log(dns)
+		err := DeleteDNS(record.Name, record.Network)
+		t.Log(err)
+	}
 }
