@@ -13,7 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	"crypto/tls"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -23,6 +25,8 @@ const NO_DB_RECORDS = "could not find any records"
 const LINUX_APP_DATA_PATH = "/etc/netclient"
 const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
 const WINDOWS_SVC_NAME = "netclient"
+const NETCLIENT_DEFAULT_PORT = 51821
+const DEFAULT_GC_PERCENT = 10
 
 func Log(message string) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
@@ -200,6 +204,9 @@ func GetLocalIP(localrange string) (string, error) {
 }
 
 func GetFreePort(rangestart int32) (int32, error) {
+	if rangestart == 0 {
+		rangestart = NETCLIENT_DEFAULT_PORT
+	}
 	wgclient, err := wgctrl.New()
 	if err != nil {
 		return 0, err
@@ -208,9 +215,7 @@ func GetFreePort(rangestart int32) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
-	var portno int32
-	portno = 0
-	for x := rangestart; x <= 60000; x++ {
+	for x := rangestart; x <= 65535; x++ {
 		conflict := false
 		for _, i := range devices {
 			if int32(i.ListenPort) == x {
@@ -221,10 +226,9 @@ func GetFreePort(rangestart int32) (int32, error) {
 		if conflict {
 			continue
 		}
-		portno = x
-		break
+		return int32(x), nil
 	}
-	return portno, err
+	return rangestart, err
 }
 
 // == OS PATH FUNCTIONS ==
@@ -254,4 +258,14 @@ func GetNetclientPathSpecific() string {
 	} else {
 		return LINUX_APP_DATA_PATH + "/"
 	}
+}
+
+func GRPCRequestOpts(isSecure string) grpc.DialOption {
+	var requestOpts grpc.DialOption
+	requestOpts = grpc.WithInsecure()
+	if isSecure == "on" {
+		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
+		requestOpts = grpc.WithTransportCredentials(h2creds)
+	}
+	return requestOpts
 }

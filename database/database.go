@@ -2,7 +2,9 @@ package database
 
 import (
 	"encoding/json"
+	"time"
 	"errors"
+	"log"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -37,14 +39,23 @@ func getCurrentDB() map[string]interface{} {
 	case "sqlite":
 		return SQLITE_FUNCTIONS
 	default:
-		return RQLITE_FUNCTIONS
+		return SQLITE_FUNCTIONS
 	}
 }
 
 func InitializeDatabase() error {
-
-	if err := getCurrentDB()[INIT_DB].(func() error)(); err != nil {
-		return err
+	log.Println("connecting to",servercfg.GetDB())
+	tperiod := time.Now().Add(10 * time.Second)
+	for {
+		if err := getCurrentDB()[INIT_DB].(func() error)(); err != nil {
+			log.Println("unable to connect to db, retrying . . .")
+			if time.Now().After(tperiod) {
+				return err
+			}
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Second)
 	}
 	createTables()
 	return nil

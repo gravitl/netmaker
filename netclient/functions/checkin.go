@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"log"
@@ -18,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	//homedir "github.com/mitchellh/go-homedir"
 )
@@ -168,14 +166,8 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			return nil, err
 		}
 	}
-
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Println("Cant dial GRPC server:", err)
 		return nil, err
@@ -253,17 +245,11 @@ func Push(network string) error {
 	postnode := cfg.Node
 	// always set the OS on client
 	postnode.OS = runtime.GOOS
-	servercfg := cfg.Server
 	var header metadata.MD
 
 	var wcclient nodepb.NodeServiceClient
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Println("Cant dial GRPC server:", err)
 		return err

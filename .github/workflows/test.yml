@@ -5,6 +5,8 @@ on:
 
 jobs:
   tests:
+    env:
+      DATABASE: rqlite
     runs-on: ubuntu-latest
     services:
       rqlite:
@@ -18,3 +20,6 @@ jobs:
       - name: run tests
         run: |
             go test -p 1 ./... -v
+        env:
+          DATABASE: rqlite
+          CLIENT_MODE: "off"
