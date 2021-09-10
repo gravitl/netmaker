@@ -2,7 +2,6 @@ package functions
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,7 +19,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -121,13 +119,8 @@ func LeaveNetwork(network string) error {
 	node := cfg.Node
 
 	var wcclient nodepb.NodeServiceClient
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
 	} else {

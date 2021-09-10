@@ -84,7 +84,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	var nodeport int
 	nodeport = int(node.ListenPort)
-
 	conf := wgtypes.Config{}
 	if nodecfg.UDPHolePunch == "yes" &&
 		nodecfg.IsServer == "no" &&
@@ -127,14 +126,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return err
 		}
 
-		devices, err := wgclient.Devices()
-		if err != nil {
-			log.Println("no devices found:", err)
-		}
-		for _, d := range devices {
-			log.Println("found wg device:", d.Name)
-		}
-
 		_, err = wgclient.Device(ifacename)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -144,7 +135,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 				log.Fatalf("Unknown config error: %v", err)
 			}
 		}
-
+		
 		err = wgclient.ConfigureDevice(ifacename, conf)
 		if err != nil {
 			if os.IsNotExist(err) {

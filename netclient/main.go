@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-
+	"runtime/debug"
 	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
@@ -318,6 +318,8 @@ func main() {
 		},
 	}
 
+	setGarbageCollection()
+
 	if netclientutils.IsWindows() {
 		ncwindows.InitWindows()
 	} else {
@@ -362,5 +364,12 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+	}
+}
+
+func setGarbageCollection(){
+	_, gcset := os.LookupEnv("GOGC");
+	if !gcset {
+		debug.SetGCPercent(netclientutils.DEFAULT_GC_PERCENT)
 	}
 }

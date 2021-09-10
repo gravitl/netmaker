@@ -364,16 +364,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	if servercfg.IsClientMode() {
-		success, err := serverctl.AddNetwork(network.NetID)
-		if err != nil || !success {
-			if err == nil {
-				err = errors.New("Failed to add server to network " + network.DisplayName)
-			}
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
-	}
 	functions.PrintUserLog(r.Header.Get("user"), "created network "+network.NetID, 1)
 	w.WriteHeader(http.StatusOK)
 	//json.NewEncoder(w).Encode(result)
@@ -400,7 +390,18 @@ func CreateNetwork(network models.Network) error {
 		return err
 	}
 
-	return nil
+	if servercfg.IsClientMode() {
+		var success bool
+		success, err = serverctl.AddNetwork(network.NetID)
+		if err != nil || !success {
+			DeleteNetwork(network.NetID)
+			if err == nil {
+				err = errors.New("Failed to add server to network " + network.DisplayName)
+			}
+		}
+	}
+
+	return err
 }
 
 // BEGIN KEY MANAGEMENT SECTION

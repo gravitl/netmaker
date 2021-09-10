@@ -2,12 +2,10 @@ package functions
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"net"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -17,10 +15,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/gravitl/netmaker/netclient/server"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
@@ -30,90 +26,40 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
 		return err
 	}
-	log.Println("attempting to join " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+
+	netclientutils.Log("attempting to join " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 	err := config.Write(&cfg, cfg.Network)
 	if err != nil {
 		return err
 	}
 
-	wgclient, err := wgctrl.New()
-	if err != nil {
-		return err
-	}
-	defer wgclient.Close()
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
-	if cfg.Node.LocalRange != "" {
-		if cfg.Node.LocalAddress == "" {
-			log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
-			ifaces, err := net.Interfaces()
-			if err != nil {
-				return err
-			}
-			_, localrange, err := net.ParseCIDR(cfg.Node.LocalRange)
-			if err != nil {
-				return err
-			}
 
-			var local string
-			found := false
-			for _, i := range ifaces {
-				if i.Flags&net.FlagUp == 0 {
-					continue // interface down
-				}
-				if i.Flags&net.FlagLoopback != 0 {
-					continue // loopback interface
-				}
-				addrs, err := i.Addrs()
-				if err != nil {
-					return err
-				}
-				for _, addr := range addrs {
-					var ip net.IP
-					switch v := addr.(type) {
-					case *net.IPNet:
-						if !found {
-							ip = v.IP
-							local = ip.String()
-							if cfg.Node.IsLocal == "yes" {
-								found = localrange.Contains(ip)
-							} else {
-								found = true
-							}
-						}
-					case *net.IPAddr:
-						if !found {
-							ip = v.IP
-							local = ip.String()
-							if cfg.Node.IsLocal == "yes" {
-								found = localrange.Contains(ip)
-
-							} else {
-								found = true
-							}
-						}
-					}
-				}
-			}
-			cfg.Node.LocalAddress = local
-		}
+	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
+		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
+		cfg.Node.LocalAddress = getLocalIP(cfg.Node)
 	}
 	if cfg.Node.Password == "" {
 		cfg.Node.Password = netclientutils.GenPass()
 	}
 	auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
+
+	// set endpoint if blank. set to local if local net, retrieve from function if not 
 	if cfg.Node.Endpoint == "" {
 		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress
 		} else {
 			cfg.Node.Endpoint, err = netclientutils.GetPublicIP()
-			if err != nil {
-				fmt.Println("Error setting cfg.Node.Endpoint.")
-				return err
-			}
+
+		}
+		if err != nil || cfg.Node.Endpoint == "" {
+			netclientutils.Log("Error setting cfg.Node.Endpoint.")
+			return err
 		}
 	}
+	// Generate and set public/private WireGuard Keys
 	if privateKey == "" {
 		wgPrivatekey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
@@ -123,25 +69,22 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		cfg.Node.PublicKey = wgPrivatekey.PublicKey().String()
 	}
 
+	// Find and set node MacAddress
 	if cfg.Node.MacAddress == "" {
 		macs, err := netclientutils.GetMacAddr()
 		if err != nil {
 			return err
 		} else if len(macs) == 0 {
-			log.Fatal()
+			log.Fatal("could not retrieve mac address")
 		} else {
 			cfg.Node.MacAddress = macs[0]
 		}
 	}
 
 	var wcclient nodepb.NodeServiceClient
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, requestOpts)
+
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
@@ -175,6 +118,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
+	// Create node on server
 	res, err := wcclient.CreateNode(
 		context.TODO(),
 		&nodepb.Object{
@@ -193,17 +137,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
-	if node.ListenPort == 0 {
-		node.ListenPort, err = netclientutils.GetFreePort(51821)
-		if err != nil {
-			fmt.Printf("Error retrieving port: %v", err)
-		}
+	// get free port based on returned default listen port
+	node.ListenPort, err = netclientutils.GetFreePort(node.ListenPort)
+	if err != nil {
+		fmt.Printf("Error retrieving port: %v", err)
 	}
-
-	if node.DNSOn == "yes" {
-		cfg.Node.DNSOn = "yes"
-	}
-	if !(cfg.Node.IsLocal == "yes") && node.IsLocal == "yes" && node.LocalRange != "" {
+	
+	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
+	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {
 		node.LocalAddress, err = netclientutils.GetLocalIP(node.LocalRange)
 		if err != nil {
 			return err
@@ -220,9 +161,15 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
+	// pushing any local changes to server before starting wireguard 
+	err = Push(cfg.Network)
+	if err != nil {
+		return err
+	}
+
 	if node.IsPending == "yes" {
-		fmt.Println("Node is marked as PENDING.")
-		fmt.Println("Awaiting approval from Admin before configuring WireGuard.")
+		netclientutils.Log("Node is marked as PENDING.")
+		netclientutils.Log("Awaiting approval from Admin before configuring WireGuard.")
 		if cfg.Daemon != "off" {
 			if netclientutils.IsWindows() {
 				// handle daemon here..
@@ -233,15 +180,16 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			return err
 		}
 	}
-	log.Println("retrieving remote peers")
+
+	netclientutils.Log("retrieving remote peers")
 	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 
 	if err != nil && !netclientutils.IsEmptyRecord(err) {
-		log.Println("failed to retrieve peers", err)
+		netclientutils.Log("failed to retrieve peers")
 		return err
 	}
 
-	log.Println("starting wireguard")
+	netclientutils.Log("starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways)
 	if err != nil {
 		return err

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"log"
 	"net"
@@ -12,25 +11,20 @@ import (
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 )
 
 func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
-	servercfg := cfg.Server
 	var wcclient nodepb.NodeServiceClient
 	// == GRPC SETUP ==
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +77,8 @@ func RemoveNetwork(network string) error {
 	log.Println("Deleting remote node with MAC: " + node.MacAddress)
 
 	var wcclient nodepb.NodeServiceClient
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
 		//return err
@@ -147,13 +136,9 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
 	}
 
-	requestOpts := grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
-	conn, err := grpc.Dial(server, requestOpts)
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}
@@ -296,14 +281,8 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 	}
 	nodecfg := cfg.Node
 
-	requestOpts := grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-
-	conn, err := grpc.Dial(server, requestOpts)
-	
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))	
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}

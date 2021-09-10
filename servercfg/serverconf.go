@@ -80,10 +80,10 @@ func GetVersion() string {
 	return version
 }
 func GetDB() string {
-	database := "rqlite"
-	if os.Getenv("DATABASE") == "sqlite" {
+	database := "sqlite"
+	if os.Getenv("DATABASE") == "rqlite" {
 		database = os.Getenv("DATABASE")
-	} else if config.Config.Server.Database == "sqlite" {
+	} else if config.Config.Server.Database == "rqlite" {
 		database = config.Config.Server.Database
 	}
 	return database
