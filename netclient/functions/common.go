@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 	"os/exec"
 	"strings"
 
@@ -18,11 +17,11 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	//homedir "github.com/mitchellh/go-homedir"
 )
 
 var (
@@ -45,161 +44,20 @@ func ListPorts() error {
 	return err
 }
 
-func GetFreePort(rangestart int32) (int32, error) {
-	wgclient, err := wgctrl.New()
-	if err != nil {
-		return 0, err
-	}
-	devices, err := wgclient.Devices()
-	if err != nil {
-		return 0, err
-	}
-	var portno int32
-	portno = 0
-	for x := rangestart; x <= 60000; x++ {
-		conflict := false
-		for _, i := range devices {
-			if int32(i.ListenPort) == x {
-				conflict = true
-				break
-			}
-		}
-		if conflict {
-			continue
-		}
-		portno = x
-		break
-	}
-	return portno, err
-}
-
-func getLocalIP(localrange string) (string, error) {
-	_, localRange, err := net.ParseCIDR(localrange)
-	if err != nil {
-		return "", err
-	}
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
-	var local string
-	found := false
-	for _, i := range ifaces {
-		if i.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if i.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		addrs, err := i.Addrs()
-		if err != nil {
-			return "", err
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					found = localRange.Contains(ip)
-				}
-			case *net.IPAddr:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					found = localRange.Contains(ip)
-				}
-			}
-		}
-	}
-	if !found || local == "" {
-		return "", errors.New("Failed to find local IP in range " + localrange)
-	}
-	return local, nil
-}
-
-func getPublicIP() (string, error) {
-
-	iplist := []string{"http://ip.client.gravitl.com", "https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
-	endpoint := ""
-	var err error
-	for _, ipserver := range iplist {
-		resp, err := http.Get(ipserver)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				continue
-			}
-			endpoint = string(bodyBytes)
-			break
-		}
-
-	}
-	if err == nil && endpoint == "" {
-		err = errors.New("Public Address Not Found.")
-	}
-	return endpoint, err
-}
-
-func getMacAddr() ([]string, error) {
-	ifas, err := net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-	var as []string
-	for _, ifa := range ifas {
-		a := ifa.HardwareAddr.String()
-		if a != "" {
-			as = append(as, a)
-		}
-	}
-	return as, nil
-}
-
 func getPrivateAddr() (string, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
+
 	var local string
-	found := false
-	for _, i := range ifaces {
-		if i.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if i.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		addrs, err := i.Addrs()
-		if err != nil {
-			return "", err
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					found = true
-				}
-			case *net.IPAddr:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					found = true
-				}
-			}
-		}
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
 	}
-	if !found {
-		err := errors.New("Local Address Not Found.")
-		return "", err
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	localIP := localAddr.IP
+	local = localIP.String()
+	if local == "" {
+		err = errors.New("could not find local ip")
 	}
 	return local, err
 }
@@ -213,7 +71,6 @@ func needInterfaceUpdate(ctx context.Context, mac string, network string, iface 
 	readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
 	if err != nil {
 		return false, "", err
-		log.Fatalf("Error: %v", err)
 	}
 	var resNode models.Node
 	if err := json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
@@ -247,6 +104,10 @@ func Uninstall() error {
 			}
 		}
 	}
+	// clean up OS specific stuff
+	if netclientutils.IsWindows() {
+		local.Cleanup()
+	}
 	return err
 }
 
@@ -277,6 +138,10 @@ func LeaveNetwork(network string) error {
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
 		} else {
+			if netclientutils.IsWindows() {
+				local.RemoveWindowsConf(node.Interface)
+				log.Println("removed Windows tunnel " + node.Interface)
+			}
 			node.SetID()
 			var header metadata.MD
 			_, err = wcclient.DeleteNode(
@@ -306,25 +171,34 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 		log.Println("Removed " + networkName + " network locally")
 	}
 	if cfg.Daemon != "off" {
-		err = local.RemoveSystemDServices(networkName)
+		if netclientutils.IsWindows() {
+			// TODO: Remove job?
+		} else {
+			err = local.RemoveSystemDServices(networkName)
+		}
 	}
 	return err
 }
 
 func DeleteInterface(ifacename string, postdown string) error {
-	ipExec, err := exec.LookPath("ip")
-	if err != nil {
-		log.Println(err)
-	}
-	out, err := local.RunCmd(ipExec + " link del " + ifacename)
-	if err != nil {
-		log.Println(out, err)
-	}
-	if postdown != "" {
-		runcmds := strings.Split(postdown, "; ")
-		err = local.RunCmds(runcmds)
+	var err error
+	if netclientutils.IsWindows() {
+		err = local.RemoveWindowsConf(ifacename)
+	} else {
+		ipExec, err := exec.LookPath("ip")
 		if err != nil {
-			log.Println("Error encountered running PostDown: " + err.Error())
+			log.Println(err)
+		}
+		out, err := local.RunCmd(ipExec + " link del " + ifacename)
+		if err != nil {
+			log.Println(out, err)
+		}
+		if postdown != "" {
+			runcmds := strings.Split(postdown, "; ")
+			err = local.RunCmds(runcmds)
+			if err != nil {
+				log.Println("Error encountered running PostDown: " + err.Error())
+			}
 		}
 	}
 	return err
@@ -357,7 +231,7 @@ func List() error {
 
 func GetNetworks() ([]string, error) {
 	var networks []string
-	files, err := ioutil.ReadDir("/etc/netclient")
+	files, err := ioutil.ReadDir(netclientutils.GetNetclientPath())
 	if err != nil {
 		return networks, err
 	}

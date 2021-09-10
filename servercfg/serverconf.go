@@ -309,7 +309,6 @@ func GetPublicIP() (string, error) {
 			endpoint = string(bodyBytes)
 			break
 		}
-
 	}
 	if err == nil && endpoint == "" {
 		err = errors.New("Public Address Not Found.")

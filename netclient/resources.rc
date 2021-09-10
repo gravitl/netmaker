@@ -1,0 +1,8 @@
+#include <windows.h>
+
+#pragma code_page(65001)
+
+#define STRINGIZE(x) #x
+#define EXPAND(x) STRINGIZE(x)
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST netclient.exe.manifest.xml
+wintun.dll RCDATA wintun.dll

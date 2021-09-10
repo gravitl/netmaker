@@ -8,6 +8,8 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"log"
 	"os/exec"
+
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 )
 
 func SetDNS(nameserver string) error {
@@ -32,6 +34,9 @@ func SetDNS(nameserver string) error {
 }
 
 func UpdateDNS(ifacename string, network string, nameserver string) error {
+	if netclientutils.IsWindows() {
+		return nil
+	}
 	_, err := exec.LookPath("resolvectl")
 	if err != nil {
 		log.Println(err)

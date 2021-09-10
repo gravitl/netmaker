@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -41,49 +40,11 @@ type Network struct {
 	DefaultCheckInInterval int32       `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
 	DefaultUDPHolePunch    string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS    string      `json:"defaultextclientdns" bson:"defaultextclientdns"`
+	DefaultMTU             int32       `json:"defaultmtu" bson:"defaultmtu"`
 }
 
 type SaveData struct { // put sensitive fields here
 	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
-}
-
-const STRING_FIELD_TYPE = "string"
-const INT64_FIELD_TYPE = "int64"
-const INT32_FIELD_TYPE = "int32"
-const ACCESS_KEY_TYPE = "[]AccessKey"
-
-var FIELD_TYPES = []string{STRING_FIELD_TYPE, INT64_FIELD_TYPE, INT32_FIELD_TYPE, ACCESS_KEY_TYPE}
-
-var FIELDS = map[string][]string{
-	// "id":                  {"ID", "string"},
-	"addressrange":        {"AddressRange", STRING_FIELD_TYPE},
-	"addressrange6":       {"AddressRange6", STRING_FIELD_TYPE},
-	"displayname":         {"DisplayName", STRING_FIELD_TYPE},
-	"netid":               {"NetID", STRING_FIELD_TYPE},
-	"nodeslastmodified":   {"NodesLastModified", INT64_FIELD_TYPE},
-	"networklastmodified": {"NetworkLastModified", INT64_FIELD_TYPE},
-	"defaultinterface":    {"DefaultInterface", STRING_FIELD_TYPE},
-	"defaultlistenport":   {"DefaultListenPort", INT32_FIELD_TYPE},
-	"nodelimit":           {"NodeLimit", INT32_FIELD_TYPE},
-	"defaultpostup":       {"DefaultPostUp", STRING_FIELD_TYPE},
-	"defaultpostdown":     {"DefaultPostDown", STRING_FIELD_TYPE},
-	"keyupdatetimestamp":  {"KeyUpdateTimeStamp", INT64_FIELD_TYPE},
-	"defaultkeepalive":    {"DefaultKeepalive", INT32_FIELD_TYPE},
-	"defaultsaveconfig":   {"DefaultSaveConfig", STRING_FIELD_TYPE},
-	"accesskeys":          {"AccessKeys", ACCESS_KEY_TYPE},
-	"allowmanualsignup":   {"AllowManualSignUp", STRING_FIELD_TYPE},
-	"islocal":             {"IsLocal", STRING_FIELD_TYPE},
-	"isdualstack":         {"IsDualStack", STRING_FIELD_TYPE},
-	"isipv4":              {"IsIPv4", STRING_FIELD_TYPE},
-	"isipv6":              {"IsIPv6", STRING_FIELD_TYPE},
-	"isgrpchub":           {"IsGRPCHub", STRING_FIELD_TYPE},
-	"localrange":          {"LocalRange", STRING_FIELD_TYPE},
-	"checkininterval":     {"DefaultCheckInInterval", INT32_FIELD_TYPE},
-	"defaultudpholepunch": {"DefaultUDPHolePunch", STRING_FIELD_TYPE},
-}
-
-func (network *Network) FieldExists(field string) bool {
-	return len(FIELDS[field]) > 0
 }
 
 func (network *Network) NetIDInNetworkCharSet() bool {
@@ -268,19 +229,9 @@ func (network *Network) SetDefaults() {
 		network.IsIPv6 = "no"
 		network.IsIPv4 = "yes"
 	}
-}
 
-func (network *Network) CopyValues(newNetwork *Network, fieldName string) {
-	reflection := reflect.ValueOf(newNetwork)
-	value := reflect.Indirect(reflection).FieldByName(FIELDS[fieldName][0])
-	if value.IsValid() && len(FIELDS[fieldName]) == 2 {
-		fieldData := FIELDS[fieldName]
-		for _, indexVal := range FIELD_TYPES {
-			if indexVal == fieldData[1] {
-				currentReflection := reflect.ValueOf(network)
-				reflect.Indirect(currentReflection).FieldByName(FIELDS[fieldName][0]).Set(value)
-			}
-		}
+	if network.DefaultMTU == 0 {
+		network.DefaultMTU = 1280
 	}
 }
 

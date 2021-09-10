@@ -7,23 +7,20 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
-	"time"
 
-	"github.com/gravitl/netmaker/database"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/gravitl/netmaker/netclient/server"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	//homedir "github.com/mitchellh/go-homedir"
 )
 
 func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
@@ -103,14 +100,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 	if cfg.Node.Password == "" {
-		cfg.Node.Password = GenPass()
+		cfg.Node.Password = netclientutils.GenPass()
 	}
 	auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
 	if cfg.Node.Endpoint == "" {
 		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress
 		} else {
-			cfg.Node.Endpoint, err = getPublicIP()
+			cfg.Node.Endpoint, err = netclientutils.GetPublicIP()
 			if err != nil {
 				fmt.Println("Error setting cfg.Node.Endpoint.")
 				return err
@@ -127,7 +124,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	if cfg.Node.MacAddress == "" {
-		macs, err := getMacAddr()
+		macs, err := netclientutils.GetMacAddr()
 		if err != nil {
 			return err
 		} else if len(macs) == 0 {
@@ -197,7 +194,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	if node.ListenPort == 0 {
-		node.ListenPort, err = GetFreePort(51821)
+		node.ListenPort, err = netclientutils.GetFreePort(51821)
 		if err != nil {
 			fmt.Printf("Error retrieving port: %v", err)
 		}
@@ -207,7 +204,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		cfg.Node.DNSOn = "yes"
 	}
 	if !(cfg.Node.IsLocal == "yes") && node.IsLocal == "yes" && node.LocalRange != "" {
-		node.LocalAddress, err = getLocalIP(node.LocalRange)
+		node.LocalAddress, err = netclientutils.GetLocalIP(node.LocalRange)
 		if err != nil {
 			return err
 		}
@@ -227,14 +224,19 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		fmt.Println("Node is marked as PENDING.")
 		fmt.Println("Awaiting approval from Admin before configuring WireGuard.")
 		if cfg.Daemon != "off" {
-			err = local.ConfigureSystemD(cfg.Network)
+			if netclientutils.IsWindows() {
+				// handle daemon here..
+				err = local.CreateAndRunWindowsDaemon()
+			} else {
+				err = local.ConfigureSystemD(cfg.Network)
+			}
 			return err
 		}
 	}
 	log.Println("retrieving remote peers")
 	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !netclientutils.IsEmptyRecord(err) {
 		log.Println("failed to retrieve peers", err)
 		return err
 	}
@@ -245,27 +247,15 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 	if cfg.Daemon != "off" {
-		err = local.ConfigureSystemD(cfg.Network)
+		if netclientutils.IsWindows() {
+			err = local.CreateAndRunWindowsDaemon()
+		} else {
+			err = local.ConfigureSystemD(cfg.Network)
+		}
 	}
 	if err != nil {
 		return err
 	}
 
 	return err
-}
-
-//generate an access key value
-func GenPass() string {
-
-	var seededRand *rand.Rand = rand.New(
-		rand.NewSource(time.Now().UnixNano()))
-
-	length := 16
-	charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
 }
