@@ -11,8 +11,8 @@ import (
 	"time"
 
 	controller "github.com/gravitl/netmaker/controllers"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
-	""
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,7 +41,7 @@ var Networks []models.Network
 var baseURL string = "http://localhost:8081"
 
 func TestMain(m *testing.M) {
-	mongoconn.ConnectDatabase()
+	database.InitializeDatabase()
 	var waitgroup sync.WaitGroup
 	waitgroup.Add(1)
 	go controller.HandleRESTRequests(&waitgroup)
@@ -51,7 +51,8 @@ func TestMain(m *testing.M) {
 
 func adminExists(t *testing.T) bool {
 	response, err := http.Get("http://localhost:8081/api/users/adm/hasadmin")
-	assert.Nil(t, err, err)
+	t.Log(err)
+	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	defer response.Body.Close()
 	var body bool

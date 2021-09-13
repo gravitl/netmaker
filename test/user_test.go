@@ -40,7 +40,7 @@ func TestAdminCreation(t *testing.T) {
 		err = json.NewDecoder(response.Body).Decode(&message)
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
-		assert.Contains(t, message.Message, "Admin already Exists")
+		assert.Equal(t, message.Message, "user exists")
 	})
 }
 
@@ -149,12 +149,12 @@ func TestDeleteUser(t *testing.T) {
 	t.Run("DeleteUser-NonExistantAdmin", func(t *testing.T) {
 		response, err := api(t, "", http.MethodDelete, "http://localhost:8081/api/users/admin", token)
 		assert.Nil(t, err, err)
-		assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 		var message models.ErrorResponse
 		defer response.Body.Close()
 		json.NewDecoder(response.Body).Decode(&message)
-		assert.Equal(t, http.StatusBadRequest, message.Code)
-		assert.Equal(t, "Delete unsuccessful.", message.Message)
+		assert.Equal(t, http.StatusUnauthorized, message.Code)
+		assert.Equal(t, "Error Verifying Auth Token", message.Message)
 	})
 }
 
@@ -167,7 +167,7 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "password",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "User invaliduser not found",
+			errMessage:    "user invaliduser not found",
 		},
 		AuthorizeTestCase{
 			testname:      "empty user",
@@ -175,7 +175,7 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "password",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "Username can't be empty",
+			errMessage:    "username can't be empty",
 		},
 		AuthorizeTestCase{
 			testname:      "empty password",
@@ -183,7 +183,7 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "Password can't be empty",
+			errMessage:    "password can't be empty",
 		},
 		AuthorizeTestCase{
 			testname:      "Invalid Password",
@@ -191,7 +191,7 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "xxxxxxx",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "Wrong Password",
+			errMessage:    "wrong password",
 		},
 		AuthorizeTestCase{
 			testname:      "Valid User",
