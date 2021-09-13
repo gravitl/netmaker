@@ -1,0 +1,4 @@
+#!/usr/bin/with-contenv sh
+if ! stat /etc/netclient/netconfig-* > /dev/null 2>&1; then
+  netclient join --dnson=no --daemon=off -t "$NET_TOKEN"
+fi

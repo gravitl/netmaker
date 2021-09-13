@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv sh
+NET_NAME="$(ls /etc/netclient | grep netconfig- | cut -c 11-)"
+while :	
+do
+        netclient checkin -n "${NET_NAME}"
+        sleep 30
+done

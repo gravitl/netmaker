@@ -6,40 +6,100 @@ on:
       tag:
         description: 'docker tag'
         required: true
+  push:
+    tags:
+      - 'v*'
   pull_request:
     branches:
-      - 'test'
       - 'master'
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: hakeee/netmaker
+  IMAGE_NAME_CLIENT: hakeee/netclient
+
 jobs:
-  docker:
+  build-and-push-netclient:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Set tag
-        run: |
-            if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-              TAG=${{ github.event.inputs.tag }}
-            elif [[ "${{ github.base_ref }}" == 'master' ]]; then
-              TAG="latest"
-            else
-              TAG="${{ github.base_ref }}"
-            fi
-            echo "TAG=${TAG}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLIENT }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push latest
+
+      - name: Build and push latest client
         uses: docker/build-push-action@v2
         with:
           context: .
-          platforms: linux/amd64, linux/arm64
-          push: true
-          tags: gravitl/netmaker:${{ env.TAG }}
+          file: ./Dockerfile-netclient
+          platforms: linux/amd64, linux/arm64, linux/arm/v6, linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  build-and-push-netmaker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and push latest server
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64, linux/arm64, linux/arm/v6, linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

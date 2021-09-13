@@ -1,0 +1,2 @@
+#!/usr/bin/with-contenv sh
+netclient pull -n "$(ls /etc/netclient | grep netconfig- | cut -c 11-)"

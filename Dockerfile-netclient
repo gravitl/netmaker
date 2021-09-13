@@ -1,26 +1,31 @@
-#first stage - builder
+FROM golang:alpine3.14 AS builder
 
-FROM golang:latest as builder
+# Install wget
+RUN apk add --no-cache git
 
-COPY . /app
+WORKDIR /app
+# Install go dependencies
+COPY go.mod go.sum ./
+RUN go mod download
 
 WORKDIR /app/netclient
+COPY . /app
 
 ENV GO111MODULE=auto
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o netclient main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o netclient main.go
 
-#second stage
+FROM crazymax/alpine-s6:3.14-2.2.0.3
 
-FROM debian:latest
+VOLUME /etc/netclient
+RUN apk add --no-cache --update wireguard-tools openssh
+COPY --from=builder /app/netclient/netclient /bin/netclient
+COPY ./netclient/docker-files/cont-init.d /etc/cont-init.d
+COPY ./netclient/docker-files/services.d /etc/services.d
+RUN ln -s /bin/true /bin/systemctl \
+    && ln -s /bin/true /bin/resolvectl \
+    && mkdir -p /etc/systemd/system/ \
+    && mkdir -p /etc/netclient/ \
+    && cp /bin/netclient /etc/netclient/netclient
 
-RUN apt-get update && apt-get -y install systemd procps
-
-WORKDIR /root/
-
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-COPY --from=builder /app/netclient/netclient .
-
-CMD ["./netclient"]
-
+ENTRYPOINT ["/init"]
