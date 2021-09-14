@@ -42,6 +42,11 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 			peer.IsEgressGateway = node.IsEgressGateway
 		}
 		if node.Network == networkName && node.IsPending != "yes" {
+			if node.IsRelay == "yes" { // handle relay stuff
+				peer.RelayAddrs = node.RelayAddrs
+				peer.IsRelay = node.IsRelay
+			}
+			peer.DoNotPropagate = node.DoNotPropagate
 			peer.PublicKey = node.PublicKey
 			peer.Endpoint = node.Endpoint
 			peer.LocalAddress = node.LocalAddress

@@ -87,7 +87,7 @@ func SetNodesDoNotPropagate(yesOrno string, networkName string, addrs []string) 
 		if node.Network == networkName {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
-					node.DoNotPropogate = yesOrno
+					node.DoNotPropagate = yesOrno
 					data, err := json.Marshal(&node)
 					if err != nil {
 						return err

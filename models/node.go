@@ -52,7 +52,7 @@ type Node struct {
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
 	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
-	DoNotPropogate      string   `json:"donotpropogate" bson:"donotpropogate" yaml:"donotpropogate"`
+	DoNotPropagate      string   `json:"donotpropagate" bson:"donotpropagate" yaml:"donotpropagate"`
 	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
 	IsRelay				string   `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
 	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
@@ -87,9 +87,9 @@ func (node *Node) SetDefaulIsPending() {
 	}
 }
 
-func (node *Node) SetDefaultDoNotPropogate() {
-	if node.DoNotPropogate == "" {
-		node.DoNotPropogate = "no"
+func (node *Node) SetDefaultDoNotPropagate() {
+	if node.DoNotPropagate == "" {
+		node.DoNotPropagate = "no"
 	}
 }
 
@@ -284,7 +284,7 @@ func (node *Node) SetDefaults() {
 	node.SetDefaultIngressGateway()
 	node.SetDefaulIsPending()
 	node.SetDefaultMTU()
-	node.SetDefaultDoNotPropogate()
+	node.SetDefaultDoNotPropagate()
 	node.SetDefaultIsRelay()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
