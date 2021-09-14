@@ -198,10 +198,16 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		for _, allowedIp := range node.AllowedIPs {
 			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
 				nodeEndpointArr := strings.Split(node.Endpoint, ":")
-				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) { // don't need to add an allowed ip that already exists..
+				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != node.Address { // don't need to add an allowed ip that already exists..
 					allowedips = append(allowedips, *ipnet)
 				}
-			}
+			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != node.Address {
+					ipnet := net.IPNet{
+						IP:   net.ParseIP(allowedIp),
+						Mask: net.CIDRMask(32, 32),
+					}
+					allowedips = append(allowedips, ipnet)
+			}		
 		}
 		// handle egress gateway peers
 		if node.IsEgressGateway == "yes" {
@@ -224,34 +230,6 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 				}
 			}
 		}
-		// handle relay servers
-		/*
-		if node.IsRelay == "yes" {
-			hasRelay = true
-			relayAddrs = node.RelayAddrs
-			log.Println("found relay addresses")
-			log.Println(node.RelayAddrs)
-			for _, ipstring := range node.RelayAddrs { // go through each ip for relay server
-				log.Println("checking addr")
-				log.Println(ipstring)
-				_, ip, err := net.ParseCIDR(ipstring) // confirming it's a valid IP
-				if ip == nil || err != nil {
-					if appendip := net.ParseIP(ipstring); appendip != nil {
-						ipnet := net.IPNet{
-							IP:   net.ParseIP(ipstring),
-							Mask: net.CIDRMask(32, 32),
-						}
-						allowedips = append(allowedips, ipnet)
-					} else {
-						log.Println(err)
-						continue // if can't parse CIDR
-					}
-				} else {
-					allowedips = append(allowedips, *ip)
-				}
-			}
-		}
-		*/
 		if node.Address6 != "" && dualstack {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(node.Address6),
@@ -298,40 +276,8 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			log.Println("ERROR RETRIEVING EXTERNAL PEERS",err)
 		}
 	}
-	/*
-	if hasRelay {
-		peers = RemoveRelayAddrsFromPeers(relayAddrs, peers)
-	}
-	*/
 	return peers, hasGateway, gateways, err
 }
-/*
-func RemoveRelayAddrsFromPeers(relayAddrs []string, peers []wgtypes.PeerConfig)([]wgtypes.PeerConfig){
-	relayMarker, err := time.ParseDuration(RELAY_KEEPALIVE_MARKER)
-	if err != nil {
-		log.Println(err)
-		log.Println("Could not remove relayed peers. Relay will not be used")
-		return peers
-	}
-	for _, ipstring := range relayAddrs { // go through each ip for relay server
-		_, ip, err := net.ParseCIDR(ipstring) // confirming it's a valid IP
-		if ip == nil || err != nil {
-			continue // if can't parse CIDR
-		}
-		for i, peer := range peers {
-			if *peer.PersistentKeepaliveInterval == relayMarker {
-				continue
-			}
-			for _, nodeip := range peer.AllowedIPs {
-				if ip.Contains(nodeip.IP) {
-					peers = append(peers[:i], peers[i+1:]...)
-				}
-			}
-		}
-	}
-	return peers
-}
-*/
 func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
 	var wcclient nodepb.NodeServiceClient

@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetPeersList(networkName string) ([]models.Node, error) {
+func GetPeersList(networkName string, excludeDoNotPropagate bool) ([]models.Node, error) {
 
 	var peers []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -41,7 +41,9 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
 			peer.IsEgressGateway = node.IsEgressGateway
 		}
-		if node.Network == networkName && node.IsPending != "yes" && node.DoNotPropagate != "yes" {
+		allow := node.DoNotPropagate != "yes" || !excludeDoNotPropagate
+		
+		if node.Network == networkName && node.IsPending != "yes" && allow {
 			if node.IsRelay == "yes" { // handle relay stuff
 				peer.RelayAddrs = node.RelayAddrs
 				peer.IsRelay = node.IsRelay
