@@ -1,0 +1,27 @@
+version: "3"
+services:
+  netclient:
+    image: ghcr.io/hakeee/netclient
+    container_name: netmaker_sample_netclient
+    mac_address: 02:42:ac:11:65:57
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - /lib/modules:/lib/modules
+      - ./netclient:/etc/netclient # Where netclient configs will be stored, not required
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    environment:
+      - "NET_TOKEN=" # Required on first start
+      #- "CUSTOM_DNS=8.8.8.8 1.1.1.1" # Fallbacks to dockerdns 127.0.0.11
+
+  # Nginx exposes the service on port 80.
+  # This service will be reachable on the ip netclient gets without usung expose or port mapping.
+  # To make it available on the host then netclient need to export a port that is mapped to 80 
+  hello:
+    image: nginxdemos/hello
+    network_mode: service:netclient
+    depends_on:
+      - netclient
