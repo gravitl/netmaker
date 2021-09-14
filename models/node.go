@@ -52,10 +52,13 @@ type Node struct {
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
 	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
+	DoNotPropogate      string   `json:"donotpropogate" bson:"donotpropogate" yaml:"donotpropogate"`
 	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
+	IsRelay				string   `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
 	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
 	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	RelayAddrs 			[]string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
@@ -81,6 +84,18 @@ func (node *Node) SetDefaultMTU() {
 func (node *Node) SetDefaulIsPending() {
 	if node.IsPending == "" {
 		node.IsPending = "no"
+	}
+}
+
+func (node *Node) SetDefaultDoNotPropogate() {
+	if node.DoNotPropogate == "" {
+		node.DoNotPropogate = "no"
+	}
+}
+
+func (node *Node) SetDefaultIsRelay() {
+	if node.IsRelay == "" {
+		node.IsRelay = "no"
 	}
 }
 
@@ -269,6 +284,8 @@ func (node *Node) SetDefaults() {
 	node.SetDefaultIngressGateway()
 	node.SetDefaulIsPending()
 	node.SetDefaultMTU()
+	node.SetDefaultDoNotPropogate()
+	node.SetDefaultIsRelay()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 

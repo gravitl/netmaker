@@ -128,3 +128,9 @@ type EgressGatewayRequest struct {
 	PostUp      string   `json:"postup" bson:"postup"`
 	PostDown    string   `json:"postdown" bson:"postdown"`
 }
+
+type RelayRequest struct {
+	NodeID      string   `json:"nodeid" bson:"nodeid"`
+	NetID       string   `json:"netid" bson:"netid"`
+	Addrs      []string `json:"addrs" bson:"addrs"`
+}
