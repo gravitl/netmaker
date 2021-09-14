@@ -1,0 +1,5 @@
+#!/usr/bin/with-contenv sh
+
+if [ "$1" = "dns" ]; then
+  echo "nameserver $3 ${CUSTOM_DNS:-127.0.0.11}" | resolvconf -a "$2"
+fi
