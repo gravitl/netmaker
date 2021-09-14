@@ -121,11 +121,8 @@ func RemoveNetwork(network string) error {
 }
 
 func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
-	//need to  implement checkin on server side
 	hasGateway := false
-	hasRelay := true
 	var gateways []string
-	var relayAddrs []string
 	var peers []wgtypes.PeerConfig
 	var wcclient nodepb.NodeServiceClient
 	cfg, err := config.ReadConfig(network)
@@ -228,17 +225,33 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			}
 		}
 		// handle relay servers
+		/*
 		if node.IsRelay == "yes" {
 			hasRelay = true
 			relayAddrs = node.RelayAddrs
+			log.Println("found relay addresses")
+			log.Println(node.RelayAddrs)
 			for _, ipstring := range node.RelayAddrs { // go through each ip for relay server
+				log.Println("checking addr")
+				log.Println(ipstring)
 				_, ip, err := net.ParseCIDR(ipstring) // confirming it's a valid IP
 				if ip == nil || err != nil {
-					continue // if can't parse CIDR
+					if appendip := net.ParseIP(ipstring); appendip != nil {
+						ipnet := net.IPNet{
+							IP:   net.ParseIP(ipstring),
+							Mask: net.CIDRMask(32, 32),
+						}
+						allowedips = append(allowedips, ipnet)
+					} else {
+						log.Println(err)
+						continue // if can't parse CIDR
+					}
+				} else {
+					allowedips = append(allowedips, *ip)
 				}
-				allowedips = append(allowedips, *ip)
 			}
 		}
+		*/
 		if node.Address6 != "" && dualstack {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(node.Address6),
@@ -252,21 +265,6 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 				PersistentKeepaliveInterval: &keepaliveserver,
 				ReplaceAllowedIPs:           true,
 				AllowedIPs:                  allowedips,
-			}
-		} else if node.IsRelay == "yes" {
-			relaykeepalive, err := time.ParseDuration(RELAY_KEEPALIVE_MARKER)
-			if err != nil {
-				return nil, hasGateway, gateways, err
-			}
-			peer = wgtypes.PeerConfig{
-				PublicKey:                   pubkey,
-				PersistentKeepaliveInterval: &relaykeepalive,
-				Endpoint: &net.UDPAddr{
-					IP:   net.ParseIP(node.Endpoint),
-					Port: int(node.ListenPort),
-				},
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        allowedips,
 			}
 		} else if keepalive != 0 {
 			peer = wgtypes.PeerConfig{
@@ -300,13 +298,14 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			log.Println("ERROR RETRIEVING EXTERNAL PEERS",err)
 		}
 	}
+	/*
 	if hasRelay {
 		peers = RemoveRelayAddrsFromPeers(relayAddrs, peers)
 	}
-
+	*/
 	return peers, hasGateway, gateways, err
 }
-
+/*
 func RemoveRelayAddrsFromPeers(relayAddrs []string, peers []wgtypes.PeerConfig)([]wgtypes.PeerConfig){
 	relayMarker, err := time.ParseDuration(RELAY_KEEPALIVE_MARKER)
 	if err != nil {
@@ -332,7 +331,7 @@ func RemoveRelayAddrsFromPeers(relayAddrs []string, peers []wgtypes.PeerConfig)(
 	}
 	return peers
 }
-
+*/
 func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
 	var wcclient nodepb.NodeServiceClient

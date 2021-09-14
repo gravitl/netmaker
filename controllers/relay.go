@@ -132,7 +132,7 @@ func DeleteRelay(network, macaddress string) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = SetNodesDoNotPropagate("yes", node.Network, node.RelayAddrs)
+	err = SetNodesDoNotPropagate("no", node.Network, node.RelayAddrs)
 	if err != nil {
 		return node, err
 	}

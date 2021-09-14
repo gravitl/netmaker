@@ -41,7 +41,7 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
 			peer.IsEgressGateway = node.IsEgressGateway
 		}
-		if node.Network == networkName && node.IsPending != "yes" {
+		if node.Network == networkName && node.IsPending != "yes" && node.DoNotPropagate != "yes" {
 			if node.IsRelay == "yes" { // handle relay stuff
 				peer.RelayAddrs = node.RelayAddrs
 				peer.IsRelay = node.IsRelay
@@ -65,12 +65,11 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 					}
 				}
 			}
-			functions.PrintUserLog(models.NODE_SERVER_NAME, "adding to peer list: "+peer.MacAddress+" "+peer.Endpoint, 3)
+			if node.IsRelay == "yes" {
+				peer.AllowedIPs = append(peer.AllowedIPs,node.RelayAddrs...)
+			}
 			peers = append(peers, peer)
 		}
-	}
-	if err != nil {
-		return peers, err
 	}
 
 	return peers, err
