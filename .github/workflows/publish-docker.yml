@@ -28,6 +28,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set tag
+        run: |
+            if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+              TAG=${{ github.event.inputs.tag }}
+            elif [[ "${{ github.base_ref }}" == 'master' ]]; then
+              TAG="latest"
+            else
+              TAG="${{ github.base_ref }}"
+            fi
+            echo "TAG=${TAG}" >> $GITHUB_ENV
+            
       - name: Log in to the Container registry
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
@@ -45,6 +56,7 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ env.TAG }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -71,6 +83,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set tag
+        run: |
+            if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+              TAG=${{ github.event.inputs.tag }}
+            elif [[ "${{ github.base_ref }}" == 'master' ]]; then
+              TAG="latest"
+            else
+              TAG="${{ github.base_ref }}"
+            fi
+            echo "TAG=${TAG}" >> $GITHUB_ENV
+
       - name: Log in to the Container registry
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
@@ -88,6 +111,7 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ env.TAG }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
