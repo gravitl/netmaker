@@ -111,6 +111,16 @@ func ValidateRelay(relay models.RelayRequest) error {
 	return err
 }
 
+func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
+	err := SetNodesDoNotPropagate("no", network, oldAddrs)
+	if err != nil {
+		functions.PrintUserLog("netmaker",err.Error(),1)
+	}	
+	err = SetNodesDoNotPropagate("yes", network, newAddrs)
+	if err != nil {
+		functions.PrintUserLog("netmaker",err.Error(),1)
+	}}
+
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -156,4 +166,31 @@ func DeleteRelay(network, macaddress string) (models.Node, error) {
 		return models.Node{}, err
 	}
 	return node, nil
+}
+
+func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error){
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	var relay models.Node
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return relay, nil
+		}
+		functions.PrintUserLog("", err.Error(), 2)
+		return relay, err
+	}
+	for _, value := range collection {
+		err := json.Unmarshal([]byte(value), &relay)
+		if err != nil {
+			functions.PrintUserLog("", err.Error(), 2)
+			continue
+		}
+		if relay.IsRelay == "yes" {
+			for _, addr := range relay.RelayAddrs {
+				if addr == relayedNodeAddr {
+					return relay, nil
+				}
+			}
+		}
+	}
+	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
 }

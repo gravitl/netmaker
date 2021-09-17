@@ -754,10 +754,22 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNode.PullChanges = "yes"
+	relayupdate := false
+	oldRelayAddrs := node.RelayAddrs
+	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
+		for i, addr := range newNode.RelayAddrs {
+			if addr != node.RelayAddrs[i] {
+				relayupdate = true
+			}
+		}		
+	}
 	err = node.Update(&newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if relayupdate {
+		UpdateRelay(node.Network, oldRelayAddrs, node.RelayAddrs)
 	}
 
 	if servercfg.IsDNSMode() {

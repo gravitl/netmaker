@@ -421,6 +421,18 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.MTU == 0 {
 		newNode.MTU = currentNode.MTU
 	}
+	if newNode.OS == "" {
+		newNode.OS = currentNode.OS
+	}
+	if newNode.RelayAddrs == nil {
+		newNode.RelayAddrs = currentNode.RelayAddrs
+	}
+	if newNode.IsRelay == "" {
+		newNode.IsRelay = currentNode.IsRelay
+	}
+	if newNode.DoNotPropagate == "" {
+		newNode.DoNotPropagate = currentNode.DoNotPropagate
+	}
 }
 
 func (currentNode *Node) Update(newNode *Node) error {
