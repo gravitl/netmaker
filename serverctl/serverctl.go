@@ -93,12 +93,10 @@ func RemoveNetwork(network string) (bool, error) {
 		log.Println("could not find " + netclientPath + "netclient")
 		return false, err
 	}
-	cmdoutput, err := local.RunCmd(netclientPath + "netclient leave -n " + network)
-	if err != nil {
-		log.Println(string(cmdoutput))
-		return false, err
+	_, err = local.RunCmd(netclientPath+"netclient leave -n "+network, true)
+	if err == nil {
+		log.Println("Server removed from network " + network)
 	}
-	log.Println("Server removed from network " + network)
 	return true, err
 
 }
