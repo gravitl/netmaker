@@ -13,20 +13,20 @@ func TestGetPeerList(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	t.Run("NoNodes", func(t *testing.T) {
-		peers, err := GetPeersList("skynet", false)
+		peers, err := GetPeersList("skynet", false, "")
 		assert.Nil(t, err)
 		assert.Nil(t, peers)
 	})
 	node := createTestNode()
 	t.Run("One Node", func(t *testing.T) {
-		peers, err := GetPeersList("skynet", false)
+		peers, err := GetPeersList("skynet", false, "")
 		assert.Nil(t, err)
 		assert.Equal(t, node.Address, peers[0].Address)
 	})
 	t.Run("Multiple Nodes", func(t *testing.T) {
 		createnode := models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "02:02:03:04:05:06", Password: "password", Network: "skynet"}
 		CreateNode(createnode, "skynet")
-		peers, err := GetPeersList("skynet", false)
+		peers, err := GetPeersList("skynet", false, "")
 		assert.Nil(t, err)
 		assert.Equal(t, len(peers), 2)
 		foundNodeEndpoint := false
