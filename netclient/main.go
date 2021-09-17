@@ -324,7 +324,7 @@ func main() {
 		ncwindows.InitWindows()
 	} else {
 		// start our application
-		out, err := local.RunCmd("id -u")
+		out, err := local.RunCmd("id -u", true)
 
 		if err != nil {
 			log.Fatal(out, err)

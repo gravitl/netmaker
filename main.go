@@ -38,7 +38,7 @@ func initialize() { // Client Mode Prereq Check
 	}
 	log.Println("database successfully connected.")
 	if servercfg.IsClientMode() {
-		output, err := local.RunCmd("id -u")
+		output, err := local.RunCmd("id -u", true)
 		if err != nil {
 			log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
 			log.Fatal(output, err)

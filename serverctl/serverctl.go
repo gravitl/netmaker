@@ -138,6 +138,8 @@ func AddNetwork(network string) (bool, error) {
 	functions.PrintUserLog(models.NODE_SERVER_NAME, "executing network join: "+netclientPath+"netclient "+"join "+"-t "+token+" -name "+models.NODE_SERVER_NAME+" -endpoint "+pubip, 0)
 
 	joinCMD := exec.Command(netclientPath+"netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
+	joinCMD.Stdout = os.Stdout
+	joinCMD.Stderr = os.Stderr
 	err = joinCMD.Start()
 
 	if err != nil {

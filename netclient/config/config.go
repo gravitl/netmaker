@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/urfave/cli/v2"
@@ -26,6 +25,7 @@ type ClientConfig struct {
 	Network         string       `yaml:"network"`
 	Daemon          string       `yaml:"daemon"`
 	OperatingSystem string       `yaml:"operatingsystem"`
+	DebugJoin		bool		 `yaml:"debugjoin"`
 }
 type ServerConfig struct {
 	CoreDNSAddr   string `yaml:"corednsaddr"`

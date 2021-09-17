@@ -13,7 +13,7 @@ import (
 )
 
 func IsWindowsWGInstalled() bool {
-	out, err := RunCmd("wg help")
+	out, err := RunCmd("wg help", true)
 	if err != nil {
 		return false
 	}
@@ -21,14 +21,14 @@ func IsWindowsWGInstalled() bool {
 }
 
 func ApplyWindowsConf(confPath string) error {
-	if _, err := RunCmd("wireguard.exe /installtunnelservice " + confPath); err != nil {
+	if _, err := RunCmd("wireguard.exe /installtunnelservice " + confPath, true); err != nil {
 		return err
 	}
 	return nil
 }
 
 func RemoveWindowsConf(ifacename string) error {
-	if _, err := RunCmd("wireguard.exe /uninstalltunnelservice " + ifacename); err != nil {
+	if _, err := RunCmd("wireguard.exe /uninstalltunnelservice " + ifacename, true); err != nil {
 		return err
 	}
 	return nil
@@ -58,12 +58,12 @@ func writeServiceConfig() error {
 func StopWindowsDaemon() {
 	netclientutils.Log("no networks detected, stopping Windows, Netclient daemon")
 	// stop daemon, will not overwrite
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe stop`)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe stop`, true)
 }
 
 func RemoveWindowsDaemon() {
 	// uninstall daemon, will not restart or start another
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe uninstall`)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe uninstall`, true)
 	netclientutils.Log("uninstalled Windows, Netclient daemon")
 }
 
@@ -144,9 +144,9 @@ func CreateAndRunWindowsDaemon() error {
 		netclientutils.Log("finished daemon setup")
 	}
 	// install daemon, will not overwrite
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe install`)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe install`, true)
 	// start daemon, will not restart or start another
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`, true)
 	netclientutils.Log(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
 	return nil
 }

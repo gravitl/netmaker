@@ -178,20 +178,15 @@ func DeleteInterface(ifacename string, postdown string) error {
 	if netclientutils.IsWindows() {
 		err = local.RemoveWindowsConf(ifacename)
 	} else {
-		ipExec, err := exec.LookPath("ip")
+		ipExec, errN := exec.LookPath("ip")
+		err = errN
 		if err != nil {
 			log.Println(err)
 		}
-		out, err := local.RunCmd(ipExec + " link del " + ifacename)
-		if err != nil {
-			log.Println(out, err)
-		}
+		_, err = local.RunCmd(ipExec + " link del " + ifacename, false)
 		if postdown != "" {
 			runcmds := strings.Split(postdown, "; ")
-			err = local.RunCmds(runcmds)
-			if err != nil {
-				log.Println("Error encountered running PostDown: " + err.Error())
-			}
+			err = local.RunCmds(runcmds, true)
 		}
 	}
 	return err
