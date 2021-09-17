@@ -15,8 +15,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: hakeee/netmaker
-  IMAGE_NAME_CLIENT: hakeee/netclient
+  IMAGE_NAME: gravitl/netmaker
+  IMAGE_NAME_CLIENT: gravitl/netclient
 
 jobs:
   build-and-push-netclient:

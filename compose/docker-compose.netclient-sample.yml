@@ -1,7 +1,7 @@
 version: "3"
 services:
   netclient:
-    image: ghcr.io/hakeee/netclient
+    image: ghcr.io/gravitl/netclient
     container_name: netmaker_sample_netclient
     mac_address: 02:42:ac:11:65:57
     cap_add:
