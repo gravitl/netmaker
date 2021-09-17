@@ -97,10 +97,23 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-
+	relayupdate := false
+	if node.IsRelay == "yes" && len(newnode.RelayAddrs) > 0 {
+		for i, addr := range newnode.RelayAddrs {
+			if addr != node.RelayAddrs[i] {
+				relayupdate = true
+			}
+		}		
+	}
 	err = node.Update(&newnode)
 	if err != nil {
 		return nil, err
+	}
+	if relayupdate {
+		UpdateRelay(node.Network, node.RelayAddrs, newnode.RelayAddrs)
+		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
+			functions.PrintUserLog("netmaker", "error setting relay updates: " + err.Error(), 1)			
+		}
 	}
 	nodeData, err := json.Marshal(&newnode)
 	if err != nil {
@@ -137,7 +150,12 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		if node.IsServer == "yes" {
 			SetNetworkServerPeers(macAndNetwork[1])
 		}
-		peers, err := GetPeersList(macAndNetwork[1])
+		excludeDoNotPropagate := node.IsRelay != "yes"
+		var relayedNode string 
+		if node.DoNotPropagate == "yes" {
+			relayedNode = node.Address
+		}
+		peers, err := GetPeersList(macAndNetwork[1], excludeDoNotPropagate, relayedNode)
 		if err != nil {
 			return nil, err
 		}

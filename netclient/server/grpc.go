@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+const RELAY_KEEPALIVE_MARKER = "20007ms"
+
 func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
 	var wcclient nodepb.NodeServiceClient
 	// == GRPC SETUP ==
@@ -119,7 +121,6 @@ func RemoveNetwork(network string) error {
 }
 
 func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
-	//need to  implement checkin on server side
 	hasGateway := false
 	var gateways []string
 	var peers []wgtypes.PeerConfig
@@ -197,10 +198,16 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		for _, allowedIp := range node.AllowedIPs {
 			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
 				nodeEndpointArr := strings.Split(node.Endpoint, ":")
-				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) { // don't need to add an allowed ip that already exists..
+				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != node.Address { // don't need to add an allowed ip that already exists..
 					allowedips = append(allowedips, *ipnet)
 				}
-			}
+			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != node.Address {
+					ipnet := net.IPNet{
+						IP:   net.ParseIP(allowedIp),
+						Mask: net.CIDRMask(32, 32),
+					}
+					allowedips = append(allowedips, ipnet)
+			}		
 		}
 		// handle egress gateway peers
 		if node.IsEgressGateway == "yes" {
@@ -271,7 +278,6 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	}
 	return peers, hasGateway, gateways, err
 }
-
 func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
 	var wcclient nodepb.NodeServiceClient

@@ -29,17 +29,15 @@ func SetIPForwarding() error {
 }
 
 func SetIPForwardingLinux() error {
-	out, err := RunCmd("sysctl net.ipv4.ip_forward")
+	out, err := RunCmd("sysctl net.ipv4.ip_forward", true)
 	if err != nil {
-		log.Println(err)
 		log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
 		return err
 	} else {
 		s := strings.Fields(string(out))
 		if s[2] != "1" {
-			_, err = RunCmd("sysctl -w net.ipv4.ip_forward=1")
+			_, err = RunCmd("sysctl -w net.ipv4.ip_forward=1", true)
 			if err != nil {
-				log.Println(err)
 				log.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
 				return err
 			}
@@ -48,22 +46,24 @@ func SetIPForwardingLinux() error {
 	return nil
 }
 
-func RunCmd(command string) (string, error) {
+func RunCmd(command string, printerr bool) (string, error) {
 	args := strings.Fields(command)
-	out, err := exec.Command(args[0], args[1:]...).Output()
+	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+	if err != nil && printerr {
+		log.Println("error running command:",command)
+		log.Println(string(out))
+	}
 	return string(out), err
 }
 
-func RunCmds(commands []string) error {
+func RunCmds(commands []string, printerr bool) error {
 	var err error
 	for _, command := range commands {
 		args := strings.Fields(command)
-		out, err := exec.Command(args[0], args[1:]...).Output()
-		if string(out) != "" {
+		out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+		if err != nil && printerr {
+			log.Println("error running command:",command)
 			log.Println(string(out))
-		}
-		if err != nil {
-			return err
 		}
 	}
 	return err
@@ -175,26 +175,10 @@ WantedBy=timers.target
 		}
 	}
 
-	_, err = RunCmd("systemctl enable netclient@.service")
-	if err != nil {
-		log.Println("Error enabling netclient@.service. Please investigate.")
-		log.Println(err)
-	}
-	_, err = RunCmd("systemctl daemon-reload")
-	if err != nil {
-		log.Println("Error reloading system daemons. Please investigate.")
-		log.Println(err)
-	}
-	_, err = RunCmd("systemctl enable netclient-" + network + ".timer")
-	if err != nil {
-		log.Println("Error enabling netclient.timer. Please investigate.")
-		log.Println(err)
-	}
-	_, err = RunCmd("systemctl start netclient-" + network + ".timer")
-	if err != nil {
-		log.Println("Error starting netclient-" + network + ".timer. Please investigate.")
-		log.Println(err)
-	}
+	_, _ = RunCmd("systemctl enable netclient@.service", true)
+	_, _ = RunCmd("systemctl daemon-reload", true)
+	_, _ = RunCmd("systemctl enable netclient-" + network + ".timer", true)
+	_, _ = RunCmd("systemctl start netclient-" + network + ".timer", true)
 	return nil
 }
 
@@ -221,21 +205,12 @@ func RemoveSystemDServices(network string) error {
 		}
 
 		if fullremove {
-			_, err = RunCmd("systemctl disable netclient@.service")
-			if err != nil {
-				log.Println("Error disabling netclient@.service. Please investigate.")
-				log.Println(err)
-			}
+			_, err = RunCmd("systemctl disable netclient@.service", true)
 		}
-		_, err = RunCmd("systemctl daemon-reload")
-		if err != nil {
-			log.Println("Error stopping netclient-" + network + ".timer. Please investigate.")
-			log.Println(err)
-		}
-		_, err = RunCmd("systemctl disable netclient-" + network + ".timer")
-		if err != nil {
-			log.Println("Error disabling netclient-" + network + ".timer. Please investigate.")
-			log.Println(err)
+		_, _ = RunCmd("systemctl daemon-reload", true)
+
+		if FileExists("/etc/systemd/system/netclient-" + network + ".timer") {
+			_, _ = RunCmd("systemctl disable netclient-" + network + ".timer", true)
 		}
 		if fullremove {
 			if FileExists("/etc/systemd/system/netclient@.service") {
@@ -249,17 +224,8 @@ func RemoveSystemDServices(network string) error {
 			log.Println("Error removing file. Please investigate.")
 			log.Println(err)
 		}
-		_, err = RunCmd("systemctl daemon-reload")
-		if err != nil {
-			log.Println("Error reloading system daemons. Please investigate.")
-			log.Println(err)
-		}
-		_, err = RunCmd("systemctl reset-failed")
-		if err != nil {
-			log.Println("Error reseting failed system services. Please investigate.")
-			log.Println(err)
-		}
-		return err
+		_, _ = RunCmd("systemctl daemon-reload", true)
+		_, _ = RunCmd("systemctl reset-failed", true)
 	}
 	return nil
 }
@@ -291,7 +257,7 @@ func WipeLocal(network string) error {
 
 	if ifacename != "" {
 		if netclientutils.IsWindows() {
-			if err := RemoveWindowsConf(ifacename); err == nil {
+			if err = RemoveWindowsConf(ifacename); err == nil {
 				log.Println("removed Windows interface", ifacename)
 			}
 		} else {
@@ -299,16 +265,15 @@ func WipeLocal(network string) error {
 			if err != nil {
 				return err
 			}
-			out, err := RunCmd(ipExec + " link del " + ifacename)
-			if err != nil {
-				log.Println(out, err)
+			out, err := RunCmd(ipExec + " link del " + ifacename, false)
+			dontprint := strings.Contains(out, "does not exist") || strings.Contains(out, "Cannot find device")
+			if err != nil && !dontprint {
+				log.Println("error running command:",ipExec + " link del " + ifacename)
+				log.Println(out)
 			}
 			if nodecfg.PostDown != "" {
 				runcmds := strings.Split(nodecfg.PostDown, "; ")
-				err = RunCmds(runcmds)
-				if err != nil {
-					log.Println("Error encountered running PostDown: " + err.Error())
-				}
+				_ = RunCmds(runcmds, false)
 			}
 		}
 	}
