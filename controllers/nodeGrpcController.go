@@ -98,7 +98,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 	relayupdate := false
-	oldRelayAddrs := node.RelayAddrs
 	if node.IsRelay == "yes" && len(newnode.RelayAddrs) > 0 {
 		for i, addr := range newnode.RelayAddrs {
 			if addr != node.RelayAddrs[i] {
@@ -111,7 +110,10 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 	if relayupdate {
-		UpdateRelay(node.Network, oldRelayAddrs, node.RelayAddrs)
+		UpdateRelay(node.Network, node.RelayAddrs, newnode.RelayAddrs)
+		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
+			functions.PrintUserLog("netmaker", "error setting relay updates: " + err.Error(), 1)			
+		}
 	}
 	nodeData, err := json.Marshal(&newnode)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -112,6 +113,7 @@ func ValidateRelay(relay models.RelayRequest) error {
 }
 
 func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
+	time.Sleep(time.Second/4)	
 	err := SetNodesDoNotPropagate("no", network, oldAddrs)
 	if err != nil {
 		functions.PrintUserLog("netmaker",err.Error(),1)

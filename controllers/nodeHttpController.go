@@ -755,13 +755,16 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode.PullChanges = "yes"
 	relayupdate := false
-	oldRelayAddrs := node.RelayAddrs
 	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
-		for i, addr := range newNode.RelayAddrs {
-			if addr != node.RelayAddrs[i] {
+		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {
 				relayupdate = true
+		} else {
+			for i, addr := range newNode.RelayAddrs {
+					if addr != node.RelayAddrs[i] {
+							relayupdate = true
+					}
 			}
-		}		
+		}
 	}
 	err = node.Update(&newNode)
 	if err != nil {
@@ -769,7 +772,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		UpdateRelay(node.Network, oldRelayAddrs, node.RelayAddrs)
+		UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
+		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
+			functions.PrintUserLog("netmaker", "error setting relay updates: " + err.Error(), 1)			
+		}
 	}
 
 	if servercfg.IsDNSMode() {
