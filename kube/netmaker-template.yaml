@@ -65,6 +65,9 @@ spec:
           value: "Kubernetes"
         - name: CORS_ALLOWED_ORIGIN
           value: "*"
+        volumeMounts:
+        - name: nm-pvc
+          mountPath: /root/config/dnsconfig
       - name: rqlite
         image: rqlite/rqlite
         ports:
