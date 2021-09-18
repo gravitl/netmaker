@@ -35,7 +35,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 
 func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	node, err := functions.GetNodeByMacAddress(relay.NetID, relay.NodeID)
-	if node.OS == "windows" { // add in darwin later
+	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for relay")
 	}
 	if err != nil {

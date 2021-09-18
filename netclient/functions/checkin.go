@@ -166,7 +166,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			return nil, err
 		}
 	}
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Println("Cant dial GRPC server:", err)
@@ -230,7 +230,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			}
 		}
 	}
-	if !netclientutils.IsWindows() {
+	if netclientutils.IsLinux() {
 		setDNS(&resNode, servercfg, &cfg.Node)
 	}
 
@@ -248,7 +248,7 @@ func Push(network string) error {
 	var header metadata.MD
 
 	var wcclient nodepb.NodeServiceClient
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Println("Cant dial GRPC server:", err)

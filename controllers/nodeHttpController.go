@@ -506,7 +506,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
 	node, err := functions.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
-	if node.OS == "windows" { // add in darwin later
+	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
 	if err != nil {
@@ -635,7 +635,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
 
 	node, err := functions.GetNodeByMacAddress(netid, macaddress)
-	if node.OS == "windows" { // add in darwin later
+	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
 	}
 

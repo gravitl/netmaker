@@ -1,6 +1,7 @@
 package local
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,14 +22,14 @@ func IsWindowsWGInstalled() bool {
 }
 
 func ApplyWindowsConf(confPath string) error {
-	if _, err := RunCmd("wireguard.exe /installtunnelservice " + confPath, true); err != nil {
+	if _, err := RunCmd("wireguard.exe /installtunnelservice "+confPath, true); err != nil {
 		return err
 	}
 	return nil
 }
 
 func RemoveWindowsConf(ifacename string) error {
-	if _, err := RunCmd("wireguard.exe /uninstalltunnelservice " + ifacename, true); err != nil {
+	if _, err := RunCmd("wireguard.exe /uninstalltunnelservice "+ifacename, true); err != nil {
 		return err
 	}
 	return nil
@@ -58,12 +59,12 @@ func writeServiceConfig() error {
 func StopWindowsDaemon() {
 	netclientutils.Log("no networks detected, stopping Windows, Netclient daemon")
 	// stop daemon, will not overwrite
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe stop`, true)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe stop`, true)
 }
 
 func RemoveWindowsDaemon() {
 	// uninstall daemon, will not restart or start another
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe uninstall`, true)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe uninstall`, true)
 	netclientutils.Log("uninstalled Windows, Netclient daemon")
 }
 
@@ -121,6 +122,11 @@ func downloadWinsw() error {
 	return nil
 }
 
+func CreateAndRunMacDaemon() error {
+	log.Println("TODO: Create Mac Daemon")
+	return errors.New("no mac daemon yet")
+}
+
 func CreateAndRunWindowsDaemon() error {
 
 	if !FileExists(netclientutils.GetNetclientPathSpecific() + "winsw.xml") {
@@ -144,14 +150,14 @@ func CreateAndRunWindowsDaemon() error {
 		netclientutils.Log("finished daemon setup")
 	}
 	// install daemon, will not overwrite
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe install`, true)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe install`, true)
 	// start daemon, will not restart or start another
-	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`, true)
+	RunCmd(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, true)
 	netclientutils.Log(strings.Replace(netclientutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
 	return nil
 }
 
-func Cleanup() {
+func CleanupWindows() {
 	if !FileExists(netclientutils.GetNetclientPathSpecific() + "winsw.xml") {
 		writeServiceConfig()
 	}
@@ -159,4 +165,11 @@ func Cleanup() {
 	RemoveWindowsDaemon()
 	os.RemoveAll(netclientutils.GetNetclientPath())
 	log.Println("Netclient on Windows, uninstalled")
+}
+
+func CleanupMac() {
+	//StopWindowsDaemon()
+	//RemoveWindowsDaemon()
+	//os.RemoveAll(netclientutils.GetNetclientPath())
+	log.Println("TODO: Not implemented yet")
 }

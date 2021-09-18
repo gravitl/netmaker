@@ -104,8 +104,11 @@ func Uninstall() error {
 	}
 	// clean up OS specific stuff
 	if netclientutils.IsWindows() {
-		local.Cleanup()
+		local.CleanupWindows()
+	} else if netclientutils.IsWindows() {
+		local.CleanupMac()
 	}
+
 	return err
 }
 
@@ -119,7 +122,7 @@ func LeaveNetwork(network string) error {
 	node := cfg.Node
 
 	var wcclient nodepb.NodeServiceClient
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
@@ -183,7 +186,7 @@ func DeleteInterface(ifacename string, postdown string) error {
 		if err != nil {
 			log.Println(err)
 		}
-		_, err = local.RunCmd(ipExec + " link del " + ifacename, false)
+		_, err = local.RunCmd(ipExec+" link del "+ifacename, false)
 		if postdown != "" {
 			runcmds := strings.Split(postdown, "; ")
 			err = local.RunCmds(runcmds, true)

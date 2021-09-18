@@ -37,7 +37,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 				}
 			}
 			if cfg.Daemon != "off" {
-				if !netclientutils.IsWindows() {
+				if netclientutils.IsLinux() {
 					err = local.RemoveSystemDServices(cfg.Network)
 				}
 				if err != nil {
@@ -51,6 +51,8 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Daemon != "off" {
 		if netclientutils.IsWindows() {
 			err = local.CreateAndRunWindowsDaemon()
+		} else if netclientutils.IsMac() {
+			err = local.CreateAndRunMacDaemon()
 		} else {
 			err = functions.InstallDaemon(cfg)
 		}

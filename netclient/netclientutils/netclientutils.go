@@ -1,6 +1,7 @@
 package netclientutils
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -13,11 +14,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"crypto/tls"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const NO_DB_RECORD = "no result found"
@@ -35,6 +36,14 @@ func Log(message string) {
 
 func IsWindows() bool {
 	return runtime.GOOS == "windows"
+}
+
+func IsMac() bool {
+	return runtime.GOOS == "macos"
+}
+
+func IsLinux() bool {
+	return runtime.GOOS == "linux"
 }
 
 // == database returned nothing error ==
