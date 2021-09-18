@@ -757,12 +757,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	relayupdate := false
 	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
 		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {
-				relayupdate = true
+			relayupdate = true
 		} else {
 			for i, addr := range newNode.RelayAddrs {
-					if addr != node.RelayAddrs[i] {
-							relayupdate = true
-					}
+				if addr != node.RelayAddrs[i] {
+					relayupdate = true
+				}
 			}
 		}
 	}
@@ -774,7 +774,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayupdate {
 		UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
 		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
-			functions.PrintUserLog("netmaker", "error setting relay updates: " + err.Error(), 1)			
+			functions.PrintUserLog("netmaker", "error setting relay updates: "+err.Error(), 1)
 		}
 	}
 

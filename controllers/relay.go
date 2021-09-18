@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -45,7 +46,7 @@ func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 		return models.Node{}, err
 	}
 	node.IsRelay = "yes"
-	node.RelayAddrs = relay.Addrs
+	node.RelayAddrs = relay.RelayAddrs
 
 	key, err := functions.GetRecordKey(relay.NodeID, relay.NetID)
 	if err != nil {
@@ -60,7 +61,7 @@ func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	if err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
-	err = SetNodesDoNotPropagate("yes", node.Network, node.RelayAddrs)
+	err = SetRelayedNodes("yes", node.Network, node.RelayAddrs)
 	if err != nil {
 		return node, err
 	}
@@ -71,7 +72,7 @@ func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	return node, nil
 }
 
-func SetNodesDoNotPropagate(yesOrno string, networkName string, addrs []string) error {
+func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
@@ -88,7 +89,7 @@ func SetNodesDoNotPropagate(yesOrno string, networkName string, addrs []string) 
 		if node.Network == networkName {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
-					node.DoNotPropagate = yesOrno
+					node.IsRelayed = yesOrno
 					data, err := json.Marshal(&node)
 					if err != nil {
 						return err
@@ -105,7 +106,7 @@ func SetNodesDoNotPropagate(yesOrno string, networkName string, addrs []string) 
 func ValidateRelay(relay models.RelayRequest) error {
 	var err error
 	//isIp := functions.IsIpCIDR(gateway.RangeString)
-	empty := len(relay.Addrs) == 0
+	empty := len(relay.RelayAddrs) == 0
 	if empty {
 		err = errors.New("IP Ranges Cannot Be Empty")
 	}
@@ -113,15 +114,16 @@ func ValidateRelay(relay models.RelayRequest) error {
 }
 
 func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
-	time.Sleep(time.Second/4)	
-	err := SetNodesDoNotPropagate("no", network, oldAddrs)
+	time.Sleep(time.Second / 4)
+	err := SetRelayedNodes("no", network, oldAddrs)
 	if err != nil {
-		functions.PrintUserLog("netmaker",err.Error(),1)
-	}	
-	err = SetNodesDoNotPropagate("yes", network, newAddrs)
+		functions.PrintUserLog("netmaker", err.Error(), 1)
+	}
+	err = SetRelayedNodes("yes", network, newAddrs)
 	if err != nil {
-		functions.PrintUserLog("netmaker",err.Error(),1)
-	}}
+		functions.PrintUserLog("netmaker", err.Error(), 1)
+	}
+}
 
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -144,7 +146,7 @@ func DeleteRelay(network, macaddress string) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = SetNodesDoNotPropagate("no", node.Network, node.RelayAddrs)
+	err = SetRelayedNodes("no", node.Network, node.RelayAddrs)
 	if err != nil {
 		return node, err
 	}
@@ -170,7 +172,7 @@ func DeleteRelay(network, macaddress string) (models.Node, error) {
 	return node, nil
 }
 
-func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error){
+func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	var relay models.Node
 	if err != nil {

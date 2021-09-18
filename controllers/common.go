@@ -14,12 +14,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetPeersList(networkName string, excludeDoNotPropagate bool, relayedNodeAddr string) ([]models.Node, error) {
+func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
 	var peers []models.Node
 	var relayNode models.Node
 	var err error
 	if relayedNodeAddr == "" {
-		peers, err = GetNodePeers(networkName, excludeDoNotPropagate)
+		peers, err = GetNodePeers(networkName, excludeRelayed)
 
 	} else {
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
@@ -27,17 +27,17 @@ func GetPeersList(networkName string, excludeDoNotPropagate bool, relayedNodeAdd
 			relayNode = setPeerInfo(relayNode)
 			network, err := models.GetNetwork(networkName)
 			if err == nil {
-				relayNode.AllowedIPs = append(relayNode.AllowedIPs,network.AddressRange)
+				relayNode.AllowedIPs = append(relayNode.AllowedIPs, network.AddressRange)
 			} else {
-				relayNode.AllowedIPs = append(relayNode.AllowedIPs,relayNode.RelayAddrs...)
-			}	
-			peers = append(peers,relayNode)
+				relayNode.AllowedIPs = append(relayNode.AllowedIPs, relayNode.RelayAddrs...)
+			}
+			peers = append(peers, relayNode)
 		}
 	}
 	return peers, err
 }
 
-func GetNodePeers(networkName string, excludeDoNotPropagate bool) ([]models.Node, error) {
+func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error) {
 	var peers []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
@@ -63,8 +63,8 @@ func GetNodePeers(networkName string, excludeDoNotPropagate bool) ([]models.Node
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
 			peer.IsEgressGateway = node.IsEgressGateway
 		}
-		allow := node.DoNotPropagate != "yes" || !excludeDoNotPropagate
-		
+		allow := node.IsRelayed != "yes" || !excludeRelayed
+
 		if node.Network == networkName && node.IsPending != "yes" && allow {
 			peer = setPeerInfo(node)
 			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[node.PublicKey]) {
@@ -81,9 +81,9 @@ func GetNodePeers(networkName string, excludeDoNotPropagate bool) ([]models.Node
 			if node.IsRelay == "yes" {
 				network, err := models.GetNetwork(networkName)
 				if err == nil {
-					peer.AllowedIPs = append(peer.AllowedIPs,network.AddressRange)
+					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
 				} else {
-					peer.AllowedIPs = append(peer.AllowedIPs,node.RelayAddrs...)
+					peer.AllowedIPs = append(peer.AllowedIPs, node.RelayAddrs...)
 				}
 			}
 			peers = append(peers, peer)
@@ -93,13 +93,11 @@ func GetNodePeers(networkName string, excludeDoNotPropagate bool) ([]models.Node
 	return peers, err
 }
 
-
-
 func setPeerInfo(node models.Node) models.Node {
 	var peer models.Node
 	peer.RelayAddrs = node.RelayAddrs
 	peer.IsRelay = node.IsRelay
-	peer.DoNotPropagate = node.DoNotPropagate
+	peer.IsRelayed = node.IsRelayed
 	peer.PublicKey = node.PublicKey
 	peer.Endpoint = node.Endpoint
 	peer.LocalAddress = node.LocalAddress
