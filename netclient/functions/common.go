@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -15,8 +16,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/local"
-	"github.com/gravitl/netmaker/netclient/netclientutils"
+	"github.com/gravitl/netmaker/netclient/daemon"
+	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -92,21 +94,21 @@ func GetNode(network string) models.Node {
 func Uninstall() error {
 	networks, err := GetNetworks()
 	if err != nil {
-		log.Println("unable to retrieve networks: ", err)
-		log.Println("continuing uninstall without leaving networks")
+		ncutils.PrintLog("unable to retrieve networks: "+err.Error(), 1)
+		ncutils.PrintLog("continuing uninstall without leaving networks", 1)
 	} else {
 		for _, network := range networks {
 			err = LeaveNetwork(network)
 			if err != nil {
-				log.Println("Encounter issue leaving network "+network+": ", err)
+				ncutils.PrintLog("Encounter issue leaving network "+network+": "+err.Error(), 1)
 			}
 		}
 	}
 	// clean up OS specific stuff
-	if netclientutils.IsWindows() {
-		local.CleanupWindows()
-	} else if netclientutils.IsWindows() {
-		local.CleanupMac()
+	if ncutils.IsWindows() {
+		daemon.CleanupWindows()
+	} else if ncutils.IsWindows() {
+		daemon.CleanupMac()
 	}
 
 	return err
@@ -123,7 +125,7 @@ func LeaveNetwork(network string) error {
 
 	var wcclient nodepb.NodeServiceClient
 	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
 	} else {
@@ -134,9 +136,9 @@ func LeaveNetwork(network string) error {
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
 		} else {
-			if netclientutils.IsWindows() {
-				local.RemoveWindowsConf(node.Interface)
-				log.Println("removed Windows tunnel " + node.Interface)
+			if !ncutils.IsKernel() {
+				//wireguard.RemoveConf(node.Interface, true)
+				//ncutils.PrintLog("removed network tunnel "+node.Interface, 1)
 			}
 			node.SetID()
 			var header metadata.MD
@@ -149,10 +151,9 @@ func LeaveNetwork(network string) error {
 				grpc.Header(&header),
 			)
 			if err != nil {
-				log.Printf("Encountered error deleting node: %v", err)
-				log.Println(err)
+				ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
 			} else {
-				log.Println("Removed machine from " + node.Network + " network on remote server")
+				ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
 			}
 		}
 	}
@@ -160,17 +161,19 @@ func LeaveNetwork(network string) error {
 }
 
 func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
-	err := local.WipeLocal(networkName)
+	err := WipeLocal(networkName)
 	if err != nil {
-		log.Printf("Unable to wipe local config: %v", err)
+		ncutils.PrintLog("unable to wipe local config", 1)
 	} else {
-		log.Println("Removed " + networkName + " network locally")
+		ncutils.PrintLog("removed "+networkName+" network locally", 1)
 	}
 	if cfg.Daemon != "off" {
-		if netclientutils.IsWindows() {
+		if ncutils.IsWindows() {
 			// TODO: Remove job?
+		} else if ncutils.IsMac() {
+			//TODO: Delete mac daemon
 		} else {
-			err = local.RemoveSystemDServices(networkName)
+			err = daemon.RemoveSystemDServices(networkName)
 		}
 	}
 	return err
@@ -178,18 +181,18 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 
 func DeleteInterface(ifacename string, postdown string) error {
 	var err error
-	if netclientutils.IsWindows() {
-		err = local.RemoveWindowsConf(ifacename)
+	if !ncutils.IsKernel() {
+		err = wireguard.RemoveConf(ifacename, true)
 	} else {
 		ipExec, errN := exec.LookPath("ip")
 		err = errN
 		if err != nil {
-			log.Println(err)
+			ncutils.PrintLog(err.Error(), 1)
 		}
-		_, err = local.RunCmd(ipExec+" link del "+ifacename, false)
+		_, err = ncutils.RunCmd(ipExec+" link del "+ifacename, false)
 		if postdown != "" {
 			runcmds := strings.Split(postdown, "; ")
-			err = local.RunCmds(runcmds, true)
+			err = ncutils.RunCmds(runcmds, true)
 		}
 	}
 	return err
@@ -212,9 +215,9 @@ func List() error {
 					"PrivateIPv6":    cfg.Node.Address6,
 					"PublicEndpoint": cfg.Node.Endpoint,
 				})
-			log.Println(network + ": " + string(jsoncfg))
+			fmt.Println(network + ": " + string(jsoncfg))
 		} else {
-			log.Println(network + ": Could not retrieve network configuration.")
+			ncutils.PrintLog(network+": Could not retrieve network configuration.", 1)
 		}
 	}
 	return nil
@@ -222,7 +225,7 @@ func List() error {
 
 func GetNetworks() ([]string, error) {
 	var networks []string
-	files, err := ioutil.ReadDir(netclientutils.GetNetclientPath())
+	files, err := ioutil.ReadDir(ncutils.GetNetclientPath())
 	if err != nil {
 		return networks, err
 	}
@@ -246,4 +249,108 @@ func stringAfter(original string, substring string) string {
 		return ""
 	}
 	return original[adjustedPosition:len(original)]
+}
+
+func WipeLocal(network string) error {
+	cfg, err := config.ReadConfig(network)
+	if err != nil {
+		return err
+	}
+	nodecfg := cfg.Node
+	ifacename := nodecfg.Interface
+
+	if ifacename != "" {
+		if !ncutils.IsKernel() {
+			if err = wireguard.RemoveConf(ifacename, true); err == nil {
+				ncutils.PrintLog("removed WireGuard interface: "+ifacename, 1)
+			}
+		} else {
+			ipExec, err := exec.LookPath("ip")
+			if err != nil {
+				return err
+			}
+			out, err := ncutils.RunCmd(ipExec+" link del "+ifacename, false)
+			dontprint := strings.Contains(out, "does not exist") || strings.Contains(out, "Cannot find device")
+			if err != nil && !dontprint {
+				ncutils.PrintLog("error running command: "+ipExec+" link del "+ifacename, 1)
+				ncutils.PrintLog(out, 1)
+			}
+			if nodecfg.PostDown != "" {
+				runcmds := strings.Split(nodecfg.PostDown, "; ")
+				_ = ncutils.RunCmds(runcmds, false)
+			}
+		}
+	}
+	home := ncutils.GetNetclientPathSpecific()
+	if ncutils.FileExists(home + "netconfig-" + network) {
+		_ = os.Remove(home + "netconfig-" + network)
+	}
+	if ncutils.FileExists(home + "nettoken-" + network) {
+		_ = os.Remove(home + "nettoken-" + network)
+	}
+	if ncutils.FileExists(home + "secret-" + network) {
+		_ = os.Remove(home + "secret-" + network)
+	}
+	if ncutils.FileExists(home + "wgkey-" + network) {
+		_ = os.Remove(home + "wgkey-" + network)
+	}
+	if ncutils.FileExists(home + "nm-" + network + ".conf") {
+		_ = os.Remove(home + "nm-" + network + ".conf")
+	}
+	return err
+}
+
+func getLocalIP(node models.Node) string {
+
+	var local string
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return local
+	}
+	_, localrange, err := net.ParseCIDR(node.LocalRange)
+	if err != nil {
+		return local
+	}
+
+	found := false
+	for _, i := range ifaces {
+		if i.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if i.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := i.Addrs()
+		if err != nil {
+			return local
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				if !found {
+					ip = v.IP
+					local = ip.String()
+					if node.IsLocal == "yes" {
+						found = localrange.Contains(ip)
+					} else {
+						found = true
+					}
+				}
+			case *net.IPAddr:
+				if !found {
+					ip = v.IP
+					local = ip.String()
+					if node.IsLocal == "yes" {
+						found = localrange.Contains(ip)
+
+					} else {
+						found = true
+					}
+				}
+			}
+		}
+	}
+	return local
 }

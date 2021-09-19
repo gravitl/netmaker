@@ -11,8 +11,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/local"
-	"github.com/gravitl/netmaker/netclient/netclientutils"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/server"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -27,7 +28,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
-	netclientutils.Log("attempting to join " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 	err := config.Write(&cfg, cfg.Network)
 	if err != nil {
 		return err
@@ -42,20 +43,20 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		cfg.Node.LocalAddress = getLocalIP(cfg.Node)
 	}
 	if cfg.Node.Password == "" {
-		cfg.Node.Password = netclientutils.GenPass()
+		cfg.Node.Password = ncutils.GenPass()
 	}
 	auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
 
-	// set endpoint if blank. set to local if local net, retrieve from function if not 
+	// set endpoint if blank. set to local if local net, retrieve from function if not
 	if cfg.Node.Endpoint == "" {
 		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress
 		} else {
-			cfg.Node.Endpoint, err = netclientutils.GetPublicIP()
+			cfg.Node.Endpoint, err = ncutils.GetPublicIP()
 
 		}
 		if err != nil || cfg.Node.Endpoint == "" {
-			netclientutils.Log("Error setting cfg.Node.Endpoint.")
+			ncutils.Log("Error setting cfg.Node.Endpoint.")
 			return err
 		}
 	}
@@ -71,7 +72,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 
 	// Find and set node MacAddress
 	if cfg.Node.MacAddress == "" {
-		macs, err := netclientutils.GetMacAddr()
+		macs, err := ncutils.GetMacAddr()
 		if err != nil {
 			return err
 		} else if len(macs) == 0 {
@@ -83,8 +84,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 
 	var wcclient nodepb.NodeServiceClient
 
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
@@ -129,7 +130,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
-	log.Println("node created on remote server...updating configs")
+	ncutils.PrintLog("node created on remote server...updating configs", 1)
 
 	nodeData := res.Data
 	var node models.Node
@@ -138,14 +139,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	// get free port based on returned default listen port
-	node.ListenPort, err = netclientutils.GetFreePort(node.ListenPort)
+	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
 	if err != nil {
 		fmt.Printf("Error retrieving port: %v", err)
 	}
-	
+
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
 	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {
-		node.LocalAddress, err = netclientutils.GetLocalIP(node.LocalRange)
+		node.LocalAddress, err = ncutils.GetLocalIP(node.LocalRange)
 		if err != nil {
 			return err
 		}
@@ -161,45 +162,35 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
-	// pushing any local changes to server before starting wireguard 
+	// pushing any local changes to server before starting wireguard
 	err = Push(cfg.Network)
 	if err != nil {
 		return err
 	}
 
 	if node.IsPending == "yes" {
-		netclientutils.Log("Node is marked as PENDING.")
-		netclientutils.Log("Awaiting approval from Admin before configuring WireGuard.")
+		ncutils.Log("Node is marked as PENDING.")
+		ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
 		if cfg.Daemon != "off" {
-			if netclientutils.IsWindows() {
-				// handle daemon here..
-				err = local.CreateAndRunWindowsDaemon()
-			} else {
-				err = local.ConfigureSystemD(cfg.Network)
-			}
-			return err
+			return daemon.InstallDaemon(cfg)
 		}
 	}
 
-	netclientutils.Log("retrieving remote peers")
+	ncutils.Log("retrieving remote peers")
 	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 
-	if err != nil && !netclientutils.IsEmptyRecord(err) {
-		netclientutils.Log("failed to retrieve peers")
+	if err != nil && !ncutils.IsEmptyRecord(err) {
+		ncutils.Log("failed to retrieve peers")
 		return err
 	}
 
-	netclientutils.Log("starting wireguard")
+	ncutils.Log("starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways)
 	if err != nil {
 		return err
 	}
 	if cfg.Daemon != "off" {
-		if netclientutils.IsWindows() {
-			err = local.CreateAndRunWindowsDaemon()
-		} else {
-			err = local.ConfigureSystemD(cfg.Network)
-		}
+		err = daemon.InstallDaemon(cfg)
 	}
 	if err != nil {
 		return err

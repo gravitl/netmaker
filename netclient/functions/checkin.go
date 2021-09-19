@@ -3,7 +3,6 @@ package functions
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"runtime"
 	"strings"
@@ -13,7 +12,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
-	"github.com/gravitl/netmaker/netclient/netclientutils"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -30,37 +29,37 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 	var err error
 	if node.Roaming == "yes" && node.IsStatic != "yes" {
 		if node.IsLocal == "no" {
-			extIP, err := netclientutils.GetPublicIP()
+			extIP, err := ncutils.GetPublicIP()
 			if err != nil {
-				log.Println("error encountered checking ip addresses:", err)
+				ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
 			}
 			if node.Endpoint != extIP && extIP != "" {
-				log.Println("Endpoint has changed from " +
-					node.Endpoint + " to " + extIP)
-				log.Println("Updating address")
+				ncutils.PrintLog("endpoint has changed from "+
+					node.Endpoint+" to "+extIP, 1)
+				ncutils.PrintLog("updating address", 1)
 				node.Endpoint = extIP
 				ipchange = true
 			}
 			intIP, err := getPrivateAddr()
 			if err != nil {
-				log.Println("error encountered checking ip addresses:", err)
+				ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
 			}
 			if node.LocalAddress != intIP && intIP != "" {
-				log.Println("Local Address has changed from " +
-					node.LocalAddress + " to " + intIP)
-				log.Println("Updating address")
+				ncutils.PrintLog("local Address has changed from "+
+					node.LocalAddress+" to "+intIP, 1)
+				ncutils.PrintLog("updating address", 1)
 				node.LocalAddress = intIP
 				ipchange = true
 			}
 		} else {
-			localIP, err := netclientutils.GetLocalIP(node.LocalRange)
+			localIP, err := ncutils.GetLocalIP(node.LocalRange)
 			if err != nil {
-				log.Println("error encountered checking ip addresses:", err)
+				ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
 			}
 			if node.Endpoint != localIP && localIP != "" {
-				log.Println("Endpoint has changed from " +
-					node.Endpoint + " to " + localIP)
-				log.Println("Updating address")
+				ncutils.PrintLog("endpoint has changed from "+
+					node.Endpoint+" to "+localIP, 1)
+				ncutils.PrintLog("updating address", 1)
 				node.Endpoint = localIP
 				node.LocalAddress = localIP
 				ipchange = true
@@ -70,12 +69,12 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 	if ipchange {
 		err = config.ModConfig(node)
 		if err != nil {
-			log.Println("Error:", err)
+			ncutils.PrintLog("error modifying config file: "+err.Error(), 1)
 			return false
 		}
 		err = wireguard.SetWGConfig(network, false)
 		if err != nil {
-			log.Println("Error:", err)
+			ncutils.PrintLog("error setting wireguard config: "+err.Error(), 1)
 			return false
 		}
 	}
@@ -96,14 +95,14 @@ func checkNodeActions(node *models.Node, networkName string, servercfg config.Se
 		node.IsStatic != "yes" {
 		err := wireguard.SetWGKeyConfig(networkName, servercfg.GRPCAddress)
 		if err != nil {
-			log.Println("Unable to process reset keys request:", err)
+			ncutils.PrintLog("unable to process reset keys request: "+err.Error(), 1)
 			return ""
 		}
 	}
 	if node.Action == models.NODE_DELETE || localNode.Action == models.NODE_DELETE {
 		err := RemoveLocalInstance(cfg, networkName)
 		if err != nil {
-			log.Println("Error:", err)
+			ncutils.PrintLog("error deleting locally: "+err.Error(), 1)
 		}
 		return models.NODE_DELETE
 	}
@@ -161,22 +160,22 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	servercfg := cfg.Server
 	var header metadata.MD
 
-	if cfg.Node.IPForwarding == "yes" && !netclientutils.IsWindows() {
+	if cfg.Node.IPForwarding == "yes" && !ncutils.IsWindows() {
 		if err = local.SetIPForwarding(); err != nil {
 			return nil, err
 		}
 	}
 	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
-		log.Println("Cant dial GRPC server:", err)
+		ncutils.PrintLog("Cant dial GRPC server: "+err.Error(), 1)
 		return nil, err
 	}
 	wcclient := nodepb.NewNodeServiceClient(conn)
 
 	ctx, err := auth.SetJWT(wcclient, network)
 	if err != nil {
-		log.Println("Failed to authenticate:", err)
+		ncutils.PrintLog("Failed to authenticate: "+err.Error(), 1)
 		return nil, err
 	}
 
@@ -198,7 +197,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		// check for interface change
 		if cfg.Node.Interface != resNode.Interface {
 			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
-				log.Println("could not delete old interface", cfg.Node.Interface)
+				ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface, 1)
 			}
 		}
 		resNode.PullChanges = "no"
@@ -230,7 +229,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			}
 		}
 	}
-	if netclientutils.IsLinux() {
+	if ncutils.IsLinux() {
 		setDNS(&resNode, servercfg, &cfg.Node)
 	}
 
@@ -249,16 +248,16 @@ func Push(network string) error {
 
 	var wcclient nodepb.NodeServiceClient
 	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
-		log.Println("Cant dial GRPC server:", err)
+		ncutils.PrintLog("Cant dial GRPC server: "+err.Error(), 1)
 		return err
 	}
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
 	ctx, err := auth.SetJWT(wcclient, network)
 	if err != nil {
-		log.Println("Failed to authenticate:", err)
+		ncutils.PrintLog("Failed to authenticate with server: "+err.Error(), 1)
 		return err
 	}
 	if postnode.IsPending != "yes" {

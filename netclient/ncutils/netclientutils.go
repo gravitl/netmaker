@@ -1,15 +1,17 @@
-package netclientutils
+package ncutils
 
 import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -39,11 +41,18 @@ func IsWindows() bool {
 }
 
 func IsMac() bool {
-	return runtime.GOOS == "macos"
+	return runtime.GOOS == "darwin"
 }
 
 func IsLinux() bool {
 	return runtime.GOOS == "linux"
+}
+
+func IsKernel() bool {
+	//TODO
+	//Replace && true with some config file value
+	//This value should be something like kernelmode, which should be 'on' by default.
+	return IsLinux() && true
 }
 
 // == database returned nothing error ==
@@ -256,6 +265,8 @@ func GetHomeDirWindows() string {
 func GetNetclientPath() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH
+	} else if IsMac() {
+		return "/etc/netclient/"
 	} else {
 		return LINUX_APP_DATA_PATH
 	}
@@ -264,6 +275,8 @@ func GetNetclientPath() string {
 func GetNetclientPathSpecific() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH + "\\"
+	} else if IsMac() {
+		return "/etc/netclient/"
 	} else {
 		return LINUX_APP_DATA_PATH + "/"
 	}
@@ -277,4 +290,71 @@ func GRPCRequestOpts(isSecure string) grpc.DialOption {
 		requestOpts = grpc.WithTransportCredentials(h2creds)
 	}
 	return requestOpts
+}
+
+func Copy(src, dst string) (int64, error) {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return 0, err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return 0, errors.New(src + " is not a regular file")
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+	nBytes, err := io.Copy(destination, source)
+	err = os.Chmod(dst, 0755)
+	if err != nil {
+		log.Println(err)
+	}
+	return nBytes, err
+}
+
+func RunCmd(command string, printerr bool) (string, error) {
+	args := strings.Fields(command)
+	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+	if err != nil && printerr {
+		log.Println("error running command:", command)
+		log.Println(strings.TrimSuffix(string(out), "\n"))
+	}
+	return string(out), err
+}
+
+func RunCmds(commands []string, printerr bool) error {
+	var err error
+	for _, command := range commands {
+		args := strings.Fields(command)
+		out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+		if err != nil && printerr {
+			log.Println("error running command:", command)
+			log.Println(strings.TrimSuffix(string(out), "\n"))
+		}
+	}
+	return err
+}
+
+func FileExists(f string) bool {
+	info, err := os.Stat(f)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
+func PrintLog(message string, loglevel int) {
+	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
+	if loglevel < 2 {
+		log.Println("[netclient]", message)
+	}
 }
