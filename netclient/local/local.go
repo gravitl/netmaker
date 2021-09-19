@@ -4,6 +4,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"errors"
 	"log"
+	"net"
 	"runtime"
 	"strings"
 
@@ -58,23 +59,33 @@ func IsWGInstalled() bool {
 	return strings.Contains(out, "Available subcommand")
 }
 
-func GetMacIface(addr string) (string, error) {
-	out, err := ncutils.RunCmd("route get "+addr, false)
-	var iface string
+func GetMacIface(ipstring string) (string, error) {
+	var wgiface string
+	_, checknet, err := net.ParseCIDR(ipstring + "/24")
 	if err != nil {
-		return iface, errors.New(string(out))
+		return wgiface, errors.New("could not parse ip " + ipstring)
 	}
-	for _, line := range strings.Split(strings.TrimSuffix(string(out), "\n"), "\n") {
-		if strings.Contains(line, "interface: ") {
-			iface = getLineAfter(string(out), "interface: ")
-			iface = strings.Split(iface, "\n")[0]
-			break
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return wgiface, err
+	}
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ip := addr.(*net.IPNet).IP
+			if checknet.Contains(ip) {
+				wgiface = iface.Name
+				break
+			}
 		}
 	}
-	if iface == "" {
-		err = errors.New("could not find iface for ip addr " + addr)
+	if wgiface == "" {
+		err = errors.New("could not find iface for network " + ipstring)
 	}
-	return iface, err
+	return wgiface, err
 }
 
 func getLineAfter(value string, a string) string {
