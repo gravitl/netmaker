@@ -81,7 +81,8 @@ func GetVersion() string {
 }
 func GetDB() string {
 	database := "sqlite"
-	if os.Getenv("DATABASE") == "rqlite" {
+	if os.Getenv("DATABASE") == "rqlite" ||
+		os.Getenv("DATABASE") == "memcached" {
 		database = os.Getenv("DATABASE")
 	} else if config.Config.Server.Database == "rqlite" {
 		database = config.Config.Server.Database
@@ -261,6 +262,15 @@ func IsGRPCSSL() bool {
 		}
 	}
 	return isssl
+}
+
+func GetMemcachedAddress() string { // completely optional
+	if os.Getenv("MEMCACHED_ADDRESSES") != "" {
+		return os.Getenv("MEMCACHED_ADDRESSES")
+	} else if config.Config.Server.MemcachedAddresses != "" {
+		return config.Config.Server.MemcachedAddresses
+	}
+	return "127.0.0.1:11211"
 }
 
 func DisableRemoteIPCheck() bool {

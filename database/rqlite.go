@@ -83,16 +83,16 @@ func rqliteDeleteAllRecords(tableName string) error {
 	return nil
 }
 
-func rqliteFetchRecord(tableName string, key string) (string, error) {
-	results, err := FetchRecords(tableName)
-	if err != nil {
-		return "", err
-	}
-	if results[key] == "" {
-		return "", errors.New(NO_RECORD)
-	}
-	return results[key], nil
-}
+// func rqliteFetchRecord(tableName string, key string) (string, error) {
+// 	results, err := FetchRecords(tableName)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	if results[key] == "" {
+// 		return "", errors.New(NO_RECORD)
+// 	}
+// 	return results[key], nil
+// }
 
 func rqliteFetchRecords(tableName string) (map[string]string, error) {
 	row, err := RQliteDatabase.QueryOne("SELECT * FROM " + tableName + " ORDER BY key")

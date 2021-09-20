@@ -53,10 +53,11 @@ type ServerConfig struct {
 	GRPCSSL              string `yaml:"grpcssl"`
 	Version              string `yaml:"version"`
 	SQLConn              string `yaml:"sqlconn"`
-	Platform              string `yaml:"platform"`
+	Platform             string `yaml:"platform"`
 	Database             string `yaml:database`
 	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
 	Verbosity            int32  `yaml:"verbosity"`
+	MemcachedAddresses   string `yaml:"memcachedaddresses"`
 }
 
 //reading in the env file
