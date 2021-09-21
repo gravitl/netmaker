@@ -1,10 +1,9 @@
 package daemon
 
 import (
-	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
-	"text/template"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -37,10 +36,6 @@ func CleanupMac() {
 }
 
 func CreateMacService(servicename string) error {
-	tdata := MacTemplateData{
-		Label:    servicename,
-		Interval: "15",
-	}
 	_, err := os.Stat("/Library/LaunchDaemons")
 	if os.IsNotExist(err) {
 		os.Mkdir("/Library/LaunchDaemons", 0755)
@@ -48,41 +43,39 @@ func CreateMacService(servicename string) error {
 		log.Println("couldnt find or create /Library/LaunchDaemons")
 		return err
 	}
-	fileLoc := fmt.Sprintf("/Library/LaunchDaemons/%s.plist", tdata.Label)
-	launchdFile, err := os.Open(fileLoc)
-	if err != nil {
-		return err
+	daemonstring := MacDaemonString()
+	daemonbytes := []byte(daemonstring)
+
+	if !ncutils.FileExists("/Library/LaunchDaemons/com.gravitl.netclient.plist") {
+		err = ioutil.WriteFile("/Library/LaunchDaemons/com.gravitl.netclient.plist", daemonbytes, 0644)
 	}
-	launchdTemplate := template.Must(template.New("launchdTemplate").Parse(MacTemplate()))
-	return launchdTemplate.Execute(launchdFile, tdata)
+	return err
 }
 
-func MacTemplate() string {
-	return `
-	<?xml version='1.0' encoding='UTF-8'?>
-	<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
-	<plist version='1.0'>
-	  <dict>
-		<key>Label</key><string>{{.Label}}</string>
-		<key>ProgramArguments</key>
-	   <array>
-		   <string>/etc/netclient/netclient</string>
-		   <string>checkin</string>
-		   <string>-n</string>
-		   <string>all</string>
-	   </array>
-		<key>StandardOutPath</key><string>/etc/netclient/{{.Label}}.log</string>
-		<key>StandardErrorPath</key><string>/etc/netclient/{{.Label}}.log</string>
-		<key>AbandonProcessGroup</key><true/>
-		<key>StartInterval</key>
-	   <integer>{{.Interval}}</integer>
-		<key>EnvironmentVariables</key>
-		   <dict>
-			   <key>PATH</key>
-			   <string>/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-		   </dict>
-	 </dict>
-   </plist>
+func MacDaemonString() string {
+	return `<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
+<plist version='1.0'>
+<dict>
+	<key>Label</key><string>com.gravitl.netclient</string>
+	<key>ProgramArguments</key>
+		<array>
+			<string>/etc/netclient/netclient</string>
+			<string>checkin</string>
+			<string>-n</string>
+			<string>all</string>
+		</array>
+	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
+	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
+	<key>AbandonProcessGroup</key><true/>
+	<key>StartInterval</key>
+	    <integer>15</integer>
+	<key>EnvironmentVariables</key>
+		<dict>
+			<key>PATH</key>
+			<string>/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		</dict>
+</dict>
 </plist>
 `
 }
