@@ -116,7 +116,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	defer wgclient.Close()
 
-	ifacename := node.Interface
+	var ifacename string
 	if nodecfg.Interface != "" {
 		ifacename = nodecfg.Interface
 	} else if node.Interface != "" {
@@ -127,6 +127,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Address == "" {
 		log.Fatal("no address to configure")
 	}
+
 	nameserver := servercfg.CoreDNSAddr
 	network := node.Network
 	if nodecfg.Network != "" {
@@ -139,8 +140,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		setKernelDevice(ifacename, node.Address)
 	}
 
-	var nodeport int
-	nodeport = int(node.ListenPort)
+	nodeport := int(node.ListenPort)
 	conf := wgtypes.Config{}
 	if nodecfg.UDPHolePunch == "yes" &&
 		nodecfg.IsServer == "no" &&
@@ -166,7 +166,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		} else {
 			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, node.PersistentKeepalive, peers)
 		}
-		confPath := ncutils.GetNetclientPathSpecific() + node.Interface + ".conf"
+		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
 		err = ioutil.WriteFile(confPath, []byte(newConf), 0644)
 		if err != nil {
@@ -174,7 +174,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return err
 		}
 		// spin up userspace / windows interface + apply the conf file
-		_ = RemoveConf(node.Interface, false) // remove interface first
+		_ = RemoveConf(ifacename, false) // remove interface first
 		err = ApplyConf(confPath)
 		if err != nil {
 			ncutils.PrintLog("failed to create wireguard interface", 1)
@@ -240,6 +240,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
 		}
 	}
+
 	return err
 }
 

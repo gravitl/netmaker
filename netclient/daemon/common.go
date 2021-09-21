@@ -14,7 +14,7 @@ func InstallDaemon(cfg config.ClientConfig) error {
 	case "windows":
 		err = SetupWindowsDaemon()
 	case "darwin":
-		err = errors.New("need to implement macos daemon0")
+		err = SetupMacDaemon()
 	case "linux":
 		err = SetupSystemDDaemon(cfg.Network)
 	default:
