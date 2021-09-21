@@ -11,9 +11,8 @@ import (
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
-	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -24,8 +23,8 @@ const RELAY_KEEPALIVE_MARKER = "20007ms"
 func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
 	var wcclient nodepb.NodeServiceClient
 	// == GRPC SETUP ==
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
 	if err != nil {
 		return nil, err
@@ -68,6 +67,7 @@ func CheckIn(network string) (*models.Node, error) {
 	return &node, err
 }
 
+/*
 func RemoveNetwork(network string) error {
 	//need to  implement checkin on server side
 	cfg, err := config.ReadConfig(network)
@@ -79,8 +79,8 @@ func RemoveNetwork(network string) error {
 	log.Println("Deleting remote node with MAC: " + node.MacAddress)
 
 	var wcclient nodepb.NodeServiceClient
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
 		//return err
@@ -110,16 +110,11 @@ func RemoveNetwork(network string) error {
 			}
 		}
 	}
-	err = local.WipeLocal(network)
-	if err != nil {
-		log.Printf("Unable to wipe local config: %v", err)
-	}
-	if cfg.Daemon != "off" {
-		err = local.RemoveSystemDServices(network)
-	}
+	//err = functions.RemoveLocalInstance(network)
+
 	return err
 }
-
+*/
 func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
 	hasGateway := false
 	var gateways []string
@@ -137,8 +132,8 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
 	}
 
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
@@ -202,12 +197,12 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 					allowedips = append(allowedips, *ipnet)
 				}
 			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != node.Address {
-					ipnet := net.IPNet{
-						IP:   net.ParseIP(allowedIp),
-						Mask: net.CIDRMask(32, 32),
-					}
-					allowedips = append(allowedips, ipnet)
-			}		
+				ipnet := net.IPNet{
+					IP:   net.ParseIP(allowedIp),
+					Mask: net.CIDRMask(32, 32),
+				}
+				allowedips = append(allowedips, ipnet)
+			}
 		}
 		// handle egress gateway peers
 		if node.IsEgressGateway == "yes" {
@@ -273,7 +268,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS",err)
+			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
 		}
 	}
 	return peers, hasGateway, gateways, err
@@ -287,8 +282,8 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 	}
 	nodecfg := cfg.Node
 
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress, 
-		netclientutils.GRPCRequestOpts(cfg.Server.GRPCSSL))	
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}

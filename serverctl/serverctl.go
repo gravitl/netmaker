@@ -11,8 +11,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/local"
-	"github.com/gravitl/netmaker/netclient/netclientutils"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -33,10 +32,10 @@ func GetServerWGConf() (models.IntClient, error) {
 
 func InstallNetclient() error {
 
-	netclientPath := netclientutils.GetNetclientPathSpecific()
+	netclientPath := ncutils.GetNetclientPathSpecific()
 	if !FileExists(netclientPath + "netclient") {
 		var err error
-		if netclientutils.IsWindows() {
+		if ncutils.IsWindows() {
 			_, err = copy(".\\netclient\\netclient", netclientPath+"netclient")
 		} else {
 			_, err = copy("./netclient/netclient", netclientPath+"netclient")
@@ -87,13 +86,13 @@ func copy(src, dst string) (int64, error) {
 }
 
 func RemoveNetwork(network string) (bool, error) {
-	netclientPath := netclientutils.GetNetclientPathSpecific()
+	netclientPath := ncutils.GetNetclientPathSpecific()
 	_, err := os.Stat(netclientPath + "netclient")
 	if err != nil {
 		log.Println("could not find " + netclientPath + "netclient")
 		return false, err
 	}
-	_, err = local.RunCmd(netclientPath+"netclient leave -n "+network, true)
+	_, err = ncutils.RunCmd(netclientPath+"netclient leave -n "+network, true)
 	if err == nil {
 		log.Println("Server removed from network " + network)
 	}
@@ -107,8 +106,8 @@ func AddNetwork(network string) (bool, error) {
 		log.Println("could not get public IP.")
 		return false, err
 	}
-	netclientDir := netclientutils.GetNetclientPath()
-	netclientPath := netclientutils.GetNetclientPathSpecific()
+	netclientDir := ncutils.GetNetclientPath()
+	netclientPath := ncutils.GetNetclientPathSpecific()
 	_, err = os.Stat(netclientDir)
 	if os.IsNotExist(err) {
 		os.Mkdir(netclientDir, 744)

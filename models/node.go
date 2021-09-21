@@ -52,13 +52,13 @@ type Node struct {
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
 	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
-	DoNotPropagate      string   `json:"donotpropagate" bson:"donotpropagate" yaml:"donotpropagate"`
+	IsRelayed           string   `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
-	IsRelay				string   `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	IsRelay             string   `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
 	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
 	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	RelayAddrs 			[]string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
+	RelayAddrs          []string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
@@ -87,9 +87,9 @@ func (node *Node) SetDefaulIsPending() {
 	}
 }
 
-func (node *Node) SetDefaultDoNotPropagate() {
-	if node.DoNotPropagate == "" {
-		node.DoNotPropagate = "no"
+func (node *Node) SetDefaultIsRelayed() {
+	if node.IsRelayed == "" {
+		node.IsRelayed = "no"
 	}
 }
 
@@ -284,7 +284,7 @@ func (node *Node) SetDefaults() {
 	node.SetDefaultIngressGateway()
 	node.SetDefaulIsPending()
 	node.SetDefaultMTU()
-	node.SetDefaultDoNotPropagate()
+	node.SetDefaultIsRelayed()
 	node.SetDefaultIsRelay()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
@@ -430,8 +430,8 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.IsRelay == "" {
 		newNode.IsRelay = currentNode.IsRelay
 	}
-	if newNode.DoNotPropagate == "" {
-		newNode.DoNotPropagate = currentNode.DoNotPropagate
+	if newNode.IsRelayed == "" {
+		newNode.IsRelayed = currentNode.IsRelayed
 	}
 }
 

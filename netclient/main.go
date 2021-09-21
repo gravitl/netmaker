@@ -8,14 +8,15 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"syscall"
-	"runtime/debug"
+
 	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/ncwindows"
-	"github.com/gravitl/netmaker/netclient/netclientutils"
 	"github.com/urfave/cli/v2"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = "v0.7.3"
+	app.Version = "v0.8.0"
 
 	cliFlags := []cli.Flag{
 		&cli.StringFlag{
@@ -320,11 +321,11 @@ func main() {
 
 	setGarbageCollection()
 
-	if netclientutils.IsWindows() {
+	if ncutils.IsWindows() {
 		ncwindows.InitWindows()
 	} else {
 		// start our application
-		out, err := local.RunCmd("id -u", true)
+		out, err := ncutils.RunCmd("id -u", true)
 
 		if err != nil {
 			log.Fatal(out, err)
@@ -345,12 +346,12 @@ func main() {
 			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
 		}
 	}
-	if netclientutils.IsWindows() {
-		if !local.IsWindowsWGInstalled() {
-			log.Fatal("Please install Windows WireGuard before using Gravitl Netclient. https://download.wireguard.com/windows-client/wireguard-installer.exe")
+	if !ncutils.IsKernel() {
+		if !local.IsWGInstalled() {
+			log.Fatal("Please install Windows WireGuard before using Gravitl Netclient. https://download.wireguard.com")
 		}
 	}
-	if len(os.Args) == 1 && netclientutils.IsWindows() {
+	if len(os.Args) == 1 && ncutils.IsWindows() {
 		c := make(chan os.Signal)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		go func() {
@@ -367,9 +368,9 @@ func main() {
 	}
 }
 
-func setGarbageCollection(){
-	_, gcset := os.LookupEnv("GOGC");
+func setGarbageCollection() {
+	_, gcset := os.LookupEnv("GOGC")
 	if !gcset {
-		debug.SetGCPercent(netclientutils.DEFAULT_GC_PERCENT)
+		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
 }

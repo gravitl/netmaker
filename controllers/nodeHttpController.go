@@ -506,7 +506,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
 	node, err := functions.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
-	if node.OS == "windows" { // add in darwin later
+	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
 	if err != nil {
@@ -635,7 +635,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
 
 	node, err := functions.GetNodeByMacAddress(netid, macaddress)
-	if node.OS == "windows" { // add in darwin later
+	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
 	}
 
@@ -757,12 +757,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	relayupdate := false
 	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
 		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {
-				relayupdate = true
+			relayupdate = true
 		} else {
 			for i, addr := range newNode.RelayAddrs {
-					if addr != node.RelayAddrs[i] {
-							relayupdate = true
-					}
+				if addr != node.RelayAddrs[i] {
+					relayupdate = true
+				}
 			}
 		}
 	}
@@ -774,7 +774,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayupdate {
 		UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
 		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
-			functions.PrintUserLog("netmaker", "error setting relay updates: " + err.Error(), 1)			
+			functions.PrintUserLog("netmaker", "error setting relay updates: "+err.Error(), 1)
 		}
 	}
 

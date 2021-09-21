@@ -6,7 +6,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/netclientutils"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 
 	//    "os"
 	"context"
@@ -20,7 +20,7 @@ import (
 
 // CreateJWT func will used to create the JWT while signing in and signing out
 func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, error) {
-	home := netclientutils.GetNetclientPathSpecific()
+	home := ncutils.GetNetclientPathSpecific()
 	tokentext, err := ioutil.ReadFile(home + "nettoken-" + network)
 	if err != nil {
 		err = AutoLogin(client, network)
@@ -42,7 +42,7 @@ func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, e
 }
 
 func AutoLogin(client nodepb.NodeServiceClient, network string) error {
-	home := netclientutils.GetNetclientPathSpecific()
+	home := ncutils.GetNetclientPathSpecific()
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err
@@ -79,12 +79,12 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 
 func StoreSecret(key string, network string) error {
 	d1 := []byte(key)
-	err := ioutil.WriteFile(netclientutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0644)
+	err := ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0644)
 	return err
 }
 
 func RetrieveSecret(network string) (string, error) {
-	dat, err := ioutil.ReadFile(netclientutils.GetNetclientPathSpecific() + "secret-" + network)
+	dat, err := ioutil.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + network)
 	return string(dat), err
 }
 
