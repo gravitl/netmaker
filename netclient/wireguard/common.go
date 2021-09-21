@@ -274,10 +274,6 @@ func SetWGConfig(network string, peerupdate bool) error {
 	} else {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways)
 	}
-	if err != nil {
-		return err
-	}
-
 	return err
 }
 
@@ -299,7 +295,7 @@ func ApplyConf(confPath string) error {
 	var err error
 	switch os {
 	case "windows":
-		err = ApplyWindowsConf(confPath)
+		_ = ApplyWindowsConf(confPath)
 	default:
 		err = ApplyWGQuickConf(confPath)
 	}
