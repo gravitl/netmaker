@@ -131,15 +131,10 @@ func LeaveNetwork(network string) error {
 	} else {
 		wcclient = nodepb.NewNodeServiceClient(conn)
 
-		ctx := context.Background()
-		ctx, err = auth.SetJWT(wcclient, network)
+		ctx, err := auth.SetJWT(wcclient, network)
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
 		} else {
-			if !ncutils.IsKernel() {
-				//wireguard.RemoveConf(node.Interface, true)
-				//ncutils.PrintLog("removed network tunnel "+node.Interface, 1)
-			}
 			node.SetID()
 			var header metadata.MD
 			_, err = wcclient.DeleteNode(
