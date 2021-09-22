@@ -7,16 +7,15 @@ This quick start guide is an **opinionated** guide for getting up and running wi
 0. Introduction
 ==================
 
-We assume for this installation that you want all of the Netmaker features enabled, want your server to be secure, and want it to be accessible from anywhere. 
+We assume for this installation that you want all of the Netmaker features enabled, want your server to be secure, and want it to be accessible from anywhere.
 
 This instance will not be HA. However, it should comfortably handle around one hundred concurrent clients and support most use cases.
 
-If you are deploying for an enterprise use case, please contact info@gravitl.com for support.
+If you are deploying for a business or enterprise use case and this setup will not fit your needs, please contact info@gravitl.com, or check out the business subscription plans at gravitl.com/plans.
 
 By the end of this guide, you will have Netmaker installed on a public VM linked to your custom domain, secured behind an Nginx reverse proxy.
 
 If this configuration does not fit your use case, see the :doc:`Advanced Installation <./server-installation>` docs. 
-
 
 
 1. Prerequisites
@@ -24,9 +23,10 @@ If this configuration does not fit your use case, see the :doc:`Advanced Install
 -  **Virtual Machine**
    
    - Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)
+      - We do not recommend Oracle Cloud, as VM's here have been known to cause network interference.
    - Public, static IP 
-   - Min 2GB RAM, 1 CPU (4GB RAM, 2CPU preferred)
-   - 5GB+ of storage
+   - Min 1GB RAM, 1 CPU (4GB RAM, 2CPU preferred)
+   - 2GB+ of storage 
    - Ubuntu  20.04 Installed
 
 - **Domain**
@@ -108,22 +108,6 @@ Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 
 **Based on your cloud provider, you may also need to set inbound security rules for your server. This will be dependent on your cloud provider. Be sure to check before moving on:**
   - allow 443/tcp from all
   - allow 53/udp and 53/tcp from all
-
-Prepare for DNS
-----------------------------------------------------------------
-
-On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution.
-
-.. code-block::
-
-  systemctl stop systemd-resolved
-  vim /etc/systemd/resolved.conf
-    *  uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference  *
-    *  uncomment DNSStubListener and set to "no"  *
-  systemctl start systemd-resolved
-  systemctl disable --now systemd-resolved 
-  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
-
 
 Prepare Nginx
 -----------------
