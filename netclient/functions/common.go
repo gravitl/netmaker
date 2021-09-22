@@ -57,7 +57,53 @@ func getPrivateAddr() (string, error) {
 	localIP := localAddr.IP
 	local = localIP.String()
 	if local == "" {
+		local, err = getPrivateAddrBackup()
+	}
+	if local == "" {
 		err = errors.New("could not find local ip")
+	}
+	return local, err
+}
+
+func getPrivateAddrBackup() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	var local string
+	found := false
+	for _, i := range ifaces {
+		if i.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if i.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := i.Addrs()
+		if err != nil {
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				if !found {
+					ip = v.IP
+					local = ip.String()
+					found = true
+				}
+			case *net.IPAddr:
+				if !found {
+					ip = v.IP
+					local = ip.String()
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		err := errors.New("Local Address Not Found.")
+		return "", err
 	}
 	return local, err
 }
