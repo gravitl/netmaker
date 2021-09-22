@@ -28,7 +28,7 @@ require (
 	golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20210805125648-3957e9b9dd19 // indirect
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210803171230-4253848d036c
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210913210325-91d1988e44de
 	golang.zx2c4.com/wireguard/windows v0.4.5 // indirect
 	google.golang.org/genproto v0.0.0-20210201151548-94839c025ad4 // indirect
 	google.golang.org/grpc v1.35.0

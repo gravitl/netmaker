@@ -26,7 +26,7 @@ const NODE_NOOP = "noop"
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-//node struct
+// node struct
 type Node struct {
 	ID                  string   `json:"id,omitempty" bson:"id,omitempty"`
 	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`

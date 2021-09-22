@@ -35,9 +35,9 @@ func SetupWindowsDaemon() error {
 		ncutils.Log("finished daemon setup")
 	}
 	// install daemon, will not overwrite
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe install`, true)
+	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe install`, false)
 	// start daemon, will not restart or start another
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, true)
+	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
 	ncutils.Log(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
 	return nil
 }
