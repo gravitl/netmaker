@@ -211,12 +211,12 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			for _, iprange := range ranges { // go through each cidr for egress gateway
 				_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 				if err != nil {
-					ncutils.PrintLog("could not parse gateway IP range. Not adding "+iprange,1)
+					ncutils.PrintLog("could not parse gateway IP range. Not adding "+iprange, 1)
 					continue // if can't parse CIDR
 				}
-				nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
-				if ipnet.Contains(net.IP(nodeEndpointArr[0])) {      // ensuring egress gateway range does not contain public ip of node
-					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.Endpoint+", omitting",1)
+				nodeEndpointArr := strings.Split(nodecfg.Endpoint, ":") // getting the public ip of node
+				if ipnet.Contains(net.IP(nodeEndpointArr[0])) {         // ensuring egress gateway range does not contain public ip of node
+					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+nodecfg.Endpoint+", omitting", 1)
 					continue // skip adding egress range if overlaps with node's ip
 				}
 				gateways = append(gateways, iprange)

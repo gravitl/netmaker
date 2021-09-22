@@ -45,7 +45,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		for _, currentPeer := range devicePeers {
 			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
 				currentPeer.PublicKey.String() != peer.PublicKey.String() {
-				_, err := ncutils.RunCmd( "wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
 				if err != nil {
 					log.Println("error removing peer", peer.Endpoint.String())
 				}
@@ -176,11 +176,18 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return err
 		}
 		// spin up userspace / windows interface + apply the conf file
-		d, _ := wgclient.Device(ifacename)
-		for d != nil && d.Name == ifacename {
+		var deviceiface string
+		if ncutils.IsMac() {
+			deviceiface, err = local.GetMacIface(node.Address)
+			if err != nil || deviceiface == "" {
+				deviceiface = ifacename
+			}
+		}
+		d, _ := wgclient.Device(deviceiface)
+		for d != nil && d.Name == deviceiface {
 			_ = RemoveConf(ifacename, false) // remove interface first
 			time.Sleep(time.Second >> 2)
-			d, _ = wgclient.Device(ifacename)
+			d, _ = wgclient.Device(deviceiface)
 		}
 		err = ApplyConf(confPath)
 		if err != nil {
@@ -259,7 +266,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	}
 	servercfg := cfg.Server
 	nodecfg := cfg.Node
-	
+
 	peers, hasGateway, gateways, err := server.GetPeers(nodecfg.MacAddress, nodecfg.Network, servercfg.GRPCAddress, nodecfg.IsDualStack == "yes", nodecfg.IsIngressGateway == "yes")
 	if err != nil {
 		return err
