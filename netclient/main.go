@@ -341,14 +341,16 @@ func main() {
 		}
 
 		_, err = exec.LookPath("wg")
+		uspace := ncutils.GetWireGuard()
 		if err != nil {
-			userspace := os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION")
-			if userspace == "" {
+			if uspace == "wg" {
 				log.Println(err)
 				log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
-			}
-			ncutils.PrintLog("Running with userspace wireguard: "+userspace, 0)
-		}
+			} 
+			ncutils.PrintLog("Running with userspace wireguard: "+uspace, 0)
+		} else if uspace != "wg" {
+			log.Println("running userspace WireGuard with "+uspace )
+		} 
 	}
 	if !ncutils.IsKernel() {
 		if !local.IsWGInstalled() {

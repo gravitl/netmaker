@@ -45,7 +45,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		for _, currentPeer := range devicePeers {
 			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
 				currentPeer.PublicKey.String() != peer.PublicKey.String() {
-				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+				_, err := ncutils.RunCmd( "wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
 				if err != nil {
 					log.Println("error removing peer", peer.Endpoint.String())
 				}

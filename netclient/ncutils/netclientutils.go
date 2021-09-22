@@ -48,11 +48,19 @@ func IsLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
+func GetWireGuard() string {
+	userspace := os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION")
+	if userspace != "" && (userspace == "boringtun" || userspace == "wireguard-go") {
+		return userspace
+	}
+	return "wg"
+}
+
 func IsKernel() bool {
 	//TODO
 	//Replace && true with some config file value
 	//This value should be something like kernelmode, which should be 'on' by default.
-	return IsLinux() && true
+	return IsLinux() && os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION") == ""
 }
 
 // == database returned nothing error ==

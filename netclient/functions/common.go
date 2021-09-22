@@ -109,6 +109,8 @@ func Uninstall() error {
 		daemon.CleanupWindows()
 	} else if ncutils.IsMac() {
 		daemon.CleanupMac()
+	} else if !ncutils.IsKernel() {
+		ncutils.PrintLog("manual cleanup required",1)
 	}
 
 	return err
