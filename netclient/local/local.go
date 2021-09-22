@@ -7,7 +7,7 @@ import (
 	"net"
 	"runtime"
 	"strings"
-
+	"os/exec"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -54,7 +54,9 @@ func SetIPForwardingMac() error {
 func IsWGInstalled() bool {
 	out, err := ncutils.RunCmd("wg help", true)
 	if err != nil {
-		return false
+		_, err1 := exec.LookPath("wireguard-go")
+		_, err2 := exec.LookPath("boringtun")
+		return err1 == nil || err2 == nil
 	}
 	return strings.Contains(out, "Available subcommand")
 }

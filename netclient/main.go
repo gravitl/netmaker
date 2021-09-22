@@ -342,8 +342,12 @@ func main() {
 
 		_, err = exec.LookPath("wg")
 		if err != nil {
-			log.Println(err)
-			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
+			userspace := os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION")
+			if userspace == "" {
+				log.Println(err)
+				log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
+			}
+			ncutils.PrintLog("Running with userspace wireguard: "+userspace, 0)
 		}
 	}
 	if !ncutils.IsKernel() {
