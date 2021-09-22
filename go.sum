@@ -340,6 +340,8 @@ golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b h1:l4mBVCYi
 golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b/go.mod h1:UdS9frhv65KTfwxME1xE8+rHYoFpbm36gOud1GhBe9c=
 golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210803171230-4253848d036c h1:ADNrRDI5NR23/TUCnEmlLZLt4u9DnZ2nwRkPrAcFvto=
 golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210803171230-4253848d036c/go.mod h1:+1XihzyZUBJcSc5WO9SwNA7v26puQwOEDwanaxfNXPQ=
+golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210913210325-91d1988e44de h1:M9Jc92kgqmVmidpnOeegP2VgO2DfHEcsUWtWMmBwNFQ=
+golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210913210325-91d1988e44de/go.mod h1:+1XihzyZUBJcSc5WO9SwNA7v26puQwOEDwanaxfNXPQ=
 golang.zx2c4.com/wireguard/windows v0.4.5 h1:btpw+5IM8UrSl5SILCODt1bXTM2qYpcaYArM6wDlwHA=
 golang.zx2c4.com/wireguard/windows v0.4.5/go.mod h1:LdS2bRTWu//RpztraGz5ZkPZul60cCbmgtLTPSKrS50=
 google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=

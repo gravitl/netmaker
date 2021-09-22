@@ -108,9 +108,9 @@ func CreateServerToken(netID string) (string, error) {
 			GRPCSSL:        "off",
 		}
 	}
-	log.Println("APIConnString:",servervals.APIConnString)
-	log.Println("GRPCConnString:",servervals.GRPCConnString)
-	log.Println("GRPCSSL:",servervals.GRPCSSL)
+	log.Println("APIConnString:", servervals.APIConnString)
+	log.Println("GRPCConnString:", servervals.GRPCConnString)
+	log.Println("GRPCSSL:", servervals.GRPCSSL)
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID
 	accessToken.ClientConfig.Key = GenKey()
@@ -123,7 +123,7 @@ func CreateServerToken(netID string) (string, error) {
 		return accesskey.AccessString, err
 	}
 	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
-	log.Println("accessstring:",accesskey.AccessString)
+	log.Println("accessstring:", accesskey.AccessString)
 	network.AccessKeys = append(network.AccessKeys, accesskey)
 	if data, err := json.Marshal(network); err != nil {
 		return "", err
@@ -235,6 +235,7 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			}
 
 			node.Address = ipaddr
+			node.PullChanges = "yes"
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err

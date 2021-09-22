@@ -352,7 +352,7 @@ func main() {
 	}
 	if !ncutils.IsKernel() {
 		if !local.IsWGInstalled() {
-			log.Fatal("Please install Windows WireGuard before using Gravitl Netclient. https://download.wireguard.com")
+			log.Fatal("Please install WireGuard before using Gravitl Netclient. https://download.wireguard.com")
 		}
 	}
 	if len(os.Args) == 1 && ncutils.IsWindows() {

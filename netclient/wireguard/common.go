@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -27,6 +28,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		ncutils.PrintLog("failed to start wgctrl", 0)
 		return err
 	}
+
 	device, err := client.Device(iface)
 	if err != nil {
 		ncutils.PrintLog("failed to parse interface", 0)
@@ -174,7 +176,12 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return err
 		}
 		// spin up userspace / windows interface + apply the conf file
-		_ = RemoveConf(ifacename, false) // remove interface first
+		d, _ := wgclient.Device(ifacename)
+		for d != nil && d.Name == ifacename {
+			_ = RemoveConf(ifacename, false) // remove interface first
+			time.Sleep(time.Second >> 2)
+			d, _ = wgclient.Device(ifacename)
+		}
 		err = ApplyConf(confPath)
 		if err != nil {
 			ncutils.PrintLog("failed to create wireguard interface", 1)
@@ -274,10 +281,6 @@ func SetWGConfig(network string, peerupdate bool) error {
 	} else {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways)
 	}
-	if err != nil {
-		return err
-	}
-
 	return err
 }
 
@@ -299,7 +302,7 @@ func ApplyConf(confPath string) error {
 	var err error
 	switch os {
 	case "windows":
-		err = ApplyWindowsConf(confPath)
+		_ = ApplyWindowsConf(confPath)
 	default:
 		err = ApplyWGQuickConf(confPath)
 	}
