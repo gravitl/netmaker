@@ -69,7 +69,7 @@ Description=Calls the Netmaker Mesh Client Service
 	systemtimer = systemtimer +
 		`
 
-OnCalendar=*:*:0/30
+OnCalendar=*:*:0/15
 
 [Install]
 WantedBy=timers.target
