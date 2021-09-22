@@ -105,6 +105,11 @@ func setPeerInfo(node models.Node) models.Node {
 	peer.AllowedIPs = node.AllowedIPs
 	peer.Address = node.Address
 	peer.Address6 = node.Address6
+	peer.EgressGatewayRanges = node.EgressGatewayRanges
+	peer.IsEgressGateway = node.IsEgressGateway
+	peer.IngressGatewayRange = node.IngressGatewayRange
+	peer.IsIngressGateway = node.IsIngressGateway
+	peer.IsPending = node.IsPending
 	return peer
 }
 
