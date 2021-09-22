@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+
 func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
 	var peers []models.Node
 	var relayNode models.Node
@@ -31,6 +32,16 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 			} else {
 				relayNode.AllowedIPs = append(relayNode.AllowedIPs, relayNode.RelayAddrs...)
 			}
+			nodepeers, err := GetNodePeers(networkName, false)
+			if err == nil && relayNode.UDPHolePunch == "yes" {
+				for _, nodepeer := range nodepeers {
+					if nodepeer.Address == relayNode.Address {
+						relayNode.Endpoint = nodepeer.Endpoint
+						relayNode.ListenPort = nodepeer.ListenPort
+					}
+				}
+			}
+
 			peers = append(peers, relayNode)
 		}
 	}
@@ -103,6 +114,7 @@ func setPeerInfo(node models.Node) models.Node {
 	peer.LocalAddress = node.LocalAddress
 	peer.ListenPort = node.ListenPort
 	peer.AllowedIPs = node.AllowedIPs
+	peer.UDPHolePunch = node.UDPHolePunch
 	peer.Address = node.Address
 	peer.Address6 = node.Address6
 	peer.EgressGatewayRanges = node.EgressGatewayRanges
