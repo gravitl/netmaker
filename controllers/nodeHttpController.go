@@ -22,6 +22,8 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/createrelay", authorize(true, "user", http.HandlerFunc(createRelay))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleterelay", authorize(true, "user", http.HandlerFunc(deleteRelay))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "user", http.HandlerFunc(createEgressGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "user", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{macaddress}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
@@ -504,6 +506,9 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
 	node, err := functions.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
+	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
+		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
+	}
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -630,6 +635,10 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
 
 	node, err := functions.GetNodeByMacAddress(netid, macaddress)
+	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
+		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
+	}
+
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -745,10 +754,28 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNode.PullChanges = "yes"
+	relayupdate := false
+	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
+		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {
+			relayupdate = true
+		} else {
+			for i, addr := range newNode.RelayAddrs {
+				if addr != node.RelayAddrs[i] {
+					relayupdate = true
+				}
+			}
+		}
+	}
 	err = node.Update(&newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if relayupdate {
+		UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
+		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
+			functions.PrintUserLog("netmaker", "error setting relay updates: "+err.Error(), 1)
+		}
 	}
 
 	if servercfg.IsDNSMode() {

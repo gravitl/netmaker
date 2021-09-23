@@ -2,65 +2,43 @@ package controller
 
 import (
 	"testing"
-	"time"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCheckIn(t *testing.T) {
-	deleteNet(t)
-	createNet()
-	node := createTestNode(t)
-	time.Sleep(time.Second * 1)
-	t.Run("BadNet", func(t *testing.T) {
-		resp, err := CheckIn("badnet", node.MacAddress)
-		assert.NotNil(t, err)
-		assert.Equal(t, models.Node{}, resp)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
-	})
-	t.Run("BadMac", func(t *testing.T) {
-		resp, err := CheckIn("skynet", "01:02:03")
-		assert.NotNil(t, err)
-		assert.Equal(t, models.Node{}, resp)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
-	})
-	t.Run("Success", func(t *testing.T) {
-		resp, err := CheckIn("skynet", node.MacAddress)
-		assert.Nil(t, err)
-		assert.Greater(t, resp.LastCheckIn, node.LastCheckIn)
-	})
-}
 func TestCreateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
 	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
-	deleteNet(t)
+	database.InitializeDatabase()
+	deleteAllNetworks()
 	createNet()
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := CreateEgressGateway(gateway)
-		assert.NotNil(t, err)
 		assert.Equal(t, models.Node{}, node)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.EqualError(t, err, "unable to get record key")
 	})
 	t.Run("Success", func(t *testing.T) {
-		testnode := createTestNode(t)
+		testnode := createTestNode()
 		gateway.NetID = "skynet"
 		gateway.NodeID = testnode.MacAddress
 
 		node, err := CreateEgressGateway(gateway)
 		assert.Nil(t, err)
-		assert.Equal(t, true, node.IsEgressGateway)
-		assert.Equal(t, "10.100.100.0/24", node.EgressGatewayRange)
+		assert.Equal(t, "yes", node.IsEgressGateway)
+		assert.Equal(t, gateway.Ranges, node.EgressGatewayRanges)
 	})
 
 }
 func TestDeleteEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
-	deleteNet(t)
+	database.InitializeDatabase()
+	deleteAllNetworks()
 	createNet()
-	createTestNode(t)
-	testnode := createTestNode(t)
+	createTestNode()
+	testnode := createTestNode()
 	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
 	gateway.NetID = "skynet"
@@ -68,69 +46,53 @@ func TestDeleteEgressGateway(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		node, err := CreateEgressGateway(gateway)
 		assert.Nil(t, err)
-		assert.Equal(t, true, node.IsEgressGateway)
+		assert.Equal(t, "yes", node.IsEgressGateway)
 		assert.Equal(t, []string{"10.100.100.0/24"}, node.EgressGatewayRanges)
 		node, err = DeleteEgressGateway(gateway.NetID, gateway.NodeID)
 		assert.Nil(t, err)
-		assert.Equal(t, false, node.IsEgressGateway)
-		assert.Equal(t, "", node.EgressGatewayRanges)
+		assert.Equal(t, "no", node.IsEgressGateway)
+		assert.Equal(t, []string([]string{}), node.EgressGatewayRanges)
 		assert.Equal(t, "", node.PostUp)
 		assert.Equal(t, "", node.PostDown)
 	})
 	t.Run("NotGateway", func(t *testing.T) {
 		node, err := DeleteEgressGateway(gateway.NetID, gateway.NodeID)
 		assert.Nil(t, err)
-		assert.Equal(t, false, node.IsEgressGateway)
-		assert.Equal(t, "", node.EgressGatewayRanges)
+		assert.Equal(t, "no", node.IsEgressGateway)
+		assert.Equal(t, []string([]string{}), node.EgressGatewayRanges)
 		assert.Equal(t, "", node.PostUp)
 		assert.Equal(t, "", node.PostDown)
 	})
 	t.Run("BadNode", func(t *testing.T) {
 		node, err := DeleteEgressGateway(gateway.NetID, "01:02:03")
-		assert.NotNil(t, err)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.EqualError(t, err, "no result found")
 		assert.Equal(t, models.Node{}, node)
 	})
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := DeleteEgressGateway("badnet", gateway.NodeID)
-		assert.NotNil(t, err)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.EqualError(t, err, "no result found")
 		assert.Equal(t, models.Node{}, node)
 	})
 
 }
-func TestGetLastModified(t *testing.T) {
-	deleteNet(t)
-	createNet()
-	createTestNode(t)
-	t.Run("BadNet", func(t *testing.T) {
-		network, err := GetLastModified("badnet")
-		assert.NotNil(t, err)
-		assert.Equal(t, models.Network{}, network)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
-	})
-	t.Run("Success", func(t *testing.T) {
-		network, err := GetLastModified("skynet")
-		assert.Nil(t, err)
-		assert.NotEqual(t, models.Network{}, network)
-	})
-}
+
 func TestGetNetworkNodes(t *testing.T) {
-	deleteNet(t)
+	database.InitializeDatabase()
+	deleteAllNetworks()
 	createNet()
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := GetNetworkNodes("badnet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node(nil), node)
+		assert.Equal(t, []models.Node{}, node)
 		//assert.Equal(t, "mongo: no documents in result", err.Error())
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node(nil), node)
+		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("Success", func(t *testing.T) {
-		createTestNode(t)
+		createTestNode()
 		node, err := GetNetworkNodes("skynet")
 		assert.Nil(t, err)
 		assert.NotEqual(t, []models.Node(nil), node)
@@ -138,25 +100,24 @@ func TestGetNetworkNodes(t *testing.T) {
 
 }
 func TestUncordonNode(t *testing.T) {
-	deleteNet(t)
+	database.InitializeDatabase()
+	deleteAllNetworks()
 	createNet()
-	node := createTestNode(t)
+	node := createTestNode()
 	t.Run("BadNet", func(t *testing.T) {
 		resp, err := UncordonNode("badnet", node.MacAddress)
-		assert.NotNil(t, err)
 		assert.Equal(t, models.Node{}, resp)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.EqualError(t, err, "no result found")
 	})
 	t.Run("BadMac", func(t *testing.T) {
 		resp, err := UncordonNode("skynet", "01:02:03")
-		assert.NotNil(t, err)
 		assert.Equal(t, models.Node{}, resp)
-		assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.EqualError(t, err, "no result found")
 	})
 	t.Run("Success", func(t *testing.T) {
-		resp, err := CheckIn("skynet", node.MacAddress)
+		resp, err := UncordonNode("skynet", node.MacAddress)
 		assert.Nil(t, err)
-		assert.Equal(t, false, resp.IsPending)
+		assert.Equal(t, "no", resp.IsPending)
 	})
 
 }
@@ -166,8 +127,7 @@ func TestValidateEgressGateway(t *testing.T) {
 		gateway.Interface = "eth0"
 		gateway.Ranges = []string{}
 		err := ValidateEgressGateway(gateway)
-		assert.NotNil(t, err)
-		assert.Equal(t, "IP Range Not Valid", err.Error())
+		assert.EqualError(t, err, "IP Ranges Cannot Be Empty")
 	})
 	t.Run("EmptyInterface", func(t *testing.T) {
 		gateway.Interface = ""
@@ -183,5 +143,13 @@ func TestValidateEgressGateway(t *testing.T) {
 	})
 }
 
-//func TestUpdateNode(t *testing.T) {
-//}
+//
+////func TestUpdateNode(t *testing.T) {
+////}
+func deleteAllNodes() {
+	nodes, _ := models.GetAllNodes()
+	for _, node := range nodes {
+		key := node.MacAddress + "###" + node.Network
+		DeleteNode(key, true)
+	}
+}

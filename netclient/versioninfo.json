@@ -1,0 +1,43 @@
+{
+    "FixedFileInfo": {
+        "FileVersion": {
+            "Major": 0,
+            "Minor": 7,
+            "Patch": 3,
+            "Build": 0
+        },
+        "ProductVersion": {
+            "Major": 0,
+            "Minor": 7,
+            "Patch": 3,
+            "Build": 0
+        },
+        "FileFlagsMask": "3f",
+        "FileFlags ": "00",
+        "FileOS": "040004",
+        "FileType": "01",
+        "FileSubType": "00"
+    },
+    "StringFileInfo": {
+        "Comments": "",
+        "CompanyName": "Gravitl",
+        "FileDescription": "",
+        "FileVersion": "",
+        "InternalName": "",
+        "LegalCopyright": "",
+        "LegalTrademarks": "",
+        "OriginalFilename": "",
+        "PrivateBuild": "",
+        "ProductName": "Netclient",
+        "ProductVersion": "v0.7.3.0",
+        "SpecialBuild": ""
+    },
+    "VarFileInfo": {
+        "Translation": {
+            "LangID": "0409",
+            "CharsetID": "04B0"
+        }
+    },
+    "IconPath": "netclient.ico",
+    "ManifestPath": "netclient.exe.manifest.xml"
+}

@@ -12,6 +12,7 @@ var NAMES = []string{
 	"iconic",
 	"threat",
 	"strike",
+	"boy",
 	"vital",
 	"unity",
 	"audio",

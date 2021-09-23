@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"log"
 	"net"
@@ -13,24 +12,20 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 )
 
+const RELAY_KEEPALIVE_MARKER = "20007ms"
+
 func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
-	servercfg := cfg.Server
 	var wcclient nodepb.NodeServiceClient
 	// == GRPC SETUP ==
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +67,7 @@ func CheckIn(network string) (*models.Node, error) {
 	return &node, err
 }
 
+/*
 func RemoveNetwork(network string) error {
 	//need to  implement checkin on server side
 	cfg, err := config.ReadConfig(network)
@@ -83,13 +79,8 @@ func RemoveNetwork(network string) error {
 	log.Println("Deleting remote node with MAC: " + node.MacAddress)
 
 	var wcclient nodepb.NodeServiceClient
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	conn, err := grpc.Dial(servercfg.GRPCAddress, requestOpts)
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
 		//return err
@@ -119,18 +110,12 @@ func RemoveNetwork(network string) error {
 			}
 		}
 	}
-	err = local.WipeLocal(network)
-	if err != nil {
-		log.Printf("Unable to wipe local config: %v", err)
-	}
-	if cfg.Daemon != "off" {
-		err = local.RemoveSystemDServices(network)
-	}
+	//err = functions.RemoveLocalInstance(network)
+
 	return err
 }
-
+*/
 func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
-	//need to  implement checkin on server side
 	hasGateway := false
 	var gateways []string
 	var peers []wgtypes.PeerConfig
@@ -147,13 +132,9 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
 	}
 
-	requestOpts := grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
-	conn, err := grpc.Dial(server, requestOpts)
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}
@@ -212,9 +193,15 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		for _, allowedIp := range node.AllowedIPs {
 			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
 				nodeEndpointArr := strings.Split(node.Endpoint, ":")
-				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) { // don't need to add an allowed ip that already exists..
+				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != node.Address { // don't need to add an allowed ip that already exists..
 					allowedips = append(allowedips, *ipnet)
 				}
+			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != node.Address {
+				ipnet := net.IPNet{
+					IP:   net.ParseIP(allowedIp),
+					Mask: net.CIDRMask(32, 32),
+				}
+				allowedips = append(allowedips, ipnet)
 			}
 		}
 		// handle egress gateway peers
@@ -224,11 +211,17 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			for _, iprange := range ranges { // go through each cidr for egress gateway
 				_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 				if err != nil {
+					ncutils.PrintLog("could not parse gateway IP range. Not adding "+iprange, 1)
 					continue // if can't parse CIDR
 				}
 				nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
-				if ipnet.Contains(net.IP(nodeEndpointArr[0])) {      // ensuring egress gateway range does not contain public ip of node
-					continue // skip adding egress range if overlaps with nodes ip
+				if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) {         // ensuring egress gateway range does not contain public ip of node
+					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.Endpoint+", omitting", 2)
+					continue // skip adding egress range if overlaps with node's ip
+				}
+				if ipnet.Contains(net.ParseIP(nodecfg.LocalAddress)) {         // ensuring egress gateway range does not contain public ip of node
+					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+nodecfg.LocalAddress+", omitting", 2)
+					continue // skip adding egress range if overlaps with node's local ip
 				}
 				gateways = append(gateways, iprange)
 				if err != nil {
@@ -281,12 +274,11 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS",err)
+			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
 		}
 	}
 	return peers, hasGateway, gateways, err
 }
-
 func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
 	var wcclient nodepb.NodeServiceClient
@@ -296,14 +288,8 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 	}
 	nodecfg := cfg.Node
 
-	requestOpts := grpc.WithInsecure()
-	if cfg.Server.GRPCSSL == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-
-	conn, err := grpc.Dial(server, requestOpts)
-	
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}

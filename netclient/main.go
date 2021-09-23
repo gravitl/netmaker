@@ -1,3 +1,5 @@
+//go:generate goversioninfo -icon=windowsdata/resource/netmaker.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso
+
 package main
 
 import (
@@ -5,11 +7,16 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
+	"runtime/debug"
 	"strconv"
+	"syscall"
 
 	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
+	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/ncwindows"
 	"github.com/urfave/cli/v2"
 )
 
@@ -17,7 +24,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = "v0.7.3"
+	app.Version = "v0.8.0"
 
 	cliFlags := []cli.Flag{
 		&cli.StringFlag{
@@ -312,30 +319,64 @@ func main() {
 		},
 	}
 
-	// start our application
-	out, err := local.RunCmd("id -u")
+	setGarbageCollection()
 
-	if err != nil {
-		log.Fatal(out, err)
+	if ncutils.IsWindows() {
+		ncwindows.InitWindows()
+	} else {
+		// start our application
+		out, err := ncutils.RunCmd("id -u", true)
+
+		if err != nil {
+			log.Fatal(out, err)
+		}
+		id, err := strconv.Atoi(string(out[:len(out)-1]))
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if id != 0 {
+			log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
+		}
+
+		_, err = exec.LookPath("wg")
+		uspace := ncutils.GetWireGuard()
+		if err != nil {
+			if uspace == "wg" {
+				log.Println(err)
+				log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
+			} 
+			ncutils.PrintLog("Running with userspace wireguard: "+uspace, 0)
+		} else if uspace != "wg" {
+			log.Println("running userspace WireGuard with "+uspace )
+		} 
 	}
-	id, err := strconv.Atoi(string(out[:len(out)-1]))
-
-	if err != nil {
-		log.Fatal(err)
+	if !ncutils.IsKernel() {
+		if !local.IsWGInstalled() {
+			log.Fatal("Please install WireGuard before using Gravitl Netclient. https://download.wireguard.com")
+		}
 	}
-
-	if id != 0 {
-		log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
+	if len(os.Args) == 1 && ncutils.IsWindows() {
+		c := make(chan os.Signal)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-c
+			log.Println("closing Gravitl Netclient")
+			os.Exit(0)
+		}()
+		command.RunUserspaceDaemon()
+	} else {
+		err := app.Run(os.Args)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+}
 
-	_, err = exec.LookPath("wg")
-	if err != nil {
-		log.Println(err)
-		log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
-	}
-
-	err = app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
+func setGarbageCollection() {
+	_, gcset := os.LookupEnv("GOGC")
+	if !gcset {
+		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
 }

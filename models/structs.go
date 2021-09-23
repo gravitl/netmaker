@@ -70,7 +70,7 @@ type SuccessResponse struct {
 }
 
 type AccessKey struct {
-	Name         string `json:"name" bson:"name" validate:"omitempty,alphanum,max=20"`
+	Name         string `json:"name" bson:"name" validate:"omitempty,max=20"`
 	Value        string `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
 	AccessString string `json:"accessstring" bson:"accessstring"`
 	Uses         int    `json:"uses" bson:"uses"`
@@ -98,15 +98,15 @@ type CheckInResponse struct {
 }
 
 type PeersResponse struct {
-	PublicKey          string `json:"publickey" bson:"publickey"`
-	Endpoint           string `json:"endpoint" bson:"endpoint"`
-	Address            string `json:"address" bson:"address"`
-	Address6           string `json:"address6" bson:"address6"`
-	LocalAddress       string `json:"localaddress" bson:"localaddress"`
-	IsEgressGateway    string   `json:"isegressgateway" bson:"isegressgateway"`
+	PublicKey           string `json:"publickey" bson:"publickey"`
+	Endpoint            string `json:"endpoint" bson:"endpoint"`
+	Address             string `json:"address" bson:"address"`
+	Address6            string `json:"address6" bson:"address6"`
+	LocalAddress        string `json:"localaddress" bson:"localaddress"`
+	IsEgressGateway     string `json:"isegressgateway" bson:"isegressgateway"`
 	EgressGatewayRanges string `json:"egressgatewayrange" bson:"egressgatewayrange"`
-	ListenPort         int32  `json:"listenport" bson:"listenport"`
-	KeepAlive          int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
+	ListenPort          int32  `json:"listenport" bson:"listenport"`
+	KeepAlive           int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
 type ExtPeersResponse struct {
@@ -127,4 +127,10 @@ type EgressGatewayRequest struct {
 	Interface   string   `json:"interface" bson:"interface"`
 	PostUp      string   `json:"postup" bson:"postup"`
 	PostDown    string   `json:"postdown" bson:"postdown"`
+}
+
+type RelayRequest struct {
+	NodeID     string   `json:"nodeid" bson:"nodeid"`
+	NetID      string   `json:"netid" bson:"netid"`
+	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
 }

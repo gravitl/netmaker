@@ -14,8 +14,41 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetPeersList(networkName string) ([]models.Node, error) {
 
+func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
+	var peers []models.Node
+	var relayNode models.Node
+	var err error
+	if relayedNodeAddr == "" {
+		peers, err = GetNodePeers(networkName, excludeRelayed)
+
+	} else {
+		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
+		if relayNode.Address != "" {
+			relayNode = setPeerInfo(relayNode)
+			network, err := models.GetNetwork(networkName)
+			if err == nil {
+				relayNode.AllowedIPs = append(relayNode.AllowedIPs, network.AddressRange)
+			} else {
+				relayNode.AllowedIPs = append(relayNode.AllowedIPs, relayNode.RelayAddrs...)
+			}
+			nodepeers, err := GetNodePeers(networkName, false)
+			if err == nil && relayNode.UDPHolePunch == "yes" {
+				for _, nodepeer := range nodepeers {
+					if nodepeer.Address == relayNode.Address {
+						relayNode.Endpoint = nodepeer.Endpoint
+						relayNode.ListenPort = nodepeer.ListenPort
+					}
+				}
+			}
+
+			peers = append(peers, relayNode)
+		}
+	}
+	return peers, err
+}
+
+func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error) {
 	var peers []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
@@ -41,14 +74,10 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
 			peer.IsEgressGateway = node.IsEgressGateway
 		}
-		if node.Network == networkName && node.IsPending != "yes" {
-			peer.PublicKey = node.PublicKey
-			peer.Endpoint = node.Endpoint
-			peer.LocalAddress = node.LocalAddress
-			peer.ListenPort = node.ListenPort
-			peer.AllowedIPs = node.AllowedIPs
-			peer.Address = node.Address
-			peer.Address6 = node.Address6
+		allow := node.IsRelayed != "yes" || !excludeRelayed
+
+		if node.Network == networkName && node.IsPending != "yes" && allow {
+			peer = setPeerInfo(node)
 			if node.UDPHolePunch == "yes" && errN == nil && functions.CheckEndpoint(udppeers[node.PublicKey]) {
 				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
@@ -60,15 +89,40 @@ func GetPeersList(networkName string) ([]models.Node, error) {
 					}
 				}
 			}
-			functions.PrintUserLog(models.NODE_SERVER_NAME, "adding to peer list: "+peer.MacAddress+" "+peer.Endpoint, 3)
+			if node.IsRelay == "yes" {
+				network, err := models.GetNetwork(networkName)
+				if err == nil {
+					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
+				} else {
+					peer.AllowedIPs = append(peer.AllowedIPs, node.RelayAddrs...)
+				}
+			}
 			peers = append(peers, peer)
 		}
 	}
-	if err != nil {
-		return peers, err
-	}
 
 	return peers, err
+}
+
+func setPeerInfo(node models.Node) models.Node {
+	var peer models.Node
+	peer.RelayAddrs = node.RelayAddrs
+	peer.IsRelay = node.IsRelay
+	peer.IsRelayed = node.IsRelayed
+	peer.PublicKey = node.PublicKey
+	peer.Endpoint = node.Endpoint
+	peer.LocalAddress = node.LocalAddress
+	peer.ListenPort = node.ListenPort
+	peer.AllowedIPs = node.AllowedIPs
+	peer.UDPHolePunch = node.UDPHolePunch
+	peer.Address = node.Address
+	peer.Address6 = node.Address6
+	peer.EgressGatewayRanges = node.EgressGatewayRanges
+	peer.IsEgressGateway = node.IsEgressGateway
+	peer.IngressGatewayRange = node.IngressGatewayRange
+	peer.IsIngressGateway = node.IsIngressGateway
+	peer.IsPending = node.IsPending
+	return peer
 }
 
 func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersResponse, error) {
@@ -273,29 +327,4 @@ func SetNetworkNodesLastModified(networkName string) error {
 		return err
 	}
 	return nil
-}
-
-func TimestampNode(node models.Node, updatecheckin bool, updatepeers bool, updatelm bool) error {
-	if updatelm {
-		node.SetLastModified()
-	}
-	if updatecheckin {
-		node.SetLastCheckIn()
-	}
-	if updatepeers {
-		node.SetLastPeerUpdate()
-	}
-
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return err
-	}
-	value, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-
-	err = database.Insert(key, string(value), database.NODES_TABLE_NAME)
-
-	return err
 }

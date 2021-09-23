@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -97,7 +98,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-
 	err = node.Update(&newnode)
 	if err != nil {
 		return nil, err
@@ -137,12 +137,18 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		if node.IsServer == "yes" {
 			SetNetworkServerPeers(macAndNetwork[1])
 		}
-		peers, err := GetPeersList(macAndNetwork[1])
+		excludeIsRelayed := node.IsRelay != "yes"
+		var relayedNode string
+		if node.IsRelayed == "yes" {
+			relayedNode = node.Address
+		}
+		peers, err := GetPeersList(macAndNetwork[1], excludeIsRelayed, relayedNode)
 		if err != nil {
 			return nil, err
 		}
 
 		peersData, err := json.Marshal(&peers)
+		functions.PrintUserLog(node.Address,"checked in successfully",3)
 		return &nodepb.Object{
 			Data: string(peersData),
 			Type: nodepb.NODE_TYPE,

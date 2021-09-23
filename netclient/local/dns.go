@@ -8,6 +8,8 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"log"
 	"os/exec"
+
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 func SetDNS(nameserver string) error {
@@ -32,25 +34,25 @@ func SetDNS(nameserver string) error {
 }
 
 func UpdateDNS(ifacename string, network string, nameserver string) error {
+	if ncutils.IsWindows() {
+		return nil
+	}
 	_, err := exec.LookPath("resolvectl")
 	if err != nil {
 		log.Println(err)
 		log.Println("WARNING: resolvectl not present. Unable to set dns. Install resolvectl or run manually.")
 	} else {
-		_, err = RunCmd("resolvectl domain " + ifacename + " ~" + network)
+		_, err = ncutils.RunCmd("resolvectl domain "+ifacename+" ~"+network, true)
 		if err != nil {
-			log.Println(err)
 			log.Println("WARNING: Error encountered setting domain on dns. Aborted setting dns.")
 		} else {
-			_, err = RunCmd("resolvectl default-route " + ifacename + " false")
+			_, err = ncutils.RunCmd("resolvectl default-route "+ifacename+" false", true)
 			if err != nil {
-				log.Println(err)
 				log.Println("WARNING: Error encountered setting default-route on dns. Aborted setting dns.")
 			} else {
-				_, err = RunCmd("resolvectl dns " + ifacename + " " + nameserver)
+				_, err = ncutils.RunCmd("resolvectl dns "+ifacename+" "+nameserver, true)
 				if err != nil {
 					log.Println("WARNING: Error encountered running resolvectl dns " + ifacename + " " + nameserver)
-					log.Println(err)
 				}
 			}
 		}

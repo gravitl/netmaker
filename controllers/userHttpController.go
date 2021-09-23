@@ -187,7 +187,7 @@ func HasAdmin() (bool, error) {
 			return false, nil
 		} else {
 			return true, err
-	
+
 		}
 	}
 	for _, value := range collection { // filter for isadmin true
@@ -212,7 +212,7 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
-	}	
+	}
 
 	json.NewEncoder(w).Encode(hasadmin)
 
@@ -301,6 +301,10 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateUser(user models.User) (models.User, error) {
+	//check if user exists
+	if _, err := GetUser(user.UserName); err == nil {
+		return models.User{}, errors.New("user exists")
+	}
 	err := ValidateUser("create", user)
 	if err != nil {
 		return models.User{}, err
@@ -366,6 +370,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
+	//check if user exists
+	if _, err := GetUser(user.UserName); err != nil {
+		return models.User{}, err
+	}
 
 	err := ValidateUser("update", userchange)
 	if err != nil {

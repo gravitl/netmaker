@@ -26,7 +26,7 @@ const NODE_NOOP = "noop"
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-//node struct
+// node struct
 type Node struct {
 	ID                  string   `json:"id,omitempty" bson:"id,omitempty"`
 	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
@@ -52,10 +52,13 @@ type Node struct {
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
 	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
+	IsRelayed           string   `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
+	IsRelay             string   `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
 	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
 	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	RelayAddrs          []string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
@@ -68,11 +71,31 @@ type Node struct {
 	LocalRange          string   `json:"localrange" bson:"localrange" yaml:"localrange"`
 	Roaming             string   `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	OS                  string   `json:"os" bson:"os" yaml:"os"`
+	MTU                 int32    `json:"mtu" bson:"mtu" yaml:"mtu"`
+}
+
+func (node *Node) SetDefaultMTU() {
+	if node.MTU == 0 {
+		node.MTU = 1280
+	}
 }
 
 func (node *Node) SetDefaulIsPending() {
 	if node.IsPending == "" {
 		node.IsPending = "no"
+	}
+}
+
+func (node *Node) SetDefaultIsRelayed() {
+	if node.IsRelayed == "" {
+		node.IsRelayed = "no"
+	}
+}
+
+func (node *Node) SetDefaultIsRelay() {
+	if node.IsRelay == "" {
+		node.IsRelay = "no"
 	}
 }
 
@@ -241,6 +264,7 @@ func (node *Node) SetDefaults() {
 	// == Parent Network settings ==
 	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
 	node.IsDualStack = parentNetwork.IsDualStack
+	node.MTU = parentNetwork.DefaultMTU
 	// == node defaults if not set by parent ==
 	node.SetIPForwardingDefault()
 	node.SetDNSOnDefault()
@@ -259,6 +283,9 @@ func (node *Node) SetDefaults() {
 	node.SetDefaultEgressGateway()
 	node.SetDefaultIngressGateway()
 	node.SetDefaulIsPending()
+	node.SetDefaultMTU()
+	node.SetDefaultIsRelayed()
+	node.SetDefaultIsRelay()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
@@ -390,6 +417,21 @@ func (newNode *Node) Fill(currentNode *Node) {
 	newNode.IsServer = currentNode.IsServer
 	if newNode.IsServer == "yes" {
 		newNode.IsStatic = "yes"
+	}
+	if newNode.MTU == 0 {
+		newNode.MTU = currentNode.MTU
+	}
+	if newNode.OS == "" {
+		newNode.OS = currentNode.OS
+	}
+	if newNode.RelayAddrs == nil {
+		newNode.RelayAddrs = currentNode.RelayAddrs
+	}
+	if newNode.IsRelay == "" {
+		newNode.IsRelay = currentNode.IsRelay
+	}
+	if newNode.IsRelayed == "" {
+		newNode.IsRelayed = currentNode.IsRelayed
 	}
 }
 

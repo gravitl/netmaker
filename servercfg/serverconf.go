@@ -73,17 +73,17 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.7.3"
+	version := "0.8.0"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
 	return version
 }
 func GetDB() string {
-	database := "rqlite"
-	if os.Getenv("DATABASE") == "sqlite" {
+	database := "sqlite"
+	if os.Getenv("DATABASE") == "rqlite" {
 		database = os.Getenv("DATABASE")
-	} else if config.Config.Server.Database == "sqlite" {
+	} else if config.Config.Server.Database == "rqlite" {
 		database = config.Config.Server.Database
 	}
 	return database
@@ -309,7 +309,6 @@ func GetPublicIP() (string, error) {
 			endpoint = string(bodyBytes)
 			break
 		}
-
 	}
 	if err == nil && endpoint == "" {
 		err = errors.New("Public Address Not Found.")

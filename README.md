@@ -49,3 +49,10 @@ Netmaker's source code and all artifacts in this repository are freely available
 
 Email: info@gravitl.com  
 Discord: https://discord.gg/zRb9Vfhk8A
+
+#### Business Support
+
+https://gravitl.com/plans/business
+
+### Disclaimer
+ [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.

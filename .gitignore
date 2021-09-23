@@ -9,4 +9,8 @@ netclient/netclient-amd64
 netclient/netclient-arm
 netclient/netclient-arm64
 netclient/netclient-32
+netclient/netclient32
+netclient/netclient.exe
 config/dnsconfig/
+winsw.exe
+data/
