@@ -548,6 +548,13 @@
       <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
       
     
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+      
+    
     </li></ul>
     
     </li>
@@ -852,6 +859,15 @@
 </dd>
 <dt>DNS_MODE:</dt><dd><p><strong>Default:</strong> “off”</p>
 <p><strong>Description:</strong> Enables DNS Mode, meaning config files will be generated for CoreDNS.</p>
+</dd>
+<dt>DATABASE:</dt><dd><p><strong>Default:</strong> “sqlite”</p>
+<p><strong>Description:</strong> Specify db type to connect with. Currently, options include “sqlite” and “rqlite”.</p>
+</dd>
+<dt>SQL_CONN:</dt><dd><p><strong>Default:</strong> “<a class="reference external" href="http://">http://</a>”</p>
+<p><strong>Description:</strong> Specify the necessary string to connect with your local or remote sql database.</p>
+</dd>
+<dt>CLIENT_MODE:</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> Specifies if server should deploy itself as a node (client) in each network. May be turned to “off” for more restricted servers.</p>
 </dd>
 </dl>
 

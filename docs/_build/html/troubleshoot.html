@@ -431,6 +431,13 @@
     <li class="md-nav__item">
     
     
+      <a href="client-installation.html#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
       <a href="client-installation.html#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
       
     
@@ -488,6 +495,13 @@
     
     
       <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
       
     
     </li></ul>
@@ -727,8 +741,8 @@
 
 <h2 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permalink to this headline">¶</a></h2>
 <dl class="simple">
-<dt><strong>How can I connect my Android, IOS, MacOS or Windows device to my Netmaker VPN?</strong></dt><dd><p>Currently meshing one of these devices is not supported, however it will be soon.
-For now you can connect to your VPN by making one of the nodes an Ingressgateway, then
+<dt><strong>How can I connect my Android or IOS device to my Netmaker VPN?</strong></dt><dd><p>Currently meshing one of these devices is not supported, however it will be soon.
+For now you can connect to your VPN by making one of the nodes an Ingress Gateway, then
 create an Ext Client for each device. Finally, use the official WG app or another
 WG configuration app to connect via QR or downloading the device’s WireGuard configuration.</p>
 </dd>
@@ -741,11 +755,15 @@ Simply turn on “allow manual signups” on your network and nodes will not con
 <dt><strong>Is there a community or forum to ask questions about Netmaker?</strong></dt><dd><p>Yes, we have an active <a class="reference external" href="https://discord.gg/Pt4T9y9XK8">discord</a> community and issues on our <a class="reference external" href="https://github.com/gravitl/netmaker/issues">github</a> are answered frequently!
 You can also sign-up for updates at our <a class="reference external" href="https://gravitl.com/">gravitl site</a>!</p>
 </dd>
+<dt><strong>How can I get additional support for my business?</strong></dt><dd><p>Check out our business support subscriptions at <a class="reference external" href="https://gravitl.com/plans">https://gravitl.com/plans</a>. Subscription holders can also purchase consulting credits via the site.</p>
+</dd>
 </dl>
 
 
 <h2 id="server">Server<a class="headerlink" href="#server" title="Permalink to this headline">¶</a></h2>
 <dl class="simple">
+<dt><strong>I upgraded from 0.7 to 0.8 and now I dont have any data in my server!</strong></dt><dd><p>In 0.8, sqlite becomes the default database. If you were running with rqlite, you must set the DATABASE environment variable to rqlite in order to continue using rqlite.</p>
+</dd>
 <dt><strong>Can I secure/encrypt all the traffic to my server and UI?</strong></dt><dd><p>This can fairly simple to achieve assuming you have access to a domain and are familiar with Nginx.
 Please refer to the quick-start guide to see!</p>
 </dd>
@@ -803,6 +821,8 @@ You can also see the current WireGuard configuration with <code class="docutils 
 <span class="n">sudo</span> <span class="n">restorecon</span> <span class="o">-</span><span class="n">R</span> <span class="o">-</span><span class="n">v</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">netclient</span><span class="o">/</span><span class="n">netclient</span>
 </pre></div>
 </div>
+</dd>
+<dt><strong>I have a handshake with a peer but can’t ping it, what gives?</strong></dt><dd><p>This is commonly due to incorrect MTU settings. Typically, it will be because MTU is too high. Try setting MTU lower on the node. This can be done via netconfig, or by editing the node in the UI.</p>
 </dd>
 </dl>
 

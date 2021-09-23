@@ -7,16 +7,15 @@ This quick start guide is an **opinionated** guide for getting up and running wi
 0. Introduction
 ==================
 
-We assume for this installation that you want all of the Netmaker features enabled, want your server to be secure, and want it to be accessible from anywhere. 
+We assume for this installation that you want all of the Netmaker features enabled, you want your server to be secure, and you want your server to be accessible from anywhere.
 
-This instance will not be HA. However, it should comfortably handle around one hundred concurrent clients and support most use cases.
+This instance will not be HA. However, it should comfortably handle around one hundred concurrent clients and support the most common use cases.
 
-If you are deploying for an enterprise use case, please contact info@gravitl.com for support.
+If you are deploying for a business or enterprise use case and this setup will not fit your needs, please contact info@gravitl.com, or check out the business subscription plans at https://gravitl.com/plans/business.
 
 By the end of this guide, you will have Netmaker installed on a public VM linked to your custom domain, secured behind an Nginx reverse proxy.
 
-If this configuration does not fit your use case, see the :doc:`Advanced Installation <./server-installation>` docs. 
-
+For information about deploying more advanced configurations, see the :doc:`Advanced Installation <./server-installation>` docs. 
 
 
 1. Prerequisites
@@ -24,9 +23,11 @@ If this configuration does not fit your use case, see the :doc:`Advanced Install
 -  **Virtual Machine**
    
    - Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)
+      - We do not recommend Oracle Cloud, as VM's here have been known to cause network interference.
    - Public, static IP 
-   - Min 2GB RAM, 1 CPU (4GB RAM, 2CPU preferred)
-   - 5GB+ of storage
+   - Min 1GB RAM, 1 CPU (4GB RAM, 2CPU preferred)
+      - Nginx may have performance issues if using a cloud VPS with a single, shared CPU
+   - 2GB+ of storage 
    - Ubuntu  20.04 Installed
 
 - **Domain**
@@ -47,11 +48,11 @@ Begin by installing the community version of Docker and docker-compose (there ar
 
   sudo apt-get remove docker docker-engine docker.io containerd runc
   sudo apt-get update
-  sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release
+  sudo apt-get -y install apt-transport-https ca-certificates curl gnupg lsb-release
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg  
   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update
-  sudo apt-get install docker-ce docker-ce-cli containerd.io
+  sudo apt-get -y install docker-ce docker-ce-cli containerd.io
   sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
   sudo chmod +x /usr/local/bin/docker-compose
   docker --version
@@ -64,7 +65,7 @@ Install Dependencies
 
 In addition to Docker, this installation requires WireGuard, Nginx, and Certbot.
 
-``sudo apt install wireguard wireguard-tools nginx certbot python3-certbot-nginx net-tools``
+``sudo apt -y install wireguard wireguard-tools nginx certbot python3-certbot-nginx net-tools``
 
  
 3. Prepare VM
@@ -109,20 +110,9 @@ Make sure firewall settings are appropriate for Netmaker. You need ports 53 and 
   - allow 443/tcp from all
   - allow 53/udp and 53/tcp from all
 
-Prepare for DNS
-----------------------------------------------------------------
+In addition to the above ports, you will need to make sure that your cloud's firewall or security groups are opened for the range of ports that Netmaker's WireGuard interfaces consume.
 
-On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution.
-
-.. code-block::
-
-  systemctl stop systemd-resolved
-  systemctl disable systemd-resolved 
-  vim /etc/systemd/resolved.conf
-    *  uncomment DNS and add 8.8.8.8 or whatever reachable nameserver is your preference  *
-    *  uncomment DNSStubListener and set to "no"  *
-  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
-
+Netmaker will create one interface per network, starting from 51821. So, if you plan on having 5 networks, you will want to have at least 51821-51825 open (udp).
 
 Prepare Nginx
 -----------------
@@ -148,23 +138,28 @@ Insert your domain in the configuration file and add to nginx:
 Prepare Templates
 ------------------
 
+**Note on COREDNS_IP:** Depending on your cloud provider, the public IP may not be bound directly to the VM on which you are running. In such cases, CoreDNS cannot bind to this IP, and you should use the IP of the default interface on your machine in place of COREDNS_IP. If the public IP **is** bound to the VM, you can simply use the same IP as SERVER_PUBLIC_IP.
+
 .. code-block::
 
-  wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.quickstart.yml
-  sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.quickstart.yml
-  sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.quickstart.yml
+  wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.yml
+  sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.yml
+  sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.yml
+  sed -i 's/COREDNS_IP/<your server ip>/g' docker-compose.yml
 
 Generate a unique master key and insert it:
 
 .. code-block::
 
   tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo ''
-  sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.quickstart.yml
+  sed -i 's/REPLACE_MASTER_KEY/<your generated key>/g' docker-compose.yml
+
+You may want to save this key for future use with the API.
 
 Start Netmaker
 ----------------
 
-``sudo docker-compose -f docker-compose.quickstart.yml up -d``
+``sudo docker-compose -f docker-compose.yml up -d``
 
 navigate to dashboard.<your base domain> to see your nginx instance.
 

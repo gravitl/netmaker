@@ -308,8 +308,6 @@
         </li>
         <li class="md-nav__item"><a href="#prepare-firewall" class="md-nav__link">Prepare Firewall</a>
         </li>
-        <li class="md-nav__item"><a href="#prepare-for-dns" class="md-nav__link">Prepare for DNS</a>
-        </li>
         <li class="md-nav__item"><a href="#prepare-nginx" class="md-nav__link">Prepare Nginx</a>
         </li></ul>
             </nav>
@@ -477,6 +475,13 @@
     <li class="md-nav__item">
     
     
+      <a href="client-installation.html#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
       <a href="client-installation.html#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
       
     
@@ -534,6 +539,13 @@
     
     
       <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
       
     
     </li></ul>
@@ -741,8 +753,6 @@
         </li>
         <li class="md-nav__item"><a href="#prepare-firewall" class="md-nav__link">Prepare Firewall</a>
         </li>
-        <li class="md-nav__item"><a href="#prepare-for-dns" class="md-nav__link">Prepare for DNS</a>
-        </li>
         <li class="md-nav__item"><a href="#prepare-nginx" class="md-nav__link">Prepare Nginx</a>
         </li></ul>
             </nav>
@@ -771,21 +781,33 @@
 <p>This quick start guide is an <strong>opinionated</strong> guide for getting up and running with Netmaker as quickly as possible.</p>
 
 <h2 id="introduction">0. Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
-<p>We assume for this installation that you want all of the Netmaker features enabled, want your server to be secure, and want it to be accessible from anywhere.</p>
-<p>This instance will not be HA. However, it should comfortably handle around one hundred concurrent clients and support most use cases.</p>
-<p>If you are deploying for an enterprise use case, please contact <a class="reference external" href="mailto:info%40gravitl.com">info<span>@</span>gravitl<span>.</span>com</a> for support.</p>
+<p>We assume for this installation that you want all of the Netmaker features enabled, you want your server to be secure, and you want your server to be accessible from anywhere.</p>
+<p>This instance will not be HA. However, it should comfortably handle around one hundred concurrent clients and support the most common use cases.</p>
+<p>If you are deploying for a business or enterprise use case and this setup will not fit your needs, please contact <a class="reference external" href="mailto:info%40gravitl.com">info<span>@</span>gravitl<span>.</span>com</a>, or check out the business subscription plans at <a class="reference external" href="https://gravitl.com/plans/business">https://gravitl.com/plans/business</a>.</p>
 <p>By the end of this guide, you will have Netmaker installed on a public VM linked to your custom domain, secured behind an Nginx reverse proxy.</p>
-<p>If this configuration does not fit your use case, see the <a class="reference internal" href="server-installation.html"><span class="doc">Advanced Installation</span></a> docs.</p>
+<p>For information about deploying more advanced configurations, see the <a class="reference internal" href="server-installation.html"><span class="doc">Advanced Installation</span></a> docs.</p>
 
 
 <h2 id="prerequisites">1. Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li><p><strong>Virtual Machine</strong></p>
 <ul>
-<li><p>Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)</p></li>
+<li><dl class="simple">
+<dt>Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)</dt><dd><ul>
+<li><p>We do not recommend Oracle Cloud, as VM’s here have been known to cause network interference.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
 <li><p>Public, static IP</p></li>
-<li><p>Min 2GB RAM, 1 CPU (4GB RAM, 2CPU preferred)</p></li>
-<li><p>5GB+ of storage</p></li>
+<li><dl class="simple">
+<dt>Min 1GB RAM, 1 CPU (4GB RAM, 2CPU preferred)</dt><dd><ul>
+<li><p>Nginx may have performance issues if using a cloud VPS with a single, shared CPU</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>2GB+ of storage</p></li>
 <li><p>Ubuntu  20.04 Installed</p></li>
 </ul>
 </li>
@@ -805,11 +827,11 @@
 <p>Begin by installing the community version of Docker and docker-compose (there are issues with the snap version). You can follow the official <a class="reference external" href="https://docs.docker.com/engine/install/">Docker instructions here</a>. Or, you can use the below series of commands which should work on Ubuntu 20.04.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">remove</span> <span class="n">docker</span> <span class="n">docker</span><span class="o">-</span><span class="n">engine</span> <span class="n">docker</span><span class="o">.</span><span class="n">io</span> <span class="n">containerd</span> <span class="n">runc</span>
 <span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">update</span>
-<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">apt</span><span class="o">-</span><span class="n">transport</span><span class="o">-</span><span class="n">https</span> <span class="n">ca</span><span class="o">-</span><span class="n">certificates</span> <span class="n">curl</span> <span class="n">gnupg</span> <span class="n">lsb</span><span class="o">-</span><span class="n">release</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="o">-</span><span class="n">y</span> <span class="n">install</span> <span class="n">apt</span><span class="o">-</span><span class="n">transport</span><span class="o">-</span><span class="n">https</span> <span class="n">ca</span><span class="o">-</span><span class="n">certificates</span> <span class="n">curl</span> <span class="n">gnupg</span> <span class="n">lsb</span><span class="o">-</span><span class="n">release</span>
 <span class="n">curl</span> <span class="o">-</span><span class="n">fsSL</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">download</span><span class="o">.</span><span class="n">docker</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">linux</span><span class="o">/</span><span class="n">ubuntu</span><span class="o">/</span><span class="n">gpg</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">gpg</span> <span class="o">--</span><span class="n">dearmor</span> <span class="o">-</span><span class="n">o</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">keyrings</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">archive</span><span class="o">-</span><span class="n">keyring</span><span class="o">.</span><span class="n">gpg</span>
 <span class="n">echo</span> <span class="s2">"deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"</span> <span class="o">|</span> <span class="n">sudo</span> <span class="n">tee</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">apt</span><span class="o">/</span><span class="n">sources</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">d</span><span class="o">/</span><span class="n">docker</span><span class="o">.</span><span class="n">list</span> <span class="o">&gt;</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span>
 <span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">update</span>
-<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">docker</span><span class="o">-</span><span class="n">ce</span> <span class="n">docker</span><span class="o">-</span><span class="n">ce</span><span class="o">-</span><span class="n">cli</span> <span class="n">containerd</span><span class="o">.</span><span class="n">io</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="o">-</span><span class="n">y</span> <span class="n">install</span> <span class="n">docker</span><span class="o">-</span><span class="n">ce</span> <span class="n">docker</span><span class="o">-</span><span class="n">ce</span><span class="o">-</span><span class="n">cli</span> <span class="n">containerd</span><span class="o">.</span><span class="n">io</span>
 <span class="n">sudo</span> <span class="n">curl</span> <span class="o">-</span><span class="n">L</span> <span class="s2">"https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)"</span> <span class="o">-</span><span class="n">o</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span>
 <span class="n">sudo</span> <span class="n">chmod</span> <span class="o">+</span><span class="n">x</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span>
 <span class="n">docker</span> <span class="o">--</span><span class="n">version</span>
@@ -821,7 +843,7 @@
 
 <h3 id="id1">Install Dependencies<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
 <p>In addition to Docker, this installation requires WireGuard, Nginx, and Certbot.</p>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">wireguard</span> <span class="pre">wireguard-tools</span> <span class="pre">nginx</span> <span class="pre">certbot</span> <span class="pre">python3-certbot-nginx</span> <span class="pre">net-tools</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">-y</span> <span class="pre">install</span> <span class="pre">wireguard</span> <span class="pre">wireguard-tools</span> <span class="pre">nginx</span> <span class="pre">certbot</span> <span class="pre">python3-certbot-nginx</span> <span class="pre">net-tools</span></code></p>
 
 
 
@@ -864,18 +886,8 @@
 </ul>
 </dd>
 </dl>
-
-
-<h3 id="prepare-for-dns">Prepare for DNS<a class="headerlink" href="#prepare-for-dns" title="Permalink to this headline">¶</a></h3>
-<p>On Ubuntu 20.04, by default there is a service consuming port 53 related to DNS resolution. We need port 53 open in order to run our own DNS server. The below steps will disable systemd-resolved, and insert a generic DNS nameserver for local resolution.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">systemctl</span> <span class="n">stop</span> <span class="n">systemd</span><span class="o">-</span><span class="n">resolved</span>
-<span class="n">systemctl</span> <span class="n">disable</span> <span class="n">systemd</span><span class="o">-</span><span class="n">resolved</span>
-<span class="n">vim</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">systemd</span><span class="o">/</span><span class="n">resolved</span><span class="o">.</span><span class="n">conf</span>
-  <span class="o">*</span>  <span class="n">uncomment</span> <span class="n">DNS</span> <span class="ow">and</span> <span class="n">add</span> <span class="mf">8.8.8.8</span> <span class="ow">or</span> <span class="n">whatever</span> <span class="n">reachable</span> <span class="n">nameserver</span> <span class="ow">is</span> <span class="n">your</span> <span class="n">preference</span>  <span class="o">*</span>
-  <span class="o">*</span>  <span class="n">uncomment</span> <span class="n">DNSStubListener</span> <span class="ow">and</span> <span class="nb">set</span> <span class="n">to</span> <span class="s2">"no"</span>  <span class="o">*</span>
-<span class="n">ln</span> <span class="o">-</span><span class="n">sf</span> <span class="o">/</span><span class="n">run</span><span class="o">/</span><span class="n">systemd</span><span class="o">/</span><span class="n">resolve</span><span class="o">/</span><span class="n">resolv</span><span class="o">.</span><span class="n">conf</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">resolv</span><span class="o">.</span><span class="n">conf</span>
-</pre></div>
-</div>
+<p>In addition to the above ports, you will need to make sure that your cloud’s firewall or security groups are opened for the range of ports that Netmaker’s WireGuard interfaces consume.</p>
+<p>Netmaker will create one interface per network, starting from 51821. So, if you plan on having 5 networks, you will want to have at least 51821-51825 open (udp).</p>
 
 
 <h3 id="prepare-nginx">Prepare Nginx<a class="headerlink" href="#prepare-nginx" title="Permalink to this headline">¶</a></h3>
@@ -895,20 +907,23 @@
 <h2 id="install-netmaker">4. Install Netmaker<a class="headerlink" href="#install-netmaker" title="Permalink to this headline">¶</a></h2>
 
 <h3 id="prepare-templates">Prepare Templates<a class="headerlink" href="#prepare-templates" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">develop</span><span class="o">/</span><span class="n">compose</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
-<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
-<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/SERVER_PUBLIC_IP/&lt;your server ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
+<p><strong>Note on COREDNS_IP:</strong> Depending on your cloud provider, the public IP may not be bound directly to the VM on which you are running. In such cases, CoreDNS cannot bind to this IP, and you should use the IP of the default interface on your machine in place of COREDNS_IP. If the public IP <strong>is</strong> bound to the VM, you can simply use the same IP as SERVER_PUBLIC_IP.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">develop</span><span class="o">/</span><span class="n">compose</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/SERVER_PUBLIC_IP/&lt;your server ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/COREDNS_IP/&lt;your server ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
 </pre></div>
 </div>
 <p>Generate a unique master key and insert it:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tr</span> <span class="o">-</span><span class="n">dc</span> <span class="n">A</span><span class="o">-</span><span class="n">Za</span><span class="o">-</span><span class="n">z0</span><span class="o">-</span><span class="mi">9</span> <span class="o">&lt;/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span> <span class="o">|</span> <span class="n">head</span> <span class="o">-</span><span class="n">c</span> <span class="mi">30</span> <span class="p">;</span> <span class="n">echo</span> <span class="s1">''</span>
-<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/REPLACE_MASTER_KEY/&lt;your generated key&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">quickstart</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/REPLACE_MASTER_KEY/&lt;your generated key&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
 </pre></div>
 </div>
+<p>You may want to save this key for future use with the API.</p>
 
 
 <h3 id="start-netmaker">Start Netmaker<a class="headerlink" href="#start-netmaker" title="Permalink to this headline">¶</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">docker-compose</span> <span class="pre">-f</span> <span class="pre">docker-compose.quickstart.yml</span> <span class="pre">up</span> <span class="pre">-d</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">docker-compose</span> <span class="pre">-f</span> <span class="pre">docker-compose.yml</span> <span class="pre">up</span> <span class="pre">-d</span></code></p>
 <p>navigate to dashboard.&lt;your base domain&gt; to see your nginx instance.</p>
 <p>To troubleshoot issues, start with:</p>
 <p><code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">logs</span> <span class="pre">netmaker</span></code></p>

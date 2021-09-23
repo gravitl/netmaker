@@ -16,7 +16,7 @@ By using this method, you can hook any machine into a netmaker network that can 
 
 It is recommended to run the netclient where compatible, but for all other cases, a machine can be configured as an external client.
 
-Important to note, an external client is not **reachable** by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource runnin on the virtual network, and **not** for use cases where one wishes to make a resource accessible on the network. For that, use netclient.
+Important to note, an external client is not **reachable** by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource running on the virtual network, and **not** for use cases where one wishes to make a resource accessible on the network. For that, use netclient.
 
 Configuring an Ingress Gateway
 ==================================
@@ -57,3 +57,16 @@ Example config file:
 .. literalinclude:: ./examplecode/myclient.conf
 
 Your client should now be able to access the network! A client can be invalidated at any time by simply deleting it from the UI.
+
+Configuring DNS for Ext Clients (OPTIONAL)
+============================================
+
+If you wish to have a DNS field on your ext clients conf, simply edit the network field as shown below to 1.1.1.1 or 8.8.8.8 for example.
+If you do not want DNS on your ext client conf files, simply leave it blank.
+
+.. image:: images/exclient5.png
+   :width: 80%
+   :alt: Gateway
+   :align: center
+
+Important to note, your client automatically adds egress gateway ranges (if any on the same network) to it's allowed IPs.

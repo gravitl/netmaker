@@ -98,6 +98,21 @@ DNS_MODE:
 
     **Description:** Enables DNS Mode, meaning config files will be generated for CoreDNS.
 
+DATABASE:  
+    **Default:** "sqlite"
+
+    **Description:** Specify db type to connect with. Currently, options include "sqlite" and "rqlite".
+
+SQL_CONN:  
+    **Default:** "http://"
+
+    **Description:** Specify the necessary string to connect with your local or remote sql database.
+
+CLIENT_MODE:  
+    **Default:** "on"
+
+    **Description:** Specifies if server should deploy itself as a node (client) in each network. May be turned to "off" for more restricted servers.
+
 Config File Reference
 ----------------------
 A config file may be placed under config/environments/<env-name>.yml. To read this file at runtime, provide the environment variable NETMAKER_ENV at runtime. For instance, dev.yml paired with ENV=dev. Netmaker will load the specified Config file. This allows you to store and manage configurations for different environments. Below is a reference Config File you may use.
