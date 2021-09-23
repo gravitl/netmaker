@@ -156,7 +156,7 @@ func Uninstall() error {
 	} else if ncutils.IsMac() {
 		daemon.CleanupMac()
 	} else if !ncutils.IsKernel() {
-		ncutils.PrintLog("manual cleanup required",1)
+		ncutils.PrintLog("manual cleanup required", 1)
 	}
 
 	return err
@@ -177,6 +177,7 @@ func LeaveNetwork(network string) error {
 	if err != nil {
 		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
 	} else {
+		defer conn.Close()
 		wcclient = nodepb.NewNodeServiceClient(conn)
 
 		ctx, err := auth.SetJWT(wcclient, network)
