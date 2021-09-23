@@ -824,6 +824,8 @@ You can also see the current WireGuard configuration with <code class="docutils 
 </dd>
 <dt><strong>I have a handshake with a peer but can’t ping it, what gives?</strong></dt><dd><p>This is commonly due to incorrect MTU settings. Typically, it will be because MTU is too high. Try setting MTU lower on the node. This can be done via netconfig, or by editing the node in the UI.</p>
 </dd>
+<dt><strong>I have a hard to reach machine behind a firewall or a corporate NAT, what can I do?</strong></dt><dd><p>In this situation you can use the Relay Server functionality introduced in Netmaker v0.8 to designate a node as a relay to your “stuck” machine. Simply click the button to make a node into a relay and tell it to relay traffic to this hard-to-reach peer.</p>
+</dd>
 </dl>
 
 
