@@ -4,9 +4,9 @@ Troubleshooting
 
 Common Issues
 --------------
-**How can I connect my Android, IOS, MacOS or Windows device to my Netmaker VPN?**
+**How can I connect my Android or IOS device to my Netmaker VPN?**
   Currently meshing one of these devices is not supported, however it will be soon. 
-  For now you can connect to your VPN by making one of the nodes an Ingressgateway, then 
+  For now you can connect to your VPN by making one of the nodes an Ingress Gateway, then 
   create an Ext Client for each device. Finally, use the official WG app or another 
   WG configuration app to connect via QR or downloading the device's WireGuard configuration. 
 
@@ -22,8 +22,16 @@ Common Issues
   Yes, we have an active `discord <https://discord.gg/Pt4T9y9XK8>`_ community and issues on our `github <https://github.com/gravitl/netmaker/issues>`_ are answered frequently!
   You can also sign-up for updates at our `gravitl site <https://gravitl.com/>`_!
 
+**How can I get additional support for my business?**
+  Check out our business support subscriptions at https://gravitl.com/plans. Subscription holders can also purchase consulting credits via the site.
+
+
 Server
 -------
+
+**I upgraded from 0.7 to 0.8 and now I dont have any data in my server!**
+  In 0.8, sqlite becomes the default database. If you were running with rqlite, you must set the DATABASE environment variable to rqlite in order to continue using rqlite.
+
 **Can I secure/encrypt all the traffic to my server and UI?**
   This can fairly simple to achieve assuming you have access to a domain and are familiar with Nginx.
   Please refer to the quick-start guide to see!
@@ -63,7 +71,7 @@ UI
   Yes, nodes can share names without issue. It may just be harder on you to know which is which.
 
 Netclient
--------
+-----------
 **How do I connect a node to my Netmaker network with Netclient?**
   First get your access token (not just access key), then run ``sudo netclient join -t <access token>``.
   **NOTE:** netclient may be under /etc/netclient/, i.e run ``sudo /etc/netclient/netclient join -t <access token>``
@@ -90,6 +98,13 @@ Netclient
     sudo semanage fcontext -a -t bin_t '/etc/netclient/netclient' 
     sudo chcon -Rv -u system_u -t bin_t '/etc/netclient/netclient' 
     sudo restorecon -R -v /etc/netclient/netclient
+
+**I have a handshake with a peer but can't ping it, what gives?**
+  This is commonly due to incorrect MTU settings. Typically, it will be because MTU is too high. Try setting MTU lower on the node. This can be done via netconfig, or by editing the node in the UI. 
+
+**I have a hard to reach machine behind a firewall or a corporate NAT, what can I do?**
+  In this situation you can use the Relay Server functionality introduced in Netmaker v0.8 to designate a node as a relay to your "stuck" machine. Simply click the button to make a node into a relay and tell it to relay traffic to this hard-to-reach peer. 
+
 
 CoreDNS
 --------

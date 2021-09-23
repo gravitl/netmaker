@@ -19,6 +19,17 @@ The netclient agent connects to the server, pushing and pulling information when
 
 The netclient agent then configures WireGuard (and other network properties) locally, so that the network stays intact.
 
+Notes on Windows
+==================================
+
+If running the netclient on windows, you must download the netclient.exe binary and run it from Powershell as an Administrator.
+
+Windows will by default have firewall rules that prevent inbound connections. If you wish to allow inbound connections from particular peers, use the following command:
+
+``netsh advfirewall firewall add rule name="Allow from <peer private addr>" dir=in action=allow protocol=ANY remoteip=<peer private addr>``
+
+If you want to allow all peers access, but do not want to configure firewall rules for all peers, you can configure access for one peer, and set it as a Relay Server.
+
 Modes and System Compatibility
 ==================================
 
@@ -36,11 +47,9 @@ As a CLI, the netclient should function on any Linux or Unix based system that h
 Daemon
 ----------
 
-The netclient is intended to be run as a system daemon. This allows it to automatically retrieve and send updates. To do this, the netclient can install itself as a systemd service.
+The netclient is intended to be run as a system daemon. This allows it to automatically retrieve and send updates. To do this, the netclient can install itself as a systemd service, or launchd/windows service for Mac or Windows.
 
-This requires a systemd-based linux operating system.
-
-If running the netclient on a non-systemd system, it is recommended to manually configure the netclient as a daemon using whatever method is acceptable on the chosen operating system.
+If running the netclient on non-systemd linux, it is recommended to manually configure the netclient as a daemon using whatever method is acceptable on the chosen operating system.
 
 Private DNS Management
 -----------------------

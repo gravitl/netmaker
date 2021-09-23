@@ -431,6 +431,13 @@
     <li class="md-nav__item">
     
     
+      <a href="client-installation.html#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
       <a href="client-installation.html#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
       
     
@@ -740,7 +747,7 @@
 <p>An external client is not “managed,” meaning it does not automatically pull the latest network configuration, or push changes to its configuration. Instead, it uses a generated WireGuard config file to access the designated <strong>Ingress Gateway</strong>, which <strong>is</strong> a managed server (running netclient). This server then forwards traffic to the appropriate endpoint, acting as a middle-man/relay.</p>
 <p>By using this method, you can hook any machine into a netmaker network that can run WireGuard.</p>
 <p>It is recommended to run the netclient where compatible, but for all other cases, a machine can be configured as an external client.</p>
-<p>Important to note, an external client is not <strong>reachable</strong> by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource runnin on the virtual network, and <strong>not</strong> for use cases where one wishes to make a resource accessible on the network. For that, use netclient.</p>
+<p>Important to note, an external client is not <strong>reachable</strong> by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource running on the virtual network, and <strong>not</strong> for use cases where one wishes to make a resource accessible on the network. For that, use netclient.</p>
 
 
 <h2 id="configuring-an-ingress-gateway">Configuring an Ingress Gateway<a class="headerlink" href="#configuring-an-ingress-gateway" title="Permalink to this headline">¶</a></h2>

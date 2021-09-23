@@ -26,6 +26,7 @@ For information about deploying more advanced configurations, see the :doc:`Adva
       - We do not recommend Oracle Cloud, as VM's here have been known to cause network interference.
    - Public, static IP 
    - Min 1GB RAM, 1 CPU (4GB RAM, 2CPU preferred)
+      - Nginx may have performance issues if using a cloud VPS with a single, shared CPU
    - 2GB+ of storage 
    - Ubuntu  20.04 Installed
 

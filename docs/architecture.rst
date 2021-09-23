@@ -63,7 +63,9 @@ SystemD
 
 SystemD is a system service manager for a wide array of Linux operating systems. Not all Linux distributions have adopted systemd, but, for better or worse, it has become a fairly common standard in the Linux world. That said, any non-Linux operating system will not have systemd, and many Linux/Unix distributionshave alternative system service managers.
 
-Netmaker's netclient, the agent which controls networking on all nodes, can be run as a CLI or as a system daemon. It runs as a daemon by default, and this requires systemd. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices. However, for the time being, the netclient should be run "unmanaged" (netclient join -daemon=off) on systems that do not run systemd, and some other method can be used like a cron job or custom script.
+Netmaker's netclient, the agent which controls networking on all nodes, can be run as a CLI or as a system daemon. On Linux, it runs as a daemon by default, and this requires systemd. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices. However, for the time being, the netclient should be run "unmanaged" (netclient join -daemon=off) on systems that do not run systemd, and some other method can be used like a cron job or custom script.
+
+As of 0.8, Mac and Windows are supported. On these operating systems, netclient launches the daemon using LaunchD and Windows Service, respectively, as opposed to SystemD.
 
 Components
 ===========
@@ -81,13 +83,13 @@ Most server settings are configurable via a config file, or by environment varia
 
 These modes include client mode and dns mode. Either of these can be disabled but are enabled by default. Client mode allows you to treat the Netmaker host machine (operating system) as a network Node, installing the netclient and controlling the host network. DNS mode has the server write config settings for CoreDNS, a separate component and nameserver, which picks up the config settings to manage node DNS.
 
-The Netmaker server interacts with rqlite, a distributed version of sqlite, which holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
+The Netmaker server interacts with either sqlit (default) or rqlite, a distributed version of sqlite, as its database. This DB holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
 
 
 Netclient
 ----------------
 
-The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker `GitHub Repository <https://github.com/gravitl/netmaker/tree/master/netclient>`_. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.5, the netclient can be run as a system daemon on linux distributions with systemd, or as an "unmanaged" client on distributions without systemd.
+The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker `GitHub Repository <https://github.com/gravitl/netmaker/tree/master/netclient>`_. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.8, the netclient can be run as a system daemon on linux distributions with systemd, or as an "unmanaged" client on distributions without systemd. The netclient for Windows and Mac will run as a Windows Service or LaunchDaemon, respectively.
 
 The netclient is installed via a simple bash script, which pulls the latest binary and runs 'register' and 'join' commands.
 
@@ -95,17 +97,19 @@ The 'register' command adds a WireGuard tunnel directly to the netmaker server, 
 
 The 'join' command attempts to add the machine to the Netmaker network using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered into the Netmaker network, and will be returned necessary configuration details for how to set up its local network. 
 
-The netclient then sets up the systemd daemon (if running in daemon mode), and configures WireGuard. At this point it should be part of the network.
+The netclient then sets up the system daemon (if running in daemon mode), and configures WireGuard. At this point it should be part of the network.
 
 If running in daemon mode, on a periodic basis (systemd timer), the netclient performs a "check in." It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network. If not running in daemon mode, it is up to the operator to perform check ins (netclient checkin -n < network name >).
 
 The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.
 
 
-rqlite
---------
+sqlite and rqlite
+---------------------
 
-As of v0.7, Netmaker uses rqlite, a distributed (RAFT consensus) database, and interacts with this database to store and retrieve information about nodes, networks, and users. With the 0.7 refactor, additional database support is very easy to implement. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.
+As of v0.8, Netmaker uses sqlite by default as a database. It can also use rqlite, a distributed (RAFT consensus) databaseand. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
+
+Additional database support (besides sqlite and rqlite) is very easy to implement for special use cases. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.
 
 Netmaker UI
 ---------------
@@ -120,8 +124,6 @@ CoreDNS
 
 Netmaker allows users to provide and manage Private DNS for their nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.
 
-Worth considering is that CoreDNS requires port 53 on the Netmaker host system, which may cause conflicts depending on your operating system. This is explained in the :doc:`Server Installation <./server-installation>` guide.
-
 External Client
 ----------------
 
@@ -129,7 +131,9 @@ The external client is simply a manually configured WireGuard connection to your
 
 Most machines can run WireGuard. It is fairly simple to set up a WireGuard connection to a single endpoint. It is setting up mesh networks and other topologies like site-to-site which becomes complicated. 
 
-Netmaker v0.5 introduces the "external client" to handle any devices which are not currently compatible with the netclient, including Windows, iPhone, Android, and Mac. Over time, this list will be eliminated and there may not even be a need for the external client.
+Mac, Windows, and Linux are handled natively by the Netclient.
+
+Netmaker can issue "external clients" to handle any devices which are not currently compatible with the netclient, including iPhone, Android, and some Unix distributions. Over time, this list will be eliminated and there may not even be a need for the external client.
 
 External clients hook into a Netmaker network via an "Ingress Gateway," which is configured for a given node and allows traffic to flow into the network.
 
@@ -160,9 +164,13 @@ Below is a high level, step-by-step overview of the flow of communications withi
 Compatible Systems for Netclient
 ==================================
 
-To manage a node manually, the Netclient can be compiled and run for most linux distibutions, with a prerequisite of WireGuard.
+To manage a node manually, the Netclient can be compiled and run for most linux distibutions, with a prerequisite of WireGuard with kernel headers. If the netclient from the release pages does not run natively on your system, you may need to compile the netclient binary directly on the machine from the source code. This may be true for some installations of SUSE, Fedora, and some Debian-based systems. However, if the dependencies are installed on the machine, the netclient should run correctly after being compiled.
 
-To manage a node automatically, the Netmaker client (netclient) requires **systemd-based linux.** Compatible systems include:
+Simply clone the repo, cd to netmaker/netclient and run "go build" (Golang must be installed).
+
+The following systems should be operable natively with Netclient in daemon mode:
+        - Windows
+        - Mac
         - Fedora
         - Ubuntu
         - Debian
@@ -173,7 +181,7 @@ To manage a node automatically, the Netmaker client (netclient) requires **syste
         - Arch
         - CentOS
         - CoreOS
-      
+
 To manage DNS (optional), the node must have systemd-resolved. Systems that have this enabled include:
         - Arch
         - Debian
@@ -181,8 +189,6 @@ To manage DNS (optional), the node must have systemd-resolved. Systems that have
         - SUSE
 
 Limitations
-===========
+=============
 
-Install limitations mostly include platform-specific limitations, such as needing systemd or systemd-resolved (see above). 
-
-In addition the Netmaker is currently unable to route traffic for for devices behind a "carrier-grade NAT". This will be solved in a future release with the introduction of relay servers.
+Install limitations mostly include platform-specific dependencies. A failed netclient install should display information about which command is failing, or which libraries are missing. This can often be solved via machine upgrade, installing missing dependencies, or setting kernel headers on the machine for WireGuard (e.x.: `Installing Kernel Headers on Debian <https://stackoverflow.com/questions/62356581/wireguard-vpn-how-to-fix-operation-not-supported-if-it-worked-before>`_) 
