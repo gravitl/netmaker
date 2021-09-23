@@ -90,7 +90,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
 	}
-
+	defer conn.Close()
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
 	postnode := &models.Node{

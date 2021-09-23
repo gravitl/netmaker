@@ -171,6 +171,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		ncutils.PrintLog("Cant dial GRPC server: "+err.Error(), 1)
 		return nil, err
 	}
+	defer conn.Close()
 	wcclient := nodepb.NewNodeServiceClient(conn)
 
 	ctx, err := auth.SetJWT(wcclient, network)
@@ -253,6 +254,7 @@ func Push(network string) error {
 		ncutils.PrintLog("Cant dial GRPC server: "+err.Error(), 1)
 		return err
 	}
+	defer conn.Close()
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
 	ctx, err := auth.SetJWT(wcclient, network)

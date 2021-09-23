@@ -29,6 +29,7 @@ func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer conn.Close()
 	wcclient = nodepb.NewNodeServiceClient(conn)
 	return wcclient, nil
 }
@@ -138,6 +139,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}
+	defer conn.Close()
 	// Instantiate the BlogServiceClient with our client connection to the server
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
@@ -215,11 +217,11 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 					continue // if can't parse CIDR
 				}
 				nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
-				if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) {         // ensuring egress gateway range does not contain public ip of node
+				if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain public ip of node
 					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.Endpoint+", omitting", 2)
 					continue // skip adding egress range if overlaps with node's ip
 				}
-				if ipnet.Contains(net.ParseIP(nodecfg.LocalAddress)) {         // ensuring egress gateway range does not contain public ip of node
+				if ipnet.Contains(net.ParseIP(nodecfg.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
 					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+nodecfg.LocalAddress+", omitting", 2)
 					continue // skip adding egress range if overlaps with node's local ip
 				}
@@ -293,6 +295,7 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 	if err != nil {
 		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
 	}
+	defer conn.Close()
 	// Instantiate the BlogServiceClient with our client connection to the server
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
