@@ -16,7 +16,7 @@ By using this method, you can hook any machine into a netmaker network that can 
 
 It is recommended to run the netclient where compatible, but for all other cases, a machine can be configured as an external client.
 
-Important to note, an external client is not **reachable** by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource runnin on the virtual network, and **not** for use cases where one wishes to make a resource accessible on the network. For that, use netclient.
+Important to note, an external client is not **reachable** by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource running on the virtual network, and **not** for use cases where one wishes to make a resource accessible on the network. For that, use netclient.
 
 Configuring an Ingress Gateway
 ==================================
