@@ -133,7 +133,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	err := errors.New("Networks Error")
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
 		allnetworks, err = models.GetNetworks()
-		if err != nil && !database.IsEmptyRecord(err){
+		if err != nil && !database.IsEmptyRecord(err) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -390,7 +390,7 @@ func CreateNetwork(network models.Network) error {
 		return err
 	}
 
-	if servercfg.IsClientMode() {
+	if servercfg.IsClientMode() != "off" {
 		var success bool
 		success, err = serverctl.AddNetwork(network.NetID)
 		if err != nil || !success {

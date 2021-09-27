@@ -12,11 +12,11 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-
 WORKDIR /app/netclient
 
 
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient main.go
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient main.go
 #second stage
 
 FROM alpine:3.13.6
-# add glib support daemon manager
+# add a c lib
 RUN apk add gcompat iptables
 # set the working directory
 WORKDIR /root/
@@ -26,11 +26,10 @@ RUN mkdir /etc/netclient
 COPY --from=builder /app/netmaker .
 COPY --from=builder /app/config config
 COPY --from=builder /app/netclient/netclient  /etc/netclient/netclient
-COPY --from=builder /app/scripts/daemon.sh .
+
+RUN chmod 0755 /etc/netclient/netclient
 
 EXPOSE 8081
 EXPOSE 50051
-RUN touch /etc/netclient/netclient.logs
-RUN sh daemon.sh
 
 ENTRYPOINT ["./netmaker"]

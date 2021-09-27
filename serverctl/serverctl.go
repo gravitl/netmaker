@@ -100,6 +100,51 @@ func RemoveNetwork(network string) (bool, error) {
 
 }
 
+func HandleContainedClient() error {
+	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
+	netclientDir := ncutils.GetNetclientPath()
+	netclientPath := ncutils.GetNetclientPathSpecific()
+	_, err := os.Stat(netclientDir)
+	if os.IsNotExist(err) {
+		os.Mkdir(netclientDir, 744)
+	} else if err != nil {
+		log.Println("could not find or create", netclientDir)
+		return err
+	}
+	_, err = os.Stat(netclientPath + "netclient")
+	if os.IsNotExist(err) {
+		err = InstallNetclient()
+		if err != nil {
+			return err
+		}
+	}
+	err = os.Chmod(netclientPath+"netclient", 0755)
+	if err != nil {
+		log.Println("could not change netclient binary permissions")
+		return err
+	}
+
+	checkinCMD := exec.Command(netclientPath+"netclient", "checkin", "-n", "all")
+	checkinCMD.Stdout = os.Stdout
+	checkinCMD.Stderr = os.Stderr
+	err = checkinCMD.Start()
+	if err != nil {
+		if servercfg.GetVerbose() >= 2 {
+			log.Println(err)
+		}
+	}
+	err = checkinCMD.Wait()
+	if err != nil {
+		if servercfg.GetVerbose() >= 2 {
+			log.Println(err)
+		}
+	}
+	if servercfg.GetVerbose() >= 3 {
+		log.Println("[server netclient]", "completed a checkin call")
+	}
+	return nil
+}
+
 func AddNetwork(network string) (bool, error) {
 	pubip, err := servercfg.GetPublicIP()
 	if err != nil {
@@ -133,8 +178,12 @@ func AddNetwork(network string) (bool, error) {
 		return false, err
 	}
 	functions.PrintUserLog(models.NODE_SERVER_NAME, "executing network join: "+netclientPath+"netclient "+"join "+"-t "+token+" -name "+models.NODE_SERVER_NAME+" -endpoint "+pubip, 0)
-
-	joinCMD := exec.Command(netclientPath+"netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip, "-daemon", "off")
+	var joinCMD *exec.Cmd
+	if servercfg.IsClientMode() == "contained" {
+		joinCMD = exec.Command(netclientPath+"netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip, "-daemon", "off")
+	} else {
+		joinCMD = exec.Command(netclientPath+"netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
+	}
 	joinCMD.Stdout = os.Stdout
 	joinCMD.Stderr = os.Stderr
 	err = joinCMD.Start()

@@ -39,8 +39,8 @@ func GetServerConfig() config.ServerConfig {
 		cfg.AgentBackend = "on"
 	}
 	cfg.ClientMode = "off"
-	if IsClientMode() {
-		cfg.ClientMode = "on"
+	if IsClientMode() != "off" {
+		cfg.ClientMode = IsClientMode()
 	}
 	cfg.DNSMode = "off"
 	if IsDNSMode() {
@@ -222,15 +222,21 @@ func IsAgentBackend() bool {
 	}
 	return isagent
 }
-func IsClientMode() bool {
-	isclient := true
+func IsClientMode() string {
+	isclient := "on"
 	if os.Getenv("CLIENT_MODE") != "" {
 		if os.Getenv("CLIENT_MODE") == "off" {
-			isclient = false
+			isclient = "off"
+		}
+		if os.Getenv("CLIENT_MODE") == "contained" {
+			isclient = "contained"
 		}
 	} else if config.Config.Server.ClientMode != "" {
 		if config.Config.Server.ClientMode == "off" {
-			isclient = false
+			isclient = "off"
+		}
+		if config.Config.Server.ClientMode == "contained" {
+			isclient = "contained"
 		}
 	}
 	return isclient
