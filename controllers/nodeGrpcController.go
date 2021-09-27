@@ -33,6 +33,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 		return nil, err
 	}
 	node.Update(&node)
+	node.SetDefaults()
 	response := &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
@@ -148,7 +149,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		}
 
 		peersData, err := json.Marshal(&peers)
-		functions.PrintUserLog(node.Address,"checked in successfully",3)
+		functions.PrintUserLog(node.Address, "checked in successfully", 3)
 		return &nodepb.Object{
 			Data: string(peersData),
 			Type: nodepb.NODE_TYPE,
