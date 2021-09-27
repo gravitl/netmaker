@@ -1,0 +1,36 @@
+#first stage - builder
+FROM gravitl/builder as builder
+
+WORKDIR /app
+
+COPY . .
+
+ENV GO111MODULE=auto
+
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-w -s" -o netmaker main.go
+
+WORKDIR /app/netclient
+
+
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient main.go
+#second stage
+
+FROM alpine:3.13.6
+# add glib support daemon manager
+RUN apk add gcompat iptables
+# set the working directory
+WORKDIR /root/
+
+RUN mkdir /etc/netclient
+
+COPY --from=builder /app/netmaker .
+COPY --from=builder /app/config config
+COPY --from=builder /app/netclient/netclient  /etc/netclient/netclient
+COPY --from=builder /app/scripts/daemon.sh .
+
+EXPOSE 8081
+EXPOSE 50051
+RUN touch /etc/netclient/netclient.logs
+RUN sh daemon.sh
+
+ENTRYPOINT ["./netmaker"]
