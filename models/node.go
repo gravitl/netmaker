@@ -532,25 +532,6 @@ func GetAllNodes() ([]Node, error) {
 	return nodes, nil
 }
 
-func GetNode(macaddress string, network string) (Node, error) {
-
-	var node Node
-
-	key, err := GetID(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	if err != nil {
-		return node, err
-	}
-	if err = json.Unmarshal([]byte(data), &node); err != nil {
-		return node, err
-	}
-
-	return node, err
-}
-
 func GetID(macaddress string, network string) (string, error) {
 	if macaddress == "" || network == "" {
 		return "", errors.New("unable to get record key")

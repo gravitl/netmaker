@@ -53,6 +53,9 @@ func initialize() { // Client Mode Prereq Check
 		if uid != 0 {
 			log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
 		}
+		if err := serverctl.InitServerNetclient(); err != nil {
+			log.Fatal("Did not find netclient to use CLIENT_MODE")
+		}
 	}
 
 	if servercfg.IsDNSMode() {
