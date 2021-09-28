@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
 
@@ -161,8 +162,9 @@ func SetDNS() error {
 	if err != nil {
 		return err
 	}
-	err = functions.SetCorefile(corefilestring)
-
+	if servercfg.IsSplitDNS() {
+		err = functions.SetCorefile(corefilestring)
+	}
 	return err
 }
 

@@ -48,6 +48,7 @@ type ServerConfig struct {
 	AgentBackend         string `yaml:"agentbackend"`
 	ClientMode           string `yaml:"clientmode"`
 	DNSMode              string `yaml:"dnsmode"`
+	SplitDNS           string `yaml:"splitdns"`
 	DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
 	DisableDefaultNet    string `yaml:"disabledefaultnet"`
 	GRPCSSL              string `yaml:"grpcssl"`

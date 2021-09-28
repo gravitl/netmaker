@@ -345,3 +345,13 @@ func GetSQLConn() string {
 	}
 	return sqlconn
 }
+
+func IsSplitDNS() bool {
+	issplit := false
+	if os.Getenv("IS_SPLIT_DNS") == "yes" {
+		issplit = true
+	} else if config.Config.Server.SplitDNS == "yes" {
+		issplit = true
+	}
+	return issplit
+}
