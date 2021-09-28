@@ -33,7 +33,6 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 		return nil, err
 	}
 	node.Update(&node)
-	node.SetDefaults()
 	response := &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
