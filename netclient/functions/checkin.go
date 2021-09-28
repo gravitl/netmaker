@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
