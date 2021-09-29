@@ -253,7 +253,9 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 			node.IsServer = "yes"
 		}
 	}
-
+	if servercfg.IsDNSMode() && node.DNSOn == ""{
+		node.DNSOn = "yes"
+	}
 	node.SetDefaults()
 	node.Address, err = functions.UniqueAddress(networkName)
 	if err != nil {
@@ -268,9 +270,6 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
-	}
-	if servercfg.IsDNSMode() {
-		node.DNSOn = "yes"
 	}
 	err = node.Validate(false)
 	if err != nil {
