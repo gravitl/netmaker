@@ -282,7 +282,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	cfg.Node.Address = c.String("address")
 	cfg.Node.Address6 = c.String("addressIPV6")
 	cfg.Node.Roaming = c.String("roaming")
-	cfg.Node.DNSOn = c.String("dns")
+	cfg.Node.DNSOn = c.String("dnson")
 	cfg.Node.IsLocal = c.String("islocal")
 	cfg.Node.IsDualStack = c.String("isdualstack")
 	cfg.Node.PostUp = c.String("postup")
