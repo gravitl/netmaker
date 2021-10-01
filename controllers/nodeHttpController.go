@@ -597,6 +597,10 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 	node.EgressGatewayRanges = []string{}
 	node.PostUp = ""
 	node.PostDown = ""
+	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
+		node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+		node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	}
 	node.SetLastModified()
 	node.PullChanges = "yes"
 	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
