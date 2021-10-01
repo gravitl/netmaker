@@ -178,7 +178,7 @@ func (network *Network) SetNetworkLastModified() {
 
 func (network *Network) SetDefaults() {
 	if network.DefaultUDPHolePunch == "" {
-		if servercfg.IsClientMode() {
+		if servercfg.IsClientMode() != "off" {
 			network.DefaultUDPHolePunch = "yes"
 		} else {
 			network.DefaultUDPHolePunch = "no"

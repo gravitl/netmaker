@@ -148,7 +148,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		}
 
 		peersData, err := json.Marshal(&peers)
-		functions.PrintUserLog(node.Address,"checked in successfully",3)
+		functions.PrintUserLog(node.Address, "checked in successfully", 3)
 		return &nodepb.Object{
 			Data: string(peersData),
 			Type: nodepb.NODE_TYPE,

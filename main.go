@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
+	"time"
 
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
@@ -19,6 +20,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 	"google.golang.org/grpc"
 )
 
@@ -37,7 +39,7 @@ func initialize() { // Client Mode Prereq Check
 		log.Fatal(err)
 	}
 	log.Println("database successfully connected.")
-	if servercfg.IsClientMode() {
+	if servercfg.IsClientMode() != "off" {
 		output, err := ncutils.RunCmd("id -u", true)
 		if err != nil {
 			log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
@@ -50,6 +52,9 @@ func initialize() { // Client Mode Prereq Check
 		}
 		if uid != 0 {
 			log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
+		}
+		if err := serverctl.InitServerNetclient(); err != nil {
+			log.Fatal("Did not find netclient to use CLIENT_MODE")
 		}
 	}
 
@@ -75,6 +80,13 @@ func startControllers() {
 		waitnetwork.Add(1)
 		go runGRPC(&waitnetwork)
 	}
+
+	// Run the client in goroutine locally if CLIENT_MODE is "contained"
+	if servercfg.IsClientMode() == "contained" {
+		waitnetwork.Add(1)
+		go runClient(&waitnetwork)
+	}
+
 	if servercfg.IsDNSMode() {
 		err := controller.SetDNS()
 		if err != nil {
@@ -96,8 +108,22 @@ func startControllers() {
 	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
 		log.Println("No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
 	}
+
 	waitnetwork.Wait()
-	log.Println("exiting")
+	log.Println("[netmaker] exiting")
+}
+
+func runClient(wg *sync.WaitGroup) {
+	defer wg.Done()
+	log.Println("CLIENT_MODE running as contained")
+	go func() {
+		for {
+			if err := serverctl.HandleContainedClient(); err != nil {
+				// PASS
+			}
+			time.Sleep(time.Second * 15)
+		}
+	}()
 }
 
 func runGRPC(wg *sync.WaitGroup) {

@@ -375,7 +375,7 @@ func DeleteExtClient(network string, clientid string) error {
  */
 func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	currentExtClients, err := GetNetworkExtClients(networkName)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 	for _, extClient := range currentExtClients {
