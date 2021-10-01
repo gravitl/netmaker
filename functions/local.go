@@ -27,7 +27,7 @@ func SetDNSDir() error {
         }
 		_, err = os.Stat(dir + "/config/dnsconfig/Corefile")
         if os.IsNotExist(err) {
-			err = SetCorefile("example.com")
+			err = SetCorefile(".")
 			if err != nil {
 				PrintUserLog("",err.Error(),0)
 			}

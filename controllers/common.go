@@ -14,7 +14,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-
 func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
 	var peers []models.Node
 	var relayNode models.Node
@@ -218,6 +217,7 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(data), &node); err != nil {
 		return node, err
 	}
+	node.SetDefaults()
 
 	return node, err
 }
@@ -253,7 +253,9 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 			node.IsServer = "yes"
 		}
 	}
-
+	if servercfg.IsDNSMode() && node.DNSOn == ""{
+		node.DNSOn = "yes"
+	}
 	node.SetDefaults()
 	node.Address, err = functions.UniqueAddress(networkName)
 	if err != nil {
@@ -268,9 +270,6 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
-	}
-	if servercfg.IsDNSMode() {
-		node.DNSOn = "yes"
 	}
 	err = node.Validate(false)
 	if err != nil {

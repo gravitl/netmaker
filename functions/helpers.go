@@ -556,6 +556,8 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 		return models.Node{}, err
 	}
 
+	node.SetDefaults()
+
 	return node, nil
 }
 
@@ -576,6 +578,8 @@ func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node,
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
+
+	node.SetDefaults()
 
 	return node, nil
 }
