@@ -1,0 +1,26 @@
+FROM gravitl/builder:latest as builder
+# add glib support daemon manager
+WORKDIR /app
+
+COPY . .
+
+ENV GO111MODULE=auto
+
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-w -s" -o netmaker main.go
+
+FROM alpine:3.13.6
+
+RUN apk add gcompat
+# set the working directory
+WORKDIR /root/
+
+COPY --from=builder /app/netmaker .
+COPY --from=builder /app/config .
+
+RUN mkdir -p config/dnsconfig
+RUN touch config/dnsconfig/Corefile && touch config/dnsconfig/netmaker.hosts
+
+EXPOSE 8081
+EXPOSE 50051
+
+ENTRYPOINT ["./netmaker"]

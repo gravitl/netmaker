@@ -105,6 +105,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		LocalAddress:        cfg.Node.LocalAddress,
 		Interface:           cfg.Node.Interface,
 		PublicKey:           cfg.Node.PublicKey,
+		DNSOn:           	 cfg.Node.DNSOn,
 		Name:                cfg.Node.Name,
 		Endpoint:            cfg.Node.Endpoint,
 		SaveConfig:          cfg.Node.SaveConfig,
@@ -118,7 +119,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
-
 	// Create node on server
 	res, err := wcclient.CreateNode(
 		context.TODO(),
@@ -152,6 +152,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 		node.Endpoint = node.LocalAddress
 	}
+
 	err = config.ModConfig(&node)
 	if err != nil {
 		return err
