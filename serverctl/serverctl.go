@@ -87,12 +87,12 @@ func copy(src, dst string) (int64, error) {
 
 func RemoveNetwork(network string) (bool, error) {
 	netclientPath := ncutils.GetNetclientPath()
-	_, err := os.Stat(netclientPath + "netclient")
+	_, err := os.Stat(netclientPath + "/netclient")
 	if err != nil {
-		log.Println("could not find " + netclientPath + "netclient")
+		log.Println("could not find " + netclientPath + "/netclient")
 		return false, err
 	}
-	_, err = ncutils.RunCmd(netclientPath+"netclient leave -n "+network, true)
+	_, err = ncutils.RunCmd(netclientPath+"/netclient leave -n "+network, true)
 	if err == nil {
 		log.Println("Server removed from network " + network)
 	}
@@ -103,21 +103,21 @@ func RemoveNetwork(network string) (bool, error) {
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
 	netclientPath := ncutils.GetNetclientPathSpecific()
-	_, err := os.Stat(netclientDir)
+	_, err := os.Stat(netclientPath)
 	if os.IsNotExist(err) {
-		os.Mkdir(netclientDir, 744)
+		os.MkdirAll(netclientDir, 744)
 	} else if err != nil {
 		log.Println("could not find or create", netclientDir)
 		return err
 	}
-	_, err = os.Stat(netclientPath + "netclient")
+	_, err = os.Stat(netclientDir + "/netclient")
 	if os.IsNotExist(err) {
 		err = InstallNetclient()
 		if err != nil {
 			return err
 		}
 	}
-	err = os.Chmod(netclientPath+"netclient", 0755)
+	err = os.Chmod(netclientDir+"/netclient", 0755)
 	if err != nil {
 		log.Println("could not change netclient binary permissions")
 		return err
@@ -129,7 +129,7 @@ func HandleContainedClient() error {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 
 	netclientPath := ncutils.GetNetclientPath()
-	checkinCMD := exec.Command(netclientPath+"netclient", "checkin", "-n", "all")
+	checkinCMD := exec.Command(netclientPath+"/netclient", "checkin", "-n", "all")
 	if servercfg.GetVerbose() >= 2 {
 		checkinCMD.Stdout = os.Stdout
 	}
@@ -169,9 +169,9 @@ func AddNetwork(network string) (bool, error) {
 	functions.PrintUserLog(models.NODE_SERVER_NAME, "executing network join: "+netclientPath+"netclient "+"join "+"-t "+token+" -name "+models.NODE_SERVER_NAME+" -endpoint "+pubip, 0)
 	var joinCMD *exec.Cmd
 	if servercfg.IsClientMode() == "contained" {
-		joinCMD = exec.Command(netclientPath+"netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip, "-daemon", "off", "-dnson", "no")
+		joinCMD = exec.Command(netclientPath+"/netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip, "-daemon", "off", "-dnson", "no")
 	} else {
-		joinCMD = exec.Command(netclientPath+"netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
+		joinCMD = exec.Command(netclientPath+"/netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
 	}
 	joinCMD.Stdout = os.Stdout
 	joinCMD.Stderr = os.Stderr
