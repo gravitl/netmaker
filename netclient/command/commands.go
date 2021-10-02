@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 	"time"
-
+	"strconv"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
@@ -56,15 +56,35 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	return err
 }
 
+func getWindowsInterval() int {
+	interval := 15
+	networks, err := functions.GetNetworks()
+	if err != nil {
+		return interval
+	}
+	cfg, err := config.ReadConfig(networks[0])
+	if err != nil {
+		return interval
+	}
+	netint, err := strconv.Atoi(cfg.Server.CheckinInterval)
+	if err == nil && netint != 0  {
+		interval = netint
+	}
+	return interval
+}
+
 func RunUserspaceDaemon() {
+	
 	cfg := config.ClientConfig{
 		Network: "all",
 	}
+	interval := getWindowsInterval()
+	dur := time.Duration(interval) * time.Second
 	for {
 		if err := CheckIn(cfg); err != nil {
 			// pass
 		}
-		time.Sleep(15 * time.Second)
+		time.Sleep(dur)
 	}
 }
 

@@ -31,6 +31,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.Verbosity = GetVerbose()
+	cfg.CheckinInterval = GetCheckinInterval()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -120,6 +121,16 @@ func GetAPIPort() string {
 		apiport = config.Config.Server.APIPort
 	}
 	return apiport
+}
+
+func GetCheckinInterval() string {
+	seconds := "15"
+	if os.Getenv("CHECKIN_INTERVAL") != "" {
+		seconds = os.Getenv("CHECKIN_INTERVAL")
+	} else if config.Config.Server.CheckinInterval != "" {
+		seconds = config.Config.Server.CheckinInterval
+	}
+	return seconds
 }
 
 func GetDefaultNodeLimit() int32 {
