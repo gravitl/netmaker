@@ -102,10 +102,9 @@ func RemoveNetwork(network string) (bool, error) {
 
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
-	netclientPath := ncutils.GetNetclientPathSpecific()
-	_, err := os.Stat(netclientPath)
+	_, err := os.Stat(netclientDir+"/config")
 	if os.IsNotExist(err) {
-		os.MkdirAll(netclientDir, 744)
+		os.MkdirAll(netclientDir+"/config", 744)
 	} else if err != nil {
 		log.Println("could not find or create", netclientDir)
 		return err
