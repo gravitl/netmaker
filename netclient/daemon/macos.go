@@ -4,13 +4,14 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"fmt"
 	"path/filepath"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 const MAC_SERVICE_NAME = "com.gravitl.netclient"
 
-func SetupMacDaemon() error {
+func SetupMacDaemon(interval string) error {
 
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
@@ -30,7 +31,7 @@ func SetupMacDaemon() error {
 	if os.IsNotExist(errN) {
 		os.Mkdir("~/Library/LaunchAgents", 0755)
 	}
-	err = CreateMacService(MAC_SERVICE_NAME)
+	err = CreateMacService(MAC_SERVICE_NAME, interval)
 	if err != nil {
 		return err
 	}
@@ -50,7 +51,7 @@ func CleanupMac() {
 	os.RemoveAll(ncutils.GetNetclientPath())
 }
 
-func CreateMacService(servicename string) error {
+func CreateMacService(servicename string, interval string) error {
 	_, err := os.Stat("/Library/LaunchDaemons")
 	if os.IsNotExist(err) {
 		os.Mkdir("/Library/LaunchDaemons", 0755)
@@ -58,7 +59,7 @@ func CreateMacService(servicename string) error {
 		log.Println("couldnt find or create /Library/LaunchDaemons")
 		return err
 	}
-	daemonstring := MacDaemonString()
+	daemonstring := MacDaemonString(interval)
 	daemonbytes := []byte(daemonstring)
 
 	if !ncutils.FileExists("/Library/LaunchDaemons/com.gravitl.netclient.plist") {
@@ -67,8 +68,8 @@ func CreateMacService(servicename string) error {
 	return err
 }
 
-func MacDaemonString() string {
-	return `<?xml version='1.0' encoding='UTF-8'?>
+func MacDaemonString(interval string) string {
+	return fmt.Sprintf(`<?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
 <plist version='1.0'>
 <dict>
@@ -84,7 +85,7 @@ func MacDaemonString() string {
 	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
 	<key>AbandonProcessGroup</key><true/>
 	<key>StartInterval</key>
-	    <integer>15</integer>
+	    <integer>%s</integer>
 	<key>EnvironmentVariables</key>
 		<dict>
 			<key>PATH</key>
@@ -92,7 +93,7 @@ func MacDaemonString() string {
 		</dict>
 </dict>
 </plist>
-`
+`,interval)
 }
 
 type MacTemplateData struct {

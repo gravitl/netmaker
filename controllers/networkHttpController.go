@@ -473,6 +473,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		GRPCHost:       s.GRPCHost,
 		GRPCPort:       s.GRPCPort,
 		GRPCSSL:        s.GRPCSSL,
+		CheckinInterval:        s.CheckinInterval,
 	}
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID

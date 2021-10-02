@@ -49,6 +49,7 @@ type Node struct {
 	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"required,mac,macaddress_unique"`
+	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
 	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
@@ -414,7 +415,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
 	}
-	newNode.IsServer = currentNode.IsServer
+	if newNode.IsServer == "" {
+		newNode.IsServer = currentNode.IsServer
+	}
 	if newNode.IsServer == "yes" {
 		newNode.IsStatic = "yes"
 	}

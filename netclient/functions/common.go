@@ -269,7 +269,7 @@ func List() error {
 
 func GetNetworks() ([]string, error) {
 	var networks []string
-	files, err := ioutil.ReadDir(ncutils.GetNetclientPath())
+	files, err := ioutil.ReadDir(ncutils.GetNetclientPathSpecific())
 	if err != nil {
 		return networks, err
 	}
