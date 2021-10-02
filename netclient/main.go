@@ -358,6 +358,7 @@ func main() {
 		}
 	}
 	if len(os.Args) == 1 && ncutils.IsWindows() {
+
 		c := make(chan os.Signal)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		go func() {

@@ -91,10 +91,5 @@ func GetMacIface(ipstring string) (string, error) {
 }
 
 func HasNetwork(network string) bool {
-
-	if ncutils.IsWindows() {
 		return ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "netconfig-" + network)
-	}
-	return ncutils.FileExists("/etc/systemd/system/netclient-"+network+".timer") ||
-		ncutils.FileExists(ncutils.GetNetclientPathSpecific()+"netconfig-"+network)
 }

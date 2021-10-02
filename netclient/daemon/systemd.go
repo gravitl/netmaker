@@ -11,7 +11,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-func SetupSystemDDaemon(network string) error {
+func SetupSystemDDaemon(interval string) error {
+	
 	if ncutils.IsWindows() {
 		return nil
 	}
@@ -21,9 +22,9 @@ func SetupSystemDDaemon(network string) error {
 	}
 	binarypath := dir + "/netclient"
 
-	_, err = os.Stat("/etc/netclient")
+	_, err = os.Stat("/etc/netclient/config")
 	if os.IsNotExist(err) {
-		os.Mkdir("/etc/netclient", 744)
+		os.MkdirAll("/etc/netclient/config", 0744)
 	} else if err != nil {
 		log.Println("couldnt find or create /etc/netclient")
 		return err
@@ -46,7 +47,7 @@ Wants=netclient.timer
 
 [Service]
 Type=simple
-ExecStart=/etc/netclient/netclient checkin -n %i
+ExecStart=/etc/netclient/netclient checkin -n all
 
 [Install]
 WantedBy=multi-user.target
@@ -54,22 +55,16 @@ WantedBy=multi-user.target
 
 	systemtimer := `[Unit]
 Description=Calls the Netmaker Mesh Client Service
-
-`
-	systemtimer = systemtimer + "Requires=netclient@" + network + ".service"
-
-	systemtimer = systemtimer +
-		`
+Requires=netclient.service
 
 [Timer]
+Unit=netclient.service
 
 `
-	systemtimer = systemtimer + "Unit=netclient@" + network + ".service"
+	systemtimer = systemtimer + "OnCalendar=*:*:0/" + interval
 
 	systemtimer = systemtimer +
 		`
-
-OnCalendar=*:*:0/15
 
 [Install]
 WantedBy=timers.target
@@ -78,26 +73,26 @@ WantedBy=timers.target
 	servicebytes := []byte(systemservice)
 	timerbytes := []byte(systemtimer)
 
-	if !ncutils.FileExists("/etc/systemd/system/netclient@.service") {
-		err = ioutil.WriteFile("/etc/systemd/system/netclient@.service", servicebytes, 0644)
+	if !ncutils.FileExists("/etc/systemd/system/netclient.service") {
+		err = ioutil.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
 		if err != nil {
 			log.Println(err)
 			return err
 		}
 	}
 
-	if !ncutils.FileExists("/etc/systemd/system/netclient-" + network + ".timer") {
-		err = ioutil.WriteFile("/etc/systemd/system/netclient-"+network+".timer", timerbytes, 0644)
+	if !ncutils.FileExists("/etc/systemd/system/netclient.timer") {
+		err = ioutil.WriteFile("/etc/systemd/system/netclient.timer", timerbytes, 0644)
 		if err != nil {
 			log.Println(err)
 			return err
 		}
 	}
 
-	_, _ = ncutils.RunCmd("systemctl enable netclient@.service", true)
+	_, _ = ncutils.RunCmd("systemctl enable netclient.service", true)
 	_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
-	_, _ = ncutils.RunCmd("systemctl enable netclient-"+network+".timer", true)
-	_, _ = ncutils.RunCmd("systemctl start netclient-"+network+".timer", true)
+	_, _ = ncutils.RunCmd("systemctl enable netclient.timer", true)
+	_, _ = ncutils.RunCmd("systemctl start netclient.timer", true)
 	return nil
 }
 
@@ -110,20 +105,20 @@ func RemoveSystemDServices(network string) error {
 		}
 
 		if fullremove {
-			_, err = ncutils.RunCmd("systemctl disable netclient@.service", true)
+			_, err = ncutils.RunCmd("systemctl disable netclient.service", true)
 		}
 		_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
 
-		if ncutils.FileExists("/etc/systemd/system/netclient-" + network + ".timer") {
-			_, _ = ncutils.RunCmd("systemctl disable netclient-"+network+".timer", true)
+		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
+			_, _ = ncutils.RunCmd("systemctl disable netclient.timer", true)
 		}
 		if fullremove {
-			if ncutils.FileExists("/etc/systemd/system/netclient@.service") {
-				err = os.Remove("/etc/systemd/system/netclient@.service")
+			if ncutils.FileExists("/etc/systemd/system/netclient.service") {
+				err = os.Remove("/etc/systemd/system/netclient.service")
 			}
 		}
-		if ncutils.FileExists("/etc/systemd/system/netclient-" + network + ".timer") {
-			err = os.Remove("/etc/systemd/system/netclient-" + network + ".timer")
+		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
+			err = os.Remove("/etc/systemd/system/netclient.timer")
 		}
 		if err != nil {
 			log.Println("Error removing file. Please investigate.")
@@ -135,9 +130,10 @@ func RemoveSystemDServices(network string) error {
 	return nil
 }
 
+
 func isOnlyService(network string) (bool, error) {
 	isonly := false
-	files, err := filepath.Glob("/etc/netclient/netconfig-*")
+	files, err := filepath.Glob("/etc/netclient/config/netconfig-*")
 	if err != nil {
 		return isonly, err
 	}

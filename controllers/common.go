@@ -249,9 +249,7 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 
 	node.Network = networkName
 	if node.Name == models.NODE_SERVER_NAME {
-		if node.CheckIsServer() {
-			node.IsServer = "yes"
-		}
+		node.IsServer = "yes"
 	}
 	if servercfg.IsDNSMode() && node.DNSOn == ""{
 		node.DNSOn = "yes"
