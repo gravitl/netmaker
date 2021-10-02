@@ -280,13 +280,14 @@ func GetNetclientPath() string {
 	}
 }
 
+
 func GetNetclientPathSpecific() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH + "\\"
 	} else if IsMac() {
-		return "/etc/netclient/"
+		return "/etc/netclient/config/"
 	} else {
-		return LINUX_APP_DATA_PATH + "/"
+		return LINUX_APP_DATA_PATH + "/config/"
 	}
 }
 

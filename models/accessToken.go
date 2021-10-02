@@ -21,6 +21,7 @@ type ServerConfig struct {
   GRPCHost   string `json:"grpchost"`
   GRPCPort   string `json:"grpcport"`
   GRPCSSL   string `json:"grpcssl"`
+  CheckinInterval   string `json:"checkininterval"`
 }
 
 type WG struct {

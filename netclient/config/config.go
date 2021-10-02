@@ -35,6 +35,7 @@ type ServerConfig struct {
 	AccessKey     string `yaml:"accesskey"`
 	GRPCSSL       string `yaml:"grpcssl"`
 	GRPCWireGuard string `yaml:"grpcwg"`
+	CheckinInterval string `yaml:"checkininterval"`
 }
 
 //reading in the env file
@@ -43,9 +44,9 @@ func Write(config *ClientConfig, network string) error {
 		err := errors.New("no network provided - exiting")
 		return err
 	}
-	_, err := os.Stat(ncutils.GetNetclientPath())
+	_, err := os.Stat(ncutils.GetNetclientPath()+"/config")
 	if os.IsNotExist(err) {
-		os.Mkdir(ncutils.GetNetclientPath(), 0744)
+		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0744)
 	} else if err != nil {
 		return err
 	}
@@ -72,9 +73,9 @@ func WriteServer(server string, accesskey string, network string) error {
 	}
 	nofile := false
 	//home, err := homedir.Dir()
-	_, err := os.Stat(ncutils.GetNetclientPath())
+	_, err := os.Stat(ncutils.GetNetclientPath()+"/config")
 	if os.IsNotExist(err) {
-		os.Mkdir(ncutils.GetNetclientPath(), 0744)
+		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0744)
 	} else if err != nil {
 		fmt.Println("couldnt find or create", ncutils.GetNetclientPath())
 		return err
@@ -230,11 +231,13 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 				cfg.Server.GRPCAddress = cfg.Server.GRPCAddress + ":" + accesstoken.ServerConfig.GRPCPort
 			}
 		}
+
 		cfg.Network = accesstoken.ClientConfig.Network
 		cfg.Node.Network = accesstoken.ClientConfig.Network
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
+		cfg.Server.CheckinInterval = accesstoken.ServerConfig.CheckinInterval
 		cfg.Server.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
 		cfg.Server.CoreDNSAddr = accesstoken.ServerConfig.CoreDNSAddr
 		if c.String("grpcserver") != "" {
@@ -262,6 +265,9 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("grpcwg") != "" {
 			cfg.Server.GRPCWireGuard = c.String("grpcwg")
 		}
+		if c.String("checkininterval") != "" {
+			cfg.Server.CheckinInterval = c.String("checkininterval")
+		}
 
 	} else {
 		cfg.Server.GRPCAddress = c.String("grpcserver")
@@ -273,6 +279,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Server.GRPCWireGuard = c.String("grpcwg")
 		cfg.Server.GRPCSSL = c.String("grpcssl")
 		cfg.Server.CoreDNSAddr = c.String("corednsaddr")
+		cfg.Server.CheckinInterval = c.String("checkininterval")
 	}
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")
@@ -297,6 +304,10 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	cfg.Daemon = c.String("daemon")
 	cfg.Node.UDPHolePunch = c.String("udpholepunch")
 	cfg.Node.MTU = int32(c.Int("mtu"))
+
+	if cfg.Server.CheckinInterval == "" {
+		cfg.Server.CheckinInterval = "15"
+	}
 
 	return cfg, privateKey, nil
 }

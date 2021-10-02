@@ -37,6 +37,8 @@ type Network struct {
 	IsIPv6                 string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
 	IsGRPCHub              string      `json:"isgrpchub" bson:"isgrpchub" validate:"checkyesorno"`
 	LocalRange             string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
+	
+	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
 	DefaultCheckInInterval int32       `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
 	DefaultUDPHolePunch    string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS    string      `json:"defaultextclientdns" bson:"defaultextclientdns"`
