@@ -280,7 +280,6 @@ func GetNetclientPath() string {
 	}
 }
 
-
 func GetNetclientPathSpecific() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH + "\\"

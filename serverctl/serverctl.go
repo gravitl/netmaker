@@ -32,7 +32,7 @@ func GetServerWGConf() (models.IntClient, error) {
 
 func InstallNetclient() error {
 
-	netclientPath := ncutils.GetNetclientPathSpecific()
+	netclientPath := ncutils.GetNetclientPath()
 	if !FileExists(netclientPath + "netclient") {
 		var err error
 		if ncutils.IsWindows() {
