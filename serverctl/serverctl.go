@@ -86,7 +86,7 @@ func copy(src, dst string) (int64, error) {
 }
 
 func RemoveNetwork(network string) (bool, error) {
-	netclientPath := ncutils.GetNetclientPathSpecific()
+	netclientPath := ncutils.GetNetclientPath()
 	_, err := os.Stat(netclientPath + "netclient")
 	if err != nil {
 		log.Println("could not find " + netclientPath + "netclient")
@@ -128,7 +128,7 @@ func InitServerNetclient() error {
 func HandleContainedClient() error {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 
-	netclientPath := ncutils.GetNetclientPathSpecific()
+	netclientPath := ncutils.GetNetclientPath()
 	checkinCMD := exec.Command(netclientPath+"netclient", "checkin", "-n", "all")
 	if servercfg.GetVerbose() >= 2 {
 		checkinCMD.Stdout = os.Stdout
@@ -158,7 +158,7 @@ func AddNetwork(network string) (bool, error) {
 		log.Println("could not get public IP.")
 		return false, err
 	}
-	netclientPath := ncutils.GetNetclientPathSpecific()
+	netclientPath := ncutils.GetNetclientPath()
 
 	token, err := functions.CreateServerToken(network)
 	if err != nil {
