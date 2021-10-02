@@ -73,7 +73,7 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.8.0"
+	version := "0.8.1"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}

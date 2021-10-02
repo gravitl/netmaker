@@ -24,7 +24,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = "v0.8.0"
+	app.Version = "v0.8.1"
 
 	cliFlags := []cli.Flag{
 		&cli.StringFlag{
@@ -346,11 +346,11 @@ func main() {
 			if uspace == "wg" {
 				log.Println(err)
 				log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
-			} 
+			}
 			ncutils.PrintLog("Running with userspace wireguard: "+uspace, 0)
 		} else if uspace != "wg" {
-			log.Println("running userspace WireGuard with "+uspace )
-		} 
+			log.Println("running userspace WireGuard with " + uspace)
+		}
 	}
 	if !ncutils.IsKernel() {
 		if !local.IsWGInstalled() {
