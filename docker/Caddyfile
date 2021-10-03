@@ -1,0 +1,19 @@
+{
+    # LetsEncrypt account
+    email YOUR_EMAIL
+}
+
+# Dashboard
+https://dashboard.NETMAKER_BASE_DOMAIN {
+    reverse_proxy http://127.0.0.1:8082
+}
+
+# API
+https://api.NETMAKER_BASE_DOMAIN {
+    reverse_proxy http://127.0.0.1:8081
+}
+
+# gRPC
+https://grpc.NETMAKER_BASE_DOMAIN {
+    reverse_proxy h2c://127.0.0.1:50051
+}
