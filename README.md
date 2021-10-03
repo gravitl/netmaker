@@ -12,7 +12,28 @@
 ###  [docs.netmaker.org](https://docs.netmaker.org)
 ###  [netmaker.readthedocs.io](https://netmaker.readthedocs.io)
   
-For information about installing and using Netmaker, including the [quick start guide](https://docs.netmaker.org/quick-start.html), please visit one of the above documentation sites, or read on for a short description of Netmaker.
+## 3 Minute PoC Install
+
+Looking to test out Netmaker as quickly as possible? You'll need:
+
+1. A cloud VM running Ubuntu 20.04 with a public IP
+   - DigitalOcean, Linode, AWS, GCP, etc.
+2. Open firewall ports 443 and 51821/udp-51830/udp
+   - If running behind security groups (AWS, GCP, etc.) make sure they're open there too.
+3. Docker, docker-compose, and wireguard installed
+    - apt -y install wireguard docker docker-compose
+
+Once this is done, simply run the below command:
+
+`sudo wget -qO https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
+
+![animation](docs/images/install-server.gif)
+![animation](docs/images/visit-website.gif)
+
+If this script is not working for you, or you are looking for a more complete, production-ready installation, head over to [the quick start guide](https://docs.netmaker.org/quick-start.html).
+
+
+
 
 ## What is Netmaker?
 Netmaker is a platform for creating and managing networks that are:
