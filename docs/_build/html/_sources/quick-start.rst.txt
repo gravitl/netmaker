@@ -59,6 +59,7 @@ Caddy will create 3 subdomains with this wildcard, EX:
 ========================
 
 .. code-block::
+
   ssh root@your-host
   sudo apt-get update
   sudo apt-get -y docker docker-compose wireguard
