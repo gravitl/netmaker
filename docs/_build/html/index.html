@@ -46,10 +46,10 @@
   
   
   
-    <title>Welcome to the Netmaker Documentation &#8212; Netmaker 0.8 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <title>Welcome to the Netmaker Documentation &#8212; Netmaker 0.8.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -80,7 +80,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="#" title="Netmaker 0.8 documentation"
+        <a href="#" title="Netmaker 0.8.2 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -166,7 +166,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="#" class="md-tabs__link">Netmaker 0.8 documentation</a></li>
+          <li class="md-tabs__item"><a href="#" class="md-tabs__link">Netmaker 0.8.2 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -178,13 +178,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="#" title="Netmaker 0.8 documentation" class="md-nav__button md-logo">
+    <a href="#" title="Netmaker 0.8.2 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="#"
-       title="Netmaker 0.8 documentation">Netmaker Docs</a>
+       title="Netmaker 0.8.2 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -283,14 +283,21 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#introduction" class="md-nav__link">0. Introduction</a>
+      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
+      <a href="quick-start.html#prerequisites" class="md-nav__link">0. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#prepare-dns" class="md-nav__link">1. Prepare DNS</a>
       
     
     </li>
@@ -304,7 +311,7 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
+      <a href="quick-start.html#open-firewall" class="md-nav__link">3. Open Firewall</a>
       
     
     </li>
@@ -354,6 +361,48 @@
     
     
       <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html" class="md-nav__link">Install with Nginx (depreciated)</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#introduction" class="md-nav__link">0. Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
       
     
     </li></ul>
@@ -696,6 +745,8 @@
         </li>
         <li class="md-nav__item"><a href="#quick-start" class="md-nav__link">Quick Start</a>
         </li>
+        <li class="md-nav__item"><a href="#quick-start-nginx-depreciated" class="md-nav__link">Quick Start Nginx (depreciated)</a>
+        </li>
         <li class="md-nav__item"><a href="#server-installation" class="md-nav__link">Server Installation</a>
         </li>
         <li class="md-nav__item"><a href="#client-installation" class="md-nav__link">Client Installation</a>
@@ -767,10 +818,11 @@
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick Install</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="quick-start.html#introduction">0. Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quick-start.html#prerequisites">1. Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quick-start.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quick-start.html#prerequisites">0. Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quick-start.html#prepare-dns">1. Prepare DNS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quick-start.html#install-dependencies">2. Install Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quick-start.html#prepare-vm">3. Prepare VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quick-start.html#open-firewall">3. Open Firewall</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quick-start.html#install-netmaker">4. Install Netmaker</a></li>
 </ul>
 </li>
@@ -786,6 +838,15 @@
 <li class="toctree-l2"><a class="reference internal" href="getting-started.html#uninstalling-netmaker">Uninstalling Netmaker</a></li>
 </ul>
 </li>
+</ul>
+</div>
+
+
+<h2 id="quick-start-nginx-depreciated">Quick Start Nginx (depreciated)<a class="headerlink" href="#quick-start-nginx-depreciated" title="Permalink to this headline">¶</a></h2>
+<p>An older guide to getting up and running with Netmaker using Nginx as quickly as possible.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="quick-start-nginx.html">Install with Nginx (depreciated)</a></li>
 </ul>
 </div>
 
@@ -953,7 +1014,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>
