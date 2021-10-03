@@ -47,9 +47,9 @@
   
   
     <title>External Clients &#8212; Netmaker 0.8 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -284,14 +284,21 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#introduction" class="md-nav__link">0. Introduction</a>
+      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
+      <a href="quick-start.html#prerequisites" class="md-nav__link">0. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#prepare-dns" class="md-nav__link">1. Prepare DNS</a>
       
     
     </li>
@@ -305,7 +312,7 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
+      <a href="quick-start.html#open-firewall" class="md-nav__link">3. Open Firewall</a>
       
     
     </li>
@@ -355,6 +362,48 @@
     
     
       <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html" class="md-nav__link">Install with Nginx (depreciated)</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#introduction" class="md-nav__link">0. Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
       
     
     </li></ul>
@@ -764,13 +813,13 @@
 <a class="reference internal image-reference" href="_images/exclient4.png"><img alt="Gateway" class="align-center" src="_images/exclient4.png" style="width: 80%;"/></a>
 <p>Example config file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Interface</span><span class="p">]</span>
-<span class="n">Address</span> <span class="o">=</span> <span class="mf">10.7.11.5</span><span class="o">/</span><span class="mi">32</span>
+<span class="n">Address</span> <span class="o">=</span> <span class="mf">10.7</span><span class="o">.</span><span class="mf">11.5</span><span class="o">/</span><span class="mi">32</span>
 <span class="n">PrivateKey</span> <span class="o">=</span> <span class="n">EJf6Yy51M</span><span class="o">/</span><span class="n">YDaZgedRpuxMmrqul35WfjmHvRZR1rQ0U</span><span class="o">=</span>
 
 <span class="p">[</span><span class="n">Peer</span><span class="p">]</span>
 <span class="n">PublicKey</span> <span class="o">=</span> <span class="n">m</span><span class="o">/</span><span class="n">RPuMVsbpgQ</span><span class="o">+</span><span class="n">RkxlgK2mG</span><span class="o">+</span><span class="n">dDFlzqn</span><span class="o">+</span><span class="n">ua2zJt8Wn7GA</span><span class="o">=</span>
-<span class="n">AllowedIPs</span> <span class="o">=</span> <span class="mf">10.7.11.0</span><span class="o">/</span><span class="mi">24</span>
-<span class="n">Endpoint</span> <span class="o">=</span> <span class="mf">3.236.60.247</span><span class="p">:</span><span class="mi">51822</span>
+<span class="n">AllowedIPs</span> <span class="o">=</span> <span class="mf">10.7</span><span class="o">.</span><span class="mf">11.0</span><span class="o">/</span><span class="mi">24</span>
+<span class="n">Endpoint</span> <span class="o">=</span> <span class="mf">3.236</span><span class="o">.</span><span class="mf">60.247</span><span class="p">:</span><span class="mi">51822</span>
 <span class="n">PersistentKeepalive</span> <span class="o">=</span> <span class="mi">20</span>
 
 </pre></div>
@@ -833,7 +882,7 @@ If you do not want DNS on your ext client conf files, simply leave it blank.</p>
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>
