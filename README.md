@@ -25,7 +25,7 @@ Looking to test out Netmaker as quickly as possible? You'll need:
 
 Once this is done, simply run the below command:
 
-`sudo wget -qO https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
 
 ![animation](docs/images/install-server.gif)
 ![animation](docs/images/visit-website.gif)

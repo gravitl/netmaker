@@ -46,7 +46,7 @@
   
   
   
-    <title>Install with Nginx (depreciated) &#8212; Netmaker 0.8 documentation</title>
+    <title>Install with Nginx (depreciated) &#8212; Netmaker 0.8.2 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -56,6 +56,8 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Advanced Server Installation" href="server-installation.html" />
+    <link rel="prev" title="Getting Started" href="getting-started.html" />
   
    
 
@@ -79,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8 documentation"
+        <a href="index.html" title="Netmaker 0.8.2 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -165,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.2 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -177,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.8.2 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8 documentation">Netmaker Docs</a>
+       title="Netmaker 0.8.2 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -282,7 +284,7 @@
     <li class="md-nav__item">
     
     
-      <a href="quick-start.html#introduction" class="md-nav__link">0. Introduction</a>
+      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li>
@@ -360,6 +362,92 @@
     
     
       <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Install with Nginx (depreciated) </label>
+    
+      <a href="#" class="md-nav__link md-nav__link--active">Install with Nginx (depreciated)</a>
+      
+        
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#quick-start-nginx--page-root" class="md-nav__link">Install with Nginx (depreciated)</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#introduction" class="md-nav__link">0. Introduction</a>
+        </li>
+        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">1. Prerequisites</a>
+        </li>
+        <li class="md-nav__item"><a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#install-docker" class="md-nav__link">Install Docker</a>
+        </li>
+        <li class="md-nav__item"><a href="#id1" class="md-nav__link">Install Dependencies</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-vm" class="md-nav__link">3. Prepare VM</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-domain" class="md-nav__link">Prepare Domain</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-firewall" class="md-nav__link">Prepare Firewall</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-nginx" class="md-nav__link">Prepare Nginx</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-templates" class="md-nav__link">Prepare Templates</a>
+        </li>
+        <li class="md-nav__item"><a href="#start-netmaker" class="md-nav__link">Start Netmaker</a>
+        </li></ul>
+            </nav>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#introduction" class="md-nav__link">0. Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#prerequisites" class="md-nav__link">1. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#prepare-vm" class="md-nav__link">3. Prepare VM</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
       
     
     </li></ul>
@@ -903,6 +991,30 @@
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
           
+            <a href="getting-started.html" title="Getting Started"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> Getting Started </span>
+              </div>
+            </a>
+          
+          
+            <a href="server-installation.html" title="Advanced Server Installation"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> Advanced Server Installation </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
           
         </a>
         
