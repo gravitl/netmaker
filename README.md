@@ -18,7 +18,7 @@ Looking to test out Netmaker as quickly as possible? You'll need:
 
 1. A cloud VM running Ubuntu 20.04 with a public IP
    - DigitalOcean, Linode, AWS, GCP, etc.
-2. Open firewall ports 443 and 51821/udp-51830/udp
+2. Open firewall ports 443, 53, and 51821/udp-51830/udp
    - If running behind security groups (AWS, GCP, etc.) make sure they're open there too.
 3. Docker, docker-compose, and wireguard installed
     - apt -y install wireguard docker docker-compose
