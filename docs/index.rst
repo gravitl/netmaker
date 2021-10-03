@@ -63,6 +63,16 @@ A quick start guide to getting up and running with Netmaker and WireGuard as qui
 
    getting-started
 
+Quick Start Nginx (depreciated)
+------------------------------------
+
+An older guide to getting up and running with Netmaker using Nginx as quickly as possible.
+
+.. toctree::
+   :maxdepth: 1
+
+   quick-start-nginx
+
 Server Installation
 --------------------
 
