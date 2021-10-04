@@ -49,5 +49,4 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
 
 ## License
-
 Netmaker's source code and all artifacts in this repository are freely available. All versions are published under the Server Side Public License (SSPL), version 1, which can be found here: [LICENSE.txt](./LICENSE.txt).

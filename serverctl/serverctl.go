@@ -33,15 +33,20 @@ func GetServerWGConf() (models.IntClient, error) {
 func InstallNetclient() error {
 
 	netclientPath := ncutils.GetNetclientPath()
+	if ncutils.IsWindows() {
+		netclientPath += "\\"
+	} else {
+		netclientPath += "/"
+	}
 	if !FileExists(netclientPath + "netclient") {
 		var err error
 		if ncutils.IsWindows() {
-			_, err = copy(".\\netclient\\netclient", netclientPath+"\\netclient")
+			_, err = copy(".\\netclient\\netclient", netclientPath+"netclient")
 		} else {
-			_, err = copy("./netclient/netclient", netclientPath+"/netclient")
+			_, err = copy("./netclient/netclient", netclientPath+"netclient")
 		}
 		if err != nil {
-			log.Println("could not create " + netclientPath + "/netclient")
+			log.Println("could not create " + netclientPath + "netclient")
 			return err
 		}
 	}
@@ -102,7 +107,7 @@ func RemoveNetwork(network string) (bool, error) {
 
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
-	_, err := os.Stat(netclientDir+"/config")
+	_, err := os.Stat(netclientDir + "/config")
 	if os.IsNotExist(err) {
 		os.MkdirAll(netclientDir+"/config", 744)
 	} else if err != nil {
