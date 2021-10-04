@@ -122,7 +122,7 @@ Prepare Caddy
 
 .. code-block::
 
-  wget -O /root/Caddyfile https://github.com/gravitl/netmaker/develop/docker/Caddyfile
+  wget -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/Caddyfile
 
   sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' /root/Caddyfile
   sed -i 's/YOUR_EMAIL/<your email>/g' /root/Caddyfile
