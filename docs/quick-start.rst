@@ -132,7 +132,7 @@ Start Netmaker
 
 ``sudo docker-compose up -d``
 
-navigate to dashboard.<your base domain> to see your nginx instance.
+navigate to dashboard.<your base domain> to begin using Netmaker.
 
 To troubleshoot issues, start with:
 
