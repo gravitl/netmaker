@@ -161,7 +161,7 @@ Start Netmaker
 
 ``sudo docker-compose -f docker-compose.yml up -d``
 
-navigate to dashboard.<your base domain> to see your nginx instance.
+navigate to dashboard.<your base domain> to log into the UI.
 
 To troubleshoot issues, start with:
 
