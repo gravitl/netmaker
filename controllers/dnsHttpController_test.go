@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -23,7 +24,7 @@ func TestGetCustomDNS(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	createTestNode()
-	dns, err := GetCustomDNS("skynet")
+	dns, err := dnslogic.GetCustomDNS("skynet")
 	assert.Nil(t, err)
 	t.Log(dns)
 }
@@ -39,7 +40,7 @@ func TestGetDNSEntryNum(t *testing.T) {
 func TestGetDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllNetworks()
-	dns, err := GetDNS("skynet")
+	dns, err := dnslogic.GetDNS("skynet")
 	assert.Nil(t, err)
 	t.Log(dns)
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,20 +14,20 @@ func TestGetPeerList(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	t.Run("NoNodes", func(t *testing.T) {
-		peers, err := GetPeersList("skynet", false, "")
+		peers, err := logic.GetPeersList("skynet", false, "")
 		assert.Nil(t, err)
 		assert.Nil(t, peers)
 	})
 	node := createTestNode()
 	t.Run("One Node", func(t *testing.T) {
-		peers, err := GetPeersList("skynet", false, "")
+		peers, err := logic.GetPeersList("skynet", false, "")
 		assert.Nil(t, err)
 		assert.Equal(t, node.Address, peers[0].Address)
 	})
 	t.Run("Multiple Nodes", func(t *testing.T) {
 		createnode := models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "02:02:03:04:05:06", Password: "password", Network: "skynet"}
-		CreateNode(createnode, "skynet")
-		peers, err := GetPeersList("skynet", false, "")
+		logic.CreateNode(createnode, "skynet")
+		peers, err := logic.GetPeersList("skynet", false, "")
 		assert.Nil(t, err)
 		assert.Equal(t, len(peers), 2)
 		foundNodeEndpoint := false
@@ -97,7 +98,7 @@ func TestCreateNode(t *testing.T) {
 	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
 	//err := ValidateNodeCreate("skynet", createnode)
 	//assert.Nil(t, err)
-	node, err := CreateNode(createnode, "skynet")
+	node, err := logic.CreateNode(createnode, "skynet")
 	assert.Nil(t, err)
 	assert.Equal(t, "10.0.0.1", node.Endpoint)
 	assert.Equal(t, "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", node.PublicKey)
@@ -113,17 +114,17 @@ func TestSetNetworkNodesLastModified(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	t.Run("InvalidNetwork", func(t *testing.T) {
-		err := SetNetworkNodesLastModified("badnet")
+		err := logic.SetNetworkNodesLastModified("badnet")
 		assert.EqualError(t, err, "no result found")
 	})
 	t.Run("NetworkExists", func(t *testing.T) {
-		err := SetNetworkNodesLastModified("skynet")
+		err := logic.SetNetworkNodesLastModified("skynet")
 		assert.Nil(t, err)
 	})
 }
 
 func createTestNode() models.Node {
 	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
-	node, _ := CreateNode(createnode, "skynet")
+	node, _ := logic.CreateNode(createnode, "skynet")
 	return node
 }

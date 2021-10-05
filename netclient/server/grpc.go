@@ -9,6 +9,7 @@ import (
 	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -40,30 +41,32 @@ func CheckIn(network string) (*models.Node, error) {
 		return nil, err
 	}
 	node := cfg.Node
-	wcclient, err := getGrpcClient(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// == run client action ==
-	var header metadata.MD
-	ctx, err := auth.SetJWT(wcclient, network)
-	nodeData, err := json.Marshal(&node)
-	if err != nil {
-		return nil, err
-	}
-	response, err := wcclient.ReadNode(
-		ctx,
-		&nodepb.Object{
-			Data: string(nodeData),
-			Type: nodepb.NODE_TYPE,
-		},
-		grpc.Header(&header),
-	)
-	if err != nil {
-		log.Printf("Encountered error checking in node: %v", err)
-	}
-	if err = json.Unmarshal([]byte(response.GetData()), &node); err != nil {
-		return nil, err
+	if cfg.Node.IsServer != "yes" {
+		wcclient, err := getGrpcClient(cfg)
+		if err != nil {
+			return nil, err
+		}
+		// == run client action ==
+		var header metadata.MD
+		ctx, err := auth.SetJWT(wcclient, network)
+		nodeData, err := json.Marshal(&node)
+		if err != nil {
+			return nil, err
+		}
+		response, err := wcclient.ReadNode(
+			ctx,
+			&nodepb.Object{
+				Data: string(nodeData),
+				Type: nodepb.NODE_TYPE,
+			},
+			grpc.Header(&header),
+		)
+		if err != nil {
+			log.Printf("Encountered error checking in node: %v", err)
+		}
+		if err = json.Unmarshal([]byte(response.GetData()), &node); err != nil {
+			return nil, err
+		}
 	}
 	return &node, err
 }
@@ -116,11 +119,11 @@ func RemoveNetwork(network string) error {
 	return err
 }
 */
-func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
+
+func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool, isServer bool) ([]wgtypes.PeerConfig, bool, []string, error) {
 	hasGateway := false
 	var gateways []string
 	var peers []wgtypes.PeerConfig
-	var wcclient nodepb.NodeServiceClient
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
@@ -132,40 +135,48 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	if err != nil {
 		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
 	}
+	var nodes []models.Node // fill this either from server or client
+	if !isServer {          // set peers client side
+		var wcclient nodepb.NodeServiceClient
+		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		if err != nil {
+			log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+		}
+		defer conn.Close()
+		// Instantiate the BlogServiceClient with our client connection to the server
+		wcclient = nodepb.NewNodeServiceClient(conn)
 
-	if err != nil {
-		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
-	}
-	defer conn.Close()
-	// Instantiate the BlogServiceClient with our client connection to the server
-	wcclient = nodepb.NewNodeServiceClient(conn)
+		req := &nodepb.Object{
+			Data: macaddress + "###" + network,
+			Type: nodepb.STRING_TYPE,
+		}
 
-	req := &nodepb.Object{
-		Data: macaddress + "###" + network,
-		Type: nodepb.STRING_TYPE,
+		ctx, err := auth.SetJWT(wcclient, network)
+		if err != nil {
+			log.Println("Failed to authenticate.")
+			return peers, hasGateway, gateways, err
+		}
+		var header metadata.MD
+
+		response, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))
+		if err != nil {
+			log.Println("Error retrieving peers")
+			log.Println(err)
+			return nil, hasGateway, gateways, err
+		}
+		if err := json.Unmarshal([]byte(response.GetData()), &nodes); err != nil {
+			log.Println("Error unmarshaling data for peers")
+			return nil, hasGateway, gateways, err
+		}
+	} else { // set peers serverside
+		nodes, err = logic.GetPeers(nodecfg)
+		if err != nil {
+			return nil, hasGateway, gateways, err
+		}
 	}
 
-	ctx, err := auth.SetJWT(wcclient, network)
-	if err != nil {
-		log.Println("Failed to authenticate.")
-		return peers, hasGateway, gateways, err
-	}
-	var header metadata.MD
-
-	response, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))
-	if err != nil {
-		log.Println("Error retrieving peers")
-		log.Println(err)
-		return nil, hasGateway, gateways, err
-	}
-	var nodes []models.Node
-	if err := json.Unmarshal([]byte(response.GetData()), &nodes); err != nil {
-		log.Println("Error unmarshaling data for peers")
-		return nil, hasGateway, gateways, err
-	}
 	for _, node := range nodes {
 		pubkey, err := wgtypes.ParseKey(node.PublicKey)
 		if err != nil {
@@ -240,7 +251,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			}
 			allowedips = append(allowedips, addr6)
 		}
-		if nodecfg.IsServer == "yes" {
+		if nodecfg.IsServer == "yes" && !(node.IsServer == "yes"){
 			peer = wgtypes.PeerConfig{
 				PublicKey:                   pubkey,
 				PersistentKeepaliveInterval: &keepaliveserver,
@@ -283,43 +294,62 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 }
 func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
-	var wcclient nodepb.NodeServiceClient
+
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
 	}
 	nodecfg := cfg.Node
-
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-	if err != nil {
-		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
-	}
-	defer conn.Close()
-	// Instantiate the BlogServiceClient with our client connection to the server
-	wcclient = nodepb.NewNodeServiceClient(conn)
-
-	req := &nodepb.Object{
-		Data: macaddress + "###" + network,
-		Type: nodepb.STRING_TYPE,
-	}
-
-	ctx, err := auth.SetJWT(wcclient, network)
-	if err != nil {
-		log.Println("Failed to authenticate.")
-		return peers, err
-	}
-	var header metadata.MD
-
-	responseObject, err := wcclient.GetExtPeers(ctx, req, grpc.Header(&header))
-	if err != nil {
-		log.Println("Error retrieving peers")
-		log.Println(err)
-		return nil, err
-	}
 	var extPeers []models.Node
-	if err = json.Unmarshal([]byte(responseObject.Data), &extPeers); err != nil {
-		return nil, err
+	if nodecfg.IsServer != "yes" { // fill extPeers with client side logic
+		var wcclient nodepb.NodeServiceClient
+
+		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		if err != nil {
+			log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+		}
+		defer conn.Close()
+		// Instantiate the BlogServiceClient with our client connection to the server
+		wcclient = nodepb.NewNodeServiceClient(conn)
+
+		req := &nodepb.Object{
+			Data: macaddress + "###" + network,
+			Type: nodepb.STRING_TYPE,
+		}
+
+		ctx, err := auth.SetJWT(wcclient, network)
+		if err != nil {
+			log.Println("Failed to authenticate.")
+			return peers, err
+		}
+		var header metadata.MD
+
+		responseObject, err := wcclient.GetExtPeers(ctx, req, grpc.Header(&header))
+		if err != nil {
+			log.Println("Error retrieving peers")
+			log.Println(err)
+			return nil, err
+		}
+		if err = json.Unmarshal([]byte(responseObject.Data), &extPeers); err != nil {
+			return nil, err
+		}
+	} else { // fill extPeers with server side logic
+		tempPeers, err := logic.GetExtPeersList(nodecfg.MacAddress, nodecfg.Network)
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < len(tempPeers); i++ {
+			extPeers = append(extPeers, models.Node{
+				Address:             tempPeers[i].Address,
+				Address6:            tempPeers[i].Address6,
+				Endpoint:            tempPeers[i].Endpoint,
+				PublicKey:           tempPeers[i].PublicKey,
+				PersistentKeepalive: tempPeers[i].KeepAlive,
+				ListenPort:          tempPeers[i].ListenPort,
+				LocalAddress:        tempPeers[i].LocalAddress,
+			})
+		}
 	}
 	for _, extPeer := range extPeers {
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)

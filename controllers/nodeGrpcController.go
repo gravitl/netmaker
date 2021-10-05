@@ -8,6 +8,7 @@ import (
 
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -67,7 +68,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		}
 	}
 
-	node, err = CreateNode(node, node.Network)
+	node, err = logic.CreateNode(node, node.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
 	}
-	err = SetNetworkNodesLastModified(node.Network)
+	err = logic.SetNetworkNodesLastModified(node.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -134,15 +135,15 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		if err != nil {
 			return nil, err
 		}
-		if node.IsServer == "yes" {
-			SetNetworkServerPeers(macAndNetwork[1])
+		if node.IsServer == "yes" && logic.IsLeader(&node){
+			logic.SetNetworkServerPeers(&node)
 		}
 		excludeIsRelayed := node.IsRelay != "yes"
 		var relayedNode string
 		if node.IsRelayed == "yes" {
 			relayedNode = node.Address
 		}
-		peers, err := GetPeersList(macAndNetwork[1], excludeIsRelayed, relayedNode)
+		peers, err := logic.GetPeersList(macAndNetwork[1], excludeIsRelayed, relayedNode)
 		if err != nil {
 			return nil, err
 		}
@@ -172,11 +173,10 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 	if len(macAndNetwork) != 2 {
 		return nil, errors.New("did not receive valid node id when fetching ext peers")
 	}
-	peers, err := GetExtPeersList(macAndNetwork[0], macAndNetwork[1])
+	peers, err := logic.GetExtPeersList(macAndNetwork[0], macAndNetwork[1])
 	if err != nil {
 		return nil, err
 	}
-	// cursor.Next() returns a boolean, if false there are no more items and loop will break
 	var extPeers []models.Node
 	for i := 0; i < len(peers); i++ {
 		extPeers = append(extPeers, models.Node{

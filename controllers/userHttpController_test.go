@@ -219,7 +219,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		authRequest.Password = "password"
 		jwt, err := VerifyAuthRequest(authRequest)
 		assert.Equal(t, "", jwt)
-		assert.EqualError(t, err, "user admin not found")
+		assert.EqualError(t, err, "incorrect credentials")
 	})
 	t.Run("Non-Admin", func(t *testing.T) {
 		user := models.User{"nonadmin", "somepass", nil, false}
@@ -235,7 +235,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		authRequest := models.UserAuthParams{"admin", "badpass"}
 		jwt, err := VerifyAuthRequest(authRequest)
 		assert.Equal(t, "", jwt)
-		assert.EqualError(t, err, "wrong password")
+		assert.EqualError(t, err, "incorrect credentials")
 	})
 	t.Run("Success", func(t *testing.T) {
 		authRequest := models.UserAuthParams{"admin", "password"}

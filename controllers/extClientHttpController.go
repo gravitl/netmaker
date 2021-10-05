@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/skip2/go-qrcode"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -273,7 +274,7 @@ func CreateExtClient(extclient models.ExtClient) error {
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
 	}
-	err = SetNetworkNodesLastModified(extclient.Network)
+	err = logic.SetNetworkNodesLastModified(extclient.Network)
 	return err
 }
 

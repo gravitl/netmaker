@@ -7,7 +7,7 @@ import (
 	"net"
 	"strings"
 	"time"
-
+	"bytes"
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"golang.org/x/crypto/bcrypt"
@@ -74,6 +74,18 @@ type Node struct {
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS                  string   `json:"os" bson:"os" yaml:"os"`
 	MTU                 int32    `json:"mtu" bson:"mtu" yaml:"mtu"`
+}
+
+type NodesArray []Node
+
+func (a NodesArray) Len() int           { return len(a) }
+func (a NodesArray) Less(i, j int) bool { return isLess(a[i].Address, a[j].Address) }
+func (a NodesArray) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+func isLess(ipA string, ipB string) bool {
+	ipNetA := net.ParseIP(ipA)
+	ipNetB := net.ParseIP(ipB)
+	return bytes.Compare(ipNetA, ipNetB) < 0
 }
 
 func (node *Node) SetDefaultMTU() {
@@ -263,9 +275,12 @@ func (node *Node) SetDefaults() {
 		}
 	}
 	// == Parent Network settings ==
-	node.CheckInInterval = parentNetwork.DefaultCheckInInterval
-	node.IsDualStack = parentNetwork.IsDualStack
-	node.MTU = parentNetwork.DefaultMTU
+	if node.IsDualStack == "" {
+		node.IsDualStack = parentNetwork.IsDualStack
+	}
+	if node.MTU == 0 {
+		node.MTU = parentNetwork.DefaultMTU
+	}
 	// == node defaults if not set by parent ==
 	node.SetIPForwardingDefault()
 	node.SetDNSOnDefault()
@@ -535,9 +550,9 @@ func GetAllNodes() ([]Node, error) {
 	return nodes, nil
 }
 
-func GetID(macaddress string, network string) (string, error) {
-	if macaddress == "" || network == "" {
+func (node *Node) GetID() (string, error) {
+	if node.MacAddress == "" || node.Network == "" {
 		return "", errors.New("unable to get record key")
 	}
-	return macaddress + "###" + network, nil
+	return node.MacAddress + "###" + node.Network, nil
 }
