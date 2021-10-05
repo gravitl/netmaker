@@ -3,13 +3,13 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
-	"github.com/txn2/txeh"
 )
 
 func dnsHandlers(r *mux.Router) {
@@ -63,7 +63,7 @@ func GetAllDNS() ([]models.DNSEntry, error) {
 		return []models.DNSEntry{}, err
 	}
 	for _, net := range networks {
-		netdns, err := GetDNS(net.NetID)
+		netdns, err := dnslogic.GetDNS(net.NetID)
 		if err != nil {
 			return []models.DNSEntry{}, nil
 		}
@@ -103,7 +103,7 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 
-	dns, err := GetCustomDNS(params["network"])
+	dns, err := dnslogic.GetCustomDNS(params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -114,65 +114,11 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dns)
 }
 
-func GetCustomDNS(network string) ([]models.DNSEntry, error) {
-
-	var dns []models.DNSEntry
-
-	collection, err := database.FetchRecords(database.DNS_TABLE_NAME)
-	if err != nil {
-		return dns, err
-	}
-	for _, value := range collection { // filter for entries based on network
-		var entry models.DNSEntry
-		if err := json.Unmarshal([]byte(value), &entry); err != nil {
-			continue
-		}
-
-		if entry.Network == network {
-			dns = append(dns, entry)
-		}
-	}
-
-	return dns, err
-}
-
-func SetDNS() error {
-	hostfile := txeh.Hosts{}
-	var corefilestring string
-	networks, err := models.GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err){
-		return err
-	}
-
-	for _, net := range networks {
-		corefilestring = corefilestring + net.NetID + " "
-		dns, err := GetDNS(net.NetID)
-		if err != nil && !database.IsEmptyRecord(err) {
-			return err
-		}
-		for _, entry := range dns {
-			hostfile.AddHost(entry.Address, entry.Name+"."+entry.Network)
-		}
-	}
-	if corefilestring == "" {
-		corefilestring = "example.com"
-	}
-
-	err = hostfile.SaveAs("./config/dnsconfig/netmaker.hosts")
-	if err != nil {
-		return err
-	}
-	if servercfg.IsSplitDNS() {
-		err = functions.SetCorefile(corefilestring)
-	}
-	return err
-}
-
 func GetDNSEntryNum(domain string, network string) (int, error) {
 
 	num := 0
 
-	entries, err := GetDNS(network)
+	entries, err := dnslogic.GetDNS(network)
 	if err != nil {
 		return 0, err
 	}
@@ -195,29 +141,13 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 
-	dns, err := GetDNS(params["network"])
+	dns, err := dnslogic.GetDNS(params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(dns)
-}
-
-func GetDNS(network string) ([]models.DNSEntry, error) {
-
-	var dns []models.DNSEntry
-	dns, err := GetNodeDNS(network)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return dns, err
-	}
-	customdns, err := GetCustomDNS(network)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return dns, err
-	}
-
-	dns = append(dns, customdns...)
-	return dns, nil
 }
 
 func createDNS(w http.ResponseWriter, r *http.Request) {
@@ -241,7 +171,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	err = SetDNS()
+	err = dnslogic.SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -296,7 +226,7 @@ func updateDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	err = SetDNS()
+	err = dnslogic.SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -319,7 +249,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	entrytext := params["domain"] + "." + params["network"]
 	functions.PrintUserLog(models.NODE_SERVER_NAME, "deleted dns entry: "+entrytext, 1)
-	err = SetDNS()
+	err = dnslogic.SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -394,13 +324,13 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
 
-	err := SetDNS()
+	err := dnslogic.SetDNS()
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"),"pushed DNS updates to nameserver",1)
+	functions.PrintUserLog(r.Header.Get("user"), "pushed DNS updates to nameserver", 1)
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
 }
 
@@ -421,7 +351,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	err := v.Struct(entry)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("", e.Error(),1)
+			functions.PrintUserLog("", e.Error(), 1)
 		}
 	}
 	return err
@@ -442,7 +372,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := functions.GetParentNetwork(change.Network)
 		if err != nil {
-			functions.PrintUserLog("",err.Error(),0)
+			functions.PrintUserLog("", err.Error(), 0)
 		}
 		return err == nil
 	})
@@ -465,7 +395,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("", e.Error(),1)
+			functions.PrintUserLog("", e.Error(), 1)
 		}
 	}
 	return err

@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
@@ -337,8 +338,21 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteNetwork(network string) error {
-	nodeCount, err := functions.GetNetworkNodeCount(network)
+	nodeCount, err := functions.GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
+		// delete server nodes first then db records
+		servers, err := logic.GetSortedNetworkServerNodes(network)
+		if err == nil {
+			for _, s := range servers {
+				if err = logic.DeleteNode(s.ID, true); err != nil {
+					functions.PrintUserLog("[netmaker]", "could not removed server "+s.Name+" before deleting network "+network, 2)
+				} else {
+					functions.PrintUserLog("[netmaker]", "removed server "+s.Name+" before deleting network "+network, 2)
+				}
+			}
+		} else {
+			functions.PrintUserLog("[netmaker]", "could not remove servers before deleting network "+network, 1)
+		}
 		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}
 	return errors.New("node check failed. All nodes must be deleted before deleting network")
@@ -465,15 +479,15 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
 	servervals := models.ServerConfig{
-		CoreDNSAddr:    s.CoreDNSAddr,
-		APIConnString:  s.APIConnString,
-		APIHost:        s.APIHost,
-		APIPort:        s.APIPort,
-		GRPCConnString: s.GRPCConnString,
-		GRPCHost:       s.GRPCHost,
-		GRPCPort:       s.GRPCPort,
-		GRPCSSL:        s.GRPCSSL,
-		CheckinInterval:        s.CheckinInterval,
+		CoreDNSAddr:     s.CoreDNSAddr,
+		APIConnString:   s.APIConnString,
+		APIHost:         s.APIHost,
+		APIPort:         s.APIPort,
+		GRPCConnString:  s.GRPCConnString,
+		GRPCHost:        s.GRPCHost,
+		GRPCPort:        s.GRPCPort,
+		GRPCSSL:         s.GRPCSSL,
+		CheckinInterval: s.CheckinInterval,
 	}
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID
