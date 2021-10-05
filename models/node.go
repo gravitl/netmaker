@@ -7,7 +7,7 @@ import (
 	"net"
 	"strings"
 	"time"
-
+	"bytes"
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"golang.org/x/crypto/bcrypt"
@@ -25,6 +25,19 @@ const NODE_NOOP = "noop"
 
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
+
+
+type NodesArray []Node
+
+func (a NodesArray) Len() int           { return len(a) }
+func (a NodesArray) Less(i, j int) bool { return isLess(a[i].Address, a[j].Address) }
+func (a NodesArray) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+func isLess(ipA string, ipB string) bool {
+	ipNetA := net.ParseIP(ipA)
+	ipNetB := net.ParseIP(ipB)
+	return bytes.Compare(ipNetA, ipNetB) < 0
+}
 
 // node struct
 type Node struct {

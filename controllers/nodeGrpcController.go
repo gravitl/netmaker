@@ -134,7 +134,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		if err != nil {
 			return nil, err
 		}
-		if node.IsServer == "yes" {
+		if node.IsServer == "yes" && functions.IsLeader(&node) {
 			SetNetworkServerPeers(macAndNetwork[1])
 		}
 		excludeIsRelayed := node.IsRelay != "yes"

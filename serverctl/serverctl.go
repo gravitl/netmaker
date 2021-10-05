@@ -7,13 +7,15 @@ import (
 	"log"
 	"os"
 	"os/exec"
-
+	"time"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+const SERVER_NETID="servernet"
 
 func GetServerWGConf() (models.IntClient, error) {
 	var server models.IntClient
@@ -104,7 +106,12 @@ func RemoveNetwork(network string) (bool, error) {
 	return true, err
 
 }
-
+/*
+func InitServerNet() error {
+	func
+	return nil
+}
+*/
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
 	_, err := os.Stat(netclientDir + "/config")
@@ -193,3 +200,48 @@ func AddNetwork(network string) (bool, error) {
 	log.Println("Server added to network " + network)
 	return true, err
 }
+
+func IsLeader(node *models.Node) (bool) {
+	nodes, err := functions.GetSortedNetworkServerNodes(node.Network)
+	if err != nil {
+		functions.PrintUserLog("[netmaker]","ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.", 0)
+		return false
+	}
+	for _, n := range nodes {
+		if n.LastModified > time.Now().Add(-1 * time.Minute).Unix() {
+			return n.Address == node.Address
+		}
+	}
+	return nodes[1].Address == node.Address
+}
+
+// == PRIVATE ==
+/*
+func getUniqueServerIP(currentAddrs []string) (string, error) {
+
+	ip, ipnet, err := net.ParseCIDR(servercfg.GetServerNet())
+	if err != nil {
+		return "", err
+	}
+	offset := true
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); functions.Inc(ip) {
+		if offset {
+			offset = false
+			continue
+		}
+		if isIPunique(ip.String(), currentAddrs) {
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("failed to get unique server ip")
+}
+
+func isIPunique(addr string, currentAddrs []string) bool {
+	for _, currAddr := range currentAddrs {
+		if addr == currAddr {
+			return false
+		}
+	}
+	return true
+}
+*/

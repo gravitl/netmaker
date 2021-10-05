@@ -267,7 +267,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	var nodes []models.Node
 	var params = mux.Vars(r)
 	networkName := params["network"]
-	nodes, err := GetNetworkNodes(networkName)
+	nodes, err := functions.GetNetworkNodes(networkName)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -277,29 +277,6 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	functions.PrintUserLog(r.Header.Get("user"), "fetched nodes on network"+networkName, 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
-}
-
-func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes []models.Node
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
-		}
-		return nodes, err
-	}
-	for _, value := range collection {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			continue
-		}
-		if node.Network == network {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes, nil
 }
 
 //A separate function to get all nodes, not just nodes for a particular network.
@@ -335,7 +312,7 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 	var nodes []models.Node
 	var err error
 	for _, networkName := range user.Networks {
-		tmpNodes, err := GetNetworkNodes(networkName)
+		tmpNodes, err := functions.GetNetworkNodes(networkName)
 		if err != nil {
 			continue
 		}

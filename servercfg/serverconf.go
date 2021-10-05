@@ -372,3 +372,32 @@ func IsSplitDNS() bool {
 	}
 	return issplit
 }
+/*
+func GetServerNet() string {
+    cidr := "10.250.250.0/24"
+    if os.Getenv("SERVER_NET") != "" {
+        if _, _, err := net.ParseCIDR(os.Getenv("SERVER_NET")); err == nil {
+            return os.Getenv("SERVER_NET")
+        }
+    } else if config.Config.Server.ServerNet != "" {
+        if _, _, err := net.ParseCIDR(config.Config.Server.ServerNet); err == nil {
+            return config.Config.Server.ServerNet
+        }
+    }
+    return cidr
+}
+
+func GetRegistrationNet() string {
+    cidr := "10.250.251.0/24"
+    if os.Getenv("REG_NET") != "" {
+        if _, _, err := net.ParseCIDR(os.Getenv("REG_NET")); err == nil {
+            return os.Getenv("REG_NET")
+        }
+    } else if config.Config.Server.RegNet != "" {
+        if _, _, err := net.ParseCIDR(config.Config.Server.RegNet); err == nil {
+            return config.Config.Server.RegNet
+        }
+    }
+    return cidr
+}
+*/

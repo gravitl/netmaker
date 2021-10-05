@@ -39,6 +39,7 @@ func initialize() { // Client Mode Prereq Check
 		log.Fatal(err)
 	}
 	log.Println("database successfully connected.")
+
 	if servercfg.IsClientMode() != "off" {
 		output, err := ncutils.RunCmd("id -u", true)
 		if err != nil {
