@@ -466,6 +466,18 @@
             </nav>
         </li>
         <li class="md-nav__item"><a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
+        </li>
+        <li class="md-nav__item"><a href="#highly-available-installation" class="md-nav__link">Highly Available Installation</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#other-considerations" class="md-nav__link">4. Other Considerations</a>
+        </li></ul>
+            </nav>
         </li></ul>
             </nav>
         </li>
@@ -518,6 +530,13 @@
     
     
       <a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#highly-available-installation" class="md-nav__link">Highly Available Installation</a>
       
     
     </li></ul>
@@ -841,6 +860,18 @@
             </nav>
         </li>
         <li class="md-nav__item"><a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
+        </li>
+        <li class="md-nav__item"><a href="#highly-available-installation" class="md-nav__link">Highly Available Installation</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#other-considerations" class="md-nav__link">4. Other Considerations</a>
+        </li></ul>
+            </nav>
         </li></ul>
             </nav>
         </li>
@@ -1072,7 +1103,7 @@ docker-compose up -d`
 
 
 
-<h2 id="linux-install-without-docker">Linux Install without Docker<a class="headerlink" href="#linux-install-without-docker" title="Permalink to this headline">¶</a></h2>
+<span id="nodocker"></span><h2 id="linux-install-without-docker">Linux Install without Docker<a class="headerlink" href="#linux-install-without-docker" title="Permalink to this headline">¶</a></h2>
 <p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional).</p>
 <p>To start, we recommend following the Nginx instructions in the <a class="reference internal" href="quick-start.html"><span class="doc">Quick Install</span></a> guide to enable SSL for your environment.</p>
 <p>Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.</p>
@@ -1118,7 +1149,7 @@ docker-compose up -d`
 
 
 
-<h2 id="kubernetes-install">Kubernetes Install<a class="headerlink" href="#kubernetes-install" title="Permalink to this headline">¶</a></h2>
+<span id="kubeinstall"></span><h2 id="kubernetes-install">Kubernetes Install<a class="headerlink" href="#kubernetes-install" title="Permalink to this headline">¶</a></h2>
 
 <h3 id="server-install">Server Install<a class="headerlink" href="#server-install" title="Permalink to this headline">¶</a></h3>
 <p>This template assumes your cluster uses Nginx for ingress with valid wildcard certificates. If using an ingress controller other than Nginx (ex: Traefik), you will need to manually modify the Ingress entries in this template to match your environment.</p>
@@ -1204,6 +1235,54 @@ kubectl apply -f netclient-template.yaml
     <span class="p">}</span>
 </pre></div>
 </div>
+
+
+<span id="hainstall"></span><h2 id="highly-available-installation">Highly Available Installation<a class="headerlink" href="#highly-available-installation" title="Permalink to this headline">¶</a></h2>
+<p>For an enterprise Netmaker installation, you will need a server that is highly available, to ensure redundant WireGuard routing when any server goes down. To do this, you will need:</p>
+<ol class="arabic simple">
+<li><p>A load balancer</p></li>
+<li><p>3+ Netmaker server instances</p></li>
+<li><p>rqlite as the backing database</p></li>
+</ol>
+<p>These documents outline general HA installation guidelines. Netmaker is highly customizable to meet a wide range of enterprise environments. If you would like support with an enterprise-grade Netmaker installation, you can <a class="reference external" href="https://gravitl.com/book">schedule a consultation here</a> .</p>
+<p>The main consideration here is how to configure rqlite. Most other settings and procedures match the standardized way of making applications HA: Load balancing to multiple instances, and sharing a DB. In our case, the DB (rqlite) is distributed, making HA data more easily achievable.</p>
+
+<h3 id="load-balancer-setup">1. Load Balancer Setup<a class="headerlink" href="#load-balancer-setup" title="Permalink to this headline">¶</a></h3>
+<p>Your load balancer of choice will send requests to the Netmaker servers. Setup is similar to the various guides we have created for Nginx, Caddy, and Traefik. SSL certificates must also be configured and handled by the LB.</p>
+
+
+<h3 id="id1">2. RQLite Setup<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>RQLite is the included distributed datastore for an HA Netmaker installation. If you have a different corporate database you wish to integrate, Netmaker is easily extended to other DB’s. If this is a requirement, please contact us.</p>
+<p>Assuming you use Rqlite, you must run it on each Netmaker server VM, or alongside that VM as a container. Setup a config.json for database credentials (password supports BCRYPT HASHING) and mount in working directory of rqlite and specify with <cite>-auth config.json</cite> :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[{</span>
+    <span class="s2">"username"</span><span class="p">:</span> <span class="s2">"netmaker"</span><span class="p">,</span>
+    <span class="s2">"password"</span><span class="p">:</span> <span class="s2">"&lt;YOUR_DB_PASSWORD&gt;"</span><span class="p">,</span>
+    <span class="s2">"perms"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"all"</span><span class="p">]</span>
+<span class="p">}]</span>
+</pre></div>
+</div>
+<p>Once your servers are set up with rqlite, the first instance must be started normally, and then additional nodes must be added with the “join” command. For instance, here is the first server node:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">d</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4001</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4002</span><span class="p">:</span><span class="mi">4002</span> <span class="n">rqlite</span><span class="o">/</span><span class="n">rqlite</span> <span class="o">-</span><span class="n">node</span><span class="o">-</span><span class="nb">id</span> <span class="mi">1</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">1.2</span><span class="o">.</span><span class="mf">3.4</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">1.2</span><span class="o">.</span><span class="mf">3.4</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">auth</span> <span class="n">config</span><span class="o">.</span><span class="n">json</span>
+</pre></div>
+</div>
+<p>And here is a joining node:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">d</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4001</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4002</span><span class="p">:</span><span class="mi">4002</span> <span class="n">rqlite</span><span class="o">/</span><span class="n">rqlite</span> <span class="o">-</span><span class="n">node</span><span class="o">-</span><span class="nb">id</span> <span class="mi">2</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4001</span>  <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">join</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">netmaker</span><span class="p">:</span><span class="o">&lt;</span><span class="n">YOUR_DB_PASSWORD</span><span class="o">&gt;</span><span class="nd">@1</span><span class="o">.</span><span class="mf">2.3</span><span class="o">.</span><span class="mi">4</span><span class="p">:</span><span class="mi">4001</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>reference for rqlite setup: <a class="reference external" href="https://github.com/rqlite/rqlite/blob/master/DOC/CLUSTER_MGMT.md#creating-a-cluster">https://github.com/rqlite/rqlite/blob/master/DOC/CLUSTER_MGMT.md#creating-a-cluster</a></p></li>
+<li><p>reference for rqlite security: <a class="reference external" href="https://github.com/rqlite/rqlite/blob/master/DOC/SECURITY.md">https://github.com/rqlite/rqlite/blob/master/DOC/SECURITY.md</a></p></li>
+</ul>
+<p>Once rqlite instances have been configured, the Netmaker servers can be deployed.</p>
+
+
+<h3 id="netmaker-setup">3. Netmaker Setup<a class="headerlink" href="#netmaker-setup" title="Permalink to this headline">¶</a></h3>
+<p>Netmaker will be started on each node with default settings, except with DATABASE=rqlite and SQL_CONN set appropriately to reach the local rqlite instance. Rqlite will maintain consistency with each Netmaker backend.</p>
+
+
+<h3 id="other-considerations">4. Other Considerations<a class="headerlink" href="#other-considerations" title="Permalink to this headline">¶</a></h3>
+<p>This is enough to get a functioning HA installation of Netmaker. However, you may also want to make the Netmaker UI or the CoreDNS server HA as well. The Netmaker UI can simply be added to the same servers and load balanced appropriately. For some load balancers, you may be able to do this with CoreDNS as well.</p>
+
 
 
 

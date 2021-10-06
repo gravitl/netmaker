@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.8.2
+    image: gravitl/netmaker:v0.8.3
     volumes:
       - /etc/netclient/config:/etc/netclient/config
       - dnsconfig:/root/config/dnsconfig
