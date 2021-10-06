@@ -6,7 +6,7 @@
 <i>Create and control automated virtual networks.</i> 
 </p>
 
-![Docker Image Version (latest by date)](https://img.shields.io/docker/v/gravitl/netmaker)! [Docker Pulls](https://img.shields.io/docker/pulls/gravitl/netmaker)! [GitHub closed issues](https://img.shields.io/github/issues-closed-raw/gravitl/netmaker)! [GitHub commit activity](https://img.shields.io/github/commit-activity/w/gravitl/netmaker)! [Twitter URL](https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Ftwitter.com%2Fgravitlcorp)! [YouTube Channel Views](https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social)
+![Docker Image Version (latest by date)](https://img.shields.io/docker/v/gravitl/netmaker) ![Docker Pulls](https://img.shields.io/docker/pulls/gravitl/netmaker) ![GitHub closed issues](https://img.shields.io/github/issues-closed-raw/gravitl/netmaker) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/gravitl/netmaker) ![Twitter URL](https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Ftwitter.com%2Fgravitlcorp) ![YouTube Channel Views](https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social)
 
 
 # WireGuard® Automation from Homelab to Enterprise
