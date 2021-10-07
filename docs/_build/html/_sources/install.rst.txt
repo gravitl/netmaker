@@ -2,11 +2,13 @@
 Install
 =========
 
-Choose the install method that makes sense for you:
+Choose the install method that makes sense for you.
+
+**For most users, we recommend the** :doc:`Quick Install<./quick-start>` **guide.**
 
 `Trial, PoC, Testing, and Experimenting <https://github.com/gravitl/netmaker/tree/master#get-started-in-5-minutes>`_
 
-:doc:`General Use Cases: Small to Medium <./quick-start>`
+:doc:`Quick Install: for general small-to-medium use cases <./quick-start>`
 
 :ref:`Kubernetes Installation <KubeInstall>`
 
