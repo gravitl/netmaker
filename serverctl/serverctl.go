@@ -101,7 +101,7 @@ func InitServerNetclient() error {
 	if os.IsNotExist(err) {
 		os.MkdirAll(netclientDir+"/config", 744)
 	} else if err != nil {
-		log.Println("could not find or create", netclientDir)
+		log.Println("[netmaker] could not find or create", netclientDir)
 		return err
 	}
 	return nil
@@ -119,14 +119,14 @@ func HandleContainedClient() error {
 		log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 		err := SyncNetworks(servernets)
 		if err != nil && servercfg.GetVerbose() >= 1 {
-			log.Printf("[server netclient] error syncing networks %s \n", err)
+			log.Printf("[netmaker] error syncing networks %s \n", err)
 		}
 		err = nccommand.CheckIn(config.ClientConfig{Network: "all"})
 		if err != nil && servercfg.GetVerbose() >= 1 {
-			log.Printf("[server netclient] error occurred %s \n", err)
+			log.Printf("[netmaker] error occurred %s \n", err)
 		}
 		if servercfg.GetVerbose() >= 3 {
-			log.Println("[server netclient]", "completed a checkin call")
+			log.Println("[netmaker]", "completed a checkin call")
 		}
 	}
 	return nil
@@ -152,7 +152,9 @@ func SyncNetworks(servernets []models.Network) error {
 				if err == nil {
 					err = errors.New("network add failed for " + servernet.NetID)
 				}
-				log.Printf("[server] error adding network %s during sync %s \n", servernet.NetID, err)
+				if servercfg.GetVerbose() >= 1 {
+					log.Printf("[netmaker] error adding network %s during sync %s \n", servernet.NetID, err)
+				}
 			}
 		}
 	}
@@ -170,7 +172,7 @@ func SyncNetworks(servernets []models.Network) error {
 				if err == nil {
 					err = errors.New("network delete failed for " + localnet)
 				}
-				log.Printf("[server] error removing network %s during sync %s \n", localnet, err)
+				log.Printf("[netmaker] error removing network %s during sync %s \n", localnet, err)
 			}
 		}
 	}
@@ -184,9 +186,10 @@ func AddNetwork(network string) (bool, error) {
 		Node: models.Node{
 			Network:  network,
 			IsServer: "yes",
+			DNSOn:    "no",
 			Name:     models.NODE_SERVER_NAME,
 		},
 	}, "")
-	log.Println("Server added to network " + network)
+	log.Println("[netmaker] Server added to network " + network)
 	return true, err
 }

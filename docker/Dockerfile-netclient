@@ -1,26 +1,22 @@
-#first stage - builder
+FROM gravitl/builder:latest as builder
+# add glib support daemon manager
+WORKDIR /app
 
-FROM golang:latest as builder
-
-COPY . /app
-
-WORKDIR /app/netclient
+COPY . .
 
 ENV GO111MODULE=auto
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o netclient main.go
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient-app netclient/main.go
 
-#second stage
+FROM alpine:3.13.6
 
-FROM debian:latest
-
-RUN apt-get update && apt-get -y install systemd procps
-
+RUN apk add gcompat iptables && mkdir -p /etc/netclient
+# set the working directory
 WORKDIR /root/
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /app/netclient-app /etc/netclient/netclient
+COPY --from=builder /app/scripts/netclient.sh .
 
-COPY --from=builder /app/netclient/netclient .
+RUN chmod 0755 /etc/netclient/netclient && chmod 0755 netclient.sh
 
-CMD ["./netclient"]
-
+ENTRYPOINT ["./netclient.sh"]

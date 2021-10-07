@@ -3,9 +3,10 @@ package command
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
+
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
@@ -67,14 +68,14 @@ func getWindowsInterval() int {
 		return interval
 	}
 	netint, err := strconv.Atoi(cfg.Server.CheckinInterval)
-	if err == nil && netint != 0  {
+	if err == nil && netint != 0 {
 		interval = netint
 	}
 	return interval
 }
 
 func RunUserspaceDaemon() {
-	
+
 	cfg := config.ClientConfig{
 		Network: "all",
 	}
@@ -110,7 +111,9 @@ func CheckIn(cfg config.ClientConfig) error {
 			if err != nil {
 				ncutils.PrintLog("error checking in for "+network+" network: "+err.Error(), 1)
 			} else {
-				ncutils.PrintLog("checked in successfully for "+network, 1)
+				if cfg.Node.IsServer != "yes" {
+					ncutils.PrintLog("checked in successfully for "+network, 1)
+				}
 			}
 		}
 		if len(networks) == 0 {
