@@ -24,7 +24,7 @@ services:
       SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
       API_PORT: "8081"
       GRPC_PORT: "50051"
-      CLIENT_MODE: "contained"
+      CLIENT_MODE: "on"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
