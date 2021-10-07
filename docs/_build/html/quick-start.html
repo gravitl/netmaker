@@ -852,7 +852,7 @@
 <h2 id="install-dependencies">2. Install Dependencies<a class="headerlink" href="#install-dependencies" title="Permalink to this headline">¶</a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ssh</span> <span class="n">root</span><span class="nd">@your</span><span class="o">-</span><span class="n">host</span>
 <span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">update</span>
-<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="o">-</span><span class="n">y</span> <span class="n">docker</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">wireguard</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">docker</span><span class="o">.</span><span class="n">io</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">wireguard</span>
 </pre></div>
 </div>
 <p>At this point you should have all the system dependencies you need.</p>
@@ -912,7 +912,7 @@
 
 <h3 id="start-netmaker">Start Netmaker<a class="headerlink" href="#start-netmaker" title="Permalink to this headline">¶</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code></p>
-<p>navigate to dashboard.&lt;your base domain&gt; to see your nginx instance.</p>
+<p>navigate to dashboard.&lt;your base domain&gt; to begin using Netmaker.</p>
 <p>To troubleshoot issues, start with:</p>
 <p><code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">logs</span> <span class="pre">netmaker</span></code></p>
 <p>Or check out the <a class="reference internal" href="troubleshoot.html"><span class="doc">troubleshoooting docs</span></a>.</p>

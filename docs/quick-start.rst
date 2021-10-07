@@ -62,7 +62,7 @@ Caddy will create 3 subdomains with this wildcard, EX:
 
   ssh root@your-host
   sudo apt-get update
-  sudo apt-get -y docker docker-compose wireguard
+  sudo apt-get install -y docker.io docker-compose wireguard
 
 At this point you should have all the system dependencies you need.
  
