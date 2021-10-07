@@ -111,9 +111,7 @@ func CheckIn(cfg config.ClientConfig) error {
 			if err != nil {
 				ncutils.PrintLog("error checking in for "+network+" network: "+err.Error(), 1)
 			} else {
-				if cfg.Node.IsServer != "yes" {
-					ncutils.PrintLog("checked in successfully for "+network, 1)
-				}
+				ncutils.PrintLog("checked in successfully for "+network, 1)
 			}
 		}
 		if len(networks) == 0 {
