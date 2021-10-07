@@ -40,7 +40,7 @@
 
 # Get Started in 5 Minutes
 
-**This quick start is intended for experimenting with Netmaker. For production installions, visit the [Install Docs](https://netmaker.readthedocs.io/en/develop/install.html).**
+**This quick start is intended for experimenting with Netmaker. For production installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/develop/install.html).**
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
 2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
 3. Run the script:
