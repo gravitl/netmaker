@@ -64,8 +64,6 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 - [Business (Subscription)](https://gravitl.com/plans/business)
 
-- [Email](mailto:info@gravitl.com)
-
 ## Disclaimer
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
 
