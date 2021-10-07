@@ -187,6 +187,8 @@ To run without DNS, follow the :doc:`Quick Install <./quick-start>` guide, omitt
 This template is equivalent but omits CoreDNS.
 
 
+.. _NoDocker:
+
 Linux Install without Docker
 =============================
 
@@ -234,6 +236,8 @@ The following uses Nginx as an http server. You may alternatively use Apache or 
 CoreDNS Setup
 ----------------
 
+.. _KubeInstall:
+
 Kubernetes Install
 =======================
 
@@ -276,7 +280,7 @@ The following instructions assume you have Netmaker running and a network you wo
 For a more detailed guide on integrating Netmaker with MicroK8s, `check out this guide <https://itnext.io/how-to-deploy-a-cross-cloud-kubernetes-cluster-with-built-in-disaster-recovery-bbce27fcc9d7>`_. 
 
 Nginx Reverse Proxy Setup with https
-====================================
+======================================
 
 The `Swag Proxy <https://github.com/linuxserver/docker-swag>`_ makes it easy to generate a valid ssl certificate for the config bellow. Here is the `documentation <https://docs.linuxserver.io/general/swag>`_ for the installation.
 
@@ -337,3 +341,72 @@ The following file configures Netmaker as a subdomain. This config is an adaptio
             proxy_pass_request_headers      on;
             }
         }
+
+.. _HAInstall:
+
+Highly Available Installation
+===============================
+
+For an enterprise Netmaker installation, you will need a server that is highly available, to ensure redundant WireGuard routing when any server goes down. To do this, you will need:
+
+1. A load balancer
+2. 3+ Netmaker server instances
+3. rqlite as the backing database
+
+These documents outline general HA installation guidelines. Netmaker is highly customizable to meet a wide range of enterprise environments. If you would like support with an enterprise-grade Netmaker installation, you can `schedule a consultation here <https://gravitl.com/book>`_ . 
+
+The main consideration here is how to configure rqlite. Most other settings and procedures match the standardized way of making applications HA: Load balancing to multiple instances, and sharing a DB. In our case, the DB (rqlite) is distributed, making HA data more easily achievable.
+
+1. Load Balancer Setup
+------------------------
+
+Your load balancer of choice will send requests to the Netmaker servers. Setup is similar to the various guides we have created for Nginx, Caddy, and Traefik. SSL certificates must also be configured and handled by the LB.
+
+2. RQLite Setup
+------------------
+
+RQLite is the included distributed datastore for an HA Netmaker installation. If you have a different corporate database you wish to integrate, Netmaker is easily extended to other DB's. If this is a requirement, please contact us.
+
+Assuming you use Rqlite, you must run it on each Netmaker server VM, or alongside that VM as a container. Setup a config.json for database credentials (password supports BCRYPT HASHING) and mount in working directory of rqlite and specify with `-auth config.json` :
+
+.. code-block::
+
+    [{
+        "username": "netmaker",
+        "password": "<YOUR_DB_PASSWORD>",
+        "perms": ["all"]
+    }]
+
+
+Once your servers are set up with rqlite, the first instance must be started normally, and then additional nodes must be added with the "join" command. For instance, here is the first server node:
+
+.. code-block::
+
+    sudo docker run -d -p 4001:4001 -p 4002:4002 rqlite/rqlite -node-id 1 -http-addr 0.0.0.0:4001 -raft-addr 0.0.0.0:4002 -http-adv-addr 1.2.3.4:4001 -raft-adv-addr 1.2.3.4:4002 -auth config.json
+
+And here is a joining node:
+
+.. code-block::
+
+    sudo docker run -d -p 4001:4001 -p 4002:4002 rqlite/rqlite -node-id 2 -http-addr 0.0.0.0:4001 -raft-addr 0.0.0.0:4002 -http-adv-addr 2.3.4.5:4001  -raft-adv-addr 2.3.4.5:4002 -join https://netmaker:<YOUR_DB_PASSWORD>@1.2.3.4:4001
+
+- reference for rqlite setup: https://github.com/rqlite/rqlite/blob/master/DOC/CLUSTER_MGMT.md#creating-a-cluster
+- reference for rqlite security: https://github.com/rqlite/rqlite/blob/master/DOC/SECURITY.md
+
+Once rqlite instances have been configured, the Netmaker servers can be deployed.
+
+3. Netmaker Setup
+------------------
+
+Netmaker will be started on each node with default settings, except with DATABASE=rqlite and SQL_CONN set appropriately to reach the local rqlite instance. Rqlite will maintain consistency with each Netmaker backend.
+
+4. Other Considerations
+------------------------
+
+This is enough to get a functioning HA installation of Netmaker. However, you may also want to make the Netmaker UI or the CoreDNS server HA as well. The Netmaker UI can simply be added to the same servers and load balanced appropriately. For some load balancers, you may be able to do this with CoreDNS as well.
+
+
+
+
+
+

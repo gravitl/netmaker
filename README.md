@@ -16,11 +16,11 @@
   <a href="https://discord.gg/zRb9Vfhk8A">
     <img src="https://img.shields.io/badge/community-discord-purple" />
   </a>
-  <a href="https://gravitl.com/resources">
-    <img src="https://img.shields.io/badge/read-learn-yellowgreen" />
-  </a>
   <a href="https://github.com/gravitl/netmaker/graphs/contributors">
     <img src="https://img.shields.io/github/commit-activity/w/gravitl/netmaker?color=brightgreen" />
+  </a>
+  <a href="https://gravitl.com/resources">
+    <img src="https://img.shields.io/badge/read-learn-yellowgreen" />
   </a>
   <a href="https://twitter.com/intent/follow?screen_name=gravitlcorp">
     <img src="https://img.shields.io/twitter/follow/gravitlcorp?style=social" />
@@ -40,6 +40,7 @@
 
 # Get Started in 5 Minutes
 
+**This quick start is intended for experimenting with Netmaker. For production installions, visit the [Install Docs](https://netmaker.readthedocs.io/en/develop/install.html).**
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
 2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
 3. Run the script:
@@ -47,8 +48,6 @@
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
-
-(For a more customized install, including using your own domain, head over to [the quick start guide](https://docs.netmaker.org/quick-start.html).)
 
 After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guide to begin setting up networks. Or, check out some of our other [Tutorials](https://gravitl.com/resources) for different use cases, including Kubernetes.
 

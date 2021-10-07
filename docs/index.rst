@@ -48,6 +48,16 @@ A technical overview of Netmaker, including design decisions and limitations.
    
    architecture
 
+Install
+------------------------------------
+
+Choose the right install method for you.
+
+.. toctree::
+   :maxdepth: 1
+
+   install
+
 Quick Start
 ---------------
 
