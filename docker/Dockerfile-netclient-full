@@ -1,0 +1,26 @@
+#first stage - builder
+
+FROM golang:latest as builder
+
+COPY . /app
+
+WORKDIR /app/netclient
+
+ENV GO111MODULE=auto
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o netclient main.go
+
+#second stage
+
+FROM debian:latest
+
+RUN apt-get update && apt-get -y install systemd procps
+
+WORKDIR /root/
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+COPY --from=builder /app/netclient/netclient .
+
+CMD ["./netclient"]
+
