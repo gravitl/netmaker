@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -138,7 +138,7 @@ func GetNode(network string) models.Node {
 }
 
 func Uninstall() error {
-	networks, err := GetNetworks()
+	networks, err := ncutils.GetSystemNetworks()
 	if err != nil {
 		ncutils.PrintLog("unable to retrieve networks: "+err.Error(), 1)
 		ncutils.PrintLog("continuing uninstall without leaving networks", 1)
@@ -163,7 +163,6 @@ func Uninstall() error {
 }
 
 func LeaveNetwork(network string) error {
-	//need to  implement checkin on server side
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err
@@ -171,19 +170,20 @@ func LeaveNetwork(network string) error {
 	servercfg := cfg.Server
 	node := cfg.Node
 
-	var wcclient nodepb.NodeServiceClient
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-	if err != nil {
-		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
-	} else {
+	if node.IsServer != "yes" {
+		var wcclient nodepb.NodeServiceClient
+		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		if err != nil {
+			log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
+		}
 		defer conn.Close()
 		wcclient = nodepb.NewNodeServiceClient(conn)
 
 		ctx, err := auth.SetJWT(wcclient, network)
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
-		} else {
+		} else { // handle client side
 			node.SetID()
 			var header metadata.MD
 			_, err = wcclient.DeleteNode(
@@ -199,6 +199,13 @@ func LeaveNetwork(network string) error {
 			} else {
 				ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
 			}
+		}
+	} else { // handle server side
+		node.SetID()
+		if err = logic.DeleteNode(node.ID, true); err != nil {
+			ncutils.PrintLog("error removing server on network "+node.Network, 1)
+		} else {
+			ncutils.PrintLog("removed netmaker server instance on  "+node.Network, 1)
 		}
 	}
 	return RemoveLocalInstance(cfg, network)
@@ -244,7 +251,7 @@ func DeleteInterface(ifacename string, postdown string) error {
 
 func List() error {
 
-	networks, err := GetNetworks()
+	networks, err := ncutils.GetSystemNetworks()
 	if err != nil {
 		return err
 	}
@@ -267,34 +274,6 @@ func List() error {
 	return nil
 }
 
-func GetNetworks() ([]string, error) {
-	var networks []string
-	files, err := ioutil.ReadDir(ncutils.GetNetclientPathSpecific())
-	if err != nil {
-		return networks, err
-	}
-	for _, f := range files {
-		if strings.Contains(f.Name(), "netconfig-") {
-			networkname := stringAfter(f.Name(), "netconfig-")
-			networks = append(networks, networkname)
-		}
-	}
-	return networks, err
-}
-
-func stringAfter(original string, substring string) string {
-	position := strings.LastIndex(original, substring)
-	if position == -1 {
-		return ""
-	}
-	adjustedPosition := position + len(substring)
-
-	if adjustedPosition >= len(original) {
-		return ""
-	}
-	return original[adjustedPosition:len(original)]
-}
-
 func WipeLocal(network string) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -302,7 +281,6 @@ func WipeLocal(network string) error {
 	}
 	nodecfg := cfg.Node
 	ifacename := nodecfg.Interface
-
 	if ifacename != "" {
 		if !ncutils.IsKernel() {
 			if err = wireguard.RemoveConf(ifacename, true); err == nil {

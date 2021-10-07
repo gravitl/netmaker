@@ -89,17 +89,17 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
 	if err != nil {
-		return "", errors.New("user " + authRequest.UserName + " not found")
+		return "", errors.New("incorrect credentials")
 	}
 	if err = json.Unmarshal([]byte(record), &result); err != nil {
-		return "", errors.New("user " + authRequest.UserName + " not found")
+		return "", errors.New("incorrect credentials")
 	}
 
 	//compare password from request to stored password in database
 	//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
 	//TODO: Consider a way of hashing the password client side before sending, or using certificates
 	if err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password)); err != nil {
-		return "", errors.New("wrong password")
+		return "", errors.New("incorrect credentials")
 	}
 
 	//Create a new JWT for the node

@@ -267,7 +267,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	servercfg := cfg.Server
 	nodecfg := cfg.Node
 
-	peers, hasGateway, gateways, err := server.GetPeers(nodecfg.MacAddress, nodecfg.Network, servercfg.GRPCAddress, nodecfg.IsDualStack == "yes", nodecfg.IsIngressGateway == "yes")
+	peers, hasGateway, gateways, err := server.GetPeers(nodecfg.MacAddress, nodecfg.Network, servercfg.GRPCAddress, nodecfg.IsDualStack == "yes", nodecfg.IsIngressGateway == "yes", nodecfg.IsServer == "yes")
 	if err != nil {
 		return err
 	}

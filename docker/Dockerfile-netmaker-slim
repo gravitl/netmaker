@@ -9,24 +9,16 @@ ENV GO111MODULE=auto
 
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-w -s" -o netmaker main.go
 
-WORKDIR /app/netclient
-
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient main.go
-#second stage
-
 FROM alpine:3.13.6
 # add a c lib
 RUN apk add gcompat iptables
 # set the working directory
 WORKDIR /root/
 
-RUN mkdir /etc/netclient
+RUN mkdir -p /etc/netclient/config
 
 COPY --from=builder /app/netmaker .
 COPY --from=builder /app/config config
-COPY --from=builder /app/netclient/netclient  /etc/netclient/netclient
-
-RUN chmod 0755 /etc/netclient/netclient
 
 EXPOSE 8081
 EXPOSE 50051

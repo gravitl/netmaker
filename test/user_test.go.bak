@@ -191,7 +191,7 @@ func TestAuthenticateUser(t *testing.T) {
 			password:      "xxxxxxx",
 			code:          http.StatusBadRequest,
 			tokenExpected: false,
-			errMessage:    "Wrong Password",
+			errMessage:    "Incorrect Credentials",
 		},
 		AuthorizeTestCase{
 			testname:      "Valid User",

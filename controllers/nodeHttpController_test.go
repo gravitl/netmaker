@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -81,19 +82,19 @@ func TestGetNetworkNodes(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	t.Run("BadNet", func(t *testing.T) {
-		node, err := GetNetworkNodes("badnet")
+		node, err := logic.GetNetworkNodes("badnet")
 		assert.Nil(t, err)
 		assert.Equal(t, []models.Node{}, node)
 		//assert.Equal(t, "mongo: no documents in result", err.Error())
 	})
 	t.Run("NoNodes", func(t *testing.T) {
-		node, err := GetNetworkNodes("skynet")
+		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode()
-		node, err := GetNetworkNodes("skynet")
+		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
 		assert.NotEqual(t, []models.Node(nil), node)
 	})

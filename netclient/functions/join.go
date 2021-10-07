@@ -8,6 +8,7 @@ import (
 	"log"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -28,7 +29,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
-	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 	err := config.Write(&cfg, cfg.Network)
 	if err != nil {
 		return err
@@ -53,7 +53,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress
 		} else {
 			cfg.Node.Endpoint, err = ncutils.GetPublicIP()
-
 		}
 		if err != nil || cfg.Node.Endpoint == "" {
 			ncutils.Log("Error setting cfg.Node.Endpoint.")
@@ -82,17 +81,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 
-	var wcclient nodepb.NodeServiceClient
-
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-
-	if err != nil {
-		log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
-	}
-	defer conn.Close()
-	wcclient = nodepb.NewNodeServiceClient(conn)
-
+	// differentiate between client/server here
+	var node models.Node // fill this node with appropriate calls
 	postnode := &models.Node{
 		Password:            cfg.Node.Password,
 		MacAddress:          cfg.Node.MacAddress,
@@ -105,37 +95,63 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		LocalAddress:        cfg.Node.LocalAddress,
 		Interface:           cfg.Node.Interface,
 		PublicKey:           cfg.Node.PublicKey,
-		DNSOn:           	 cfg.Node.DNSOn,
+		DNSOn:               cfg.Node.DNSOn,
 		Name:                cfg.Node.Name,
 		Endpoint:            cfg.Node.Endpoint,
 		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 	}
 
-	if err = config.ModConfig(postnode); err != nil {
-		return err
-	}
-	data, err := json.Marshal(postnode)
-	if err != nil {
-		return err
-	}
-	// Create node on server
-	res, err := wcclient.CreateNode(
-		context.TODO(),
-		&nodepb.Object{
-			Data: string(data),
-			Type: nodepb.NODE_TYPE,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	ncutils.PrintLog("node created on remote server...updating configs", 1)
+	if cfg.Node.IsServer != "yes" {
+		ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+		var wcclient nodepb.NodeServiceClient
 
-	nodeData := res.Data
-	var node models.Node
-	if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
-		return err
+		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+
+		if err != nil {
+			log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
+		}
+		defer conn.Close()
+		wcclient = nodepb.NewNodeServiceClient(conn)
+
+		if err = config.ModConfig(postnode); err != nil {
+			return err
+		}
+		data, err := json.Marshal(postnode)
+		if err != nil {
+			return err
+		}
+		// Create node on server
+		res, err := wcclient.CreateNode(
+			context.TODO(),
+			&nodepb.Object{
+				Data: string(data),
+				Type: nodepb.NODE_TYPE,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		ncutils.PrintLog("node created on remote server...updating configs", 1)
+
+		nodeData := res.Data
+		if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
+			return err
+		}
+	} else { // handle server side node creation
+		ncutils.Log("adding a server instance on network " + postnode.Network)
+		if err = config.ModConfig(postnode); err != nil {
+			return err
+		}
+		node, err = logic.CreateNode(*postnode, cfg.Network)
+		if err != nil {
+			return err
+		}
+		err = logic.SetNetworkNodesLastModified(node.Network)
+		if err != nil {
+			return err
+		}
 	}
 
 	// get free port based on returned default listen port
@@ -177,9 +193,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 
-	ncutils.Log("retrieving remote peers")
-	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
-
+	ncutils.Log("retrieving peers")
+	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes", node.IsServer == "yes")
 	if err != nil && !ncutils.IsEmptyRecord(err) {
 		ncutils.Log("failed to retrieve peers")
 		return err
