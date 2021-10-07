@@ -6,7 +6,29 @@
 <i>Create and control automated virtual networks.</i> 
 </p>
 
-![Docker Image Version (latest by date)](https://img.shields.io/docker/v/gravitl/netmaker) ![Docker Pulls](https://img.shields.io/docker/pulls/gravitl/netmaker) ![GitHub closed issues](https://img.shields.io/github/issues-closed-raw/gravitl/netmaker) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/gravitl/netmaker) ![Twitter URL](https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Ftwitter.com%2Fgravitlcorp) ![YouTube Channel Views](https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social)
+<p align="center">
+  <a href="https://github.com/gravitl/netmaker/releases">
+    <img src="https://img.shields.io/docker/v/gravitl/netmaker?color=blue" />
+  </a>
+  <a href="https://hub.docker.com/repository/docker/gravitl/netmaker">
+    <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?color=9cf&label=downloads" />
+  </a>
+  <a href="https://discord.gg/zRb9Vfhk8A">
+    <img src="https://img.shields.io/badge/community-discord-purple" />
+  </a>
+  <a href="https://gravitl.com/resources">
+    <img src="https://img.shields.io/badge/read-learn-yellowgreen" />
+  </a>
+  <a href="https://github.com/gravitl/netmaker/graphs/contributors">
+    <img src="https://img.shields.io/github/commit-activity/w/gravitl/netmaker?color=brightgreen" />
+  </a>
+  <a href="https://twitter.com/intent/follow?screen_name=gravitlcorp">
+    <img src="https://img.shields.io/twitter/follow/gravitlcorp?style=social" />
+  </a>
+  <a href="https://www.youtube.com/channel/UCach3lJY_xBV7rGrbUSvkZQ">
+    <img src="https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social" />
+  </a>
+</p>
 
 
 # WireGuard® Automation from Homelab to Enterprise
