@@ -72,6 +72,21 @@ func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	return node, nil
 }
 
+func deleteRelay(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	nodeMac := params["macaddress"]
+	netid := params["network"]
+	node, err := DeleteRelay(netid, nodeMac)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	functions.PrintUserLog(r.Header.Get("user"), "deleted egress gateway "+nodeMac+" on network "+netid, 1)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
+}
+
 func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -125,21 +140,6 @@ func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
 	}
 }
 
-func deleteRelay(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	nodeMac := params["macaddress"]
-	netid := params["network"]
-	node, err := DeleteRelay(netid, nodeMac)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-	functions.PrintUserLog(r.Header.Get("user"), "deleted egress gateway "+nodeMac+" on network "+netid, 1)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
-}
-
 func DeleteRelay(network, macaddress string) (models.Node, error) {
 
 	node, err := functions.GetNodeByMacAddress(network, macaddress)
@@ -170,31 +170,4 @@ func DeleteRelay(network, macaddress string) (models.Node, error) {
 		return models.Node{}, err
 	}
 	return node, nil
-}
-
-func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	var relay models.Node
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return relay, nil
-		}
-		functions.PrintUserLog("", err.Error(), 2)
-		return relay, err
-	}
-	for _, value := range collection {
-		err := json.Unmarshal([]byte(value), &relay)
-		if err != nil {
-			functions.PrintUserLog("", err.Error(), 2)
-			continue
-		}
-		if relay.IsRelay == "yes" {
-			for _, addr := range relay.RelayAddrs {
-				if addr == relayedNodeAddr {
-					return relay, nil
-				}
-			}
-		}
-	}
-	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
 }

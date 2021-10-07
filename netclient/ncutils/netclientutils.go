@@ -368,3 +368,31 @@ func PrintLog(message string, loglevel int) {
 		log.Println("[netclient]", message)
 	}
 }
+
+func GetSystemNetworks() ([]string, error) {
+	var networks []string
+	files, err := ioutil.ReadDir(GetNetclientPathSpecific())
+	if err != nil {
+		return networks, err
+	}
+	for _, f := range files {
+		if strings.Contains(f.Name(), "netconfig-") {
+			networkname := stringAfter(f.Name(), "netconfig-")
+			networks = append(networks, networkname)
+		}
+	}
+	return networks, err
+}
+
+func stringAfter(original string, substring string) string {
+	position := strings.LastIndex(original, substring)
+	if position == -1 {
+		return ""
+	}
+	adjustedPosition := position + len(substring)
+
+	if adjustedPosition >= len(original) {
+		return ""
+	}
+	return original[adjustedPosition:len(original)]
+}

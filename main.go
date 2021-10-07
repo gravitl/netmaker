@@ -15,6 +15,7 @@ import (
 
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -81,14 +82,13 @@ func startControllers() {
 		go runGRPC(&waitnetwork)
 	}
 
-	// Run the client in goroutine locally if CLIENT_MODE is "contained"
-	if servercfg.IsClientMode() == "contained" {
+	if servercfg.IsClientMode() == "on" {
 		waitnetwork.Add(1)
 		go runClient(&waitnetwork)
 	}
 
 	if servercfg.IsDNSMode() {
-		err := controller.SetDNS()
+		err := dnslogic.SetDNS()
 		if err != nil {
 			log.Println("error occurred initializing DNS:", err)
 		}
@@ -115,7 +115,6 @@ func startControllers() {
 
 func runClient(wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Println("CLIENT_MODE running as contained")
 	go func() {
 		for {
 			if err := serverctl.HandleContainedClient(); err != nil {

@@ -20,11 +20,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-func CheckEndpoint(endpoint string) bool {
-	endpointarr := strings.Split(endpoint, ":")
-	return len(endpointarr) == 2
-}
-
 func PrintUserLog(username string, message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
@@ -103,9 +98,9 @@ func CreateServerToken(netID string) (string, error) {
 	} else {
 		log.Println("server on linux")
 		servervals = models.ServerConfig{
-			APIConnString:  "127.0.0.1:" + servercfg.GetAPIPort(),
-			GRPCConnString: "127.0.0.1:" + servercfg.GetGRPCPort(),
-			GRPCSSL:        "off",
+			APIConnString:   "127.0.0.1:" + servercfg.GetAPIPort(),
+			GRPCConnString:  "127.0.0.1:" + servercfg.GetGRPCPort(),
+			GRPCSSL:         "off",
 			CheckinInterval: servercfg.GetCheckinInterval(),
 		}
 	}
@@ -380,7 +375,7 @@ func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 	return true, nil
 }
 
-func GetNetworkNodeCount(networkName string) (int, error) {
+func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	count := 0
@@ -392,7 +387,7 @@ func GetNetworkNodeCount(networkName string) (int, error) {
 		if err = json.Unmarshal([]byte(value), &node); err != nil {
 			return count, err
 		} else {
-			if node.Network == networkName {
+			if node.Network == networkName && node.IsServer != "yes" {
 				count++
 			}
 		}
@@ -489,12 +484,6 @@ func IsIpCIDR(host string) bool {
 	}
 
 	return ip != nil && ipnet != nil
-}
-
-//This is used to validate public keys (make sure they're base64 encoded like all public keys should be).
-func IsBase64(s string) bool {
-	_, err := base64.StdEncoding.DecodeString(s)
-	return err == nil
 }
 
 //This  checks to  make sure a network name is valid.

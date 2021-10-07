@@ -6,11 +6,11 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
+	nccommand "github.com/gravitl/netmaker/netclient/command"
+	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -91,18 +91,8 @@ func copy(src, dst string) (int64, error) {
 }
 
 func RemoveNetwork(network string) (bool, error) {
-	netclientPath := ncutils.GetNetclientPath()
-	_, err := os.Stat(netclientPath + "/netclient")
-	if err != nil {
-		log.Println("could not find " + netclientPath + "/netclient")
-		return false, err
-	}
-	_, err = ncutils.RunCmd(netclientPath+"/netclient leave -n "+network, true)
-	if err == nil {
-		log.Println("Server removed from network " + network)
-	}
+	err := nccommand.Leave(config.ClientConfig{Network: network})
 	return true, err
-
 }
 
 func InitServerNetclient() error {
@@ -114,82 +104,89 @@ func InitServerNetclient() error {
 		log.Println("could not find or create", netclientDir)
 		return err
 	}
-	_, err = os.Stat(netclientDir + "/netclient")
-	if os.IsNotExist(err) {
-		err = InstallNetclient()
-		if err != nil {
-			return err
-		}
-	}
-	err = os.Chmod(netclientDir+"/netclient", 0755)
-	if err != nil {
-		log.Println("could not change netclient binary permissions")
-		return err
-	}
 	return nil
 }
 
 func HandleContainedClient() error {
-	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
+	servernets, err := models.GetNetworks()
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+	if len(servernets) > 0 {
+		if err != nil {
+			return err
+		}
+		log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
+		err := SyncNetworks(servernets)
+		if err != nil && servercfg.GetVerbose() >= 1 {
+			log.Printf("[server netclient] error syncing networks %s \n", err)
+		}
+		err = nccommand.CheckIn(config.ClientConfig{Network: "all"})
+		if err != nil && servercfg.GetVerbose() >= 1 {
+			log.Printf("[server netclient] error occurred %s \n", err)
+		}
+		if servercfg.GetVerbose() >= 3 {
+			log.Println("[server netclient]", "completed a checkin call")
+		}
+	}
+	return nil
+}
 
-	netclientPath := ncutils.GetNetclientPath()
-	checkinCMD := exec.Command(netclientPath+"/netclient", "checkin", "-n", "all")
-	if servercfg.GetVerbose() >= 2 {
-		checkinCMD.Stdout = os.Stdout
-	}
-	checkinCMD.Stderr = os.Stderr
-	err := checkinCMD.Start()
+func SyncNetworks(servernets []models.Network) error {
+
+	localnets, err := ncutils.GetSystemNetworks()
 	if err != nil {
-		if servercfg.GetVerbose() >= 2 {
-			log.Println(err)
+		return err
+	}
+	// check networks to join
+	for _, servernet := range servernets {
+		exists := false
+		for _, localnet := range localnets {
+			if servernet.NetID == localnet {
+				exists = true
+			}
+		}
+		if !exists {
+			success, err := AddNetwork(servernet.NetID)
+			if err != nil || !success {
+				if err == nil {
+					err = errors.New("network add failed for " + servernet.NetID)
+				}
+				log.Printf("[server] error adding network %s during sync %s \n", servernet.NetID, err)
+			}
 		}
 	}
-	err = checkinCMD.Wait()
-	if err != nil {
-		if servercfg.GetVerbose() >= 2 {
-			log.Println(err)
+	// check networks to leave
+	for _, localnet := range localnets {
+		exists := false
+		for _, servernet := range servernets {
+			if servernet.NetID == localnet {
+				exists = true
+			}
 		}
-	}
-	if servercfg.GetVerbose() >= 3 {
-		log.Println("[server netclient]", "completed a checkin call")
+		if !exists {
+			success, err := RemoveNetwork(localnet)
+			if err != nil || !success {
+				if err == nil {
+					err = errors.New("network delete failed for " + localnet)
+				}
+				log.Printf("[server] error removing network %s during sync %s \n", localnet, err)
+			}
+		}
 	}
 	return nil
 }
 
 func AddNetwork(network string) (bool, error) {
-	pubip, err := servercfg.GetPublicIP()
-	if err != nil {
-		log.Println("could not get public IP.")
-		return false, err
-	}
-	netclientPath := ncutils.GetNetclientPath()
-
-	token, err := functions.CreateServerToken(network)
-	if err != nil {
-		log.Println("could not create server token for " + network)
-		return false, err
-	}
-
-	functions.PrintUserLog(models.NODE_SERVER_NAME, "executing network join: "+netclientPath+"netclient "+"join "+"-t "+token+" -name "+models.NODE_SERVER_NAME+" -endpoint "+pubip, 0)
-	var joinCMD *exec.Cmd
-	if servercfg.IsClientMode() == "contained" {
-		joinCMD = exec.Command(netclientPath+"/netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip, "-daemon", "off", "-dnson", "no")
-	} else {
-		joinCMD = exec.Command(netclientPath+"/netclient", "join", "-t", token, "-name", models.NODE_SERVER_NAME, "-endpoint", pubip)
-	}
-	joinCMD.Stdout = os.Stdout
-	joinCMD.Stderr = os.Stderr
-	err = joinCMD.Start()
-
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println("Waiting for join command to finish...")
-	err = joinCMD.Wait()
-	if err != nil {
-		log.Printf("Command finished with error: %v", err)
-		return false, err
-	}
+	err := nccommand.Join(config.ClientConfig{
+		Network: network,
+		Daemon:  "off",
+		Node: models.Node{
+			Network:  network,
+			IsServer: "yes",
+			Name:     models.NODE_SERVER_NAME,
+		},
+	}, "")
 	log.Println("Server added to network " + network)
 	return true, err
 }

@@ -58,7 +58,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 
 func getWindowsInterval() int {
 	interval := 15
-	networks, err := functions.GetNetworks()
+	networks, err := ncutils.GetSystemNetworks()
 	if err != nil {
 		return interval
 	}
@@ -90,12 +90,13 @@ func RunUserspaceDaemon() {
 
 func CheckIn(cfg config.ClientConfig) error {
 	var err error
+
 	if cfg.Network == "" {
 		ncutils.PrintLog("required, '-n', exiting", 0)
 		os.Exit(1)
 	} else if cfg.Network == "all" {
 		ncutils.PrintLog("running checkin for all networks", 1)
-		networks, err := functions.GetNetworks()
+		networks, err := ncutils.GetSystemNetworks()
 		if err != nil {
 			ncutils.PrintLog("error retrieving networks, exiting", 1)
 			return err
@@ -138,7 +139,7 @@ func Push(cfg config.ClientConfig) error {
 	var err error
 	if cfg.Network == "all" || ncutils.IsWindows() {
 		ncutils.PrintLog("pushing config to server for all networks.", 0)
-		networks, err := functions.GetNetworks()
+		networks, err := ncutils.GetSystemNetworks()
 		if err != nil {
 			ncutils.PrintLog("error retrieving networks, exiting.", 0)
 			return err
@@ -164,7 +165,7 @@ func Pull(cfg config.ClientConfig) error {
 	var err error
 	if cfg.Network == "all" {
 		ncutils.PrintLog("No network selected. Running Pull for all networks.", 0)
-		networks, err := functions.GetNetworks()
+		networks, err := ncutils.GetSystemNetworks()
 		if err != nil {
 			ncutils.PrintLog("Error retrieving networks. Exiting.", 1)
 			return err
