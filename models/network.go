@@ -12,43 +12,45 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-//Network Struct
+// Network Struct - contains info for a given unique network
 //At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
-	AddressRange           string      `json:"addressrange" bson:"addressrange" validate:"required,cidr"`
-	AddressRange6          string      `json:"addressrange6" bson:"addressrange6" validate:"regexp=^s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:)))(%.+)?s*(\/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8]))?$"`
-	DisplayName            string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,min=1,max=20,displayname_valid"`
-	NetID                  string      `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
-	NodesLastModified      int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
-	NetworkLastModified    int64       `json:"networklastmodified" bson:"networklastmodified"`
-	DefaultInterface       string      `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=15"`
-	DefaultListenPort      int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit              int32       `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostUp          string      `json:"defaultpostup" bson:"defaultpostup"`
-	DefaultPostDown        string      `json:"defaultpostdown" bson:"defaultpostdown"`
-	KeyUpdateTimeStamp     int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
-	DefaultKeepalive       int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	DefaultSaveConfig      string      `json:"defaultsaveconfig" bson:"defaultsaveconfig" validate:"checkyesorno"`
-	AccessKeys             []AccessKey `json:"accesskeys" bson:"accesskeys"`
-	AllowManualSignUp      string      `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
-	IsLocal                string      `json:"islocal" bson:"islocal" validate:"checkyesorno"`
-	IsDualStack            string      `json:"isdualstack" bson:"isdualstack" validate:"checkyesorno"`
-	IsIPv4                 string      `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
-	IsIPv6                 string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
-	IsGRPCHub              string      `json:"isgrpchub" bson:"isgrpchub" validate:"checkyesorno"`
-	LocalRange             string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
-	
+	AddressRange        string      `json:"addressrange" bson:"addressrange" validate:"required,cidr"`
+	AddressRange6       string      `json:"addressrange6" bson:"addressrange6" validate:"regexp=^s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:)))(%.+)?s*(\/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8]))?$"`
+	DisplayName         string      `json:"displayname,omitempty" bson:"displayname,omitempty" validate:"omitempty,min=1,max=20,displayname_valid"`
+	NetID               string      `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
+	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
+	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
+	DefaultInterface    string      `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=15"`
+	DefaultListenPort   int32       `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
+	NodeLimit           int32       `json:"nodelimit" bson:"nodelimit"`
+	DefaultPostUp       string      `json:"defaultpostup" bson:"defaultpostup"`
+	DefaultPostDown     string      `json:"defaultpostdown" bson:"defaultpostdown"`
+	KeyUpdateTimeStamp  int64       `json:"keyupdatetimestamp" bson:"keyupdatetimestamp"`
+	DefaultKeepalive    int32       `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
+	DefaultSaveConfig   string      `json:"defaultsaveconfig" bson:"defaultsaveconfig" validate:"checkyesorno"`
+	AccessKeys          []AccessKey `json:"accesskeys" bson:"accesskeys"`
+	AllowManualSignUp   string      `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
+	IsLocal             string      `json:"islocal" bson:"islocal" validate:"checkyesorno"`
+	IsDualStack         string      `json:"isdualstack" bson:"isdualstack" validate:"checkyesorno"`
+	IsIPv4              string      `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
+	IsIPv6              string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
+	IsGRPCHub           string      `json:"isgrpchub" bson:"isgrpchub" validate:"checkyesorno"`
+	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
+
 	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
-	DefaultCheckInInterval int32       `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
-	DefaultUDPHolePunch    string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
-	DefaultExtClientDNS    string      `json:"defaultextclientdns" bson:"defaultextclientdns"`
-	DefaultMTU             int32       `json:"defaultmtu" bson:"defaultmtu"`
+	DefaultCheckInInterval int32  `json:"checkininterval,omitempty" bson:"checkininterval,omitempty" validate:"omitempty,numeric,min=2,max=100000"`
+	DefaultUDPHolePunch    string `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
+	DefaultExtClientDNS    string `json:"defaultextclientdns" bson:"defaultextclientdns"`
+	DefaultMTU             int32  `json:"defaultmtu" bson:"defaultmtu"`
 }
 
+// SaveData - sensitive fields of a network that should be kept the same
 type SaveData struct { // put sensitive fields here
 	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
 }
 
+// Network.NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
 func (network *Network) NetIDInNetworkCharSet() bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
@@ -61,6 +63,7 @@ func (network *Network) NetIDInNetworkCharSet() bool {
 	return true
 }
 
+// Network.DisplayNameInNetworkCharSet - checks if displayname uses valid characters
 func (network *Network) DisplayNameInNetworkCharSet() bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_./;% ^#()!@$*"
@@ -73,7 +76,7 @@ func (network *Network) DisplayNameInNetworkCharSet() bool {
 	return true
 }
 
-// Anyway, returns all the networks
+// GetNetworks - returns all networks from database
 func GetNetworks() ([]Network, error) {
 	var networks []Network
 
@@ -95,6 +98,7 @@ func GetNetworks() ([]Network, error) {
 	return networks, err
 }
 
+// Network.IsNetworkDisplayNameUnique - checks if displayname is unique from other networks
 func (network *Network) IsNetworkDisplayNameUnique() (bool, error) {
 
 	isunique := true
@@ -115,7 +119,7 @@ func (network *Network) IsNetworkDisplayNameUnique() (bool, error) {
 	return isunique, nil
 }
 
-//Checks to see if any other networks have the same name (id)
+// Network.IsNetworkNameUnique - checks to see if any other networks have the same name (id)
 func (network *Network) IsNetworkNameUnique() (bool, error) {
 
 	isunique := true
@@ -136,6 +140,7 @@ func (network *Network) IsNetworkNameUnique() (bool, error) {
 	return isunique, nil
 }
 
+// Network.Validate - validates fields of an network struct
 func (network *Network) Validate(isUpdate bool) error {
 	v := validator.New()
 	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
@@ -168,16 +173,17 @@ func (network *Network) Validate(isUpdate bool) error {
 	return err
 }
 
-//TODO:
-//Not  sure if we  need the below two functions. Got rid  of one of the calls. May want  to revisit
+// Network.SetNodesLastModified - sets nodes last modified on network, depricated
 func (network *Network) SetNodesLastModified() {
 	network.NodesLastModified = time.Now().Unix()
 }
 
+// Network.SetNetworkLastModified - sets network last modified time
 func (network *Network) SetNetworkLastModified() {
 	network.NetworkLastModified = time.Now().Unix()
 }
 
+// Network.SetDefaults - sets default values for a network struct
 func (network *Network) SetDefaults() {
 	if network.DefaultUDPHolePunch == "" {
 		if servercfg.IsClientMode() != "off" {
@@ -237,6 +243,7 @@ func (network *Network) SetDefaults() {
 	}
 }
 
+// Network.Update - updates a network with another network's fields
 func (currentNetwork *Network) Update(newNetwork *Network) (bool, bool, error) {
 	if err := newNetwork.Validate(true); err != nil {
 		return false, false, err
@@ -244,18 +251,19 @@ func (currentNetwork *Network) Update(newNetwork *Network) (bool, bool, error) {
 	if newNetwork.NetID == currentNetwork.NetID {
 		hasrangeupdate := newNetwork.AddressRange != currentNetwork.AddressRange
 		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
-		if data, err := json.Marshal(newNetwork); err != nil {
+		data, err := json.Marshal(newNetwork)
+		if err != nil {
 			return false, false, err
-		} else {
-			newNetwork.SetNetworkLastModified()
-			err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-			return hasrangeupdate, localrangeupdate, err
 		}
+		newNetwork.SetNetworkLastModified()
+		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
+		return hasrangeupdate, localrangeupdate, err
 	}
 	// copy values
 	return false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
+// Network.SetNetworkNodesLastModified - sets network nodes last modified time
 func (network *Network) SetNetworkNodesLastModified() error {
 
 	timestamp := time.Now().Unix()
@@ -272,6 +280,7 @@ func (network *Network) SetNetworkNodesLastModified() error {
 	return nil
 }
 
+// GetNetwork - gets a network from database
 func GetNetwork(networkname string) (Network, error) {
 
 	var network Network

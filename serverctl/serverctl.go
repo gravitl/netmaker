@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+// GetServerWGConf - gets the server WG configuration
 func GetServerWGConf() (models.IntClient, error) {
 	var server models.IntClient
 	collection, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
@@ -30,6 +31,7 @@ func GetServerWGConf() (models.IntClient, error) {
 	return models.IntClient{}, errors.New("could not find comms server")
 }
 
+// InstallNetclient netclient installation for server - depricated
 func InstallNetclient() error {
 
 	netclientPath := ncutils.GetNetclientPath()
@@ -53,6 +55,7 @@ func InstallNetclient() error {
 	return nil
 }
 
+// FileExists - checks if local file exists
 func FileExists(f string) bool {
 	info, err := os.Stat(f)
 	if os.IsNotExist(err) {
@@ -90,11 +93,13 @@ func copy(src, dst string) (int64, error) {
 	return nBytes, err
 }
 
+// RemoveNetwork - removes a network locally on server
 func RemoveNetwork(network string) (bool, error) {
 	err := nccommand.Leave(config.ClientConfig{Network: network})
 	return true, err
 }
 
+// InitServerNetclient - intializes the server netclient
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
 	_, err := os.Stat(netclientDir + "/config")
@@ -107,6 +112,7 @@ func InitServerNetclient() error {
 	return nil
 }
 
+// HandleContainedClient - function for checkins on server
 func HandleContainedClient() error {
 	servernets, err := models.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -132,6 +138,7 @@ func HandleContainedClient() error {
 	return nil
 }
 
+// SyncNetworks - syncs the networks for servers
 func SyncNetworks(servernets []models.Network) error {
 
 	localnets, err := ncutils.GetSystemNetworks()
@@ -179,6 +186,7 @@ func SyncNetworks(servernets []models.Network) error {
 	return nil
 }
 
+// AddNetwork - add a network to server in client mode
 func AddNetwork(network string) (bool, error) {
 	err := nccommand.Join(config.ClientConfig{
 		Network: network,

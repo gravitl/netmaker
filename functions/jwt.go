@@ -3,6 +3,7 @@ package functions
 import (
 	"errors"
 	"time"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -29,6 +30,7 @@ func CreateJWT(macaddress string, network string) (response string, err error) {
 	return "", err
 }
 
+// CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, networks []string, isadmin bool) (response string, err error) {
 	expirationTime := time.Now().Add(60 * 12 * time.Minute)
 	claims := &models.UserClaims{
@@ -70,7 +72,7 @@ func VerifyUserToken(tokenString string) (username string, networks []string, is
 	return "", nil, false, err
 }
 
-// GRPC [nodes] Only
+// VerifyToken - gRPC [nodes] Only
 func VerifyToken(tokenString string) (macaddress string, network string, err error) {
 	claims := &models.Claims{}
 

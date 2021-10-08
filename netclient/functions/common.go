@@ -28,6 +28,7 @@ var (
 	wcclient nodepb.NodeServiceClient
 )
 
+// ListPorts - lists ports of WireGuard devices
 func ListPorts() error {
 	wgclient, err := wgctrl.New()
 	if err != nil {
@@ -127,6 +128,7 @@ func needInterfaceUpdate(ctx context.Context, mac string, network string, iface 
 	return iface != oldiface, oldiface, err
 }
 
+// GetNode - gets node locally
 func GetNode(network string) models.Node {
 
 	modcfg, err := config.ReadConfig(network)
@@ -137,6 +139,7 @@ func GetNode(network string) models.Node {
 	return modcfg.Node
 }
 
+// Uninstall - uninstalls networks from client
 func Uninstall() error {
 	networks, err := ncutils.GetSystemNetworks()
 	if err != nil {
@@ -162,6 +165,7 @@ func Uninstall() error {
 	return err
 }
 
+// LeaveNetwork - client exits a network
 func LeaveNetwork(network string) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -211,6 +215,7 @@ func LeaveNetwork(network string) error {
 	return RemoveLocalInstance(cfg, network)
 }
 
+// RemoveLocalInstance - remove all netclient files locally for a network
 func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 	err := WipeLocal(networkName)
 	if err != nil {
@@ -230,6 +235,7 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 	return err
 }
 
+// DeleteInterface - delete an interface of a network
 func DeleteInterface(ifacename string, postdown string) error {
 	var err error
 	if !ncutils.IsKernel() {
@@ -249,6 +255,7 @@ func DeleteInterface(ifacename string, postdown string) error {
 	return err
 }
 
+// List - lists all networks on local machine
 func List() error {
 
 	networks, err := ncutils.GetSystemNetworks()
@@ -274,6 +281,7 @@ func List() error {
 	return nil
 }
 
+// WipeLocal - wipes local instance
 func WipeLocal(network string) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {

@@ -12,10 +12,12 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// NodeServiceServer - represents the service server for gRPC
 type NodeServiceServer struct {
 	nodepb.UnimplementedNodeServiceServer
 }
 
+// NodeServiceServer.ReadNode - reads node and responds with gRPC
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// convert string id (from proto) to mongoDB ObjectId
 	macAndNetwork := strings.Split(req.Data, "###")
@@ -41,6 +43,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	return response, nil
 }
 
+// NodeServiceServer.CreateNode - creates a node and responds over gRPC
 func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// Get the protobuf node type from the protobuf request type
 	// Essentially doing req.Node to access the struct with a nil check
@@ -86,6 +89,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	return response, nil
 }
 
+// NodeServiceServer.UpdateNode updates a node and responds over gRPC
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// Get the node data from the request
 	var newnode models.Node
@@ -113,6 +117,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	}, nil
 }
 
+// NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	nodeID := req.GetData()
 
@@ -127,6 +132,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	}, nil
 }
 
+// NodeServiceServer.GetPeers - fetches peers over gRPC
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	macAndNetwork := strings.Split(req.Data, "###")
 	if len(macAndNetwork) == 2 {
@@ -135,7 +141,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		if err != nil {
 			return nil, err
 		}
-		if node.IsServer == "yes" && logic.IsLeader(&node){
+		if node.IsServer == "yes" && logic.IsLeader(&node) {
 			logic.SetNetworkServerPeers(&node)
 		}
 		excludeIsRelayed := node.IsRelay != "yes"
@@ -161,10 +167,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 	}, errors.New("could not fetch peers, invalid node id")
 }
 
-/**
- * Return Ext Peers (clients).NodeCheckIn
- * When a gateway node checks in, it pulls these peers to add to peers list in addition to normal network peers.
- */
+// NodeServiceServer.GetExtPeers - returns ext peers for a gateway node
 func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// Initiate a NodeItem type to write decoded data to
 	//data := &models.PeersResponse{}

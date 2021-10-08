@@ -56,6 +56,7 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dns)
 }
 
+// GetAllDNS - gets all dns entries
 func GetAllDNS() ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
 	networks, err := models.GetNetworks()
@@ -72,6 +73,7 @@ func GetAllDNS() ([]models.DNSEntry, error) {
 	return dns, nil
 }
 
+// GetNodeDNS - gets node dns
 func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
@@ -114,6 +116,7 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dns)
 }
 
+// GetDNSEntryNum - gets which entry the dns was
 func GetDNSEntryNum(domain string, network string) (int, error) {
 
 	num := 0
@@ -133,7 +136,7 @@ func GetDNSEntryNum(domain string, network string) (int, error) {
 	return num, nil
 }
 
-//Gets all nodes associated with network, including pending nodes
+// Gets all nodes associated with network, including pending nodes
 func getDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -202,7 +205,7 @@ func updateDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	//fill in any missing fields
+	// fill in any missing fields
 	if dnschange.Name == "" {
 		dnschange.Name = entry.Name
 	}
@@ -257,6 +260,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
 }
 
+// CreateDNS - creates a DNS entry
 func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 
 	data, err := json.Marshal(&entry)
@@ -272,6 +276,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	return entry, err
 }
 
+// GetDNSEntry - gets a DNS entry
 func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 	var entry models.DNSEntry
 	key, err := functions.GetRecordKey(domain, network)
@@ -286,6 +291,7 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 	return entry, err
 }
 
+// UpdateDNS - updates DNS entry
 func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntry, error) {
 
 	key, err := functions.GetRecordKey(entry.Name, entry.Network)
@@ -308,9 +314,9 @@ func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntr
 	data, err := json.Marshal(&entry)
 	err = database.Insert(newkey, string(data), database.DNS_TABLE_NAME)
 	return entry, err
-
 }
 
+// DeleteDNS - deletes a DNS entry
 func DeleteDNS(domain string, network string) error {
 	key, err := functions.GetRecordKey(domain, network)
 	if err != nil {
@@ -334,6 +340,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
 }
 
+// ValidateDNSCreate - checks if an entry is valid
 func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	v := validator.New()
@@ -357,6 +364,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	return err
 }
 
+// ValidateDNSUpdate - validates a DNS update
 func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 
 	v := validator.New()

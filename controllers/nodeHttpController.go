@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/dnslogic"
@@ -71,7 +72,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			return
 		} else {
 
-			//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
+			//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
 			collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 			if err != nil {
 				errorResponse.Code = http.StatusBadRequest
@@ -189,7 +190,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			//This checks if
 			//A: the token is the master password
 			//B: the token corresponds to a mac address, and if so, which one
-			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
+			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Help.
 			var isAuthorized = false
 			var macaddress = ""
 			username, networks, isadmin, errN := functions.VerifyUserToken(authToken)
