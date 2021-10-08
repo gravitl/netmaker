@@ -124,7 +124,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 		err = errors.New("Missing Password.")
 		return nil, err
 	} else {
-		//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
+		//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
 		collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 		if err != nil {
 			return nil, err

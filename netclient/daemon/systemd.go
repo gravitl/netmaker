@@ -11,8 +11,9 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+// SetupSystemDDaemon - sets system daemon for supported machines
 func SetupSystemDDaemon(interval string) error {
-	
+
 	if ncutils.IsWindows() {
 		return nil
 	}
@@ -96,6 +97,7 @@ WantedBy=timers.target
 	return nil
 }
 
+// RemoveSystemDServices - removes the systemd services on a machine
 func RemoveSystemDServices(network string) error {
 	//sysExec, err := exec.LookPath("systemctl")
 	if !ncutils.IsWindows() {
@@ -129,7 +131,6 @@ func RemoveSystemDServices(network string) error {
 	}
 	return nil
 }
-
 
 func isOnlyService(network string) (bool, error) {
 	isonly := false

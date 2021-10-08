@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// RELAY_KEEPALIVE_MARKER - sets the relay keepalive marker
 const RELAY_KEEPALIVE_MARKER = "20007ms"
 
 func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
@@ -35,6 +36,7 @@ func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
 	return wcclient, nil
 }
 
+// CheckIn - checkin for node on a network
 func CheckIn(network string) (*models.Node, error) {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -120,6 +122,7 @@ func RemoveNetwork(network string) error {
 }
 */
 
+// GetPeers - gets the peers for a node
 func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool, isServer bool) ([]wgtypes.PeerConfig, bool, []string, error) {
 	hasGateway := false
 	var gateways []string
@@ -251,7 +254,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			}
 			allowedips = append(allowedips, addr6)
 		}
-		if nodecfg.IsServer == "yes" && !(node.IsServer == "yes"){
+		if nodecfg.IsServer == "yes" && !(node.IsServer == "yes") {
 			peer = wgtypes.PeerConfig{
 				PublicKey:                   pubkey,
 				PersistentKeepaliveInterval: &keepaliveserver,
@@ -292,6 +295,8 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	}
 	return peers, hasGateway, gateways, err
 }
+
+// GetExtPeers - gets the extpeers for a client
 func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
 

@@ -49,7 +49,7 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 		if !adminonly && (err != nil || user == "") {
 			returnErrorResponse(w, r, errorResponse)
 			return
-		} 
+		}
 		if adminonly && !isadmin && !authenticateMasterServer(authToken) {
 			returnErrorResponse(w, r, errorResponse)
 			return

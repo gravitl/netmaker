@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// JoinNetwork - helps a client join a network
 func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 
 	hasnet := local.HasNetwork(cfg.Network)

@@ -1,16 +1,16 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/go-playground/validator/v10"
+	"github.com/gravitl/netmaker/database"
+	"golang.org/x/crypto/bcrypt"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
-	"bytes"
-	"github.com/go-playground/validator/v10"
-	"github.com/gravitl/netmaker/database"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

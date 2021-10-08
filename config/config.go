@@ -48,13 +48,13 @@ type ServerConfig struct {
 	AgentBackend         string `yaml:"agentbackend"`
 	ClientMode           string `yaml:"clientmode"`
 	DNSMode              string `yaml:"dnsmode"`
-	SplitDNS           string `yaml:"splitdns"`
+	SplitDNS             string `yaml:"splitdns"`
 	DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
 	DisableDefaultNet    string `yaml:"disabledefaultnet"`
 	GRPCSSL              string `yaml:"grpcssl"`
 	Version              string `yaml:"version"`
 	SQLConn              string `yaml:"sqlconn"`
-	Platform              string `yaml:"platform"`
+	Platform             string `yaml:"platform"`
 	Database             string `yaml:database`
 	CheckinInterval      string `yaml:checkininterval`
 	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`

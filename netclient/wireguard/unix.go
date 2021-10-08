@@ -7,9 +7,9 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	//homedir "github.com/mitchellh/go-homedir"
 )
 
+// SetWGKeyConfig - sets the wg conf with a new private key
 func SetWGKeyConfig(network string, serveraddr string) error {
 
 	cfg, err := config.ReadConfig(network)
@@ -48,6 +48,7 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 	return err
 }
 
+// ApplyWGQuickConf - applies wg-quick commands if os supports
 func ApplyWGQuickConf(confPath string) error {
 	if _, err := ncutils.RunCmd("wg-quick up "+confPath, true); err != nil {
 		return err
@@ -55,6 +56,7 @@ func ApplyWGQuickConf(confPath string) error {
 	return nil
 }
 
+// RemoveWGQuickConf - calls wg-quick down
 func RemoveWGQuickConf(confPath string, printlog bool) error {
 	if _, err := ncutils.RunCmd("wg-quick down "+confPath, printlog); err != nil {
 		return err
@@ -62,12 +64,14 @@ func RemoveWGQuickConf(confPath string, printlog bool) error {
 	return nil
 }
 
+// StorePrivKey - stores wg priv key on disk locally
 func StorePrivKey(key string, network string) error {
 	d1 := []byte(key)
 	err := ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0644)
 	return err
 }
 
+// RetrievePrivKey - reads wg priv key from local disk
 func RetrievePrivKey(network string) (string, error) {
 	dat, err := ioutil.ReadFile(ncutils.GetNetclientPathSpecific() + "wgkey-" + network)
 	return string(dat), err

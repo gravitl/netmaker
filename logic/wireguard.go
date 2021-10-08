@@ -5,6 +5,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
+// GetSystemPeers - gets the server peers
 func GetSystemPeers(node *models.Node) (map[string]string, error) {
 	peers := make(map[string]string)
 

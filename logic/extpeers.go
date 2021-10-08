@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// GetExtPeersList - gets the ext peers lists
 func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersResponse, error) {
 
 	var peers []models.ExtPeersResponse

@@ -2,11 +2,12 @@
 package logic
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
-	"encoding/base64"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
@@ -16,17 +17,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//This is used to validate public keys (make sure they're base64 encoded like all public keys should be).
+// IsBase64 - checks if a string is in base64 format
+// This is used to validate public keys (make sure they're base64 encoded like all public keys should be).
 func IsBase64(s string) bool {
 	_, err := base64.StdEncoding.DecodeString(s)
 	return err == nil
 }
 
+// CheckEndpoint - checks if an endpoint is valid
 func CheckEndpoint(endpoint string) bool {
 	endpointarr := strings.Split(endpoint, ":")
 	return len(endpointarr) == 2
 }
 
+// SetNetworkServerPeers - sets the network server peers of a given node
 func SetNetworkServerPeers(node *models.Node) {
 	if currentPeersList, err := GetSystemPeers(node); err == nil {
 		if database.SetPeers(currentPeersList, node.Network) {
@@ -38,7 +42,7 @@ func SetNetworkServerPeers(node *models.Node) {
 	}
 }
 
-
+// DeleteNode - deletes a node from database or moves into delete nodes table
 func DeleteNode(key string, exterminate bool) error {
 	var err error
 	if !exterminate {
@@ -70,7 +74,7 @@ func DeleteNode(key string, exterminate bool) error {
 	return err
 }
 
-
+// CreateNode - creates a node in database
 func CreateNode(node models.Node, networkName string) (models.Node, error) {
 
 	//encrypt that password so we never see it
@@ -130,6 +134,7 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	return node, err
 }
 
+// SetNetworkNodesLastModified - sets the network nodes last modified
 func SetNetworkNodesLastModified(networkName string) error {
 
 	timestamp := time.Now().Unix()
@@ -150,6 +155,7 @@ func SetNetworkNodesLastModified(networkName string) error {
 	return nil
 }
 
+// GetNode - fetches a node from database
 func GetNode(macaddress string, network string) (models.Node, error) {
 	var node models.Node
 
@@ -173,6 +179,7 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	return node, err
 }
 
+// GetNodePeers - fetches peers for a given node
 func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error) {
 	var peers []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -229,6 +236,7 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 	return peers, err
 }
 
+// GetPeersList - gets the peers of a given network
 func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
 	var peers []models.Node
 	var relayNode models.Node

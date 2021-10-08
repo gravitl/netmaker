@@ -8,7 +8,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-// Initialize windows directory & files and such
+// InitWindows - Initialize windows directory & files and such
 func InitWindows() {
 
 	_, directoryErr := os.Stat(ncutils.GetNetclientPath()) // Check if data directory exists or not

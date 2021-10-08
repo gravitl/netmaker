@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// SetPeers - sets peers for a network
 func SetPeers(newPeers map[string]string, networkName string) bool {
 	areEqual := PeersAreEqual(newPeers, networkName)
 	if !areEqual {
@@ -17,6 +18,8 @@ func SetPeers(newPeers map[string]string, networkName string) bool {
 	}
 	return !areEqual
 }
+
+// GetPeers - gets peers for a given network
 func GetPeers(networkName string) (map[string]string, error) {
 	record, err := FetchRecord(PEERS_TABLE_NAME, networkName)
 	if err != nil && !IsEmptyRecord(err) {
@@ -30,6 +33,7 @@ func GetPeers(networkName string) (map[string]string, error) {
 	return currentDataMap, err
 }
 
+// PeersAreEqual - checks if peers are the same
 func PeersAreEqual(toCompare map[string]string, networkName string) bool {
 	currentDataMap, err := GetPeers(networkName)
 	if err != nil {
@@ -46,6 +50,7 @@ func PeersAreEqual(toCompare map[string]string, networkName string) bool {
 	return true
 }
 
+// IsEmptyRecord - checks for if it's an empty record error or not
 func IsEmptyRecord(err error) bool {
 	if err == nil {
 		return false
