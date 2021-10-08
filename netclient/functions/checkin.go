@@ -159,7 +159,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		return nil, err
 	}
 	servercfg := cfg.Server
-	var header metadata.MD
 
 	if cfg.Node.IPForwarding == "yes" && !ncutils.IsWindows() {
 		if err = local.SetIPForwarding(); err != nil {
@@ -167,7 +166,11 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		}
 	}
 	var resNode models.Node // just need to fill this with either server calls or client calls
+
+	var header metadata.MD
+	var wcclient nodepb.NodeServiceClient
 	var ctx context.Context
+
 	if cfg.Node.IsServer != "yes" {
 		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
@@ -176,9 +179,9 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			return nil, err
 		}
 		defer conn.Close()
-		wcclient := nodepb.NewNodeServiceClient(conn)
+		wcclient = nodepb.NewNodeServiceClient(conn)
 
-		ctx, err := auth.SetJWT(wcclient, network)
+		ctx, err = auth.SetJWT(wcclient, network)
 		if err != nil {
 			ncutils.PrintLog("Failed to authenticate: "+err.Error(), 1)
 			return nil, err
@@ -188,6 +191,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			Data: node.MacAddress + "###" + node.Network,
 			Type: nodepb.STRING_TYPE,
 		}
+
 		readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
 		if err != nil {
 			return nil, err
@@ -222,6 +226,9 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			return &resNode, err
 		}
 		if resNode.IsServer != "yes" {
+			if wcclient == nil || ctx == nil {
+				return &cfg.Node, errors.New("issue initializing gRPC client")
+			}
 			req := &nodepb.Object{
 				Data:     string(nodeData),
 				Type:     nodepb.NODE_TYPE,
