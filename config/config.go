@@ -30,6 +30,7 @@ var Config *EnvironmentConfig
 // EnvironmentConfig :
 type EnvironmentConfig struct {
 	Server ServerConfig `yaml:"server"`
+	SQL SQLConfig `yaml:"sql"`
 }
 
 // ServerConfig :
@@ -59,6 +60,17 @@ type ServerConfig struct {
 	CheckinInterval      string `yaml:checkininterval`
 	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
 	Verbosity            int32  `yaml:"verbosity"`
+}
+
+
+// Generic SQL Config
+type SQLConfig struct {
+	Host string `yaml:"host"`
+	Port int32 `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	DB string `yaml:"db"`
+	SSLMode string `yaml:"sslmode"`
 }
 
 //reading in the env file

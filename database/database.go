@@ -38,6 +38,8 @@ func getCurrentDB() map[string]interface{} {
 		return RQLITE_FUNCTIONS
 	case "sqlite":
 		return SQLITE_FUNCTIONS
+	case "postgres":
+		return PG_FUNCTIONS
 	default:
 		return SQLITE_FUNCTIONS
 	}
