@@ -196,6 +196,7 @@ func AddNetwork(network string) (bool, error) {
 			IsServer: "yes",
 			DNSOn:    "no",
 			Name:     models.NODE_SERVER_NAME,
+			MacAddress:     servercfg.GetNodeID(),
 		},
 	}, "")
 	log.Println("[netmaker] Server added to network " + network)

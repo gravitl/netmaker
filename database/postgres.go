@@ -84,12 +84,12 @@ func pgInsertPeer(key string, value string) error {
 }
 
 func pgDeleteRecord(tableName string, key string) error {
-	deleteSQL := "DELETE FROM " + tableName + " WHERE key = \"" + key + "\""
+	deleteSQL := "DELETE FROM " + tableName + " WHERE key = $1;"
 	statement, err := PGDB.Prepare(deleteSQL)
 	if err != nil {
 		return err
 	}
-	if _, err = statement.Exec(); err != nil {
+	if _, err = statement.Exec(key); err != nil {
 		return err
 	}
 	return nil

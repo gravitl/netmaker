@@ -45,6 +45,7 @@ type ServerConfig struct {
 	GRPCSecure           string `yaml:"grpcsecure"`
 	MasterKey            string `yaml:"masterkey"`
 	AllowedOrigin        string `yaml:"allowedorigin"`
+	NodeID        string `yaml:"nodeid"`
 	RestBackend          string `yaml:"restbackend"`
 	AgentBackend         string `yaml:"agentbackend"`
 	ClientMode           string `yaml:"clientmode"`
