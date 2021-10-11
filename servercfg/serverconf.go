@@ -4,9 +4,9 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"net"
 	"os"
 	"strconv"
-
 	"github.com/gravitl/netmaker/config"
 )
 
@@ -31,6 +31,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.Verbosity = GetVerbose()
+	cfg.NodeID = GetNodeID()
 	cfg.CheckinInterval = GetCheckinInterval()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
@@ -371,4 +372,31 @@ func IsSplitDNS() bool {
 		issplit = true
 	}
 	return issplit
+}
+
+func GetNodeID() string {
+	var id string
+	id = getMacAddr()
+	if os.Getenv("NODE_ID") != "" {
+		id = os.Getenv("NODE_ID")
+	} else if config.Config.Server.NodeID != "" {
+		id = config.Config.Server.NodeID
+	}
+	return id
+}
+
+// GetMacAddr - get's mac address
+func getMacAddr() string {
+	ifas, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	var as []string
+	for _, ifa := range ifas {
+		a := ifa.HardwareAddr.String()
+		if a != "" {
+			as = append(as, a)
+		}
+	}
+	return as[0]
 }
