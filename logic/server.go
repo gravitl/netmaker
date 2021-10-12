@@ -1,79 +1,152 @@
-package server
+package logic
 
 import (
-	"encoding/json"
+	"errors"
 	"log"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
-// RELAY_KEEPALIVE_MARKER - sets the relay keepalive marker
-const RELAY_KEEPALIVE_MARKER = "20007ms"
+// == Join, Checkin, and Leave for Server ==
+func ServerJoin(cfg config.ClientConfig, privateKey string) error {
+	var err error
 
-func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
-	var wcclient nodepb.NodeServiceClient
-	// == GRPC SETUP ==
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-
-	if err != nil {
-		return nil, err
+	if cfg.Network == "" {
+		return errors.New("no network provided")
 	}
-	defer conn.Close()
-	wcclient = nodepb.NewNodeServiceClient(conn)
-	return wcclient, nil
+
+	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
+		Log("local vpn, getting local address from range: "+cfg.Node.LocalRange, 1)
+		cfg.Node.LocalAddress = GetLocalIP(cfg.Node)
+	}
+
+	if cfg.Node.Endpoint == "" {
+		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
+			cfg.Node.Endpoint = cfg.Node.LocalAddress
+		} else {
+			cfg.Node.Endpoint, err = ncutils.GetPublicIP()
+		}
+		if err != nil || cfg.Node.Endpoint == "" {
+			ncutils.Log("Error setting cfg.Node.Endpoint.")
+			return err
+		}
+	}
+
+	// Generate and set public/private WireGuard Keys
+	if privateKey == "" {
+		wgPrivatekey, err := wgtypes.GeneratePrivateKey()
+		if err != nil {
+			Log(err.Error(), 1)
+			return err
+		}
+		privateKey = wgPrivatekey.String()
+		cfg.Node.PublicKey = wgPrivatekey.PublicKey().String()
+	}
+
+	if cfg.Node.MacAddress == "" {
+		macs, err := ncutils.GetMacAddr()
+		if err != nil {
+			return err
+		} else if len(macs) == 0 {
+			Log("could not retrieve mac address for server", 1)
+			return errors.New("failed to get server mac")
+		} else {
+			cfg.Node.MacAddress = macs[0]
+		}
+	}
+
+	var node models.Node // fill this node with appropriate calls
+	var postnode *models.Node
+	postnode = &models.Node{
+		Password:            cfg.Node.Password,
+		MacAddress:          cfg.Node.MacAddress,
+		AccessKey:           cfg.Server.AccessKey,
+		Network:             cfg.Network,
+		ListenPort:          cfg.Node.ListenPort,
+		PostUp:              cfg.Node.PostUp,
+		PostDown:            cfg.Node.PostDown,
+		PersistentKeepalive: cfg.Node.PersistentKeepalive,
+		LocalAddress:        cfg.Node.LocalAddress,
+		Interface:           cfg.Node.Interface,
+		PublicKey:           cfg.Node.PublicKey,
+		DNSOn:               cfg.Node.DNSOn,
+		Name:                cfg.Node.Name,
+		Endpoint:            cfg.Node.Endpoint,
+		SaveConfig:          cfg.Node.SaveConfig,
+		UDPHolePunch:        cfg.Node.UDPHolePunch,
+	}
+
+	Log("adding a server instance on network "+postnode.Network, 2)
+	node, err = CreateNode(*postnode, cfg.Network)
+	if err != nil {
+		return err
+	}
+	err = SetNetworkNodesLastModified(node.Network)
+	if err != nil {
+		return err
+	}
+
+	// get free port based on returned default listen port
+	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
+	if err != nil {
+		Log("Error retrieving port: "+err.Error(), 2)
+	}
+
+	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
+	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {
+		node.LocalAddress, err = ncutils.GetLocalIP(node.LocalRange)
+		if err != nil {
+			return err
+		}
+		node.Endpoint = node.LocalAddress
+	}
+
+	node.SetID()
+	if err = StorePrivKey(node.ID, privateKey); err != nil {
+		return err
+	}
+	if err = ServerPush(node.MacAddress, node.Network); err != nil {
+		return err
+	}
+
+	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes", node.IsServer == "yes")
+	if err != nil && !ncutils.IsEmptyRecord(err) {
+		ncutils.Log("failed to retrieve peers")
+		return err
+	}
+
+	err = initWireguard(&node, privateKey, peers, hasGateway, gateways)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// CheckIn - checkin for node on a network
-func CheckIn(network string) (*models.Node, error) {
-	cfg, err := config.ReadConfig(network)
-	if err != nil {
-		return nil, err
+// ServerPush - pushes config changes for server checkins/join
+func ServerPush(mac string, network string) error {
+
+	var serverNode models.Node
+	var err error
+	serverNode, err = GetNode(mac, network)
+	if err != nil && !ncutils.IsEmptyRecord(err) {
+		return err
 	}
-	node := cfg.Node
-	if cfg.Node.IsServer != "yes" {
-		wcclient, err := getGrpcClient(cfg)
-		if err != nil {
-			return nil, err
-		}
-		// == run client action ==
-		var header metadata.MD
-		ctx, err := auth.SetJWT(wcclient, network)
-		nodeData, err := json.Marshal(&node)
-		if err != nil {
-			return nil, err
-		}
-		response, err := wcclient.ReadNode(
-			ctx,
-			&nodepb.Object{
-				Data: string(nodeData),
-				Type: nodepb.NODE_TYPE,
-			},
-			grpc.Header(&header),
-		)
-		if err != nil {
-			log.Printf("Encountered error checking in node: %v", err)
-		}
-		if err = json.Unmarshal([]byte(response.GetData()), &node); err != nil {
-			return nil, err
-		}
-	}
-	return &node, err
+	serverNode.OS = runtime.GOOS
+	serverNode.SetLastCheckIn()
+	err = serverNode.Update(&serverNode)
+	return err
 }
 
-// GetPeers - gets the peers for a node
-func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool, isServer bool) ([]wgtypes.PeerConfig, bool, []string, error) {
+func GetServerPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool, isServer bool) ([]wgtypes.PeerConfig, bool, []string, error) {
 	hasGateway := false
 	var err error
 	var gateways []string
@@ -81,58 +154,27 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	var nodecfg models.Node
 	var nodes []models.Node // fill above fields from server or client
 
-	if !isServer { // set peers client side
-		cfg, err := config.ReadConfig(network)
-		if err != nil {
-			log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
-		}
-		nodecfg = cfg.Node
-		var wcclient nodepb.NodeServiceClient
-		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-
-		if err != nil {
-			log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
-		}
-		defer conn.Close()
-		// Instantiate the BlogServiceClient with our client connection to the server
-		wcclient = nodepb.NewNodeServiceClient(conn)
-
-		req := &nodepb.Object{
-			Data: macaddress + "###" + network,
-			Type: nodepb.STRING_TYPE,
-		}
-
-		ctx, err := auth.SetJWT(wcclient, network)
-		if err != nil {
-			log.Println("Failed to authenticate.")
-			return peers, hasGateway, gateways, err
-		}
-		var header metadata.MD
-
-		response, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))
-		if err != nil {
-			log.Println("Error retrieving peers")
-			log.Println(err)
-			return nil, hasGateway, gateways, err
-		}
-		if err := json.Unmarshal([]byte(response.GetData()), &nodes); err != nil {
-			log.Println("Error unmarshaling data for peers")
-			return nil, hasGateway, gateways, err
-		}
+	nodecfg, err = GetNode(macaddress, network)
+	if err != nil {
+		return nil, hasGateway, gateways, err
+	}
+	nodes, err = GetPeers(nodecfg)
+	if err != nil {
+		return nil, hasGateway, gateways, err
 	}
 
 	keepalive := nodecfg.PersistentKeepalive
 	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
 	keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
 	if err != nil {
-		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
+		Log("Issue with format of keepalive value. Please update netconfig: "+err.Error(), 1)
+		return nil, hasGateway, gateways, err
 	}
 
 	for _, node := range nodes {
 		pubkey, err := wgtypes.ParseKey(node.PublicKey)
 		if err != nil {
-			log.Println("error parsing key")
+			Log("error parsing key "+pubkey.String(), 1)
 			return peers, hasGateway, gateways, err
 		}
 
@@ -190,7 +232,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 				}
 				gateways = append(gateways, iprange)
 				if err != nil {
-					log.Println("ERROR ENCOUNTERED SETTING GATEWAY")
+					Log("ERROR ENCOUNTERED SETTING GATEWAY", 1)
 				} else {
 					allowedips = append(allowedips, *ipnet)
 				}
@@ -235,63 +277,44 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		peers = append(peers, peer)
 	}
 	if isIngressGateway {
-		extPeers, err := GetExtPeers(macaddress, network, server, dualstack)
+		extPeers, err := GetServerExtPeers(macaddress, network, server, dualstack)
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
+			Log("ERROR RETRIEVING EXTERNAL PEERS ON SERVER", 1)
 		}
 	}
 	return peers, hasGateway, gateways, err
 }
 
-// GetExtPeers - gets the extpeers for a client
-func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
+// GetServerExtPeers - gets the extpeers for a client
+func GetServerExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
 	var nodecfg models.Node
 	var extPeers []models.Node
 	var err error
 	// fill above fields from either client or server
 
-	if nodecfg.IsServer != "yes" { // fill extPeers with client side logic
-		var cfg *config.ClientConfig
-		cfg, err = config.ReadConfig(network)
-		if err != nil {
-			log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
-		}
-		nodecfg = cfg.Node
-		var wcclient nodepb.NodeServiceClient
-
-		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-		if err != nil {
-			log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
-		}
-		defer conn.Close()
-		// Instantiate the BlogServiceClient with our client connection to the server
-		wcclient = nodepb.NewNodeServiceClient(conn)
-
-		req := &nodepb.Object{
-			Data: macaddress + "###" + network,
-			Type: nodepb.STRING_TYPE,
-		}
-
-		ctx, err := auth.SetJWT(wcclient, network)
-		if err != nil {
-			log.Println("Failed to authenticate.")
-			return peers, err
-		}
-		var header metadata.MD
-
-		responseObject, err := wcclient.GetExtPeers(ctx, req, grpc.Header(&header))
-		if err != nil {
-			log.Println("Error retrieving peers")
-			log.Println(err)
-			return nil, err
-		}
-		if err = json.Unmarshal([]byte(responseObject.Data), &extPeers); err != nil {
-			return nil, err
-		}
+	// fill extPeers with server side logic
+	nodecfg, err = GetNode(macaddress, network)
+	if err != nil {
+		return nil, err
+	}
+	var tempPeers []models.ExtPeersResponse
+	tempPeers, err = GetExtPeersList(nodecfg.MacAddress, nodecfg.Network)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(tempPeers); i++ {
+		extPeers = append(extPeers, models.Node{
+			Address:             tempPeers[i].Address,
+			Address6:            tempPeers[i].Address6,
+			Endpoint:            tempPeers[i].Endpoint,
+			PublicKey:           tempPeers[i].PublicKey,
+			PersistentKeepalive: tempPeers[i].KeepAlive,
+			ListenPort:          tempPeers[i].ListenPort,
+			LocalAddress:        tempPeers[i].LocalAddress,
+		})
 	}
 	for _, extPeer := range extPeers {
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)

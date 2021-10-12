@@ -4,9 +4,11 @@ package logic
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log"
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
@@ -289,4 +291,11 @@ func setPeerInfo(node models.Node) models.Node {
 	peer.IsIngressGateway = node.IsIngressGateway
 	peer.IsPending = node.IsPending
 	return peer
+}
+
+func Log(message string, loglevel int) {
+	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
+	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
+		log.Println(message)
+	}
 }

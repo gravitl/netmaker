@@ -1,15 +1,17 @@
 package database
 
 import (
-	"github.com/gravitl/netmaker/servercfg"
 	"database/sql"
 	"errors"
-	_ "github.com/lib/pq"
 	"fmt"
+	"github.com/gravitl/netmaker/servercfg"
+	_ "github.com/lib/pq"
 )
 
+// PGDB - database object for PostGreSQL
 var PGDB *sql.DB
 
+// PG_FUNCTIONS - map of db functions for PostGreSQL
 var PG_FUNCTIONS = map[string]interface{}{
 	INIT_DB:      initPGDB,
 	CREATE_TABLE: pgCreateTable,
@@ -21,14 +23,13 @@ var PG_FUNCTIONS = map[string]interface{}{
 	CLOSE_DB:     pgCloseDB,
 }
 
-func getPGConnString() string{
+func getPGConnString() string {
 	pgconf := servercfg.GetSQLConf()
 	pgConn := fmt.Sprintf("host=%s port=%d user=%s "+
-	  "password=%s dbname=%s sslmode=%s",
-	  pgconf.Host, pgconf.Port, pgconf.Username, pgconf.Password, pgconf.DB, pgconf.SSLMode)
+		"password=%s dbname=%s sslmode=%s",
+		pgconf.Host, pgconf.Port, pgconf.Username, pgconf.Password, pgconf.DB, pgconf.SSLMode)
 	return pgConn
 }
-  
 
 func initPGDB() error {
 	connString := getPGConnString()
