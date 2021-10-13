@@ -255,32 +255,6 @@ func DeleteInterface(ifacename string, postdown string) error {
 	return err
 }
 
-// List - lists all networks on local machine
-func List() error {
-
-	networks, err := ncutils.GetSystemNetworks()
-	if err != nil {
-		return err
-	}
-	for _, network := range networks {
-		cfg, err := config.ReadConfig(network)
-		if err == nil {
-			jsoncfg, _ := json.Marshal(
-				map[string]string{
-					"Name":           cfg.Node.Name,
-					"Interface":      cfg.Node.Interface,
-					"PrivateIPv4":    cfg.Node.Address,
-					"PrivateIPv6":    cfg.Node.Address6,
-					"PublicEndpoint": cfg.Node.Endpoint,
-				})
-			fmt.Println(network + ": " + string(jsoncfg))
-		} else {
-			ncutils.PrintLog(network+": Could not retrieve network configuration.", 1)
-		}
-	}
-	return nil
-}
-
 // WipeLocal - wipes local instance
 func WipeLocal(network string) error {
 	cfg, err := config.ReadConfig(network)
