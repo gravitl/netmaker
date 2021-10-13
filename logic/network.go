@@ -2,8 +2,11 @@ package logic
 
 import (
 	"net"
+	"os/exec"
+	"strings"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // GetLocalIP - gets the local ip
@@ -60,4 +63,51 @@ func GetLocalIP(node models.Node) string {
 		}
 	}
 	return local
+}
+
+// == Private ==
+
+func deleteInterface(ifacename string, postdown string) error {
+	var err error
+	if !ncutils.IsKernel() {
+		err = RemoveConf(ifacename, true)
+	} else {
+		ipExec, errN := exec.LookPath("ip")
+		err = errN
+		if err != nil {
+			ncutils.PrintLog(err.Error(), 1)
+		}
+		_, err = ncutils.RunCmd(ipExec+" link del "+ifacename, false)
+		if postdown != "" {
+			runcmds := strings.Split(postdown, "; ")
+			err = ncutils.RunCmds(runcmds, true)
+		}
+	}
+	return err
+}
+
+func isInterfacePresent(iface string, address string) (string, bool) {
+	var interfaces []net.Interface
+	var err error
+	interfaces, err = net.Interfaces()
+	if err != nil {
+		Log("ERROR: could not read interfaces", 0)
+		return "", true
+	}
+	for _, currIface := range interfaces {
+		var currAddrs []net.Addr
+		currAddrs, err = currIface.Addrs()
+		if err != nil || len(currAddrs) == 0 {
+			continue
+		}
+		for _, addr := range currAddrs {
+			Log("looking at addresses "+addr.String()+" compared to "+address, 0)
+			if addr.String() == address && currIface.Name != iface {
+				Log("found it", 0)
+				// return old iface and false
+				return currIface.Name, false
+			}
+		}
+	}
+	return "", true
 }

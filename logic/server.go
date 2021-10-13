@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -35,7 +36,7 @@ func ServerJoin(cfg config.ClientConfig, privateKey string) error {
 			cfg.Node.Endpoint, err = ncutils.GetPublicIP()
 		}
 		if err != nil || cfg.Node.Endpoint == "" {
-			ncutils.Log("Error setting cfg.Node.Endpoint.")
+			Log("Error setting cfg.Node.Endpoint.", 0)
 			return err
 		}
 	}
@@ -117,9 +118,9 @@ func ServerJoin(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 
-	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes", node.IsServer == "yes")
+	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, cfg.Network, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 	if err != nil && !ncutils.IsEmptyRecord(err) {
-		ncutils.Log("failed to retrieve peers")
+		Log("failed to retrieve peers", 1)
 		return err
 	}
 
@@ -131,22 +132,84 @@ func ServerJoin(cfg config.ClientConfig, privateKey string) error {
 	return nil
 }
 
+// ServerPull - pulls current config/peers for server
+func ServerPull(mac string, network string) error {
+
+	var serverNode models.Node
+	var err error
+	serverNode, err = GetNode(mac, network)
+	if err != nil {
+		return err
+	}
+
+	if serverNode.IPForwarding == "yes" {
+		if err = setIPForwardingLinux(); err != nil {
+			return err
+		}
+	}
+	serverNode.OS = runtime.GOOS
+
+	if serverNode.PullChanges == "yes" {
+		// check for interface change
+		var isIfacePresent bool
+		var oldIfaceName string
+		// checks if address is in use by another interface
+		oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
+		if !isIfacePresent {
+			if err = deleteInterface(oldIfaceName, serverNode.PostDown); err != nil {
+				Log("could not delete old interface "+oldIfaceName, 1)
+			}
+		}
+		serverNode.PullChanges = "no"
+		if err = setWGConfig(serverNode, network, false); err != nil {
+			return err
+		}
+		// handle server side update
+		if err = serverNode.Update(&serverNode); err != nil {
+			return err
+		}
+	} else {
+		if err = setWGConfig(serverNode, network, true); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return ServerPull(serverNode.MacAddress, serverNode.Network)
+			} else {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // ServerPush - pushes config changes for server checkins/join
 func ServerPush(mac string, network string) error {
 
 	var serverNode models.Node
 	var err error
 	serverNode, err = GetNode(mac, network)
-	if err != nil && !ncutils.IsEmptyRecord(err) {
+	if err != nil /* && !ncutils.IsEmptyRecord(err) May not be necessary */ {
 		return err
 	}
 	serverNode.OS = runtime.GOOS
 	serverNode.SetLastCheckIn()
-	err = serverNode.Update(&serverNode)
-	return err
+	return serverNode.Update(&serverNode)
 }
 
-func GetServerPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool, isServer bool) ([]wgtypes.PeerConfig, bool, []string, error) {
+// ServerLeave - removes a server node
+func ServerLeave(mac string, network string) error {
+
+	var serverNode models.Node
+	var err error
+	serverNode, err = GetNode(mac, network)
+	if err != nil {
+		return err
+	}
+	serverNode.SetID()
+	return DeleteNode(serverNode.ID, true)
+}
+
+// GetServerPeers - gets peers of server
+func GetServerPeers(macaddress string, network string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
 	hasGateway := false
 	var err error
 	var gateways []string
@@ -277,7 +340,7 @@ func GetServerPeers(macaddress string, network string, server string, dualstack 
 		peers = append(peers, peer)
 	}
 	if isIngressGateway {
-		extPeers, err := GetServerExtPeers(macaddress, network, server, dualstack)
+		extPeers, err := GetServerExtPeers(macaddress, network, dualstack)
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
@@ -288,7 +351,7 @@ func GetServerPeers(macaddress string, network string, server string, dualstack 
 }
 
 // GetServerExtPeers - gets the extpeers for a client
-func GetServerExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
+func GetServerExtPeers(macaddress string, network string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
 	var nodecfg models.Node
 	var extPeers []models.Node

@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/relay"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -296,6 +297,26 @@ func setPeerInfo(node models.Node) models.Node {
 func Log(message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
-		log.Println(message)
+		log.Println("[netmaker] " + message)
 	}
+}
+
+// == Private Methods ==
+
+func setIPForwardingLinux() error {
+	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
+	if err != nil {
+		log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
+		return err
+	} else {
+		s := strings.Fields(string(out))
+		if s[2] != "1" {
+			_, err = ncutils.RunCmd("sysctl -w net.ipv4.ip_forward=1", true)
+			if err != nil {
+				log.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -195,11 +194,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			return nil, err
 		}
 		if err = json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
-			return nil, err
-		}
-	} else { // handle server side read
-		resNode, err = logic.GetNode(node.MacAddress, node.Network)
-		if err != nil && !ncutils.IsEmptyRecord(err) {
 			return nil, err
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	nccommand "github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -29,30 +30,6 @@ func GetServerWGConf() (models.IntClient, error) {
 		}
 	}
 	return models.IntClient{}, errors.New("could not find comms server")
-}
-
-// InstallNetclient netclient installation for server - depricated
-func InstallNetclient() error {
-
-	netclientPath := ncutils.GetNetclientPath()
-	if ncutils.IsWindows() {
-		netclientPath += "\\"
-	} else {
-		netclientPath += "/"
-	}
-	if !FileExists(netclientPath + "netclient") {
-		var err error
-		if ncutils.IsWindows() {
-			_, err = copy(".\\netclient\\netclient", netclientPath+"netclient")
-		} else {
-			_, err = copy("./netclient/netclient", netclientPath+"netclient")
-		}
-		if err != nil {
-			log.Println("could not create " + netclientPath + "netclient")
-			return err
-		}
-	}
-	return nil
 }
 
 // FileExists - checks if local file exists
@@ -95,7 +72,7 @@ func copy(src, dst string) (int64, error) {
 
 // RemoveNetwork - removes a network locally on server
 func RemoveNetwork(network string) (bool, error) {
-	err := nccommand.Leave(config.ClientConfig{Network: network})
+	err := logic.ServerLeave(servercfg.GetNodeID(), network)
 	return true, err
 }
 
@@ -188,15 +165,15 @@ func SyncNetworks(servernets []models.Network) error {
 
 // AddNetwork - add a network to server in client mode
 func AddNetwork(network string) (bool, error) {
-	err := nccommand.Join(config.ClientConfig{
+	err := logic.ServerJoin(config.ClientConfig{
 		Network: network,
 		Daemon:  "off",
 		Node: models.Node{
-			Network:  network,
-			IsServer: "yes",
-			DNSOn:    "no",
-			Name:     models.NODE_SERVER_NAME,
-			MacAddress:     servercfg.GetNodeID(),
+			Network:    network,
+			IsServer:   "yes",
+			DNSOn:      "no",
+			Name:       models.NODE_SERVER_NAME,
+			MacAddress: servercfg.GetNodeID(),
 		},
 	}, "")
 	log.Println("[netmaker] Server added to network " + network)
