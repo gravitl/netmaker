@@ -3,10 +3,11 @@ package servercfg
 import (
 	"errors"
 	"io/ioutil"
-	"net/http"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
+
 	"github.com/gravitl/netmaker/config"
 )
 
@@ -75,7 +76,7 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.8.3"
+	version := "0.8.4"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}

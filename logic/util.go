@@ -64,7 +64,7 @@ func DeleteNode(key string, exterminate bool) error {
 		}
 	} else {
 		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			functions.PrintUserLog("", err.Error(), 2)
+			Log(err.Error(), 2)
 		}
 	}
 	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
@@ -189,19 +189,19 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 		if database.IsEmptyRecord(err) {
 			return peers, nil
 		}
-		functions.PrintUserLog("", err.Error(), 2)
+		Log(err.Error(), 2)
 		return nil, err
 	}
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
-		functions.PrintUserLog("", errN.Error(), 2)
+		Log(errN.Error(), 2)
 	}
 	for _, value := range collection {
 		var node models.Node
 		var peer models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			functions.PrintUserLog("", err.Error(), 2)
+			Log(err.Error(), 2)
 			continue
 		}
 		if node.IsEgressGateway == "yes" { // handle egress stuff

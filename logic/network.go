@@ -101,10 +101,7 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 			continue
 		}
 		for _, addr := range currAddrs {
-			Log("looking at addresses "+addr.String()+" compared to "+address, 0)
-			if addr.String() == address && currIface.Name != iface {
-				Log("found it", 0)
-				// return old iface and false
+			if strings.Contains(addr.String(), address) && currIface.Name != iface {
 				return currIface.Name, false
 			}
 		}

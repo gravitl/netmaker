@@ -37,6 +37,16 @@ func GetSystemPeers(node *models.Node) (map[string]string, error) {
 	return peers, nil
 }
 
+// RemoveConf - removes a configuration for a given WireGuard interface
+func RemoveConf(iface string, printlog bool) error {
+	var err error
+	confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
+	err = removeWGQuickConf(confPath, printlog)
+	return err
+}
+
+// == Private Methods ==
+
 func setWGConfig(node models.Node, network string, peerupdate bool) error {
 
 	node.SetID()
@@ -55,6 +65,7 @@ func setWGConfig(node models.Node, network string, peerupdate bool) error {
 	} else {
 		err = initWireguard(&node, privkey, peers, hasGateway, gateways)
 	}
+	Log("finished setting wg config on server "+node.Name, 1)
 	return err
 }
 
@@ -82,6 +93,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	if ncutils.IsKernel() {
+		Log("setting kernel device "+ifacename, 2)
 		setKernelDevice(ifacename, node.Address)
 	}
 
@@ -102,10 +114,10 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, node.PersistentKeepalive, peers)
 		}
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-		ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
+		Log("writing wg conf file to: "+confPath, 1)
 		err = ioutil.WriteFile(confPath, []byte(newConf), 0644)
 		if err != nil {
-			ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
+			Log("error writing wg conf file to "+confPath+": "+err.Error(), 1)
 			return err
 		}
 		// spin up userspace + apply the conf file
@@ -181,16 +193,6 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	return err
 }
 
-// RemoveConf - removes a configuration for a given WireGuard interface
-func RemoveConf(iface string, printlog bool) error {
-	var err error
-	confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
-	err = removeWGQuickConf(confPath, printlog)
-	return err
-}
-
-// == Private Methods ==
-
 func setKernelDevice(ifacename string, address string) error {
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {
@@ -199,7 +201,7 @@ func setKernelDevice(ifacename string, address string) error {
 
 	_, _ = ncutils.RunCmd("ip link delete dev "+ifacename, false)
 	_, _ = ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
-	_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/24", true)
+	_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/24", true) // this is a bug waiting to happen
 
 	return nil
 }
@@ -290,4 +292,27 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 	}
 
 	return nil
+}
+
+func setWGKeyConfig(node models.Node) error {
+
+	node.SetID()
+	privatekey, err := wgtypes.GeneratePrivateKey()
+	if err != nil {
+		return err
+	}
+	privkeystring := privatekey.String()
+	publickey := privatekey.PublicKey()
+
+	node.PublicKey = publickey.String()
+
+	err = StorePrivKey(node.ID, privkeystring)
+	if err != nil {
+		return err
+	}
+	if node.Action == models.NODE_UPDATE_KEY {
+		node.Action = models.NODE_NOOP
+	}
+
+	return setWGConfig(node, node.Network, false)
 }
