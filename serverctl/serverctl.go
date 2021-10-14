@@ -100,10 +100,18 @@ func HandleContainedClient() error {
 		}
 		log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 		err := SyncNetworks(servernets)
-		logic.Log("error syncing networks: "+err.Error(), 1)
+		if err != nil {
+			logic.Log("error syncing networks: "+err.Error(), 1)
+		}
 		for _, serverNet := range servernets {
 			err = logic.ServerCheckin(servercfg.GetNodeID(), serverNet.NetID)
-			logic.Log("error occurred during server checkin: "+err.Error(), 1)
+			if err != nil {
+				logic.Log("error occurred during server checkin, running a pull: "+err.Error(), 1)
+				_, err = logic.ServerPull(servercfg.GetNodeID(), serverNet.NetID)
+				if err != nil {
+					logic.Log("error when pulling after checkin: "+err.Error(), 1)
+				}
+			}
 		}
 		logic.Log("completed a checkin call", 3)
 	}
