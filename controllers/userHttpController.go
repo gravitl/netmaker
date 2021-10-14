@@ -348,8 +348,18 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	var admin models.User
 	// get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
+	hasadmin, err := HasAdmin()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if hasadmin {
+		returnErrorResponse(w, r, formatError(errors.New("admin user already exists"), "unauthorized"))
+		return
+	}
 	admin.IsAdmin = true
-	admin, err := CreateUser(admin)
+	fmt.Println(admin)
+	admin, err = CreateUser(admin)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
