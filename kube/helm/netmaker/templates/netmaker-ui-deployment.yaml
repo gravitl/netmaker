@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ include "netmaker.fullname" . }}-ui
+  name: {{ include "netmaker.fullname" . }}-ui
+spec:
+  replicas: {{ .Values.ui.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "netmaker.fullname" . }}-ui
+  template:
+    metadata:
+      labels:
+        app: {{ include "netmaker.fullname" . }}-ui
+    spec:
+      containers:
+      - name: {{ include "netmaker.fullname" . }}-ui
+        image: gravitl/netmaker-ui:v0.8
+        ports:
+        - containerPort: 80
+        env:
+        - name: BACKEND_URL
+          value: 'https://{{ .Values.ingress.hostPrefix.rest }}{{ required "A valid .Values.baseDomain entry required!" .Values.baseDomain}}'
