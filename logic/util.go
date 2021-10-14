@@ -4,13 +4,16 @@ package logic
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log"
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/relay"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -61,7 +64,7 @@ func DeleteNode(key string, exterminate bool) error {
 		}
 	} else {
 		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			functions.PrintUserLog("", err.Error(), 2)
+			Log(err.Error(), 2)
 		}
 	}
 	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
@@ -186,19 +189,19 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 		if database.IsEmptyRecord(err) {
 			return peers, nil
 		}
-		functions.PrintUserLog("", err.Error(), 2)
+		Log(err.Error(), 2)
 		return nil, err
 	}
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
-		functions.PrintUserLog("", errN.Error(), 2)
+		Log(errN.Error(), 2)
 	}
 	for _, value := range collection {
 		var node models.Node
 		var peer models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			functions.PrintUserLog("", err.Error(), 2)
+			Log(err.Error(), 2)
 			continue
 		}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
@@ -289,4 +292,31 @@ func setPeerInfo(node models.Node) models.Node {
 	peer.IsIngressGateway = node.IsIngressGateway
 	peer.IsPending = node.IsPending
 	return peer
+}
+
+func Log(message string, loglevel int) {
+	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
+	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
+		log.Println("[netmaker] " + message)
+	}
+}
+
+// == Private Methods ==
+
+func setIPForwardingLinux() error {
+	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
+	if err != nil {
+		log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
+		return err
+	} else {
+		s := strings.Fields(string(out))
+		if s[2] != "1" {
+			_, err = ncutils.RunCmd("sysctl -w net.ipv4.ip_forward=1", true)
+			if err != nil {
+				log.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
+				return err
+			}
+		}
+	}
+	return nil
 }

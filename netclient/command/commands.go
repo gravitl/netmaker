@@ -25,8 +25,11 @@ var (
 
 func Join(cfg config.ClientConfig, privateKey string) error {
 
-	err := functions.JoinNetwork(cfg, privateKey)
-
+	var err error
+	err = functions.JoinNetwork(cfg, privateKey)
+	if err != nil && cfg.Node.IsServer != "yes" { // make sure server side is cleaned up
+		return err
+	}
 	if err != nil && !cfg.DebugJoin {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			ncutils.PrintLog("error installing: "+err.Error(), 1)
