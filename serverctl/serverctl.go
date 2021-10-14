@@ -107,7 +107,7 @@ func HandleContainedClient() error {
 			err = logic.ServerCheckin(servercfg.GetNodeID(), serverNet.NetID)
 			if err != nil {
 				logic.Log("error occurred during server checkin, running a pull: "+err.Error(), 1)
-				_, err = logic.ServerPull(servercfg.GetNodeID(), serverNet.NetID)
+				_, err = logic.ServerPull(servercfg.GetNodeID(), serverNet.NetID, true)
 				if err != nil {
 					logic.Log("error when pulling after checkin: "+err.Error(), 1)
 				}

@@ -142,7 +142,7 @@ func ServerCheckin(mac string, network string) error {
 		return err
 	}
 
-	newNode, err = ServerPull(mac, network)
+	newNode, err = ServerPull(mac, network, false)
 	if isDeleteError(err) {
 		return ServerLeave(mac, network)
 	} else if err != nil {
@@ -158,7 +158,7 @@ func ServerCheckin(mac string, network string) error {
 }
 
 // ServerPull - pulls current config/peers for server
-func ServerPull(mac string, network string) (*models.Node, error) {
+func ServerPull(mac string, network string, onErr bool) (*models.Node, error) {
 
 	var serverNode models.Node
 	var err error
@@ -174,7 +174,7 @@ func ServerPull(mac string, network string) (*models.Node, error) {
 	}
 	serverNode.OS = runtime.GOOS
 
-	if serverNode.PullChanges == "yes" {
+	if serverNode.PullChanges == "yes" || onErr {
 		// check for interface change
 		var isIfacePresent bool
 		var oldIfaceName string
@@ -197,7 +197,7 @@ func ServerPull(mac string, network string) (*models.Node, error) {
 	} else {
 		if err = setWGConfig(serverNode, network, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return ServerPull(serverNode.MacAddress, serverNode.Network)
+				return ServerPull(serverNode.MacAddress, serverNode.Network, true)
 			} else {
 				return &serverNode, err
 			}

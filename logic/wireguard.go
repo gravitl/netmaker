@@ -161,7 +161,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 
 		if _, err := ncutils.RunCmd(ipExec+" link set down dev "+ifacename, false); err != nil {
-			ncutils.Log("attempted to remove interface before editing")
+			Log("attempted to remove interface before editing", 2)
 			return err
 		}
 
@@ -171,7 +171,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		// set MTU of node interface
 		if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {
-			ncutils.Log("failed to create interface with mtu " + ifacename)
+			Log("failed to create interface with mtu "+ifacename, 2)
 			return err
 		}
 
@@ -224,18 +224,18 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 
 	client, err := wgctrl.New()
 	if err != nil {
-		ncutils.PrintLog("failed to start wgctrl", 0)
+		Log("failed to start wgctrl", 0)
 		return err
 	}
 
 	device, err := client.Device(iface)
 	if err != nil {
-		ncutils.PrintLog("failed to parse interface", 0)
+		Log("failed to parse interface", 0)
 		return err
 	}
 	devicePeers := device.Peers
 	if len(devicePeers) > 1 && len(peers) == 0 {
-		ncutils.PrintLog("no peers pulled", 1)
+		Log("no peers pulled", 1)
 		return err
 	}
 
@@ -272,7 +272,7 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 				" allowed-ips "+allowedips, true)
 		}
 		if err != nil {
-			log.Println("error setting peer", peer.PublicKey.String())
+			Log("error setting peer "+peer.PublicKey.String(), 1)
 		}
 	}
 
