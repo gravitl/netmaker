@@ -28,11 +28,11 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
 }
 
-// Node authenticates using its password and retrieves a JWT for authorization.
+//Node authenticates using its password and retrieves a JWT for authorization.
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
-	// Auth request consists of Mac Address and Password (from node that is authorizing
-	// in case of Master, auth is ignored and mac is set to "mastermac"
+	//Auth request consists of Mac Address and Password (from node that is authorizing
+	//in case of Master, auth is ignored and mac is set to "mastermac"
 	var authRequest models.UserAuthParams
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
@@ -53,7 +53,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	if jwt == "" {
-		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
+		//very unlikely that err is !nil and no jwt returned, but handle it anyways.
 		returnErrorResponse(response, request, formatError(errors.New("No token returned"), "internal"))
 		return
 	}
@@ -67,7 +67,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			UserName:  username,
 		},
 	}
-	// Send back the JWT
+	//Send back the JWT
 	successJSONResponse, jsonError := json.Marshal(successResponse)
 
 	if jsonError != nil {
@@ -79,7 +79,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// VerifyAuthRequest - verifies an auth request
 func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	var result models.User
 	if authRequest.UserName == "" {
@@ -87,7 +86,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	} else if authRequest.Password == "" {
 		return "", errors.New("password can't be empty")
 	}
-	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
+	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
 	if err != nil {
 		return "", errors.New("incorrect credentials")
@@ -96,9 +95,9 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 		return "", errors.New("incorrect credentials")
 	}
 
-	// compare password from request to stored password in database
-	// might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
-	// TODO: Consider a way of hashing the password client side before sending, or using certificates
+	//compare password from request to stored password in database
+	//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
+	//TODO: Consider a way of hashing the password client side before sending, or using certificates
 	if err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password)); err != nil {
 		return "", errors.New("incorrect credentials")
 	}
@@ -108,19 +107,19 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	return tokenString, nil
 }
 
-// The middleware for most requests to the API
-// They all pass  through here first
-// This will validate the JWT (or check for master token)
-// This will also check against the authNetwork and make sure the node should be accessing that endpoint,
-// even if it's technically ok
-// This is kind of a poor man's RBAC. There's probably a better/smarter way.
-// TODO: Consider better RBAC implementations
+//The middleware for most requests to the API
+//They all pass  through here first
+//This will validate the JWT (or check for master token)
+//This will also check against the authNetwork and make sure the node should be accessing that endpoint,
+//even if it's technically ok
+//This is kind of a poor man's RBAC. There's probably a better/smarter way.
+//TODO: Consider better RBAC implementations
 func authorizeUser(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var params = mux.Vars(r)
 
-		// get the auth token
+		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
 		username := params["username"]
 		err := ValidateUserToken(bearerToken, username, false)
@@ -151,7 +150,6 @@ func authorizeUserAdm(next http.Handler) http.HandlerFunc {
 	}
 }
 
-// ValidateUserToken - self explained
 func ValidateUserToken(token string, user string, adminonly bool) error {
 	var tokenSplit = strings.Split(token, " ")
 	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
@@ -181,7 +179,6 @@ func ValidateUserToken(token string, user string, adminonly bool) error {
 	return nil
 }
 
-// HasAdmin - checks if server has an admin
 func HasAdmin() (bool, error) {
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
@@ -221,7 +218,6 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// GetUser - gets a user
 func GetUser(username string) (models.ReturnUser, error) {
 
 	var user models.ReturnUser
@@ -235,7 +231,6 @@ func GetUser(username string) (models.ReturnUser, error) {
 	return user, err
 }
 
-// GetUserInternal - gets an internal user
 func GetUserInternal(username string) (models.User, error) {
 
 	var user models.User
@@ -249,7 +244,6 @@ func GetUserInternal(username string) (models.User, error) {
 	return user, err
 }
 
-// GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
 
 	var users []models.ReturnUser
@@ -273,7 +267,7 @@ func GetUsers() ([]models.ReturnUser, error) {
 	return users, err
 }
 
-// Get an individual node. Nothin fancy here folks.
+//Get an individual node. Nothin fancy here folks.
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -290,7 +284,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// Get an individual node. Nothin fancy here folks.
+//Get an individual node. Nothin fancy here folks.
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -306,9 +300,8 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// CreateUser - creates a user
 func CreateUser(user models.User) (models.User, error) {
-	// check if user exists
+	//check if user exists
 	if _, err := GetUser(user.UserName); err == nil {
 		return models.User{}, errors.New("user exists")
 	}
@@ -317,18 +310,18 @@ func CreateUser(user models.User) (models.User, error) {
 		return models.User{}, err
 	}
 
-	// encrypt that password so we never see it again
+	//encrypt that password so we never see it again
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
 	if err != nil {
 		return user, err
 	}
-	// set password to encrypted password
+	//set password to encrypted password
 	user.Password = string(hash)
 
 	tokenString, _ := functions.CreateUserJWT(user.UserName, user.Networks, user.IsAdmin)
 
 	if tokenString == "" {
-		// returnErrorResponse(w, r, errorResponse)
+		//returnErrorResponse(w, r, errorResponse)
 		return user, err
 	}
 
@@ -346,7 +339,7 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var admin models.User
-	// get node from body of request
+	//get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
 	hasadmin, err := HasAdmin()
 	if err != nil {
@@ -358,7 +351,6 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	admin.IsAdmin = true
-	fmt.Println(admin)
 	admin, err = CreateUser(admin)
 
 	if err != nil {
@@ -373,7 +365,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var user models.User
-	// get node from body of request
+	//get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&user)
 
 	user, err := CreateUser(user)
@@ -386,7 +378,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// UpdateUser - updates a given user
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	//check if user exists
 	if _, err := GetUser(user.UserName); err != nil {
@@ -407,13 +398,13 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 		user.Networks = userchange.Networks
 	}
 	if userchange.Password != "" {
-		// encrypt that password so we never see it again
+		//encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
 
 		if err != nil {
 			return userchange, err
 		}
-		// set password to encrypted password
+		//set password to encrypted password
 		userchange.Password = string(hash)
 
 		user.Password = userchange.Password
@@ -436,7 +427,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	var user models.User
-	// start here
+	//start here
 	username := params["username"]
 	user, err := GetUserInternal(username)
 	if err != nil {
@@ -464,7 +455,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	var user models.User
-	// start here
+	//start here
 	username := params["username"]
 	user, err := GetUserInternal(username)
 	if err != nil {
@@ -487,7 +478,6 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// DeleteUser - deletes a given user
 func DeleteUser(user string) (bool, error) {
 
 	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
@@ -523,7 +513,6 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
 }
 
-// ValidateUser - validates a user model
 func ValidateUser(operation string, user models.User) error {
 
 	v := validator.New()
