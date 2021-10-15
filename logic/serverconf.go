@@ -2,7 +2,6 @@ package logic
 
 import (
 	"encoding/json"
-	"log"
 
 	"github.com/gravitl/netmaker/database"
 )
@@ -39,7 +38,6 @@ func FetchPrivKey(serverID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Println(fetchedData)
 	return fetchedData.PrivateKey, nil
 }
 

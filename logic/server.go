@@ -26,11 +26,12 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	var err error
 	var node *models.Node // fill this object with server node specifics
 	node = &models.Node{
-		IsServer:   "yes",
-		DNSOn:      "no",
-		IsStatic:   "yes",
-		Name:       models.NODE_SERVER_NAME,
-		MacAddress: serverID,
+		IsServer:     "yes",
+		DNSOn:        "no",
+		IsStatic:     "yes",
+		Name:         models.NODE_SERVER_NAME,
+		MacAddress:   serverID,
+		UDPHolePunch: "no",
 	}
 	node.SetDefaults()
 
@@ -111,8 +112,6 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	node.SetID()
 	if err = StorePrivKey(node.ID, privateKey); err != nil {
 		return err
-	} else {
-		Log("stored private key "+privateKey, 0)
 	}
 	if err = ServerPush(node.MacAddress, node.Network); err != nil {
 		return err
