@@ -77,7 +77,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.name
         - name: SQL_HOST
-          value: '{{ .Release.Name }}-postgresql-ha-postgresql.{{ .Release.Namespace }}.svc.cluster.local'
+          value: '{{ .Release.Name }}-postgresql-ha-pgpool.{{ .Release.Namespace }}.svc.cluster.local'
         - name: SQL_PORT
           value: "5432"
         - name: SQL_DB
@@ -88,7 +88,11 @@ spec:
           value: {{ index .Values "postgresql-ha" "postgresql" "password" }}
         - name: DATABASE
           value: postgres
-        image: gravitl/netmaker:userspace5
+      {{- if or (not .Values.wireguard.enabled) (.Values.wireguard.kernel) }}
+        image: gravitl/netmaker:v0.8.4
+      {{- else }}
+        image: gravitl/netmaker:v0.8.4-userspace
+      {{- end }}
         imagePullPolicy: Always
         name: {{ include "netmaker.fullname" . }}
         ports:

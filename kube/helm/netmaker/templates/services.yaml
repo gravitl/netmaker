@@ -27,7 +27,7 @@ spec:
     protocol: TCP
     targetPort: {{ .Values.service.restPort }}
   selector:
-    {{- include "netmaker.selectorLabels" . | nindent 4 }}
+    app: '{{ include "netmaker.fullname" . }}'
   sessionAffinity: None
   type: {{ .Values.service.type }}
 ---
@@ -44,6 +44,6 @@ spec:
     protocol: TCP
     targetPort: {{ .Values.service.grpcPort }}
   selector:
-    {{- include "netmaker.selectorLabels" . | nindent 4 }}
+    app: '{{ include "netmaker.fullname" . }}'
   sessionAffinity: None
   type: {{ .Values.service.type }}
