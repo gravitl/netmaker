@@ -28,36 +28,26 @@ type Network struct {
 	Peers       []Peer `json:"peers"`
 }
 
-func List() error {
-	networks, err := ncutils.GetSystemNetworks()
-	if err != nil {
-		return err
+func List(network string) error {
+	nets := []Network{}
+	var err error
+	var networks []string
+	if network == "all" {
+		networks, err = ncutils.GetSystemNetworks()
+		if err != nil {
+			return err
+		}
+	} else {
+		networks = append(networks, network)
 	}
 
-	nets := []Network{}
 	for _, network := range networks {
-		cfg, err := config.ReadConfig(network)
+		net, err := getNetwork(network)
 		if err != nil {
 			ncutils.PrintLog(network+": Could not retrieve network configuration.", 1)
 			return err
 		}
-		peers, err := getPeers(network)
-		if err != nil {
-			ncutils.PrintLog(network+": Could not retrieve network configuration.", 1)
-			return err
-		}
-
-		nets = append(nets, Network{
-			Name:  network,
-			Peers: peers,
-			CurrentNode: Peer{
-				Name:           cfg.Node.Name,
-				Interface:      cfg.Node.Interface,
-				PrivateIPv4:    cfg.Node.Address,
-				PrivateIPv6:    cfg.Node.Address6,
-				PublicEndpoint: cfg.Node.Endpoint,
-			},
-		})
+		nets = append(nets, net)
 	}
 
 	jsoncfg, _ := json.Marshal(struct {
@@ -66,6 +56,28 @@ func List() error {
 	fmt.Println(string(jsoncfg))
 
 	return nil
+}
+
+func getNetwork(network string) (Network, error) {
+	cfg, err := config.ReadConfig(network)
+	if err != nil {
+		return Network{}, fmt.Errorf("reading configuration for network %v: %w", network, err)
+	}
+	peers, err := getPeers(network)
+	if err != nil {
+		return Network{}, fmt.Errorf("listing peers for network %v: %w", network, err)
+	}
+	return Network{
+		Name:  network,
+		Peers: peers,
+		CurrentNode: Peer{
+			Name:           cfg.Node.Name,
+			Interface:      cfg.Node.Interface,
+			PrivateIPv4:    cfg.Node.Address,
+			PrivateIPv6:    cfg.Node.Address6,
+			PublicEndpoint: cfg.Node.Endpoint,
+		},
+	}, nil
 }
 
 func getPeers(network string) ([]Peer, error) {
