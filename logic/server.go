@@ -8,13 +8,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // == Join, Checkin, and Leave for Server ==
+
+// KUBERNETES_LISTEN_PORT - starting port for Kubernetes in order to use NodePort range
+const KUBERNETES_LISTEN_PORT = 31821
 
 // ServerJoin - responsible for joining a server to a network
 func ServerJoin(network string, serverID string, privateKey string) error {
@@ -32,6 +35,9 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		Name:         models.NODE_SERVER_NAME,
 		MacAddress:   serverID,
 		UDPHolePunch: "no",
+	}
+	if servercfg.GetPlatform() == "Kubernetes" {
+		node.ListenPort = KUBERNETES_LISTEN_PORT
 	}
 	node.SetDefaults()
 
