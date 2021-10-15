@@ -1,0 +1,142 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "netmaker.fullname" . -}}
+{{- $fullUIName := printf "%s-%s" $fullName "ui" -}}
+{{- $fullRESTName := printf "%s-%s" $fullName "rest" -}}
+{{- $fullGRPCName := printf "%s-%s" $fullName "grpc" -}}
+{{- $uiSvcPort := .Values.service.uiPort -}}
+{{- $restSvcPort := .Values.service.restPort -}}
+{{- $grpcSvcPort := .Values.service.grpcPort -}}
+{{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullUIName }}
+  labels:
+    {{- include "netmaker.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hostPrefix.ui }}{{ .Values.baseDomain }}
+      secretName: {{ $fullUIName }}-tls-secret
+  rules:
+    - host: {{ .Values.ingress.hostPrefix.ui }}{{ .Values.baseDomain }}
+      http:
+        paths:
+          - path: /
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullUIName }}
+                port:
+                  number: {{ $uiSvcPort }}
+              {{- else }}
+              serviceName: {{ $fullUIName }}
+              servicePort: {{ $uiSvcPort }}
+              {{- end }}
+---
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullRESTName }}
+  labels:
+    {{- include "netmaker.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hostPrefix.rest }}{{ .Values.baseDomain }}
+      secretName: {{ $fullRESTName }}-tls-secret
+  rules:
+    - host: {{ .Values.ingress.hostPrefix.rest }}{{ .Values.baseDomain }}
+      http:
+        paths:
+          - path: /
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullRESTName }}
+                port:
+                  number: {{ $restSvcPort }}
+              {{- else }}
+              serviceName: {{ $fullRESTName }}
+              servicePort: {{ $restSvcPort }}
+              {{- end }}
+---
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullGRPCName }}
+  labels:
+    {{- include "netmaker.labels" . | nindent 4 }}
+  {{- with .Values.ingress.grpcAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hostPrefix.grpc }}{{ .Values.baseDomain }}
+      secretName: {{ $fullGRPCName }}-tls-secret
+  rules:
+    - host: {{ .Values.ingress.hostPrefix.grpc }}{{ .Values.baseDomain }}
+      http:
+        paths:
+          - path: /
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullGRPCName }}
+                port:
+                  number: {{ $grpcSvcPort }}
+              {{- else }}
+              serviceName: {{ $fullGRPCName }}
+              servicePort: {{ $grpcSvcPort }}
+              {{- end }}
+{{- end }}

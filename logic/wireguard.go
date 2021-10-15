@@ -125,6 +125,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			time.Sleep(time.Second >> 2)
 			d, _ = wgclient.Device(deviceiface)
 		}
+		time.Sleep(time.Second >> 2)
 		err = applyWGQuickConf(confPath)
 		if err != nil {
 			Log("failed to create wireguard interface", 1)

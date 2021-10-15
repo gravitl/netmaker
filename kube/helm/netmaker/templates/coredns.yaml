@@ -1,0 +1,85 @@
+{{- if .Values.dns.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "netmaker.fullname" . }}-coredns
+  labels:
+    app: {{ include "netmaker.fullname" . }}-coredns
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "netmaker.fullname" . }}-coredns
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ include "netmaker.fullname" . }}-coredns
+    spec:
+      containers:
+      - args:
+        - -conf
+        - /root/dnsconfig/Corefile
+        image: coredns/coredns
+        imagePullPolicy: Always
+        name: netmaker-dns
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /root/dnsconfig
+          name: {{ include "netmaker.fullname" . }}-dns-pvc
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - all
+      dnsPolicy: "None"
+      dnsConfig:
+        nameservers:
+          - 127.0.0.1
+      volumes:
+      - name: {{ include "netmaker.fullname" . }}-dns-pvc
+        persistentVolumeClaim:
+          claimName: {{ include "netmaker.fullname" . }}-dns-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: {{ include "netmaker.fullname" . }}-coredns
+  name: {{ include "netmaker.fullname" . }}-coredns
+spec:
+  ports:
+  - port: 53
+    protocol: UDP
+    targetPort: 53
+    name: udp
+  - port: 53
+    protocol: TCP
+    targetPort: 53
+    name: tcp
+  selector:
+    app: {{ include "netmaker.fullname" . }}-coredns
+  sessionAffinity: None
+  type: ClusterIP
+  clusterIP: {{ required "A valid .Values.dns.clusterIP entry required! Choose an IP from your k8s service IP CIDR" .Values.dns.clusterIP}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "netmaker.fullname" . }}-dns-pvc
+spec:
+  storageClassName: {{ required "A valid .Values.dns.RWX.storageClassName entry required! Specify an available RWX storage class." .Values.dns.RWX.storageClassName}}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.dns.storageSize }}
+{{- end }}
