@@ -7,8 +7,10 @@ import (
 	"github.com/rqlite/gorqlite"
 )
 
+// RQliteDatabase - the rqlite db connection
 var RQliteDatabase gorqlite.Connection
 
+// RQLITE_FUNCTIONS - all the functions to run with rqlite
 var RQLITE_FUNCTIONS = map[string]interface{}{
 	INIT_DB:      initRqliteDatabase,
 	CREATE_TABLE: rqliteCreateTable,
@@ -46,9 +48,8 @@ func rqliteInsert(key string, value string, tableName string) error {
 			return err
 		}
 		return nil
-	} else {
-		return errors.New("invalid insert " + key + " : " + value)
 	}
+	return errors.New("invalid insert " + key + " : " + value)
 }
 
 func rqliteInsertPeer(key string, value string) error {
@@ -58,9 +59,8 @@ func rqliteInsertPeer(key string, value string) error {
 			return err
 		}
 		return nil
-	} else {
-		return errors.New("invalid peer insert " + key + " : " + value)
 	}
+	return errors.New("invalid peer insert " + key + " : " + value)
 }
 
 func rqliteDeleteRecord(tableName string, key string) error {

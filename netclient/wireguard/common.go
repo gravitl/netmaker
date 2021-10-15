@@ -18,9 +18,9 @@ import (
 	"github.com/gravitl/netmaker/netclient/server"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	//homedir "github.com/mitchellh/go-homedir"
 )
 
+// SetPeers - sets peers on a given WireGuard interface
 func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 
 	client, err := wgctrl.New()
@@ -95,6 +95,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 	return nil
 }
 
+// Initializes a WireGuard interface
 func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
 
 	key, err := wgtypes.ParseKey(privkey)
@@ -258,6 +259,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	return err
 }
 
+// SetWGConfig - sets the WireGuard Config of a given network and checks if it needs a peer update
 func SetWGConfig(network string, peerupdate bool) error {
 
 	cfg, err := config.ReadConfig(network)
@@ -291,6 +293,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	return err
 }
 
+// RemoveConf - removes a configuration for a given WireGuard interface
 func RemoveConf(iface string, printlog bool) error {
 	os := runtime.GOOS
 	var err error
@@ -304,6 +307,7 @@ func RemoveConf(iface string, printlog bool) error {
 	return err
 }
 
+// ApplyConf - applys a conf on disk to WireGuard interface
 func ApplyConf(confPath string) error {
 	os := runtime.GOOS
 	var err error

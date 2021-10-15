@@ -111,6 +111,7 @@ func checkNodeActions(node *models.Node, networkName string, servercfg config.Se
 	return ""
 }
 
+// CheckConfig - checks if current config of client needs update, see flow below
 /**
  * Pull changes if any (interface refresh)
  * - Save it
@@ -148,10 +149,7 @@ func CheckConfig(cliconf config.ClientConfig) error {
 	return Push(network)
 }
 
-/**
- * Pull the latest node from server
- * Perform action if necessary
- */
+// Pull - pulls the latest config from the server, if manual it will overwrite
 func Pull(network string, manual bool) (*models.Node, error) {
 	cfg, err := config.ReadConfig(network)
 	node := cfg.Node
@@ -259,6 +257,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	return &resNode, err
 }
 
+// Push - pushes current client configuration to server
 func Push(network string) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {

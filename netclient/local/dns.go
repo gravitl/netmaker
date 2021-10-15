@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+// SetDNS - sets the DNS of a local machine
 func SetDNS(nameserver string) error {
 	bytes, err := ioutil.ReadFile("/etc/resolv.conf")
 	if err != nil {
@@ -33,6 +34,7 @@ func SetDNS(nameserver string) error {
 	return err
 }
 
+// UpdateDNS - updates local DNS of client
 func UpdateDNS(ifacename string, network string, nameserver string) error {
 	if ncutils.IsWindows() {
 		return nil

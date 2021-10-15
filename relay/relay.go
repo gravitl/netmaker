@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// GetNodeRelay - gets the relay node of a given network
 func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	var relay models.Node

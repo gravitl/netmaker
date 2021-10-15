@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
 	var nodes []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -33,6 +34,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 	return nodes, nil
 }
 
+// GetSortedNetworkServerNodes - gets nodes of a network, except sorted by update time
 func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 	var nodes []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -57,6 +59,7 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 	return nodes, nil
 }
 
+// GetPeers - gets the peers of a given node
 func GetPeers(node models.Node) ([]models.Node, error) {
 	if node.IsServer == "yes" && IsLeader(&node) {
 		SetNetworkServerPeers(&node)
@@ -73,6 +76,7 @@ func GetPeers(node models.Node) ([]models.Node, error) {
 	return peers, nil
 }
 
+// IsLeader - determines if a given server node is a leader
 func IsLeader(node *models.Node) bool {
 	nodes, err := GetSortedNetworkServerNodes(node.Network)
 	if err != nil {

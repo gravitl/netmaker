@@ -2,10 +2,10 @@ package database
 
 import (
 	"encoding/json"
-	"time"
 	"errors"
-	"log"
 	"github.com/gravitl/netmaker/servercfg"
+	"log"
+	"time"
 )
 
 const NETWORKS_TABLE_NAME = "networks"
@@ -38,13 +38,15 @@ func getCurrentDB() map[string]interface{} {
 		return RQLITE_FUNCTIONS
 	case "sqlite":
 		return SQLITE_FUNCTIONS
+	case "postgres":
+		return PG_FUNCTIONS
 	default:
 		return SQLITE_FUNCTIONS
 	}
 }
 
 func InitializeDatabase() error {
-	log.Println("connecting to",servercfg.GetDB())
+	log.Println("connecting to", servercfg.GetDB())
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
 		if err := getCurrentDB()[INIT_DB].(func() error)(); err != nil {

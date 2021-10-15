@@ -33,6 +33,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
+// CreateRelay - creates a relay
 func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	node, err := functions.GetNodeByMacAddress(relay.NetID, relay.NodeID)
 	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
@@ -87,6 +88,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
+// SetRelayedNodes- set relayed nodes
 func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -118,6 +120,7 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 	return nil
 }
 
+// ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest) error {
 	var err error
 	//isIp := functions.IsIpCIDR(gateway.RangeString)
@@ -128,6 +131,7 @@ func ValidateRelay(relay models.RelayRequest) error {
 	return err
 }
 
+// UpdateRelay - updates a relay
 func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
 	time.Sleep(time.Second / 4)
 	err := SetRelayedNodes("no", network, oldAddrs)
@@ -140,6 +144,7 @@ func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
 	}
 }
 
+// DeleteRelay - deletes a relay
 func DeleteRelay(network, macaddress string) (models.Node, error) {
 
 	node, err := functions.GetNodeByMacAddress(network, macaddress)

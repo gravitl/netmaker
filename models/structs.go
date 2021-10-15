@@ -2,11 +2,13 @@ package models
 
 import jwt "github.com/golang-jwt/jwt/v4"
 
+// AuthParams - struct for auth params
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`
 	Password   string `json:"password"`
 }
 
+// User struct - struct for Users
 type User struct {
 	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
 	Password string   `json:"password" bson:"password" validate:"required,min=5"`
@@ -14,17 +16,20 @@ type User struct {
 	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
 }
 
+// ReturnUser - return user struct
 type ReturnUser struct {
 	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
 	Networks []string `json:"networks" bson:"networks"`
 	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
 }
 
+// UserAuthParams - user auth params struct
 type UserAuthParams struct {
 	UserName string `json:"username"`
 	Password string `json:"password"`
 }
 
+// UserClaims - user claims struct
 type UserClaims struct {
 	IsAdmin  bool
 	UserName string
@@ -32,6 +37,7 @@ type UserClaims struct {
 	jwt.StandardClaims
 }
 
+// SuccessfulUserLoginResponse - successlogin struct
 type SuccessfulUserLoginResponse struct {
 	UserName  string
 	AuthToken string
@@ -51,11 +57,13 @@ type SuccessfulLoginResponse struct {
 	AuthToken  string
 }
 
+// ErrorResponse is struct for error
 type ErrorResponse struct {
 	Code    int
 	Message string
 }
 
+// NodeAuth - struct for node auth
 type NodeAuth struct {
 	Network    string
 	Password   string
@@ -69,6 +77,7 @@ type SuccessResponse struct {
 	Response interface{}
 }
 
+// AccessKey - access key struct
 type AccessKey struct {
 	Name         string `json:"name" bson:"name" validate:"omitempty,max=20"`
 	Value        string `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
@@ -76,17 +85,20 @@ type AccessKey struct {
 	Uses         int    `json:"uses" bson:"uses"`
 }
 
+// DisplayKey - what is displayed for key
 type DisplayKey struct {
 	Name string `json:"name" bson:"name"`
 	Uses int    `json:"uses" bson:"uses"`
 }
 
+// GlobalConfig - global config
 type GlobalConfig struct {
 	Name       string `json:"name" bson:"name"`
 	PortGRPC   string `json:"portgrpc" bson:"portgrpc"`
 	ServerGRPC string `json:"servergrpc" bson:"servergrpc"`
 }
 
+// CheckInResponse - checkin response
 type CheckInResponse struct {
 	Success          bool   `json:"success" bson:"success"`
 	NeedPeerUpdate   bool   `json:"needpeerupdate" bson:"needpeerupdate"`
@@ -97,6 +109,7 @@ type CheckInResponse struct {
 	IsPending        bool   `json:"ispending" bson:"ispending"`
 }
 
+// PeersResponse - peers response
 type PeersResponse struct {
 	PublicKey           string `json:"publickey" bson:"publickey"`
 	Endpoint            string `json:"endpoint" bson:"endpoint"`
@@ -109,6 +122,7 @@ type PeersResponse struct {
 	KeepAlive           int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
+// ExtPeersResponse - ext peers response
 type ExtPeersResponse struct {
 	PublicKey    string `json:"publickey" bson:"publickey"`
 	Endpoint     string `json:"endpoint" bson:"endpoint"`
@@ -119,6 +133,7 @@ type ExtPeersResponse struct {
 	KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
+// EgressGatewayRequest - egress gateway request
 type EgressGatewayRequest struct {
 	NodeID      string   `json:"nodeid" bson:"nodeid"`
 	NetID       string   `json:"netid" bson:"netid"`
@@ -129,6 +144,7 @@ type EgressGatewayRequest struct {
 	PostDown    string   `json:"postdown" bson:"postdown"`
 }
 
+// RelayRequest - relay request struct
 type RelayRequest struct {
 	NodeID     string   `json:"nodeid" bson:"nodeid"`
 	NetID      string   `json:"netid" bson:"netid"`

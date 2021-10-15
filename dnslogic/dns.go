@@ -10,6 +10,7 @@ import (
 	"github.com/txn2/txeh"
 )
 
+// SetDNS - sets the dns on file
 func SetDNS() error {
 	hostfile := txeh.Hosts{}
 	var corefilestring string
@@ -42,6 +43,7 @@ func SetDNS() error {
 	return err
 }
 
+// GetDNS - gets the DNS of a current network
 func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
@@ -58,6 +60,7 @@ func GetDNS(network string) ([]models.DNSEntry, error) {
 	return dns, nil
 }
 
+// GetNodeDNS - gets the DNS of a network node
 func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
@@ -81,6 +84,7 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 	return dns, nil
 }
 
+// GetCustomDNS - gets the custom DNS of a network
 func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
