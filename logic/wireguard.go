@@ -108,10 +108,16 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	if !ncutils.IsKernel() {
 		var newConf string
+		Log("setting wg conf", 3)
+		Log("wg conf address: "+node.Address+"/32", 3)
+		Log("wg conf key    : "+key.String(), 3)
+		Log("wg conf mtu    : "+strconv.Itoa(int(node.MTU)), 3)
 		if node.UDPHolePunch != "yes" || node.IsServer == "yes" {
 			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, node.PersistentKeepalive, peers)
+			Log("wg conf port   : "+strconv.FormatInt(int64(node.ListenPort), 10), 3)
 		} else {
 			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, node.PersistentKeepalive, peers)
+			Log("wg conf port   : (no port set)", 3)
 		}
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		Log("writing wg conf file to: "+confPath, 1)
@@ -129,6 +135,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			time.Sleep(time.Second >> 2)
 			d, _ = wgclient.Device(deviceiface)
 		}
+		time.Sleep(time.Second >> 2)
 		err = applyWGQuickConf(confPath)
 		if err != nil {
 			Log("failed to create wireguard interface", 1)
