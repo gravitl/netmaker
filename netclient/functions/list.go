@@ -3,7 +3,6 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -93,7 +92,7 @@ func getPeers(network string) ([]Peer, error) {
 		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
 	if err != nil {
-		log.Fatalf("Unable to establish client connection to localhost:50051: %v", err)
+		return []Peer{}, fmt.Errorf("connecting to %v: %w", cfg.Server.GRPCAddress, err)
 	}
 	defer conn.Close()
 	// Instantiate the BlogServiceClient with our client connection to the server
@@ -106,19 +105,16 @@ func getPeers(network string) ([]Peer, error) {
 
 	ctx, err := auth.SetJWT(wcclient, network)
 	if err != nil {
-		log.Println("Failed to authenticate.")
-		return []Peer{}, err
+		return []Peer{}, fmt.Errorf("authenticating: %w", err)
 	}
 	var header metadata.MD
 
 	response, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))
 	if err != nil {
-		log.Println("Error retrieving peers")
-		return []Peer{}, err
+		return []Peer{}, fmt.Errorf("retrieving peers: %w", err)
 	}
 	if err := json.Unmarshal([]byte(response.GetData()), &nodes); err != nil {
-		log.Println("Error unmarshaling data for peers")
-		return []Peer{}, err
+		return []Peer{}, fmt.Errorf("unmarshaling data for peers: %w", err)
 	}
 
 	peers := []Peer{}
