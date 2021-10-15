@@ -86,10 +86,10 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Interface != "" {
 		ifacename = node.Interface
 	} else {
-		Log("no interface to configure", 0)
+		Log("no server interface provided to configure", 2)
 	}
 	if node.Address == "" {
-		Log("no address to configure", 0)
+		Log("no server address to provided configure", 2)
 	}
 
 	if ncutils.IsKernel() {
