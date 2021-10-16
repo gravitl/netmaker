@@ -153,6 +153,49 @@ func TestGetUser(t *testing.T) {
 	})
 }
 
+func TestGetUserInternal(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllUsers()
+	t.Run("NonExistantUser", func(t *testing.T) {
+		admin, err := GetUserInternal("admin")
+		assert.EqualError(t, err, "could not find any records")
+		assert.Equal(t, "", admin.UserName)
+	})
+	t.Run("UserExisits", func(t *testing.T) {
+		user := models.User{"admin", "password", nil, true}
+		CreateUser(user)
+		admin, err := GetUserInternal("admin")
+		assert.Nil(t, err)
+		assert.Equal(t, user.UserName, admin.UserName)
+	})
+}
+
+func TestGetUsers(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllUsers()
+	t.Run("NonExistantUser", func(t *testing.T) {
+		admin, err := GetUsers()
+		assert.EqualError(t, err, "could not find any records")
+		assert.Equal(t, []models.ReturnUser(nil), admin)
+	})
+	t.Run("UserExisits", func(t *testing.T) {
+		user := models.User{"admin", "password", nil, true}
+		CreateUser(user)
+		admins, err := GetUsers()
+		assert.Nil(t, err)
+		assert.Equal(t, user.UserName, admins[0].UserName)
+	})
+	t.Run("MulipleUsers", func(t *testing.T) {
+		user := models.User{"user", "password", nil, true}
+		CreateUser(user)
+		admins, err := GetUsers()
+		assert.Nil(t, err)
+		assert.Equal(t, "admin", admins[0].UserName)
+		assert.Equal(t, user.UserName, admins[1].UserName)
+	})
+
+}
+
 func TestUpdateUser(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllUsers()
