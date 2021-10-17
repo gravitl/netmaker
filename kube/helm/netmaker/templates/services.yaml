@@ -25,7 +25,7 @@ spec:
   - name: rest
     port: {{ .Values.service.restPort }}
     protocol: TCP
-    targetPort: {{ .Values.service.restPort }}
+    targetPort: {{ .Values.service.grpcPort }}
   selector:
     app: '{{ include "netmaker.fullname" . }}'
   sessionAffinity: None
@@ -47,3 +47,26 @@ spec:
     app: '{{ include "netmaker.fullname" . }}'
   sessionAffinity: None
   type: {{ .Values.service.type }}
+{{- if .Values.wireguard.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    {{- include "netmaker.labels" . | nindent 4 }}
+  name: '{{ include "netmaker.fullname" . }}-wireguard'
+spec:
+  externalTrafficPolicy: Local
+  type: NodePort
+  ports:
+  {{ $count := (add .Values.wireguard.networkLimit 1 | int) }}
+  {{- range untilStep 1 $count 1 }}
+  - port: {{ add 31820 . }}
+    nodePort: {{ add 31820 . }}
+    protocol: UDP
+    targetPort: {{ add 31820 . }}
+    name: wg-iface-{{ add 31820 . }}
+  {{- end }}
+  selector:
+    app: '{{ include "netmaker.fullname" . }}'
+{{- end }}

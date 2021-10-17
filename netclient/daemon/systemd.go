@@ -98,30 +98,17 @@ WantedBy=timers.target
 }
 
 // RemoveSystemDServices - removes the systemd services on a machine
-func RemoveSystemDServices(network string) error {
+func RemoveSystemDServices() error {
 	//sysExec, err := exec.LookPath("systemctl")
-	if !ncutils.IsWindows() {
-		fullremove, err := isOnlyService(network)
+	var err error
+	if !ncutils.IsWindows() && isOnlyService() {
 		if err != nil {
 			log.Println(err)
 		}
-
-		if fullremove {
-			_, err = ncutils.RunCmd("systemctl disable netclient.service", true)
-		}
-		_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
-
-		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
-			_, _ = ncutils.RunCmd("systemctl disable netclient.timer", true)
-		}
-		if fullremove {
-			if ncutils.FileExists("/etc/systemd/system/netclient.service") {
-				err = os.Remove("/etc/systemd/system/netclient.service")
-			}
-		}
-		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
-			err = os.Remove("/etc/systemd/system/netclient.timer")
-		}
+		_, err = ncutils.RunCmd("systemctl disable netclient.service", true)
+		_, err = ncutils.RunCmd("systemctl disable netclient.timer", true)
+		err = os.Remove("/etc/systemd/system/netclient.service")
+		err = os.Remove("/etc/systemd/system/netclient.timer")
 		if err != nil {
 			log.Println("Error removing file. Please investigate.")
 			log.Println(err)
@@ -132,16 +119,10 @@ func RemoveSystemDServices(network string) error {
 	return nil
 }
 
-func isOnlyService(network string) (bool, error) {
-	isonly := false
+func isOnlyService() bool {
 	files, err := filepath.Glob("/etc/netclient/config/netconfig-*")
 	if err != nil {
-		return isonly, err
+		return false
 	}
-	count := len(files)
-	if count == 0 {
-		isonly = true
-	}
-	return isonly, err
-
+	return len(files) == 0
 }

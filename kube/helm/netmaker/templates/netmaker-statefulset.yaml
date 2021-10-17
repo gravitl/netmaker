@@ -16,7 +16,6 @@ spec:
         app: {{ include "netmaker.fullname" . }}
     spec:
       {{- if .Values.wireguard.enabled }}
-      hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       affinity:
         podAntiAffinity:
@@ -96,10 +95,17 @@ spec:
         imagePullPolicy: Always
         name: {{ include "netmaker.fullname" . }}
         ports:
-        - containerPort: 8081
+        - containerPort: {{ .Values.service.restPort }}
           protocol: TCP
-        - containerPort: 443
+        - containerPort: {{ .Values.service.grpcPort }}
           protocol: TCP
+      {{- if .Values.wireguard.enabled }}
+        {{ $count := (add .Values.wireguard.networkLimit 1 | int) }}
+        {{- range untilStep 1 $count 1 }}
+        - containerPort: {{ add 31820 . }}
+          protocol: UDP      
+        {{- end }}
+      {{- end }}
         resources: {}
         {{- if .Values.wireguard.enabled }}
         securityContext:

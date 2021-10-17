@@ -42,7 +42,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 			}
 			if cfg.Daemon != "off" {
 				if ncutils.IsLinux() {
-					err = daemon.RemoveSystemDServices(cfg.Network)
+					err = daemon.RemoveSystemDServices()
 				}
 				if err != nil {
 					ncutils.PrintLog("error removing services: "+err.Error(), 1)

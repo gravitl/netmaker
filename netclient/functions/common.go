@@ -229,7 +229,7 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 		} else if ncutils.IsMac() {
 			//TODO: Delete mac daemon
 		} else {
-			err = daemon.RemoveSystemDServices(networkName)
+			err = daemon.RemoveSystemDServices()
 		}
 	}
 	return err

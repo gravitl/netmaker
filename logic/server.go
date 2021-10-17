@@ -18,6 +18,7 @@ import (
 
 // KUBERNETES_LISTEN_PORT - starting port for Kubernetes in order to use NodePort range
 const KUBERNETES_LISTEN_PORT = 31821
+const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
 func ServerJoin(network string, serverID string, privateKey string) error {
@@ -36,10 +37,12 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		MacAddress:   serverID,
 		UDPHolePunch: "no",
 	}
+	node.SetDefaults()
+
 	if servercfg.GetPlatform() == "Kubernetes" {
 		node.ListenPort = KUBERNETES_LISTEN_PORT
+		node.MTU = KUBERNETES_SERVER_MTU
 	}
-	node.SetDefaults()
 
 	if node.LocalRange != "" && node.LocalAddress == "" {
 		Log("local vpn, getting local address from range: "+node.LocalRange, 1)

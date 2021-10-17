@@ -6,6 +6,7 @@
 {{- $uiSvcPort := .Values.service.uiPort -}}
 {{- $restSvcPort := .Values.service.restPort -}}
 {{- $grpcSvcPort := .Values.service.grpcPort -}}
+{{- $classname := required "A valid .Values.ingress.className entry required! Please set this to your ingress class (nginx, traefik)" .Values.ingress.className}}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
@@ -23,18 +24,29 @@ metadata:
   name: {{ $fullUIName }}
   labels:
     {{- include "netmaker.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- with .Values.ingress }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- toYaml .annotations.base | nindent 4 }}
+    {{- if eq .className "nginx" }}
+    {{- toYaml .annotations.nginx | nindent 4 }}
+    {{- end }}
+    {{- if eq .className "traefik" }}
+    {{- toYaml .annotations.traefik | nindent 4 }}
+    {{- end }}
+    {{- if .tls.enabled }}
+    {{- toYaml .annotations.tls | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
+  ingressClassName: {{ required "A valid .Values.ingress.className entry required!" .Values.ingress.className}}
   {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
   tls:
     - hosts:
         - {{ .Values.ingress.hostPrefix.ui }}{{ .Values.baseDomain }}
       secretName: {{ $fullUIName }}-tls-secret
+  {{- end}}
   rules:
     - host: {{ .Values.ingress.hostPrefix.ui }}{{ .Values.baseDomain }}
       http:
@@ -66,18 +78,29 @@ metadata:
   name: {{ $fullRESTName }}
   labels:
     {{- include "netmaker.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- with .Values.ingress }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- toYaml .annotations.base | nindent 4 }}
+    {{- if eq .className "nginx" }}
+    {{- toYaml .annotations.nginx | nindent 4 }}
+    {{- end }}
+    {{- if eq .className "traefik" }}
+    {{- toYaml .annotations.traefik | nindent 4 }}
+    {{- end }}
+    {{- if .tls.enabled }}
+    {{- toYaml .annotations.tls | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
+  ingressClassName:  {{ required "A valid .Values.ingress.className entry required!" .Values.ingress.className}}
   {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
   tls:
     - hosts:
         - {{ .Values.ingress.hostPrefix.rest }}{{ .Values.baseDomain }}
       secretName: {{ $fullRESTName }}-tls-secret
+  {{- end }}
   rules:
     - host: {{ .Values.ingress.hostPrefix.rest }}{{ .Values.baseDomain }}
       http:
@@ -109,18 +132,31 @@ metadata:
   name: {{ $fullGRPCName }}
   labels:
     {{- include "netmaker.labels" . | nindent 4 }}
-  {{- with .Values.ingress.grpcAnnotations }}
+  {{- with .Values.ingress }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- toYaml .annotations.base | nindent 4 }}
+    {{- if eq .className "nginx" }}
+    {{- toYaml .annotations.nginx | nindent 4 }}
+    {{- toYaml .annotations.grpc.nginx | nindent 4 }}
+    {{- end }}
+    {{- if eq .className "traefik" }}
+    {{- toYaml .annotations.traefik | nindent 4 }}
+    {{- toYaml .annotations.grpc.traefik | nindent 4 }}
+    {{- end }}
+    {{- if .tls.enabled }}
+    {{- toYaml .annotations.tls | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
+  ingressClassName:  {{ required "A valid .Values.ingress.className entry required!" .Values.ingress.className}}
   {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
   tls:
     - hosts:
         - {{ .Values.ingress.hostPrefix.grpc }}{{ .Values.baseDomain }}
       secretName: {{ $fullGRPCName }}-tls-secret
+  {{- end }}
   rules:
     - host: {{ .Values.ingress.hostPrefix.grpc }}{{ .Values.baseDomain }}
       http:
