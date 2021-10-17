@@ -35,6 +35,7 @@ metadata:
     {{- end }}
     {{- if .tls.enabled }}
     {{- toYaml .annotations.tls | nindent 4 }}
+    cert-manager.io/cluster-issuer: {{ .tls.issuerName }}
     {{- end }}
   {{- end }}
 spec:
@@ -89,6 +90,7 @@ metadata:
     {{- end }}
     {{- if .tls.enabled }}
     {{- toYaml .annotations.tls | nindent 4 }}
+    cert-manager.io/cluster-issuer: {{ .tls.issuerName }}
     {{- end }}
   {{- end }}
 spec:
@@ -145,6 +147,7 @@ metadata:
     {{- end }}
     {{- if .tls.enabled }}
     {{- toYaml .annotations.tls | nindent 4 }}
+    cert-manager.io/cluster-issuer: {{ .tls.issuerName }}
     {{- end }}
   {{- end }}
 spec:

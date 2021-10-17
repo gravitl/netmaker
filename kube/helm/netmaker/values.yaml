@@ -53,15 +53,14 @@ ingress:
   enabled: false
   tls:
     enabled: true
+    issuerName: "letsencrypt-prod"
   annotations:
     base:
       # -- annotation to generate ACME certs if available
       kubernetes.io/ingress.allow-http: "false"    
     tls:
+      # -- use acme cert if available
       kubernetes.io/tls-acme: "true"
-      # -- LE issuer name 
-      cert-manager.io/cluster-issuer: "letsencrypt-prod"
-      # -- Block HTTP requests
     nginx:
       # -- Redirect http to https 
       nginx.ingress.kubernetes.io/ssl-redirect: 'true'
