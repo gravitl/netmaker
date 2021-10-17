@@ -414,12 +414,3 @@ func deleteAllDNS(t *testing.T) {
 		assert.Nil(t, err)
 	}
 }
-
-func TestDeleteAllDNS(t *testing.T) {
-	database.InitializeDatabase()
-	deleteAllDNS(t)
-	dns, err := GetAllDNS()
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(dns))
-	t.Log(dns)
-}
