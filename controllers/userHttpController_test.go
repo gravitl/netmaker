@@ -71,6 +71,26 @@ func TestCreateUser(t *testing.T) {
 	})
 }
 
+func TestCreateAdmin(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllUsers()
+	var user models.User
+	t.Run("NoAdmin", func(t *testing.T) {
+		user.UserName = "admin"
+		user.Password = "password"
+		admin, err := CreateAdmin(user)
+		assert.Nil(t, err)
+		assert.Equal(t, user.UserName, admin.UserName)
+	})
+	t.Run("AdminExists", func(t *testing.T) {
+		user.UserName = "admin2"
+		user.Password = "password1"
+		admin, err := CreateAdmin(user)
+		assert.EqualError(t, err, "admin user already exists")
+		assert.Equal(t, admin, models.User{})
+	})
+}
+
 func TestDeleteUser(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllUsers()

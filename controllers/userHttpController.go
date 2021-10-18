@@ -348,8 +348,8 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	var admin models.User
 	// get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
-	admin.IsAdmin = true
-	admin, err := CreateUser(admin)
+
+	admin, err := CreateAdmin(admin)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -357,6 +357,18 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	functions.PrintUserLog(admin.UserName, "was made a new admin", 1)
 	json.NewEncoder(w).Encode(admin)
+}
+
+func CreateAdmin(admin models.User) (models.User, error) {
+	hasadmin, err := HasAdmin()
+	if err != nil {
+		return models.User{}, err
+	}
+	if hasadmin {
+		return models.User{}, errors.New("admin user already exists")
+	}
+	admin.IsAdmin = true
+	return CreateUser(admin)
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
