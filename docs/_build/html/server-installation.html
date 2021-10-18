@@ -46,7 +46,7 @@
   
   
   
-    <title>Advanced Server Installation &#8212; Netmaker 0.8.2 documentation</title>
+    <title>Advanced Server Installation &#8212; Netmaker 0.8.3 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8.2 documentation"
+        <a href="index.html" title="Netmaker 0.8.3 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.2 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.3 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8.2 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.8.3 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8.2 documentation">Netmaker Docs</a>
+       title="Netmaker 0.8.3 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -274,6 +274,13 @@
       
     
     </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="install.html" class="md-nav__link">Install</a>
+      
     
     </li>
     <li class="md-nav__item">
@@ -467,7 +474,25 @@
         </li>
         <li class="md-nav__item"><a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
         </li>
-        <li class="md-nav__item"><a href="#highly-available-installation" class="md-nav__link">Highly Available Installation</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#highly-available-installation-kubernetes" class="md-nav__link">Highly Available Installation (Kubernetes)</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#requirements" class="md-nav__link">Requirements</a>
+        </li>
+        <li class="md-nav__item"><a href="#recommended-settings" class="md-nav__link">Recommended Settings:</a>
+        </li>
+        <li class="md-nav__item"><a href="#example-installations" class="md-nav__link">Example Installations:</a>
+        </li>
+        <li class="md-nav__item"><a href="#ingress" class="md-nav__link">Ingress</a>
+        </li>
+        <li class="md-nav__item"><a href="#kernel-wireguard" class="md-nav__link">Kernel WireGuard</a>
+        </li>
+        <li class="md-nav__item"><a href="#dns" class="md-nav__link">DNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#values" class="md-nav__link">Values</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#highly-available-installation-vms-bare-metal" class="md-nav__link">Highly Available Installation (VMs/Bare Metal)</a><nav class="md-nav">
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
@@ -536,7 +561,14 @@
     <li class="md-nav__item">
     
     
-      <a href="#highly-available-installation" class="md-nav__link">Highly Available Installation</a>
+      <a href="#highly-available-installation-kubernetes" class="md-nav__link">Highly Available Installation (Kubernetes)</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#highly-available-installation-vms-bare-metal" class="md-nav__link">Highly Available Installation (VMs/Bare Metal)</a>
       
     
     </li></ul>
@@ -861,7 +893,25 @@
         </li>
         <li class="md-nav__item"><a href="#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
         </li>
-        <li class="md-nav__item"><a href="#highly-available-installation" class="md-nav__link">Highly Available Installation</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#highly-available-installation-kubernetes" class="md-nav__link">Highly Available Installation (Kubernetes)</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#requirements" class="md-nav__link">Requirements</a>
+        </li>
+        <li class="md-nav__item"><a href="#recommended-settings" class="md-nav__link">Recommended Settings:</a>
+        </li>
+        <li class="md-nav__item"><a href="#example-installations" class="md-nav__link">Example Installations:</a>
+        </li>
+        <li class="md-nav__item"><a href="#ingress" class="md-nav__link">Ingress</a>
+        </li>
+        <li class="md-nav__item"><a href="#kernel-wireguard" class="md-nav__link">Kernel WireGuard</a>
+        </li>
+        <li class="md-nav__item"><a href="#dns" class="md-nav__link">DNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#values" class="md-nav__link">Values</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#highly-available-installation-vms-bare-metal" class="md-nav__link">Highly Available Installation (VMs/Bare Metal)</a><nav class="md-nav">
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
@@ -890,7 +940,7 @@
 
 <h2 id="system-compatibility">System Compatibility<a class="headerlink" href="#system-compatibility" title="Permalink to this headline">¶</a></h2>
 <p>Netmaker will require elevated privileges to perform network operations. Netmaker has similar limitations to <a class="reference internal" href="client-installation.html"><span class="doc">netclient</span></a> (client networking agent).</p>
-<p>Typically, Netmaker is run inside of containers (Docker). To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, rqlite, and a web server directly on the host. Each of these components have their own individual requirements.</p>
+<p>Typically, Netmaker is run inside of containers (Docker). To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, database, and a web server directly on the host. Each of these components have their own individual requirements.</p>
 <p>The quick install guide is recommended for first-time installs.</p>
 <p>The following documents are meant for special cases like Kubernetes and LXC, or for more advanced setups.</p>
 
@@ -948,10 +998,25 @@
 <p><strong>Description:</strong> Enables DNS Mode, meaning config files will be generated for CoreDNS.</p>
 </dd>
 <dt>DATABASE:</dt><dd><p><strong>Default:</strong> “sqlite”</p>
-<p><strong>Description:</strong> Specify db type to connect with. Currently, options include “sqlite” and “rqlite”.</p>
+<p><strong>Description:</strong> Specify db type to connect with. Currently, options include “sqlite”, “rqlite”, and “postgres”.</p>
 </dd>
 <dt>SQL_CONN:</dt><dd><p><strong>Default:</strong> “<a class="reference external" href="http://">http://</a>”</p>
 <p><strong>Description:</strong> Specify the necessary string to connect with your local or remote sql database.</p>
+</dd>
+<dt>SQL_HOST:</dt><dd><p><strong>Default:</strong> “localhost”</p>
+<p><strong>Description:</strong> Host where postgres is running.</p>
+</dd>
+<dt>SQL_PORT:</dt><dd><p><strong>Default:</strong> “5432”</p>
+<p><strong>Description:</strong> port postgres is running.</p>
+</dd>
+<dt>SQL_DB:</dt><dd><p><strong>Default:</strong> “netmaker”</p>
+<p><strong>Description:</strong> DB to use in postgres.</p>
+</dd>
+<dt>SQL_USER:</dt><dd><p><strong>Default:</strong> “postgres”</p>
+<p><strong>Description:</strong> User for posgres.</p>
+</dd>
+<dt>SQL_PASS:</dt><dd><p><strong>Default:</strong> “nopass”</p>
+<p><strong>Description:</strong> Password for postgres.</p>
 </dd>
 <dt>CLIENT_MODE:</dt><dd><p><strong>Default:</strong> “on”</p>
 <p><strong>Description:</strong> Specifies if server should deploy itself as a node (client) in each network. May be turned to “off” for more restricted servers.</p>
@@ -1237,15 +1302,113 @@ kubectl apply -f netclient-template.yaml
 </div>
 
 
-<span id="hainstall"></span><h2 id="highly-available-installation">Highly Available Installation<a class="headerlink" href="#highly-available-installation" title="Permalink to this headline">¶</a></h2>
+<span id="hainstall"></span><h2 id="highly-available-installation-kubernetes">Highly Available Installation (Kubernetes)<a class="headerlink" href="#highly-available-installation-kubernetes" title="Permalink to this headline">¶</a></h2>
+<p>Netmaker comes with a Helm chart to deploy with High Availability on Kubernetes.</p>
+
+<h3 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h3>
+<p>To run HA Netmaker on Kubernetes, your cluster must have the following:
+- RWO and RWX Storage Classes (RWX is only required if running Netmaker with DNS Management enabled).
+- An Ingress Controller and valid TLS certificates
+- This chart can currently generate ingress for Nginx or Traefik Ingress with LetsEncrypt + Cert Manager
+- If LetsEncrypt and CertManager are not deployed, you must manually configure certificates for your ingress</p>
+<p>Furthermore, the chart will by default install and use a postgresql cluster as its datastore.</p>
+
+
+<h3 id="recommended-settings">Recommended Settings:<a class="headerlink" href="#recommended-settings" title="Permalink to this headline">¶</a></h3>
+<p>A minimal HA install of Netmaker can be run with the following command:
+<cite>helm install netmaker –generate-name –set baseDomain=nm.example.com</cite>
+This install has some notable exceptions:
+- Ingress <strong>must</strong> be manually configured post-install (need to create valid Ingress with TLS)
+- Server will use “userspace” WireGuard, which is slower than kernel WG
+- DNS will be disabled</p>
+
+
+<h3 id="example-installations">Example Installations:<a class="headerlink" href="#example-installations" title="Permalink to this headline">¶</a></h3>
+<p>An annotated install command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">helm</span> <span class="n">install</span> <span class="o">./</span><span class="n">netmaker</span> <span class="o">--</span><span class="n">generate</span><span class="o">-</span><span class="n">name</span> \ <span class="c1"># generate a random id for the deploy</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">baseDomain</span><span class="o">=</span><span class="n">nm</span><span class="o">.</span><span class="n">example</span><span class="o">.</span><span class="n">com</span> \ <span class="c1"># the base wildcard domain to use for the netmaker api/dashboard/grpc ingress</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">replicas</span><span class="o">=</span><span class="mi">3</span> \ <span class="c1"># number of server replicas to deploy (3 by default)</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">enabled</span><span class="o">=</span><span class="n">true</span> \ <span class="c1"># deploy ingress automatically (requires nginx or traefik and cert-manager + letsencrypt)</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">className</span><span class="o">=</span><span class="n">nginx</span> \ <span class="c1"># ingress class to use</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">tls</span><span class="o">.</span><span class="n">issuerName</span><span class="o">=</span><span class="n">letsencrypt</span><span class="o">-</span><span class="n">prod</span> \ <span class="c1"># LetsEncrypt certificate issuer to use</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">dns</span><span class="o">.</span><span class="n">enabled</span><span class="o">=</span><span class="n">true</span> \ <span class="c1"># deploy and enable private DNS management with CoreDNS</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">dns</span><span class="o">.</span><span class="n">clusterIP</span><span class="o">=</span><span class="mf">10.245</span><span class="o">.</span><span class="mf">75.75</span> <span class="o">--</span><span class="nb">set</span> <span class="n">dns</span><span class="o">.</span><span class="n">RWX</span><span class="o">.</span><span class="n">storageClassName</span><span class="o">=</span><span class="n">nfs</span> \ <span class="c1"># required fields for DNS</span>
+<span class="o">--</span><span class="nb">set</span> <span class="n">postgresql</span><span class="o">-</span><span class="n">ha</span><span class="o">.</span><span class="n">postgresql</span><span class="o">.</span><span class="n">replicaCount</span><span class="o">=</span><span class="mi">2</span> \ <span class="c1"># number of DB replicas to deploy (default 2)</span>
+</pre></div>
+</div>
+<p>The below command will install netmaker with two server replicas, a coredns server, and ingress with routes of api.nm.example.com, grpc.nm.example.com, and dashboard.nm.example.com. CoreDNS will be reachable at 10.245.75.75, and will use NFS to share a volume with Netmaker (to configure dns entries).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">helm</span> <span class="n">install</span> <span class="o">./</span><span class="n">netmaker</span> <span class="o">--</span><span class="n">generate</span><span class="o">-</span><span class="n">name</span> <span class="o">--</span><span class="nb">set</span> <span class="n">baseDomain</span><span class="o">=</span><span class="n">nm</span><span class="o">.</span><span class="n">example</span><span class="o">.</span><span class="n">com</span> \
+<span class="o">--</span><span class="nb">set</span> <span class="n">replicas</span><span class="o">=</span><span class="mi">2</span> <span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">enabled</span><span class="o">=</span><span class="n">true</span> <span class="o">--</span><span class="nb">set</span> <span class="n">dns</span><span class="o">.</span><span class="n">enabled</span><span class="o">=</span><span class="n">true</span> \
+<span class="o">--</span><span class="nb">set</span> <span class="n">dns</span><span class="o">.</span><span class="n">clusterIP</span><span class="o">=</span><span class="mf">10.245</span><span class="o">.</span><span class="mf">75.75</span> <span class="o">--</span><span class="nb">set</span> <span class="n">dns</span><span class="o">.</span><span class="n">RWX</span><span class="o">.</span><span class="n">storageClassName</span><span class="o">=</span><span class="n">nfs</span> \
+<span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">className</span><span class="o">=</span><span class="n">nginx</span>
+</pre></div>
+</div>
+<p>The below command will install netmaker with three server replicas (the default), <strong>no coredns</strong>, and ingress with routes of api.netmaker.example.com, grpc.netmaker.example.com, and dashboard.netmaker.example.com. There will be one UI replica instead of two, and one database instance instead of two. Traefik will look for a ClusterIssuer named “le-prod-2” to get valid certificates for the ingress.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">helm3</span> <span class="o">--</span><span class="n">kubeconfig</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">k3s</span><span class="o">.</span><span class="n">yaml</span> <span class="n">install</span> <span class="o">./</span><span class="n">netmaker</span> <span class="o">--</span><span class="n">generate</span><span class="o">-</span><span class="n">name</span> \
+<span class="o">--</span><span class="nb">set</span> <span class="n">baseDomain</span><span class="o">=</span><span class="n">netmaker</span><span class="o">.</span><span class="n">example</span><span class="o">.</span><span class="n">com</span> <span class="o">--</span><span class="nb">set</span> <span class="n">postgresql</span><span class="o">-</span><span class="n">ha</span><span class="o">.</span><span class="n">postgresql</span><span class="o">.</span><span class="n">replicaCount</span><span class="o">=</span><span class="mi">1</span> \
+<span class="o">--</span><span class="nb">set</span> <span class="n">ui</span><span class="o">.</span><span class="n">replicas</span><span class="o">=</span><span class="mi">1</span> <span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">enabled</span><span class="o">=</span><span class="n">true</span> \
+<span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">tls</span><span class="o">.</span><span class="n">issuerName</span><span class="o">=</span><span class="n">le</span><span class="o">-</span><span class="n">prod</span><span class="o">-</span><span class="mi">2</span> <span class="o">--</span><span class="nb">set</span> <span class="n">ingress</span><span class="o">.</span><span class="n">className</span><span class="o">=</span><span class="n">traefik</span>
+</pre></div>
+</div>
+<p>Below, we discuss the considerations for Ingress, Kernel WireGuard, and DNS.</p>
+
+
+<h3 id="ingress">Ingress<a class="headerlink" href="#ingress" title="Permalink to this headline">¶</a></h3>
+<p>To run HA Netmaker, you must have ingress installed and enabled on your cluster with valid TLS certificates (not self-signed). If you are running Nginx as your Ingress Controller and LetsEncrypt for TLS certificate management, you can run the helm install with the following settings:</p>
+<ul class="simple">
+<li><p><cite>–set ingress.enabled=true</cite></p></li>
+<li><p><cite>–set ingress.annotations.cert-manager.io/cluster-issuer=&lt;your LE issuer name&gt;</cite></p></li>
+</ul>
+<p>If you are not using Nginx or Traefik and LetsEncrypt, we recommend leaving ingress.enabled=false (default), and then manually creating the ingress objects post-install. You will need three ingress objects with TLS:</p>
+<ul class="simple">
+<li><p><cite>dashboard.&lt;baseDomain&gt;</cite></p></li>
+<li><p><cite>api.&lt;baseDomain&gt;</cite></p></li>
+<li><p><cite>grpc.&lt;baseDomain&gt;</cite></p></li>
+</ul>
+<p>If deploying manually, the gRPC ingress object requires special considerations. Look up the proper way to route grpc with your ingress controller. For instance, on Traefik, an IngressRouteTCP object is required.</p>
+<p>There are some example ingress objects in the kube/example folder.</p>
+
+
+<h3 id="kernel-wireguard">Kernel WireGuard<a class="headerlink" href="#kernel-wireguard" title="Permalink to this headline">¶</a></h3>
+<p>If you have control of the Kubernetes worker node servers, we recommend <strong>first</strong> installing WireGuard on the hosts, and then installing HA Netmaker in Kernel mode. By default, Netmaker will install with userspace WireGuard (wireguard-go) for maximum compatibility, and to avoid needing permissions at the host level. If you have installed WireGuard on your hosts, you should install Netmaker’s helm chart with the following option:</p>
+<ul class="simple">
+<li><p><cite>–set wireguard.kernel=true</cite></p></li>
+</ul>
+
+
+<h3 id="dns">DNS<a class="headerlink" href="#dns" title="Permalink to this headline">¶</a></h3>
+<p>By Default, the helm chart will deploy without DNS enabled. To enable DNS, specify with:</p>
+<ul class="simple">
+<li><p><cite>–set dns.enabled=true</cite></p></li>
+</ul>
+<p>This will require specifying a RWX storage class, e.g.:</p>
+<ul class="simple">
+<li><p><cite>–set dns.RWX.storageClassName=nfs</cite></p></li>
+</ul>
+<p>This will also require specifying a service address for DNS. Choose a valid ipv4 address from the service IP CIDR for your cluster, e.g.:</p>
+<ul class="simple">
+<li><p><cite>–set dns.clusterIP=10.245.69.69</cite></p></li>
+</ul>
+<p><strong>This address will only be reachable from hosts that have access to the cluster service CIDR.</strong> It is only designed for use cases related to k8s. If you want a more general-use Netmaker server on Kubernetes for use cases outside of k8s, you will need to do one of the following:
+- bind the CoreDNS service to port 53 on one of your worker nodes and set the COREDNS_ADDRESS equal to the public IP of the worker node
+- Create a private Network with Netmaker and set the COREDNS_ADDRESS equal to the private address of the host running CoreDNS. For this, CoreDNS will need a node selector and will ideally run on the same host as one of the Netmaker server instances.</p>
+
+
+<h3 id="values">Values<a class="headerlink" href="#values" title="Permalink to this headline">¶</a></h3>
+<p>To view all options for the chart, please visit the README in the code repo <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/kube/helm#values">here</a> .</p>
+
+
+
+<h2 id="highly-available-installation-vms-bare-metal">Highly Available Installation (VMs/Bare Metal)<a class="headerlink" href="#highly-available-installation-vms-bare-metal" title="Permalink to this headline">¶</a></h2>
 <p>For an enterprise Netmaker installation, you will need a server that is highly available, to ensure redundant WireGuard routing when any server goes down. To do this, you will need:</p>
 <ol class="arabic simple">
 <li><p>A load balancer</p></li>
 <li><p>3+ Netmaker server instances</p></li>
-<li><p>rqlite as the backing database</p></li>
+<li><p>rqlite or PostgreSQL as the backing database</p></li>
 </ol>
 <p>These documents outline general HA installation guidelines. Netmaker is highly customizable to meet a wide range of enterprise environments. If you would like support with an enterprise-grade Netmaker installation, you can <a class="reference external" href="https://gravitl.com/book">schedule a consultation here</a> .</p>
-<p>The main consideration here is how to configure rqlite. Most other settings and procedures match the standardized way of making applications HA: Load balancing to multiple instances, and sharing a DB. In our case, the DB (rqlite) is distributed, making HA data more easily achievable.</p>
+<p>The main consideration for this document is how to configure rqlite. Most other settings and procedures match the standardized way of making applications HA: Load balancing to multiple instances, and sharing a DB. In our case, the DB (rqlite) is distributed, making HA data more easily achievable.</p>
+<p>If using PostgreSQL, follow their documentation for <a class="reference external" href="https://www.postgresql.org/docs/14/high-availability.html">installing in HA mode</a> and skip step #2.</p>
 
 <h3 id="load-balancer-setup">1. Load Balancer Setup<a class="headerlink" href="#load-balancer-setup" title="Permalink to this headline">¶</a></h3>
 <p>Your load balancer of choice will send requests to the Netmaker servers. Setup is similar to the various guides we have created for Nginx, Caddy, and Traefik. SSL certificates must also be configured and handled by the LB.</p>
@@ -1277,7 +1440,16 @@ kubectl apply -f netclient-template.yaml
 
 
 <h3 id="netmaker-setup">3. Netmaker Setup<a class="headerlink" href="#netmaker-setup" title="Permalink to this headline">¶</a></h3>
-<p>Netmaker will be started on each node with default settings, except with DATABASE=rqlite and SQL_CONN set appropriately to reach the local rqlite instance. Rqlite will maintain consistency with each Netmaker backend.</p>
+<p>Netmaker will be started on each node with default settings, except with DATABASE=rqlite (or DATABASE=postgress) and SQL_CONN set appropriately to reach the local rqlite instance. Rqlite will maintain consistency with each Netmaker backend.</p>
+<p>If deploying HA with PostgreSQL, you will connect with the following settings:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SQL_HOST</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">sql</span> <span class="n">host</span><span class="o">&gt;</span>
+<span class="n">SQL_PORT</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">port</span><span class="o">&gt;</span>
+<span class="n">SQL_DB</span>   <span class="o">=</span> <span class="o">&lt;</span><span class="n">designated</span> <span class="n">sql</span> <span class="n">DB</span><span class="o">&gt;</span>
+<span class="n">SQL_USER</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">your</span> <span class="n">user</span><span class="o">&gt;</span>
+<span class="n">SQL_PASS</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">your</span> <span class="n">password</span><span class="o">&gt;</span>
+<span class="n">DATABASE</span> <span class="o">=</span> <span class="n">postgres</span>
+</pre></div>
+</div>
 
 
 <h3 id="other-considerations">4. Other Considerations<a class="headerlink" href="#other-considerations" title="Permalink to this headline">¶</a></h3>

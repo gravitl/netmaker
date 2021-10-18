@@ -26,7 +26,7 @@ var PG_FUNCTIONS = map[string]interface{}{
 func getPGConnString() string {
 	pgconf := servercfg.GetSQLConf()
 	pgConn := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=%s",
+		"password=%s dbname=%s sslmode=%s connect_timeout=5",
 		pgconf.Host, pgconf.Port, pgconf.Username, pgconf.Password, pgconf.DB, pgconf.SSLMode)
 	return pgConn
 }

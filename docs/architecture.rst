@@ -77,13 +77,13 @@ Netmaker Server
 
 The Netmaker server is, at its core, a golang binary. Source code can be found `on GitHub <https://github.com/gravitl/netmaker>`_. The binary, by itself can be compiled for most systems. If you need to run the Netmaker server on a particular system, it likely can be made to work. In typical deployments, it is run as a Docker container. It can also be run as a systemd service as outlined in the non-docker install guide.
 
-The Netmaker server acts as an API to the front end, and as a GRPC server to the machines in the network. GRPC is much faster and more efficient than standard API calls, which increases the speed of transactions. For this reason, the Netmaker server exposes two ports: The default for the API is 8081, and the default for GRPC is 50051. Either the API or the GRPC server can be disabled on any given Netmaker instance can be disabled, allowing you to deploy two different servers for managing the API (which is largely for the admin's use) and GRPC (which is largely for the nodes' use).
+The Netmaker server acts as an API to the front end, and as a GRPC server to the machines in the network. GRPC is much faster and more efficient than standard API calls, which increases the speed of transactions. For this reason, the Netmaker server exposes two ports: The default for the API is 8081, and the default for GRPC is 50051. Either the API or the GRPC server can be disabled on any given Netmaker instance, allowing you to deploy two different servers for managing the API (which is largely for the admin's use) and GRPC (which is largely for the nodes' use).
 
 Most server settings are configurable via a config file, or by environment variables (which take precedence). If the server finds neither of these, it sets sensible defaults, including things like the server's reachable IP, ports, and which "modes" to run in.
 
 These modes include client mode and dns mode. Either of these can be disabled but are enabled by default. Client mode allows you to treat the Netmaker host machine (operating system) as a network Node, installing the netclient and controlling the host network. DNS mode has the server write config settings for CoreDNS, a separate component and nameserver, which picks up the config settings to manage node DNS.
 
-The Netmaker server interacts with either sqlit (default) or rqlite, a distributed version of sqlite, as its database. This DB holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
+The Netmaker server interacts with either sqlite (default), postgres, or rqlite, a distributed version of sqlite, as its database. This DB holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
 
 
 Netclient
@@ -104,10 +104,10 @@ If running in daemon mode, on a periodic basis (systemd timer), the netclient pe
 The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.
 
 
-sqlite and rqlite
----------------------
+Datavase (sqlite, rqlite, postgres)
+-------------------------------------
 
-As of v0.8, Netmaker uses sqlite by default as a database. It can also use rqlite, a distributed (RAFT consensus) databaseand. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
+As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) databaseand. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
 
 Additional database support (besides sqlite and rqlite) is very easy to implement for special use cases. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.
 

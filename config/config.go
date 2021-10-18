@@ -61,6 +61,7 @@ type ServerConfig struct {
 	CheckinInterval      string `yaml:checkininterval`
 	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
 	Verbosity            int32  `yaml:"verbosity"`
+	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
 }
 
 

@@ -38,6 +38,9 @@ ui:
   # -- how many UI replicas to create
   replicas: 2
 
+setIpForwarding:
+  enabled: true
+
 service:
   # -- type for netmaker server services
   type: ClusterIP
@@ -73,6 +76,10 @@ ingress:
       traefik.ingress.kubernetes.io/redirect-permanent: "true"
       # -- rule type
       traefik.ingress.kubernetes.io/rule-type: "PathPrefixStrip"
+      # -- enforce https
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      # -- enforce tls
+      traefik.ingress.kubernetes.io/router.tls: "true"
     grpc:
       nginx:
         # -- annotation to use grpc protocol on grpc domain
@@ -110,6 +117,8 @@ postgresql-ha:
     password: netmaker
     # -- postgress db to generate
     database: netmaker
+    # -- postgress number of replicas to deploy
+    replicaCount: 2
   persistence:
     # -- size of postgres DB
     size: 3Gi

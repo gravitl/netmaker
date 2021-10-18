@@ -16,6 +16,15 @@ spec:
         app: {{ include "netmaker.fullname" . }}
     spec:
       {{- if .Values.wireguard.enabled }}
+      {{- if .Values.setIpForwarding.enabled }}
+      initContainers:
+      - name: init-sysctl
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["sysctl", "-w", "net.ipv4.ip_forward=1"]
+        securityContext:
+          privileged: true
+      {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       affinity:
         podAntiAffinity:

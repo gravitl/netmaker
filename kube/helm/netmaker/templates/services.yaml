@@ -25,7 +25,7 @@ spec:
   - name: rest
     port: {{ .Values.service.restPort }}
     protocol: TCP
-    targetPort: {{ .Values.service.grpcPort }}
+    targetPort: {{ .Values.service.restPort }}
   selector:
     app: '{{ include "netmaker.fullname" . }}'
   sessionAffinity: None

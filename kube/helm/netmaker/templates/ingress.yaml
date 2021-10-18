@@ -27,20 +27,23 @@ metadata:
   {{- with .Values.ingress }}
   annotations:
     {{- toYaml .annotations.base | nindent 4 }}
-    {{- if eq .className "nginx" }}
+    {{- if or (eq .className "nginx") (eq .className "public") }}
     {{- toYaml .annotations.nginx | nindent 4 }}
     {{- end }}
     {{- if eq .className "traefik" }}
     {{- toYaml .annotations.traefik | nindent 4 }}
     {{- end }}
-    {{- if .tls.enabled }}
+    {{- if and .tls.enabled (eq .tls.issuerName "" )}}
     {{- toYaml .annotations.tls | nindent 4 }}
+    {{- else if .tls.enabled}}
     cert-manager.io/cluster-issuer: {{ .tls.issuerName }}
     {{- end }}
   {{- end }}
 spec:
+  {{- if (not (eq .Values.ingress.className "traefik")) }}
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
   ingressClassName: {{ required "A valid .Values.ingress.className entry required!" .Values.ingress.className}}
+  {{- end }}
   {{- end }}
   {{- if .Values.ingress.tls.enabled }}
   tls:
@@ -82,20 +85,23 @@ metadata:
   {{- with .Values.ingress }}
   annotations:
     {{- toYaml .annotations.base | nindent 4 }}
-    {{- if eq .className "nginx" }}
+    {{- if or (eq .className "nginx") (eq .className "public") }}
     {{- toYaml .annotations.nginx | nindent 4 }}
     {{- end }}
     {{- if eq .className "traefik" }}
     {{- toYaml .annotations.traefik | nindent 4 }}
     {{- end }}
-    {{- if .tls.enabled }}
+    {{- if and .tls.enabled (eq .tls.issuerName "" )}}
     {{- toYaml .annotations.tls | nindent 4 }}
+    {{- else if .tls.enabled}}
     cert-manager.io/cluster-issuer: {{ .tls.issuerName }}
     {{- end }}
   {{- end }}
 spec:
+  {{- if (not (eq .Values.ingress.className "traefik")) }}
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
   ingressClassName:  {{ required "A valid .Values.ingress.className entry required!" .Values.ingress.className}}
+  {{- end }}
   {{- end }}
   {{- if .Values.ingress.tls.enabled }}
   tls:
@@ -122,6 +128,7 @@ spec:
               servicePort: {{ $restSvcPort }}
               {{- end }}
 ---
+{{- if not (eq .Values.ingress.className "traefik") }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 {{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -137,22 +144,24 @@ metadata:
   {{- with .Values.ingress }}
   annotations:
     {{- toYaml .annotations.base | nindent 4 }}
-    {{- if eq .className "nginx" }}
+    {{- if or (eq .className "nginx") (eq .className "public") }}
     {{- toYaml .annotations.nginx | nindent 4 }}
     {{- toYaml .annotations.grpc.nginx | nindent 4 }}
     {{- end }}
     {{- if eq .className "traefik" }}
     {{- toYaml .annotations.traefik | nindent 4 }}
-    {{- toYaml .annotations.grpc.traefik | nindent 4 }}
     {{- end }}
-    {{- if .tls.enabled }}
+    {{- if and .tls.enabled (eq .tls.issuerName "" )}}
     {{- toYaml .annotations.tls | nindent 4 }}
+    {{- else if .tls.enabled}}
     cert-manager.io/cluster-issuer: {{ .tls.issuerName }}
     {{- end }}
   {{- end }}
 spec:
+  {{- if (not (eq .Values.ingress.className "traefik")) }}
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
   ingressClassName:  {{ required "A valid .Values.ingress.className entry required!" .Values.ingress.className}}
+  {{- end }}
   {{- end }}
   {{- if .Values.ingress.tls.enabled }}
   tls:
@@ -178,4 +187,50 @@ spec:
               serviceName: {{ $fullGRPCName }}
               servicePort: {{ $grpcSvcPort }}
               {{- end }}
+{{- end }}
+{{- if eq .Values.ingress.className "traefik" }}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ $fullGRPCName }}
+  labels:
+    {{- include "netmaker.labels" . | nindent 4 }}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: HostSNI(`{{ .Values.ingress.hostPrefix.grpc }}{{ .Values.baseDomain }}`)
+    services:
+    - name: {{ $fullGRPCName }}
+      port: {{ $grpcSvcPort }}
+    passthrough: true
+    scheme: https
+  tls:
+    secretName: {{ $fullGRPCName }}-tls-secret
+    domains:
+    - main: {{ .Values.ingress.hostPrefix.grpc }}{{ .Values.baseDomain }}
+{{- if and .Values.ingress.tls.enabled (not (eq .Values.ingress.tls.issuerName "" ))}}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  annotations:
+    acme.cert-manager.io/http01-override-ingress-name: {{ $fullRESTName }}
+  labels:
+    {{- include "netmaker.labels" . | nindent 4 }}
+  name: {{ $fullGRPCName }}-tls-secret
+spec:
+  dnsNames:
+  - {{ .Values.ingress.hostPrefix.grpc }}{{ .Values.baseDomain }}
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name:  {{ .Values.ingress.tls.issuerName }}
+  secretName: {{ $fullGRPCName }}-tls-secret
+  usages:
+  - digital signature
+  - key encipherment
+{{- end }}
+{{- end }}
 {{- end }}

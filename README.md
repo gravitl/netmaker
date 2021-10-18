@@ -8,13 +8,13 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/docker/v/gravitl/netmaker?color=blue" />
+    <img src="https://img.shields.io/badge/Version-0.8.4-informational?style=flat-square" />
   </a>
   <a href="https://discord.gg/zRb9Vfhk8A">
-    <img src="https://img.shields.io/badge/community-discord-purple" />
+    <img src="https://img.shields.io/badge/community-discord-informational" />
   </a>
   <a href="https://github.com/gravitl/netmaker/graphs/contributors">
-    <img src="https://img.shields.io/github/commit-activity/w/gravitl/netmaker?color=brightgreen" />
+    <img src="https://img.shields.io/github/commit-activity/w/gravitl/netmaker?color=blue" />
   </a>
   <a href="https://gravitl.com/resources">
     <img src="https://img.shields.io/badge/learning-resources-9cf" />
@@ -26,7 +26,6 @@
     <img src="https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social" />
   </a>
 </p>
-
 
 # WireGuard® Automation from Homelab to Enterprise
 - [x] Peer-to-Peer Mesh Networks
