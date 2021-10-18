@@ -61,17 +61,26 @@ func TestDeleteNetwork(t *testing.T) {
 }
 
 func TestKeyUpdate(t *testing.T) {
-	t.Skip() //test is failing on last assert  --- not sure why
 	database.InitializeDatabase()
+	deleteAllNetworks()
 	createNet()
-	existing, err := GetNetwork("skynet")
-	assert.Nil(t, err)
-	time.Sleep(time.Second * 1)
-	network, err := KeyUpdate("skynet")
-	assert.Nil(t, err)
-	network, err = GetNetwork("skynet")
-	assert.Nil(t, err)
-	assert.Greater(t, network.KeyUpdateTimeStamp, existing.KeyUpdateTimeStamp)
+	t.Run("InvalidNetwork", func(*testing.T) {
+		_, err := KeyUpdate("badnet")
+		assert.Nil(t, err)
+		nodes, err := logic.GetNetworkNodes("badnet")
+		assert.Nil(t, err)
+		assert.Equal(t, 0, len(nodes))
+	})
+	t.Run("ValidNetwork", func(*testing.T) {
+		createTestNode()
+		_, err := KeyUpdate("skynet")
+		assert.Nil(t, err)
+		nodes, err := logic.GetNetworkNodes("skynet")
+		assert.Nil(t, err)
+		for _, node := range nodes {
+			assert.Equal(t, models.NODE_UPDATE_KEY, node.Action)
+		}
+	})
 }
 
 func TestCreateKey(t *testing.T) {
@@ -218,118 +227,97 @@ func TestSecurityCheck(t *testing.T) {
 	})
 }
 
-func TestValidateNetworkUpdate(t *testing.T) {
-	t.Skip()
-	//This functions is not called by anyone
-	//it panics as validation function 'display_name_valid' is not defined
+func TestGetSignupToken(t *testing.T) {
 	database.InitializeDatabase()
-	//yes := true
-	//no := false
-	//deleteNet(t)
+	key, err := GetSignupToken("skynet")
+	assert.Nil(t, err)
+	assert.NotNil(t, key.AccessString)
+}
 
-	//DeleteNetworks
-	cases := []NetworkValidationTestCase{
-		{
-			testname: "InvalidAddress",
-			network: models.Network{
-				AddressRange: "10.0.0.256",
-			},
-			errMessage: "Field validation for 'AddressRange' failed on the 'cidr' tag",
-		},
-		{
-			testname: "InvalidAddress6",
-			network: models.Network{
-				AddressRange6: "2607::ag",
-			},
-			errMessage: "Field validation for 'AddressRange6' failed on the 'cidr' tag",
-		},
+func TestAlertNetwork(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	t.Run("ValidNetwork", func(*testing.T) {
+		now, err := GetNetwork("skynet")
+		time.Sleep(1 * time.Second)
+		assert.Nil(t, err)
+		err = AlertNetwork("skynet")
+		assert.Nil(t, err)
+		updated, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Greater(t, updated.NodesLastModified, now.NodesLastModified)
+		assert.Greater(t, updated.NetworkLastModified, now.NetworkLastModified)
+	})
+	t.Run("BadNetwork", func(*testing.T) {
+		err := AlertNetwork("badnet")
+		assert.EqualError(t, err, "no result found")
+	})
 
-		{
-			testname: "BadDisplayName",
-			network: models.Network{
-				DisplayName: "skynet*",
-			},
-			errMessage: "Field validation for 'DisplayName' failed on the 'alphanum' tag",
-		},
-		{
-			testname: "DisplayNameTooLong",
-			network: models.Network{
-				DisplayName: "Thisisareallylongdisplaynamethatistoolong",
-			},
-			errMessage: "Field validation for 'DisplayName' failed on the 'max' tag",
-		},
-		{
-			testname: "DisplayNameTooShort",
-			network: models.Network{
-				DisplayName: "1",
-			},
-			errMessage: "Field validation for 'DisplayName' failed on the 'min' tag",
-		},
-		{
-			testname: "InvalidNetID",
-			network: models.Network{
-				NetID: "contains spaces",
-			},
-			errMessage: "Field validation for 'NetID' failed on the 'alphanum' tag",
-		},
-		{
-			testname: "NetIDTooLong",
-			network: models.Network{
-				NetID: "LongNetIDName",
-			},
-			errMessage: "Field validation for 'NetID' failed on the 'max' tag",
-		},
-		{
-			testname: "ListenPortTooLow",
-			network: models.Network{
-				DefaultListenPort: 1023,
-			},
-			errMessage: "Field validation for 'DefaultListenPort' failed on the 'min' tag",
-		},
-		{
-			testname: "ListenPortTooHigh",
-			network: models.Network{
-				DefaultListenPort: 65536,
-			},
-			errMessage: "Field validation for 'DefaultListenPort' failed on the 'max' tag",
-		},
-		{
-			testname: "KeepAliveTooBig",
-			network: models.Network{
-				DefaultKeepalive: 1010,
-			},
-			errMessage: "Field validation for 'DefaultKeepalive' failed on the 'max' tag",
-		},
-		{
-			testname: "InvalidLocalRange",
-			network: models.Network{
-				LocalRange: "192.168.0.1",
-			},
-			errMessage: "Field validation for 'LocalRange' failed on the 'cidr' tag",
-		},
-		{
-			testname: "CheckInIntervalTooBig",
-			network: models.Network{
-				DefaultCheckInInterval: 100001,
-			},
-			errMessage: "Field validation for 'DefaultCheckInInterval' failed on the 'max' tag",
-		},
-		{
-			testname: "CheckInIntervalTooSmall",
-			network: models.Network{
-				DefaultCheckInInterval: 1,
-			},
-			errMessage: "Field validation for 'DefaultCheckInInterval' failed on the 'min' tag",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.testname, func(t *testing.T) {
-			network := models.Network(tc.network)
-			err := ValidateNetworkUpdate(network)
-			assert.NotNil(t, err)
-			assert.Contains(t, err.Error(), tc.errMessage)
-		})
-	}
+}
+
+func TestNetworkUpdate(t *testing.T) {
+	//var newNet models.Network
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	t.Run("SimpleChange", func(*testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet.DisplayName = "HelloWorld"
+		rangeupdate, localupdate, err := network.Update(&newnet)
+		assert.Nil(t, err)
+		assert.False(t, rangeupdate)
+		assert.False(t, localupdate)
+		net, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, "HelloWorld", net.DisplayName)
+	})
+	t.Run("RangeChange", func(*testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet.AddressRange = "10.100.100.0/24"
+		rangeupdate, localupdate, err := network.Update(&newnet)
+		assert.Nil(t, err)
+		assert.True(t, rangeupdate)
+		assert.False(t, localupdate)
+		net, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, "10.100.100.0/24", net.AddressRange)
+	})
+	t.Run("LocalChange", func(*testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet.LocalRange = "192.168.0.0/24"
+		rangeupdate, localupdate, err := network.Update(&newnet)
+		assert.Nil(t, err)
+		assert.False(t, rangeupdate)
+		assert.True(t, localupdate)
+		net, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, "192.168.0.0/24", net.LocalRange)
+	})
+	t.Run("NetID", func(*testing.T) {
+		network, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		newnet.NetID = "bad"
+		rangeupdate, localupdate, err := network.Update(&newnet)
+		assert.EqualError(t, err, "failed to update network bad, cannot change netid.")
+		assert.False(t, rangeupdate)
+		assert.False(t, localupdate)
+		net, err := GetNetwork("skynet")
+		assert.Nil(t, err)
+		assert.Equal(t, "skynet", net.NetID)
+	})
+
 }
 
 func deleteAllNetworks() {
