@@ -46,13 +46,35 @@ func TestDeleteNode(t *testing.T) {
 	createNet()
 	node := createTestNode()
 	t.Run("NodeExists", func(t *testing.T) {
-		err := DeleteNode(node.MacAddress, true)
+		err := DeleteNode(node.MacAddress+"###"+node.Network, true)
 		assert.Nil(t, err)
 	})
 	t.Run("NonExistantNode", func(t *testing.T) {
-		err := DeleteNode(node.MacAddress, true)
+		err := DeleteNode(node.MacAddress+"###"+node.Network, true)
 		assert.Nil(t, err)
 	})
+	t.Run("NodeExistsDelayed", func(t *testing.T) {
+		node := createTestNode()
+		err := DeleteNode(node.MacAddress+"###"+node.Network, false)
+		assert.Nil(t, err)
+	})
+	t.Run("NonExistantNodeDelayed", func(t *testing.T) {
+		err := DeleteNode(node.MacAddress+"###"+node.Network, false)
+		assert.Nil(t, err)
+	})
+	t.Run("BadNetDelayed", func(*testing.T) {
+		node := createTestNode()
+		err := DeleteNode(node.MacAddress+"###badnet", false)
+		assert.EqualError(t, err, "unexpected end of JSON input")
+	})
+	t.Run("BadNet", func(*testing.T) {
+		node := createTestNode()
+		err := DeleteNode(node.MacAddress+"###badnet", true)
+		assert.Nil(t, err)
+	})
+	//cleanup
+	err := DeleteNode(node.MacAddress+"###"+node.Network, true)
+	assert.Nil(t, err)
 }
 
 func TestGetNode(t *testing.T) {
