@@ -192,7 +192,7 @@ func Pull(cfg config.ClientConfig) error {
 }
 
 func List(cfg config.ClientConfig) error {
-	err := functions.List()
+	err := functions.List(cfg.Network)
 	return err
 }
 
