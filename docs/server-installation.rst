@@ -374,7 +374,12 @@ The following file configures Netmaker as a subdomain. This config is an adaptio
 Highly Available Installation (Kubernetes)
 ==================================================
 
-Netmaker comes with a Helm chart to deploy with High Availability on Kubernetes.
+Netmaker comes with a Helm chart to deploy with High Availability on Kubernetes:
+
+.. code-block::
+
+    helm repo add netmaker https://gravitl.github.io/netmaker-helm/
+    helm repo update
 
 Requirements
 ---------------
@@ -402,7 +407,7 @@ An annotated install command:
 
 .. code-block::
 
-    helm install ./netmaker --generate-name \ # generate a random id for the deploy 
+    helm install netmaker/netmaker --generate-name \ # generate a random id for the deploy 
     --set baseDomain=nm.example.com \ # the base wildcard domain to use for the netmaker api/dashboard/grpc ingress 
     --set replicas=3 \ # number of server replicas to deploy (3 by default) 
     --set ingress.enabled=true \ # deploy ingress automatically (requires nginx or traefik and cert-manager + letsencrypt) 
@@ -417,7 +422,7 @@ The below command will install netmaker with two server replicas, a coredns serv
 
 .. code-block::
 
-    helm install ./netmaker --generate-name --set baseDomain=nm.example.com \
+    helm install netmaker/netmaker --generate-name --set baseDomain=nm.example.com \
     --set replicas=2 --set ingress.enabled=true --set dns.enabled=true \
     --set dns.clusterIP=10.245.75.75 --set dns.RWX.storageClassName=nfs \
     --set ingress.className=nginx
@@ -426,7 +431,7 @@ The below command will install netmaker with three server replicas (the default)
 
 .. code-block::
 
-    helm3 --kubeconfig /root/k3s.yaml install ./netmaker --generate-name \
+    helm3 install netmaker/netmaker --generate-name \
     --set baseDomain=netmaker.example.com --set postgresql-ha.postgresql.replicaCount=1 \
     --set ui.replicas=1 --set ingress.enabled=true \
     --set ingress.tls.issuerName=le-prod-2 --set ingress.className=traefik

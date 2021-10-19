@@ -2,7 +2,12 @@
 
 ![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.9.0](https://img.shields.io/badge/AppVersion-0.9.0-informational?style=flat-square)
 
-A Helm chart to run Netmaker with High Availability on Kubernetes
+A Helm chart to run Netmaker with High Availability on Kubernetes:
+
+```
+helm repo add netmaker https://gravitl.github.io/netmaker-helm/
+helm repo update
+```
 
 ## Requirements
 
@@ -23,7 +28,7 @@ Furthermore, the chart will by default install and use a postgresql cluster as i
 ### Example Install
 
 ```
-helm install ./netmaker --generate-name \ # generate a random id for the deploy 
+helm install netmaker/netmaker --generate-name \ # generate a random id for the deploy 
 --set baseDomain=nm.example.com \ # the base wildcard domain to use for the netmaker api/dashboard/grpc ingress 
 --set replicas=3 \ # number of server replicas to deploy (3 by default) 
 --set ingress.enabled=true \ # deploy ingress automatically (requires nginx or traefik and cert-manager + letsencrypt) 
@@ -45,11 +50,12 @@ This install has some notable exceptions:
 Below, we discuss the considerations for Ingress, Kernel WireGuard, and DNS.
 
 #### Ingress	
-To run HA Netmaker, you must have ingress installed and enabled on your cluster with valid TLS certificates (not self-signed). If you are running Nginx as your Ingress Controller and LetsEncrypt for TLS certificate management, you can run the helm install with the following settings:
+To run HA Netmaker, you must have ingress installed and enabled on your cluster with valid TLS certificates (not self-signed). If you are running Nginx or Traefik as your Ingress Controller and LetsEncrypt for TLS certificate management, you can run the helm install with the following settings:
 `--set ingress.enabled=true`
+`--set ingress.className=<nginx|traefik>`
 `--set ingress.annotations.cert-manager.io/cluster-issuer=<your LE issuer name>`
 
-If you are not using Nginx and LetsEncrypt, we recommend leaving ingress.enabled=false (default), and then manually creating the ingress objects post-install. You will need three ingress objects with TLS:
+If you are not using Nginx or Traefik and LetsEncrypt, we recommend leaving ingress.enabled=false (default), and then manually creating the ingress objects post-install. You will need three ingress objects with TLS:
 `dashboard.<baseDomain>`
 `api.<baseDomain>`
 `grpc.<baseDomain>`
