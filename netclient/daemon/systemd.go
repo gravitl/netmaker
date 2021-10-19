@@ -97,6 +97,13 @@ WantedBy=timers.target
 	return nil
 }
 
+func CleanupLinux() {
+	err := os.RemoveAll(ncutils.GetNetclientPath())
+	if err != nil {
+		ncutils.PrintLog("Removing netclient binary: "+err.Error(), 1)
+	}
+}
+
 // RemoveSystemDServices - removes the systemd services on a machine
 func RemoveSystemDServices() error {
 	//sysExec, err := exec.LookPath("systemctl")
