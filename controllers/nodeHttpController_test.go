@@ -144,6 +144,107 @@ func TestValidateEgressGateway(t *testing.T) {
 	})
 }
 
+func TestCreateIngressGateway(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	t.Run("NoNode", func(*testing.T) {
+		node, err := CreateIngressGateway("nonet", "01:02:03:04:05:06")
+		assert.EqualError(t, err, "could not find any records")
+		assert.Equal(t, models.Node{}, node)
+
+	})
+	t.Run("BadNet", func(*testing.T) {
+		createNet()
+		testNode := createTestNode()
+
+		node, err := CreateIngressGateway("badnet", testNode.MacAddress)
+		assert.EqualError(t, err, "no result found")
+		assert.Equal(t, models.Node{}, node)
+	})
+	t.Run("Windows", func(*testing.T) {
+		node, err := GetNode("01:02:03:04:05:06", "skynet")
+		update, err := GetNode("01:02:03:04:05:06", "skynet")
+		update.OS = "windows"
+		err = node.Update(&update)
+		assert.Nil(t, err)
+		gateway, err := CreateIngressGateway(node.Network, node.MacAddress)
+		assert.EqualError(t, err, "windows is unsupported for ingress gateways")
+		assert.Equal(t, models.Node{}, gateway)
+	})
+	t.Run("MacOs", func(*testing.T) {
+		node, err := GetNode("01:02:03:04:05:06", "skynet")
+		update, err := GetNode("01:02:03:04:05:06", "skynet")
+		update.OS = "macos"
+		err = node.Update(&update)
+		assert.Nil(t, err)
+		gateway, err := CreateIngressGateway(node.Network, node.MacAddress)
+		assert.EqualError(t, err, "macos is unsupported for ingress gateways")
+		assert.Equal(t, models.Node{}, gateway)
+	})
+	t.Run("SuccessfulCreate", func(*testing.T) {
+		deleteAllNodes()
+		node := createTestNode()
+		gateway, err := CreateIngressGateway(node.Network, node.MacAddress)
+		assert.Nil(t, err)
+		assert.Equal(t, "yes", gateway.PullChanges)
+		assert.Equal(t, "no", gateway.UDPHolePunch)
+		assert.Contains(t, gateway.PostUp, "iptables -A FORWARD")
+		assert.Contains(t, gateway.PostDown, "iptables -D FORWARD")
+
+	})
+}
+
+func TestDeleteIngressGateway(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	t.Run("NoGateway", func(*testing.T) {
+		node, err := DeleteIngressGateway("skynet", "01:02:03:04:05:06")
+		assert.EqualError(t, err, "could not find any records")
+		assert.Equal(t, models.Node{}, node)
+	})
+	t.Run("NoExtClient", func(*testing.T) {
+		node := createTestNode()
+		gateway, err := CreateIngressGateway(node.Network, node.MacAddress)
+		assert.Nil(t, err)
+		node, err = DeleteIngressGateway(gateway.Network, gateway.MacAddress)
+		assert.Nil(t, err)
+		assert.Equal(t, "no", node.IsIngressGateway)
+	})
+}
+
+func TestNodeUpdate(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllNetworks()
+	createNet()
+	node := createTestNode()
+	t.Run("NewMac", func(*testing.T) {
+		update, err := GetNode("01:02:03:04:05:06", "skynet")
+		assert.Nil(t, err)
+		update.MacAddress = "01:02:03:04:05:07"
+		err = node.Update(&update)
+		assert.EqualError(t, err, "failed to update node 01:02:03:04:05:07, cannot change macaddress.")
+	})
+	t.Run("GoodUpdate", func(*testing.T) {
+		update, err := GetNode("01:02:03:04:05:06", "skynet")
+		assert.Nil(t, err)
+		update.ListenPort = 51820
+		err = node.Update(&update)
+		assert.Nil(t, err)
+	})
+}
+
+//func TestDeleteNode(t *testing.T) {
+//	database.InitializeDatabase()
+//	deleteAllNetworks()
+//	createNet()
+//	createTestNode()
+//	t.Run("BadMacWithExterminate", func(*testing.T) {
+//		err := DeleteNode("01:02:03:04:05:07###skynet", true)
+//		t.Log(err)
+//	})
+//}
+
 //
 ////func TestUpdateNode(t *testing.T) {
 ////}
