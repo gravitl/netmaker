@@ -313,3 +313,47 @@ func setWGKeyConfig(node models.Node) error {
 
 	return setWGConfig(node, node.Network, false)
 }
+
+func removeLocalServer(node *models.Node) error {
+	var ifacename = node.Interface
+	var err error
+	if ifacename != "" {
+		if !ncutils.IsKernel() {
+			if err = RemoveConf(ifacename, true); err == nil {
+				Log("removed WireGuard interface: "+ifacename, 1)
+			}
+		} else {
+			ipExec, err := exec.LookPath("ip")
+			if err != nil {
+				return err
+			}
+			out, err := ncutils.RunCmd(ipExec+" link del "+ifacename, false)
+			dontprint := strings.Contains(out, "does not exist") || strings.Contains(out, "Cannot find device")
+			if err != nil && !dontprint {
+				Log("error running command: "+ipExec+" link del "+ifacename, 1)
+				Log(out, 1)
+			}
+			if node.PostDown != "" {
+				runcmds := strings.Split(node.PostDown, "; ")
+				_ = ncutils.RunCmds(runcmds, false)
+			}
+		}
+	}
+	home := ncutils.GetNetclientPathSpecific()
+	if ncutils.FileExists(home + "netconfig-" + node.Network) {
+		_ = os.Remove(home + "netconfig-" + node.Network)
+	}
+	if ncutils.FileExists(home + "nettoken-" + node.Network) {
+		_ = os.Remove(home + "nettoken-" + node.Network)
+	}
+	if ncutils.FileExists(home + "secret-" + node.Network) {
+		_ = os.Remove(home + "secret-" + node.Network)
+	}
+	if ncutils.FileExists(home + "wgkey-" + node.Network) {
+		_ = os.Remove(home + "wgkey-" + node.Network)
+	}
+	if ncutils.FileExists(home + "nm-" + node.Network + ".conf") {
+		_ = os.Remove(home + "nm-" + node.Network + ".conf")
+	}
+	return err
+}
