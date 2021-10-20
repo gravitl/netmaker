@@ -3,6 +3,7 @@ package servercfg
 import (
 	"errors"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -31,7 +32,9 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.Verbosity = GetVerbose()
+	cfg.NodeID = GetNodeID()
 	cfg.CheckinInterval = GetCheckinInterval()
+	cfg.ServerCheckinInterval = GetServerCheckinInterval()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -74,7 +77,7 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.8.3"
+	version := "0.8.4"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
@@ -82,9 +85,9 @@ func GetVersion() string {
 }
 func GetDB() string {
 	database := "sqlite"
-	if os.Getenv("DATABASE") == "rqlite" {
+	if os.Getenv("DATABASE") != "" {
 		database = os.Getenv("DATABASE")
-	} else if config.Config.Server.Database == "rqlite" {
+	} else if config.Config.Server.Database != "" {
 		database = config.Config.Server.Database
 	}
 	return database
@@ -371,4 +374,42 @@ func IsSplitDNS() bool {
 		issplit = true
 	}
 	return issplit
+}
+
+func GetNodeID() string {
+	var id string
+	id = getMacAddr()
+	if os.Getenv("NODE_ID") != "" {
+		id = os.Getenv("NODE_ID")
+	} else if config.Config.Server.NodeID != "" {
+		id = config.Config.Server.NodeID
+	}
+	return id
+}
+
+func GetServerCheckinInterval() int64 {
+	var t = int64(5)
+	var envt, _ = strconv.Atoi(os.Getenv("SERVER_CHECKIN_INTERVAL"))
+	if envt > 0 {
+		t = int64(envt)
+	} else if config.Config.Server.ServerCheckinInterval > 0 {
+		t = config.Config.Server.ServerCheckinInterval
+	}
+	return t
+}
+
+// GetMacAddr - get's mac address
+func getMacAddr() string {
+	ifas, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	var as []string
+	for _, ifa := range ifas {
+		a := ifa.HardwareAddr.String()
+		if a != "" {
+			as = append(as, a)
+		}
+	}
+	return as[0]
 }

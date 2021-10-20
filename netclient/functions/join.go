@@ -6,9 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-
+	"os/exec"
 	nodepb "github.com/gravitl/netmaker/grpc"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -21,31 +20,33 @@ import (
 	"google.golang.org/grpc"
 )
 
+// JoinNetwork - helps a client join a network
 func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
-
-	hasnet := local.HasNetwork(cfg.Network)
-	if hasnet {
-		err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
-		return err
-	}
-
-	err := config.Write(&cfg, cfg.Network)
-	if err != nil {
-		return err
-	}
 
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
+	}
+
+	var err error
+	if cfg.Node.IsServer != "yes" {
+		if local.HasNetwork(cfg.Network) {
+			err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
+			return err
+		}
+		err = config.Write(&cfg, cfg.Network)
+		if err != nil {
+			return err
+		}
+		if cfg.Node.Password == "" {
+			cfg.Node.Password = ncutils.GenPass()
+		}
+		auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
 	}
 
 	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
 		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
 		cfg.Node.LocalAddress = getLocalIP(cfg.Node)
 	}
-	if cfg.Node.Password == "" {
-		cfg.Node.Password = ncutils.GenPass()
-	}
-	auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
 
 	// set endpoint if blank. set to local if local net, retrieve from function if not
 	if cfg.Node.Endpoint == "" {
@@ -78,6 +79,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			log.Fatal("could not retrieve mac address")
 		} else {
 			cfg.Node.MacAddress = macs[0]
+		}
+	}
+	if ncutils.IsLinux() {
+		_, err := exec.LookPath("resolvectl")
+		if err != nil {
+			ncutils.PrintLog("resolvectl not present",2)
+			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management",2)
+			cfg.Node.DNSOn = "no"
 		}
 	}
 
@@ -139,19 +148,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
 			return err
 		}
-	} else { // handle server side node creation
-		ncutils.Log("adding a server instance on network " + postnode.Network)
-		if err = config.ModConfig(postnode); err != nil {
-			return err
-		}
-		node, err = logic.CreateNode(*postnode, cfg.Network)
-		if err != nil {
-			return err
-		}
-		err = logic.SetNetworkNodesLastModified(node.Network)
-		if err != nil {
-			return err
-		}
 	}
 
 	// get free port based on returned default listen port
@@ -168,28 +164,26 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 		node.Endpoint = node.LocalAddress
 	}
-
-	err = config.ModConfig(&node)
-	if err != nil {
-		return err
-	}
-
-	err = wireguard.StorePrivKey(privateKey, cfg.Network)
-	if err != nil {
-		return err
-	}
-
-	// pushing any local changes to server before starting wireguard
-	err = Push(cfg.Network)
-	if err != nil {
-		return err
-	}
-
-	if node.IsPending == "yes" {
-		ncutils.Log("Node is marked as PENDING.")
-		ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
-		if cfg.Daemon != "off" {
-			return daemon.InstallDaemon(cfg)
+	if node.IsServer != "yes" { // == handle client side ==
+		err = config.ModConfig(&node)
+		if err != nil {
+			return err
+		}
+		err = wireguard.StorePrivKey(privateKey, cfg.Network)
+		if err != nil {
+			return err
+		}
+		if node.IsPending == "yes" {
+			ncutils.Log("Node is marked as PENDING.")
+			ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
+			if cfg.Daemon != "off" {
+				return daemon.InstallDaemon(cfg)
+			}
+		}
+		// pushing any local changes to server before starting wireguard
+		err = Push(cfg.Network)
+		if err != nil {
+			return err
 		}
 	}
 

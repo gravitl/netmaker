@@ -20,31 +20,36 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+// PrintUserLog - prints a log with a given username
 func PrintUserLog(username string, message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
-		log.Println(username, message)
+		log.Println("[netmaker]", username, message)
 	}
 }
 
+// ParseNetwork - parses a network into a model
 func ParseNetwork(value string) (models.Network, error) {
 	var network models.Network
 	err := json.Unmarshal([]byte(value), &network)
 	return network, err
 }
 
+// ParseNode - parses a node into a model
 func ParseNode(value string) (models.Node, error) {
 	var node models.Node
 	err := json.Unmarshal([]byte(value), &node)
 	return node, err
 }
 
+// ParseExtClient - parses an extclient into a model
 func ParseExtClient(value string) (models.ExtClient, error) {
 	var extClient models.ExtClient
 	err := json.Unmarshal([]byte(value), &extClient)
 	return extClient, err
 }
 
+// ParseIntClient - parses int client
 func ParseIntClient(value string) (models.IntClient, error) {
 	var intClient models.IntClient
 	err := json.Unmarshal([]byte(value), &intClient)
@@ -54,6 +59,7 @@ func ParseIntClient(value string) (models.IntClient, error) {
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the network
 
+// GetUser - gets a user
 func GetUser(username string) (models.User, error) {
 
 	var user models.User
@@ -67,6 +73,7 @@ func GetUser(username string) (models.User, error) {
 	return user, err
 }
 
+// SliceContains - sees if a slice contains something
 func SliceContains(slice []string, item string) bool {
 	set := make(map[string]struct{}, len(slice))
 	for _, s := range slice {
@@ -77,6 +84,7 @@ func SliceContains(slice []string, item string) bool {
 	return ok
 }
 
+// CreateServerToken - creates a server token
 func CreateServerToken(netID string) (string, error) {
 	var network models.Network
 	var accesskey models.AccessKey
@@ -130,6 +138,7 @@ func CreateServerToken(netID string) (string, error) {
 	return accesskey.AccessString, nil
 }
 
+// GetPeersList - gets peers for given network
 func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 
 	var peers []models.PeersResponse
@@ -151,6 +160,7 @@ func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 	return peers, err
 }
 
+// GetIntPeersList - get int peers list
 func GetIntPeersList() ([]models.PeersResponse, error) {
 
 	var peers []models.PeersResponse
@@ -176,6 +186,7 @@ func GetIntPeersList() ([]models.PeersResponse, error) {
 	return peers, err
 }
 
+// GetServerIntClient - get server int client
 func GetServerIntClient() (*models.IntClient, error) {
 
 	intClients, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
@@ -192,6 +203,7 @@ func GetServerIntClient() (*models.IntClient, error) {
 	return nil, err
 }
 
+// NetworkExists - check if network exists
 func NetworkExists(name string) (bool, error) {
 
 	var network string
@@ -201,6 +213,8 @@ func NetworkExists(name string) (bool, error) {
 	}
 	return len(network) > 0, nil
 }
+
+// GetRecordKey - get record key
 func GetRecordKey(id string, network string) (string, error) {
 	if id == "" || network == "" {
 		return "", errors.New("unable to get record key")
@@ -208,6 +222,7 @@ func GetRecordKey(id string, network string) (string, error) {
 	return id + "###" + network, nil
 }
 
+// UpdateNetworkNodeAddresses - updates network node addresses
 func UpdateNetworkNodeAddresses(networkName string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -244,6 +259,7 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 	return nil
 }
 
+// NetworkNodesUpdateAction - updates action of network nodes
 func NetworkNodesUpdateAction(networkName string, action string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -277,6 +293,7 @@ func NetworkNodesUpdateAction(networkName string, action string) error {
 	return nil
 }
 
+// NetworkNodesUpdatePullChanges - tells nodes on network to pull
 func NetworkNodesUpdatePullChanges(networkName string) error {
 
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -308,6 +325,7 @@ func NetworkNodesUpdatePullChanges(networkName string) error {
 	return nil
 }
 
+// UpdateNetworkLocalAddresses - updates network localaddresses
 func UpdateNetworkLocalAddresses(networkName string) error {
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -346,6 +364,7 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 	return nil
 }
 
+// IsNetworkDisplayNameUnique - checks if network display name unique
 func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
 	isunique := true
@@ -365,6 +384,7 @@ func IsNetworkDisplayNameUnique(name string) (bool, error) {
 	return isunique, nil
 }
 
+// IsMacAddressUnique - checks if mac is unique
 func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 
 	_, err := database.FetchRecord(database.NODES_TABLE_NAME, macaddress+"###"+networkName)
@@ -375,6 +395,7 @@ func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 	return true, nil
 }
 
+// GetNetworkNonServerNodeCount - get number of network non server nodes
 func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -400,6 +421,8 @@ func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 //Does so by checking against all keys and seeing if any have the same value
 //may want to hash values before comparing...consider this
 //TODO: No error handling!!!!
+
+// IsKeyValid - check if key is valid
 func IsKeyValid(networkname string, keyvalue string) bool {
 
 	network, _ := GetParentNetwork(networkname)
@@ -422,6 +445,7 @@ func IsKeyValid(networkname string, keyvalue string) bool {
 	return isvalid
 }
 
+// IsKeyValidGlobal - checks if a key is valid globally
 func IsKeyValidGlobal(keyvalue string) bool {
 
 	networks, _ := models.GetNetworks()
@@ -453,6 +477,8 @@ func IsKeyValidGlobal(keyvalue string) bool {
 //This just gets a network object from a network name
 //Should probably just be GetNetwork. kind of a dumb name.
 //Used in contexts where it's not the Parent network.
+
+// GetParentNetwork - get parent network
 func GetParentNetwork(networkname string) (models.Network, error) {
 
 	var network models.Network
@@ -466,6 +492,7 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 	return network, nil
 }
 
+// IsIpNet - checks if valid ip
 func IsIpNet(host string) bool {
 	return net.ParseIP(host) != nil
 }
@@ -473,6 +500,8 @@ func IsIpNet(host string) bool {
 //Similar to above but checks if Cidr range is valid
 //At least this guy's got some print statements
 //still not good error handling
+
+// IsIpCIDR - IsIpCIDR
 func IsIpCIDR(host string) bool {
 
 	ip, ipnet, err := net.ParseCIDR(host)
@@ -488,6 +517,8 @@ func IsIpCIDR(host string) bool {
 
 //This  checks to  make sure a network name is valid.
 //Switch to REGEX?
+
+// NameInNetworkCharSet - see if name is in charset for networks
 func NameInNetworkCharSet(name string) bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
@@ -500,6 +531,7 @@ func NameInNetworkCharSet(name string) bool {
 	return true
 }
 
+// NameInDNSCharSet - name in dns char set
 func NameInDNSCharSet(name string) bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
@@ -512,6 +544,7 @@ func NameInDNSCharSet(name string) bool {
 	return true
 }
 
+// NameInNodeCharSet - name in node char set
 func NameInNodeCharSet(name string) bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-"
@@ -528,6 +561,8 @@ func NameInNodeCharSet(name string) bool {
 //The mac address acts as the Unique ID for nodes.
 //Is this a dumb thing to do? I thought it was cool but maybe it's dumb.
 //It doesn't really provide a tangible benefit over a random ID
+
+// GetNodeByMacAddress - gets a node by mac address
 func GetNodeByMacAddress(network string, macaddress string) (models.Node, error) {
 
 	var node models.Node
@@ -551,6 +586,7 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	return node, nil
 }
 
+// GetDeletedNodeByMacAddress - get a deleted node
 func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node, error) {
 
 	var node models.Node
@@ -574,10 +610,12 @@ func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node,
 	return node, nil
 }
 
+// RemoveDeletedNode - remove deleted node
 func RemoveDeletedNode(nodeid string) bool {
 	return database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, nodeid) == nil
 }
 
+// DeleteAllIntClients - delete all int clients
 func DeleteAllIntClients() error {
 	err := database.DeleteAllRecords(database.INT_CLIENTS_TABLE_NAME)
 	if err != nil {
@@ -586,6 +624,7 @@ func DeleteAllIntClients() error {
 	return nil
 }
 
+// GetAllIntClients - get all int clients
 func GetAllIntClients() ([]models.IntClient, error) {
 	var clients []models.IntClient
 	collection, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
@@ -607,6 +646,7 @@ func GetAllIntClients() ([]models.IntClient, error) {
 	return clients, nil
 }
 
+// GetAllExtClients - get all ext clients
 func GetAllExtClients() ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
 	collection, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
@@ -633,6 +673,8 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 //and checks against all nodes to see if it's taken, until it finds one.
 //TODO: We do not handle a case where we run out of addresses.
 //We will need to handle that eventually
+
+// UniqueAddress - see if address is unique
 func UniqueAddress(networkName string) (string, error) {
 
 	var network models.Network
@@ -669,6 +711,7 @@ func UniqueAddress(networkName string) (string, error) {
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
+// UniqueAddress6 - see if ipv6 address is unique
 func UniqueAddress6(networkName string) (string, error) {
 
 	var network models.Network
@@ -701,7 +744,7 @@ func UniqueAddress6(networkName string) (string, error) {
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
-//generate an access key value
+// GenKey - generates access key
 func GenKey() string {
 
 	var seededRand *rand.Rand = rand.New(
@@ -721,6 +764,8 @@ func GenKey() string {
 //we should probably just have 1 random string generator
 //that  can be used across all functions
 //have a "base string" a "length" and a "charset"
+
+// GenKeyName - generates a key name
 func GenKeyName() string {
 
 	var seededRand *rand.Rand = rand.New(
@@ -736,6 +781,7 @@ func GenKeyName() string {
 	return "key" + string(b)
 }
 
+// IsIPUnique - checks if an IP is unique
 func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 
 	isunique := true
@@ -766,6 +812,7 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 
 //called once key has been used by createNode
 //reduces value by one and deletes if necessary
+// DecrimentKey - decriments key uses
 func DecrimentKey(networkName string, keyvalue string) {
 
 	var network models.Network
@@ -796,7 +843,7 @@ func DecrimentKey(networkName string, keyvalue string) {
 	}
 }
 
-//takes the logic from controllers.deleteKey
+// DeleteKey - deletes a key
 func DeleteKey(network models.Network, i int) {
 
 	network.AccessKeys = append(network.AccessKeys[:i],
@@ -809,7 +856,7 @@ func DeleteKey(network models.Network, i int) {
 	}
 }
 
-//increments an IP over the previous
+// Inc - increments an IP
 func Inc(ip net.IP) {
 	for j := len(ip) - 1; j >= 0; j-- {
 		ip[j]++

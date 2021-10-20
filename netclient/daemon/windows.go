@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+// SetupWindowsDaemon - sets up the Windows daemon service
 func SetupWindowsDaemon() error {
 
 	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.xml") {
@@ -42,6 +43,7 @@ func SetupWindowsDaemon() error {
 	return nil
 }
 
+// CleanupWindows - cleans up windows files
 func CleanupWindows() {
 	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.xml") {
 		writeServiceConfig()
@@ -73,12 +75,15 @@ func writeServiceConfig() error {
 }
 
 // == Daemon ==
+
+// StopWindowsDaemon - stops the Windows daemon
 func StopWindowsDaemon() {
 	ncutils.Log("no networks detected, stopping Windows, Netclient daemon")
 	// stop daemon, will not overwrite
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe stop`, true)
 }
 
+// RemoveWindowsDaemon - removes the Windows daemon
 func RemoveWindowsDaemon() {
 	// uninstall daemon, will not restart or start another
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe uninstall`, true)

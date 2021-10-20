@@ -71,6 +71,26 @@ func TestCreateUser(t *testing.T) {
 	})
 }
 
+func TestCreateAdmin(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllUsers()
+	var user models.User
+	t.Run("NoAdmin", func(t *testing.T) {
+		user.UserName = "admin"
+		user.Password = "password"
+		admin, err := CreateAdmin(user)
+		assert.Nil(t, err)
+		assert.Equal(t, user.UserName, admin.UserName)
+	})
+	t.Run("AdminExists", func(t *testing.T) {
+		user.UserName = "admin2"
+		user.Password = "password1"
+		admin, err := CreateAdmin(user)
+		assert.EqualError(t, err, "admin user already exists")
+		assert.Equal(t, admin, models.User{})
+	})
+}
+
 func TestDeleteUser(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllUsers()
@@ -153,6 +173,54 @@ func TestGetUser(t *testing.T) {
 	})
 }
 
+func TestGetUserInternal(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllUsers()
+	t.Run("NonExistantUser", func(t *testing.T) {
+		admin, err := GetUserInternal("admin")
+		assert.EqualError(t, err, "could not find any records")
+		assert.Equal(t, "", admin.UserName)
+	})
+	t.Run("UserExisits", func(t *testing.T) {
+		user := models.User{"admin", "password", nil, true}
+		CreateUser(user)
+		admin, err := GetUserInternal("admin")
+		assert.Nil(t, err)
+		assert.Equal(t, user.UserName, admin.UserName)
+	})
+}
+
+func TestGetUsers(t *testing.T) {
+	database.InitializeDatabase()
+	deleteAllUsers()
+	t.Run("NonExistantUser", func(t *testing.T) {
+		admin, err := GetUsers()
+		assert.EqualError(t, err, "could not find any records")
+		assert.Equal(t, []models.ReturnUser(nil), admin)
+	})
+	t.Run("UserExisits", func(t *testing.T) {
+		user := models.User{"admin", "password", nil, true}
+		CreateUser(user)
+		admins, err := GetUsers()
+		assert.Nil(t, err)
+		assert.Equal(t, user.UserName, admins[0].UserName)
+	})
+	t.Run("MulipleUsers", func(t *testing.T) {
+		user := models.User{"user", "password", nil, true}
+		CreateUser(user)
+		admins, err := GetUsers()
+		assert.Nil(t, err)
+		for _, u := range admins {
+			if u.UserName == "admin" {
+				assert.Equal(t, "admin", u.UserName)
+			} else {
+				assert.Equal(t, user.UserName, u.UserName)
+			}
+		}
+	})
+
+}
+
 func TestUpdateUser(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllUsers()
@@ -164,7 +232,7 @@ func TestUpdateUser(t *testing.T) {
 		assert.Equal(t, "", admin.UserName)
 	})
 
-	t.Run("UserExisits", func(t *testing.T) {
+	t.Run("UserExists", func(t *testing.T) {
 		CreateUser(user)
 		admin, err := UpdateUser(newuser, user)
 		assert.Nil(t, err)

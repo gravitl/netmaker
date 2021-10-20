@@ -25,8 +25,8 @@ var (
 
 func Join(cfg config.ClientConfig, privateKey string) error {
 
-	err := functions.JoinNetwork(cfg, privateKey)
-
+	var err error
+	err = functions.JoinNetwork(cfg, privateKey)
 	if err != nil && !cfg.DebugJoin {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			ncutils.PrintLog("error installing: "+err.Error(), 1)
@@ -39,7 +39,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 			}
 			if cfg.Daemon != "off" {
 				if ncutils.IsLinux() {
-					err = daemon.RemoveSystemDServices(cfg.Network)
+					err = daemon.RemoveSystemDServices()
 				}
 				if err != nil {
 					ncutils.PrintLog("error removing services: "+err.Error(), 1)
@@ -189,7 +189,7 @@ func Pull(cfg config.ClientConfig) error {
 }
 
 func List(cfg config.ClientConfig) error {
-	err := functions.List()
+	err := functions.List(cfg.Network)
 	return err
 }
 

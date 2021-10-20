@@ -9,7 +9,6 @@ import (
 	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -19,6 +18,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// RELAY_KEEPALIVE_MARKER - sets the relay keepalive marker
 const RELAY_KEEPALIVE_MARKER = "20007ms"
 
 func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
@@ -35,6 +35,7 @@ func getGrpcClient(cfg *config.ClientConfig) (nodepb.NodeServiceClient, error) {
 	return wcclient, nil
 }
 
+// CheckIn - checkin for node on a network
 func CheckIn(network string) (*models.Node, error) {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -71,72 +72,21 @@ func CheckIn(network string) (*models.Node, error) {
 	return &node, err
 }
 
-/*
-func RemoveNetwork(network string) error {
-	//need to  implement checkin on server side
-	cfg, err := config.ReadConfig(network)
-	if err != nil {
-		return err
-	}
-	servercfg := cfg.Server
-	node := cfg.Node
-	log.Println("Deleting remote node with MAC: " + node.MacAddress)
-
-	var wcclient nodepb.NodeServiceClient
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-	if err != nil {
-		log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
-		//return err
-	} else {
-		wcclient = nodepb.NewNodeServiceClient(conn)
-		ctx, err := auth.SetJWT(wcclient, network)
-		if err != nil {
-			//return err
-			log.Printf("Failed to authenticate: %v", err)
-		} else {
-
-			var header metadata.MD
-
-			_, err = wcclient.DeleteNode(
-				ctx,
-				&nodepb.Object{
-					Data: node.MacAddress + "###" + node.Network,
-					Type: nodepb.STRING_TYPE,
-				},
-				grpc.Header(&header),
-			)
-			if err != nil {
-				log.Printf("Encountered error deleting node: %v", err)
-				log.Println(err)
-			} else {
-				log.Println("Deleted node " + node.MacAddress)
-			}
-		}
-	}
-	//err = functions.RemoveLocalInstance(network)
-
-	return err
-}
-*/
-
+// GetPeers - gets the peers for a node
 func GetPeers(macaddress string, network string, server string, dualstack bool, isIngressGateway bool, isServer bool) ([]wgtypes.PeerConfig, bool, []string, error) {
 	hasGateway := false
+	var err error
 	var gateways []string
 	var peers []wgtypes.PeerConfig
-	cfg, err := config.ReadConfig(network)
-	if err != nil {
-		log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
-	}
-	nodecfg := cfg.Node
-	keepalive := nodecfg.PersistentKeepalive
-	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
-	keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
-	if err != nil {
-		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
-	}
-	var nodes []models.Node // fill this either from server or client
-	if !isServer {          // set peers client side
+	var nodecfg models.Node
+	var nodes []models.Node // fill above fields from server or client
+
+	if !isServer { // set peers client side
+		cfg, err := config.ReadConfig(network)
+		if err != nil {
+			log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
+		}
+		nodecfg = cfg.Node
 		var wcclient nodepb.NodeServiceClient
 		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
@@ -170,11 +120,13 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			log.Println("Error unmarshaling data for peers")
 			return nil, hasGateway, gateways, err
 		}
-	} else { // set peers serverside
-		nodes, err = logic.GetPeers(nodecfg)
-		if err != nil {
-			return nil, hasGateway, gateways, err
-		}
+	}
+
+	keepalive := nodecfg.PersistentKeepalive
+	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
+	keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
+	if err != nil {
+		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
 	}
 
 	for _, node := range nodes {
@@ -251,7 +203,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			}
 			allowedips = append(allowedips, addr6)
 		}
-		if nodecfg.IsServer == "yes" && !(node.IsServer == "yes"){
+		if nodecfg.IsServer == "yes" && !(node.IsServer == "yes") {
 			peer = wgtypes.PeerConfig{
 				PublicKey:                   pubkey,
 				PersistentKeepaliveInterval: &keepaliveserver,
@@ -292,16 +244,22 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	}
 	return peers, hasGateway, gateways, err
 }
+
+// GetExtPeers - gets the extpeers for a client
 func GetExtPeers(macaddress string, network string, server string, dualstack bool) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
-
-	cfg, err := config.ReadConfig(network)
-	if err != nil {
-		log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
-	}
-	nodecfg := cfg.Node
+	var nodecfg models.Node
 	var extPeers []models.Node
+	var err error
+	// fill above fields from either client or server
+
 	if nodecfg.IsServer != "yes" { // fill extPeers with client side logic
+		var cfg *config.ClientConfig
+		cfg, err = config.ReadConfig(network)
+		if err != nil {
+			log.Fatalf("Issue retrieving config for network: "+network+". Please investigate: %v", err)
+		}
+		nodecfg = cfg.Node
 		var wcclient nodepb.NodeServiceClient
 
 		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
@@ -333,22 +291,6 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 		}
 		if err = json.Unmarshal([]byte(responseObject.Data), &extPeers); err != nil {
 			return nil, err
-		}
-	} else { // fill extPeers with server side logic
-		tempPeers, err := logic.GetExtPeersList(nodecfg.MacAddress, nodecfg.Network)
-		if err != nil {
-			return nil, err
-		}
-		for i := 0; i < len(tempPeers); i++ {
-			extPeers = append(extPeers, models.Node{
-				Address:             tempPeers[i].Address,
-				Address6:            tempPeers[i].Address6,
-				Endpoint:            tempPeers[i].Endpoint,
-				PublicKey:           tempPeers[i].PublicKey,
-				PersistentKeepalive: tempPeers[i].KeepAlive,
-				ListenPort:          tempPeers[i].ListenPort,
-				LocalAddress:        tempPeers[i].LocalAddress,
-			})
 		}
 	}
 	for _, extPeer := range extPeers {

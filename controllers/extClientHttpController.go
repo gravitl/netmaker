@@ -56,6 +56,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclients)
 }
 
+// GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
 
@@ -130,6 +131,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(client)
 }
 
+// GetExtClient - gets a single ext client on a network
 func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	var extclient models.ExtClient
 	key, err := functions.GetRecordKey(clientid, network)
@@ -238,6 +240,7 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
+// CreateExtClient - creates an extclient
 func CreateExtClient(extclient models.ExtClient) error {
 	if extclient.PrivateKey == "" {
 		privateKey, err := wgtypes.GeneratePrivateKey()
@@ -351,6 +354,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newclient)
 }
 
+// UpdateExtClient - only supports name changes right now
 func UpdateExtClient(newclientid string, network string, client models.ExtClient) (models.ExtClient, error) {
 
 	err := DeleteExtClient(network, client.ClientID)
@@ -362,6 +366,7 @@ func UpdateExtClient(newclientid string, network string, client models.ExtClient
 	return client, err
 }
 
+// DeleteExtClient - deletes an existing ext client
 func DeleteExtClient(network string, clientid string) error {
 	key, err := functions.GetRecordKey(clientid, network)
 	if err != nil {
@@ -371,9 +376,7 @@ func DeleteExtClient(network string, clientid string) error {
 	return err
 }
 
-/**
- * Deletes ext clients based on gateway (mac) of ingress node and network
- */
+// DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
 func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	currentExtClients, err := GetNetworkExtClients(networkName)
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -411,6 +414,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }
 
+// StringWithCharset - returns a random string in a charset
 func StringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
 	for i := range b {

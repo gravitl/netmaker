@@ -11,8 +11,9 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+// SetupSystemDDaemon - sets system daemon for supported machines
 func SetupSystemDDaemon(interval string) error {
-	
+
 	if ncutils.IsWindows() {
 		return nil
 	}
@@ -96,51 +97,46 @@ WantedBy=timers.target
 	return nil
 }
 
-func RemoveSystemDServices(network string) error {
+func CleanupLinux() {
+	err := os.RemoveAll(ncutils.GetNetclientPath())
+	if err != nil {
+		ncutils.PrintLog("Removing netclient binary: "+err.Error(), 1)
+	}
+}
+
+// RemoveSystemDServices - removes the systemd services on a machine
+func RemoveSystemDServices() error {
 	//sysExec, err := exec.LookPath("systemctl")
-	if !ncutils.IsWindows() {
-		fullremove, err := isOnlyService(network)
+	var err error
+	if !ncutils.IsWindows() && isOnlyService() {
 		if err != nil {
 			log.Println(err)
 		}
-
-		if fullremove {
-			_, err = ncutils.RunCmd("systemctl disable netclient.service", true)
-		}
-		_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
-
-		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
-			_, _ = ncutils.RunCmd("systemctl disable netclient.timer", true)
-		}
-		if fullremove {
-			if ncutils.FileExists("/etc/systemd/system/netclient.service") {
-				err = os.Remove("/etc/systemd/system/netclient.service")
+		ncutils.RunCmd("systemctl disable netclient.service", false)
+		ncutils.RunCmd("systemctl disable netclient.timer", false)
+		if ncutils.FileExists("/etc/systemd/system/netclient.service") {
+			err = os.Remove("/etc/systemd/system/netclient.service")
+			if err != nil {
+				ncutils.Log("Error removing /etc/systemd/system/netclient.service. Please investigate.")
 			}
 		}
 		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
 			err = os.Remove("/etc/systemd/system/netclient.timer")
+			if err != nil {
+				ncutils.Log("Error removing /etc/systemd/system/netclient.timer. Please investigate.")
+			}
 		}
-		if err != nil {
-			log.Println("Error removing file. Please investigate.")
-			log.Println(err)
-		}
-		_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
-		_, _ = ncutils.RunCmd("systemctl reset-failed", true)
+		ncutils.RunCmd("systemctl daemon-reload", false)
+		ncutils.RunCmd("systemctl reset-failed", false)
+		ncutils.Log("removed systemd remnants if any existed")
 	}
 	return nil
 }
 
-
-func isOnlyService(network string) (bool, error) {
-	isonly := false
+func isOnlyService() bool {
 	files, err := filepath.Glob("/etc/netclient/config/netconfig-*")
 	if err != nil {
-		return isonly, err
+		return false
 	}
-	count := len(files)
-	if count == 0 {
-		isonly = true
-	}
-	return isonly, err
-
+	return len(files) == 0
 }

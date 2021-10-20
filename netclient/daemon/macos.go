@@ -1,12 +1,12 @@
 package daemon
 
 import (
+	"fmt"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"io/ioutil"
 	"log"
 	"os"
-	"fmt"
 	"path/filepath"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 const MAC_SERVICE_NAME = "com.gravitl.netclient"
@@ -93,7 +93,7 @@ func MacDaemonString(interval string) string {
 		</dict>
 </dict>
 </plist>
-`,interval)
+`, interval)
 }
 
 type MacTemplateData struct {

@@ -120,7 +120,8 @@ func runClient(wg *sync.WaitGroup) {
 			if err := serverctl.HandleContainedClient(); err != nil {
 				// PASS
 			}
-			time.Sleep(time.Second * 15)
+			var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
+			time.Sleep(checkintime)
 		}
 	}()
 }
@@ -156,7 +157,7 @@ func runGRPC(wg *sync.WaitGroup) {
 			log.Fatalf("Failed to serve: %v", err)
 		}
 	}()
-	log.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
+	log.Println("Agent Server successfully started on port " + grpcport + " (gRPC)")
 
 	// Right way to stop the server using a SHUTDOWN HOOK
 	// Create a channel to receive OS signals

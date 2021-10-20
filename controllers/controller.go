@@ -7,11 +7,13 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+// HandleRESTRequests - handles the rest requests
 func HandleRESTRequests(wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -30,7 +32,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	fileHandlers(r)
 	serverHandlers(r)
 	extClientHandlers(r)
-	
+
 	port := servercfg.GetAPIPort()
 
 	srv := &http.Server{Addr: ":" + port, Handler: handlers.CORS(originsOk, headersOk, methodsOk)(r)}
@@ -41,7 +43,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 		}
 	}()
 
-	log.Println("REST Server succesfully started on port " + port + " (REST)")
+	log.Println("REST Server successfully started on port " + port + " (REST)")
 	c := make(chan os.Signal)
 
 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)

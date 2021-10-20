@@ -6,15 +6,16 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	nccommand "github.com/gravitl/netmaker/netclient/command"
-	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+// GetServerWGConf - gets the server WG configuration
 func GetServerWGConf() (models.IntClient, error) {
 	var server models.IntClient
 	collection, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
@@ -30,29 +31,7 @@ func GetServerWGConf() (models.IntClient, error) {
 	return models.IntClient{}, errors.New("could not find comms server")
 }
 
-func InstallNetclient() error {
-
-	netclientPath := ncutils.GetNetclientPath()
-	if ncutils.IsWindows() {
-		netclientPath += "\\"
-	} else {
-		netclientPath += "/"
-	}
-	if !FileExists(netclientPath + "netclient") {
-		var err error
-		if ncutils.IsWindows() {
-			_, err = copy(".\\netclient\\netclient", netclientPath+"netclient")
-		} else {
-			_, err = copy("./netclient/netclient", netclientPath+"netclient")
-		}
-		if err != nil {
-			log.Println("could not create " + netclientPath + "netclient")
-			return err
-		}
-	}
-	return nil
-}
-
+// FileExists - checks if local file exists
 func FileExists(f string) bool {
 	info, err := os.Stat(f)
 	if os.IsNotExist(err) {
@@ -85,28 +64,31 @@ func copy(src, dst string) (int64, error) {
 	nBytes, err := io.Copy(destination, source)
 	err = os.Chmod(dst, 0755)
 	if err != nil {
-		log.Println(err)
+		logic.Log(err.Error(), 1)
 	}
 	return nBytes, err
 }
 
+// RemoveNetwork - removes a network locally on server
 func RemoveNetwork(network string) (bool, error) {
-	err := nccommand.Leave(config.ClientConfig{Network: network})
+	err := logic.ServerLeave(servercfg.GetNodeID(), network)
 	return true, err
 }
 
+// InitServerNetclient - intializes the server netclient
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
 	_, err := os.Stat(netclientDir + "/config")
 	if os.IsNotExist(err) {
 		os.MkdirAll(netclientDir+"/config", 744)
 	} else if err != nil {
-		log.Println("[netmaker] could not find or create", netclientDir)
+		logic.Log("[netmaker] could not find or create "+netclientDir, 1)
 		return err
 	}
 	return nil
 }
 
+// HandleContainedClient - function for checkins on server
 func HandleContainedClient() error {
 	servernets, err := models.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -118,20 +100,21 @@ func HandleContainedClient() error {
 		}
 		log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 		err := SyncNetworks(servernets)
-		if err != nil && servercfg.GetVerbose() >= 1 {
-			log.Printf("[netmaker] error syncing networks %s \n", err)
+		if err != nil {
+			logic.Log("error syncing networks: "+err.Error(), 1)
 		}
-		err = nccommand.CheckIn(config.ClientConfig{Network: "all"})
-		if err != nil && servercfg.GetVerbose() >= 1 {
-			log.Printf("[netmaker] error occurred %s \n", err)
+		for _, serverNet := range servernets {
+			err = logic.ServerCheckin(servercfg.GetNodeID(), serverNet.NetID)
+			if err != nil {
+				logic.Log("error occurred during server checkin: "+err.Error(), 1)
+			}
 		}
-		if servercfg.GetVerbose() >= 3 {
-			log.Println("[netmaker]", "completed a checkin call")
-		}
+		logic.Log("completed a checkin call", 3)
 	}
 	return nil
 }
 
+// SyncNetworks - syncs the networks for servers
 func SyncNetworks(servernets []models.Network) error {
 
 	localnets, err := ncutils.GetSystemNetworks()
@@ -153,7 +136,9 @@ func SyncNetworks(servernets []models.Network) error {
 					err = errors.New("network add failed for " + servernet.NetID)
 				}
 				if servercfg.GetVerbose() >= 1 {
-					log.Printf("[netmaker] error adding network %s during sync %s \n", servernet.NetID, err)
+					if !strings.Contains(err.Error(), "macaddress_unique") { // ignore macaddress unique error throws
+						log.Printf("[netmaker] error adding network %s during sync %s \n", servernet.NetID, err)
+					}
 				}
 			}
 		}
@@ -172,24 +157,18 @@ func SyncNetworks(servernets []models.Network) error {
 				if err == nil {
 					err = errors.New("network delete failed for " + localnet)
 				}
-				log.Printf("[netmaker] error removing network %s during sync %s \n", localnet, err)
+				if servercfg.GetVerbose() >= 1 {
+					log.Printf("[netmaker] error removing network %s during sync %s \n", localnet, err)
+				}
 			}
 		}
 	}
 	return nil
 }
 
+// AddNetwork - add a network to server in client mode
 func AddNetwork(network string) (bool, error) {
-	err := nccommand.Join(config.ClientConfig{
-		Network: network,
-		Daemon:  "off",
-		Node: models.Node{
-			Network:  network,
-			IsServer: "yes",
-			DNSOn:    "no",
-			Name:     models.NODE_SERVER_NAME,
-		},
-	}, "")
-	log.Println("[netmaker] Server added to network " + network)
+	err := logic.ServerJoin(network, servercfg.GetNodeID(), "")
+	logic.Log("server added to network "+network, 2)
 	return true, err
 }

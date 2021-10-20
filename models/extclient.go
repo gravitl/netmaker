@@ -6,6 +6,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 )
 
+// ExtClient - struct for external clients
 type ExtClient struct {
 	ClientID               string `json:"clientid" bson:"clientid"`
 	Description            string `json:"description" bson:"description"`
@@ -18,10 +19,7 @@ type ExtClient struct {
 	LastModified           int64  `json:"lastmodified" bson:"lastmodified"`
 }
 
-/**
- * Get the egress gateway ips of a given ExtClient struct
- * returns as []string
- */
+// ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client
 func (client *ExtClient) GetEgressRangesOnNetwork() ([]string, error) {
 
 	var result []string

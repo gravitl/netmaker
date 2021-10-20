@@ -6,14 +6,16 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
 
 // == sqlite ==
 const dbFilename = "netmaker.db"
 
+// SqliteDB is the db object fro sqlite database connections
 var SqliteDB *sql.DB
 
+// SQLITE_FUNCTIONS - contains a map of the functions for sqlite
 var SQLITE_FUNCTIONS = map[string]interface{}{
 	INIT_DB:      initSqliteDB,
 	CREATE_TABLE: sqliteCreateTable,
@@ -28,7 +30,7 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 func initSqliteDB() error {
 	// == create db file if not present ==
 	if _, err := os.Stat("data"); os.IsNotExist(err) {
-		os.Mkdir("data", 0644)
+		os.Mkdir("data", 0744)
 	}
 	dbFilePath := filepath.Join("data", dbFilename)
 	if _, err := os.Stat(dbFilePath); os.IsNotExist(err) {
@@ -67,9 +69,8 @@ func sqliteInsert(key string, value string, tableName string) error {
 			return err
 		}
 		return nil
-	} else {
-		return errors.New("invalid insert " + key + " : " + value)
 	}
+	return errors.New("invalid insert " + key + " : " + value)
 }
 
 func sqliteInsertPeer(key string, value string) error {
@@ -79,9 +80,8 @@ func sqliteInsertPeer(key string, value string) error {
 			return err
 		}
 		return nil
-	} else {
-		return errors.New("invalid peer insert " + key + " : " + value)
 	}
+	return errors.New("invalid peer insert " + key + " : " + value)
 }
 
 func sqliteDeleteRecord(tableName string, key string) error {

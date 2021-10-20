@@ -23,31 +23,49 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// NO_DB_RECORD - error message result
 const NO_DB_RECORD = "no result found"
+
+// NO_DB_RECORDS - error record result
 const NO_DB_RECORDS = "could not find any records"
+
+// LINUX_APP_DATA_PATH - linux path
 const LINUX_APP_DATA_PATH = "/etc/netclient"
+
+// WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
+
+// WINDOWS_SVC_NAME - service name
 const WINDOWS_SVC_NAME = "netclient"
+
+// NETCLIENT_DEFAULT_PORT - default port
 const NETCLIENT_DEFAULT_PORT = 51821
+
+// DEFAULT_GC_PERCENT - garbage collection percent
 const DEFAULT_GC_PERCENT = 10
 
+// Log - logs a message
 func Log(message string) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	log.Println("[netclient]", message)
 }
 
+// IsWindows - checks if is windows
 func IsWindows() bool {
 	return runtime.GOOS == "windows"
 }
 
+// IsMac - checks if is a mac
 func IsMac() bool {
 	return runtime.GOOS == "darwin"
 }
 
+// IsLinux - checks if is linux
 func IsLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
+// GetWireGuard - checks if wg is installed
 func GetWireGuard() string {
 	userspace := os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION")
 	if userspace != "" && (userspace == "boringtun" || userspace == "wireguard-go") {
@@ -56,6 +74,7 @@ func GetWireGuard() string {
 	return "wg"
 }
 
+// IsKernel - checks if running kernel WireGuard
 func IsKernel() bool {
 	//TODO
 	//Replace && true with some config file value
@@ -63,7 +82,7 @@ func IsKernel() bool {
 	return IsLinux() && os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION") == ""
 }
 
-// == database returned nothing error ==
+// IsEmptyRecord - repeat from database
 func IsEmptyRecord(err error) bool {
 	if err == nil {
 		return false
@@ -72,6 +91,7 @@ func IsEmptyRecord(err error) bool {
 }
 
 //generate an access key value
+// GenPass - generates a pass
 func GenPass() string {
 
 	var seededRand *rand.Rand = rand.New(
@@ -87,6 +107,7 @@ func GenPass() string {
 	return string(b)
 }
 
+// GetPublicIP - gets public ip
 func GetPublicIP() (string, error) {
 
 	iplist := []string{"http://ip.client.gravitl.com", "https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
@@ -113,6 +134,7 @@ func GetPublicIP() (string, error) {
 	return endpoint, err
 }
 
+// GetMacAddr - get's mac address
 func GetMacAddr() ([]string, error) {
 	ifas, err := net.Interfaces()
 	if err != nil {
@@ -133,7 +155,12 @@ func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	if keepalive <= 0 {
 		keepalive = 20
 	}
+	
 	for _, peer := range peers {
+		endpointString :=  ""
+		if peer.Endpoint != nil && peer.Endpoint.String() != "" {
+			endpointString += "Endpoint = " + peer.Endpoint.String()
+		}
 		newAllowedIps := []string{}
 		for _, allowedIP := range peer.AllowedIPs {
 			newAllowedIps = append(newAllowedIps, allowedIP.String())
@@ -141,19 +168,20 @@ func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 		peersString += fmt.Sprintf(`[Peer]
 PublicKey = %s
 AllowedIps = %s
-Endpoint = %s
 PersistentKeepAlive = %s
+%s
 
 `,
 			peer.PublicKey.String(),
 			strings.Join(newAllowedIps, ","),
-			peer.Endpoint.String(),
 			strconv.Itoa(int(keepalive)),
+			endpointString,
 		)
 	}
 	return peersString, nil
 }
 
+// CreateUserSpaceConf - creates a user space WireGuard conf
 func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	peersString, err := parsePeers(perskeepalive, peers)
 	listenPortString := ""
@@ -183,6 +211,7 @@ MTU = %s
 	return config, nil
 }
 
+// GetLocalIP - gets local ip of machine
 func GetLocalIP(localrange string) (string, error) {
 	_, localRange, err := net.ParseCIDR(localrange)
 	if err != nil {
@@ -229,6 +258,7 @@ func GetLocalIP(localrange string) (string, error) {
 	return local, nil
 }
 
+// GetFreePort - gets free port of machine
 func GetFreePort(rangestart int32) (int32, error) {
 	if rangestart == 0 {
 		rangestart = NETCLIENT_DEFAULT_PORT
@@ -259,6 +289,7 @@ func GetFreePort(rangestart int32) (int32, error) {
 
 // == OS PATH FUNCTIONS ==
 
+// GetHomeDirWindows - gets home directory in windows
 func GetHomeDirWindows() string {
 	if IsWindows() {
 		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
@@ -270,6 +301,7 @@ func GetHomeDirWindows() string {
 	return os.Getenv("HOME")
 }
 
+// GetNetclientPath - gets netclient path locally
 func GetNetclientPath() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH
@@ -280,6 +312,7 @@ func GetNetclientPath() string {
 	}
 }
 
+// GetNetclientPathSpecific - gets specific netclient config path
 func GetNetclientPathSpecific() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH + "\\"
@@ -290,6 +323,7 @@ func GetNetclientPathSpecific() string {
 	}
 }
 
+// GRPCRequestOpts - gets grps request opts
 func GRPCRequestOpts(isSecure string) grpc.DialOption {
 	var requestOpts grpc.DialOption
 	requestOpts = grpc.WithInsecure()
@@ -300,6 +334,7 @@ func GRPCRequestOpts(isSecure string) grpc.DialOption {
 	return requestOpts
 }
 
+// Copy - copies a src file to dest
 func Copy(src, dst string) (int64, error) {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
@@ -329,6 +364,7 @@ func Copy(src, dst string) (int64, error) {
 	return nBytes, err
 }
 
+// RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {
 	args := strings.Fields(command)
 	cmd := exec.Command(args[0], args[1:]...)
@@ -341,6 +377,7 @@ func RunCmd(command string, printerr bool) (string, error) {
 	return string(out), err
 }
 
+// RunsCmds - runs cmds
 func RunCmds(commands []string, printerr bool) error {
 	var err error
 	for _, command := range commands {
@@ -354,6 +391,7 @@ func RunCmds(commands []string, printerr bool) error {
 	return err
 }
 
+// FileExists - checks if file exists locally
 func FileExists(f string) bool {
 	info, err := os.Stat(f)
 	if os.IsNotExist(err) {
@@ -362,6 +400,7 @@ func FileExists(f string) bool {
 	return !info.IsDir()
 }
 
+// PrintLog - prints log
 func PrintLog(message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	if loglevel < 2 {
@@ -369,6 +408,7 @@ func PrintLog(message string, loglevel int) {
 	}
 }
 
+// GetSystemNetworks - get networks locally
 func GetSystemNetworks() ([]string, error) {
 	var networks []string
 	files, err := ioutil.ReadDir(GetNetclientPathSpecific())
@@ -394,5 +434,5 @@ func stringAfter(original string, substring string) string {
 	if adjustedPosition >= len(original) {
 		return ""
 	}
-	return original[adjustedPosition:len(original)]
+	return original[adjustedPosition:]
 }

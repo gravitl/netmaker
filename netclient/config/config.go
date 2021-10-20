@@ -15,11 +15,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// GlobalConfig - struct for handling IntClients currently
 type GlobalConfig struct {
 	GRPCWireGuard string `yaml:"grpcwg"`
 	Client        models.IntClient
 }
 
+// ClientConfig - struct for dealing with client configuration
 type ClientConfig struct {
 	Server          ServerConfig `yaml:"server"`
 	Node            models.Node  `yaml:"node"`
@@ -28,23 +30,25 @@ type ClientConfig struct {
 	OperatingSystem string       `yaml:"operatingsystem"`
 	DebugJoin       bool         `yaml:"debugjoin"`
 }
+
+// ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr   string `yaml:"corednsaddr"`
-	GRPCAddress   string `yaml:"grpcaddress"`
-	APIAddress    string `yaml:"apiaddress"`
-	AccessKey     string `yaml:"accesskey"`
-	GRPCSSL       string `yaml:"grpcssl"`
-	GRPCWireGuard string `yaml:"grpcwg"`
+	CoreDNSAddr     string `yaml:"corednsaddr"`
+	GRPCAddress     string `yaml:"grpcaddress"`
+	APIAddress      string `yaml:"apiaddress"`
+	AccessKey       string `yaml:"accesskey"`
+	GRPCSSL         string `yaml:"grpcssl"`
+	GRPCWireGuard   string `yaml:"grpcwg"`
 	CheckinInterval string `yaml:"checkininterval"`
 }
 
-//reading in the env file
+// Write - writes the config of a client to disk
 func Write(config *ClientConfig, network string) error {
 	if network == "" {
 		err := errors.New("no network provided - exiting")
 		return err
 	}
-	_, err := os.Stat(ncutils.GetNetclientPath()+"/config")
+	_, err := os.Stat(ncutils.GetNetclientPath() + "/config")
 	if os.IsNotExist(err) {
 		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0744)
 	} else if err != nil {
@@ -66,6 +70,7 @@ func Write(config *ClientConfig, network string) error {
 	return err
 }
 
+// WriteServer - writes the config of a server to disk for client
 func WriteServer(server string, accesskey string, network string) error {
 	if network == "" {
 		err := errors.New("no network provided - exiting")
@@ -73,7 +78,7 @@ func WriteServer(server string, accesskey string, network string) error {
 	}
 	nofile := false
 	//home, err := homedir.Dir()
-	_, err := os.Stat(ncutils.GetNetclientPath()+"/config")
+	_, err := os.Stat(ncutils.GetNetclientPath() + "/config")
 	if os.IsNotExist(err) {
 		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0744)
 	} else if err != nil {
@@ -149,6 +154,7 @@ func WriteServer(server string, accesskey string, network string) error {
 	return err
 }
 
+// ClientConfig.ReadConfig - used to read config from client disk into memory
 func (config *ClientConfig) ReadConfig() {
 
 	nofile := false
@@ -181,6 +187,7 @@ func (config *ClientConfig) ReadConfig() {
 	}
 }
 
+// ModConfig - overwrites the node inside client config on disk
 func ModConfig(node *models.Node) error {
 	network := node.Network
 	if network == "" {
@@ -201,6 +208,7 @@ func ModConfig(node *models.Node) error {
 	return err
 }
 
+// GetCLIConfig - gets the cli flags as a config
 func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	var cfg ClientConfig
 	if c.String("token") != "" {
@@ -312,6 +320,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	return cfg, privateKey, nil
 }
 
+// ReadConfig - reads a config of a client from disk for specified network
 func ReadConfig(network string) (*ClientConfig, error) {
 	if network == "" {
 		err := errors.New("no network provided - exiting")
@@ -340,6 +349,7 @@ func ReadConfig(network string) (*ClientConfig, error) {
 	return &cfg, err
 }
 
+// FileExists - checks if a file exists on disk
 func FileExists(f string) bool {
 	info, err := os.Stat(f)
 	if os.IsNotExist(err) {
@@ -348,6 +358,7 @@ func FileExists(f string) bool {
 	return !info.IsDir()
 }
 
+// GetNode - parses a network specified client config for node data
 func GetNode(network string) models.Node {
 
 	modcfg, err := ReadConfig(network)

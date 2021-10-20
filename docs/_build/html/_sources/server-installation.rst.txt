@@ -9,7 +9,7 @@ System Compatibility
 
 Netmaker will require elevated privileges to perform network operations. Netmaker has similar limitations to :doc:`netclient <./client-installation>` (client networking agent). 
 
-Typically, Netmaker is run inside of containers (Docker). To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, rqlite, and a web server directly on the host. Each of these components have their own individual requirements.
+Typically, Netmaker is run inside of containers (Docker). To run a non-docker installation, you must run the Netmaker binary, CoreDNS binary, database, and a web server directly on the host. Each of these components have their own individual requirements.
 
 The quick install guide is recommended for first-time installs. 
 
@@ -101,12 +101,37 @@ DNS_MODE:
 DATABASE:  
     **Default:** "sqlite"
 
-    **Description:** Specify db type to connect with. Currently, options include "sqlite" and "rqlite".
+    **Description:** Specify db type to connect with. Currently, options include "sqlite", "rqlite", and "postgres".
 
-SQL_CONN:  
+SQL_CONN:
     **Default:** "http://"
 
     **Description:** Specify the necessary string to connect with your local or remote sql database.
+
+SQL_HOST:
+    **Default:** "localhost"
+
+    **Description:** Host where postgres is running.
+
+SQL_PORT:
+    **Default:** "5432"
+
+    **Description:** port postgres is running.
+
+SQL_DB:
+    **Default:** "netmaker"
+
+    **Description:** DB to use in postgres.
+
+SQL_USER:
+    **Default:** "postgres"
+
+    **Description:** User for posgres.
+
+SQL_PASS:
+    **Default:** "nopass"
+
+    **Description:** Password for postgres.
 
 CLIENT_MODE:  
     **Default:** "on"
@@ -344,18 +369,135 @@ The following file configures Netmaker as a subdomain. This config is an adaptio
 
 .. _HAInstall:
 
-Highly Available Installation
-===============================
+
+
+Highly Available Installation (Kubernetes)
+==================================================
+
+Netmaker comes with a Helm chart to deploy with High Availability on Kubernetes:
+
+.. code-block::
+
+    helm repo add netmaker https://gravitl.github.io/netmaker-helm/
+    helm repo update
+
+Requirements
+---------------
+
+To run HA Netmaker on Kubernetes, your cluster must have the following:
+- RWO and RWX Storage Classes (RWX is only required if running Netmaker with DNS Management enabled).
+- An Ingress Controller and valid TLS certificates 
+- This chart can currently generate ingress for Nginx or Traefik Ingress with LetsEncrypt + Cert Manager
+- If LetsEncrypt and CertManager are not deployed, you must manually configure certificates for your ingress
+
+Furthermore, the chart will by default install and use a postgresql cluster as its datastore.
+
+Recommended Settings:
+----------------------
+A minimal HA install of Netmaker can be run with the following command:
+`helm install netmaker --generate-name --set baseDomain=nm.example.com`
+This install has some notable exceptions:
+- Ingress **must** be manually configured post-install (need to create valid Ingress with TLS)
+- Server will use "userspace" WireGuard, which is slower than kernel WG
+- DNS will be disabled
+
+Example Installations:
+------------------------
+An annotated install command:
+
+.. code-block::
+
+    helm install netmaker/netmaker --generate-name \ # generate a random id for the deploy 
+    --set baseDomain=nm.example.com \ # the base wildcard domain to use for the netmaker api/dashboard/grpc ingress 
+    --set replicas=3 \ # number of server replicas to deploy (3 by default) 
+    --set ingress.enabled=true \ # deploy ingress automatically (requires nginx or traefik and cert-manager + letsencrypt) 
+    --set ingress.className=nginx \ # ingress class to use 
+    --set ingress.tls.issuerName=letsencrypt-prod \ # LetsEncrypt certificate issuer to use 
+    --set dns.enabled=true \ # deploy and enable private DNS management with CoreDNS 
+    --set dns.clusterIP=10.245.75.75 --set dns.RWX.storageClassName=nfs \ # required fields for DNS 
+    --set postgresql-ha.postgresql.replicaCount=2 \ # number of DB replicas to deploy (default 2)
+
+
+The below command will install netmaker with two server replicas, a coredns server, and ingress with routes of api.nm.example.com, grpc.nm.example.com, and dashboard.nm.example.com. CoreDNS will be reachable at 10.245.75.75, and will use NFS to share a volume with Netmaker (to configure dns entries).
+
+.. code-block::
+
+    helm install netmaker/netmaker --generate-name --set baseDomain=nm.example.com \
+    --set replicas=2 --set ingress.enabled=true --set dns.enabled=true \
+    --set dns.clusterIP=10.245.75.75 --set dns.RWX.storageClassName=nfs \
+    --set ingress.className=nginx
+
+The below command will install netmaker with three server replicas (the default), **no coredns**, and ingress with routes of api.netmaker.example.com, grpc.netmaker.example.com, and dashboard.netmaker.example.com. There will be one UI replica instead of two, and one database instance instead of two. Traefik will look for a ClusterIssuer named "le-prod-2" to get valid certificates for the ingress. 
+
+.. code-block::
+
+    helm3 install netmaker/netmaker --generate-name \
+    --set baseDomain=netmaker.example.com --set postgresql-ha.postgresql.replicaCount=1 \
+    --set ui.replicas=1 --set ingress.enabled=true \
+    --set ingress.tls.issuerName=le-prod-2 --set ingress.className=traefik
+
+Below, we discuss the considerations for Ingress, Kernel WireGuard, and DNS.
+
+Ingress	
+----------
+To run HA Netmaker, you must have ingress installed and enabled on your cluster with valid TLS certificates (not self-signed). If you are running Nginx as your Ingress Controller and LetsEncrypt for TLS certificate management, you can run the helm install with the following settings:
+
+- `--set ingress.enabled=true`
+- `--set ingress.annotations.cert-manager.io/cluster-issuer=<your LE issuer name>`
+
+If you are not using Nginx or Traefik and LetsEncrypt, we recommend leaving ingress.enabled=false (default), and then manually creating the ingress objects post-install. You will need three ingress objects with TLS:
+
+- `dashboard.<baseDomain>`
+- `api.<baseDomain>`
+- `grpc.<baseDomain>`
+
+If deploying manually, the gRPC ingress object requires special considerations. Look up the proper way to route grpc with your ingress controller. For instance, on Traefik, an IngressRouteTCP object is required.
+
+There are some example ingress objects in the kube/example folder.
+
+Kernel WireGuard
+------------------
+If you have control of the Kubernetes worker node servers, we recommend **first** installing WireGuard on the hosts, and then installing HA Netmaker in Kernel mode. By default, Netmaker will install with userspace WireGuard (wireguard-go) for maximum compatibility, and to avoid needing permissions at the host level. If you have installed WireGuard on your hosts, you should install Netmaker's helm chart with the following option:
+
+- `--set wireguard.kernel=true`
+
+DNS
+----------
+By Default, the helm chart will deploy without DNS enabled. To enable DNS, specify with:
+
+- `--set dns.enabled=true` 
+
+This will require specifying a RWX storage class, e.g.:
+
+- `--set dns.RWX.storageClassName=nfs`
+
+This will also require specifying a service address for DNS. Choose a valid ipv4 address from the service IP CIDR for your cluster, e.g.:
+
+- `--set dns.clusterIP=10.245.69.69`
+
+**This address will only be reachable from hosts that have access to the cluster service CIDR.** It is only designed for use cases related to k8s. If you want a more general-use Netmaker server on Kubernetes for use cases outside of k8s, you will need to do one of the following:
+- bind the CoreDNS service to port 53 on one of your worker nodes and set the COREDNS_ADDRESS equal to the public IP of the worker node
+- Create a private Network with Netmaker and set the COREDNS_ADDRESS equal to the private address of the host running CoreDNS. For this, CoreDNS will need a node selector and will ideally run on the same host as one of the Netmaker server instances.
+
+Values
+---------
+
+To view all options for the chart, please visit the README in the code repo `here <https://github.com/gravitl/netmaker/tree/master/kube/helm#values>`_ .
+
+Highly Available Installation (VMs/Bare Metal)
+==================================================
 
 For an enterprise Netmaker installation, you will need a server that is highly available, to ensure redundant WireGuard routing when any server goes down. To do this, you will need:
 
 1. A load balancer
 2. 3+ Netmaker server instances
-3. rqlite as the backing database
+3. rqlite or PostgreSQL as the backing database
 
 These documents outline general HA installation guidelines. Netmaker is highly customizable to meet a wide range of enterprise environments. If you would like support with an enterprise-grade Netmaker installation, you can `schedule a consultation here <https://gravitl.com/book>`_ . 
 
-The main consideration here is how to configure rqlite. Most other settings and procedures match the standardized way of making applications HA: Load balancing to multiple instances, and sharing a DB. In our case, the DB (rqlite) is distributed, making HA data more easily achievable.
+The main consideration for this document is how to configure rqlite. Most other settings and procedures match the standardized way of making applications HA: Load balancing to multiple instances, and sharing a DB. In our case, the DB (rqlite) is distributed, making HA data more easily achievable.
+
+If using PostgreSQL, follow their documentation for `installing in HA mode <https://www.postgresql.org/docs/14/high-availability.html>`_ and skip step #2.
 
 1. Load Balancer Setup
 ------------------------
@@ -398,14 +540,24 @@ Once rqlite instances have been configured, the Netmaker servers can be deployed
 3. Netmaker Setup
 ------------------
 
-Netmaker will be started on each node with default settings, except with DATABASE=rqlite and SQL_CONN set appropriately to reach the local rqlite instance. Rqlite will maintain consistency with each Netmaker backend.
+Netmaker will be started on each node with default settings, except with DATABASE=rqlite (or DATABASE=postgress) and SQL_CONN set appropriately to reach the local rqlite instance. Rqlite will maintain consistency with each Netmaker backend.
+
+If deploying HA with PostgreSQL, you will connect with the following settings:
+
+.. code-block::
+
+    SQL_HOST = <sql host>
+    SQL_PORT = <port>
+    SQL_DB   = <designated sql DB>
+    SQL_USER = <your user>
+    SQL_PASS = <your password>
+    DATABASE = postgres
+
 
 4. Other Considerations
 ------------------------
 
 This is enough to get a functioning HA installation of Netmaker. However, you may also want to make the Netmaker UI or the CoreDNS server HA as well. The Netmaker UI can simply be added to the same servers and load balanced appropriately. For some load balancers, you may be able to do this with CoreDNS as well.
-
-
 
 
 

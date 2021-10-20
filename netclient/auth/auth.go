@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// CreateJWT func will used to create the JWT while signing in and signing out
+// SetJWT func will used to create the JWT while signing in and signing out
 func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, error) {
 	home := ncutils.GetNetclientPathSpecific()
 	tokentext, err := ioutil.ReadFile(home + "nettoken-" + network)
@@ -41,6 +41,7 @@ func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, e
 	return ctx, nil
 }
 
+// AutoLogin - auto logins whenever client needs to request from server
 func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 	home := ncutils.GetNetclientPathSpecific()
 	cfg, err := config.ReadConfig(network)
@@ -77,17 +78,20 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 	return err
 }
 
+// StoreSecret - stores auth secret locally
 func StoreSecret(key string, network string) error {
 	d1 := []byte(key)
 	err := ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0644)
 	return err
 }
 
+// RetrieveSecret - fetches secret locally
 func RetrieveSecret(network string) (string, error) {
 	dat, err := ioutil.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + network)
 	return string(dat), err
 }
 
+// Configuraion - struct for mac and pass
 type Configuration struct {
 	MacAddress string
 	Password   string

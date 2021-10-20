@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -28,6 +27,7 @@ var (
 	wcclient nodepb.NodeServiceClient
 )
 
+// ListPorts - lists ports of WireGuard devices
 func ListPorts() error {
 	wgclient, err := wgctrl.New()
 	if err != nil {
@@ -127,6 +127,7 @@ func needInterfaceUpdate(ctx context.Context, mac string, network string, iface 
 	return iface != oldiface, oldiface, err
 }
 
+// GetNode - gets node locally
 func GetNode(network string) models.Node {
 
 	modcfg, err := config.ReadConfig(network)
@@ -137,6 +138,7 @@ func GetNode(network string) models.Node {
 	return modcfg.Node
 }
 
+// Uninstall - uninstalls networks from client
 func Uninstall() error {
 	networks, err := ncutils.GetSystemNetworks()
 	if err != nil {
@@ -155,6 +157,8 @@ func Uninstall() error {
 		daemon.CleanupWindows()
 	} else if ncutils.IsMac() {
 		daemon.CleanupMac()
+	} else if ncutils.IsLinux() {
+		daemon.CleanupLinux()
 	} else if !ncutils.IsKernel() {
 		ncutils.PrintLog("manual cleanup required", 1)
 	}
@@ -162,6 +166,7 @@ func Uninstall() error {
 	return err
 }
 
+// LeaveNetwork - client exits a network
 func LeaveNetwork(network string) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -200,17 +205,11 @@ func LeaveNetwork(network string) error {
 				ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
 			}
 		}
-	} else { // handle server side
-		node.SetID()
-		if err = logic.DeleteNode(node.ID, true); err != nil {
-			ncutils.PrintLog("error removing server on network "+node.Network, 1)
-		} else {
-			ncutils.PrintLog("removed netmaker server instance on  "+node.Network, 1)
-		}
 	}
 	return RemoveLocalInstance(cfg, network)
 }
 
+// RemoveLocalInstance - remove all netclient files locally for a network
 func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 	err := WipeLocal(networkName)
 	if err != nil {
@@ -224,12 +223,13 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 		} else if ncutils.IsMac() {
 			//TODO: Delete mac daemon
 		} else {
-			err = daemon.RemoveSystemDServices(networkName)
+			err = daemon.RemoveSystemDServices()
 		}
 	}
 	return err
 }
 
+// DeleteInterface - delete an interface of a network
 func DeleteInterface(ifacename string, postdown string) error {
 	var err error
 	if !ncutils.IsKernel() {
@@ -249,31 +249,7 @@ func DeleteInterface(ifacename string, postdown string) error {
 	return err
 }
 
-func List() error {
-
-	networks, err := ncutils.GetSystemNetworks()
-	if err != nil {
-		return err
-	}
-	for _, network := range networks {
-		cfg, err := config.ReadConfig(network)
-		if err == nil {
-			jsoncfg, _ := json.Marshal(
-				map[string]string{
-					"Name":           cfg.Node.Name,
-					"Interface":      cfg.Node.Interface,
-					"PrivateIPv4":    cfg.Node.Address,
-					"PrivateIPv6":    cfg.Node.Address6,
-					"PublicEndpoint": cfg.Node.Endpoint,
-				})
-			fmt.Println(network + ": " + string(jsoncfg))
-		} else {
-			ncutils.PrintLog(network+": Could not retrieve network configuration.", 1)
-		}
-	}
-	return nil
-}
-
+// WipeLocal - wipes local instance
 func WipeLocal(network string) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {

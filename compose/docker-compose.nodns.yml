@@ -6,7 +6,6 @@ services:
     image: gravitl/netmaker:v0.8.4
     volumes:
       - /etc/netclient/config:/etc/netclient/config
-      - dnsconfig:/root/config/dnsconfig
       - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
     cap_add: 
@@ -19,7 +18,7 @@ services:
       SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
       GRPC_SSL: "on"
-      DNS_MODE: "on"
+      DNS_MODE: "off"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
       SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
       API_PORT: "8081"
@@ -41,18 +40,17 @@ services:
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
     restart: always
-  coredns:
-    depends_on:
-      - netmaker 
-    image: coredns/coredns
-    command: -conf /root/dnsconfig/Corefile
-    container_name: coredns
-    restart: always
-    ports:
-      - "COREDNS_IP:53:53/udp"
-      - "COREDNS_IP:53:53/tcp"
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    restart: unless-stopped
+    network_mode: host # Wants ports 80 and 443!
     volumes:
-      - dnsconfig:/root/dnsconfig
+      - /root/Caddyfile:/etc/caddy/Caddyfile
+      # - $PWD/site:/srv # you could also serve a static site in site folder
+      - caddy_data:/data
+      - caddy_conf:/config
 volumes:
+  caddy_data: {}
+  caddy_conf: {}
   sqldata: {}
-  dnsconfig: {}

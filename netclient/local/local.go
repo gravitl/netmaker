@@ -5,13 +5,15 @@ import (
 	"errors"
 	"log"
 	"net"
+	"os"
+	"os/exec"
 	"runtime"
 	"strings"
-	"os/exec"
-	"os"
+
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+// SetIPForwarding - Sets IP forwarding if it's mac or linux
 func SetIPForwarding() error {
 	os := runtime.GOOS
 	var err error
@@ -26,6 +28,7 @@ func SetIPForwarding() error {
 	return err
 }
 
+// SetIPForwardingLinux - sets the ipforwarding for linux
 func SetIPForwardingLinux() error {
 	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
 	if err != nil {
@@ -44,6 +47,7 @@ func SetIPForwardingLinux() error {
 	return nil
 }
 
+// SetIPForwardingMac - sets ip forwarding for mac
 func SetIPForwardingMac() error {
 	_, err := ncutils.RunCmd("sysctl -w net.inet.ip.forwarding=1", true)
 	if err != nil {
@@ -52,6 +56,7 @@ func SetIPForwardingMac() error {
 	return err
 }
 
+// IsWGInstalled - checks if WireGuard is installed
 func IsWGInstalled() bool {
 	out, err := ncutils.RunCmd("wg help", true)
 	if err != nil {
@@ -61,6 +66,7 @@ func IsWGInstalled() bool {
 	return strings.Contains(out, "Available subcommand")
 }
 
+// GetMacIface - gets mac interface
 func GetMacIface(ipstring string) (string, error) {
 	var wgiface string
 	_, checknet, err := net.ParseCIDR(ipstring + "/24")
@@ -90,6 +96,7 @@ func GetMacIface(ipstring string) (string, error) {
 	return wgiface, err
 }
 
+// HasNetwork - checks if a network exists locally
 func HasNetwork(network string) bool {
-		return ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "netconfig-" + network)
+	return ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "netconfig-" + network)
 }
