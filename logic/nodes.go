@@ -80,7 +80,7 @@ func GetPeers(node models.Node) ([]models.Node, error) {
 func IsLeader(node *models.Node) bool {
 	nodes, err := GetSortedNetworkServerNodes(node.Network)
 	if err != nil {
-		functions.PrintUserLog("[netmaker]", "ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.", 0)
+		functions.PrintUserLog("", "ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.", 0)
 		return false
 	}
 	for _, n := range nodes {
