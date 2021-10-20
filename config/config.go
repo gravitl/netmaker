@@ -30,49 +30,51 @@ var Config *EnvironmentConfig
 // EnvironmentConfig :
 type EnvironmentConfig struct {
 	Server ServerConfig `yaml:"server"`
-	SQL SQLConfig `yaml:"sql"`
+	SQL    SQLConfig    `yaml:"sql"`
 }
 
 // ServerConfig :
 type ServerConfig struct {
-	CoreDNSAddr          string `yaml:"corednsaddr"`
-	APIConnString        string `yaml:"apiconn"`
-	APIHost              string `yaml:"apihost"`
-	APIPort              string `yaml:"apiport"`
-	GRPCConnString       string `yaml:"grpcconn"`
-	GRPCHost             string `yaml:"grpchost"`
-	GRPCPort             string `yaml:"grpcport"`
-	GRPCSecure           string `yaml:"grpcsecure"`
-	MasterKey            string `yaml:"masterkey"`
-	AllowedOrigin        string `yaml:"allowedorigin"`
-	NodeID        string `yaml:"nodeid"`
-	RestBackend          string `yaml:"restbackend"`
-	AgentBackend         string `yaml:"agentbackend"`
-	ClientMode           string `yaml:"clientmode"`
-	DNSMode              string `yaml:"dnsmode"`
-	SplitDNS             string `yaml:"splitdns"`
-	DisableRemoteIPCheck string `yaml:"disableremoteipcheck"`
-	DisableDefaultNet    string `yaml:"disabledefaultnet"`
-	GRPCSSL              string `yaml:"grpcssl"`
-	Version              string `yaml:"version"`
-	SQLConn              string `yaml:"sqlconn"`
-	Platform             string `yaml:"platform"`
-	Database             string `yaml:database`
-	CheckinInterval      string `yaml:checkininterval`
-	DefaultNodeLimit     int32  `yaml:"defaultnodelimit"`
-	Verbosity            int32  `yaml:"verbosity"`
+	CoreDNSAddr           string `yaml:"corednsaddr"`
+	APIConnString         string `yaml:"apiconn"`
+	APIHost               string `yaml:"apihost"`
+	APIPort               string `yaml:"apiport"`
+	GRPCConnString        string `yaml:"grpcconn"`
+	GRPCHost              string `yaml:"grpchost"`
+	GRPCPort              string `yaml:"grpcport"`
+	GRPCSecure            string `yaml:"grpcsecure"`
+	MasterKey             string `yaml:"masterkey"`
+	AllowedOrigin         string `yaml:"allowedorigin"`
+	NodeID                string `yaml:"nodeid"`
+	RestBackend           string `yaml:"restbackend"`
+	AgentBackend          string `yaml:"agentbackend"`
+	ClientMode            string `yaml:"clientmode"`
+	DNSMode               string `yaml:"dnsmode"`
+	SplitDNS              string `yaml:"splitdns"`
+	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
+	DisableDefaultNet     string `yaml:"disabledefaultnet"`
+	GRPCSSL               string `yaml:"grpcssl"`
+	Version               string `yaml:"version"`
+	SQLConn               string `yaml:"sqlconn"`
+	Platform              string `yaml:"platform"`
+	Database              string `yaml:database`
+	CheckinInterval       string `yaml:checkininterval`
+	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
+	Verbosity             int32  `yaml:"verbosity"`
 	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
+	AuthProvider          string `yaml:"authprovider"`
+	ClientID              string `yaml:"clientid"`
+	ClientSecret          string `yaml:"clientsecret"`
 }
-
 
 // Generic SQL Config
 type SQLConfig struct {
-	Host string `yaml:"host"`
-	Port int32 `yaml:"port"`
+	Host     string `yaml:"host"`
+	Port     int32  `yaml:"port"`
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
-	DB string `yaml:"db"`
-	SSLMode string `yaml:"sslmode"`
+	DB       string `yaml:"db"`
+	SSLMode  string `yaml:"sslmode"`
 }
 
 //reading in the env file

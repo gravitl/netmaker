@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gravitl/netmaker/config"
 )
@@ -65,6 +66,12 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
+
+	// == auth config ==
+	var authInfo = GetAuthProviderInfo()
+	cfg.AuthProvider = authInfo[0]
+	cfg.ClientID = authInfo[1]
+	cfg.ClientSecret = authInfo[2]
 	return cfg
 }
 func GetAPIConnString() string {
@@ -396,6 +403,25 @@ func GetServerCheckinInterval() int64 {
 		t = config.Config.Server.ServerCheckinInterval
 	}
 	return t
+}
+
+// GetAuthProviderInfo = gets the oauth provider info
+func GetAuthProviderInfo() []string {
+	var authProvider = ""
+	if os.Getenv("AUTH_PROVIDER") != "" && os.Getenv("CLIENT_ID") != "" && os.Getenv("CLIENT_SECRET") != "" {
+		authProvider = strings.ToLower(os.Getenv("AUTH_PROVIDER"))
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+			return []string{authProvider, os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET")}
+		} else {
+			authProvider = ""
+		}
+	} else if config.Config.Server.AuthProvider != "" && config.Config.Server.ClientID != "" && config.Config.Server.ClientSecret != "" {
+		authProvider = strings.ToLower(config.Config.Server.AuthProvider)
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+			return []string{authProvider, config.Config.Server.ClientID, config.Config.Server.ClientSecret}
+		}
+	}
+	return []string{"", "", ""}
 }
 
 // GetMacAddr - get's mac address
