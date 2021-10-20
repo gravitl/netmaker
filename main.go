@@ -120,7 +120,8 @@ func runClient(wg *sync.WaitGroup) {
 			if err := serverctl.HandleContainedClient(); err != nil {
 				// PASS
 			}
-			time.Sleep(time.Second * 15)
+			var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
+			time.Sleep(checkintime)
 		}
 	}()
 }

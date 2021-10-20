@@ -155,7 +155,12 @@ func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	if keepalive <= 0 {
 		keepalive = 20
 	}
+	
 	for _, peer := range peers {
+		endpointString :=  ""
+		if peer.Endpoint != nil && peer.Endpoint.String() != "" {
+			endpointString += "Endpoint = " + peer.Endpoint.String()
+		}
 		newAllowedIps := []string{}
 		for _, allowedIP := range peer.AllowedIPs {
 			newAllowedIps = append(newAllowedIps, allowedIP.String())
@@ -163,14 +168,14 @@ func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 		peersString += fmt.Sprintf(`[Peer]
 PublicKey = %s
 AllowedIps = %s
-Endpoint = %s
 PersistentKeepAlive = %s
+%s
 
 `,
 			peer.PublicKey.String(),
 			strings.Join(newAllowedIps, ","),
-			peer.Endpoint.String(),
 			strconv.Itoa(int(keepalive)),
+			endpointString,
 		)
 	}
 	return peersString, nil

@@ -3,10 +3,11 @@ package servercfg
 import (
 	"errors"
 	"io/ioutil"
-	"net/http"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
+
 	"github.com/gravitl/netmaker/config"
 )
 
@@ -33,6 +34,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Verbosity = GetVerbose()
 	cfg.NodeID = GetNodeID()
 	cfg.CheckinInterval = GetCheckinInterval()
+	cfg.ServerCheckinInterval = GetServerCheckinInterval()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -75,7 +77,7 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.8.3"
+	version := "0.8.4"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
@@ -383,6 +385,17 @@ func GetNodeID() string {
 		id = config.Config.Server.NodeID
 	}
 	return id
+}
+
+func GetServerCheckinInterval() int64 {
+	var t = int64(5)
+	var envt, _ = strconv.Atoi(os.Getenv("SERVER_CHECKIN_INTERVAL"))
+	if envt > 0 {
+		t = int64(envt)
+	} else if config.Config.Server.ServerCheckinInterval > 0 {
+		t = config.Config.Server.ServerCheckinInterval
+	}
+	return t
 }
 
 // GetMacAddr - get's mac address

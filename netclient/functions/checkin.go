@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -197,11 +196,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		if err = json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
 			return nil, err
 		}
-	} else { // handle server side read
-		resNode, err = logic.GetNode(node.MacAddress, node.Network)
-		if err != nil && !ncutils.IsEmptyRecord(err) {
-			return nil, err
-		}
 	}
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
@@ -259,6 +253,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 
 // Push - pushes current client configuration to server
 func Push(network string) error {
+
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err
@@ -268,58 +263,52 @@ func Push(network string) error {
 	postnode.OS = runtime.GOOS
 	postnode.SetLastCheckIn()
 
-	if postnode.IsServer != "yes" { // handle client side
-		var header metadata.MD
-		var wcclient nodepb.NodeServiceClient
-		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-		if err != nil {
-			ncutils.PrintLog("Cant dial GRPC server: "+err.Error(), 1)
-			return err
-		}
-		defer conn.Close()
-		wcclient = nodepb.NewNodeServiceClient(conn)
+	var header metadata.MD
+	var wcclient nodepb.NodeServiceClient
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+	if err != nil {
+		ncutils.PrintLog("Cant dial GRPC server: "+err.Error(), 1)
+		return err
+	}
+	defer conn.Close()
+	wcclient = nodepb.NewNodeServiceClient(conn)
 
-		ctx, err := auth.SetJWT(wcclient, network)
-		if err != nil {
-			ncutils.PrintLog("Failed to authenticate with server: "+err.Error(), 1)
-			return err
-		}
-		if postnode.IsPending != "yes" {
-			privateKey, err := wireguard.RetrievePrivKey(network)
-			if err != nil {
-				return err
-			}
-			privateKeyWG, err := wgtypes.ParseKey(privateKey)
-			if err != nil {
-				return err
-			}
-			if postnode.PublicKey != privateKeyWG.PublicKey().String() {
-				postnode.PublicKey = privateKeyWG.PublicKey().String()
-			}
-		}
-		nodeData, err := json.Marshal(&postnode)
+	ctx, err := auth.SetJWT(wcclient, network)
+	if err != nil {
+		ncutils.PrintLog("Failed to authenticate with server: "+err.Error(), 1)
+		return err
+	}
+	if postnode.IsPending != "yes" {
+		privateKey, err := wireguard.RetrievePrivKey(network)
 		if err != nil {
 			return err
 		}
+		privateKeyWG, err := wgtypes.ParseKey(privateKey)
+		if err != nil {
+			return err
+		}
+		if postnode.PublicKey != privateKeyWG.PublicKey().String() {
+			postnode.PublicKey = privateKeyWG.PublicKey().String()
+		}
+	}
+	nodeData, err := json.Marshal(&postnode)
+	if err != nil {
+		return err
+	}
 
-		req := &nodepb.Object{
-			Data:     string(nodeData),
-			Type:     nodepb.NODE_TYPE,
-			Metadata: "",
-		}
-		data, err := wcclient.UpdateNode(ctx, req, grpc.Header(&header))
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal([]byte(data.Data), &postnode)
-		if err != nil {
-			return err
-		}
-	} else {
-		if err = postnode.Update(&postnode); err != nil {
-			return err
-		}
+	req := &nodepb.Object{
+		Data:     string(nodeData),
+		Type:     nodepb.NODE_TYPE,
+		Metadata: "",
+	}
+	data, err := wcclient.UpdateNode(ctx, req, grpc.Header(&header))
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal([]byte(data.Data), &postnode)
+	if err != nil {
+		return err
 	}
 	err = config.ModConfig(&postnode)
 	return err

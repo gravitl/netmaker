@@ -10,7 +10,17 @@ RUN git clone https://git.zx2c4.com/wireguard-go && \
     make && \
     make install
 
+ENV WITH_WGQUICK=yes
+RUN git clone https://git.zx2c4.com/wireguard-tools && \
+    cd wireguard-tools && \
+    cd src && \
+    make && \
+    make install
+
 FROM gravitl/netmaker:${NM_VERSION}
 
-RUN apk add --no-cache --update libmnl iptables openresolv iproute2
+RUN apk add --no-cache --update bash libmnl iptables openresolv iproute2
 COPY --from=builder /usr/bin/wireguard-go /usr/bin/wg* /usr/bin/
+COPY scripts/userspace-entrypoint.sh ./entrypoint.sh
+
+ENTRYPOINT ["/bin/sh", "./entrypoint.sh"]

@@ -66,8 +66,9 @@ func RemoveWGQuickConf(confPath string, printlog bool) error {
 
 // StorePrivKey - stores wg priv key on disk locally
 func StorePrivKey(key string, network string) error {
+	var err error
 	d1 := []byte(key)
-	err := ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0644)
+	err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0644)
 	return err
 }
 
