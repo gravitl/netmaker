@@ -92,8 +92,12 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 	if node.Name == models.NODE_SERVER_NAME {
 		node.IsServer = "yes"
 	}
-	if servercfg.IsDNSMode() && node.DNSOn == "" {
-		node.DNSOn = "yes"
+	if node.DNSOn == "" {
+		if servercfg.IsDNSMode() {
+			node.DNSOn = "yes"
+		} else {
+			node.DNSOn = "no"
+		}
 	}
 	node.SetDefaults()
 	node.Address, err = functions.UniqueAddress(networkName)

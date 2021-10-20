@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-
+	"os/exec"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
@@ -81,6 +81,20 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			cfg.Node.MacAddress = macs[0]
 		}
 	}
+	if ncutils.IsLinux() {
+		log.Println("deleteme looking for resolvectl")
+		path, err := exec.LookPath("resolvectl")
+		if err != nil {
+			log.Println("deleteme whoops its not there")
+			ncutils.PrintLog("resolvectl not present",2)
+			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management",2)
+			cfg.Node.DNSOn = "no"
+		} else {
+			log.Println("nice we gucci")
+			log.Println("path -->", path)
+		}	
+	}
+
 
 	// differentiate between client/server here
 	var node models.Node // fill this node with appropriate calls
