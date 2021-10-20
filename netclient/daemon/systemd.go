@@ -112,16 +112,23 @@ func RemoveSystemDServices() error {
 		if err != nil {
 			log.Println(err)
 		}
-		_, err = ncutils.RunCmd("systemctl disable netclient.service", true)
-		_, err = ncutils.RunCmd("systemctl disable netclient.timer", true)
-		err = os.Remove("/etc/systemd/system/netclient.service")
-		err = os.Remove("/etc/systemd/system/netclient.timer")
-		if err != nil {
-			log.Println("Error removing file. Please investigate.")
-			log.Println(err)
+		ncutils.RunCmd("systemctl disable netclient.service", false)
+		ncutils.RunCmd("systemctl disable netclient.timer", false)
+		if ncutils.FileExists("/etc/systemd/system/netclient.service") {
+			err = os.Remove("/etc/systemd/system/netclient.service")
+			if err != nil {
+				ncutils.Log("Error removing /etc/systemd/system/netclient.service. Please investigate.")
+			}
 		}
-		_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
-		_, _ = ncutils.RunCmd("systemctl reset-failed", true)
+		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
+			err = os.Remove("/etc/systemd/system/netclient.timer")
+			if err != nil {
+				ncutils.Log("Error removing /etc/systemd/system/netclient.timer. Please investigate.")
+			}
+		}
+		ncutils.RunCmd("systemctl daemon-reload", false)
+		ncutils.RunCmd("systemctl reset-failed", false)
+		ncutils.Log("removed systemd remnants if any existed")
 	}
 	return nil
 }
