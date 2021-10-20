@@ -3,7 +3,7 @@ module github.com/gravitl/netmaker
 go 1.15
 
 require (
-	github.com/go-playground/validator/v10 v10.5.0
+	github.com/go-playground/validator/v10 v10.9.0
 	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/handlers v1.5.1
@@ -12,7 +12,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/txn2/txeh v1.3.0
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
@@ -24,5 +24,5 @@ require (
 	google.golang.org/genproto v0.0.0-20210201151548-94839c025ad4 // indirect
 	google.golang.org/grpc v1.35.0
 	google.golang.org/protobuf v1.26.0
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
