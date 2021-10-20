@@ -344,14 +344,14 @@ func DeleteNetwork(network string) error {
 		servers, err := logic.GetSortedNetworkServerNodes(network)
 		if err == nil {
 			for _, s := range servers {
-				if err = logic.DeleteNode(s.ID, true); err != nil {
-					functions.PrintUserLog("[netmaker]", "could not removed server "+s.Name+" before deleting network "+network, 2)
+				if err = logic.DeleteNode(&s, true); err != nil {
+					functions.PrintUserLog("", "could not removed server "+s.Name+" before deleting network "+network, 2)
 				} else {
-					functions.PrintUserLog("[netmaker]", "removed server "+s.Name+" before deleting network "+network, 2)
+					functions.PrintUserLog("", "removed server "+s.Name+" before deleting network "+network, 2)
 				}
 			}
 		} else {
-			functions.PrintUserLog("[netmaker]", "could not remove servers before deleting network "+network, 1)
+			functions.PrintUserLog("", "could not remove servers before deleting network "+network, 1)
 		}
 		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}

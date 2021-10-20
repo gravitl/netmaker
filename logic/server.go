@@ -8,9 +8,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/gravitl/netmaker/servercfg"
+
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -239,7 +240,7 @@ func ServerLeave(mac string, network string) error {
 		return err
 	}
 	serverNode.SetID()
-	return DeleteNode(serverNode.ID, true)
+	return DeleteNode(&serverNode, true)
 }
 
 // GetServerPeers - gets peers of server

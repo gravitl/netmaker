@@ -24,7 +24,7 @@ import (
 func PrintUserLog(username string, message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
-		log.Println(username, message)
+		log.Println("[netmaker]", username, message)
 	}
 }
 

@@ -45,8 +45,10 @@ func SetNetworkServerPeers(node *models.Node) {
 }
 
 // DeleteNode - deletes a node from database or moves into delete nodes table
-func DeleteNode(key string, exterminate bool) error {
+func DeleteNode(node *models.Node, exterminate bool) error {
 	var err error
+	node.SetID()
+	var key = node.ID
 	if !exterminate {
 		args := strings.Split(key, "###")
 		node, err := GetNode(args[0], args[1])
@@ -67,13 +69,13 @@ func DeleteNode(key string, exterminate bool) error {
 			Log(err.Error(), 2)
 		}
 	}
-	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
+	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		return err
 	}
 	if servercfg.IsDNSMode() {
 		err = dnslogic.SetDNS()
 	}
-	return err
+	return removeLocalServer(node)
 }
 
 // CreateNode - creates a node in database

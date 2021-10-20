@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -205,13 +204,6 @@ func LeaveNetwork(network string) error {
 			} else {
 				ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
 			}
-		}
-	} else { // handle server side
-		node.SetID()
-		if err = logic.DeleteNode(node.ID, true); err != nil {
-			ncutils.PrintLog("error removing server on network "+node.Network, 1)
-		} else {
-			ncutils.PrintLog("removed netmaker server instance on  "+node.Network, 1)
 		}
 	}
 	return RemoveLocalInstance(cfg, network)
