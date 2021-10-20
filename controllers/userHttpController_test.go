@@ -210,8 +210,13 @@ func TestGetUsers(t *testing.T) {
 		CreateUser(user)
 		admins, err := GetUsers()
 		assert.Nil(t, err)
-		assert.Equal(t, "admin", admins[0].UserName)
-		assert.Equal(t, user.UserName, admins[1].UserName)
+		for _, u := range admins {
+			if u.UserName == "admin" {
+				assert.Equal(t, "admin", u.UserName)
+			} else {
+				assert.Equal(t, user.UserName, u.UserName)
+			}
+		}
 	})
 
 }
@@ -227,7 +232,7 @@ func TestUpdateUser(t *testing.T) {
 		assert.Equal(t, "", admin.UserName)
 	})
 
-	t.Run("UserExisits", func(t *testing.T) {
+	t.Run("UserExists", func(t *testing.T) {
 		CreateUser(user)
 		admin, err := UpdateUser(newuser, user)
 		assert.Nil(t, err)
