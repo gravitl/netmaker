@@ -31,11 +31,6 @@ func main() {
 		hostname = ""
 	}
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = ""
-	}
-
 	cliFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "network",
