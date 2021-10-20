@@ -11,10 +11,10 @@ fi
 
 dist=netclient
 
-echo "OS Version = $OSTYPE"
+echo "OS Version = $(uname)"
 echo "Netclient Version = $VERSION"
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+if [[ "$(uname)" == "Linux"* ]]; then
 	arch=$(uname -i)
 	echo "CPU ARCH = $arch"
 	if [ "$arch" == 'x86_64' ];
@@ -29,11 +29,8 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	then
 		dist=netclient-arm64
 	fi
-elif [[ "$OSTYPE" == "darwin"* ]]; then
+elif [[ "$(uname)" == "Darwin"* ]]; then
         dist=netclient-darwin
-else
-        echo "This OS is not currently supported via automated install" 
-        exit 1
 fi
 
 echo "Binary = $dist"
