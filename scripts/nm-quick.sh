@@ -58,12 +58,34 @@ SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 REPLACE_MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 EMAIL="fake@email.com"
 
-if [ -n "$1" ]; then
-  NETMAKER_BASE_DOMAIN=$1
+if [ $# -eq 2 ]
+then
+arg1=$( echo $1 | awk -F"=" '{print $2}')
+arg2=$( echo $2 | awk -F"=" '{print $2}')
+value=$( echo $1 | awk -F"=" '{print $1}')
+
+if [ $value == domain ];then
+	echo "Paramater NETMAKER_BASE_DOMAIN is $arg1"
+	NETMAKER_BASE_DOMAIN=$arg1
+	echo "Paramater EMAIL is $arg2"
+	EMAIL=$arg2
+	else
+	echo "Paramater NETMAKER_BASE_DOMAIN is $arg2"
+	NETMAKER_BASE_DOMAIN=$arg2
+	echo "Paramater EMAIL is $arg1"
+	EMAIL=$arg1
 fi
 
-if [ -n "$2" ]; then
-  EMAIL=$2
+elif [ $# -eq 1 ];then
+	check=$( echo $1 | awk -F"=" '{print $1}')
+	value=$( echo $1 | awk -F"=" '{print $2}')
+if [ $check == domain ];then
+	echo "Paramater NETMAKER_BASE_DOMAIN is $value"
+	NETMAKER_BASE_DOMAIN=$value
+else
+	echo "Paramater EMAIL is $value"
+	EMAIL=$value
+fi
 fi
 
 echo "        domain: $NETMAKER_BASE_DOMAIN"
