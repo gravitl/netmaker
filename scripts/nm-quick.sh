@@ -58,34 +58,30 @@ SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 REPLACE_MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 EMAIL="fake@email.com"
 
-if [ $# -eq 2 ]
-then
-arg1=$( echo $1 | awk -F"=" '{print $2}')
-arg2=$( echo $2 | awk -F"=" '{print $2}')
-value=$( echo $1 | awk -F"=" '{print $1}')
+arg1=$( echo $1 | awk -F"domain=" '{print $2}')
+arg2=$( echo $2 | awk -F"domain=" '{print $2}')
 
-if [ $value == domain ];then
-	echo "Paramater NETMAKER_BASE_DOMAIN is $arg1"
-	NETMAKER_BASE_DOMAIN=$arg1
-	echo "Paramater EMAIL is $arg2"
-	EMAIL=$arg2
-	else
-	echo "Paramater NETMAKER_BASE_DOMAIN is $arg2"
-	NETMAKER_BASE_DOMAIN=$arg2
-	echo "Paramater EMAIL is $arg1"
-	EMAIL=$arg1
+if [ -n "$arg1" ]; then
+  echo "Paramater NETMAKER_BASE_DOMAIN is $arg1"
+  NETMAKER_BASE_DOMAIN=$arg1
 fi
 
-elif [ $# -eq 1 ];then
-	check=$( echo $1 | awk -F"=" '{print $1}')
-	value=$( echo $1 | awk -F"=" '{print $2}')
-if [ $check == domain ];then
-	echo "Paramater NETMAKER_BASE_DOMAIN is $value"
-	NETMAKER_BASE_DOMAIN=$value
-else
-	echo "Paramater EMAIL is $value"
-	EMAIL=$value
+if [ -n "$arg2" ]; then
+  echo "Paramater NETMAKER_BASE_DOMAIN is $arg2"
+  NETMAKER_BASE_DOMAIN=$arg2
 fi
+
+arg1=$( echo $1 | awk -F"email=" '{print $2}')
+arg2=$( echo $2 | awk -F"email=" '{print $2}')
+
+if [ -n "$arg1" ]; then
+  echo "Paramater EMAIL is $arg1"
+  EMAIL=$arg1
+fi
+
+if [ -n "$arg2" ]; then
+  echo "Paramater EMAIL is $arg2"
+  EMAIL=$arg2
 fi
 
 echo "        domain: $NETMAKER_BASE_DOMAIN"
