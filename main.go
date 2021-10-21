@@ -13,11 +13,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gravitl/netmaker/auth"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -35,20 +37,27 @@ func main() {
 
 func initialize() { // Client Mode Prereq Check
 	var err error
+
 	if err = database.InitializeDatabase(); err != nil {
-		log.Println("Error connecting to database.")
+		logic.Log("Error connecting to database", 0)
 		log.Fatal(err)
 	}
-	log.Println("database successfully connected.")
+	logic.Log("database successfully connected", 0)
+
+	var authProvider = auth.InitializeAuthProvider()
+	if authProvider != "" {
+		logic.Log("OAuth provider, "+authProvider+", initialized", 0)
+	}
+
 	if servercfg.IsClientMode() != "off" {
 		output, err := ncutils.RunCmd("id -u", true)
 		if err != nil {
-			log.Println("Error running 'id -u' for prereq check. Please investigate or disable client mode.")
+			logic.Log("Error running 'id -u' for prereq check. Please investigate or disable client mode.", 0)
 			log.Fatal(output, err)
 		}
 		uid, err := strconv.Atoi(string(output[:len(output)-1]))
 		if err != nil {
-			log.Println("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.")
+			logic.Log("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.", 0)
 			log.Fatal(err)
 		}
 		if uid != 0 {
@@ -74,7 +83,7 @@ func startControllers() {
 		if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
 			err := servercfg.SetHost()
 			if err != nil {
-				log.Println("Unable to Set host. Exiting...")
+				logic.Log("Unable to Set host. Exiting...", 0)
 				log.Fatal(err)
 			}
 		}
@@ -90,7 +99,7 @@ func startControllers() {
 	if servercfg.IsDNSMode() {
 		err := dnslogic.SetDNS()
 		if err != nil {
-			log.Println("error occurred initializing DNS:", err)
+			logic.Log("error occurred initializing DNS: "+err.Error(), 0)
 		}
 	}
 	//Run Rest Server
@@ -98,7 +107,7 @@ func startControllers() {
 		if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
 			err := servercfg.SetHost()
 			if err != nil {
-				log.Println("Unable to Set host. Exiting...")
+				logic.Log("Unable to Set host. Exiting...", 0)
 				log.Fatal(err)
 			}
 		}
@@ -106,11 +115,11 @@ func startControllers() {
 		controller.HandleRESTRequests(&waitnetwork)
 	}
 	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
-		log.Println("No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
+		logic.Log("No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.", 0)
 	}
 
 	waitnetwork.Wait()
-	log.Println("[netmaker] exiting")
+	logic.Log("exiting", 0)
 }
 
 func runClient(wg *sync.WaitGroup) {
@@ -139,7 +148,7 @@ func runGRPC(wg *sync.WaitGroup) {
 	listener, err := net.Listen("tcp", ":"+grpcport)
 	// Handle errors if any
 	if err != nil {
-		log.Fatalf("Unable to listen on port "+grpcport+", error: %v", err)
+		log.Fatalf("[netmaker] Unable to listen on port "+grpcport+", error: %v", err)
 	}
 
 	s := grpc.NewServer(
@@ -157,7 +166,7 @@ func runGRPC(wg *sync.WaitGroup) {
 			log.Fatalf("Failed to serve: %v", err)
 		}
 	}()
-	log.Println("Agent Server successfully started on port " + grpcport + " (gRPC)")
+	logic.Log("Agent Server successfully started on port "+grpcport+" (gRPC)", 0)
 
 	// Right way to stop the server using a SHUTDOWN HOOK
 	// Create a channel to receive OS signals
@@ -172,11 +181,11 @@ func runGRPC(wg *sync.WaitGroup) {
 	<-c
 
 	// After receiving CTRL+C Properly stop the server
-	log.Println("Stopping the Agent server...")
+	logic.Log("Stopping the Agent server...", 0)
 	s.Stop()
 	listener.Close()
-	log.Println("Agent server closed..")
-	log.Println("Closed DB connection.")
+	logic.Log("Agent server closed..", 0)
+	logic.Log("Closed DB connection.", 0)
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {

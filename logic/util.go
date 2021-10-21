@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"log"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -278,6 +279,19 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 	return peers, err
 }
 
+// RandomString - returns a random string in a charset
+func RandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
 func setPeerInfo(node models.Node) models.Node {
 	var peer models.Node
 	peer.RelayAddrs = node.RelayAddrs
@@ -303,7 +317,7 @@ func setPeerInfo(node models.Node) models.Node {
 
 func Log(message string, loglevel int) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
-	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
+	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() >= 0 {
 		log.Println("[netmaker] " + message)
 	}
 }

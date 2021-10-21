@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gravitl/netmaker/servercfg"
@@ -13,13 +14,19 @@ const (
 	get_user_info          = "getuserinfo"
 	handle_callback        = "handlecallback"
 	handle_login           = "handlelogin"
-	oauth_state_string     = "netmaker-oauth-state"
 	google_provider_name   = "google"
 	azure_ad_provider_name = "azure-ad"
 	github_provider_name   = "github"
+	verify_user            = "verifyuser"
 )
 
+var oauth_state_string = "netmaker-oauth-state" // should be set randomly each provider login
 var auth_provider *oauth2.Config
+
+type OauthUser struct {
+	Email       string `json:"email" bson:"email"`
+	AccessToken string `json:"accesstoken" bson:"accesstoken"`
+}
 
 func getCurrentAuthFunctions() map[string]interface{} {
 	var authInfo = servercfg.GetAuthProviderInfo()
@@ -37,14 +44,14 @@ func getCurrentAuthFunctions() map[string]interface{} {
 }
 
 // InitializeAuthProvider - initializes the auth provider if any is present
-func InitializeAuthProvider() bool {
+func InitializeAuthProvider() string {
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
-		return false
+		return ""
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
-	functions[init_provider].(func(string, string, string))(servercfg.GetAPIConnString(), authInfo[1], authInfo[2])
-	return auth_provider != nil
+	functions[init_provider].(func(string, string, string))(servercfg.GetAPIConnString()+"/api/oauth/callback", authInfo[1], authInfo[2])
+	return authInfo[0]
 }
 
 // HandleAuthCallback - handles oauth callback
@@ -63,4 +70,18 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
+}
+
+// VerifyUserToken - checks if oauth2 token is valid
+func VerifyUserToken(accessToken string) bool {
+	var token = &oauth2.Token{}
+	var err = json.Unmarshal([]byte(accessToken), token)
+	if err != nil || !token.Valid() {
+		return false
+	}
+	var functions = getCurrentAuthFunctions()
+	if functions == nil {
+		return false
+	}
+	return functions[verify_user].(func(*oauth2.Token) bool)(token)
 }

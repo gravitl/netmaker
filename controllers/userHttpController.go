@@ -3,14 +3,14 @@ package controller
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -26,6 +26,13 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
 	r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
+	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
+	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
+	r.HandleFunc("/api/oauth/error", throwOauthError).Methods("GET")
+}
+
+func throwOauthError(response http.ResponseWriter, request *http.Request) {
+	returnErrorResponse(response, request, formatError(errors.New("No token returned"), "unauthorized"))
 }
 
 // Node authenticates using its password and retrieves a JWT for authorization.
@@ -181,37 +188,11 @@ func ValidateUserToken(token string, user string, adminonly bool) error {
 	return nil
 }
 
-// HasAdmin - checks if server has an admin
-func HasAdmin() (bool, error) {
-
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return false, nil
-		} else {
-			return true, err
-
-		}
-	}
-	for _, value := range collection { // filter for isadmin true
-		var user models.User
-		err = json.Unmarshal([]byte(value), &user)
-		if err != nil {
-			continue
-		}
-		if user.IsAdmin {
-			return true, nil
-		}
-	}
-
-	return false, err
-}
-
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	hasadmin, err := HasAdmin()
+	hasadmin, err := logic.HasAdmin()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -219,20 +200,6 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(hasadmin)
 
-}
-
-// GetUser - gets a user
-func GetUser(username string) (models.ReturnUser, error) {
-
-	var user models.ReturnUser
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
-	if err != nil {
-		return user, err
-	}
-	if err = json.Unmarshal([]byte(record), &user); err != nil {
-		return models.ReturnUser{}, err
-	}
-	return user, err
 }
 
 // GetUserInternal - gets an internal user
@@ -249,30 +216,6 @@ func GetUserInternal(username string) (models.User, error) {
 	return user, err
 }
 
-// GetUsers - gets users
-func GetUsers() ([]models.ReturnUser, error) {
-
-	var users []models.ReturnUser
-
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-
-	if err != nil {
-		return users, err
-	}
-
-	for _, value := range collection {
-
-		var user models.ReturnUser
-		err = json.Unmarshal([]byte(value), &user)
-		if err != nil {
-			continue // get users
-		}
-		users = append(users, user)
-	}
-
-	return users, err
-}
-
 // Get an individual node. Nothin fancy here folks.
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -280,7 +223,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	usernameFetched := params["username"]
-	user, err := GetUser(usernameFetched)
+	user, err := logic.GetUser(usernameFetched)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -295,7 +238,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	users, err := GetUsers()
+	users, err := logic.GetUsers()
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -306,42 +249,6 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// CreateUser - creates a user
-func CreateUser(user models.User) (models.User, error) {
-	// check if user exists
-	if _, err := GetUser(user.UserName); err == nil {
-		return models.User{}, errors.New("user exists")
-	}
-	err := ValidateUser("create", user)
-	if err != nil {
-		return models.User{}, err
-	}
-
-	// encrypt that password so we never see it again
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
-	if err != nil {
-		return user, err
-	}
-	// set password to encrypted password
-	user.Password = string(hash)
-
-	tokenString, _ := functions.CreateUserJWT(user.UserName, user.Networks, user.IsAdmin)
-
-	if tokenString == "" {
-		// returnErrorResponse(w, r, errorResponse)
-		return user, err
-	}
-
-	// connect db
-	data, err := json.Marshal(&user)
-	if err != nil {
-		return user, err
-	}
-	err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME)
-
-	return user, err
-}
-
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -349,7 +256,7 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	// get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
 
-	admin, err := CreateAdmin(admin)
+	admin, err := logic.CreateAdmin(admin)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -359,18 +266,6 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(admin)
 }
 
-func CreateAdmin(admin models.User) (models.User, error) {
-	hasadmin, err := HasAdmin()
-	if err != nil {
-		return models.User{}, err
-	}
-	if hasadmin {
-		return models.User{}, errors.New("admin user already exists")
-	}
-	admin.IsAdmin = true
-	return CreateUser(admin)
-}
-
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -378,7 +273,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	// get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&user)
 
-	user, err := CreateUser(user)
+	user, err := logic.CreateUser(user)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -386,52 +281,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	functions.PrintUserLog(user.UserName, "was created", 1)
 	json.NewEncoder(w).Encode(user)
-}
-
-// UpdateUser - updates a given user
-func UpdateUser(userchange models.User, user models.User) (models.User, error) {
-	//check if user exists
-	if _, err := GetUser(user.UserName); err != nil {
-		return models.User{}, err
-	}
-
-	err := ValidateUser("update", userchange)
-	if err != nil {
-		return models.User{}, err
-	}
-
-	queryUser := user.UserName
-
-	if userchange.UserName != "" {
-		user.UserName = userchange.UserName
-	}
-	if len(userchange.Networks) > 0 {
-		user.Networks = userchange.Networks
-	}
-	if userchange.Password != "" {
-		// encrypt that password so we never see it again
-		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
-
-		if err != nil {
-			return userchange, err
-		}
-		// set password to encrypted password
-		userchange.Password = string(hash)
-
-		user.Password = userchange.Password
-	}
-	if err = database.DeleteRecord(database.USERS_TABLE_NAME, queryUser); err != nil {
-		return models.User{}, err
-	}
-	data, err := json.Marshal(&user)
-	if err != nil {
-		return models.User{}, err
-	}
-	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
-		return models.User{}, err
-	}
-	functions.PrintUserLog(models.NODE_SERVER_NAME, "updated user "+queryUser, 1)
-	return user, nil
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
@@ -453,7 +302,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userchange.Networks = nil
-	user, err = UpdateUser(userchange, user)
+	user, err = logic.UpdateUser(userchange, user)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -480,27 +329,13 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	user, err = UpdateUser(userchange, user)
+	user, err = logic.UpdateUser(userchange, user)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	functions.PrintUserLog(username, "was updated (admin)", 1)
 	json.NewEncoder(w).Encode(user)
-}
-
-// DeleteUser - deletes a given user
-func DeleteUser(user string) (bool, error) {
-
-	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return false, errors.New("user does not exist")
-	}
-
-	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
@@ -511,7 +346,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 
 	username := params["username"]
-	success, err := DeleteUser(username)
+	success, err := logic.DeleteUser(username)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -523,18 +358,4 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	functions.PrintUserLog(username, "was deleted", 1)
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
-}
-
-// ValidateUser - validates a user model
-func ValidateUser(operation string, user models.User) error {
-
-	v := validator.New()
-	err := v.Struct(user)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
-		}
-	}
-	return err
 }

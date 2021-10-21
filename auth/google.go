@@ -1,10 +1,13 @@
 package auth
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -14,6 +17,7 @@ var google_functions = map[string]interface{}{
 	get_user_info:   getUserInfo,
 	handle_callback: handleGoogleCallback,
 	handle_login:    handleGoogleLogin,
+	verify_user:     verifyGoogleUser,
 }
 
 // == handle google authentication here ==
@@ -29,6 +33,7 @@ func initGoogle(redirectURL string, clientID string, clientSecret string) {
 }
 
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	oauth_state_string = logic.RandomString(16)
 	url := auth_provider.AuthCodeURL(oauth_state_string)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
@@ -38,19 +43,25 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getUserInfo(r.FormValue("state"), r.FormValue("code"))
 	if err != nil {
 		fmt.Println(err.Error())
-		http.Redirect(w, r, "/api/oauth/error", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
-	fmt.Fprintf(w, "Content: %s\n", content)
+	logic.Log("completed google oauth sigin in for "+content.Email, 0)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth="+content.AccessToken+"&email="+content.Email, http.StatusPermanentRedirect)
 }
 
-func getUserInfo(state string, code string) ([]byte, error) {
+func getUserInfo(state string, code string) (*OauthUser, error) {
 	if state != oauth_state_string {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
-	token, err := auth_provider.Exchange(oauth2.NoContext, code)
+	var token, err = auth_provider.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
+	}
+	var data []byte
+	data, err = json.Marshal(token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert token to json: %s", err.Error())
 	}
 	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
@@ -61,5 +72,19 @@ func getUserInfo(state string, code string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}
-	return contents, nil
+	var userInfo = &OauthUser{}
+	if err = json.Unmarshal(contents, userInfo); err != nil {
+		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
+	}
+	userInfo.AccessToken = string(data)
+	return userInfo, nil
+}
+
+func verifyGoogleUser(token *oauth2.Token) bool {
+	if token.Valid() {
+		var err error
+		_, err = http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+		return err == nil
+	}
+	return false
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -413,17 +412,3 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		"Deleted extclient client "+params["clientid"]+" from network "+params["network"], 1)
 	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }
-
-// StringWithCharset - returns a random string in a charset
-func StringWithCharset(length int, charset string) string {
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
-const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-var seededRand *rand.Rand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))

@@ -72,8 +72,20 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AuthProvider = authInfo[0]
 	cfg.ClientID = authInfo[1]
 	cfg.ClientSecret = authInfo[2]
+	cfg.FrontendURL = GetFrontendURL()
+
 	return cfg
 }
+func GetFrontendURL() string {
+	var frontend = ""
+	if os.Getenv("FRONTEND_URL") != "" {
+		frontend = os.Getenv("FRONTEND_URL")
+	} else if config.Config.Server.FrontendURL != "" {
+		frontend = config.Config.Server.FrontendURL
+	}
+	return frontend
+}
+
 func GetAPIConnString() string {
 	conn := ""
 	if os.Getenv("SERVER_API_CONN_STRING") != "" {
@@ -84,7 +96,7 @@ func GetAPIConnString() string {
 	return conn
 }
 func GetVersion() string {
-	version := "0.8.4"
+	version := "0.8.5"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}

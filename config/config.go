@@ -65,6 +65,7 @@ type ServerConfig struct {
 	AuthProvider          string `yaml:"authprovider"`
 	ClientID              string `yaml:"clientid"`
 	ClientSecret          string `yaml:"clientsecret"`
+	FrontendURL           string `yaml:"frontendurl"`
 }
 
 // Generic SQL Config
