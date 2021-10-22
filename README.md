@@ -44,7 +44,7 @@
 
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
 
-Or you can use your own domain and email. Make sure you have setup your wildcard domain pointing to server ip.
+Or you can use your own domain and/or email. Make sure you have setup your wildcard domain pointing to server ip.
 
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s domain=mynetmaker.domain.com email=example@email.com`
 
