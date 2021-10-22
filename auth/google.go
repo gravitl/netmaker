@@ -81,13 +81,13 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.Log("completed google oauth sigin in for "+content.Email, 0)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"?login="+jwt+"&email="+content.Email, http.StatusPermanentRedirect)
+	logic.Log("completed google OAuth sigin in for "+content.Email, 1)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }
 
 func getGoogleUserInfo(state string, code string) (*googleOauthUser, error) {
 	if state != oauth_state_string {
-		return nil, fmt.Errorf("invalid oauth state")
+		return nil, fmt.Errorf("invalid OAuth state")
 	}
 	var token, err = auth_provider.Exchange(oauth2.NoContext, code)
 	if err != nil {

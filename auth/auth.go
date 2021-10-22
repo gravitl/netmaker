@@ -35,7 +35,7 @@ func getCurrentAuthFunctions() map[string]interface{} {
 	case google_provider_name:
 		return google_functions
 	case azure_ad_provider_name:
-		return google_functions
+		return azure_ad_functions
 	case github_provider_name:
 		return github_functions
 	default:

@@ -5,43 +5,44 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
+	"golang.org/x/oauth2/microsoft"
 )
 
-var github_functions = map[string]interface{}{
-	init_provider:   initGithub,
-	get_user_info:   getGithubUserInfo,
-	handle_callback: handleGithubCallback,
-	handle_login:    handleGithubLogin,
-	verify_user:     verifyGithubUser,
+var azure_ad_functions = map[string]interface{}{
+	init_provider:   initAzureAD,
+	get_user_info:   getAzureUserInfo,
+	handle_callback: handleAzureCallback,
+	handle_login:    handleAzureLogin,
+	verify_user:     verifyAzureUser,
 }
 
-type githubOauthUser struct {
-	Login       string `json:"login" bson:"login"`
-	AccessToken string `json:"accesstoken" bson:"accesstoken"`
+type azureOauthUser struct {
+	UserPrincipalName string `json:"userPrincipalName" bson:"userPrincipalName"`
+	AccessToken       string `json:"accesstoken" bson:"accesstoken"`
 }
 
-// == handle github authentication here ==
+// == handle azure ad authentication here ==
 
-func initGithub(redirectURL string, clientID string, clientSecret string) {
+func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 	auth_provider = &oauth2.Config{
 		RedirectURL:  redirectURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{},
-		Endpoint:     github.Endpoint,
+		Scopes:       []string{"User.Read"},
+		Endpoint:     microsoft.AzureADEndpoint(os.Getenv("AZURE_TENANT")),
 	}
 }
 
-func handleGithubLogin(w http.ResponseWriter, r *http.Request) {
+func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
 	oauth_state_string = logic.RandomString(16)
 	if auth_provider == nil && servercfg.GetFrontendURL() != "" {
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"?error=callback-error", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	} else if auth_provider == nil {
 		fmt.Fprintf(w, "%s", []byte("no frontend URL was provided and an OAuth login was attempted\nplease reconfigure server to use OAuth or use basic credentials"))
@@ -51,17 +52,17 @@ func handleGithubLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
+func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 
-	var content, err = getGithubUserInfo(r.URL.Query().Get("state"), r.URL.Query().Get("code"))
+	var content, err = getAzureUserInfo(r.FormValue("state"), r.FormValue("code"))
 	if err != nil {
-		logic.Log("error when getting user info from github: "+err.Error(), 1)
+		logic.Log("error when getting user info from azure: "+err.Error(), 1)
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
-	_, err = logic.GetUser(content.Login)
-	if err != nil { // user must not exist, so try to make one
-		if err = addUser(content.Login); err != nil {
+	_, err = logic.GetUser(content.UserPrincipalName)
+	if err != nil { // user must not exists, so try to make one
+		if err = addUser(content.UserPrincipalName); err != nil {
 			return
 		}
 	}
@@ -71,7 +72,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.Login,
+		UserName: content.UserPrincipalName,
 		Password: newPass,
 	}
 
@@ -81,33 +82,29 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.Log("completed github OAuth sigin in for "+content.Login, 1)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"?login="+jwt+"&user="+content.Login, http.StatusPermanentRedirect)
+	logic.Log("completed azure OAuth sigin in for "+content.UserPrincipalName, 1)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"?login="+jwt+"&user="+content.UserPrincipalName, http.StatusPermanentRedirect)
 }
 
-func getGithubUserInfo(state string, code string) (*githubOauthUser, error) {
+func getAzureUserInfo(state string, code string) (*azureOauthUser, error) {
 	if state != oauth_state_string {
-		return nil, fmt.Errorf("invalid OAuth state")
+		return nil, fmt.Errorf("invalid oauth state")
 	}
 	var token, err = auth_provider.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
-	}
-	if !token.Valid() {
-		return nil, fmt.Errorf("GitHub code exchange yielded invalid token")
 	}
 	var data []byte
 	data, err = json.Marshal(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert token to json: %s", err.Error())
 	}
-	var httpClient = &http.Client{}
-	var httpReq, reqErr = http.NewRequest("GET", "https://api.github.com/user", nil)
+	var httpReq, reqErr = http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
 	if reqErr != nil {
 		return nil, fmt.Errorf("failed to create request to GitHub")
 	}
-	httpReq.Header.Set("Authorization", "token "+token.AccessToken)
-	response, err := httpClient.Do(httpReq)
+	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	response, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
 	}
@@ -116,7 +113,7 @@ func getGithubUserInfo(state string, code string) (*githubOauthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}
-	var userInfo = &githubOauthUser{}
+	var userInfo = &azureOauthUser{}
 	if err = json.Unmarshal(contents, userInfo); err != nil {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}
@@ -124,6 +121,6 @@ func getGithubUserInfo(state string, code string) (*githubOauthUser, error) {
 	return userInfo, nil
 }
 
-func verifyGithubUser(token *oauth2.Token) bool {
+func verifyAzureUser(token *oauth2.Token) bool {
 	return token.Valid()
 }
