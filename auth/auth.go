@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 )
 
@@ -27,11 +28,6 @@ const (
 var oauth_state_string = "netmaker-oauth-state" // should be set randomly each provider login
 var auth_provider *oauth2.Config
 
-type OauthUser struct {
-	Email       string `json:"email" bson:"email"`
-	AccessToken string `json:"accesstoken" bson:"accesstoken"`
-}
-
 func getCurrentAuthFunctions() map[string]interface{} {
 	var authInfo = servercfg.GetAuthProviderInfo()
 	var authProvider = authInfo[0]
@@ -41,7 +37,7 @@ func getCurrentAuthFunctions() map[string]interface{} {
 	case azure_ad_provider_name:
 		return google_functions
 	case github_provider_name:
-		return google_functions
+		return github_functions
 	default:
 		return nil
 	}
@@ -55,6 +51,7 @@ func InitializeAuthProvider() string {
 	}
 	var _, err = fetchPassValue(logic.RandomString(64))
 	if err != nil {
+		logic.Log(err.Error(), 0)
 		return ""
 	}
 	var currentFrontendURL = servercfg.GetFrontendURL()
@@ -84,6 +81,16 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
 }
 
+// IsOauthUser - returns
+func IsOauthUser(user *models.User) error {
+	var currentValue, err = fetchPassValue("")
+	if err != nil {
+		return err
+	}
+	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
+	return bCryptErr
+}
+
 // == private methods ==
 
 func addUser(email string) error {
@@ -108,7 +115,7 @@ func addUser(email string) error {
 		}
 	} else { // otherwise add to db as admin..?
 		// TODO: add ability to add users with preemptive permissions
-		newUser.IsAdmin = true
+		newUser.IsAdmin = false
 		if newUser, err = logic.CreateUser(newUser); err != nil {
 			logic.Log("error creating user, "+email+", user not added", 1)
 		} else {

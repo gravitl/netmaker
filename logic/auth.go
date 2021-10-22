@@ -233,6 +233,8 @@ func FetchAuthSecret(key string, secret string) (string, error) {
 	if err != nil {
 		if err = database.Insert(key, secret, database.GENERATED_TABLE_NAME); err != nil {
 			return "", err
+		} else {
+			return secret, nil
 		}
 	}
 	return record, nil
