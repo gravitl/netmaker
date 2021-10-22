@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - 'testing'
+    workflow-dispatch:
 
 jobs:
     docker:
@@ -18,13 +19,14 @@ jobs:
             - name: Login to DockerHub
               uses: docker/login-action@v1
               with:
-                  username: ${{ secrets.DOCKERHUB_USERNAME }}
-                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+                  registry: ghcr.io
+                  username: ${{ secrets.repository_owner }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
             - name: Build and Push test
               uses: docker/build-push-action@v2
               with:
                   context: .
                   platform: linux/amd64
                   push: true
-                  tags: gravitl/netmaker:testing
+                  tags: ghcr.io/user/gravitl/netmaker:testing
 
