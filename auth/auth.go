@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 
@@ -54,6 +55,10 @@ func InitializeAuthProvider() string {
 	}
 	var _, err = fetchPassValue(logic.RandomString(64))
 	if err != nil {
+		return ""
+	}
+	var currentFrontendURL = servercfg.GetFrontendURL()
+	if currentFrontendURL == "" {
 		return ""
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
@@ -118,8 +123,9 @@ func fetchPassValue(newValue string) (string, error) {
 	type valueHolder struct {
 		Value string `json:"value" bson:"value"`
 	}
+	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(newValue))
 	var newValueHolder = &valueHolder{
-		Value: newValue,
+		Value: b64NewValue,
 	}
 	var data, marshalErr = json.Marshal(newValueHolder)
 	if marshalErr != nil {
@@ -134,5 +140,11 @@ func fetchPassValue(newValue string) (string, error) {
 	if unmarshErr != nil {
 		return "", unmarshErr
 	}
-	return newValueHolder.Value, nil
+
+	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
+	if b64Err != nil {
+		logic.Log("could not decode pass", 0)
+		return "", nil
+	}
+	return string(b64CurrentValue), nil
 }

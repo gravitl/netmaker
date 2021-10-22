@@ -35,6 +35,12 @@ func initGoogle(redirectURL string, clientID string, clientSecret string) {
 
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	oauth_state_string = logic.RandomString(16)
+	if auth_provider == nil && servercfg.GetFrontendURL() != "" {
+		http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth=callback-error", http.StatusTemporaryRedirect)
+	} else if auth_provider == nil {
+		fmt.Fprintf(w, "%s", []byte("no frontend URL was provided and an OAuth login was attempted\nplease reconfigure server to use OAuth or use basic credentials"))
+		return
+	}
 	var url = auth_provider.AuthCodeURL(oauth_state_string)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
@@ -104,10 +110,5 @@ func getUserInfo(state string, code string) (*OauthUser, error) {
 }
 
 func verifyGoogleUser(token *oauth2.Token) bool {
-	if token.Valid() {
-		var err error
-		_, err = http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
-		return err == nil
-	}
-	return false
+	return token.Valid()
 }
