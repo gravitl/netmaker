@@ -4,7 +4,7 @@ on:
     push:
         branches:
             - 'testing'
-    workflow-dispatch:
+    workflow_dispatch:
 
 jobs:
     docker:
