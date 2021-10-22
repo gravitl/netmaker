@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func userHandlers(r *mux.Router) {
@@ -53,7 +52,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	jwt, err := VerifyAuthRequest(authRequest)
+	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
 		returnErrorResponse(response, request, formatError(err, "badrequest"))
 		return
@@ -84,35 +83,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	functions.PrintUserLog(username, "was authenticated", 2)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
-}
-
-// VerifyAuthRequest - verifies an auth request
-func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
-	var result models.User
-	if authRequest.UserName == "" {
-		return "", errors.New("username can't be empty")
-	} else if authRequest.Password == "" {
-		return "", errors.New("password can't be empty")
-	}
-	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
-	if err != nil {
-		return "", errors.New("incorrect credentials")
-	}
-	if err = json.Unmarshal([]byte(record), &result); err != nil {
-		return "", errors.New("incorrect credentials")
-	}
-
-	// compare password from request to stored password in database
-	// might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
-	// TODO: Consider a way of hashing the password client side before sending, or using certificates
-	if err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password)); err != nil {
-		return "", errors.New("incorrect credentials")
-	}
-
-	//Create a new JWT for the node
-	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.Networks, result.IsAdmin)
-	return tokenString, nil
 }
 
 // The middleware for most requests to the API

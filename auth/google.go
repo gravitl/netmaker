@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -34,7 +35,7 @@ func initGoogle(redirectURL string, clientID string, clientSecret string) {
 
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	oauth_state_string = logic.RandomString(16)
-	url := auth_provider.AuthCodeURL(oauth_state_string)
+	var url = auth_provider.AuthCodeURL(oauth_state_string)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -46,8 +47,30 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
+	_, err = logic.GetUser(content.Email)
+	if err != nil { // user must not exists, so try to make one
+		if err = addUser(content.Email); err != nil {
+			return
+		}
+	}
+	var newPass, fetchErr = fetchPassValue("")
+	if fetchErr != nil {
+		return
+	}
+	// send a netmaker jwt token
+	var authRequest = models.UserAuthParams{
+		UserName: content.Email,
+		Password: newPass,
+	}
+
+	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
+	if jwtErr != nil {
+		logic.Log("could not parse jwt for user "+authRequest.UserName, 1)
+		return
+	}
+
 	logic.Log("completed google oauth sigin in for "+content.Email, 0)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth="+content.AccessToken+"&email="+content.Email, http.StatusPermanentRedirect)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"?login="+jwt+"&email="+content.Email, http.StatusPermanentRedirect)
 }
 
 func getUserInfo(state string, code string) (*OauthUser, error) {

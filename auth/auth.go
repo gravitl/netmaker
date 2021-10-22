@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 )
@@ -18,6 +20,7 @@ const (
 	azure_ad_provider_name = "azure-ad"
 	github_provider_name   = "github"
 	verify_user            = "verifyuser"
+	auth_key               = "netmaker_auth"
 )
 
 var oauth_state_string = "netmaker-oauth-state" // should be set randomly each provider login
@@ -49,6 +52,10 @@ func InitializeAuthProvider() string {
 	if functions == nil {
 		return ""
 	}
+	var _, err = fetchPassValue(logic.RandomString(64))
+	if err != nil {
+		return ""
+	}
 	var authInfo = servercfg.GetAuthProviderInfo()
 	functions[init_provider].(func(string, string, string))(servercfg.GetAPIConnString()+"/api/oauth/callback", authInfo[1], authInfo[2])
 	return authInfo[0]
@@ -72,16 +79,60 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
 }
 
-// VerifyUserToken - checks if oauth2 token is valid
-func VerifyUserToken(accessToken string) bool {
-	var token = &oauth2.Token{}
-	var err = json.Unmarshal([]byte(accessToken), token)
-	if err != nil || !token.Valid() {
-		return false
+// == private methods ==
+
+func addUser(email string) error {
+	var hasAdmin, err = logic.HasAdmin()
+	if err != nil {
+		logic.Log("error checking for existence of admin user during OAuth login for "+email+", user not added", 1)
+		return err
+	} // generate random password to adapt to current model
+	var newPass, fetchErr = fetchPassValue("")
+	if fetchErr != nil {
+		return fetchErr
 	}
-	var functions = getCurrentAuthFunctions()
-	if functions == nil {
-		return false
+	var newUser = models.User{
+		UserName: email,
+		Password: newPass,
 	}
-	return functions[verify_user].(func(*oauth2.Token) bool)(token)
+	if !hasAdmin { // must be first attempt, create an admin
+		if newUser, err = logic.CreateAdmin(newUser); err != nil {
+			logic.Log("error creating admin from user, "+email+", user not added", 1)
+		} else {
+			logic.Log("admin created from user, "+email+", was first user added", 0)
+		}
+	} else { // otherwise add to db as admin..?
+		// TODO: add ability to add users with preemptive permissions
+		newUser.IsAdmin = true
+		if newUser, err = logic.CreateUser(newUser); err != nil {
+			logic.Log("error creating user, "+email+", user not added", 1)
+		} else {
+			logic.Log("user created from, "+email+"", 0)
+		}
+	}
+	return nil
+}
+
+func fetchPassValue(newValue string) (string, error) {
+
+	type valueHolder struct {
+		Value string `json:"value" bson:"value"`
+	}
+	var newValueHolder = &valueHolder{
+		Value: newValue,
+	}
+	var data, marshalErr = json.Marshal(newValueHolder)
+	if marshalErr != nil {
+		return "", marshalErr
+	}
+
+	var currentValue, err = logic.FetchAuthSecret(auth_key, string(data))
+	if err != nil {
+		return "", err
+	}
+	var unmarshErr = json.Unmarshal([]byte(currentValue), newValueHolder)
+	if unmarshErr != nil {
+		return "", unmarshErr
+	}
+	return newValueHolder.Value, nil
 }

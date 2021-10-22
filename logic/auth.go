@@ -123,6 +123,35 @@ func CreateAdmin(admin models.User) (models.User, error) {
 	return CreateUser(admin)
 }
 
+// VerifyAuthRequest - verifies an auth request
+func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
+	var result models.User
+	if authRequest.UserName == "" {
+		return "", errors.New("username can't be empty")
+	} else if authRequest.Password == "" {
+		return "", errors.New("password can't be empty")
+	}
+	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
+	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
+	if err != nil {
+		return "", errors.New("incorrect credentials")
+	}
+	if err = json.Unmarshal([]byte(record), &result); err != nil {
+		return "", errors.New("incorrect credentials")
+	}
+
+	// compare password from request to stored password in database
+	// might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
+	// TODO: Consider a way of hashing the password client side before sending, or using certificates
+	if err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password)); err != nil {
+		return "", errors.New("incorrect credentials")
+	}
+
+	//Create a new JWT for the node
+	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.Networks, result.IsAdmin)
+	return tokenString, nil
+}
+
 // UpdateUser - updates a given user
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	//check if user exists
@@ -196,4 +225,15 @@ func DeleteUser(user string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// FetchAuthSecret - manages secrets for oauth
+func FetchAuthSecret(key string, secret string) (string, error) {
+	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, key)
+	if err != nil {
+		if err = database.Insert(key, secret, database.GENERATED_TABLE_NAME); err != nil {
+			return "", err
+		}
+	}
+	return record, nil
 }
