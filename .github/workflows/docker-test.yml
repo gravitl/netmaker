@@ -26,7 +26,7 @@ jobs:
               uses: docker/build-push-action@v2
               with:
                   context: .
-                  platform: linux/amd64
+                  platforms: linux/amd64
                   push: true
-                  tags: ghcr.io/user/gravitl/netmaker:testing
+                  tags: ghcr.io/gravitl/netmaker:testing
 
