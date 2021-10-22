@@ -46,7 +46,7 @@
 
 Or you can use your own domain and email. Make sure you have setup your wildcard domain pointing to server ip.
 
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s mynetmaker.domain.com example@email.com`
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s domain=mynetmaker.domain.com email=example@email.com`
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
