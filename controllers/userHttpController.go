@@ -21,7 +21,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
-	r.HandleFunc("/api/users/networks/{username}", authorizeUser(http.HandlerFunc(updateUserNetworks))).Methods("PUT")
+	r.HandleFunc("/api/users/networks/{username}", authorizeUserAdm(http.HandlerFunc(updateUserNetworks))).Methods("PUT")
 	r.HandleFunc("/api/users/{username}/adm", authorizeUserAdm(http.HandlerFunc(updateUserAdm))).Methods("PUT")
 	r.HandleFunc("/api/users/{username}", authorizeUserAdm(http.HandlerFunc(createUser))).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
