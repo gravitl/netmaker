@@ -155,9 +155,9 @@ func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	if keepalive <= 0 {
 		keepalive = 20
 	}
-	
+
 	for _, peer := range peers {
-		endpointString :=  ""
+		endpointString := ""
 		if peer.Endpoint != nil && peer.Endpoint.String() != "" {
 			endpointString += "Endpoint = " + peer.Endpoint.String()
 		}
