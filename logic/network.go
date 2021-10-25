@@ -5,9 +5,16 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
+
+// CheckNetworkExists - checks i a network exists for this netmaker instance
+func CheckNetworkExists(network string) bool {
+	var _, err = database.FetchRecord(database.NETWORKS_TABLE_NAME, network)
+	return err == nil
+}
 
 // GetLocalIP - gets the local ip
 func GetLocalIP(node models.Node) string {

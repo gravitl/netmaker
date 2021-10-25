@@ -152,6 +152,25 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	return tokenString, nil
 }
 
+// UpdateUserNetworks - updates the networks of a given user
+func UpdateUserNetworks(newNetworks []string, currentUser *models.User) error {
+	// check if user exists
+	if _, err := GetUser(currentUser.UserName); err != nil {
+		return err
+	}
+	currentUser.Networks = newNetworks
+
+	data, err := json.Marshal(currentUser)
+	if err != nil {
+		return err
+	}
+	if err = database.Insert(currentUser.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // UpdateUser - updates a given user
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	//check if user exists
@@ -194,7 +213,7 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
 		return models.User{}, err
 	}
-	functions.PrintUserLog(models.NODE_SERVER_NAME, "updated user "+queryUser, 1)
+	Log("updated user "+queryUser, 1)
 	return user, nil
 }
 

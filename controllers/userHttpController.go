@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -20,6 +21,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
+	r.HandleFunc("/api/users/networks/{username}", authorizeUser(http.HandlerFunc(updateUserNetworks))).Methods("PUT")
 	r.HandleFunc("/api/users/{username}/adm", authorizeUserAdm(http.HandlerFunc(updateUserAdm))).Methods("PUT")
 	r.HandleFunc("/api/users/{username}", authorizeUserAdm(http.HandlerFunc(createUser))).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
@@ -253,6 +255,34 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	var user models.User
+	// start here
+	username := params["username"]
+	user, err := GetUserInternal(username)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	var userchange models.User
+	// we decode our body request params
+	err = json.NewDecoder(r.Body).Decode(&userchange)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	err = logic.UpdateUserNetworks(userchange.Networks, &user)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	functions.PrintUserLog(username, "networks were updated", 1)
+	json.NewEncoder(w).Encode(user)
+}
+
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -262,6 +292,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	user, err := GetUserInternal(username)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if auth.IsOauthUser(&user) == nil {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("can not update user info for oauth user %s", username), "forbidden"))
 		return
 	}
 	var userchange models.User
@@ -290,6 +324,10 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	user, err := GetUserInternal(username)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if auth.IsOauthUser(&user) != nil {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("can not update user info for oauth user"), "forbidden"))
 		return
 	}
 	var userchange models.User
