@@ -274,12 +274,12 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.UpdateUserNetworks(userchange.Networks, &user)
+	err = logic.UpdateUserNetworks(userchange.Networks, userchange.IsAdmin, &user)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(username, "networks were updated", 1)
+	functions.PrintUserLog(username, "status was updated", 1)
 	json.NewEncoder(w).Encode(user)
 }
 

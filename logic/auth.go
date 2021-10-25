@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -153,12 +154,19 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 }
 
 // UpdateUserNetworks - updates the networks of a given user
-func UpdateUserNetworks(newNetworks []string, currentUser *models.User) error {
+func UpdateUserNetworks(newNetworks []string, isadmin bool, currentUser *models.User) error {
 	// check if user exists
-	if _, err := GetUser(currentUser.UserName); err != nil {
+	if returnedUser, err := GetUser(currentUser.UserName); err != nil {
 		return err
+	} else if returnedUser.IsAdmin {
+		return fmt.Errorf("can not make changes to an admin user, attempted to change %s", returnedUser.UserName)
 	}
-	currentUser.Networks = newNetworks
+	if isadmin {
+		currentUser.IsAdmin = true
+		currentUser.Networks = nil
+	} else {
+		currentUser.Networks = newNetworks
+	}
 
 	data, err := json.Marshal(currentUser)
 	if err != nil {
