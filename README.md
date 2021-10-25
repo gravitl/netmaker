@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.8.4-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.8.5-informational?style=flat-square" />
   </a>
   <a href="https://discord.gg/zRb9Vfhk8A">
     <img src="https://img.shields.io/badge/community-discord-informational" />

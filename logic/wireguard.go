@@ -62,10 +62,11 @@ func setWGConfig(node models.Node, network string, peerupdate bool) error {
 		var iface string
 		iface = node.Interface
 		err = setServerPeers(iface, node.PersistentKeepalive, peers)
+		Log("updated peers on server "+node.Name, 2)
 	} else {
 		err = initWireguard(&node, privkey, peers, hasGateway, gateways)
+		Log("finished setting wg config on server "+node.Name, 3)
 	}
-	Log("finished setting wg config on server "+node.Name, 1)
 	return err
 }
 

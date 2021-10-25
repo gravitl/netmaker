@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	"os/exec"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
@@ -18,6 +16,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
+	"log"
+	"os/exec"
 )
 
 // JoinNetwork - helps a client join a network
@@ -84,8 +84,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if ncutils.IsLinux() {
 		_, err := exec.LookPath("resolvectl")
 		if err != nil {
-			ncutils.PrintLog("resolvectl not present",2)
-			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management",2)
+			ncutils.PrintLog("resolvectl not present", 2)
+			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
 			cfg.Node.DNSOn = "no"
 		}
 	}
