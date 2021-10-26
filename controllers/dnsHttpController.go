@@ -7,8 +7,8 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -59,12 +59,12 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 // GetAllDNS - gets all dns entries
 func GetAllDNS() ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	networks, err := models.GetNetworks()
+	networks, err := logic.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.DNSEntry{}, err
 	}
 	for _, net := range networks {
-		netdns, err := dnslogic.GetDNS(net.NetID)
+		netdns, err := logic.GetDNS(net.NetID)
 		if err != nil {
 			return []models.DNSEntry{}, nil
 		}
@@ -105,7 +105,7 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 
-	dns, err := dnslogic.GetCustomDNS(params["network"])
+	dns, err := logic.GetCustomDNS(params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -121,7 +121,7 @@ func GetDNSEntryNum(domain string, network string) (int, error) {
 
 	num := 0
 
-	entries, err := dnslogic.GetDNS(network)
+	entries, err := logic.GetDNS(network)
 	if err != nil {
 		return 0, err
 	}
@@ -144,7 +144,7 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 
-	dns, err := dnslogic.GetDNS(params["network"])
+	dns, err := logic.GetDNS(params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -174,7 +174,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	err = dnslogic.SetDNS()
+	err = logic.SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -229,7 +229,7 @@ func updateDNS(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	err = dnslogic.SetDNS()
+	err = logic.SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -252,7 +252,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	entrytext := params["domain"] + "." + params["network"]
 	functions.PrintUserLog(models.NODE_SERVER_NAME, "deleted dns entry: "+entrytext, 1)
-	err = dnslogic.SetDNS()
+	err = logic.SetDNS()
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -267,7 +267,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	if err != nil {
 		return models.DNSEntry{}, err
 	}
-	key, err := functions.GetRecordKey(entry.Name, entry.Network)
+	key, err := logic.GetRecordKey(entry.Name, entry.Network)
 	if err != nil {
 		return models.DNSEntry{}, err
 	}
@@ -279,7 +279,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 // GetDNSEntry - gets a DNS entry
 func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 	var entry models.DNSEntry
-	key, err := functions.GetRecordKey(domain, network)
+	key, err := logic.GetRecordKey(domain, network)
 	if err != nil {
 		return entry, err
 	}
@@ -294,7 +294,7 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 // UpdateDNS - updates DNS entry
 func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntry, error) {
 
-	key, err := functions.GetRecordKey(entry.Name, entry.Network)
+	key, err := logic.GetRecordKey(entry.Name, entry.Network)
 	if err != nil {
 		return entry, err
 	}
@@ -304,7 +304,7 @@ func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntr
 	if dnschange.Address != "" {
 		entry.Address = dnschange.Address
 	}
-	newkey, err := functions.GetRecordKey(entry.Name, entry.Network)
+	newkey, err := logic.GetRecordKey(entry.Name, entry.Network)
 
 	err = database.DeleteRecord(database.DNS_TABLE_NAME, key)
 	if err != nil {
@@ -318,7 +318,7 @@ func UpdateDNS(dnschange models.DNSEntry, entry models.DNSEntry) (models.DNSEntr
 
 // DeleteDNS - deletes a DNS entry
 func DeleteDNS(domain string, network string) error {
-	key, err := functions.GetRecordKey(domain, network)
+	key, err := logic.GetRecordKey(domain, network)
 	if err != nil {
 		return err
 	}
@@ -330,7 +330,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
 
-	err := dnslogic.SetDNS()
+	err := logic.SetDNS()
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -351,7 +351,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	})
 
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := functions.GetParentNetwork(entry.Network)
+		_, err := logic.GetParentNetwork(entry.Network)
 		return err == nil
 	})
 
@@ -378,7 +378,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 		return err == nil && num == 0
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := functions.GetParentNetwork(change.Network)
+		_, err := logic.GetParentNetwork(change.Network)
 		if err != nil {
 			functions.PrintUserLog("", err.Error(), 0)
 		}

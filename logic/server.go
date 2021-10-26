@@ -38,7 +38,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		MacAddress:   serverID,
 		UDPHolePunch: "no",
 	}
-	node.SetDefaults()
+	SetNodeDefaults(node)
 
 	if servercfg.GetPlatform() == "Kubernetes" {
 		node.ListenPort = KUBERNETES_LISTEN_PORT
@@ -200,7 +200,7 @@ func ServerPull(mac string, network string, onErr bool) (*models.Node, error) {
 			return &serverNode, err
 		}
 		// handle server side update
-		if err = serverNode.Update(&serverNode); err != nil {
+		if err = UpdateNode(&serverNode, &serverNode); err != nil {
 			return &serverNode, err
 		}
 	} else {
@@ -227,7 +227,7 @@ func ServerPush(mac string, network string) error {
 	}
 	serverNode.OS = runtime.GOOS
 	serverNode.SetLastCheckIn()
-	return serverNode.Update(&serverNode)
+	return UpdateNode(&serverNode, &serverNode)
 }
 
 // ServerLeave - removes a server node
