@@ -397,6 +397,12 @@ func FileExists(f string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
+	if err != nil && strings.Contains(err.Error(), "not a directory") {
+		return false
+	}
+	if err != nil {
+		Log("error reading file: " + f + ", " + err.Error())
+	}
 	return !info.IsDir()
 }
 
