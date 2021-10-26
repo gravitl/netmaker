@@ -58,6 +58,30 @@ SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 REPLACE_MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 EMAIL="fake@email.com"
 
+arg1=$( echo $1 | awk -F"domain=" '{print $2}')
+arg2=$( echo $2 | awk -F"domain=" '{print $2}')
+
+if [ -n "$arg1" ]; then
+  echo "Parameter NETMAKER_BASE_DOMAIN is $arg1"
+  NETMAKER_BASE_DOMAIN=$arg1
+
+elif [ -n "$arg2" ]; then
+  echo "Parameter NETMAKER_BASE_DOMAIN is $arg2"
+  NETMAKER_BASE_DOMAIN=$arg2
+fi
+
+arg1=$( echo $1 | awk -F"email=" '{print $2}')
+arg2=$( echo $2 | awk -F"email=" '{print $2}')
+
+if [ -n "$arg1" ]; then
+  echo "Parameter EMAIL is $arg1"
+  EMAIL=$arg1
+
+elif [ -n "$arg2" ]; then
+  echo "Parameter EMAIL is $arg2"
+  EMAIL=$arg2
+fi
+
 echo "        domain: $NETMAKER_BASE_DOMAIN"
 echo "    coredns ip: $COREDNS_IP"
 echo "     public ip: $SERVER_PUBLIC_IP"
