@@ -143,7 +143,7 @@ func ValidateUserToken(token string, user string, adminonly bool) error {
 		return errors.New("Missing Auth Token.")
 	}
 
-	username, _, isadmin, err := functions.VerifyUserToken(authToken)
+	username, _, isadmin, err := logic.VerifyUserToken(authToken)
 	if err != nil {
 		return errors.New("Error Verifying Auth Token")
 	}

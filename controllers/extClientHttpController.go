@@ -30,7 +30,7 @@ func extClientHandlers(r *mux.Router) {
 }
 
 func checkIngressExists(network string, macaddress string) bool {
-	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	node, err := logic.GetNodeByMacAddress(network, macaddress)
 	if err != nil {
 		return false
 	}
@@ -133,7 +133,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 // GetExtClient - gets a single ext client on a network
 func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	var extclient models.ExtClient
-	key, err := functions.GetRecordKey(clientid, network)
+	key, err := logic.GetRecordKey(clientid, network)
 	if err != nil {
 		return extclient, err
 	}
@@ -160,14 +160,14 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gwnode, err := functions.GetNodeByMacAddress(client.Network, client.IngressGatewayID)
+	gwnode, err := logic.GetNodeByMacAddress(client.Network, client.IngressGatewayID)
 	if err != nil {
 		functions.PrintUserLog(r.Header.Get("user"), "Could not retrieve Ingress Gateway Node "+client.IngressGatewayID, 1)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	network, err := functions.GetParentNetwork(client.Network)
+	network, err := logic.GetParentNetwork(client.Network)
 	if err != nil {
 		functions.PrintUserLog(r.Header.Get("user"), "Could not retrieve Ingress Gateway Network "+client.Network, 1)
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -179,7 +179,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
 	newAllowedIPs := network.AddressRange
-	if egressGatewayRanges, err := client.GetEgressRangesOnNetwork(); err == nil {
+	if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(&client); err == nil {
 		for _, egressGatewayRange := range egressGatewayRanges {
 			newAllowedIPs += "," + egressGatewayRange
 		}
@@ -252,7 +252,7 @@ func CreateExtClient(extclient models.ExtClient) error {
 	}
 
 	if extclient.Address == "" {
-		newAddress, err := functions.UniqueAddress(extclient.Network)
+		newAddress, err := logic.UniqueAddress(extclient.Network)
 		if err != nil {
 			return err
 		}
@@ -265,7 +265,7 @@ func CreateExtClient(extclient models.ExtClient) error {
 
 	extclient.LastModified = time.Now().Unix()
 
-	key, err := functions.GetRecordKey(extclient.ClientID, extclient.Network)
+	key, err := logic.GetRecordKey(extclient.ClientID, extclient.Network)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var extclient models.ExtClient
 	extclient.Network = networkName
 	extclient.IngressGatewayID = macaddress
-	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
+	node, err := logic.GetNodeByMacAddress(networkName, macaddress)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -329,7 +329,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var oldExtClient models.ExtClient
 	_ = json.NewDecoder(r.Body).Decode(&newExtClient)
 
-	key, err := functions.GetRecordKey(params["clientid"], params["network"])
+	key, err := logic.GetRecordKey(params["clientid"], params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -367,7 +367,7 @@ func UpdateExtClient(newclientid string, network string, client models.ExtClient
 
 // DeleteExtClient - deletes an existing ext client
 func DeleteExtClient(network string, clientid string) error {
-	key, err := functions.GetRecordKey(clientid, network)
+	key, err := logic.GetRecordKey(clientid, network)
 	if err != nil {
 		return err
 	}

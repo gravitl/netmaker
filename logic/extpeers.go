@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -23,12 +22,12 @@ func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersRe
 		var extClient models.ExtClient
 		err = json.Unmarshal([]byte(value), &peer)
 		if err != nil {
-			functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to unmarshal peer", 2)
+			Log("failed to unmarshal peer when getting ext peer list", 2)
 			continue
 		}
 		err = json.Unmarshal([]byte(value), &extClient)
 		if err != nil {
-			functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to unmarshal ext client", 2)
+			Log("failed to unmarshal ext client", 2)
 			continue
 		}
 		if extClient.Network == networkName && extClient.IngressGatewayID == macaddress {
@@ -36,4 +35,30 @@ func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersRe
 		}
 	}
 	return peers, err
+}
+
+// ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client
+func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
+
+	var result []string
+	nodesData, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		return []string{}, err
+	}
+	for _, nodeData := range nodesData {
+		var currentNode models.Node
+		if err = json.Unmarshal([]byte(nodeData), &currentNode); err != nil {
+			continue
+		}
+		if currentNode.Network != client.Network {
+			continue
+		}
+		if currentNode.IsEgressGateway == "yes" { // add the egress gateway range(s) to the result
+			if len(currentNode.EgressGatewayRanges) > 0 {
+				result = append(result, currentNode.EgressGatewayRanges...)
+			}
+		}
+	}
+
+	return result, nil
 }

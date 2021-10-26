@@ -16,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/auth"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logic"
@@ -99,7 +98,7 @@ func startControllers() {
 	}
 
 	if servercfg.IsDNSMode() {
-		err := dnslogic.SetDNS()
+		err := logic.SetDNS()
 		if err != nil {
 			logic.Log("error occurred initializing DNS: "+err.Error(), 0)
 		}

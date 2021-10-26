@@ -11,11 +11,8 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/dnslogic"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/relay"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -37,11 +34,10 @@ func CheckEndpoint(endpoint string) bool {
 func SetNetworkServerPeers(node *models.Node) {
 	if currentPeersList, err := GetSystemPeers(node); err == nil {
 		if database.SetPeers(currentPeersList, node.Network) {
-			functions.PrintUserLog(models.NODE_SERVER_NAME, "set new peers on network "+node.Network, 1)
+			Log("set new peers on network "+node.Network, 1)
 		}
 	} else {
-		functions.PrintUserLog(models.NODE_SERVER_NAME, "could not set peers on network "+node.Network, 1)
-		functions.PrintUserLog(models.NODE_SERVER_NAME, err.Error(), 1)
+		Log("could not set peers on network "+node.Network+"\n"+err.Error(), 1)
 	}
 }
 
@@ -74,7 +70,7 @@ func DeleteNode(node *models.Node, exterminate bool) error {
 		return err
 	}
 	if servercfg.IsDNSMode() {
-		err = dnslogic.SetDNS()
+		err = SetDNS()
 	}
 	return removeLocalServer(node)
 }
@@ -102,26 +98,26 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 			node.DNSOn = "no"
 		}
 	}
-	node.SetDefaults()
-	node.Address, err = functions.UniqueAddress(networkName)
+	SetNodeDefaults(&node)
+	node.Address, err = UniqueAddress(networkName)
 	if err != nil {
 		return node, err
 	}
-	node.Address6, err = functions.UniqueAddress6(networkName)
+	node.Address6, err = UniqueAddress6(networkName)
 	if err != nil {
 		return node, err
 	}
 	//Create a JWT for the node
-	tokenString, _ := functions.CreateJWT(node.MacAddress, networkName)
+	tokenString, _ := CreateJWT(node.MacAddress, networkName)
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
 	}
-	err = node.Validate(false)
+	err = ValidateNode(&node, false)
 	if err != nil {
 		return node, err
 	}
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	key, err := GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return node, err
 	}
@@ -134,11 +130,11 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 		return node, err
 	}
 	if node.IsPending != "yes" {
-		functions.DecrimentKey(node.Network, node.AccessKey)
+		DecrimentKey(node.Network, node.AccessKey)
 	}
 	SetNetworkNodesLastModified(node.Network)
 	if servercfg.IsDNSMode() {
-		err = dnslogic.SetDNS()
+		err = SetDNS()
 	}
 	return node, err
 }
@@ -148,7 +144,7 @@ func SetNetworkNodesLastModified(networkName string) error {
 
 	timestamp := time.Now().Unix()
 
-	network, err := functions.GetParentNetwork(networkName)
+	network, err := GetParentNetwork(networkName)
 	if err != nil {
 		return err
 	}
@@ -168,7 +164,7 @@ func SetNetworkNodesLastModified(networkName string) error {
 func GetNode(macaddress string, network string) (models.Node, error) {
 	var node models.Node
 
-	key, err := functions.GetRecordKey(macaddress, network)
+	key, err := GetRecordKey(macaddress, network)
 	if err != nil {
 		return node, err
 	}
@@ -183,7 +179,7 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(data), &node); err != nil {
 		return node, err
 	}
-	node.SetDefaults()
+	SetNodeDefaults(&node)
 
 	return node, err
 }
@@ -231,7 +227,7 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 				}
 			}
 			if node.IsRelay == "yes" {
-				network, err := models.GetNetwork(networkName)
+				network, err := GetNetwork(networkName)
 				if err == nil {
 					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
 				} else {
@@ -254,10 +250,10 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 		peers, err = GetNodePeers(networkName, excludeRelayed)
 
 	} else {
-		relayNode, err = relay.GetNodeRelay(networkName, relayedNodeAddr)
+		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
 		if relayNode.Address != "" {
 			relayNode = setPeerInfo(relayNode)
-			network, err := models.GetNetwork(networkName)
+			network, err := GetNetwork(networkName)
 			if err == nil {
 				relayNode.AllowedIPs = append(relayNode.AllowedIPs, network.AddressRange)
 			} else {

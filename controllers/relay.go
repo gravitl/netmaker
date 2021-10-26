@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -35,7 +36,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 
 // CreateRelay - creates a relay
 func CreateRelay(relay models.RelayRequest) (models.Node, error) {
-	node, err := functions.GetNodeByMacAddress(relay.NetID, relay.NodeID)
+	node, err := logic.GetNodeByMacAddress(relay.NetID, relay.NodeID)
 	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for relay")
 	}
@@ -49,7 +50,7 @@ func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	node.IsRelay = "yes"
 	node.RelayAddrs = relay.RelayAddrs
 
-	key, err := functions.GetRecordKey(relay.NodeID, relay.NetID)
+	key, err := logic.GetRecordKey(relay.NodeID, relay.NetID)
 	if err != nil {
 		return node, err
 	}
@@ -147,7 +148,7 @@ func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
 // DeleteRelay - deletes a relay
 func DeleteRelay(network, macaddress string) (models.Node, error) {
 
-	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	node, err := logic.GetNodeByMacAddress(network, macaddress)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -160,7 +161,7 @@ func DeleteRelay(network, macaddress string) (models.Node, error) {
 	node.RelayAddrs = []string{}
 	node.SetLastModified()
 	node.PullChanges = "yes"
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
 	}

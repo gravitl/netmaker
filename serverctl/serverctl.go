@@ -90,7 +90,7 @@ func InitServerNetclient() error {
 
 // HandleContainedClient - function for checkins on server
 func HandleContainedClient() error {
-	servernets, err := models.GetNetworks()
+	servernets, err := logic.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}

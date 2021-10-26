@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -333,7 +334,7 @@ func TestValidateNetworkUpdate(t *testing.T) {
 
 func deleteAllNetworks() {
 	deleteAllNodes()
-	nets, _ := models.GetNetworks()
+	nets, _ := logic.GetNetworks()
 	for _, net := range nets {
 		DeleteNetwork(net.NetID)
 	}

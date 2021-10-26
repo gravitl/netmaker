@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
@@ -42,7 +42,7 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 		}
 		//all endpoints here require master so not as complicated
 		//still might not be a good  way of doing this
-		user, _, isadmin, err := functions.VerifyUserToken(authToken)
+		user, _, isadmin, err := logic.VerifyUserToken(authToken)
 		errorResponse = models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
 		}
