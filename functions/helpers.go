@@ -433,35 +433,6 @@ func GenKeyName() string {
 	return "key" + string(b)
 }
 
-// IsIPUnique - checks if an IP is unique
-func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
-
-	isunique := true
-	collection, err := database.FetchRecords(tableName)
-
-	if err != nil {
-		return isunique
-	}
-
-	for _, value := range collection { // filter
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			continue
-		}
-		if isIpv6 {
-			if node.Address6 == ip && node.Network == network {
-				return false
-			}
-		} else {
-			if node.Address == ip && node.Network == network {
-				return false
-			}
-		}
-	}
-
-	return isunique
-}
-
 // DeleteKey - deletes a key
 func DeleteKey(network models.Network, i int) {
 

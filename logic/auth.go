@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -37,8 +36,8 @@ func HasAdmin() (bool, error) {
 	return false, err
 }
 
-// GetUser - gets a user
-func GetUser(username string) (models.ReturnUser, error) {
+// GetReturnUser - gets a user
+func GetReturnUser(username string) (models.ReturnUser, error) {
 
 	var user models.ReturnUser
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
@@ -94,7 +93,7 @@ func CreateUser(user models.User) (models.User, error) {
 	// set password to encrypted password
 	user.Password = string(hash)
 
-	tokenString, _ := functions.CreateUserJWT(user.UserName, user.Networks, user.IsAdmin)
+	tokenString, _ := CreateUserJWT(user.UserName, user.Networks, user.IsAdmin)
 
 	if tokenString == "" {
 		// returnErrorResponse(w, r, errorResponse)
@@ -149,7 +148,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	//Create a new JWT for the node
-	tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.Networks, result.IsAdmin)
+	tokenString, _ := CreateUserJWT(authRequest.UserName, result.Networks, result.IsAdmin)
 	return tokenString, nil
 }
 

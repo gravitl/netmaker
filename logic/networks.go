@@ -88,6 +88,35 @@ func UniqueAddress(networkName string) (string, error) {
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
+// IsIPUnique - checks if an IP is unique
+func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
+
+	isunique := true
+	collection, err := database.FetchRecords(tableName)
+
+	if err != nil {
+		return isunique
+	}
+
+	for _, value := range collection { // filter
+		var node models.Node
+		if err = json.Unmarshal([]byte(value), &node); err != nil {
+			continue
+		}
+		if isIpv6 {
+			if node.Address6 == ip && node.Network == network {
+				return false
+			}
+		} else {
+			if node.Address == ip && node.Network == network {
+				return false
+			}
+		}
+	}
+
+	return isunique
+}
+
 // UniqueAddress6 - see if ipv6 address is unique
 func UniqueAddress6(networkName string) (string, error) {
 
@@ -315,22 +344,15 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 	return false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
-// // SetNetworkNodesLastModified - sets network nodes last modified time
-// func SetNetworkNodesLastModified(network *models.Network) error {
-
-// 	timestamp := time.Now().Unix()
-
-// 	network.NodesLastModified = timestamp
-// 	data, err := json.Marshal(&network)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
+// Inc - increments an IP
+func Inc(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
 
 // GetNetwork - gets a network from database
 func GetNetwork(networkname string) (models.Network, error) {
