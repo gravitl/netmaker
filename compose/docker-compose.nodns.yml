@@ -5,7 +5,6 @@ services:
     container_name: netmaker
     image: gravitl/netmaker:v0.8.4
     volumes:
-      - /etc/netclient/config:/etc/netclient/config
       - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
     cap_add: 
