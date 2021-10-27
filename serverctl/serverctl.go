@@ -108,7 +108,7 @@ func HandleContainedClient() error {
 			if err != nil {
 				logic.Log("error occurred during server checkin: "+err.Error(), 1)
 			} else {
-				logic.Log("completed a checking peers of network "+serverNet.NetID, 3)
+				logic.Log("completed peers check of network "+serverNet.NetID, 3)
 			}
 		}
 		// logic.Log("completed a checkin call", 3)

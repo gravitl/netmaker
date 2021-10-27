@@ -451,9 +451,11 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 		}
 		for _, addr := range currAddrs {
 			if strings.Contains(addr.String(), address) && currIface.Name != iface {
+				Log("found iface "+addr.String()+" "+currIface.Name, 2)
 				return currIface.Name, false
 			}
 		}
 	}
+	Log("failed to find iface "+iface, 2)
 	return "", true
 }
