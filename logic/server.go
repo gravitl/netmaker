@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -108,6 +109,8 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
 	if err != nil {
 		Log("Error retrieving port: "+err.Error(), 2)
+	} else {
+		Log("Set client port to "+fmt.Sprintf("%d", node.ListenPort)+" for network "+node.Network, 1)
 	}
 
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr

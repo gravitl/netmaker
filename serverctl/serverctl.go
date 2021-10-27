@@ -170,7 +170,9 @@ func SyncNetworks(servernets []models.Network) error {
 
 // AddNetwork - add a network to server in client mode
 func AddNetwork(network string) (bool, error) {
-	err := logic.ServerJoin(network, servercfg.GetNodeID(), "")
-	logic.Log("server added to network "+network, 2)
+	var err error
+	if err = logic.ServerJoin(network, servercfg.GetNodeID(), ""); err == nil {
+		logic.Log("server added to network "+network, 2)
+	}
 	return true, err
 }
