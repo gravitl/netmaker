@@ -169,7 +169,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		// set MTU of node interface
 		if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {
-			Log("failed to create interface with mtu "+ifacename, 2)
+			Log("failed to create interface with mtu "+strconv.Itoa(int(node.MTU))+" - "+ifacename, 2)
 			return err
 		}
 
