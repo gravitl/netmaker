@@ -12,7 +12,7 @@ services:
     cap_add: 
       - NET_ADMIN
     restart: always
-    network_mode: host
+    privileged: true
     environment:
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
@@ -29,6 +29,10 @@ services:
       SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
       DATABASE: "sqlite"
+    ports:
+      - "51821-51830:51821-51830/udp"
+      - "8081:8081"
+      - "50051:50051"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
