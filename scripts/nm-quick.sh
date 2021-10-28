@@ -1,10 +1,28 @@
 #!/bin/bash
 echo "checking for root permissions..."
 
+echo "setting flags..."
+
+while getopts d:e:m:v:c: flag
+do
+    case "${flag}" in
+    	d) domain=${OPTARG};;
+        e) email=${OPTARG};;
+        m) addmesh=${OPTARG};;
+        v) addvpn=${OPTARG};;
+        c) num_clients=${OPTARG};;
+    esac
+done
+
+echo "checking for root permissions..."
+
+
 if [ $EUID -ne 0 ]; then
    echo "This script must be run as root" 
    exit 1
 fi
+
+
 
 
 echo "checking dependencies..."
@@ -47,42 +65,55 @@ done
 
 set -e
 
-echo "setting public ip values..."
-
 NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 EMAIL="fake@email.com"
 
-arg1=$( echo $1 | awk -F"domain=" '{print $2}')
-arg2=$( echo $2 | awk -F"domain=" '{print $2}')
-
-if [ -n "$arg1" ]; then
-  echo "Parameter NETMAKER_BASE_DOMAIN is $arg1"
-  NETMAKER_BASE_DOMAIN=$arg1
-
-elif [ -n "$arg2" ]; then
-  echo "Parameter NETMAKER_BASE_DOMAIN is $arg2"
-  NETMAKER_BASE_DOMAIN=$arg2
+if [ -n "$domain" ]; then
+  NETMAKER_BASE_DOMAIN=$domain
 fi
 
-arg1=$( echo $1 | awk -F"email=" '{print $2}')
-arg2=$( echo $2 | awk -F"email=" '{print $2}')
-
-if [ -n "$arg1" ]; then
-  echo "Parameter EMAIL is $arg1"
-  EMAIL=$arg1
-
-elif [ -n "$arg2" ]; then
-  echo "Parameter EMAIL is $arg2"
-  EMAIL=$arg2
+if [ -n "$email" ]; then
+  EMAIL=$email
 fi
 
+if [ -n "$addmesh" ]; then
+  MESH_SETUP=$addmesh
+else
+  MESH_SETUP="true"
+fi
+
+if [ -n "$addvpn" ]; then
+  VPN_SETUP=$addvpn
+else
+  VPN_SETUP="false"
+fi
+
+if [ -n "$num_clients" ]; then
+  NUM_CLIENTS=$num_clients
+else
+  NUM_CLIENTS=5
+fi
+
+
+echo "   ----------------------------"
+echo "                SETUP ARGUMENTS"
+echo "   ----------------------------"
 echo "        domain: $NETMAKER_BASE_DOMAIN"
+echo "         email: $NETMAKER_BASE_DOMAIN"
 echo "    coredns ip: $COREDNS_IP"
 echo "     public ip: $SERVER_PUBLIC_IP"
 echo "    master key: $MASTER_KEY"
+echo "   setup mesh?: $MESH_SETUP"
+echo "    setup vpn?: $VPN_SETUP"
+if [ "${VPN_SETUP}" == "true" ]; then
+echo "     # clients: $NUM_CLIENTS"
+fi
+echo "   ----------------------------"
+
+sleep 5
 
 
 echo "setting caddyfile..."
@@ -95,7 +126,7 @@ sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
 echo "setting docker-compose..."
 
-wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.caddy.yml
+wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.caddy.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/COREDNS_IP/$COREDNS_IP/g" /root/docker-compose.yml
@@ -128,11 +159,7 @@ echo "visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
 echo""
 sleep 2
 
-if [ "${NETWORK_SETUP}" == "off" ]; then
-	echo "install complete"
-	exit 0
-fi
-
+setup_mesh() {
 echo "creating default network (10.101.0.0/16)"
 
 curl -d '{"addressrange":"10.101.0.0/16","netid":"default"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks
@@ -175,3 +202,72 @@ echo "        4. Scan the QR Code from WireGuard app in iOS or Android"
 echo ""
 echo ""
 echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
+}
+
+setup_vpn() {
+echo "creating vpn network (10.201.0.0/16)"
+
+curl -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"8.8.8.8"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks
+
+sleep 2
+
+echo "configuring netmaker server as vpn inlet..."
+
+curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn)
+SERVER_ID=$(jq -r '.[0].macaddress' <<< ${curlresponse})
+
+curl -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn/$SERVER_ID/createingress
+
+echo "waiting 10 seconds for server to apply configuration..."
+
+sleep 10
+
+
+echo "configuring netmaker server vpn gateway..."
+
+[ -z "$GATEWAY_IFACE" ] && GATEWAY_IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)')
+
+echo "gateway iface: $GATEWAY_IFACE"
+
+curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn)
+SERVER_ID=$(jq -r '.[0].macaddress' <<< ${curlresponse})
+
+EGRESS_JSON=$( jq -n \
+                  --arg gw "$GATEWAY_IFACE" \
+                  '{ranges: ["0.0.0.0/0"], interface: $gw}' )
+
+
+echo "egress json: $EGRESS_JSON"
+curl -X POST -d "$EGRESS_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn/$SERVER_ID/creategateway
+
+echo "creating client configs..."
+
+for ((a=1; a <= $NUM_CLIENTS; a++))
+do
+        CLIENT_JSON=$( jq -n \
+                  --arg clientid "vpnclient-$a" \
+                  '{clientid: $clientid}' )
+
+        echo "client json: $CLIENT_JSON"
+        curl -d "$CLIENT_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/extclients/vpn/$SERVER_ID
+done
+
+echo "finished configuring vpn server."
+echo ""
+echo ""
+echo "To configure clients, perform the following steps:"
+echo "        1. log into dashboard.$NETMAKER_BASE_DOMAIN"
+echo "        2. Navigate to \"EXTERNAL CLIENTS\" tab"
+echo "        3. Download or scan a client config (vpnclient-x) to the appropriate device"
+echo "        4. Follow the steps for your system to configure WireGuard on the appropriate device"
+echo "        5. Create and delete clients as necessary. Changes to netmaker server settings require regenerating ext clients."
+
+}
+
+if [ "${MESH_SETUP}" != "false" ]; then
+        setup_mesh
+fi
+
+if [ "${VPN_SETUP}" == "true" ]; then
+        setup_vpn
+fi
