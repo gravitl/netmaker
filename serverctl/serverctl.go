@@ -99,10 +99,6 @@ func HandleContainedClient() error {
 		if err != nil {
 			return err
 		}
-		err := SyncNetworks(servernets)
-		if err != nil {
-			logic.Log("error syncing networks: "+err.Error(), 1)
-		}
 		for _, serverNet := range servernets {
 			err = logic.ServerCheckin(servercfg.GetNodeID(), serverNet.NetID)
 			if err != nil {
@@ -110,6 +106,10 @@ func HandleContainedClient() error {
 			} else {
 				logic.Log("completed peers check of network "+serverNet.NetID, 3)
 			}
+		}
+		err := SyncNetworks(servernets)
+		if err != nil {
+			logic.Log("error syncing networks: "+err.Error(), 1)
 		}
 		// logic.Log("completed a checkin call", 3)
 	}
@@ -147,24 +147,27 @@ func SyncNetworks(servernets []models.Network) error {
 	}
 	// check networks to leave
 	for _, localnet := range localnets {
-		var exists = ""
-		for _, servernet := range servernets {
-			if servernet.DefaultInterface == localnet.Name {
-				exists = servernet.NetID
-			}
-		}
-		if exists != "" {
-			success, err := RemoveNetwork(exists)
-			if err != nil || !success {
-				if err == nil {
-					err = errors.New("network delete failed for " + exists)
+		if strings.Contains(localnet.Name, "nm-") {
+			var exists = ""
+			for _, servernet := range servernets {
+				if servernet.DefaultInterface == localnet.Name {
+					exists = servernet.NetID
 				}
-				if servercfg.GetVerbose() >= 1 {
-					log.Printf("[netmaker] error removing network %s during sync %s \n", exists, err)
+			}
+			if exists == "" {
+				success, err := RemoveNetwork(exists)
+				if err != nil || !success {
+					if err == nil {
+						err = errors.New("network delete failed for " + exists)
+					}
+					if servercfg.GetVerbose() >= 1 {
+						log.Printf("[netmaker] error removing network %s during sync %s \n", exists, err)
+					}
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
