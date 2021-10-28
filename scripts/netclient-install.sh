@@ -23,7 +23,7 @@ if [ -z "${install_cmd}" ]; then
         echo "OS unsupported for automatic dependency install"
 	exit 1
 fi
-dependencies="wireguard resolvectl"
+dependencies="wireguard"
 set -- $dependencies
 while [ -n "$1" ]; do
     echo $1
