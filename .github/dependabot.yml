@@ -7,4 +7,5 @@ updates:
     directory: "/"
     # Check for updates every day (weekdays)
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    target-branch: "develop"
