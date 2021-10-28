@@ -63,11 +63,11 @@ func InitializeAuthProvider() string {
 	var authInfo = servercfg.GetAuthProviderInfo()
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
-		logic.Log("localhost OAuth detected, proceeding with insecure http redirect", 1)
 		serverConn = "http://" + serverConn
+		logic.Log("localhost OAuth detected, proceeding with insecure http redirect: "+serverConn+")", 1)
 	} else {
-		logic.Log("external OAuth detected, proceeding with https redirect", 1)
 		serverConn = "https://" + serverConn
+		logic.Log("external OAuth detected, proceeding with https redirect: ("+serverConn+")", 1)
 	}
 
 	functions[init_provider].(func(string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2])
