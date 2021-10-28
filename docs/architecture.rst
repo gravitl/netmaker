@@ -104,7 +104,7 @@ If running in daemon mode, on a periodic basis (systemd timer), the netclient pe
 The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.
 
 
-Datavase (sqlite, rqlite, postgres)
+Database (sqlite, rqlite, postgres)
 -------------------------------------
 
 As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) databaseand. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
