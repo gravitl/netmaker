@@ -6,7 +6,7 @@ echo "setting flags..."
 while getopts d:e:m:v:c: flag
 do
     case "${flag}" in
-    	  d) domain=${OPTARG};;
+    	d) domain=${OPTARG};;
         e) email=${OPTARG};;
         m) addmesh=${OPTARG};;
         v) addvpn=${OPTARG};;
@@ -150,19 +150,18 @@ cat << "EOF"
 \ \ \-.  \  \ \  __\   \/_/\ \/ \ \ \-./\ \  \ \  __ \  \ \  _"-.  \ \  __\   \ \  __<   
  \ \_\\"\_\  \ \_____\    \ \_\  \ \_\ \ \_\  \ \_\ \_\  \ \_\ \_\  \ \_____\  \ \_\ \_\ 
   \/_/ \/_/   \/_____/     \/_/   \/_/  \/_/   \/_/\/_/   \/_/\/_/   \/_____/   \/_/ /_/ 
-                                                                                         															 
+                                                                                         													 
 
 EOF
 
 
 echo "visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
-echo""
 sleep 2
 
 setup_mesh() {
 echo "creating default network (10.101.0.0/16)"
 
-curl -d '{"addressrange":"10.101.0.0/16","netid":"default"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks
+curl -s -o /dev/null -d '{"addressrange":"10.101.0.0/16","netid":"default"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks
 
 sleep 2
 
@@ -178,14 +177,12 @@ echo "configuring netmaker server as ingress gateway"
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/default)
 SERVER_ID=$(jq -r '.[0].macaddress' <<< ${curlresponse})
 
-curl -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/default/$SERVER_ID/createingress
+curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/default/$SERVER_ID/createingress
 
 echo "finished configuring server and network. You can now add clients."
 echo ""
-echo ""
 echo "For Linux and Mac clients, install with the following command:"
 echo "        curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netclient-install.sh | sudo KEY=$ACCESS_TOKEN sh -"
-echo ""
 echo ""
 echo "For Windows clients, perform the following from powershell, as administrator:"
 echo "        1. Make sure WireGuardNT is installed - https://download.wireguard.com/windows-client/wireguard-installer.exe"
@@ -193,13 +190,11 @@ echo "        2. Download netclient.exe - wget https://github.com/gravitl/netmak
 echo "        3. Install Netclient - powershell.exe .\\netclient.exe join -t $ACCESS_TOKEN"
 echo "        4. Whitelist C:\ProgramData\Netclient in Windows Defender"
 echo ""
-echo ""
 echo "For Android and iOS clients, perform the following steps:"
 echo "        1. Log into UI at dashboard.$NETMAKER_BASE_DOMAIN"
 echo "        2. Navigate to \"EXTERNAL CLIENTS\" tab"
 echo "        3. Select the gateway and create clients"
 echo "        4. Scan the QR Code from WireGuard app in iOS or Android"
-echo ""
 echo ""
 echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
 }
@@ -207,7 +202,7 @@ echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
 setup_vpn() {
 echo "creating vpn network (10.201.0.0/16)"
 
-curl -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"8.8.8.8"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks
+curl -s -o /dev/null -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"8.8.8.8"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks
 
 sleep 2
 
@@ -216,7 +211,7 @@ echo "configuring netmaker server as vpn inlet..."
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn)
 SERVER_ID=$(jq -r '.[0].macaddress' <<< ${curlresponse})
 
-curl -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn/$SERVER_ID/createingress
+curl -s -o /dev/null -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn/$SERVER_ID/createingress
 
 echo "waiting 10 seconds for server to apply configuration..."
 
@@ -238,7 +233,7 @@ EGRESS_JSON=$( jq -n \
 
 
 echo "egress json: $EGRESS_JSON"
-curl -X POST -d "$EGRESS_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn/$SERVER_ID/creategateway
+curl -s -o /dev/null -X POST -d "$EGRESS_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn/$SERVER_ID/creategateway
 
 echo "creating client configs..."
 
@@ -248,12 +243,10 @@ do
                   --arg clientid "vpnclient-$a" \
                   '{clientid: $clientid}' )
 
-        echo "client json: $CLIENT_JSON"
-        curl -d "$CLIENT_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/extclients/vpn/$SERVER_ID
+        curl -s -o /dev/null -d "$CLIENT_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/extclients/vpn/$SERVER_ID
 done
 
 echo "finished configuring vpn server."
-echo ""
 echo ""
 echo "To configure clients, perform the following steps:"
 echo "        1. log into dashboard.$NETMAKER_BASE_DOMAIN"
@@ -271,3 +264,6 @@ fi
 if [ "${VPN_SETUP}" == "true" ]; then
         setup_vpn
 fi
+
+echo ""
+echo "Netmaker setup is now complete. You are ready to begin using Netmaker."

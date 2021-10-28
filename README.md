@@ -19,9 +19,6 @@
   <a href="https://github.com/gravitl/netmaker/graphs/contributors">
     <img src="https://img.shields.io/github/commit-activity/m/gravitl/netmaker?color=blue" />
   </a>
-  <a href="https://gravitl.com/resources">
-    <img src="https://img.shields.io/badge/learning-resources-9cf" />
-  </a>
   <a href="https://twitter.com/intent/follow?screen_name=gravitlcorp">
     <img src="https://img.shields.io/twitter/follow/gravitlcorp?style=social" />
   </a>
@@ -43,7 +40,7 @@
 **For an HA install using helm on k8s, visit the [Helm Repo](https://github.com/gravitl/netmaker-helm/).**
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
 2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
-3. Run the script (see below for extra options):
+3. Run the script **(see below for optional configurations)**:
 
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
 
@@ -57,15 +54,15 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 ### Optional configurations
 
-**Deploy a "Hub-And-Spoke VPN" on the server**
-a. This will configure a standard VPN (non-meshed) for private internet access.
-b. `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -v true`
+**Deploy a "Hub-And-Spoke VPN" on the server**  
+a. This will configure a standard VPN (non-meshed) for private internet access, with 10 clients (-c).  
+b. `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -- -v true -c 7`  
 
-**Specify Domain sand Email**
-a. Make sure your wildcard domain is pointing towards the server ip.
-b. `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -d mynetmaker.domain.com -e example@email.com`
+**Specify Domain sand Email**  
+a. Make sure your wildcard domain is pointing towards the server ip.  
+b. `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -- -d mynetmaker.domain.com -e example@email.com`  
 
-**Script Options**
+**Script Options**  
 ```
 ./nm-quick
 -d domain.example.com # specify a wildcard domain for netmaker to use (DNS must point to this server)
@@ -91,6 +88,8 @@ b. `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/s
 - [Community (Discord)](https://discord.gg/zRb9Vfhk8A)
 
 - [Business (Subscription)](https://gravitl.com/plans/business)
+
+- [Learning Resources](https://gravitl.com/resources)
 
 ## Disclaimer
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
