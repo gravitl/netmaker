@@ -424,12 +424,12 @@ func deleteInterface(ifacename string, postdown string) error {
 		ipExec, errN := exec.LookPath("ip")
 		err = errN
 		if err != nil {
-			ncutils.PrintLog(err.Error(), 1)
+			Log(err.Error(), 1)
 		}
 		_, err = ncutils.RunCmd(ipExec+" link del "+ifacename, false)
 		if postdown != "" {
 			runcmds := strings.Split(postdown, "; ")
-			err = ncutils.RunCmds(runcmds, true)
+			err = ncutils.RunCmds(runcmds, false)
 		}
 	}
 	return err
