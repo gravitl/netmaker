@@ -39,6 +39,9 @@ const SERVERCONF_TABLE_NAME = "serverconf"
 // DATABASE_FILENAME - database file name
 const DATABASE_FILENAME = "netmaker.db"
 
+// GENERATED_TABLE_NAME - stores server generated k/v
+const GENERATED_TABLE_NAME = "generated"
+
 // == ERROR CONSTS ==
 
 // NO_RECORD - no singular result found
@@ -87,11 +90,11 @@ func getCurrentDB() map[string]interface{} {
 }
 
 func InitializeDatabase() error {
-	log.Println("connecting to", servercfg.GetDB())
+	log.Println("[netmaker] connecting to", servercfg.GetDB())
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
 		if err := getCurrentDB()[INIT_DB].(func() error)(); err != nil {
-			log.Println("unable to connect to db, retrying . . .")
+			log.Println("[netmaker] unable to connect to db, retrying . . .")
 			if time.Now().After(tperiod) {
 				return err
 			}
@@ -114,6 +117,7 @@ func createTables() {
 	createTable(INT_CLIENTS_TABLE_NAME)
 	createTable(PEERS_TABLE_NAME)
 	createTable(SERVERCONF_TABLE_NAME)
+	createTable(GENERATED_TABLE_NAME)
 }
 
 func createTable(tableName string) error {

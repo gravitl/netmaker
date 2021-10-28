@@ -90,7 +90,7 @@ func InitServerNetclient() error {
 
 // HandleContainedClient - function for checkins on server
 func HandleContainedClient() error {
-	servernets, err := models.GetNetworks()
+	servernets, err := logic.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -107,9 +107,11 @@ func HandleContainedClient() error {
 			err = logic.ServerCheckin(servercfg.GetNodeID(), serverNet.NetID)
 			if err != nil {
 				logic.Log("error occurred during server checkin: "+err.Error(), 1)
+			} else {
+				logic.Log("completed peers check of network "+serverNet.NetID, 3)
 			}
 		}
-		logic.Log("completed a checkin call", 3)
+		// logic.Log("completed a checkin call", 3)
 	}
 	return nil
 }
@@ -168,7 +170,6 @@ func SyncNetworks(servernets []models.Network) error {
 
 // AddNetwork - add a network to server in client mode
 func AddNetwork(network string) (bool, error) {
-	err := logic.ServerJoin(network, servercfg.GetNodeID(), "")
-	logic.Log("server added to network "+network, 2)
+	var err = logic.ServerJoin(network, servercfg.GetNodeID(), "")
 	return true, err
 }

@@ -1,10 +1,11 @@
-package dnslogic
+package logic
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"os"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
@@ -14,7 +15,7 @@ import (
 func SetDNS() error {
 	hostfile := txeh.Hosts{}
 	var corefilestring string
-	networks, err := models.GetNetworks()
+	networks, err := GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -38,7 +39,7 @@ func SetDNS() error {
 		return err
 	}
 	if servercfg.IsSplitDNS() {
-		err = functions.SetCorefile(corefilestring)
+		err = SetCorefile(corefilestring)
 	}
 	return err
 }
@@ -105,4 +106,36 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 	}
 
 	return dns, err
+}
+
+// SetCorefile - sets the core file of the system
+func SetCorefile(domains string) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	_, err = os.Stat(dir + "/config/dnsconfig")
+	if os.IsNotExist(err) {
+		os.Mkdir(dir+"/config/dnsconfig", 744)
+	} else if err != nil {
+		Log("couldnt find or create /config/dnsconfig", 0)
+		return err
+	}
+
+	corefile := domains + ` {
+    reload 15s
+    hosts /root/dnsconfig/netmaker.hosts {
+	fallthrough	
+    }
+    forward . 8.8.8.8 8.8.4.4
+    log
+}
+`
+	corebytes := []byte(corefile)
+
+	err = ioutil.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
+	if err != nil {
+		return err
+	}
+	return err
 }

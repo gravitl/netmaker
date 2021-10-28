@@ -9,7 +9,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -107,7 +106,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				return
 			} else {
 				//Create a new JWT for the node
-				tokenString, _ := functions.CreateJWT(authRequest.MacAddress, result.Network)
+				tokenString, _ := logic.CreateJWT(authRequest.MacAddress, result.Network)
 
 				if tokenString == "" {
 					errorResponse.Code = http.StatusBadRequest
@@ -193,7 +192,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Help.
 			var isAuthorized = false
 			var macaddress = ""
-			username, networks, isadmin, errN := functions.VerifyUserToken(authToken)
+			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
 			isnetadmin := isadmin
 			if errN == nil && isadmin {
 				macaddress = "mastermac"
@@ -221,7 +220,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 					if isnetadmin {
 						isAuthorized = true
 					} else {
-						node, err := functions.GetNodeByMacAddress(params["network"], macaddress)
+						node, err := logic.GetNodeByMacAddress(params["network"], macaddress)
 						if err != nil {
 							errorResponse = models.ErrorResponse{
 								Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
@@ -285,14 +284,14 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 //Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	user, err := functions.GetUser(r.Header.Get("user"))
+	user, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil && r.Header.Get("ismasterkey") != "yes" {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	var nodes []models.Node
 	if user.IsAdmin || r.Header.Get("ismasterkey") == "yes" {
-		nodes, err = models.GetAllNodes()
+		nodes, err = logic.GetAllNodes()
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
@@ -392,7 +391,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	node.Network = networkName
 
-	network, err := node.GetNetwork()
+	network, err := logic.GetNetworkByNode(&node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -400,7 +399,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	//Check to see if key is valid
 	//TODO: Triple inefficient!!! This is the third call to the DB we make for networks
-	validKey := functions.IsKeyValid(networkName, node.AccessKey)
+	validKey := logic.IsKeyValid(networkName, node.AccessKey)
 
 	if !validKey {
 		//Check to see if network will allow manual sign up
@@ -441,8 +440,9 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode("SUCCESS")
 }
 
+// UncordonNode - approves a node to join a network
 func UncordonNode(network, macaddress string) (models.Node, error) {
-	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	node, err := logic.GetNodeByMacAddress(network, macaddress)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -453,7 +453,7 @@ func UncordonNode(network, macaddress string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return node, err
 	}
@@ -483,8 +483,9 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
+// CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
-	node, err := functions.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
+	node, err := logic.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
 	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
@@ -515,7 +516,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 			postDownCmd = node.PostDown + "; " + postDownCmd
 		}
 	}
-	key, err := functions.GetRecordKey(gateway.NodeID, gateway.NetID)
+	key, err := logic.GetRecordKey(gateway.NodeID, gateway.NetID)
 	if err != nil {
 		return node, err
 	}
@@ -565,9 +566,10 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
+// DeleteEgressGateway - deletes egress from node
 func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 
-	node, err := functions.GetNodeByMacAddress(network, macaddress)
+	node, err := logic.GetNodeByMacAddress(network, macaddress)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -582,7 +584,7 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 	}
 	node.SetLastModified()
 	node.PullChanges = "yes"
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -615,9 +617,10 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
+// CreateIngressGateway - creates an ingress gateway
 func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
 
-	node, err := functions.GetNodeByMacAddress(netid, macaddress)
+	node, err := logic.GetNodeByMacAddress(netid, macaddress)
 	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
 	}
@@ -626,7 +629,7 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 		return models.Node{}, err
 	}
 
-	network, err := functions.GetParentNetwork(netid)
+	network, err := logic.GetParentNetwork(netid)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -649,7 +652,7 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 	node.PostDown = postDownCmd
 	node.PullChanges = "yes"
 	node.UDPHolePunch = "no"
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -679,13 +682,14 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
+// DeleteIngressGateway - deletes an ingress gateway
 func DeleteIngressGateway(networkName string, macaddress string) (models.Node, error) {
 
-	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
+	node, err := logic.GetNodeByMacAddress(networkName, macaddress)
 	if err != nil {
 		return models.Node{}, err
 	}
-	network, err := functions.GetParentNetwork(networkName)
+	network, err := logic.GetParentNetwork(networkName)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -700,7 +704,7 @@ func DeleteIngressGateway(networkName string, macaddress string) (models.Node, e
 	node.IngressGatewayRange = ""
 	node.PullChanges = "yes"
 
-	key, err := functions.GetRecordKey(node.MacAddress, node.Network)
+	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -723,7 +727,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	var node models.Node
 	//start here
-	node, err := functions.GetNodeByMacAddress(params["network"], params["macaddress"])
+	node, err := logic.GetNodeByMacAddress(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -749,7 +753,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	err = node.Update(&newNode)
+	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -762,7 +766,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsDNSMode() {
-		err = dnslogic.SetDNS()
+		err = logic.SetDNS()
 	}
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
