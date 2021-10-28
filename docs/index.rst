@@ -93,6 +93,17 @@ A detailed guide to installing the Netmaker server (API, DB, UI, DNS), and confi
    
    server-installation
 
+Oauth Configuration
+--------------------
+
+A simple guide to configuring OAuth for Netmaker.
+
+.. toctree::
+   :maxdepth: 2
+   
+   oauth
+
+
 Client Installation
 --------------------
 

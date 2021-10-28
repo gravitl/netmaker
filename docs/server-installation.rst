@@ -159,7 +159,9 @@ DNS Mode Setup
 
 If you plan on running the server in DNS Mode, know that a `CoreDNS Server <https://coredns.io/manual/toc/>`_ will be installed. CoreDNS is a light-weight, fast, and easy-to-configure DNS server. It is recommended to bind CoreDNS to port 53 of the host system, and it will do so by default. The clients will expect the nameserver to be on port 53, and many systems have issues resolving a different port.
 
-However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration. The following was tested on Ubuntu 20.04 and should be run prior to deploying the docker containers.
+However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration. 
+
+With the latest docker-compose, it is not necessary to perform these steps. But if you are running the install and find that port 53 is blocked, you can perform the following steps, which were tested on Ubuntu 20.04 (these should be run prior to deploying the docker containers).
 
 .. code-block::
 
@@ -198,6 +200,11 @@ Assuming you have Docker and Docker Compose installed, you can just run the foll
   wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/docker-compose.test.yml
   sed -i ‘s/HOST_IP/< Insert your-host IP Address Here >/g’ docker-compose.yml
   docker-compose up -d`
+
+Traefik Proxy
+------------------------
+
+To install with Traefik, rather than Nginx or the default Caddy, check out this repo: https://github.com/bsherman/netmaker-traefik 
 
 
 No DNS - CoreDNS Disabled

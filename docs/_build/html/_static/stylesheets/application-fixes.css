@@ -416,3 +416,8 @@ div.rendered_html table {
     margin-left: auto;
     margin-right: auto;
 }
+
+/* GH 93 */
+dl.citation dt span.brackets {
+  margin-right: 0.3rem;
+}
