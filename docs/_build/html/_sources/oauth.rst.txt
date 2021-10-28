@@ -52,6 +52,11 @@ After restarting your server, the Netmaker logs will indicate if the OAuth provi
 
 Once successful, users can click the key symbol on the login page to sign-in with your configured OAuth provider.
 
+.. image:: images/oauth1.png
+   :width: 80%
+   :alt: Login Oauth
+   :align: center
+
 Configuring User Permissions
 ===============================
 
@@ -61,3 +66,12 @@ Admins must navigate to the "Users" screen to configure permissions.
 
 For each user, an admin must specify which networks that user has access to configure. Additionally, an Admin can elevate a user to Admin permissions.
 
+.. image:: images/oauth2.png
+   :width: 80%
+   :alt: Edit User
+   :align: center
+
+.. image:: images/oauth3.png
+   :width: 80%
+   :alt: Edit User 2
+   :align: center

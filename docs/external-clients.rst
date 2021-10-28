@@ -64,7 +64,7 @@ Configuring DNS for Ext Clients (OPTIONAL)
 If you wish to have a DNS field on your ext clients conf, simply edit the network field as shown below to 1.1.1.1 or 8.8.8.8 for example.
 If you do not want DNS on your ext client conf files, simply leave it blank.
 
-.. image:: images/exclient5.png
+.. image:: images/extclient5.png
    :width: 80%
    :alt: Gateway
    :align: center
