@@ -3,7 +3,9 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -59,12 +61,26 @@ func InitializeAuthProvider() string {
 		return ""
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
-	functions[init_provider].(func(string, string, string))(servercfg.GetAPIConnString()+"/api/oauth/callback", authInfo[1], authInfo[2])
+	var serverConn = servercfg.GetAPIHost()
+	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
+		serverConn = "http://" + serverConn
+		logic.Log("localhost OAuth detected, proceeding with insecure http redirect: "+serverConn+")", 1)
+	} else {
+		serverConn = "https://" + serverConn
+		logic.Log("external OAuth detected, proceeding with https redirect: ("+serverConn+")", 1)
+	}
+
+	functions[init_provider].(func(string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2])
 	return authInfo[0]
 }
 
 // HandleAuthCallback - handles oauth callback
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
+	if auth_provider == nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintln(w, oauthNotConfigured)
+		return
+	}
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
 		return
@@ -74,6 +90,16 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 // HandleAuthLogin - handles oauth login
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
+	if auth_provider == nil {
+		var referer = r.Header.Get("referer")
+		if referer != "" {
+			http.Redirect(w, r, referer+"?oauth=callback-error", http.StatusTemporaryRedirect)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintln(w, oauthNotConfigured)
+		return
+	}
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
 		return

@@ -29,11 +29,6 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
 	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
-	r.HandleFunc("/api/oauth/error", throwOauthError).Methods("GET")
-}
-
-func throwOauthError(response http.ResponseWriter, request *http.Request) {
-	returnErrorResponse(response, request, formatError(errors.New("No token returned"), "unauthorized"))
 }
 
 // Node authenticates using its password and retrieves a JWT for authorization.
