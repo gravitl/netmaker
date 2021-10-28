@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"os"
 	"strings"
 
@@ -98,7 +99,6 @@ func HandleContainedClient() error {
 		if err != nil {
 			return err
 		}
-		log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
 		err := SyncNetworks(servernets)
 		if err != nil {
 			logic.Log("error syncing networks: "+err.Error(), 1)
@@ -119,7 +119,7 @@ func HandleContainedClient() error {
 // SyncNetworks - syncs the networks for servers
 func SyncNetworks(servernets []models.Network) error {
 
-	localnets, err := ncutils.GetSystemNetworks()
+	localnets, err := net.Interfaces()
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func SyncNetworks(servernets []models.Network) error {
 	for _, servernet := range servernets {
 		exists := false
 		for _, localnet := range localnets {
-			if servernet.NetID == localnet {
+			if servernet.DefaultInterface == localnet.Name {
 				exists = true
 			}
 		}
@@ -147,20 +147,20 @@ func SyncNetworks(servernets []models.Network) error {
 	}
 	// check networks to leave
 	for _, localnet := range localnets {
-		exists := false
+		var exists = ""
 		for _, servernet := range servernets {
-			if servernet.NetID == localnet {
-				exists = true
+			if servernet.DefaultInterface == localnet.Name {
+				exists = servernet.NetID
 			}
 		}
-		if !exists {
-			success, err := RemoveNetwork(localnet)
+		if exists != "" {
+			success, err := RemoveNetwork(exists)
 			if err != nil || !success {
 				if err == nil {
-					err = errors.New("network delete failed for " + localnet)
+					err = errors.New("network delete failed for " + exists)
 				}
 				if servercfg.GetVerbose() >= 1 {
-					log.Printf("[netmaker] error removing network %s during sync %s \n", localnet, err)
+					log.Printf("[netmaker] error removing network %s during sync %s \n", exists, err)
 				}
 			}
 		}
