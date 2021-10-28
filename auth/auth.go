@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -60,7 +61,16 @@ func InitializeAuthProvider() string {
 		return ""
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
-	functions[init_provider].(func(string, string, string))(servercfg.GetAPIConnString()+"/api/oauth/callback", authInfo[1], authInfo[2])
+	var serverConn = servercfg.GetAPIConnString()
+	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
+		logic.Log("localhost OAuth detected, proceeding with insecure http redirect", 1)
+		serverConn = "http://" + serverConn
+	} else {
+		logic.Log("external OAuth detected, proceeding with https redirect", 1)
+		serverConn = "https://" + serverConn
+	}
+
+	functions[init_provider].(func(string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2])
 	return authInfo[0]
 }
 
