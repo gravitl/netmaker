@@ -1,10 +1,12 @@
 package functions
 
 import (
-	"io/ioutil"
 	"os"
+
+	"github.com/gravitl/netmaker/logic"
 )
 
+// FileExists - checks if file exists
 func FileExists(f string) bool {
 	info, err := os.Stat(f)
 	if os.IsNotExist(err) {
@@ -13,6 +15,7 @@ func FileExists(f string) bool {
 	return !info.IsDir()
 }
 
+// SetDNSDir - sets the dns directory of the system
 func SetDNSDir() error {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -27,7 +30,7 @@ func SetDNSDir() error {
 	}
 	_, err = os.Stat(dir + "/config/dnsconfig/Corefile")
 	if os.IsNotExist(err) {
-		err = SetCorefile(".")
+		err = logic.SetCorefile(".")
 		if err != nil {
 			PrintUserLog("", err.Error(), 0)
 		}
@@ -40,35 +43,4 @@ func SetDNSDir() error {
 		}
 	}
 	return nil
-}
-
-func SetCorefile(domains string) error {
-	dir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	_, err = os.Stat(dir + "/config/dnsconfig")
-	if os.IsNotExist(err) {
-		os.Mkdir(dir+"/config/dnsconfig", 744)
-	} else if err != nil {
-		PrintUserLog("", "couldnt find or create /config/dnsconfig", 0)
-		return err
-	}
-
-	corefile := domains + ` {
-    reload 15s
-    hosts /root/dnsconfig/netmaker.hosts {
-	fallthrough	
-    }
-    forward . 8.8.8.8 8.8.4.4
-    log
-}
-`
-	corebytes := []byte(corefile)
-
-	err = ioutil.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
-	if err != nil {
-		return err
-	}
-	return err
 }

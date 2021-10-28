@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -42,8 +43,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 			log.Println(err)
 		}
 	}()
-
-	log.Println("REST Server successfully started on port " + port + " (REST)")
+	logic.Log("REST Server successfully started on port "+port+" (REST)", 0)
 	c := make(chan os.Signal)
 
 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
@@ -55,7 +55,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	<-c
 
 	// After receiving CTRL+C Properly stop the server
-	log.Println("Stopping the REST server...")
+	logic.Log("Stopping the REST server...", 0)
 	srv.Shutdown(context.TODO())
-	log.Println("REST Server closed.")
+	logic.Log("REST Server closed.", 0)
 }

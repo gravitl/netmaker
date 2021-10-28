@@ -11,19 +11,12 @@ services:
     container_name: netmaker
     depends_on:
       - rqlite
-    image: gravitl/netmaker:v0.7
-    volumes: # Volume mounts necessary for CLIENT_MODE to control netclient, wireguard, and networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
-      - ./:/local
-      - /etc/netclient:/etc/netclient
+    image: gravitl/netmaker:v0.8.5
+    volumes: # Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
       - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
       - /usr/bin/wg:/usr/bin/wg
-      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
-      - /run/systemd/system:/run/systemd/system
-      - /etc/systemd/system:/etc/systemd/system
-      - /sys/fs/cgroup:/sys/fs/cgroup
     cap_add: # Necessary for CLIENT_MODE. Should be removed if turned off. 
       - NET_ADMIN
-      - SYS_MODULE
     restart: always
     network_mode: host # Necessary for CLIENT_MODE. Should be removed if turned off, but then need to add port mappings
     environment:
@@ -32,6 +25,7 @@ services:
       SERVER_GRPC_HOST: "127.0.0.1" # Overrides SERVER_HOST if set. Useful for making HTTP and GRPC available via different interfaces/networks.
       API_PORT: 8081 # The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.
       GRPC_PORT: 50051 # The GRPC port for Netmaker. Used for communications from nodes.
+      CLIENT_MODE: "on" # on if netmaker should run its own client, off if not.
       MASTER_KEY: "secretkey" # The admin master key for accessing the API. Change this in any production installation.
       CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from.
       REST_BACKEND: "on" # Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.

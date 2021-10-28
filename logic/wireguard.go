@@ -62,10 +62,11 @@ func setWGConfig(node models.Node, network string, peerupdate bool) error {
 		var iface string
 		iface = node.Interface
 		err = setServerPeers(iface, node.PersistentKeepalive, peers)
+		Log("updated peers on server "+node.Name, 2)
 	} else {
 		err = initWireguard(&node, privkey, peers, hasGateway, gateways)
+		Log("finished setting wg config on server "+node.Name, 3)
 	}
-	Log("finished setting wg config on server "+node.Name, 1)
 	return err
 }
 
@@ -98,8 +99,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	nodeport := int(node.ListenPort)
-	var conf wgtypes.Config
-	conf = wgtypes.Config{
+	var conf = wgtypes.Config{
 		PrivateKey:   &key,
 		ListenPort:   &nodeport,
 		ReplacePeers: true,
@@ -117,8 +117,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return err
 		}
 		// spin up userspace + apply the conf file
-		var deviceiface string
-		deviceiface = ifacename
+		var deviceiface = ifacename
 		d, _ := wgclient.Device(deviceiface)
 		for d != nil && d.Name == deviceiface {
 			_ = RemoveConf(ifacename, false) // remove interface first
@@ -168,7 +167,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		// set MTU of node interface
 		if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {
-			Log("failed to create interface with mtu "+ifacename, 2)
+			Log("failed to create interface with mtu "+strconv.Itoa(int(node.MTU))+" - "+ifacename, 2)
 			return err
 		}
 

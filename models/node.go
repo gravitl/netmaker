@@ -2,15 +2,12 @@ package models
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/gravitl/netmaker/database"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -207,105 +204,6 @@ func (node *Node) SetDefaultName() {
 	}
 }
 
-func (node *Node) CheckIsServer() bool {
-	nodeData, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return false
-	}
-	for _, value := range nodeData {
-		var tmpNode Node
-		if err := json.Unmarshal([]byte(value), &tmpNode); err != nil {
-			continue
-		}
-		if tmpNode.Network == node.Network && tmpNode.MacAddress != node.MacAddress {
-			return false
-		}
-	}
-	return true
-}
-
-func (node *Node) GetNetwork() (Network, error) {
-
-	var network Network
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return Network{}, err
-	}
-	return network, nil
-}
-
-//TODO: I dont know why this exists
-//This should exist on the node.go struct. I'm sure there was a reason?
-func (node *Node) SetDefaults() {
-
-	//TODO: Maybe I should make Network a part of the node struct. Then we can just query the Network object for stuff.
-	parentNetwork, _ := node.GetNetwork()
-
-	node.ExpirationDateTime = time.Now().Unix() + TEN_YEARS_IN_SECONDS
-
-	if node.ListenPort == 0 {
-		node.ListenPort = parentNetwork.DefaultListenPort
-	}
-	if node.SaveConfig == "" {
-		if parentNetwork.DefaultSaveConfig != "" {
-			node.SaveConfig = parentNetwork.DefaultSaveConfig
-		} else {
-			node.SaveConfig = "yes"
-		}
-	}
-	if node.Interface == "" {
-		node.Interface = parentNetwork.DefaultInterface
-	}
-	if node.PersistentKeepalive == 0 {
-		node.PersistentKeepalive = parentNetwork.DefaultKeepalive
-	}
-	if node.PostUp == "" {
-		postup := parentNetwork.DefaultPostUp
-		node.PostUp = postup
-	}
-	if node.IsStatic == "" {
-		node.IsStatic = "no"
-	}
-	if node.UDPHolePunch == "" {
-		node.UDPHolePunch = parentNetwork.DefaultUDPHolePunch
-		if node.UDPHolePunch == "" {
-			node.UDPHolePunch = "yes"
-		}
-	}
-	// == Parent Network settings ==
-	if node.IsDualStack == "" {
-		node.IsDualStack = parentNetwork.IsDualStack
-	}
-	if node.MTU == 0 {
-		node.MTU = parentNetwork.DefaultMTU
-	}
-	// == node defaults if not set by parent ==
-	node.SetIPForwardingDefault()
-	node.SetDNSOnDefault()
-	node.SetIsLocalDefault()
-	node.SetIsDualStackDefault()
-	node.SetLastModified()
-	node.SetDefaultName()
-	node.SetLastCheckIn()
-	node.SetLastPeerUpdate()
-	node.SetRoamingDefault()
-	node.SetPullChangesDefault()
-	node.SetDefaultAction()
-	node.SetID()
-	node.SetIsServerDefault()
-	node.SetIsStaticDefault()
-	node.SetDefaultEgressGateway()
-	node.SetDefaultIngressGateway()
-	node.SetDefaulIsPending()
-	node.SetDefaultMTU()
-	node.SetDefaultIsRelayed()
-	node.SetDefaultIsRelay()
-	node.KeyUpdateTimeStamp = time.Now().Unix()
-}
-
 func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.ID == "" {
 		newNode.ID = currentNode.ID
@@ -454,23 +352,6 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 }
 
-func (currentNode *Node) Update(newNode *Node) error {
-	newNode.Fill(currentNode)
-	if err := newNode.Validate(true); err != nil {
-		return err
-	}
-	newNode.SetID()
-	if newNode.ID == currentNode.ID {
-		newNode.SetLastModified()
-		if data, err := json.Marshal(newNode); err != nil {
-			return err
-		} else {
-			return database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
-		}
-	}
-	return errors.New("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
-}
-
 func StringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
 	for i := range b {
@@ -486,36 +367,6 @@ func IsIpv4Net(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
-func (node *Node) Validate(isUpdate bool) error {
-	v := validator.New()
-	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
-		if isUpdate {
-			return true
-		}
-		isFieldUnique, _ := node.IsIDUnique()
-		return isFieldUnique
-	})
-	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := node.GetNetwork()
-		return err == nil
-	})
-	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-		isgood := node.NameInNodeCharSet()
-		return isgood
-	})
-	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
-		return CheckYesOrNo(fl)
-	})
-	err := v.Struct(node)
-
-	return err
-}
-
-func (node *Node) IsIDUnique() (bool, error) {
-	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
-	return database.IsEmptyRecord(err), err
-}
-
 func (node *Node) NameInNodeCharSet() bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-"
@@ -526,29 +377,6 @@ func (node *Node) NameInNodeCharSet() bool {
 		}
 	}
 	return true
-}
-
-func GetAllNodes() ([]Node, error) {
-	var nodes []Node
-
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []Node{}, nil
-		}
-		return []Node{}, err
-	}
-
-	for _, value := range collection {
-		var node Node
-		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			return []Node{}, err
-		}
-		// add node to our array
-		nodes = append(nodes, node)
-	}
-
-	return nodes, nil
 }
 
 func (node *Node) GetID() (string, error) {

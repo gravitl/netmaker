@@ -230,10 +230,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			if err != nil {
 				return &resNode, err
 			}
-		} else { // handle server side update
-			if err = resNode.Update(&resNode); err != nil {
-				return &resNode, err
-			}
 		}
 	} else {
 		if err = wireguard.SetWGConfig(network, true); err != nil {

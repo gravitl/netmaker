@@ -1,14 +1,9 @@
 package models
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
 	"strings"
 	"time"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -50,19 +45,6 @@ type SaveData struct { // put sensitive fields here
 	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
 }
 
-// Network.NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
-func (network *Network) NetIDInNetworkCharSet() bool {
-
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
-
-	for _, char := range network.NetID {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
-			return false
-		}
-	}
-	return true
-}
-
 // Network.DisplayNameInNetworkCharSet - checks if displayname uses valid characters
 func (network *Network) DisplayNameInNetworkCharSet() bool {
 
@@ -74,103 +56,6 @@ func (network *Network) DisplayNameInNetworkCharSet() bool {
 		}
 	}
 	return true
-}
-
-// GetNetworks - returns all networks from database
-func GetNetworks() ([]Network, error) {
-	var networks []Network
-
-	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
-
-	if err != nil {
-		return networks, err
-	}
-
-	for _, value := range collection {
-		var network Network
-		if err := json.Unmarshal([]byte(value), &network); err != nil {
-			return networks, err
-		}
-		// add network our array
-		networks = append(networks, network)
-	}
-
-	return networks, err
-}
-
-// Network.IsNetworkDisplayNameUnique - checks if displayname is unique from other networks
-func (network *Network) IsNetworkDisplayNameUnique() (bool, error) {
-
-	isunique := true
-
-	records, err := GetNetworks()
-
-	if err != nil && !database.IsEmptyRecord(err) {
-		return false, err
-	}
-
-	for i := 0; i < len(records); i++ {
-
-		if network.NetID == records[i].DisplayName {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
-}
-
-// Network.IsNetworkNameUnique - checks to see if any other networks have the same name (id)
-func (network *Network) IsNetworkNameUnique() (bool, error) {
-
-	isunique := true
-
-	dbs, err := GetNetworks()
-
-	if err != nil && !database.IsEmptyRecord(err) {
-		return false, err
-	}
-
-	for i := 0; i < len(dbs); i++ {
-
-		if network.NetID == dbs[i].NetID {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
-}
-
-// Network.Validate - validates fields of an network struct
-func (network *Network) Validate(isUpdate bool) error {
-	v := validator.New()
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		inCharSet := network.NetIDInNetworkCharSet()
-		if isUpdate {
-			return inCharSet
-		}
-		isFieldUnique, _ := network.IsNetworkNameUnique()
-		return isFieldUnique && inCharSet
-	})
-	//
-	_ = v.RegisterValidation("displayname_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique, _ := network.IsNetworkDisplayNameUnique()
-		inCharSet := network.DisplayNameInNetworkCharSet()
-		if isUpdate {
-			return inCharSet
-		}
-		return isFieldUnique && inCharSet
-	})
-	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
-		return CheckYesOrNo(fl)
-	})
-	err := v.Struct(network)
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
-		}
-	}
-
-	return err
 }
 
 // Network.SetNodesLastModified - sets nodes last modified on network, depricated
@@ -241,55 +126,4 @@ func (network *Network) SetDefaults() {
 	if network.DefaultMTU == 0 {
 		network.DefaultMTU = 1280
 	}
-}
-
-// Network.Update - updates a network with another network's fields
-func (currentNetwork *Network) Update(newNetwork *Network) (bool, bool, error) {
-	if err := newNetwork.Validate(true); err != nil {
-		return false, false, err
-	}
-	if newNetwork.NetID == currentNetwork.NetID {
-		hasrangeupdate := newNetwork.AddressRange != currentNetwork.AddressRange
-		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
-		data, err := json.Marshal(newNetwork)
-		if err != nil {
-			return false, false, err
-		}
-		newNetwork.SetNetworkLastModified()
-		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		return hasrangeupdate, localrangeupdate, err
-	}
-	// copy values
-	return false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
-}
-
-// Network.SetNetworkNodesLastModified - sets network nodes last modified time
-func (network *Network) SetNetworkNodesLastModified() error {
-
-	timestamp := time.Now().Unix()
-
-	network.NodesLastModified = timestamp
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetNetwork - gets a network from database
-func GetNetwork(networkname string) (Network, error) {
-
-	var network Network
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return Network{}, err
-	}
-	return network, nil
 }

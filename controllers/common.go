@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -41,7 +41,7 @@ func DeleteNode(key string, exterminate bool) error {
 		return err
 	}
 	if servercfg.IsDNSMode() {
-		err = dnslogic.SetDNS()
+		err = logic.SetDNS()
 	}
 	return err
 }
@@ -60,7 +60,7 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 
 	var node models.Node
 
-	key, err := functions.GetRecordKey(macaddress, network)
+	key, err := logic.GetRecordKey(macaddress, network)
 	if err != nil {
 		return node, err
 	}
@@ -75,7 +75,7 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(data), &node); err != nil {
 		return node, err
 	}
-	node.SetDefaults()
+	logic.SetNodeDefaults(&node)
 
 	return node, err
 }

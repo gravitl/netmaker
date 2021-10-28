@@ -46,10 +46,10 @@
   
   
   
-    <title>Architecture &#8212; Netmaker 0.8.4 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/material.css" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <title>Architecture &#8212; Netmaker 0.8.5 documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8.4 documentation"
+        <a href="index.html" title="Netmaker 0.8.5 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -103,7 +103,7 @@
 <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
-    <form class="md-search__form" action="search.html" method="GET" name="search">
+    <form class="md-search__form" action="search.html" method="get" name="search">
       <input type="text" class="md-search__input" name="q" placeholder="Search"
              autocapitalize="off" autocomplete="off" spellcheck="false"
              data-md-component="query" data-md-state="active">
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.5 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.8.5 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.8.5 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -268,7 +268,7 @@
         </li>
         <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#datavase-sqlite-rqlite-postgres" class="md-nav__link">Datavase (sqlite, rqlite, postgres)</a>
+        <li class="md-nav__item"><a href="#database-sqlite-rqlite-postgres" class="md-nav__link">Database (sqlite, rqlite, postgres)</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
@@ -831,7 +831,7 @@
         </li>
         <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#datavase-sqlite-rqlite-postgres" class="md-nav__link">Datavase (sqlite, rqlite, postgres)</a>
+        <li class="md-nav__item"><a href="#database-sqlite-rqlite-postgres" class="md-nav__link">Database (sqlite, rqlite, postgres)</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
         </li>
@@ -919,7 +919,7 @@
 <p>The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.</p>
 
 
-<h3 id="datavase-sqlite-rqlite-postgres">Datavase (sqlite, rqlite, postgres)<a class="headerlink" href="#datavase-sqlite-rqlite-postgres" title="Permalink to this headline">¶</a></h3>
+<h3 id="database-sqlite-rqlite-postgres">Database (sqlite, rqlite, postgres)<a class="headerlink" href="#database-sqlite-rqlite-postgres" title="Permalink to this headline">¶</a></h3>
 <p>As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) databaseand. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users.</p>
 <p>Additional database support (besides sqlite and rqlite) is very easy to implement for special use cases. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.</p>
 
@@ -1046,7 +1046,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

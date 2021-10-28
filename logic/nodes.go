@@ -2,12 +2,15 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sort"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/validation"
 )
 
 // GetNetworkNodes - gets the nodes of a network
@@ -80,7 +83,7 @@ func GetPeers(node models.Node) ([]models.Node, error) {
 func IsLeader(node *models.Node) bool {
 	nodes, err := GetSortedNetworkServerNodes(node.Network)
 	if err != nil {
-		functions.PrintUserLog("", "ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.", 0)
+		Log("ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.", 0)
 		return false
 	}
 	for _, n := range nodes {
@@ -89,4 +92,262 @@ func IsLeader(node *models.Node) bool {
 		}
 	}
 	return len(nodes) <= 1 || nodes[1].Address == node.Address
+}
+
+// == DB related functions ==
+
+// UpdateNode - takes a node and updates another node with it's values
+func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
+	newNode.Fill(currentNode)
+	if err := ValidateNode(newNode, true); err != nil {
+		return err
+	}
+	newNode.SetID()
+	if newNode.ID == currentNode.ID {
+		newNode.SetLastModified()
+		if data, err := json.Marshal(newNode); err != nil {
+			return err
+		} else {
+			return database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+	return fmt.Errorf("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
+}
+
+func IsNodeIDUnique(node *models.Node) (bool, error) {
+	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
+	return database.IsEmptyRecord(err), err
+}
+
+func ValidateNode(node *models.Node, isUpdate bool) error {
+	v := validator.New()
+	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
+		if isUpdate {
+			return true
+		}
+		isFieldUnique, _ := IsNodeIDUnique(node)
+		return isFieldUnique
+	})
+	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
+		_, err := GetNetworkByNode(node)
+		return err == nil
+	})
+	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
+		isgood := node.NameInNodeCharSet()
+		return isgood
+	})
+	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
+		return validation.CheckYesOrNo(fl)
+	})
+	err := v.Struct(node)
+
+	return err
+}
+
+// GetAllNodes - returns all nodes in the DB
+func GetAllNodes() ([]models.Node, error) {
+	var nodes []models.Node
+
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return []models.Node{}, nil
+		}
+		return []models.Node{}, err
+	}
+
+	for _, value := range collection {
+		var node models.Node
+		if err := json.Unmarshal([]byte(value), &node); err != nil {
+			return []models.Node{}, err
+		}
+		// add node to our array
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
+}
+
+// CheckIsServer - check if a node is the server node
+func CheckIsServer(node *models.Node) bool {
+	nodeData, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return false
+	}
+	for _, value := range nodeData {
+		var tmpNode models.Node
+		if err := json.Unmarshal([]byte(value), &tmpNode); err != nil {
+			continue
+		}
+		if tmpNode.Network == node.Network && tmpNode.MacAddress != node.MacAddress {
+			return false
+		}
+	}
+	return true
+}
+
+// GetNetworkByNode - gets the network model from a node
+func GetNetworkByNode(node *models.Node) (models.Network, error) {
+
+	var network models.Network
+	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
+	if err != nil {
+		return network, err
+	}
+	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+		return models.Network{}, err
+	}
+	return network, nil
+}
+
+// SetNodeDefaults - sets the defaults of a node to avoid empty fields
+func SetNodeDefaults(node *models.Node) {
+
+	//TODO: Maybe I should make Network a part of the node struct. Then we can just query the Network object for stuff.
+	parentNetwork, _ := GetNetworkByNode(node)
+
+	node.ExpirationDateTime = time.Now().Unix() + models.TEN_YEARS_IN_SECONDS
+
+	if node.ListenPort == 0 {
+		node.ListenPort = parentNetwork.DefaultListenPort
+	}
+	if node.SaveConfig == "" {
+		if parentNetwork.DefaultSaveConfig != "" {
+			node.SaveConfig = parentNetwork.DefaultSaveConfig
+		} else {
+			node.SaveConfig = "yes"
+		}
+	}
+	if node.Interface == "" {
+		node.Interface = parentNetwork.DefaultInterface
+	}
+	if node.PersistentKeepalive == 0 {
+		node.PersistentKeepalive = parentNetwork.DefaultKeepalive
+	}
+	if node.PostUp == "" {
+		postup := parentNetwork.DefaultPostUp
+		node.PostUp = postup
+	}
+	if node.IsStatic == "" {
+		node.IsStatic = "no"
+	}
+	if node.UDPHolePunch == "" {
+		node.UDPHolePunch = parentNetwork.DefaultUDPHolePunch
+		if node.UDPHolePunch == "" {
+			node.UDPHolePunch = "yes"
+		}
+	}
+	// == Parent Network settings ==
+	if node.IsDualStack == "" {
+		node.IsDualStack = parentNetwork.IsDualStack
+	}
+	if node.MTU == 0 {
+		node.MTU = parentNetwork.DefaultMTU
+	}
+	// == node defaults if not set by parent ==
+	node.SetIPForwardingDefault()
+	node.SetDNSOnDefault()
+	node.SetIsLocalDefault()
+	node.SetIsDualStackDefault()
+	node.SetLastModified()
+	node.SetDefaultName()
+	node.SetLastCheckIn()
+	node.SetLastPeerUpdate()
+	node.SetRoamingDefault()
+	node.SetPullChangesDefault()
+	node.SetDefaultAction()
+	node.SetID()
+	node.SetIsServerDefault()
+	node.SetIsStaticDefault()
+	node.SetDefaultEgressGateway()
+	node.SetDefaultIngressGateway()
+	node.SetDefaulIsPending()
+	node.SetDefaultMTU()
+	node.SetDefaultIsRelayed()
+	node.SetDefaultIsRelay()
+	node.KeyUpdateTimeStamp = time.Now().Unix()
+}
+
+// GetRecordKey - get record key
+func GetRecordKey(id string, network string) (string, error) {
+	if id == "" || network == "" {
+		return "", errors.New("unable to get record key")
+	}
+	return id + "###" + network, nil
+}
+
+// GetNodeByMacAddress - gets a node by mac address
+func GetNodeByMacAddress(network string, macaddress string) (models.Node, error) {
+
+	var node models.Node
+
+	key, err := GetRecordKey(macaddress, network)
+	if err != nil {
+		return node, err
+	}
+
+	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+
+	SetNodeDefaults(&node)
+
+	return node, nil
+}
+
+// GetDeletedNodeByMacAddress - get a deleted node
+func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node, error) {
+
+	var node models.Node
+
+	key, err := GetRecordKey(macaddress, network)
+	if err != nil {
+		return node, err
+	}
+
+	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+
+	SetNodeDefaults(&node)
+
+	return node, nil
+}
+
+// GetNodeRelay - gets the relay node of a given network
+func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	var relay models.Node
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return relay, nil
+		}
+		Log(err.Error(), 2)
+		return relay, err
+	}
+	for _, value := range collection {
+		err := json.Unmarshal([]byte(value), &relay)
+		if err != nil {
+			Log(err.Error(), 2)
+			continue
+		}
+		if relay.IsRelay == "yes" {
+			for _, addr := range relay.RelayAddrs {
+				if addr == relayedNodeAddr {
+					return relay, nil
+				}
+			}
+		}
+	}
+	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
 }

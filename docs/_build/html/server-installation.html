@@ -46,17 +46,17 @@
   
   
   
-    <title>Advanced Server Installation &#8212; Netmaker 0.8.4 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/material.css" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <title>Advanced Server Installation &#8212; Netmaker 0.8.5 documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Client Installation" href="client-installation.html" />
+    <link rel="next" title="Introduction" href="oauth.html" />
     <link rel="prev" title="Install with Nginx (depreciated)" href="quick-start-nginx.html" />
   
    
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8.4 documentation"
+        <a href="index.html" title="Netmaker 0.8.5 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -103,7 +103,7 @@
 <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
-    <form class="md-search__form" action="search.html" method="GET" name="search">
+    <form class="md-search__form" action="search.html" method="get" name="search">
       <input type="text" class="md-search__input" name="q" placeholder="Search"
              autocapitalize="off" autocomplete="off" spellcheck="false"
              data-md-component="query" data-md-state="active">
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.5 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.8.5 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.8.5 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -448,6 +448,8 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#test-install-no-dns-no-secure-grpc" class="md-nav__link">Test Install - No DNS, No Secure GRPC</a>
         </li>
+        <li class="md-nav__item"><a href="#traefik-proxy" class="md-nav__link">Traefik Proxy</a>
+        </li>
         <li class="md-nav__item"><a href="#no-dns-coredns-disabled" class="md-nav__link">No DNS - CoreDNS Disabled</a>
         </li></ul>
             </nav>
@@ -572,6 +574,34 @@
       
     
     </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-your-provider" class="md-nav__link">Configuring your provider</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-netmaker" class="md-nav__link">Configuring Netmaker</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-user-permissions" class="md-nav__link">Configuring User Permissions</a>
+      
     
     </li>
     <li class="md-nav__item">
@@ -867,6 +897,8 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#test-install-no-dns-no-secure-grpc" class="md-nav__link">Test Install - No DNS, No Secure GRPC</a>
         </li>
+        <li class="md-nav__item"><a href="#traefik-proxy" class="md-nav__link">Traefik Proxy</a>
+        </li>
         <li class="md-nav__item"><a href="#no-dns-coredns-disabled" class="md-nav__link">No DNS - CoreDNS Disabled</a>
         </li></ul>
             </nav>
@@ -1059,19 +1091,12 @@
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">rqlite</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.7</span>
-    <span class="nt">volumes</span><span class="p">:</span> <span class="c1"># Volume mounts necessary for CLIENT_MODE to control netclient, wireguard, and networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">./:/local</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/etc/netclient:/etc/netclient</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.8.5</span>
+    <span class="nt">volumes</span><span class="p">:</span> <span class="c1"># Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">dnsconfig:/root/config/dnsconfig</span> <span class="c1"># Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/usr/bin/wg:/usr/bin/wg</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/run/systemd/system:/run/systemd/system</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/etc/systemd/system:/etc/systemd/system</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/sys/fs/cgroup:/sys/fs/cgroup</span>
     <span class="nt">cap_add</span><span class="p">:</span> <span class="c1"># Necessary for CLIENT_MODE. Should be removed if turned off. </span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">NET_ADMIN</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">SYS_MODULE</span>
     <span class="nt">restart</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">always</span>
     <span class="nt">network_mode</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">host</span> <span class="c1"># Necessary for CLIENT_MODE. Should be removed if turned off, but then need to add port mappings</span>
     <span class="nt">environment</span><span class="p">:</span>
@@ -1080,6 +1105,7 @@
       <span class="nt">SERVER_GRPC_HOST</span><span class="p">:</span> <span class="s">"127.0.0.1"</span> <span class="c1"># Overrides SERVER_HOST if set. Useful for making HTTP and GRPC available via different interfaces/networks.</span>
       <span class="nt">API_PORT</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8081</span> <span class="c1"># The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.</span>
       <span class="nt">GRPC_PORT</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">50051</span> <span class="c1"># The GRPC port for Netmaker. Used for communications from nodes.</span>
+      <span class="nt">CLIENT_MODE</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># on if netmaker should run its own client, off if not.</span>
       <span class="nt">MASTER_KEY</span><span class="p">:</span> <span class="s">"secretkey"</span> <span class="c1"># The admin master key for accessing the API. Change this in any production installation.</span>
       <span class="nt">CORS_ALLOWED_ORIGIN</span><span class="p">:</span> <span class="s">"*"</span> <span class="c1"># The "allowed origin" for API requests. Change to restrict where API requests can come from.</span>
       <span class="nt">REST_BACKEND</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.</span>
@@ -1122,7 +1148,8 @@
 
 <h2 id="dns-mode-setup">DNS Mode Setup<a class="headerlink" href="#dns-mode-setup" title="Permalink to this headline">¶</a></h2>
 <p>If you plan on running the server in DNS Mode, know that a <a class="reference external" href="https://coredns.io/manual/toc/">CoreDNS Server</a> will be installed. CoreDNS is a light-weight, fast, and easy-to-configure DNS server. It is recommended to bind CoreDNS to port 53 of the host system, and it will do so by default. The clients will expect the nameserver to be on port 53, and many systems have issues resolving a different port.</p>
-<p>However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration. The following was tested on Ubuntu 20.04 and should be run prior to deploying the docker containers.</p>
+<p>However, on your host system (for Netmaker), this may conflict with an existing process. On linux systems running systemd-resolved, there is likely a service consuming port 53. The below steps will disable systemd-resolved, and replace it with a generic (e.g. Google) nameserver. Be warned that this may have consequences for any existing private DNS configuration.</p>
+<p>With the latest docker-compose, it is not necessary to perform these steps. But if you are running the install and find that port 53 is blocked, you can perform the following steps, which were tested on Ubuntu 20.04 (these should be run prior to deploying the docker containers).</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">systemctl</span> <span class="n">stop</span> <span class="n">systemd</span><span class="o">-</span><span class="n">resolved</span>
 <span class="n">systemctl</span> <span class="n">disable</span> <span class="n">systemd</span><span class="o">-</span><span class="n">resolved</span>
 <span class="n">vim</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">systemd</span><span class="o">/</span><span class="n">resolved</span><span class="o">.</span><span class="n">conf</span>
@@ -1156,6 +1183,10 @@ sed -i ‘s/HOST_IP/&lt; Insert your-host IP Address Here &gt;/g’ docker-compo
 docker-compose up -d`
 </pre></div>
 </div>
+
+
+<h3 id="traefik-proxy">Traefik Proxy<a class="headerlink" href="#traefik-proxy" title="Permalink to this headline">¶</a></h3>
+<p>To install with Traefik, rather than Nginx or the default Caddy, check out this repo: <a class="reference external" href="https://github.com/bsherman/netmaker-traefik">https://github.com/bsherman/netmaker-traefik</a></p>
 
 
 <h3 id="no-dns-coredns-disabled">No DNS - CoreDNS Disabled<a class="headerlink" href="#no-dns-coredns-disabled" title="Permalink to this headline">¶</a></h3>
@@ -1433,7 +1464,7 @@ This install has some notable exceptions:
 </pre></div>
 </div>
 <p>And here is a joining node:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">d</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4001</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4002</span><span class="p">:</span><span class="mi">4002</span> <span class="n">rqlite</span><span class="o">/</span><span class="n">rqlite</span> <span class="o">-</span><span class="n">node</span><span class="o">-</span><span class="nb">id</span> <span class="mi">2</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4001</span>  <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">join</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">netmaker</span><span class="p">:</span><span class="o">&lt;</span><span class="n">YOUR_DB_PASSWORD</span><span class="o">&gt;</span><span class="nd">@1</span><span class="o">.</span><span class="mf">2.3</span><span class="o">.</span><span class="mi">4</span><span class="p">:</span><span class="mi">4001</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">d</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4001</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4002</span><span class="p">:</span><span class="mi">4002</span> <span class="n">rqlite</span><span class="o">/</span><span class="n">rqlite</span> <span class="o">-</span><span class="n">node</span><span class="o">-</span><span class="nb">id</span> <span class="mi">2</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4001</span>  <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">join</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">netmaker</span><span class="p">:</span><span class="o">&lt;</span><span class="n">YOUR_DB_PASSWORD</span><span class="o">&gt;@</span><span class="mf">1.2</span><span class="o">.</span><span class="mf">3.4</span><span class="p">:</span><span class="mi">4001</span>
 </pre></div>
 </div>
 <ul class="simple">
@@ -1486,12 +1517,12 @@ This install has some notable exceptions:
             </a>
           
           
-            <a href="client-installation.html" title="Client Installation"
+            <a href="oauth.html" title="Introduction"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Client Installation </span>
+                class="md-footer-nav__direction"> Next </span> Introduction </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
@@ -1509,7 +1540,7 @@ This install has some notable exceptions:
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

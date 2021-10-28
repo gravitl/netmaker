@@ -1,8 +1,8 @@
 package servercfg
 
 import (
-	"os"
 	"github.com/gravitl/netmaker/config"
+	"os"
 	"strconv"
 )
 

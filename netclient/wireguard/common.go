@@ -107,10 +107,12 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		return err
 	}
+
 	modcfg, err := config.ReadConfig(node.Network)
 	if err != nil {
 		return err
 	}
+
 	nodecfg := modcfg.Node
 	servercfg := modcfg.Server
 

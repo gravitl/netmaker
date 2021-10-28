@@ -46,10 +46,10 @@
   
   
   
-    <title>Client Installation &#8212; Netmaker 0.8.4 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/material.css" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <title>Client Installation &#8212; Netmaker 0.8.5 documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8.4 documentation"
+        <a href="index.html" title="Netmaker 0.8.5 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -103,7 +103,7 @@
 <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
-    <form class="md-search__form" action="search.html" method="GET" name="search">
+    <form class="md-search__form" action="search.html" method="get" name="search">
       <input type="text" class="md-search__input" name="q" placeholder="Search"
              autocapitalize="off" autocomplete="off" spellcheck="false"
              data-md-component="query" data-md-state="active">
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.5 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.8.5 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.8.5 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -964,15 +964,15 @@
    <span class="l l-Scalar l-Scalar-Plain">--key value, -k value                Access Key for signing up machine with Netmaker server during initial 'add'. [$NETCLIENT_ACCESSKEY]</span>
    <span class="l l-Scalar l-Scalar-Plain">--token value, -t value              Access Token for signing up machine with Netmaker server during initial 'add'. [$NETCLIENT_ACCESSTOKEN]</span>
    <span class="l l-Scalar l-Scalar-Plain">--localrange value                   Local Range if network is local, for instance 192.168.1.0/24. [$NETCLIENT_LOCALRANGE]</span>
-   <span class="nt">--dns value                          Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset. (default</span><span class="p">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_DNS]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--dns value                          Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_DNS]</span>
    <span class="l l-Scalar l-Scalar-Plain">--islocal value                      Sets endpoint to local address if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_IS_LOCAL]</span>
    <span class="l l-Scalar l-Scalar-Plain">--isdualstack value                  Sets ipv6 address if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_IS_DUALSTACK]</span>
    <span class="l l-Scalar l-Scalar-Plain">--udpholepunch value                 Turns on udp holepunching if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_UDP_HOLEPUNCH]</span>
-   <span class="nt">--ipforwarding value                 Sets ip forwarding on if 'on'. Ignores if 'off'. On by default. (default</span><span class="p">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_IPFORWARDING]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--ipforwarding value                 Sets ip forwarding on if 'on'. Ignores if 'off'. On by default. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_IPFORWARDING]</span>
    <span class="l l-Scalar l-Scalar-Plain">--postup value                       Sets PostUp command for WireGuard. [$NETCLIENT_POSTUP]</span>
    <span class="l l-Scalar l-Scalar-Plain">--postdown value                     Sets PostDown command for WireGuard. [$NETCLIENT_POSTDOWN]</span>
-   <span class="nt">--daemon value                       Installs daemon if 'on'. Ignores if 'off'. On by default. (default</span><span class="p">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_DAEMON]</span>
-   <span class="nt">--roaming value                      Checks for IP changes if 'on'. Ignores if 'off'. On by default. (default</span><span class="p">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_ROAMING]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--daemon value                       Installs daemon if 'on'. Ignores if 'off'. On by default. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_DAEMON]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--roaming value                      Checks for IP changes if 'on'. Ignores if 'off'. On by default. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_ROAMING]</span>
    <span class="l l-Scalar l-Scalar-Plain">--help, -h                           show help (default</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false)</span>
 </pre></div>
 </div>
@@ -1109,7 +1109,7 @@ If a key is provided (-k), then a token is unnecessary, but grpc, server, ports,
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.0.2.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>
