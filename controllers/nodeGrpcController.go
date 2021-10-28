@@ -35,7 +35,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	if err != nil {
 		return nil, err
 	}
-	node.Update(&node)
+	logic.UpdateNode(&node, &node)
 	response := &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
@@ -55,8 +55,8 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 
 	//Check to see if key is valid
 	//TODO: Triple inefficient!!! This is the third call to the DB we make for networks
-	validKey := functions.IsKeyValid(node.Network, node.AccessKey)
-	network, err := functions.GetParentNetwork(node.Network)
+	validKey := logic.IsKeyValid(node.Network, node.AccessKey)
+	network, err := logic.GetParentNetwork(node.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -99,11 +99,11 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	macaddress := newnode.MacAddress
 	networkName := newnode.Network
 
-	node, err := functions.GetNodeByMacAddress(networkName, macaddress)
+	node, err := logic.GetNodeByMacAddress(networkName, macaddress)
 	if err != nil {
 		return nil, err
 	}
-	err = node.Update(&newnode)
+	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {
 		return nil, err
 	}

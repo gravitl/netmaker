@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.8.4-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.8.5-informational?style=flat-square" />
   </a>
   <a href="https://discord.gg/zRb9Vfhk8A">
     <img src="https://img.shields.io/badge/community-discord-informational" />
@@ -43,6 +43,10 @@
 3. Run the script:
 
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
+
+Or you can use your own domain and/or email. Make sure you have setup your wildcard domain pointing to server ip.
+
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s domain=mynetmaker.domain.com email=example@email.com`
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 

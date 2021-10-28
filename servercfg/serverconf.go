@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gravitl/netmaker/config"
 )
 
+// SetHost - sets the host ip
 func SetHost() error {
 	remoteip, err := GetPublicIP()
 	if err != nil {
@@ -19,6 +21,8 @@ func SetHost() error {
 	os.Setenv("SERVER_HOST", remoteip)
 	return nil
 }
+
+// GetServerConfig - gets the server config into memory from file or env
 func GetServerConfig() config.ServerConfig {
 	var cfg config.ServerConfig
 	cfg.APIConnString = GetAPIConnString()
@@ -65,8 +69,29 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
+
+	// == auth config ==
+	var authInfo = GetAuthProviderInfo()
+	cfg.AuthProvider = authInfo[0]
+	cfg.ClientID = authInfo[1]
+	cfg.ClientSecret = authInfo[2]
+	cfg.FrontendURL = GetFrontendURL()
+
 	return cfg
 }
+
+// GetFrontendURL - gets the frontend url
+func GetFrontendURL() string {
+	var frontend = ""
+	if os.Getenv("FRONTEND_URL") != "" {
+		frontend = os.Getenv("FRONTEND_URL")
+	} else if config.Config.Server.FrontendURL != "" {
+		frontend = config.Config.Server.FrontendURL
+	}
+	return frontend
+}
+
+// GetAPIConnString - gets the api connections string
 func GetAPIConnString() string {
 	conn := ""
 	if os.Getenv("SERVER_API_CONN_STRING") != "" {
@@ -76,13 +101,17 @@ func GetAPIConnString() string {
 	}
 	return conn
 }
+
+// GetVersion - version of netmaker
 func GetVersion() string {
-	version := "0.8.4"
+	version := "0.8.5"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
 	return version
 }
+
+// GetDB - gets the database type
 func GetDB() string {
 	database := "sqlite"
 	if os.Getenv("DATABASE") != "" {
@@ -92,6 +121,8 @@ func GetDB() string {
 	}
 	return database
 }
+
+// GetAPIHost - gets the api host
 func GetAPIHost() string {
 	serverhost := "127.0.0.1"
 	remoteip, _ := GetPublicIP()
@@ -108,6 +139,8 @@ func GetAPIHost() string {
 	}
 	return serverhost
 }
+
+// GetPodIP - get the pod's ip
 func GetPodIP() string {
 	podip := "127.0.0.1"
 	if os.Getenv("POD_IP") != "" {
@@ -116,6 +149,7 @@ func GetPodIP() string {
 	return podip
 }
 
+// GetAPIPort - gets the api port
 func GetAPIPort() string {
 	apiport := "8081"
 	if os.Getenv("API_PORT") != "" {
@@ -126,6 +160,7 @@ func GetAPIPort() string {
 	return apiport
 }
 
+// GetCheckinInterval - get check in interval for nodes
 func GetCheckinInterval() string {
 	seconds := "15"
 	if os.Getenv("CHECKIN_INTERVAL") != "" {
@@ -136,6 +171,7 @@ func GetCheckinInterval() string {
 	return seconds
 }
 
+// GetDefaultNodeLimit - get node limit if one is set
 func GetDefaultNodeLimit() int32 {
 	var limit int32
 	limit = 999999999
@@ -147,6 +183,8 @@ func GetDefaultNodeLimit() int32 {
 	}
 	return limit
 }
+
+// GetGRPCConnString - get grpc conn string
 func GetGRPCConnString() string {
 	conn := ""
 	if os.Getenv("SERVER_GRPC_CONN_STRING") != "" {
@@ -157,6 +195,7 @@ func GetGRPCConnString() string {
 	return conn
 }
 
+// GetCoreDNSAddr - gets the core dns address
 func GetCoreDNSAddr() string {
 	addr, _ := GetPublicIP()
 	if os.Getenv("COREDNS_ADDR") != "" {
@@ -167,6 +206,7 @@ func GetCoreDNSAddr() string {
 	return addr
 }
 
+// GetGRPCHost - get the grpc host url
 func GetGRPCHost() string {
 	serverhost := "127.0.0.1"
 	remoteip, _ := GetPublicIP()
@@ -183,6 +223,8 @@ func GetGRPCHost() string {
 	}
 	return serverhost
 }
+
+// GetGRPCPort - gets the grpc port
 func GetGRPCPort() string {
 	grpcport := "50051"
 	if os.Getenv("GRPC_PORT") != "" {
@@ -192,6 +234,8 @@ func GetGRPCPort() string {
 	}
 	return grpcport
 }
+
+// GetMasterKey - gets the configured master key of server
 func GetMasterKey() string {
 	key := "secretkey"
 	if os.Getenv("MASTER_KEY") != "" {
@@ -201,6 +245,8 @@ func GetMasterKey() string {
 	}
 	return key
 }
+
+// GetAllowedOrigin - get the allowed origin
 func GetAllowedOrigin() string {
 	allowedorigin := "*"
 	if os.Getenv("CORS_ALLOWED_ORIGIN") != "" {
@@ -210,6 +256,8 @@ func GetAllowedOrigin() string {
 	}
 	return allowedorigin
 }
+
+// IsRestBackend - checks if rest is on or off
 func IsRestBackend() bool {
 	isrest := true
 	if os.Getenv("REST_BACKEND") != "" {
@@ -223,6 +271,8 @@ func IsRestBackend() bool {
 	}
 	return isrest
 }
+
+// IsAgentBackend - checks if agent backed is on or off
 func IsAgentBackend() bool {
 	isagent := true
 	if os.Getenv("AGENT_BACKEND") != "" {
@@ -236,6 +286,8 @@ func IsAgentBackend() bool {
 	}
 	return isagent
 }
+
+// IsClientMode - checks if it should run in client mode
 func IsClientMode() string {
 	isclient := "on"
 	if os.Getenv("CLIENT_MODE") != "" {
@@ -255,6 +307,8 @@ func IsClientMode() string {
 	}
 	return isclient
 }
+
+// IsDNSMode - should it run with DNS
 func IsDNSMode() bool {
 	isdns := true
 	if os.Getenv("DNS_MODE") != "" {
@@ -269,6 +323,7 @@ func IsDNSMode() bool {
 	return isdns
 }
 
+// IsGRPCSSL - ssl grpc on or off
 func IsGRPCSSL() bool {
 	isssl := false
 	if os.Getenv("GRPC_SSL") != "" {
@@ -283,6 +338,7 @@ func IsGRPCSSL() bool {
 	return isssl
 }
 
+// DisableRemoteIPCheck - disable the remote ip check
 func DisableRemoteIPCheck() bool {
 	disabled := false
 	if os.Getenv("DISABLE_REMOTE_IP_CHECK") != "" {
@@ -296,6 +352,8 @@ func DisableRemoteIPCheck() bool {
 	}
 	return disabled
 }
+
+// DisableDefaultNet - disable default net
 func DisableDefaultNet() bool {
 	disabled := false
 	if os.Getenv("DISABLE_DEFAULT_NET") != "" {
@@ -309,6 +367,8 @@ func DisableDefaultNet() bool {
 	}
 	return disabled
 }
+
+// GetPublicIP - gets public ip
 func GetPublicIP() (string, error) {
 
 	endpoint := ""
@@ -335,6 +395,8 @@ func GetPublicIP() (string, error) {
 	}
 	return endpoint, err
 }
+
+// GetVerbose - get the verbosity of server
 func GetVerbose() int32 {
 	level, err := strconv.Atoi(os.Getenv("VERBOSITY"))
 	if err != nil || level < 0 {
@@ -346,6 +408,7 @@ func GetVerbose() int32 {
 	return int32(level)
 }
 
+// GetPlatform - get the system type of server
 func GetPlatform() string {
 	platform := "linux"
 	if os.Getenv("PLATFORM") != "" {
@@ -356,6 +419,7 @@ func GetPlatform() string {
 	return platform
 }
 
+// GetSQLConn - get the sql connection string
 func GetSQLConn() string {
 	sqlconn := "http://"
 	if os.Getenv("SQL_CONN") != "" {
@@ -366,6 +430,7 @@ func GetSQLConn() string {
 	return sqlconn
 }
 
+// IsSplitDNS - checks if split dns is on
 func IsSplitDNS() bool {
 	issplit := false
 	if os.Getenv("IS_SPLIT_DNS") == "yes" {
@@ -376,6 +441,7 @@ func IsSplitDNS() bool {
 	return issplit
 }
 
+// GetNodeID - gets the node id
 func GetNodeID() string {
 	var id string
 	id = getMacAddr()
@@ -387,6 +453,7 @@ func GetNodeID() string {
 	return id
 }
 
+// GetServerCheckinInterval - gets the server check-in time
 func GetServerCheckinInterval() int64 {
 	var t = int64(5)
 	var envt, _ = strconv.Atoi(os.Getenv("SERVER_CHECKIN_INTERVAL"))
@@ -396,6 +463,25 @@ func GetServerCheckinInterval() int64 {
 		t = config.Config.Server.ServerCheckinInterval
 	}
 	return t
+}
+
+// GetAuthProviderInfo = gets the oauth provider info
+func GetAuthProviderInfo() []string {
+	var authProvider = ""
+	if os.Getenv("AUTH_PROVIDER") != "" && os.Getenv("CLIENT_ID") != "" && os.Getenv("CLIENT_SECRET") != "" {
+		authProvider = strings.ToLower(os.Getenv("AUTH_PROVIDER"))
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+			return []string{authProvider, os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET")}
+		} else {
+			authProvider = ""
+		}
+	} else if config.Config.Server.AuthProvider != "" && config.Config.Server.ClientID != "" && config.Config.Server.ClientSecret != "" {
+		authProvider = strings.ToLower(config.Config.Server.AuthProvider)
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+			return []string{authProvider, config.Config.Server.ClientID, config.Config.Server.ClientSecret}
+		}
+	}
+	return []string{"", "", ""}
 }
 
 // GetMacAddr - get's mac address

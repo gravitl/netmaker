@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/dnslogic"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
@@ -68,33 +67,33 @@ func TestGetCustomDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	t.Run("NoNetworks", func(t *testing.T) {
-		dns, err := dnslogic.GetCustomDNS("skynet")
+		dns, err := logic.GetCustomDNS("skynet")
 		assert.EqualError(t, err, "could not find any records")
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		createNet()
-		dns, err := dnslogic.GetCustomDNS("skynet")
+		dns, err := logic.GetCustomDNS("skynet")
 		assert.EqualError(t, err, "could not find any records")
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NodeExists", func(t *testing.T) {
 		createTestNode()
-		dns, err := dnslogic.GetCustomDNS("skynet")
+		dns, err := logic.GetCustomDNS("skynet")
 		assert.EqualError(t, err, "could not find any records")
 		assert.Equal(t, 0, len(dns))
 	})
 	t.Run("EntryExist", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.3", "newhost", "skynet"}
 		CreateDNS(entry)
-		dns, err := dnslogic.GetCustomDNS("skynet")
+		dns, err := logic.GetCustomDNS("skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(dns))
 	})
 	t.Run("MultipleEntries", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.4", "host4", "skynet"}
 		CreateDNS(entry)
-		dns, err := dnslogic.GetCustomDNS("skynet")
+		dns, err := logic.GetCustomDNS("skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, 2, len(dns))
 	})
@@ -125,7 +124,7 @@ func TestGetDNS(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	t.Run("NoEntries", func(t *testing.T) {
-		dns, err := dnslogic.GetDNS("skynet")
+		dns, err := logic.GetDNS("skynet")
 		assert.Nil(t, err)
 		assert.Nil(t, dns)
 	})
@@ -133,7 +132,7 @@ func TestGetDNS(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
 		_, err := CreateDNS(entry)
 		assert.Nil(t, err)
-		dns, err := dnslogic.GetDNS("skynet")
+		dns, err := logic.GetDNS("skynet")
 		t.Log(dns)
 		assert.Nil(t, err)
 		assert.NotNil(t, dns)
@@ -143,7 +142,7 @@ func TestGetDNS(t *testing.T) {
 	t.Run("NodeExists", func(t *testing.T) {
 		deleteAllDNS(t)
 		createTestNode()
-		dns, err := dnslogic.GetDNS("skynet")
+		dns, err := logic.GetDNS("skynet")
 		assert.Nil(t, err)
 		assert.NotNil(t, dns)
 		assert.Equal(t, "skynet", dns[0].Network)
@@ -152,7 +151,7 @@ func TestGetDNS(t *testing.T) {
 	t.Run("NodeAndCustomDNS", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
 		_, err := CreateDNS(entry)
-		dns, err := dnslogic.GetDNS("skynet")
+		dns, err := logic.GetDNS("skynet")
 		t.Log(dns)
 		assert.Nil(t, err)
 		assert.NotNil(t, dns)
@@ -178,7 +177,7 @@ func TestSetDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	t.Run("NoNetworks", func(t *testing.T) {
-		err := dnslogic.SetDNS()
+		err := logic.SetDNS()
 		assert.Nil(t, err)
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
@@ -187,7 +186,7 @@ func TestSetDNS(t *testing.T) {
 	})
 	t.Run("NoEntries", func(t *testing.T) {
 		createNet()
-		err := dnslogic.SetDNS()
+		err := logic.SetDNS()
 		assert.Nil(t, err)
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
@@ -196,7 +195,7 @@ func TestSetDNS(t *testing.T) {
 	})
 	t.Run("NodeExists", func(t *testing.T) {
 		createTestNode()
-		err := dnslogic.SetDNS()
+		err := logic.SetDNS()
 		assert.Nil(t, err)
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
@@ -208,7 +207,7 @@ func TestSetDNS(t *testing.T) {
 	t.Run("EntryExists", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.3", "newhost", "skynet"}
 		CreateDNS(entry)
-		err := dnslogic.SetDNS()
+		err := logic.SetDNS()
 		assert.Nil(t, err)
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)

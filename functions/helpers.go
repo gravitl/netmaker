@@ -1,21 +1,15 @@
-//TODO: Consider restructuring  this file/folder    "github.com/gorilla/handlers"
-
-//It may make more sense to split into different files and not call it "helpers"
-
 package functions
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"math/rand"
-	"net"
 	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -59,20 +53,6 @@ func ParseIntClient(value string) (models.IntClient, error) {
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the network
 
-// GetUser - gets a user
-func GetUser(username string) (models.User, error) {
-
-	var user models.User
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
-	if err != nil {
-		return user, err
-	}
-	if err = json.Unmarshal([]byte(record), &user); err != nil {
-		return models.User{}, err
-	}
-	return user, err
-}
-
 // SliceContains - sees if a slice contains something
 func SliceContains(slice []string, item string) bool {
 	set := make(map[string]struct{}, len(slice))
@@ -82,60 +62,6 @@ func SliceContains(slice []string, item string) bool {
 
 	_, ok := set[item]
 	return ok
-}
-
-// CreateServerToken - creates a server token
-func CreateServerToken(netID string) (string, error) {
-	var network models.Network
-	var accesskey models.AccessKey
-
-	network, err := GetParentNetwork(netID)
-	if err != nil {
-		return "", err
-	}
-
-	var accessToken models.AccessToken
-	servervals := models.ServerConfig{}
-	if servercfg.GetPlatform() == "Kubernetes" {
-		log.Println("server on kubernetes")
-		servervals = models.ServerConfig{
-			APIConnString:  servercfg.GetPodIP() + ":" + servercfg.GetAPIPort(),
-			GRPCConnString: servercfg.GetPodIP() + ":" + servercfg.GetGRPCPort(),
-			GRPCSSL:        "off",
-		}
-	} else {
-		log.Println("server on linux")
-		servervals = models.ServerConfig{
-			APIConnString:   "127.0.0.1:" + servercfg.GetAPIPort(),
-			GRPCConnString:  "127.0.0.1:" + servercfg.GetGRPCPort(),
-			GRPCSSL:         "off",
-			CheckinInterval: servercfg.GetCheckinInterval(),
-		}
-	}
-	log.Println("APIConnString:", servervals.APIConnString)
-	log.Println("GRPCConnString:", servervals.GRPCConnString)
-	log.Println("GRPCSSL:", servervals.GRPCSSL)
-	accessToken.ServerConfig = servervals
-	accessToken.ClientConfig.Network = netID
-	accessToken.ClientConfig.Key = GenKey()
-
-	accesskey.Name = GenKeyName()
-	accesskey.Value = accessToken.ClientConfig.Key
-	accesskey.Uses = 1
-	tokenjson, err := json.Marshal(accessToken)
-	if err != nil {
-		return accesskey.AccessString, err
-	}
-	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
-	log.Println("accessstring:", accesskey.AccessString)
-	network.AccessKeys = append(network.AccessKeys, accesskey)
-	if data, err := json.Marshal(network); err != nil {
-		return "", err
-	} else {
-		database.Insert(netID, string(data), database.NETWORKS_TABLE_NAME)
-	}
-
-	return accesskey.AccessString, nil
 }
 
 // GetPeersList - gets peers for given network
@@ -214,51 +140,6 @@ func NetworkExists(name string) (bool, error) {
 	return len(network) > 0, nil
 }
 
-// GetRecordKey - get record key
-func GetRecordKey(id string, network string) (string, error) {
-	if id == "" || network == "" {
-		return "", errors.New("unable to get record key")
-	}
-	return id + "###" + network, nil
-}
-
-// UpdateNetworkNodeAddresses - updates network node addresses
-func UpdateNetworkNodeAddresses(networkName string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-
-	for _, value := range collections {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			ipaddr, iperr := UniqueAddress(networkName)
-			if iperr != nil {
-				fmt.Println("error in node  address assignment!")
-				return iperr
-			}
-
-			node.Address = ipaddr
-			node.PullChanges = "yes"
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			node.SetID()
-			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
-}
-
 // NetworkNodesUpdateAction - updates action of network nodes
 func NetworkNodesUpdateAction(networkName string, action string) error {
 
@@ -325,51 +206,12 @@ func NetworkNodesUpdatePullChanges(networkName string) error {
 	return nil
 }
 
-// UpdateNetworkLocalAddresses - updates network localaddresses
-func UpdateNetworkLocalAddresses(networkName string) error {
-
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-
-	if err != nil {
-		return err
-	}
-
-	for _, value := range collection {
-
-		var node models.Node
-
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			ipaddr, iperr := UniqueAddress(networkName)
-			if iperr != nil {
-				fmt.Println("error in node  address assignment!")
-				return iperr
-			}
-
-			node.Address = ipaddr
-			newNodeData, err := json.Marshal(&node)
-			if err != nil {
-				fmt.Println("error in node  address assignment!")
-				return err
-			}
-			node.SetID()
-			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
-}
-
 // IsNetworkDisplayNameUnique - checks if network display name unique
 func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
 	isunique := true
 
-	dbs, err := models.GetNetworks()
+	dbs, err := logic.GetNetworks()
 	if err != nil {
 		return database.IsEmptyRecord(err), err
 	}
@@ -417,38 +259,10 @@ func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 	return count, nil
 }
 
-//Checks to see if access key is valid
-//Does so by checking against all keys and seeing if any have the same value
-//may want to hash values before comparing...consider this
-//TODO: No error handling!!!!
-
-// IsKeyValid - check if key is valid
-func IsKeyValid(networkname string, keyvalue string) bool {
-
-	network, _ := GetParentNetwork(networkname)
-	var key models.AccessKey
-	foundkey := false
-	isvalid := false
-
-	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
-		currentkey := network.AccessKeys[i]
-		if currentkey.Value == keyvalue {
-			key = currentkey
-			foundkey = true
-		}
-	}
-	if foundkey {
-		if key.Uses > 0 {
-			isvalid = true
-		}
-	}
-	return isvalid
-}
-
 // IsKeyValidGlobal - checks if a key is valid globally
 func IsKeyValidGlobal(keyvalue string) bool {
 
-	networks, _ := models.GetNetworks()
+	networks, _ := logic.GetNetworks()
 	var key models.AccessKey
 	foundkey := false
 	isvalid := false
@@ -478,42 +292,9 @@ func IsKeyValidGlobal(keyvalue string) bool {
 //Should probably just be GetNetwork. kind of a dumb name.
 //Used in contexts where it's not the Parent network.
 
-// GetParentNetwork - get parent network
-func GetParentNetwork(networkname string) (models.Network, error) {
-
-	var network models.Network
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return models.Network{}, err
-	}
-	return network, nil
-}
-
-// IsIpNet - checks if valid ip
-func IsIpNet(host string) bool {
-	return net.ParseIP(host) != nil
-}
-
 //Similar to above but checks if Cidr range is valid
 //At least this guy's got some print statements
 //still not good error handling
-
-// IsIpCIDR - IsIpCIDR
-func IsIpCIDR(host string) bool {
-
-	ip, ipnet, err := net.ParseCIDR(host)
-
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Address Range is not valid!")
-		return false
-	}
-
-	return ip != nil && ipnet != nil
-}
 
 //This  checks to  make sure a network name is valid.
 //Switch to REGEX?
@@ -555,59 +336,6 @@ func NameInNodeCharSet(name string) bool {
 		}
 	}
 	return true
-}
-
-//This returns a node based on its mac address.
-//The mac address acts as the Unique ID for nodes.
-//Is this a dumb thing to do? I thought it was cool but maybe it's dumb.
-//It doesn't really provide a tangible benefit over a random ID
-
-// GetNodeByMacAddress - gets a node by mac address
-func GetNodeByMacAddress(network string, macaddress string) (models.Node, error) {
-
-	var node models.Node
-
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-
-	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-
-	node.SetDefaults()
-
-	return node, nil
-}
-
-// GetDeletedNodeByMacAddress - get a deleted node
-func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node, error) {
-
-	var node models.Node
-
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-
-	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-
-	node.SetDefaults()
-
-	return node, nil
 }
 
 // RemoveDeletedNode - remove deleted node
@@ -668,82 +396,6 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 	return extclients, nil
 }
 
-//This returns a unique address for a node to use
-//it iterates through the list of IP's in the subnet
-//and checks against all nodes to see if it's taken, until it finds one.
-//TODO: We do not handle a case where we run out of addresses.
-//We will need to handle that eventually
-
-// UniqueAddress - see if address is unique
-func UniqueAddress(networkName string) (string, error) {
-
-	var network models.Network
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		fmt.Println("UniqueAddress encountered  an error")
-		return "666", err
-	}
-
-	offset := true
-	ip, ipnet, err := net.ParseCIDR(network.AddressRange)
-	if err != nil {
-		fmt.Println("UniqueAddress encountered  an error")
-		return "666", err
-	}
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
-		if offset {
-			offset = false
-			continue
-		}
-		if networkName == "comms" {
-			if IsIPUnique(networkName, ip.String(), database.INT_CLIENTS_TABLE_NAME, false) {
-				return ip.String(), err
-			}
-		} else {
-			if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, false) && IsIPUnique(networkName, ip.String(), database.EXT_CLIENT_TABLE_NAME, false) {
-				return ip.String(), err
-			}
-		}
-	}
-
-	//TODO
-	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
-	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
-}
-
-// UniqueAddress6 - see if ipv6 address is unique
-func UniqueAddress6(networkName string) (string, error) {
-
-	var network models.Network
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		fmt.Println("Network Not Found")
-		return "", err
-	}
-	if network.IsDualStack == "no" {
-		return "", nil
-	}
-
-	offset := true
-	ip, ipnet, err := net.ParseCIDR(network.AddressRange6)
-	if err != nil {
-		fmt.Println("UniqueAddress6 encountered  an error")
-		return "666", err
-	}
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
-		if offset {
-			offset = false
-			continue
-		}
-		if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, true) {
-			return ip.String(), err
-		}
-	}
-	//TODO
-	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
-	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
-}
-
 // GenKey - generates access key
 func GenKey() string {
 
@@ -781,68 +433,6 @@ func GenKeyName() string {
 	return "key" + string(b)
 }
 
-// IsIPUnique - checks if an IP is unique
-func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
-
-	isunique := true
-	collection, err := database.FetchRecords(tableName)
-
-	if err != nil {
-		return isunique
-	}
-
-	for _, value := range collection { // filter
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			continue
-		}
-		if isIpv6 {
-			if node.Address6 == ip && node.Network == network {
-				return false
-			}
-		} else {
-			if node.Address == ip && node.Network == network {
-				return false
-			}
-		}
-	}
-
-	return isunique
-}
-
-//called once key has been used by createNode
-//reduces value by one and deletes if necessary
-// DecrimentKey - decriments key uses
-func DecrimentKey(networkName string, keyvalue string) {
-
-	var network models.Network
-
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		return
-	}
-
-	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
-
-		currentkey := network.AccessKeys[i]
-		if currentkey.Value == keyvalue {
-			network.AccessKeys[i].Uses--
-			if network.AccessKeys[i].Uses < 1 {
-				network.AccessKeys = append(network.AccessKeys[:i],
-					network.AccessKeys[i+1:]...)
-				break
-			}
-		}
-	}
-
-	if newNetworkData, err := json.Marshal(&network); err != nil {
-		PrintUserLog(models.NODE_SERVER_NAME, "failed to decrement key", 2)
-		return
-	} else {
-		database.Insert(network.NetID, string(newNetworkData), database.NETWORKS_TABLE_NAME)
-	}
-}
-
 // DeleteKey - deletes a key
 func DeleteKey(network models.Network, i int) {
 
@@ -853,15 +443,5 @@ func DeleteKey(network models.Network, i int) {
 		return
 	} else {
 		database.Insert(network.NetID, string(networkData), database.NETWORKS_TABLE_NAME)
-	}
-}
-
-// Inc - increments an IP
-func Inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
 	}
 }

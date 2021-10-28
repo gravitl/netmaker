@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -38,7 +39,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		MacAddress:   serverID,
 		UDPHolePunch: "no",
 	}
-	node.SetDefaults()
+	SetNodeDefaults(node)
 
 	if servercfg.GetPlatform() == "Kubernetes" {
 		node.ListenPort = KUBERNETES_LISTEN_PORT
@@ -108,6 +109,8 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
 	if err != nil {
 		Log("Error retrieving port: "+err.Error(), 2)
+	} else {
+		Log("Set client port to "+fmt.Sprintf("%d", node.ListenPort)+" for network "+node.Network, 1)
 	}
 
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
@@ -123,7 +126,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	if err = StorePrivKey(node.ID, privateKey); err != nil {
 		return err
 	}
-	if err = ServerPush(node.MacAddress, node.Network); err != nil {
+	if err = ServerPush(node); err != nil {
 		return err
 	}
 
@@ -151,7 +154,7 @@ func ServerCheckin(mac string, network string) error {
 		return err
 	}
 
-	newNode, err = ServerPull(mac, network, false)
+	newNode, err = ServerPull(&serverNode, false)
 	if isDeleteError(err) {
 		return ServerLeave(mac, network)
 	} else if err != nil {
@@ -163,22 +166,16 @@ func ServerCheckin(mac string, network string) error {
 		return errors.New("node has been removed")
 	}
 
-	return ServerPush(newNode.MacAddress, newNode.Network)
+	return ServerPush(newNode)
 }
 
 // ServerPull - pulls current config/peers for server
-func ServerPull(mac string, network string, onErr bool) (*models.Node, error) {
+func ServerPull(serverNode *models.Node, onErr bool) (*models.Node, error) {
 
-	var serverNode models.Node
 	var err error
-	serverNode, err = GetNode(mac, network)
-	if err != nil {
-		return &serverNode, err
-	}
-
 	if serverNode.IPForwarding == "yes" {
 		if err = setIPForwardingLinux(); err != nil {
-			return &serverNode, err
+			return serverNode, err
 		}
 	}
 	serverNode.OS = runtime.GOOS
@@ -196,38 +193,31 @@ func ServerPull(mac string, network string, onErr bool) (*models.Node, error) {
 			Log("removed old interface "+oldIfaceName, 1)
 		}
 		serverNode.PullChanges = "no"
-		if err = setWGConfig(serverNode, network, false); err != nil {
-			return &serverNode, err
+		if err = setWGConfig(*serverNode, serverNode.Network, false); err != nil {
+			return serverNode, err
 		}
 		// handle server side update
-		if err = serverNode.Update(&serverNode); err != nil {
-			return &serverNode, err
+		if err = UpdateNode(serverNode, serverNode); err != nil {
+			return serverNode, err
 		}
 	} else {
-		if err = setWGConfig(serverNode, network, true); err != nil {
+		if err = setWGConfig(*serverNode, serverNode.Network, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return ServerPull(serverNode.MacAddress, serverNode.Network, true)
+				return ServerPull(serverNode, true)
 			} else {
-				return &serverNode, err
+				return serverNode, err
 			}
 		}
 	}
 
-	return &serverNode, nil
+	return serverNode, nil
 }
 
 // ServerPush - pushes config changes for server checkins/join
-func ServerPush(mac string, network string) error {
-
-	var serverNode models.Node
-	var err error
-	serverNode, err = GetNode(mac, network)
-	if err != nil /* && !ncutils.IsEmptyRecord(err) May not be necessary */ {
-		return err
-	}
+func ServerPush(serverNode *models.Node) error {
 	serverNode.OS = runtime.GOOS
 	serverNode.SetLastCheckIn()
-	return serverNode.Update(&serverNode)
+	return UpdateNode(serverNode, serverNode)
 }
 
 // ServerLeave - removes a server node

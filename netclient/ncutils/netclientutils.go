@@ -155,9 +155,9 @@ func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	if keepalive <= 0 {
 		keepalive = 20
 	}
-	
+
 	for _, peer := range peers {
-		endpointString :=  ""
+		endpointString := ""
 		if peer.Endpoint != nil && peer.Endpoint.String() != "" {
 			endpointString += "Endpoint = " + peer.Endpoint.String()
 		}
@@ -271,6 +271,7 @@ func GetFreePort(rangestart int32) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	for x := rangestart; x <= 65535; x++ {
 		conflict := false
 		for _, i := range devices {
@@ -396,6 +397,12 @@ func FileExists(f string) bool {
 	info, err := os.Stat(f)
 	if os.IsNotExist(err) {
 		return false
+	}
+	if err != nil && strings.Contains(err.Error(), "not a directory") {
+		return false
+	}
+	if err != nil {
+		Log("error reading file: " + f + ", " + err.Error())
 	}
 	return !info.IsDir()
 }

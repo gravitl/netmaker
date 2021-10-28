@@ -2,9 +2,9 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -48,7 +48,7 @@ func returnErrorResponse(response http.ResponseWriter, request *http.Request, er
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(errorMessage)
+	logic.Log("processed request error: "+errorMessage.Message, 1)
 	response.Header().Set("Content-Type", "application/json")
 	response.WriteHeader(errorMessage.Code)
 	response.Write(jsonResponse)

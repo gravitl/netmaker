@@ -83,7 +83,7 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 	isMasterAuthenticated := authenticateMaster(authToken)
 	username := ""
 	if !hasBearer || !isMasterAuthenticated {
-		userName, networks, isadmin, err := functions.VerifyUserToken(authToken)
+		userName, networks, isadmin, err := logic.VerifyUserToken(authToken)
 		username = userName
 		if err != nil {
 			return errors.New("error verifying user token"), nil, username
@@ -133,14 +133,14 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	allnetworks := []models.Network{}
 	err := errors.New("Networks Error")
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
-		allnetworks, err = models.GetNetworks()
+		allnetworks, err = logic.GetNetworks()
 		if err != nil && !database.IsEmptyRecord(err) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
 	} else {
 		for _, network := range networksSlice {
-			netObject, parentErr := functions.GetParentNetwork(network)
+			netObject, parentErr := logic.GetParentNetwork(network)
 			if parentErr == nil {
 				allnetworks = append(allnetworks, netObject)
 			}
@@ -228,7 +228,7 @@ func KeyUpdate(netname string) (models.Network, error) {
 func AlertNetwork(netid string) error {
 
 	var network models.Network
-	network, err := functions.GetParentNetwork(netid)
+	network, err := logic.GetParentNetwork(netid)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var network models.Network
 	netname := params["networkname"]
-	network, err := functions.GetParentNetwork(netname)
+	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -260,21 +260,21 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	rangeupdate, localrangeupdate, err := network.Update(&newNetwork)
+	rangeupdate, localrangeupdate, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
 	if rangeupdate {
-		err = functions.UpdateNetworkNodeAddresses(network.NetID)
+		err = logic.UpdateNetworkNodeAddresses(network.NetID)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
 	}
 	if localrangeupdate {
-		err = functions.UpdateNetworkLocalAddresses(network.NetID)
+		err = logic.UpdateNetworkLocalAddresses(network.NetID)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
@@ -290,7 +290,7 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var network models.Network
 	netname := params["networkname"]
-	network, err := functions.GetParentNetwork(netname)
+	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -390,7 +390,7 @@ func CreateNetwork(network models.Network) error {
 	network.SetNetworkLastModified()
 	network.KeyUpdateTimeStamp = time.Now().Unix()
 
-	err := network.Validate(false)
+	err := logic.ValidateNetwork(&network, false)
 	if err != nil {
 		//returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return err
@@ -425,7 +425,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	var accesskey models.AccessKey
 	//start here
 	netname := params["networkname"]
-	network, err := functions.GetParentNetwork(netname)
+	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -604,7 +604,7 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 func DeleteKey(keyname, netname string) error {
-	network, err := functions.GetParentNetwork(netname)
+	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		return err
 	}

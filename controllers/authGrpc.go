@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
@@ -68,7 +69,7 @@ func grpcAuthorize(ctx context.Context) error {
 
 	authToken := authHeader[0]
 
-	mac, network, err := functions.VerifyToken(authToken)
+	mac, network, err := logic.VerifyToken(authToken)
 	if err != nil {
 		return err
 	}
@@ -79,9 +80,9 @@ func grpcAuthorize(ctx context.Context) error {
 		return status.Errorf(codes.Unauthenticated, "Unauthorized. Network does not exist: "+network)
 	}
 	emptynode := models.Node{}
-	node, err := functions.GetNodeByMacAddress(network, mac)
+	node, err := logic.GetNodeByMacAddress(network, mac)
 	if database.IsEmptyRecord(err) {
-		if node, err = functions.GetDeletedNodeByMacAddress(network, mac); err == nil {
+		if node, err = logic.GetDeletedNodeByMacAddress(network, mac); err == nil {
 			if functions.RemoveDeletedNode(node.ID) {
 				return status.Errorf(codes.Unauthenticated, models.NODE_DELETE)
 			}
@@ -146,7 +147,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 			return nil, err
 		} else {
 			//Create a new JWT for the node
-			tokenString, err := functions.CreateJWT(macaddress, result.Network)
+			tokenString, err := logic.CreateJWT(macaddress, result.Network)
 
 			if err != nil {
 				return nil, err
