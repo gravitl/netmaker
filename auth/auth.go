@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gravitl/netmaker/logic"
@@ -65,6 +66,11 @@ func InitializeAuthProvider() string {
 
 // HandleAuthCallback - handles oauth callback
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
+	if auth_provider == nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintln(w, oauthNotConfigured)
+		return
+	}
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
 		return
@@ -74,6 +80,16 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 // HandleAuthLogin - handles oauth login
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
+	if auth_provider == nil {
+		var referer = r.Header.Get("referer")
+		if referer != "" {
+			http.Redirect(w, r, referer+"?oauth=callback-error", http.StatusTemporaryRedirect)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintln(w, oauthNotConfigured)
+		return
+	}
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
 		return
