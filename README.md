@@ -10,11 +10,14 @@
   <a href="https://github.com/gravitl/netmaker/releases">
     <img src="https://img.shields.io/badge/Version-0.8.5-informational?style=flat-square" />
   </a>
+  <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
+    <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />
+  </a>  
   <a href="https://discord.gg/zRb9Vfhk8A">
     <img src="https://img.shields.io/badge/community-discord-informational" />
   </a>
   <a href="https://github.com/gravitl/netmaker/graphs/contributors">
-    <img src="https://img.shields.io/github/commit-activity/w/gravitl/netmaker?color=blue" />
+    <img src="https://img.shields.io/github/commit-activity/m/gravitl/netmaker?color=blue" />
   </a>
   <a href="https://gravitl.com/resources">
     <img src="https://img.shields.io/badge/learning-resources-9cf" />
@@ -40,17 +43,38 @@
 **For an HA install using helm on k8s, visit the [Helm Repo](https://github.com/gravitl/netmaker-helm/).**
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
 2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
-3. Run the script:
+3. Run the script (see below for extra options):
 
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
 
-Or you can use your own domain and/or email. Make sure you have setup your wildcard domain pointing to server ip.
+Upon completion, the logs will display a script that can be used to automatically connect Linux and Mac devices.
 
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s domain=mynetmaker.domain.com email=example@email.com`
+It will also display instructions for Windows, iPhone, and Android.
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
-After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guide to begin setting up networks. Or, check out some of our other [Tutorials](https://gravitl.com/resources) for different use cases, including Kubernetes.
+After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/ma(ster/getting-started.html) guide to begin setting up networks. Or, check out some of our other [Tutorials](https://gravitl.com/resources) for different use cases, including Kubernetes.
+
+### Optional configurations
+
+**Deploy a "Hub-And-Spoke VPN" on the server**
+a. This will configure a standard VPN (non-meshed) for private internet access.
+b. `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -v true`
+
+**Specify Domain sand Email**
+a. Make sure your wildcard domain is pointing towards the server ip.
+b. `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -d mynetmaker.domain.com -e example@email.com`
+
+**Script Options**
+```
+./nm-quick
+-d domain.example.com # specify a wildcard domain for netmaker to use (DNS must point to this server)
+-e myemail@example.com # specify your email (for SSL certificates)
+-m true # create a default 'mesh network' (on by default)
+-v false # create a default 'VPN network' (off by default)
+-c 7 # number of client configs to create (for VPN network, 5 by default)
+```
+
 
 # Why Netmaker + WireGuard?
 

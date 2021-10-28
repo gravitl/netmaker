@@ -6,7 +6,7 @@ echo "setting flags..."
 while getopts d:e:m:v:c: flag
 do
     case "${flag}" in
-    	d) domain=${OPTARG};;
+    	  d) domain=${OPTARG};;
         e) email=${OPTARG};;
         m) addmesh=${OPTARG};;
         v) addvpn=${OPTARG};;
