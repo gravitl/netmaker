@@ -99,8 +99,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	nodeport := int(node.ListenPort)
-	var conf wgtypes.Config
-	conf = wgtypes.Config{
+	var conf = wgtypes.Config{
 		PrivateKey:   &key,
 		ListenPort:   &nodeport,
 		ReplacePeers: true,
@@ -118,8 +117,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return err
 		}
 		// spin up userspace + apply the conf file
-		var deviceiface string
-		deviceiface = ifacename
+		var deviceiface = ifacename
 		d, _ := wgclient.Device(deviceiface)
 		for d != nil && d.Name == deviceiface {
 			_ = RemoveConf(ifacename, false) // remove interface first
