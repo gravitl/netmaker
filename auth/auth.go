@@ -61,7 +61,7 @@ func InitializeAuthProvider() string {
 		return ""
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
-	var serverConn = servercfg.GetAPIConnString()
+	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
 		logic.Log("localhost OAuth detected, proceeding with insecure http redirect", 1)
 		serverConn = "http://" + serverConn
