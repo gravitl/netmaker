@@ -8,3 +8,4 @@ updates:
     # Check for updates every day (weekdays)
     schedule:
       interval: "daily"
+  target-branch: "develop"
