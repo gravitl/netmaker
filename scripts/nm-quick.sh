@@ -40,7 +40,7 @@ do
     fi
 done
 
-dependencies=("docker.io" "docker-compose" "wireguard")
+dependencies=("docker.io" "docker-compose" "wireguard" "jq")
 
 for dependency in ${dependencies[@]}; do
     is_installed=$(dpkg-query -W --showformat='${Status}\n' ${dependency} | grep "install ok installed")
