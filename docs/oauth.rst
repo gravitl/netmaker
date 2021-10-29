@@ -44,7 +44,7 @@ Next, Configure Netmaker with the following environment variables. If any are le
     AUTH_PROVIDER="<azure-ad|github|google>"
     CLIENT_ID="<client id of your oauth provider>"
     CLIENT_SECRET="<client secret of your oauth provider>"
-    SERVER_API_CONN_STRING="https://<your-netmaker-api-domain>"
+    SERVER_HTTP_HOST="https://<your-netmaker-api-domain>"
     FRONTEND_URL="https://<your-netmaker-dashboard-domain>"
 
 
@@ -66,12 +66,12 @@ Admins must navigate to the "Users" screen to configure permissions.
 
 For each user, an admin must specify which networks that user has access to configure. Additionally, an Admin can elevate a user to Admin permissions.
 
-.. image:: images/oauth2.png
-   :width: 80%
-   :alt: Edit User
-   :align: center
-
 .. image:: images/oauth3.png
    :width: 80%
    :alt: Edit User 2
+   :align: center
+
+.. image:: images/oauth2.png
+   :width: 80%
+   :alt: Edit User
    :align: center
