@@ -13,8 +13,8 @@
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />
   </a>  
-  <a href="https://discord.gg/zRb9Vfhk8A">
-    <img src="https://img.shields.io/badge/community-discord-informational" />
+  <a href="https://goreportcard.com/report/github.com/gravitl/netmaker">
+    <img src="https://goreportcard.com/badge/github.com/gravitl/netmaker" />
   </a>
   <a href="https://github.com/gravitl/netmaker/graphs/contributors">
     <img src="https://img.shields.io/github/commit-activity/m/gravitl/netmaker?color=blue" />
@@ -29,8 +29,8 @@
 
 # WireGuard® Automation from Homelab to Enterprise
 - [x] Peer-to-Peer Mesh Networks
-- [x] Kubernetes Multi-Cloud
-- [x] Private DNS
+- [x] Kubernetes, Multi-Cloud
+- [x] OAuth and Private DNS
 - [x] Linux, Mac, Windows, iPhone, and Android
 
 # Get Started in 5 Minutes
