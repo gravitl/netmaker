@@ -53,9 +53,9 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 **Deploy a "Hub-And-Spoke VPN" on the server**  
 *This will configure a standard VPN (non-meshed) for private internet access, with 10 clients (-c).*  
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -- -v true -c 7`  
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -- -v true -c 10`  
 
-**Specify Domain sand Email**  
+**Specify Domain and Email**  
 *Make sure your wildcard domain is pointing towards the server ip.*  
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -- -d mynetmaker.domain.com -e example@email.com`  
 
