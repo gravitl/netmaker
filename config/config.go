@@ -57,8 +57,8 @@ type ServerConfig struct {
 	Version               string `yaml:"version"`
 	SQLConn               string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
-	Database              string `yaml:database`
-	CheckinInterval       string `yaml:checkininterval`
+	Database              string `yaml:"database"`
+	CheckinInterval       string `yaml:"checkininterval"`
 	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
 	Verbosity             int32  `yaml:"verbosity"`
 	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
@@ -66,6 +66,7 @@ type ServerConfig struct {
 	ClientID              string `yaml:"clientid"`
 	ClientSecret          string `yaml:"clientsecret"`
 	FrontendURL           string `yaml:"frontendurl"`
+	EtcdAddresses         string `yaml:"etcdaddresses"`
 }
 
 // Generic SQL Config

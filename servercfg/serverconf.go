@@ -484,6 +484,16 @@ func GetAuthProviderInfo() []string {
 	return []string{"", "", ""}
 }
 
+func GetEtcdAddresses() string {
+	addresses := "127.0.0.1:2379"
+	if os.Getenv("ETCD_ADDRESSES") != "" {
+		addresses = os.Getenv("ETCD_ADDRESSES")
+	} else if config.Config.Server.EtcdAddresses != "" {
+		addresses = config.Config.Server.EtcdAddresses
+	}
+	return addresses
+}
+
 // GetMacAddr - get's mac address
 func getMacAddr() string {
 	ifas, err := net.Interfaces()
