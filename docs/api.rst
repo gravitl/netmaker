@@ -28,7 +28,7 @@ Networks API
 
 **Get All Networks:** `/api/networks`, `GET` 
   
-**Create Network:** `/api/network`, `POST` 
+**Create Network:** `/api/networks`, `POST` 
   
 **Get Network:** `/api/networks/{network id}`, `GET`  
   
