@@ -59,7 +59,7 @@ Access Keys API
 
 **Get All Keys:** `/api/networks/{network id}/keys`, `GET` 
   
-**Create Key:** `/api/networks/{network id}/keys`, `GET` 
+**Create Key:** `/api/networks/{network id}/keys`, `POST` 
   
 **Delete Key:** `/api/networks/{network id}/keys/{keyname}`, `DELETE` 
   
