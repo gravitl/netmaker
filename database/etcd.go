@@ -84,15 +84,6 @@ func etcdCreateTable(tableName string) error {
 	}
 	return nil
 }
-func etcdPrintValues(preDataList clientv3.GetResponse) {
-	log.Println("database returned " + string(len(preDataList.Kvs)) + "results")
-	if servercfg.GetVerbose() > 1 {
-		log.Println("results:")
-		for _, ev := range preDataList.Kvs {
-			log.Println("  ",ev.Key,ev.Value)
-		}
-	}
-}
 
 func etcdInsert(key string, value string, tableName string) error {
 	if key != "" && value != "" && IsJSONString(value) {
@@ -103,14 +94,14 @@ func etcdInsert(key string, value string, tableName string) error {
 			return err
 		}
 		var preData []byte
+		var preDataMap map[string]string
 		if len(preDataList.Kvs) > 0 {
 			preData = preDataList.Kvs[0].Value
-		} 
-		var preDataMap map[string]string
-
-		if err := json.Unmarshal(preData, &preDataMap); err != nil {
-			return err
+			if err := json.Unmarshal(preData, &preDataMap); err != nil {
+				return err
+			}	
 		}
+
 		preDataMap[key] = value
 		postData, err := json.Marshal(&preDataMap)
 		if err != nil {
@@ -147,12 +138,12 @@ func etcdDeleteRecord(tableName string, key string) error {
 			return err
 		}
 		var preData []byte
+		var preDataMap map[string]string
 		if len(preDataList.Kvs) > 0 {
 			preData = preDataList.Kvs[0].Value
-		} 
-		var preDataMap map[string]string
-		if err := json.Unmarshal(preData, &preDataMap); err != nil {
-			return err
+			if err := json.Unmarshal(preData, &preDataMap); err != nil {
+				return err
+			}	
 		}
 		delete(preDataMap, key)
 		postData, err := json.Marshal(&preDataMap)
@@ -195,11 +186,11 @@ func etcdFetchRecords(tableName string) (map[string]string, error) {
 	var preData []byte
 	if len(preDataList.Kvs) > 0 {
 		preData = preDataList.Kvs[0].Value
+		if err = json.Unmarshal(preData, &records); err != nil {
+			return nil, err
+		}	
 	} else {
 		return nil, errors.New(NO_RECORDS)
-	}
-	if err = json.Unmarshal(preData, &records); err != nil {
-		return nil, err
 	}
 	return records, nil
 }
@@ -210,4 +201,14 @@ func etcdCloseDB() {
 
 func isValidIp(ipAddr string) bool {
 	return net.ParseIP(ipAddr) == nil
+}
+
+func etcdPrintValues(preDataList clientv3.GetResponse) {
+	log.Println("database returned " + string(len(preDataList.Kvs)) + "results")
+	if servercfg.GetVerbose() > 1 {
+		log.Println("results:")
+		for _, ev := range preDataList.Kvs {
+			log.Println("  ",ev.Key,ev.Value)
+		}
+	}
 }
