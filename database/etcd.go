@@ -202,13 +202,11 @@ func etcdFetchRecords(tableName string) (map[string]string, error) {
 	if len(preDataList.Kvs) > 0 {
 		preData = preDataList.Kvs[0].Value
 	} else {
-		//etcdPrintValues(*preDataList)
-		return records, errors.New("something went wrong processing etcd data during db.Get (etcdFetchRecords)")
+		return nil, errors.New(NO_RECORDS)
 	}
 	if err = json.Unmarshal(preData, &records); err != nil {
 		return nil, err
 	}
-
 	return records, nil
 }
 
