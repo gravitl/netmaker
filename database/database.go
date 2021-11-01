@@ -84,6 +84,8 @@ func getCurrentDB() map[string]interface{} {
 		return SQLITE_FUNCTIONS
 	case "postgres":
 		return PG_FUNCTIONS
+	case "etcd":
+		return ETCD_FUNCTIONS
 	default:
 		return SQLITE_FUNCTIONS
 	}

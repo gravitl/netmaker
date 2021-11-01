@@ -7,14 +7,12 @@ import (
 	"net"
 	"strings"
 	"time"
-
-	"github.com/coreos/etcd/clientv3"
+	"context"
+	"go.etcd.io/etcd/client/v3"
 	"github.com/gravitl/netmaker/servercfg"
-	"google.golang.org/appengine/memcache"
 )
 
 var EtcdDatabase *clientv3.Client
-var KV *clientv3.KV
 
 var ETCD_FUNCTIONS = map[string]interface{}{
 	INIT_DB:      initEtcdDatabase,
@@ -62,8 +60,6 @@ func initEtcdDatabase() error {
 	} else if EtcdDatabase == nil {
 		return errors.New("could not initialize etcd")
 	}
-	EtcdDatabase.Timeout = time.Minute
-	clientv3.NewKV(EtcdDatabase)
 	return nil
 }
 
@@ -80,8 +76,9 @@ func etcdCreateTable(tableName string) error {
 	if err != nil {
 		return err
 	}
-	kv := clientv3.NewKV(EtcdDatabase)
-	err = EtcdDatabase.Set(&memcache.Item{Key: tableName, Value: newTable, Expiration: 0})
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	_, err = EtcdDatabase.Put(ctx, tableName, string(newTable))
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -90,12 +87,21 @@ func etcdCreateTable(tableName string) error {
 
 func etcdInsert(key string, value string, tableName string) error {
 	if key != "" && value != "" && IsJSONString(value) {
-		preData, err := EtcdDatabase.Get(tableName)
+		ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+		preDataList, err := EtcdDatabase.Get(ctx, tableName)
+		cancel()
 		if err != nil {
 			return err
 		}
+		var preData []byte
+		if len(preDataList.Kvs) == 1 {
+			preData = preDataList.Kvs[0].Value
+		} else {
+			return errors.New("something went wrong processing etcd data")
+		}
 		var preDataMap map[string]string
-		if err := json.Unmarshal(preData.Value, &preDataMap); err != nil {
+
+		if err := json.Unmarshal(preData, &preDataMap); err != nil {
 			return err
 		}
 		preDataMap[key] = value
@@ -103,7 +109,8 @@ func etcdInsert(key string, value string, tableName string) error {
 		if err != nil {
 			return err
 		}
-		err = EtcdDatabase.Replace(&memcache.Item{Key: tableName, Value: postData, Expiration: 0})
+		_, err = EtcdDatabase.Put(ctx, tableName, string(postData))
+		cancel()
 		if err != nil {
 			return err
 		}
@@ -126,12 +133,20 @@ func etcdInsertPeer(key string, value string) error {
 
 func etcdDeleteRecord(tableName string, key string) error {
 	if key != "" {
-		preData, err := EtcdDatabase.Get(tableName)
+		ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+		preDataList, err := EtcdDatabase.Get(ctx, tableName)
+		cancel()
 		if err != nil {
 			return err
 		}
+		var preData []byte
+		if len(preDataList.Kvs) == 1 {
+			preData = preDataList.Kvs[0].Value
+		} else {
+			return errors.New("something went wrong processing etcd data")
+		}
 		var preDataMap map[string]string
-		if err := json.Unmarshal(preData.Value, &preDataMap); err != nil {
+		if err := json.Unmarshal(preData, &preDataMap); err != nil {
 			return err
 		}
 		delete(preDataMap, key)
@@ -139,7 +154,8 @@ func etcdDeleteRecord(tableName string, key string) error {
 		if err != nil {
 			return err
 		}
-		err = EtcdDatabase.Set(&memcache.Item{Key: tableName, Value: postData, Expiration: 0})
+		_, err = EtcdDatabase.Put(ctx, tableName, string(postData))
+		cancel()
 		if err != nil {
 			return err
 		}
@@ -150,7 +166,9 @@ func etcdDeleteRecord(tableName string, key string) error {
 }
 
 func etcdDeleteAllRecords(tableName string) error {
-	err := EtcdDatabase.Delete(tableName)
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	_, err := EtcdDatabase.Delete(ctx, tableName)
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -161,24 +179,21 @@ func etcdDeleteAllRecords(tableName string) error {
 	return nil
 }
 
-// func etcdFetchRecord(tableName string, key string) (string, error) {
-// 	results, err := etcdFetchRecords(tableName)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	if results[key] == "" {
-// 		return "", errors.New(NO_RECORD)
-// 	}
-// 	return results[key], nil
-// }
-
 func etcdFetchRecords(tableName string) (map[string]string, error) {
 	var records map[string]string
-	item, err := EtcdDatabase.Get(tableName)
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	preDataList, err := EtcdDatabase.Get(ctx, tableName)
+	cancel()
 	if err != nil {
 		return records, err
 	}
-	if err = json.Unmarshal(item.Value, &records); err != nil {
+	var preData []byte
+	if len(preDataList.Kvs) == 1 {
+		preData = preDataList.Kvs[0].Value
+	} else {
+		return records, errors.New("something went wrong processing etcd data")
+	}
+	if err = json.Unmarshal(preData, &records); err != nil {
 		return nil, err
 	}
 
@@ -186,7 +201,7 @@ func etcdFetchRecords(tableName string) (map[string]string, error) {
 }
 
 func etcdCloseDB() {
-	// no op for this library..
+	EtcdDatabase.Close()
 }
 
 func isValidIp(ipAddr string) bool {
