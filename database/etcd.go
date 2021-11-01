@@ -84,6 +84,15 @@ func etcdCreateTable(tableName string) error {
 	}
 	return nil
 }
+func etcdPrintValues(preDataList clientv3.GetResponse) {
+	log.Println("database returned " + string(len(preDataList.Kvs)) + "results")
+	if servercfg.GetVerbose() > 1 {
+		log.Println("results:")
+		for _, ev := range preDataList.Kvs {
+			log.Println("  ",ev.Key,ev.Value)
+		}
+	}
+}
 
 func etcdInsert(key string, value string, tableName string) error {
 	if key != "" && value != "" && IsJSONString(value) {
@@ -94,10 +103,11 @@ func etcdInsert(key string, value string, tableName string) error {
 			return err
 		}
 		var preData []byte
-		if len(preDataList.Kvs) == 1 {
+		if len(preDataList.Kvs) > 0 {
 			preData = preDataList.Kvs[0].Value
 		} else {
-			return errors.New("something went wrong processing etcd data")
+			//etcdPrintValues(*preDataList)
+			return errors.New("something went wrong processing etcd data during db.Get (etcdInsert)")
 		}
 		var preDataMap map[string]string
 
@@ -140,10 +150,11 @@ func etcdDeleteRecord(tableName string, key string) error {
 			return err
 		}
 		var preData []byte
-		if len(preDataList.Kvs) == 1 {
+		if len(preDataList.Kvs) > 0 {
 			preData = preDataList.Kvs[0].Value
 		} else {
-			return errors.New("something went wrong processing etcd data")
+			//etcdPrintValues(*preDataList)
+			return errors.New("something went wrong processing etcd data during db.Get (etcdDeleteRecord)")
 		}
 		var preDataMap map[string]string
 		if err := json.Unmarshal(preData, &preDataMap); err != nil {
@@ -188,10 +199,11 @@ func etcdFetchRecords(tableName string) (map[string]string, error) {
 		return records, err
 	}
 	var preData []byte
-	if len(preDataList.Kvs) == 1 {
+	if len(preDataList.Kvs) > 0 {
 		preData = preDataList.Kvs[0].Value
 	} else {
-		return records, errors.New("something went wrong processing etcd data")
+		//etcdPrintValues(*preDataList)
+		return records, errors.New("something went wrong processing etcd data during db.Get (etcdFetchRecords)")
 	}
 	if err = json.Unmarshal(preData, &records); err != nil {
 		return nil, err
