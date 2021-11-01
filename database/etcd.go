@@ -105,10 +105,7 @@ func etcdInsert(key string, value string, tableName string) error {
 		var preData []byte
 		if len(preDataList.Kvs) > 0 {
 			preData = preDataList.Kvs[0].Value
-		} else {
-			//etcdPrintValues(*preDataList)
-			return errors.New("something went wrong processing etcd data during db.Get (etcdInsert)")
-		}
+		} 
 		var preDataMap map[string]string
 
 		if err := json.Unmarshal(preData, &preDataMap); err != nil {
@@ -152,10 +149,7 @@ func etcdDeleteRecord(tableName string, key string) error {
 		var preData []byte
 		if len(preDataList.Kvs) > 0 {
 			preData = preDataList.Kvs[0].Value
-		} else {
-			//etcdPrintValues(*preDataList)
-			return errors.New("something went wrong processing etcd data during db.Get (etcdDeleteRecord)")
-		}
+		} 
 		var preDataMap map[string]string
 		if err := json.Unmarshal(preData, &preDataMap); err != nil {
 			return err
