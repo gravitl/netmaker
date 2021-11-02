@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ $(id -u) -ne 0 ]; then
-   echo "This script must be run as root" 
+   echo "This script must be run as root"
    exit 1
 fi
 
@@ -52,6 +52,7 @@ set -e
 [ -z "$KEY" ] && KEY=nokey;
 [ -z "$VERSION" ] && echo "no \$VERSION provided, fallback to latest" && VERSION=latest;
 [ "latest" != "$VERSION" ] && [ "v" != `echo $VERSION | cut -c1` ] && VERSION="v$VERSION"
+[ -z "$NAME" ] && NAME="";
 
 dist=netclient
 
@@ -105,5 +106,5 @@ else
 	wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/latest/$dist
 fi
 chmod +x netclient
-sudo ./netclient join -t $KEY
+sudo ./netclient join -t $KEY --name $NAME
 rm -f netclient
