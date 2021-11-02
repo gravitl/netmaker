@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/gravitl/netmaker/netclient/command"
@@ -30,6 +31,7 @@ func main() {
 	if err != nil {
 		hostname = ""
 	}
+	hostname = strings.Split(hostname, ".")[0]
 
 	cliFlags := []cli.Flag{
 		&cli.StringFlag{
