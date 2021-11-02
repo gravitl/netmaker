@@ -67,6 +67,10 @@ type ServerConfig struct {
 	ClientSecret          string `yaml:"clientsecret"`
 	FrontendURL           string `yaml:"frontendurl"`
 	EtcdAddresses         string `yaml:"etcdaddresses"`
+	EtcdCertPath          string `yaml:"etcdcertpath"`
+	EtcdCACertPath        string `yaml:"etcdcacertpath"`
+	EtcdKeyPath           string `yaml:"etcdkeypath"`
+	EtcdSSL               string `yaml:"etcdssl"`
 }
 
 // Generic SQL Config

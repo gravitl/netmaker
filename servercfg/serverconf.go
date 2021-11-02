@@ -494,6 +494,51 @@ func GetEtcdAddresses() string {
 	return addresses
 }
 
+func GetEtcdCertPath() string {
+	path := "/root/server.crt"
+	if os.Getenv("ETCD_CERT_PATH") != "" {
+		path = os.Getenv("ETCD_CERT_PATH")
+	} else if config.Config.Server.EtcdAddresses != "" {
+		path = config.Config.Server.EtcdCertPath
+	}
+	return path
+}
+
+func GetEtcdKeyPath() string {
+	path := "/root/server.key"
+	if os.Getenv("ETCD_KEY_PATH") != "" {
+		path = os.Getenv("ETCD_KEY_PATH")
+	} else if config.Config.Server.EtcdKeyPath != "" {
+		path = config.Config.Server.EtcdKeyPath
+	}
+	return path
+}
+
+func GetEtcdCACertPath() string {
+	path := "/root/ca.crt"
+	if os.Getenv("ETCD_CA_CERT_PATH") != "" {
+		path = os.Getenv("ETCD_CA_CERT_PATH")
+	} else if config.Config.Server.EtcdCACertPath != "" {
+		path = config.Config.Server.EtcdCACertPath
+	}
+	return path
+}
+
+// IsGRPCSSL - ssl grpc on or off
+func IsEtcdSSL() bool {
+	isssl := true
+	if os.Getenv("ETCD_SSL") != "" {
+		if os.Getenv("ETCD_SSL") == "off" {
+			isssl = false
+		}
+	} else if config.Config.Server.EtcdSSL != "" {
+		if config.Config.Server.EtcdSSL == "off" {
+			isssl = false
+		}
+	}
+	return isssl
+}
+
 // GetMacAddr - get's mac address
 func getMacAddr() string {
 	ifas, err := net.Interfaces()

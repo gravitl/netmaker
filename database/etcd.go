@@ -9,6 +9,7 @@ import (
 	"time"
 	"context"
 	"go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/pkg/v3/transport"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -49,12 +50,30 @@ func parseEtcdAddresses(addresses string) string {
 }
 
 func initEtcdDatabase() error {
+
 	addresses := parseEtcdAddresses(servercfg.GetEtcdAddresses())
 	var err error
 	EtcdDatabase, err = clientv3.New(clientv3.Config{
 		Endpoints:   []string{addresses},
 		DialTimeout: 5 * time.Second,
 	})
+	if servercfg.IsEtcdSSL() {
+		tlsInfo := transport.TLSInfo{
+			KeyFile:        servercfg.GetEtcdKeyPath(),
+			CertFile:       servercfg.GetEtcdCertPath(),
+			TrustedCAFile:  servercfg.GetEtcdCACertPath(),
+			ClientCertAuth: true,
+		}
+		tlsConfig, errN := tlsInfo.ClientConfig()
+		if errN != nil {
+			return errN
+		}
+		EtcdDatabase, err = clientv3.New(clientv3.Config{
+			Endpoints:   []string{addresses},
+			DialTimeout: 5 * time.Second,
+			TLS: tlsConfig,
+		})	
+	}
 	if err != nil {
 		return err
 	} else if EtcdDatabase == nil {
