@@ -100,8 +100,9 @@ func etcdInsert(key string, value string, tableName string) error {
 			if err := json.Unmarshal(preData, &preDataMap); err != nil {
 				return err
 			}	
+		} else {
+			preDataMap = make(map[string]string)
 		}
-
 		preDataMap[key] = value
 		postData, err := json.Marshal(&preDataMap)
 		if err != nil {
@@ -144,6 +145,8 @@ func etcdDeleteRecord(tableName string, key string) error {
 			if err := json.Unmarshal(preData, &preDataMap); err != nil {
 				return err
 			}	
+		} else {
+			preDataMap = make(map[string]string)
 		}
 		delete(preDataMap, key)
 		postData, err := json.Marshal(&preDataMap)
