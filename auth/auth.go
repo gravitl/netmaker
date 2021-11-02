@@ -93,7 +93,7 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
 		var referer = r.Header.Get("referer")
 		if referer != "" {
-			http.Redirect(w, r, referer+"?oauth=callback-error", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, referer+"login?oauth=callback-error", http.StatusTemporaryRedirect)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
