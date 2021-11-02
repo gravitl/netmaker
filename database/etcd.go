@@ -55,7 +55,7 @@ func initEtcdDatabase() error {
 	var err error
 	EtcdDatabase, err = clientv3.New(clientv3.Config{
 		Endpoints:   []string{addresses},
-		DialTimeout: 5 * time.Second,
+		DialTimeout: 30 * time.Second,
 	})
 	if servercfg.IsEtcdSSL() {
 		tlsInfo := transport.TLSInfo{
@@ -70,7 +70,7 @@ func initEtcdDatabase() error {
 		}
 		EtcdDatabase, err = clientv3.New(clientv3.Config{
 			Endpoints:   []string{addresses},
-			DialTimeout: 5 * time.Second,
+			DialTimeout: 30 * time.Second,
 			TLS: tlsConfig,
 		})	
 	}
@@ -95,7 +95,7 @@ func etcdCreateTable(tableName string) error {
 	if err != nil {
 		return err
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 15 * time.Second)
 	_, err = EtcdDatabase.Put(ctx, tableName, string(newTable))
 //	
 	if err != nil {
@@ -106,7 +106,7 @@ func etcdCreateTable(tableName string) error {
 
 func etcdInsert(key string, value string, tableName string) error {
 	if key != "" && value != "" && IsJSONString(value) {
-		ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
+		ctx, _ := context.WithTimeout(context.Background(), 15 * time.Second)
 		preDataList, err := EtcdDatabase.Get(ctx, tableName)
 		
 		if err != nil {
@@ -151,7 +151,7 @@ func etcdInsertPeer(key string, value string) error {
 
 func etcdDeleteRecord(tableName string, key string) error {
 	if key != "" {
-		ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
+		ctx, _ := context.WithTimeout(context.Background(), 15 * time.Second)
 		preDataList, err := EtcdDatabase.Get(ctx, tableName)
 		
 		if err != nil {
@@ -184,7 +184,7 @@ func etcdDeleteRecord(tableName string, key string) error {
 }
 
 func etcdDeleteAllRecords(tableName string) error {
-	ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 15 * time.Second)
 	_, err := EtcdDatabase.Delete(ctx, tableName)
 	
 	if err != nil {
@@ -199,7 +199,7 @@ func etcdDeleteAllRecords(tableName string) error {
 
 func etcdFetchRecords(tableName string) (map[string]string, error) {
 	var records map[string]string
-	ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 15 * time.Second)
 	preDataList, err := EtcdDatabase.Get(ctx, tableName)
 	
 	if err != nil {
