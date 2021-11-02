@@ -76,9 +76,9 @@ func etcdCreateTable(tableName string) error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
 	_, err = EtcdDatabase.Put(ctx, tableName, string(newTable))
-	cancel()
+//	
 	if err != nil {
 		return err
 	}
@@ -87,9 +87,9 @@ func etcdCreateTable(tableName string) error {
 
 func etcdInsert(key string, value string, tableName string) error {
 	if key != "" && value != "" && IsJSONString(value) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+		ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
 		preDataList, err := EtcdDatabase.Get(ctx, tableName)
-		cancel()
+		
 		if err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func etcdInsert(key string, value string, tableName string) error {
 			return err
 		}
 		_, err = EtcdDatabase.Put(ctx, tableName, string(postData))
-		cancel()
+		
 		if err != nil {
 			return err
 		}
@@ -132,9 +132,9 @@ func etcdInsertPeer(key string, value string) error {
 
 func etcdDeleteRecord(tableName string, key string) error {
 	if key != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+		ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
 		preDataList, err := EtcdDatabase.Get(ctx, tableName)
-		cancel()
+		
 		if err != nil {
 			return err
 		}
@@ -154,7 +154,7 @@ func etcdDeleteRecord(tableName string, key string) error {
 			return err
 		}
 		_, err = EtcdDatabase.Put(ctx, tableName, string(postData))
-		cancel()
+		
 		if err != nil {
 			return err
 		}
@@ -165,9 +165,9 @@ func etcdDeleteRecord(tableName string, key string) error {
 }
 
 func etcdDeleteAllRecords(tableName string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
 	_, err := EtcdDatabase.Delete(ctx, tableName)
-	cancel()
+	
 	if err != nil {
 		return err
 	}
@@ -180,9 +180,9 @@ func etcdDeleteAllRecords(tableName string) error {
 
 func etcdFetchRecords(tableName string) (map[string]string, error) {
 	var records map[string]string
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
 	preDataList, err := EtcdDatabase.Get(ctx, tableName)
-	cancel()
+	
 	if err != nil {
 		return records, err
 	}
