@@ -51,6 +51,7 @@ set -e
 
 [ -z "$KEY" ] && KEY=nokey;
 [ -z "$VERSION" ] && echo "no \$VERSION provided, fallback to latest" && VERSION=latest;
+[ -z "$NAME" ] && NAME="";
 
 dist=netclient
 
@@ -94,5 +95,5 @@ echo "Binary = $dist"
 
 wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/$VERSION/$dist
 chmod +x netclient
-sudo ./netclient join -t $KEY
+sudo ./netclient join -t $KEY --name $NAME
 rm -f netclient
