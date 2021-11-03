@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -208,6 +209,44 @@ func ModConfig(node *models.Node) error {
 	return err
 }
 
+// ModConfig - overwrites the node inside client config on disk
+func SaveBackup(network string) error {
+
+	var configPath = ncutils.GetNetclientPathSpecific() + "netconfig-" + network
+	var backupPath = ncutils.GetNetclientPathSpecific() + "backup.netconfig-" + network
+	if FileExists(configPath) {
+		input, err := ioutil.ReadFile(configPath)
+		if err != nil {
+			ncutils.Log("failed to read " + configPath + " to make a backup")
+			return err
+		}
+		if err = ioutil.WriteFile(backupPath, input, 0644); err != nil {
+			ncutils.Log("failed to copy backup to " + backupPath)
+			return err
+		}
+	}
+	return nil
+}
+
+// ReplaceWithBackup - replaces netconfig file with backup
+func ReplaceWithBackup(network string) error {
+	var backupPath = ncutils.GetNetclientPathSpecific() + "backup.netconfig-" + network
+	var configPath = ncutils.GetNetclientPathSpecific() + "netconfig-" + network
+	if FileExists(backupPath) {
+		input, err := ioutil.ReadFile(backupPath)
+		if err != nil {
+			ncutils.Log("failed to read file " + backupPath + " to backup network: " + network)
+			return err
+		}
+		if err = ioutil.WriteFile(configPath, input, 0644); err != nil {
+			ncutils.Log("failed backup " + backupPath + " to " + configPath)
+			return err
+		}
+	}
+	ncutils.Log("used backup file for network: " + network)
+	return nil
+}
+
 // GetCLIConfig - gets the cli flags as a config
 func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	var cfg ClientConfig
@@ -332,7 +371,13 @@ func ReadConfig(network string) (*ClientConfig, error) {
 	f, err := os.Open(file)
 
 	if err != nil {
-		nofile = true
+		if err = ReplaceWithBackup(network); err != nil {
+			nofile = true
+		}
+		f, err = os.Open(file)
+		if err != nil {
+			nofile = true
+		}
 	}
 	defer f.Close()
 
