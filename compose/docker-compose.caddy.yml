@@ -5,12 +5,18 @@ services:
     container_name: netmaker
     image: gravitl/netmaker:v0.8.5
     volumes:
-      - dnsconfig:/root/config/dnsconfig
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+      - /run/systemd/system:/run/systemd/system
+      - /etc/systemd/system:/etc/systemd/system
+      - /sys/fs/cgroup:/sys/fs/cgroup
       - /usr/bin/wg:/usr/bin/wg
+      - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
     cap_add: 
       - NET_ADMIN
+      - SYS_ADMIN
     restart: always
+    network_mode: host
     privileged: true
     environment:
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -28,6 +34,7 @@ services:
       SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
       DATABASE: "sqlite"
+      NODE_ID: "netmaker-server-1"
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
