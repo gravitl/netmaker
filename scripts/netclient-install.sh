@@ -51,6 +51,7 @@ set -e
 
 [ -z "$KEY" ] && KEY=nokey;
 [ -z "$VERSION" ] && echo "no \$VERSION provided, fallback to latest" && VERSION=latest;
+[ "latest" != "$VERSION" ] && [ "v" != `echo $VERSION | cut -c1` ] && VERSION="v$VERSION"
 
 dist=netclient
 
