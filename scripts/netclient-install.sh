@@ -78,6 +78,9 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 			aarch64)
                                 dist=netclient-arm64
 			;;
+			armv7l)
+                                dist=netclient-armv7
+			;;
 			arm*)
 				dist=netclient-$CPU_ARCH
             		;;
