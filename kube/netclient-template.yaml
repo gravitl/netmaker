@@ -16,7 +16,7 @@ spec:
       hostNetwork: true
       containers:
       - name: netclient
-        image: gravitl/netclient:v0.5.11
+        image: gravitl/netclient:v0.8.5
         command: ['bash', '-c', "/root/netclient join -t $ACCESS_TOKEN --daemon off --name $(echo $NODE_NAME| sed -e s/.$NETWORK//); while true; do /root/netclient checkin --dns on -n $NETWORK; sleep $SLEEP; done"]
         env:
         - name: ACCESS_TOKEN
