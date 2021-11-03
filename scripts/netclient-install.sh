@@ -51,6 +51,7 @@ set -e
 
 [ -z "$KEY" ] && KEY=nokey;
 [ -z "$VERSION" ] && echo "no \$VERSION provided, fallback to latest" && VERSION=latest;
+[ "latest" != "$VERSION" ] && [ "v" != `echo $VERSION | cut -c1` ] && VERSION="v$VERSION"
 
 dist=netclient
 
@@ -78,6 +79,9 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 			aarch64)
                                 dist=netclient-arm64
 			;;
+			armv7l)
+                                dist=netclient-armv7
+			;;
 			arm*)
 				dist=netclient-$CPU_ARCH
             		;;
@@ -92,7 +96,14 @@ esac
 
 echo "Binary = $dist"
 
-wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/$VERSION/$dist
+url="https://github.com/gravitl/netmaker/releases/download/$VERSION/$dist"
+if curl --output /dev/null --silent --head --fail "$url"; then
+	echo "Downloading $dist $VERSION"
+	wget -nv -O netclient $url
+else
+	echo "Downloading $dist latest"
+	wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/latest/$dist
+fi
 chmod +x netclient
 sudo ./netclient join -t $KEY
 rm -f netclient
