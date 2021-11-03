@@ -93,7 +93,14 @@ esac
 
 echo "Binary = $dist"
 
-wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/$VERSION/$dist
+url="https://github.com/gravitl/netmaker/releases/download/$VERSION/$dist"
+if curl --output /dev/null --silent --head --fail "$url"; then
+	echo "Downloading $dist $VERSION"
+	wget -nv -O netclient $url
+else
+	echo "Downloading $dist latest"
+	wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/latest/$dist
+fi
 chmod +x netclient
 sudo ./netclient join -t $KEY
 rm -f netclient
