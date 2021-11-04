@@ -35,8 +35,6 @@ services:
       CORS_ALLOWED_ORIGIN: "*"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-    ports:
-      - "51821-51830:51821-51830/udp"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
