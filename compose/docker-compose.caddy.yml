@@ -16,6 +16,7 @@ services:
       - NET_ADMIN
       - SYS_ADMIN
     restart: always
+    network_mode: host
     privileged: true
     environment:
       SERVER_HOST: "SERVER_PUBLIC_IP"
