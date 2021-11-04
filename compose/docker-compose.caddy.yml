@@ -43,8 +43,6 @@ services:
     image: gravitl/netmaker-ui:v0.8.5
     links:
       - "netmaker:api"
-    ports:
-      - "8082:80"
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
     restart: always
