@@ -119,7 +119,7 @@ sleep 5
 echo "setting caddyfile..."
 
 
-wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile
+wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/Caddyfile
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
