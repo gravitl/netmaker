@@ -35,10 +35,6 @@ services:
       CORS_ALLOWED_ORIGIN: "*"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-    ports:
-      - "51821-51830:51821-51830/udp"
-      - "8081:8081"
-      - "50051:50051"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
@@ -46,8 +42,6 @@ services:
     image: gravitl/netmaker-ui:v0.8.5
     links:
       - "netmaker:api"
-    ports:
-      - "8082:80"
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
     restart: always
@@ -67,7 +61,14 @@ services:
     image: caddy:latest
     container_name: caddy
     restart: unless-stopped
-    network_mode: host # Wants ports 80 and 443!
+    links:
+      - netmaker:api
+      - netmaker-ui:ui
+    ports:
+      - 80:80
+      - 443:443
+    cap_add:
+      - cap_net_bind_service
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
       # - $PWD/site:/srv # you could also serve a static site in site folder
