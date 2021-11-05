@@ -220,7 +220,7 @@ sleep 10
 
 echo "configuring netmaker server vpn gateway..."
 
-[ -z "$GATEWAY_IFACE" ] && GATEWAY_IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)')
+[ -z "$GATEWAY_IFACE" ] && GATEWAY_IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | grep -v default)
 
 echo "gateway iface: $GATEWAY_IFACE"
 
