@@ -39,6 +39,7 @@ jobs:
           env GOOS=linux GOARCH=arm GOARM=6 go build -o build/netclient-arm6/netclient main.go
           env GOOS=linux GOARCH=arm GOARM=7 go build -o build/netclient-arm7/netclient main.go
           env GOOS=linux GOARCH=arm64 go build -o build/netclient-arm64/netclient main.go
+          env GOOS=linux GOARCH=mipsle go build -ldflags "-s -w" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
 
       - name: Upload x86 to Release
         uses: svenstaro/upload-release-action@v2
@@ -89,3 +90,13 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-arm64
+
+      - name: Upload mipsle to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mipsle/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mipsle
