@@ -126,7 +126,7 @@ sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
 echo "setting docker-compose..."
 
-wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.caddy.yml
+wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.contained.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/COREDNS_IP/$COREDNS_IP/g" /root/docker-compose.yml
