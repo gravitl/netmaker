@@ -283,6 +283,9 @@ func WipeLocal(network string) error {
 	if ncutils.FileExists(home + "netconfig-" + network) {
 		_ = os.Remove(home + "netconfig-" + network)
 	}
+	if ncutils.FileExists(home + "backup.netconfig-" + network) {
+		_ = os.Remove(home + "backup.netconfig-" + network)
+	}
 	if ncutils.FileExists(home + "nettoken-" + network) {
 		_ = os.Remove(home + "nettoken-" + network)
 	}
