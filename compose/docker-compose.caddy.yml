@@ -14,6 +14,7 @@ services:
       - sqldata:/root/data
     cap_add: 
       - NET_ADMIN
+      - NET_RAW
       - SYS_ADMIN
     restart: always
     network_mode: host
@@ -35,10 +36,6 @@ services:
       CORS_ALLOWED_ORIGIN: "*"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-    ports:
-      - "51821-51830:51821-51830/udp"
-      - "8081:8081"
-      - "50051:50051"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
