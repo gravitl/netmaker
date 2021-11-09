@@ -2,7 +2,6 @@ package wireguard
 
 import (
 	"io/ioutil"
-
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -50,7 +49,8 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 
 // ApplyWGQuickConf - applies wg-quick commands if os supports
 func ApplyWGQuickConf(confPath string) error {
-	if _, err := ncutils.RunCmd("wg-quick up "+confPath, true); err != nil {
+	_, _ = ncutils.RunCmd("wg-quick down "+confPath, false)
+	if _, err := ncutils.RunCmd("wg-quick up "+confPath, false); err != nil {
 		return err
 	}
 	return nil

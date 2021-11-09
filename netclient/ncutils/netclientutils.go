@@ -1,6 +1,8 @@
 package ncutils
 
 import (
+	"context"
+	"syscall"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -16,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -368,8 +369,14 @@ func Copy(src, dst string) (int64, error) {
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {
 	args := strings.Fields(command)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+        defer cancel()
 	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Wait()
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	go func() {
+		<- ctx.Done()
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
 		log.Println("error running command:", command)
