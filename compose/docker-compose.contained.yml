@@ -28,6 +28,7 @@ services:
       SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
       DATABASE: "sqlite"
+      NODE_ID: "netmaker-server-1"
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
@@ -56,6 +57,19 @@ services:
       - "COREDNS_IP:53:53/tcp"
     volumes:
       - dnsconfig:/root/dnsconfig
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    restart: unless-stopped
+    network_mode: host # Wants ports 80 and 443!
+    volumes:
+      - /root/Caddyfile:/etc/caddy/Caddyfile
+      # - $PWD/site:/srv # you could also serve a static site in site folder
+      - caddy_data:/data
+      - caddy_conf:/config
 volumes:
+  caddy_data: {}
+  caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
+
