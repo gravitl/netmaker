@@ -3,32 +3,35 @@ package ncutils
 import (
 	"strconv"
 	"strings"
-	"bufio"
 	"net"
 	"time"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func GetPeers(iface string) ([]wgtypes.Peer, error) {
-	
+
 	var peers []wgtypes.Peer
-	
 	output, err := RunCmd("wg show "+iface+" dump",true)
 	if err != nil {
 		return peers, err
 	}
-	scanner := bufio.NewScanner(strings.NewReader(output))
-	for scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			Log("err reading standard input:"+ err.Error())
-			return peers, err
+	for i, line := range strings.Split(strings.TrimSuffix(output, "\n"), "\n") {
+		if i == 0 {
+			continue
 		}
 		var allowedIPs []net.IPNet
-		fields := strings.Fields(scanner.Text())
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			Log("error parsing peer: "+line)
+			continue
+		}
 		pubkeystring := fields[0]
-		endpointstring := fields[1]
+		endpointstring := fields[2]
 		allowedipstring := fields[3]
-		pkeepalivestring := fields[7]
+		var pkeepalivestring string
+		if len(fields) > 7 {
+			pkeepalivestring = fields[7]
+		}
 		// AllowedIPs = private IP + defined networks
 
 		pubkey, err := wgtypes.ParseKey(pubkeystring)
@@ -39,7 +42,7 @@ func GetPeers(iface string) ([]wgtypes.Peer, error) {
 		ipstrings := strings.Split(allowedipstring, ",")
 		for _, ipstring := range ipstrings {
 			var netip net.IP
-			if netip = net.ParseIP(ipstring); netip != nil {
+			if netip = net.ParseIP(strings.Split(ipstring,"/")[0]); netip != nil {
 				allowedIPs = append(
 					allowedIPs,
 					net.IPNet{
