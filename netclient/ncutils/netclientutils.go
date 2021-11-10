@@ -66,6 +66,11 @@ func IsLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
+// IsLinux - checks if is linux
+func IsFreeBSD() bool {
+	return runtime.GOOS == "freebsd"
+}
+
 // GetWireGuard - checks if wg is installed
 func GetWireGuard() string {
 	userspace := os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION")

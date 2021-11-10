@@ -279,7 +279,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	if peerupdate && runtime.GOOS != "freebsd"{
+	if peerupdate {
 		var iface string
 		iface = nodecfg.Interface
 		if ncutils.IsMac() {

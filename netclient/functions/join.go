@@ -91,12 +91,18 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 
+	if ncutils.IsFreeBSD() {
+		cfg.Node.UDPHolePunch = "no"
+		cfg.Node.IsStatic = "yes"
+	}
+
 	// differentiate between client/server here
 	var node models.Node // fill this node with appropriate calls
 	postnode := &models.Node{
 		Password:            cfg.Node.Password,
 		MacAddress:          cfg.Node.MacAddress,
 		AccessKey:           cfg.Server.AccessKey,
+		IsStatic:            cfg.Node.IsStatic,
 		Network:             cfg.Network,
 		ListenPort:          cfg.Node.ListenPort,
 		PostUp:              cfg.Node.PostUp,
@@ -165,6 +171,11 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 		node.Endpoint = node.LocalAddress
 	}
+	if ncutils.IsFreeBSD() {
+		node.UDPHolePunch = "no"
+		cfg.Node.IsStatic = "yes"
+	}
+
 	if node.IsServer != "yes" { // == handle client side ==
 		err = config.ModConfig(&node)
 		if err != nil {
