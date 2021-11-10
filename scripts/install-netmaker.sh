@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -21,97 +23,83 @@ cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
 
-echo "Setting flags..."
-
-while getopts d:e:m:v:c: flag
-do
-    case "${flag}" in
-    	d) domain=${OPTARG};;
-        e) email=${OPTARG};;
-        m) addmesh=${OPTARG};;
-        v) addvpn=${OPTARG};;
-        c) num_clients=${OPTARG};;
-    esac
-done
-
-echo "Checking permissions..."
-
-
-if [ $EUID -ne 0 ]; then
-   echo "This script must be run as root" 
-   exit 1
-fi
-
-echo "Checking dependencies..."
-
-declare -A osInfo;
-osInfo[/etc/debian_version]="apt-get install -y"
-osInfo[/etc/alpine-release]="apk --update add"
-osInfo[/etc/centos-release]="yum install -y"
-osInfo[/etc/fedora-release]="dnf install -y"
-
-for f in ${!osInfo[@]}
-do
-    if [[ -f $f ]];then
-        install_cmd=${osInfo[$f]}
-    fi
-done
-
-dependencies=("docker.io" "docker-compose" "wireguard" "jq")
-
-for dependency in ${dependencies[@]}; do
-    is_installed=$(dpkg-query -W --showformat='${Status}\n' ${dependency} | grep "install ok installed")
-
-    if [ "${is_installed}" == "install ok installed" ]; then
-        echo '[x] ' ${dependency} is installed
-    else
-            echo '[ ] ' ${dependency} is not installed. Attempting install.
-            ${install_cmd} ${dependency}
-            sleep 5
-            is_installed=$(dpkg-query -W --showformat='${Status}\n' ${dependency} | grep "install ok installed")
-            if [ "${is_installed}" == "install ok installed" ]; then
-                echo "    " ${dependency} is installed
-            elif [ -x "$(command -v ${dependency})" ]; then
-                echo '[x] ' ${dependency} is installed
-            else
-                echo Failed to install ${dependency}. Exiting.
-                exit 1
-            fi
-    fi
-done
-
-set -e
-
 NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 EMAIL="fake@email.com"
 
+echo "Default Base Domain: $NETMAKER_BASE_DOMAIN"
+echo "To Override, add a Wildcard (*.netmaker.example.com) DNS record pointing to $SERVER_PUBLIC_IP"
+echo "Or, add three DNS records pointing to $SERVER_PUBLIC_IP for the following (Replacing 'netmaker.example.com' with the domain of your choice):"
+echo "   dashboard.netmaker.example.com"
+echo "         api.netmaker.example.com"
+echo "        grpc.netmaker.example.com"
+echo "-----------------------------------------------------"
+read -p "Domain (Hit 'enter' to use $NETMAKER_BASE_DOMAIN): " domain
+read -p "Contact Email: " email
+
 if [ -n "$domain" ]; then
   NETMAKER_BASE_DOMAIN=$domain
 fi
-
 if [ -n "$email" ]; then
   EMAIL=$email
 fi
 
-if [ -n "$addmesh" ]; then
-  MESH_SETUP=$addmesh
-else
-  MESH_SETUP="true"
-fi
+while true; do
+    read -p "Configure a default network automatically? " yn
+    case $yn in
+        [Yy]* ) MESH_SETUP="true"; break;;
+        [Nn]* ) MESH_SETUP="false"; break;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
 
-if [ -n "$addvpn" ]; then
-  VPN_SETUP=$addvpn
-else
-  VPN_SETUP="false"
+while true; do
+    read -p "Configure a VPN gateway automatically? " yn
+    case $yn in
+        [Yy]* ) VPN_SETUP="true"; break;;
+        [Nn]* ) VPN_SETUP="false"; break;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
+if [ "${VPN_SETUP}" == "true" ]; then
+while :; do
+    read -ep '# of VPN clients to configure by default: ' num_clients
+    [[ $num_clients =~ ^[[:digit:]]+$ ]] || continue
+    (( ( (num_clients=(10#$num_clients)) <= 200 ) && num_clients >= 0 )) || continue
+    break
+done
 fi
 
 if [ -n "$num_clients" ]; then
   NUM_CLIENTS=$num_clients
-else
-  NUM_CLIENTS=5
+fi
+
+while true; do
+    read -p "Override master key ($MASTER_KEY)? " yn
+    case $yn in
+        [Yy]* ) override="true"; break;;
+        [Nn]* ) override="false"; break;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
+if [ "${override}" == "true" ]; then
+while :; do
+    read -ep 'New Master Key: ' key
+    result="$(cracklib-check <<<"$key")"
+    okay="$(awk -F': ' '{ print $2}' <<<"$result")"
+    if [[ "$okay" == "OK" ]]
+    then
+	MASTER_KEY=$key
+	break
+    else
+	echo "Your password was rejected - $result"
+        echo "Try again."
+    fi
+done
 fi
 
 echo "-----------------------------------------------------------------"
@@ -127,19 +115,29 @@ echo "    setup vpn?: $VPN_SETUP"
 if [ "${VPN_SETUP}" == "true" ]; then
 echo "     # clients: $NUM_CLIENTS"
 fi
-echo "-----------------------------------------------------------------"
-echo "-----------------------------------------------------------------"
-echo "Waiting 10 seconds to begin installation..."
-sleep 10
+
+while true; do
+    read -p "Does everything look right? " yn
+    case $yn in
+        [Yy]* ) override="true"; break;;
+        [Nn]* ) echo "exiting..."; exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
+
+echo "Beginning installation in 5 seconds..."
+
+sleep 5
+
+
 echo "Setting Caddyfile..."
 
-wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
 echo "Setting docker-compose..."
 
-wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/hotfix_v0.8.5_ncinstall/compose/docker-compose.contained.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/COREDNS_IP/$COREDNS_IP/g" /root/docker-compose.yml
@@ -288,3 +286,5 @@ fi
 
 echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
 echo "Visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
+
+cp -f /etc/skel/.bashrc /root/.bashrc
