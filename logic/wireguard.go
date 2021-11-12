@@ -45,30 +45,7 @@ func RemoveConf(iface string, printlog bool) error {
 	return err
 }
 
-// == Private Methods ==
-
-func setWGConfig(node models.Node, network string, peerupdate bool) error {
-
-	node.SetID()
-	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, node.Network, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
-	if err != nil {
-		return err
-	}
-	privkey, err := FetchPrivKey(node.ID)
-	if err != nil {
-		return err
-	}
-	if peerupdate {
-		var iface string
-		iface = node.Interface
-		err = setServerPeers(iface, node.PersistentKeepalive, peers)
-		Log("updated peers on server "+node.Name, 2)
-	} else {
-		err = initWireguard(&node, privkey, peers, hasGateway, gateways)
-		Log("finished setting wg config on server "+node.Name, 3)
-	}
-	return err
-}
+// Private Functions
 
 func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string, fwmark int32) error {
 
@@ -290,7 +267,29 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 	return nil
 }
 
-func setWGConfig(node models.Node) error {
+func setWGConfig(node models.Node, network string, peerupdate bool) error {
+
+	node.SetID()
+	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, node.Network, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
+	if err != nil {
+		return err
+	}
+	privkey, err := FetchPrivKey(node.ID)
+	if err != nil {
+		return err
+	}
+	if peerupdate {
+		var iface string = node.Interface
+		err = setServerPeers(iface, node.PersistentKeepalive, peers)
+		Log("updated peers on server "+node.Name, 2)
+	} else {
+		err = initWireguard(&node, privkey, peers, hasGateway, gateways, 0)
+		Log("finished setting wg config on server "+node.Name, 3)
+	}
+	return err
+}
+
+func setWGKeyConfig(node models.Node) error {
 
 	node.SetID()
 	privatekey, err := wgtypes.GeneratePrivateKey()

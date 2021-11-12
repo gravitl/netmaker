@@ -220,7 +220,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	ncutils.Log("starting wireguard")
-	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways)
+	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways, false)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package wireguard
 
 import (
 	"io/ioutil"
+
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -50,18 +51,20 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 // ApplyWGQuickConf - applies wg-quick commands if os supports
 func ApplyWGQuickConf(confPath string) error {
 	_, _ = ncutils.RunCmd("wg-quick down "+confPath, false)
-	if _, err := ncutils.RunCmd("wg-quick up "+confPath, false); err != nil {
-		return err
-	}
-	return nil
+	_, err := ncutils.RunCmd("wg-quick up "+confPath, false)
+	return err
+}
+
+// ApplyWGQuickConf - applies wg-quick commands if os supports
+func SyncWGQuickConf(confPath string) error {
+	_, err := ncutils.RunCmd("wg-quick down "+confPath, false)
+	return err
 }
 
 // RemoveWGQuickConf - calls wg-quick down
 func RemoveWGQuickConf(confPath string, printlog bool) error {
-	if _, err := ncutils.RunCmd("wg-quick down "+confPath, printlog); err != nil {
-		return err
-	}
-	return nil
+	_, err := ncutils.RunCmd("wg-quick down "+confPath, printlog)
+	return err
 }
 
 // StorePrivKey - stores wg priv key on disk locally
