@@ -2,7 +2,6 @@ package ncutils
 
 import (
 	"context"
-	"syscall"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -17,7 +16,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -188,14 +189,18 @@ PersistentKeepAlive = %s
 }
 
 // CreateUserSpaceConf - creates a user space WireGuard conf
-func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
+func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, fwmark int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	peersString, err := parsePeers(perskeepalive, peers)
-	listenPortString := ""
+	var listenPortString string
+	var fwmarkString string
 	if mtu <= 0 {
 		mtu = 1280
 	}
 	if listenPort != "" {
 		listenPortString += "ListenPort = " + listenPort
+	}
+	if fwmark != 0 {
+		fwmarkString += "FWMark = " + strconv.Itoa(int(fwmark))
 	}
 	if err != nil {
 		return "", err
@@ -205,6 +210,7 @@ Address = %s
 PrivateKey = %s
 MTU = %s
 %s
+%s
 
 %s
 
@@ -213,6 +219,7 @@ MTU = %s
 		privatekey,
 		strconv.Itoa(int(mtu)),
 		listenPortString,
+		fwmarkString,
 		peersString)
 	return config, nil
 }
@@ -342,44 +349,44 @@ func GRPCRequestOpts(isSecure string) grpc.DialOption {
 }
 
 // Copy - copies a src file to dest
-func Copy(src, dst string) (int64, error) {
+func Copy(src, dst string) error {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	if !sourceFileStat.Mode().IsRegular() {
-		return 0, errors.New(src + " is not a regular file")
+		return errors.New(src + " is not a regular file")
 	}
 
 	source, err := os.Open(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer source.Close()
 
 	destination, err := os.Create(dst)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
-	err = os.Chmod(dst, 0755)
+	_, err = io.Copy(destination, source)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
-	return nBytes, err
+	err = os.Chmod(dst, 0755)
+	return err
 }
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {
 	args := strings.Fields(command)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-        defer cancel()
+	defer cancel()
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	go func() {
-		<- ctx.Done()
+		<-ctx.Done()
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}()
 	out, err := cmd.CombinedOutput()

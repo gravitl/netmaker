@@ -35,7 +35,7 @@ func SetupSystemDDaemon(interval string) error {
 		os.Symlink("/etc/netclient/netclient", "/usr/local/bin/netclient")
 	}
 	if !ncutils.FileExists("/etc/netclient/netclient") {
-		_, err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
+		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
 		if err != nil {
 			log.Println(err)
 			return err

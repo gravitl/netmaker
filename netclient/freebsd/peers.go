@@ -1,21 +1,11 @@
 package wireguard
 
 import (
-	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
-	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/netclient/server"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )

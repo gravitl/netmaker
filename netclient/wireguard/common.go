@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -30,23 +31,23 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 			return err
 		}
 	} else {
-	client, err := wgctrl.New()
-	if err != nil {
-		ncutils.PrintLog("failed to start wgctrl", 0)
-		return err
-	}
-	device, err := client.Device(iface)
-	if err != nil {
-		ncutils.PrintLog("failed to parse interface", 0)
-		return err
-	}
-	devicePeers = device.Peers
+		client, err := wgctrl.New()
+		if err != nil {
+			ncutils.PrintLog("failed to start wgctrl", 0)
+			return err
+		}
+		device, err := client.Device(iface)
+		if err != nil {
+			ncutils.PrintLog("failed to parse interface", 0)
+			return err
+		}
+		devicePeers = device.Peers
 	}
 	if len(devicePeers) > 1 && len(peers) == 0 {
 		ncutils.PrintLog("no peers pulled", 1)
 		return err
 	}
-
+PEERS:
 	for _, peer := range peers {
 
 		for _, currentPeer := range devicePeers {
@@ -56,7 +57,13 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 				if err != nil {
 					log.Println("error removing peer", peer.Endpoint.String())
 				}
+			} else if currentPeer.PublicKey.String() == peer.PublicKey.String() &&
+				currentPeer.Endpoint.String() == peer.Endpoint.String() &&
+				reflect.DeepEqual(currentPeer.AllowedIPs, peer.AllowedIPs) {
+
+				continue PEERS
 			}
+
 		}
 		udpendpoint := peer.Endpoint.String()
 		var allowedips string
@@ -67,7 +74,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		allowedips = strings.Join(iparr, ",")
 		keepAliveString := strconv.Itoa(int(keepalive))
 		if keepAliveString == "0" {
-			keepAliveString = "5"
+			keepAliveString = "15"
 		}
 		if peer.Endpoint != nil {
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
@@ -119,7 +126,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		return err
 	}
-
+	fwmark := modcfg.FWMark
 	nodecfg := modcfg.Node
 	servercfg := modcfg.Server
 
@@ -174,9 +181,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if !ncutils.IsKernel() {
 		var newConf string
 		if node.UDPHolePunch != "yes" {
-			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, node.PersistentKeepalive, peers)
+			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, fwmark, node.PersistentKeepalive, peers)
 		} else {
-			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, node.PersistentKeepalive, peers)
+			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, fwmark, node.PersistentKeepalive, peers)
 		}
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
