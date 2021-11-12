@@ -195,7 +195,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			}
 		}
 		if syncconf {
-			err = wgclient.ConfigureDevice(deviceiface, conf)
+			err = SyncWGQuickConf(ifacename, confPath)
 		} else {
 			d, _ := wgclient.Device(deviceiface)
 			for d != nil && d.Name == deviceiface {
@@ -332,21 +332,6 @@ func ApplyConf(confPath string) error {
 		_ = ApplyWindowsConf(confPath)
 	default:
 		err = ApplyWGQuickConf(confPath)
-	}
-	return err
-}
-
-// ApplyConf - applys a conf on disk to WireGuard interface
-func SyncConf(confPath string) error {
-	os := runtime.GOOS
-	var err error
-	switch os {
-	/*
-		case "windows":
-			_ = SyncWindowsConf(confPath)
-	*/
-	default:
-		err = SyncWGQuickConf(confPath)
 	}
 	return err
 }
