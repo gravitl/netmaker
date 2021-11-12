@@ -2,6 +2,7 @@ package wireguard
 
 import (
 	"io/ioutil"
+	"os"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -57,7 +58,25 @@ func ApplyWGQuickConf(confPath string) error {
 
 // ApplyWGQuickConf - applies wg-quick commands if os supports
 func SyncWGQuickConf(confPath string) error {
-	_, err := ncutils.RunCmd("wg-quick down "+confPath, false)
+	var tmpConf = confPath + ".sync.tmp"
+	conf, err := ncutils.RunCmd("wg-quick strip "+confPath, false)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(tmpConf, []byte(conf), 0644)
+	if err != nil {
+		return err
+	}
+	_, err = ncutils.RunCmd("wg sync "+confPath, false)
+	if err != nil {
+		ncutils.Log("error syncing conf, resetting")
+		err = ApplyWGQuickConf(confPath)
+	}
+	errN := os.Remove(tmpConf)
+	if errN != nil {
+		ncutils.Log(errN.Error())
+	}
+
 	return err
 }
 
