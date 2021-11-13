@@ -105,5 +105,5 @@ else
 	wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/latest/$dist
 fi
 chmod +x netclient
-sudo ./netclient join -t $KEY
+./netclient join -t $KEY
 rm -f netclient
