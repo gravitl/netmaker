@@ -1,7 +1,6 @@
 package ncutils
 
 import (
-	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -36,6 +34,9 @@ const LINUX_APP_DATA_PATH = "/etc/netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
+
+// WINDOWS_APP_DATA_PATH - windows path
+const WINDOWS_WG_DATA_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
 
 // WINDOWS_SVC_NAME - service name
 const WINDOWS_SVC_NAME = "netclient"
@@ -337,6 +338,15 @@ func GetNetclientPathSpecific() string {
 	}
 }
 
+// GetNetclientPathSpecific - gets specific netclient config path
+func GetWGPathSpecific() string {
+	if IsWindows() {
+		return WINDOWS_WG_DATA_PATH + "\\"
+	} else {
+		return "/etc/wireguard/"
+	}
+}
+
 // GRPCRequestOpts - gets grps request opts
 func GRPCRequestOpts(isSecure string) grpc.DialOption {
 	var requestOpts grpc.DialOption
@@ -381,6 +391,19 @@ func Copy(src, dst string) error {
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {
 	args := strings.Fields(command)
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Wait()
+	out, err := cmd.CombinedOutput()
+	if err != nil && printerr {
+		log.Println("error running command:", command)
+		log.Println(strings.TrimSuffix(string(out), "\n"))
+	}
+	return string(out), err
+}
+
+/* new version - cant build on windows
+func RunCmd(command string, printerr bool) (string, error) {
+	args := strings.Fields(command)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	cmd := exec.Command(args[0], args[1:]...)
@@ -396,6 +419,7 @@ func RunCmd(command string, printerr bool) (string, error) {
 	}
 	return string(out), err
 }
+*/
 
 // RunsCmds - runs cmds
 func RunCmds(commands []string, printerr bool) error {

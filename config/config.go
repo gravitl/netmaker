@@ -66,6 +66,7 @@ type ServerConfig struct {
 	ClientID              string `yaml:"clientid"`
 	ClientSecret          string `yaml:"clientsecret"`
 	FrontendURL           string `yaml:"frontendurl"`
+	DisplayKeys           string `yaml:"displaykeys"`
 }
 
 // Generic SQL Config

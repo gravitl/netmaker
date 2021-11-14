@@ -93,6 +93,16 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			Log("error writing wg conf file to "+confPath+": "+err.Error(), 1)
 			return err
 		}
+		if ncutils.IsWindows() {
+			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
+			Log("writing wg conf file to: "+confPath, 1)
+			err = ioutil.WriteFile(wgConfPath, []byte(newConf), 0644)
+			if err != nil {
+				Log("error writing wg conf file to "+wgConfPath+": "+err.Error(), 1)
+				return err
+			}
+			confPath = wgConfPath
+		}
 		// spin up userspace + apply the conf file
 		var deviceiface = ifacename
 		d, _ := wgclient.Device(deviceiface)

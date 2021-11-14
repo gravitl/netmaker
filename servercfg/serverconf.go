@@ -54,6 +54,10 @@ func GetServerConfig() config.ServerConfig {
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
+	cfg.DisplayKeys = "off"
+	if IsDisplayKeys() {
+		cfg.DisplayKeys = "on"
+	}
 	cfg.GRPCSSL = "off"
 	if IsGRPCSSL() {
 		cfg.GRPCSSL = "on"
@@ -321,6 +325,21 @@ func IsDNSMode() bool {
 		}
 	}
 	return isdns
+}
+
+// IsDisplayKeys - should server be able to display keys?
+func IsDisplayKeys() bool {
+	isdisplay := true
+	if os.Getenv("DISPLAY_KEYS") != "" {
+		if os.Getenv("DISPLAY_KEYS") == "off" {
+			isdisplay = false
+		}
+	} else if config.Config.Server.DisplayKeys != "" {
+		if config.Config.Server.DisplayKeys == "off" {
+			isdisplay = false
+		}
+	}
+	return isdisplay
 }
 
 // IsGRPCSSL - ssl grpc on or off

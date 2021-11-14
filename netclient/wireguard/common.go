@@ -186,6 +186,16 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
 			return err
 		}
+		if ncutils.IsWindows() {
+			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
+			ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
+			err = ioutil.WriteFile(wgConfPath, []byte(newConf), 0644)
+			if err != nil {
+				ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
+				return err
+			}
+			confPath = wgConfPath
+		}
 		// spin up userspace / windows interface + apply the conf file
 		var deviceiface string
 		if ncutils.IsMac() {
@@ -268,6 +278,13 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			log.Println("[netclient] adding address: "+node.Address6, 1)
 			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
 		}
+	}
+
+	//extra network route setting required for freebsd and windows
+	if ncutils.IsWindows() {
+		_, _ = ncutils.RunCmd("route add -net "+subnet+" -interface "+ifacename, true)
+	} else if ncutils.IsFreeBSD() {
+		_, _ = ncutils.RunCmd(ipExec+" -4 route add "+gateway+" dev "+ifacename, true)
 	}
 
 	return err
