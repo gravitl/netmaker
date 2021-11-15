@@ -11,7 +11,7 @@ start() {
   if [ ! -f "${LOG_FILE}" ];then
       touch "${LOG_FILE}"
   fi
-  local PID=$(ps -ef|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
+  local PID=$(ps -e|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
   if [ "${PID}" ];then
     echo "service is running"
     return
@@ -22,7 +22,7 @@ start() {
 }
 
 stop() {
-  local PID=$(ps -ef|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
+  local PID=$(ps -e|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
   if [ "${PID}" ];then
     kill "${PID}"
   fi
@@ -30,7 +30,7 @@ stop() {
 }
 
 status() {
-  local PID=$(ps -ef|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
+  local PID=$(ps -e|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
   if [ "${PID}" ];then
     echo -e "netclient[${PID}] is running \n"
   else
