@@ -29,9 +29,8 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   tags: ghcr.io/gravitl/netmaker:testing
-            - name: Deploy Testing Server and Client(s)
-              run: |
-                  curl -X POST https://api.github.com/mattkasun/terraform-test/dispatches \
-                  -H 'Accept: application/vnd.github.everest-preview+json' \
-                  -u ${{ secrets.ACCESS_TOKEN }} 
-
+            #- name: Deploy Testing Server and Client(s)
+            #  run: |
+            #      curl -X POST https://api.github.com/mattkasun/terraform-test/dispatches \
+            #      -H 'Accept: application/vnd.github.everest-preview+json' \
+            #      -u ${{ secrets.ACCESS_TOKEN }} 
