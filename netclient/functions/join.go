@@ -25,7 +25,6 @@ import (
 
 // JoinNetwork - helps a client join a network
 func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
-
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -102,9 +101,9 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
-		cfg.Node.IsStatic = "yes"
 	}
-
+	// make sure name is appropriate, if not, give blank name
+	cfg.Node.Name = formatName(cfg.Node)
 	// differentiate between client/server here
 	var node models.Node // fill this node with appropriate calls
 	postnode := &models.Node{
@@ -232,4 +231,21 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	return err
+}
+
+// format name appropriately. Set to blank on failure
+func formatName(node models.Node) string {
+	// Logic to properly format name
+	if !node.NameInNodeCharSet() {
+		node.Name = ncutils.DNSFormatString(node.Name)
+	}
+	if len(node.Name) > models.MAX_NAME_LENGTH {
+		node.Name = ncutils.ShortenString(node.Name, models.MAX_NAME_LENGTH)
+	}
+	if !node.NameInNodeCharSet() || len(node.Name) > models.MAX_NAME_LENGTH {
+		ncutils.PrintLog("could not properly format name: "+node.Name, 1)
+		ncutils.PrintLog("setting name to blank", 1)
+		node.Name = ""
+	}
+	return node.Name
 }

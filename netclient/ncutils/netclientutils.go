@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -495,4 +496,21 @@ func stringAfter(original string, substring string) string {
 		return ""
 	}
 	return original[adjustedPosition:]
+}
+
+func ShortenString(input string, length int) string {
+	output := input
+	if len(input) > length {
+		output = input[0:length]
+	}
+	return output
+}
+
+func DNSFormatString(input string) string {
+	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
+	if err != nil {
+		Log("error with regex: " + err.Error())
+		return ""
+	}
+	return reg.ReplaceAllString(input, "")
 }

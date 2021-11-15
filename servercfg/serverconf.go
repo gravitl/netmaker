@@ -33,6 +33,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.GRPCHost = GetGRPCHost()
 	cfg.GRPCPort = GetGRPCPort()
 	cfg.MasterKey = "(hidden)"
+	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.Verbosity = GetVerbose()
@@ -246,6 +247,17 @@ func GetMasterKey() string {
 		key = os.Getenv("MASTER_KEY")
 	} else if config.Config.Server.MasterKey != "" {
 		key = config.Config.Server.MasterKey
+	}
+	return key
+}
+
+// GetDNSKey - gets the configured dns key of server
+func GetDNSKey() string {
+	key := "secretkey"
+	if os.Getenv("DNS_KEY") != "" {
+		key = os.Getenv("DNS_KEY")
+	} else if config.Config.Server.DNSKey != "" {
+		key = config.Config.Server.DNSKey
 	}
 	return key
 }

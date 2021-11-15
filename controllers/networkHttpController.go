@@ -116,10 +116,12 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == servercfg.GetMasterKey() {
-		return true
-	}
-	return false
+	return tokenString == servercfg.GetMasterKey()
+}
+
+//Consider a more secure way of setting master key
+func authenticateDNSToken(tokenString string) bool {
+	return tokenString == servercfg.GetDNSKey()
 }
 
 //simple get all networks function

@@ -150,7 +150,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 		if node.PostDown != "" {
 			runcmds := strings.Split(node.PostDown, "; ")
-			_ = ncutils.RunCmds(runcmds, true)
+			_ = ncutils.RunCmds(runcmds, false)
 		}
 		// set MTU of node interface
 		if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {

@@ -44,6 +44,7 @@ type ServerConfig struct {
 	GRPCPort              string `yaml:"grpcport"`
 	GRPCSecure            string `yaml:"grpcsecure"`
 	MasterKey             string `yaml:"masterkey"`
+	DNSKey                string `yaml:"dnskey"`
 	AllowedOrigin         string `yaml:"allowedorigin"`
 	NodeID                string `yaml:"nodeid"`
 	RestBackend           string `yaml:"restbackend"`
