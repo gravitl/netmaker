@@ -282,9 +282,13 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	//extra network route setting required for freebsd and windows
 	if ncutils.IsWindows() {
-		_, _ = ncutils.RunCmd("route add -net "+subnet+" -interface "+ifacename, true)
+		ip, mask, err := ncutils.GetNetworkIPMask(nodecfg.NetworkSettings.AddressRange)
+		if err != nil {
+			return err
+		}
+		_, _ = ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
 	} else if ncutils.IsFreeBSD() {
-		_, _ = ncutils.RunCmd(ipExec+" -4 route add "+gateway+" dev "+ifacename, true)
+		_, _ = ncutils.RunCmd("route add -net "+nodecfg.NetworkSettings.AddressRange+" -interface "+ifacename, true)
 	}
 
 	return err

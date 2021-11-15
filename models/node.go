@@ -31,7 +31,7 @@ type Node struct {
 	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
 	Name                string   `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=32,in_charset"`
-	NetworkSettings     Network  `json:"networksettings" bson:"networksettings" yaml:"networksettings"`
+	NetworkSettings     Network  `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort          int32    `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	PublicKey           string   `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
 	Endpoint            string   `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`
@@ -205,7 +205,7 @@ func (node *Node) SetDefaultName() {
 	}
 }
 
-func (newNode *Node) Fill(currentNode *Node, nodeNetwork *Network) {
+func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.ID == "" {
 		newNode.ID = currentNode.ID
 	}
@@ -351,7 +351,6 @@ func (newNode *Node) Fill(currentNode *Node, nodeNetwork *Network) {
 	if newNode.IsRelayed == "" {
 		newNode.IsRelayed = currentNode.IsRelayed
 	}
-	newNode.NetworkSettings = *nodeNetwork
 }
 
 func StringWithCharset(length int, charset string) string {

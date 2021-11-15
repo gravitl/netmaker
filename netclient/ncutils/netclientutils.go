@@ -272,6 +272,16 @@ func GetLocalIP(localrange string) (string, error) {
 	return local, nil
 }
 
+func GetNetworkIPMask(networkstring string) (string, string, error) {
+	ip, ipnet, err := net.ParseCIDR(networkstring)
+	if err != nil {
+		return "", "", err
+	}
+	ipstring := ip.String()
+	maskstring := ipnet.Mask.String()
+	return ipstring, maskstring, err
+}
+
 // GetFreePort - gets free port of machine
 func GetFreePort(rangestart int32) (int32, error) {
 	if rangestart == 0 {

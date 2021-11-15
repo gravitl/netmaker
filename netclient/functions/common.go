@@ -206,6 +206,16 @@ func LeaveNetwork(network string) error {
 			}
 		}
 	}
+	//extra network route setting required for freebsd and windows
+	if ncutils.IsWindows() {
+		ip, mask, err := ncutils.GetNetworkIPMask(node.NetworkSettings.AddressRange)
+		if err != nil {
+			ncutils.PrintLog(err.Error(), 1)
+		}
+		_, _ = ncutils.RunCmd("route delete "+ip+" mask "+mask+" "+node.Address, true)
+	} else if ncutils.IsFreeBSD() {
+		_, _ = ncutils.RunCmd("route del -net "+node.NetworkSettings.AddressRange+" -interface "+node.Interface, true)
+	}
 	return RemoveLocalInstance(cfg, network)
 }
 
