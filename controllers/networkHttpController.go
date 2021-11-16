@@ -20,6 +20,8 @@ import (
 
 const ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
 const NO_NETWORKS_PRESENT = "THIS_USER_HAS_NONE"
+const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
+const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 
 func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", securityCheck(false, http.HandlerFunc(getNetworks))).Methods("GET")
@@ -114,10 +116,12 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == servercfg.GetMasterKey() {
-		return true
-	}
-	return false
+	return tokenString == servercfg.GetMasterKey()
+}
+
+//Consider a more secure way of setting master key
+func authenticateDNSToken(tokenString string) bool {
+	return tokenString == servercfg.GetDNSKey()
 }
 
 //simple get all networks function
@@ -572,6 +576,9 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	if !servercfg.IsDisplayKeys() {
+		keys = RemoveKeySensitiveInfo(keys)
+	}
 	functions.PrintUserLog(r.Header.Get("user"), "fetched access keys on network "+network, 2)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(keys)
@@ -632,4 +639,14 @@ func DeleteKey(keyname, netname string) error {
 	}
 
 	return nil
+}
+
+func RemoveKeySensitiveInfo(keys []models.AccessKey) []models.AccessKey {
+	var returnKeys []models.AccessKey
+	for _, key := range keys {
+		key.Value = PLACEHOLDER_KEY_TEXT
+		key.AccessString = PLACEHOLDER_TOKEN_TEXT
+		returnKeys = append(returnKeys, key)
+	}
+	return returnKeys
 }

@@ -33,6 +33,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.GRPCHost = GetGRPCHost()
 	cfg.GRPCPort = GetGRPCPort()
 	cfg.MasterKey = "(hidden)"
+	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.Verbosity = GetVerbose()
@@ -53,6 +54,10 @@ func GetServerConfig() config.ServerConfig {
 	cfg.DNSMode = "off"
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
+	}
+	cfg.DisplayKeys = "off"
+	if IsDisplayKeys() {
+		cfg.DisplayKeys = "on"
 	}
 	cfg.GRPCSSL = "off"
 	if IsGRPCSSL() {
@@ -246,6 +251,17 @@ func GetMasterKey() string {
 	return key
 }
 
+// GetDNSKey - gets the configured dns key of server
+func GetDNSKey() string {
+	key := "secretkey"
+	if os.Getenv("DNS_KEY") != "" {
+		key = os.Getenv("DNS_KEY")
+	} else if config.Config.Server.DNSKey != "" {
+		key = config.Config.Server.DNSKey
+	}
+	return key
+}
+
 // GetAllowedOrigin - get the allowed origin
 func GetAllowedOrigin() string {
 	allowedorigin := "*"
@@ -321,6 +337,21 @@ func IsDNSMode() bool {
 		}
 	}
 	return isdns
+}
+
+// IsDisplayKeys - should server be able to display keys?
+func IsDisplayKeys() bool {
+	isdisplay := true
+	if os.Getenv("DISPLAY_KEYS") != "" {
+		if os.Getenv("DISPLAY_KEYS") == "off" {
+			isdisplay = false
+		}
+	} else if config.Config.Server.DisplayKeys != "" {
+		if config.Config.Server.DisplayKeys == "off" {
+			isdisplay = false
+		}
+	}
+	return isdisplay
 }
 
 // IsGRPCSSL - ssl grpc on or off
