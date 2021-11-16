@@ -17,7 +17,7 @@ elif [ -f /etc/centos-release ]; then
 	install_cmd='yum install -y'
 elif [ -f /etc/fedora-release ]; then
 	install_cmd='dnf install -y'
-elif [ OS == "FreeBSD" ]; then
+elif [ "${OS}" = "FreeBSD" ]; then
 	install_cmd='pkg install -y'
 else
 	install_cmd=''
@@ -31,7 +31,7 @@ dependencies="wireguard"
 set -- $dependencies
 while [ -n "$1" ]; do
     echo $1
-	if [ OS == "FreeBSD" ]; then
+	if [ "${OS}" = "FreeBSD" ]; then
 		is_installed=$(pkg check -d $1 | grep '100%')
 		if [ "${is_installed}" = '100%' ]; then
 			echo "    " $1 is installed
@@ -161,20 +161,20 @@ else
 fi
 chmod +x netclient
 
-EXTRA_ARGS = ""
-if [ OS == "FreeBSD" ]; then
+EXTRA_ARGS=""
+if [ "${OS}" = "FreeBSD" ]; then
 	EXTRA_ARGS = "--daemon=off"
 fi
 
 if [ -z "${NAME}" ]; then
-sudo ./netclient join -t $KEY EXTRA_ARGS
+sudo ./netclient join -t $KEY $EXTRA_ARGS
 else
-sudo ./netclient join -t $KEY --name $NAME EXTRA_ARGS
+sudo ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
 fi
 
 rm -f netclient
 
-if [ OS == "FreeBSD" ]; then
+if [ "${OS}" = "FreeBSD" ]; then
 	tee /usr/local/etc/rc.d/netclient <<'EOF' >/dev/null
 #!/bin/sh
 
