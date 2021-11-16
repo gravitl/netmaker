@@ -167,9 +167,9 @@ if [ "${OS}" = "FreeBSD" ]; then
 fi
 
 if [ -z "${NAME}" ]; then
-sudo ./netclient join -t $KEY $EXTRA_ARGS
+  ./netclient join -t $KEY $EXTRA_ARGS
 else
-sudo ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
+  ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
 fi
 
 rm -f netclient
