@@ -412,26 +412,6 @@ func RunCmd(command string, printerr bool) (string, error) {
 	return string(out), err
 }
 
-/* new version - cant build on windows
-func RunCmd(command string, printerr bool) (string, error) {
-	args := strings.Fields(command)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	go func() {
-		<-ctx.Done()
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-	}()
-	out, err := cmd.CombinedOutput()
-	if err != nil && printerr {
-		log.Println("error running command:", command)
-		log.Println(strings.TrimSuffix(string(out), "\n"))
-	}
-	return string(out), err
-}
-*/
-
 // RunsCmds - runs cmds
 func RunCmds(commands []string, printerr bool) error {
 	var err error
