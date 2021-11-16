@@ -13,6 +13,7 @@ import (
 
 const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const TEN_YEARS_IN_SECONDS = 300000000
+const MAX_NAME_LENGTH = 62
 
 // == ACTIONS == (can only be set by GRPC)
 const NODE_UPDATE_KEY = "updatekey"
@@ -30,7 +31,8 @@ type Node struct {
 	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
-	Name                string   `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=32,in_charset"`
+	Name                string   `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
+	NetworkSettings     Network  `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort          int32    `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	PublicKey           string   `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
 	Endpoint            string   `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`

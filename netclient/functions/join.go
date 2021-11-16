@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"os/exec"
+	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -23,7 +25,6 @@ import (
 
 // JoinNetwork - helps a client join a network
 func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
-
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -34,6 +35,13 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
 			return err
 		}
+		if cfg.FWMark == 0 {
+			rand.Seed(time.Now().UnixNano())
+			var min int32 = 1000
+			var max int32 = 9999
+			cfg.FWMark = rand.Int31n(max-min) + min
+		}
+
 		err = config.Write(&cfg, cfg.Network)
 		if err != nil {
 			return err
@@ -91,12 +99,18 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 
+	if ncutils.IsFreeBSD() {
+		cfg.Node.UDPHolePunch = "no"
+	}
+	// make sure name is appropriate, if not, give blank name
+	cfg.Node.Name = formatName(cfg.Node)
 	// differentiate between client/server here
 	var node models.Node // fill this node with appropriate calls
 	postnode := &models.Node{
 		Password:            cfg.Node.Password,
 		MacAddress:          cfg.Node.MacAddress,
 		AccessKey:           cfg.Server.AccessKey,
+		IsStatic:            cfg.Node.IsStatic,
 		Network:             cfg.Network,
 		ListenPort:          cfg.Node.ListenPort,
 		PostUp:              cfg.Node.PostUp,
@@ -165,6 +179,11 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 		node.Endpoint = node.LocalAddress
 	}
+	if ncutils.IsFreeBSD() {
+		node.UDPHolePunch = "no"
+		cfg.Node.IsStatic = "yes"
+	}
+
 	if node.IsServer != "yes" { // == handle client side ==
 		err = config.ModConfig(&node)
 		if err != nil {
@@ -200,7 +219,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	ncutils.Log("starting wireguard")
-	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways)
+	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways, false)
 	if err != nil {
 		return err
 	}
@@ -212,4 +231,21 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	return err
+}
+
+// format name appropriately. Set to blank on failure
+func formatName(node models.Node) string {
+	// Logic to properly format name
+	if !node.NameInNodeCharSet() {
+		node.Name = ncutils.DNSFormatString(node.Name)
+	}
+	if len(node.Name) > models.MAX_NAME_LENGTH {
+		node.Name = ncutils.ShortenString(node.Name, models.MAX_NAME_LENGTH)
+	}
+	if !node.NameInNodeCharSet() || len(node.Name) > models.MAX_NAME_LENGTH {
+		ncutils.PrintLog("could not properly format name: "+node.Name, 1)
+		ncutils.PrintLog("setting name to blank", 1)
+		node.Name = ""
+	}
+	return node.Name
 }

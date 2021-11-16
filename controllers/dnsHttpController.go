@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
@@ -14,14 +15,14 @@ import (
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", securityCheck(true, http.HandlerFunc(getAllDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}/nodes", securityCheck(false, http.HandlerFunc(getNodeDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheck(false, http.HandlerFunc(getCustomDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/adm/{network}", securityCheck(false, http.HandlerFunc(getDNS))).Methods("GET")
-	r.HandleFunc("/api/dns/{network}", securityCheck(false, http.HandlerFunc(createDNS))).Methods("POST")
-	r.HandleFunc("/api/dns/adm/pushdns", securityCheck(false, http.HandlerFunc(pushDNS))).Methods("POST")
-	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(false, http.HandlerFunc(deleteDNS))).Methods("DELETE")
-	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(false, http.HandlerFunc(updateDNS))).Methods("PUT")
+	r.HandleFunc("/api/dns", securityCheckDNS(true, true, http.HandlerFunc(getAllDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/nodes", securityCheckDNS(false, true, http.HandlerFunc(getNodeDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}/custom", securityCheckDNS(false, true, http.HandlerFunc(getCustomDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/adm/{network}", securityCheckDNS(false, true, http.HandlerFunc(getDNS))).Methods("GET")
+	r.HandleFunc("/api/dns/{network}", securityCheckDNS(false, false, http.HandlerFunc(createDNS))).Methods("POST")
+	r.HandleFunc("/api/dns/adm/pushdns", securityCheckDNS(false, false, http.HandlerFunc(pushDNS))).Methods("POST")
+	r.HandleFunc("/api/dns/{network}/{domain}", securityCheckDNS(false, false, http.HandlerFunc(deleteDNS))).Methods("DELETE")
+	r.HandleFunc("/api/dns/{network}/{domain}", securityCheckDNS(false, false, http.HandlerFunc(updateDNS))).Methods("PUT")
 }
 
 //Gets all nodes associated with network, including pending nodes
@@ -407,4 +408,43 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 		}
 	}
 	return err
+}
+
+//Security check DNS is middleware for every DNS function and just checks to make sure that its the master or dns token calling
+//Only admin should have access to all these network-level actions
+//DNS token should have access to only read functions
+func securityCheckDNS(reqAdmin bool, allowDNSToken bool, next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var errorResponse = models.ErrorResponse{
+			Code: http.StatusUnauthorized, Message: "W1R3: It's not you it's me.",
+		}
+
+		var params = mux.Vars(r)
+		bearerToken := r.Header.Get("Authorization")
+		if allowDNSToken && authenticateDNSToken(bearerToken) {
+			r.Header.Set("user", "nameserver")
+			networks, _ := json.Marshal([]string{ALL_NETWORK_ACCESS})
+			r.Header.Set("networks", string(networks))
+			next.ServeHTTP(w, r)
+		} else {
+			err, networks, username := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") {
+					errorResponse.Code = http.StatusNotFound
+				}
+				errorResponse.Message = err.Error()
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
+			networksJson, err := json.Marshal(&networks)
+			if err != nil {
+				errorResponse.Message = err.Error()
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
+			r.Header.Set("user", username)
+			r.Header.Set("networks", string(networksJson))
+			next.ServeHTTP(w, r)
+		}
+	}
 }

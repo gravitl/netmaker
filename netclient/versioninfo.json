@@ -2,14 +2,14 @@
     "FixedFileInfo": {
         "FileVersion": {
             "Major": 0,
-            "Minor": 7,
-            "Patch": 3,
+            "Minor": 8,
+            "Patch": 5,
             "Build": 0
         },
         "ProductVersion": {
             "Major": 0,
-            "Minor": 7,
-            "Patch": 3,
+            "Minor": 8,
+            "Patch": 5,
             "Build": 0
         },
         "FileFlagsMask": "3f",
@@ -29,7 +29,7 @@
         "OriginalFilename": "",
         "PrivateBuild": "",
         "ProductName": "Netclient",
-        "ProductVersion": "v0.7.3.0",
+        "ProductVersion": "v0.8.5.0",
         "SpecialBuild": ""
     },
     "VarFileInfo": {
@@ -38,6 +38,6 @@
             "CharsetID": "04B0"
         }
     },
-    "IconPath": "netclient.ico",
+    "IconPath": "windowsdata/resource/netclient.ico",
     "ManifestPath": "netclient.exe.manifest.xml"
 }

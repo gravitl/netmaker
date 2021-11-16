@@ -44,6 +44,7 @@ type ServerConfig struct {
 	GRPCPort              string `yaml:"grpcport"`
 	GRPCSecure            string `yaml:"grpcsecure"`
 	MasterKey             string `yaml:"masterkey"`
+	DNSKey                string `yaml:"dnskey"`
 	AllowedOrigin         string `yaml:"allowedorigin"`
 	NodeID                string `yaml:"nodeid"`
 	RestBackend           string `yaml:"restbackend"`
@@ -66,6 +67,7 @@ type ServerConfig struct {
 	ClientID              string `yaml:"clientid"`
 	ClientSecret          string `yaml:"clientsecret"`
 	FrontendURL           string `yaml:"frontendurl"`
+	DisplayKeys           string `yaml:"displaykeys"`
 }
 
 // Generic SQL Config

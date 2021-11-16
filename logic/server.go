@@ -136,7 +136,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		return err
 	}
 
-	err = initWireguard(node, privateKey, peers, hasGateway, gateways)
+	err = initWireguard(node, privateKey, peers, hasGateway, gateways, 0)
 	if err != nil {
 		return err
 	}
