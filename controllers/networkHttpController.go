@@ -20,8 +20,6 @@ import (
 
 const ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
 const NO_NETWORKS_PRESENT = "THIS_USER_HAS_NONE"
-const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
-const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 
 func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", securityCheck(false, http.HandlerFunc(getNetworks))).Methods("GET")
@@ -121,7 +119,11 @@ func authenticateMaster(tokenString string) bool {
 
 //Consider a more secure way of setting master key
 func authenticateDNSToken(tokenString string) bool {
-	return tokenString == servercfg.GetDNSKey()
+	tokens := strings.Split(tokenString, " ")
+	if len(tokens) < 2 {
+		return false
+	}
+	return tokens[1] == servercfg.GetDNSKey()
 }
 
 //simple get all networks function
@@ -148,6 +150,12 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			if parentErr == nil {
 				allnetworks = append(allnetworks, netObject)
 			}
+		}
+	}
+	if !servercfg.IsDisplayKeys() {
+		for i, net := range allnetworks {
+			net.AccessKeys = logic.RemoveKeySensitiveInfo(net.AccessKeys)
+			allnetworks[i] = net
 		}
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "fetched networks.", 2)
@@ -186,6 +194,9 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if !servercfg.IsDisplayKeys() {
+		network.AccessKeys = logic.RemoveKeySensitiveInfo(network.AccessKeys)
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "fetched network "+netname, 2)
 	w.WriteHeader(http.StatusOK)
@@ -577,7 +588,7 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !servercfg.IsDisplayKeys() {
-		keys = RemoveKeySensitiveInfo(keys)
+		keys = logic.RemoveKeySensitiveInfo(keys)
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "fetched access keys on network "+network, 2)
 	w.WriteHeader(http.StatusOK)
@@ -639,14 +650,4 @@ func DeleteKey(keyname, netname string) error {
 	}
 
 	return nil
-}
-
-func RemoveKeySensitiveInfo(keys []models.AccessKey) []models.AccessKey {
-	var returnKeys []models.AccessKey
-	for _, key := range keys {
-		key.Value = PLACEHOLDER_KEY_TEXT
-		key.AccessString = PLACEHOLDER_TOKEN_TEXT
-		returnKeys = append(returnKeys, key)
-	}
-	return returnKeys
 }
