@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu
+  labels:
+    app: ubuntu
+spec:
+  # Uncomment and specify a specific node you want to debug
+  # nodeName: <insert-node-name-here>
+  containers:
+  - image: ubuntu
+    command:
+      - "sleep"
+      - "3600"
+    imagePullPolicy: IfNotPresent
+    name: ubuntu
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: rootfolder
+      mountPath: /
+  restartPolicy: Never
+  hostIPC: true
+  hostNetwork: true
+  hostPID: true
+  volumes:
+  - hostPath:
+      path: /
+      type: ""
+    name: rootfolder

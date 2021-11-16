@@ -1,23 +1,18 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mongoconn"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/go-playground/validator.v9"
 )
 
 func userHandlers(r *mux.Router) {
@@ -26,17 +21,22 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
+	r.HandleFunc("/api/users/networks/{username}", authorizeUserAdm(http.HandlerFunc(updateUserNetworks))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}/adm", authorizeUserAdm(http.HandlerFunc(updateUserAdm))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}", authorizeUserAdm(http.HandlerFunc(createUser))).Methods("POST")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
 	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
+	r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
+	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
+	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
 }
 
-//Node authenticates using its password and retrieves a JWT for authorization.
+// Node authenticates using its password and retrieves a JWT for authorization.
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
-	//Auth request consists of Mac Address and Password (from node that is authorizing
-	//in case of Master, auth is ignored and mac is set to "mastermac"
+	// Auth request consists of Mac Address and Password (from node that is authorizing
+	// in case of Master, auth is ignored and mac is set to "mastermac"
 	var authRequest models.UserAuthParams
-	var result models.User
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
@@ -44,394 +44,301 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	decoderErr := decoder.Decode(&authRequest)
 	defer request.Body.Close()
-
 	if decoderErr != nil {
 		returnErrorResponse(response, request, errorResponse)
 		return
-	} else {
-		errorResponse.Code = http.StatusBadRequest
-		if authRequest.UserName == "" {
-			errorResponse.Message = "W1R3: Username can't be empty"
-			returnErrorResponse(response, request, errorResponse)
+	}
+
+	jwt, err := logic.VerifyAuthRequest(authRequest)
+	if err != nil {
+		returnErrorResponse(response, request, formatError(err, "badrequest"))
+		return
+	}
+
+	if jwt == "" {
+		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
+		returnErrorResponse(response, request, formatError(errors.New("No token returned"), "internal"))
+		return
+	}
+
+	username := authRequest.UserName
+	var successResponse = models.SuccessResponse{
+		Code:    http.StatusOK,
+		Message: "W1R3: Device " + username + " Authorized",
+		Response: models.SuccessfulUserLoginResponse{
+			AuthToken: jwt,
+			UserName:  username,
+		},
+	}
+	// Send back the JWT
+	successJSONResponse, jsonError := json.Marshal(successResponse)
+
+	if jsonError != nil {
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+	functions.PrintUserLog(username, "was authenticated", 2)
+	response.Header().Set("Content-Type", "application/json")
+	response.Write(successJSONResponse)
+}
+
+// The middleware for most requests to the API
+// They all pass  through here first
+// This will validate the JWT (or check for master token)
+// This will also check against the authNetwork and make sure the node should be accessing that endpoint,
+// even if it's technically ok
+// This is kind of a poor man's RBAC. There's probably a better/smarter way.
+// TODO: Consider better RBAC implementations
+func authorizeUser(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var params = mux.Vars(r)
+
+		// get the auth token
+		bearerToken := r.Header.Get("Authorization")
+		username := params["username"]
+		err := ValidateUserToken(bearerToken, username, false)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "unauthorized"))
 			return
-		} else if authRequest.Password == "" {
-			errorResponse.Message = "W1R3: Password can't be empty"
-			returnErrorResponse(response, request, errorResponse)
-			return
-		} else {
-
-			//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API untill approved).
-			collection := mongoconn.Client.Database("netmaker").Collection("users")
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			var err = collection.FindOne(ctx, bson.M{"username": authRequest.UserName}).Decode(&result)
-
-			defer cancel()
-
-			if err != nil {
-				errorResponse.Message = "W1R3: User " + authRequest.UserName + " not found."
-				returnErrorResponse(response, request, errorResponse)
-				return
-			}
-
-			//compare password from request to stored password in database
-			//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
-			//TODO: Consider a way of hashing the password client side before sending, or using certificates
-			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
-			if err != nil {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: Wrong Password.",
-				}
-				returnErrorResponse(response, request, errorResponse)
-				return
-			} else {
-				//Create a new JWT for the node
-				tokenString, _ := functions.CreateUserJWT(authRequest.UserName, result.IsAdmin)
-
-				if tokenString == "" {
-					returnErrorResponse(response, request, errorResponse)
-					return
-				}
-
-				var successResponse = models.SuccessResponse{
-					Code:    http.StatusOK,
-					Message: "W1R3: Device " + authRequest.UserName + " Authorized",
-					Response: models.SuccessfulUserLoginResponse{
-						AuthToken: tokenString,
-						UserName:  authRequest.UserName,
-					},
-				}
-				//Send back the JWT
-				successJSONResponse, jsonError := json.Marshal(successResponse)
-
-				if jsonError != nil {
-					returnErrorResponse(response, request, errorResponse)
-					return
-				}
-				response.Header().Set("Content-Type", "application/json")
-				response.Write(successJSONResponse)
-			}
 		}
+		r.Header.Set("user", username)
+		next.ServeHTTP(w, r)
 	}
 }
 
-//The middleware for most requests to the API
-//They all pass  through here first
-//This will validate the JWT (or check for master token)
-//This will also check against the authNetwork and make sure the node should be accessing that endpoint,
-//even if it's technically ok
-//This is kind of a poor man's RBAC. There's probably a better/smarter way.
-//TODO: Consider better RBAC implementations
-func authorizeUser(next http.Handler) http.HandlerFunc {
+func authorizeUserAdm(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		var errorResponse = models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-		}
-
 		w.Header().Set("Content-Type", "application/json")
+		var params = mux.Vars(r)
 
 		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
-
-		var tokenSplit = strings.Split(bearerToken, " ")
-
-		//I put this in in case the user doesn't put in a token at all (in which case it's empty)
-		//There's probably a smarter way of handling this.
-		var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
-
-		if len(tokenSplit) > 1 {
-			authToken = tokenSplit[1]
-		} else {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
-			}
-			returnErrorResponse(w, r, errorResponse)
-			return
-		}
-
-		//This checks if
-		//A: the token is the master password
-		//B: the token corresponds to a mac address, and if so, which one
-		//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Halp.
-		username, _, err := functions.VerifyUserToken(authToken)
-
+		username := params["username"]
+		err := ValidateUserToken(bearerToken, username, true)
 		if err != nil {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: Error Verifying Auth Token.",
-			}
-			returnErrorResponse(w, r, errorResponse)
+			returnErrorResponse(w, r, formatError(err, "unauthorized"))
 			return
 		}
-
-		isAuthorized := username != ""
-
-		if !isAuthorized {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-			}
-			returnErrorResponse(w, r, errorResponse)
-			return
-		} else {
-			//If authorized, this function passes along it's request and output to the appropriate route function.
-			next.ServeHTTP(w, r)
-		}
+		r.Header.Set("user", username)
+		next.ServeHTTP(w, r)
 	}
 }
 
-func HasAdmin() (bool, error) {
+// ValidateUserToken - self explained
+func ValidateUserToken(token string, user string, adminonly bool) error {
+	var tokenSplit = strings.Split(token, " ")
+	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
+	//There's probably a smarter way of handling this.
+	var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
 
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"isadmin": true}
-
-	//Filtering out the ID field cuz Dillon doesn't like it. May want to filter out other fields in the future
-	var result bson.M
-
-	err := collection.FindOne(ctx, filter).Decode(&result)
-
-	defer cancel()
-
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return false, err
-		}
-		fmt.Println(err)
+	if len(tokenSplit) > 1 {
+		authToken = tokenSplit[1]
+	} else {
+		return errors.New("Missing Auth Token.")
 	}
-	return true, err
+
+	username, _, isadmin, err := logic.VerifyUserToken(authToken)
+	if err != nil {
+		return errors.New("Error Verifying Auth Token")
+	}
+	isAuthorized := false
+	if adminonly {
+		isAuthorized = isadmin
+	} else {
+		isAuthorized = username == user || isadmin
+	}
+	if !isAuthorized {
+		return errors.New("You are unauthorized to access this endpoint.")
+	}
+
+	return nil
 }
 
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	hasadmin, _ := HasAdmin()
-
-	//Returns all the nodes in JSON format
+	hasadmin, err := logic.HasAdmin()
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 
 	json.NewEncoder(w).Encode(hasadmin)
 
 }
 
-func GetUser(username string) (models.User, error) {
+// GetUserInternal - gets an internal user
+func GetUserInternal(username string) (models.User, error) {
 
 	var user models.User
-
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"username": username}
-	err := collection.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{"_id": 0})).Decode(&user)
-
-	defer cancel()
-
+	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
+	if err != nil {
+		return user, err
+	}
+	if err = json.Unmarshal([]byte(record), &user); err != nil {
+		return models.User{}, err
+	}
 	return user, err
 }
 
-//Get an individual node. Nothin fancy here folks.
+// Get an individual node. Nothin fancy here folks.
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-
-	user, err := GetUser(params["username"])
+	usernameFetched := params["username"]
+	user, err := logic.GetUser(usernameFetched)
 
 	if err != nil {
-		mongoconn.GetError(err, w)
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
+	functions.PrintUserLog(r.Header.Get("user"), "fetched user "+usernameFetched, 2)
 	json.NewEncoder(w).Encode(user)
 }
 
-func CreateUser(user models.User) (models.User, error) {
+// Get an individual node. Nothin fancy here folks.
+func getUsers(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
 
-	//encrypt that password so we never see it again
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
+	users, err := logic.GetUsers()
 
 	if err != nil {
-		return user, err
-	}
-	//set password to encrypted password
-	user.Password = string(hash)
-
-	tokenString, _ := functions.CreateUserJWT(user.UserName, user.IsAdmin)
-
-	if tokenString == "" {
-		//returnErrorResponse(w, r, errorResponse)
-		return user, err
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
 	}
 
-	// connect db
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// insert our node to the node db.
-	result, err := collection.InsertOne(ctx, user)
-	_ = result
-
-	defer cancel()
-
-	return user, err
+	functions.PrintUserLog(r.Header.Get("user"), "fetched users", 2)
+	json.NewEncoder(w).Encode(users)
 }
 
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var errorResponse = models.ErrorResponse{
-		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
-	}
-
-	hasadmin, err := HasAdmin()
-
-	if hasadmin {
-		errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "W1R3: Admin already exists! ",
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
-	}
-
 	var admin models.User
-
-	//get node from body of request
+	// get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&admin)
 
-	admin.IsAdmin = true
+	admin, err := logic.CreateAdmin(admin)
 
-	err = ValidateUser("create", admin)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
-	admin, err = CreateUser(admin)
-	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
-	}
-
+	functions.PrintUserLog(admin.UserName, "was made a new admin", 1)
 	json.NewEncoder(w).Encode(admin)
 }
 
-func UpdateUser(userchange models.User, user models.User) (models.User, error) {
+func createUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
-	queryUser := user.UserName
+	var user models.User
+	// get node from body of request
+	_ = json.NewDecoder(r.Body).Decode(&user)
 
-	if userchange.UserName != "" {
-		user.UserName = userchange.UserName
+	user, err := logic.CreateUser(user)
+
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
 	}
-	if userchange.Password != "" {
-		//encrypt that password so we never see it again
-		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
+	functions.PrintUserLog(user.UserName, "was created", 1)
+	json.NewEncoder(w).Encode(user)
+}
 
-		if err != nil {
-			return userchange, err
-		}
-		//set password to encrypted password
-		userchange.Password = string(hash)
-
-		user.Password = userchange.Password
+func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	var user models.User
+	// start here
+	username := params["username"]
+	user, err := GetUserInternal(username)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
 	}
-	//collection := mongoconn.ConnectDB()
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Create filter
-	filter := bson.M{"username": queryUser}
-
-	fmt.Println("Updating User " + user.UserName)
-
-	// prepare update model.
-	update := bson.D{
-		{"$set", bson.D{
-			{"username", user.UserName},
-			{"password", user.Password},
-			{"isadmin", user.IsAdmin},
-		}},
-	}
-	var userupdate models.User
-
-	errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&userupdate)
-	if errN != nil {
-		fmt.Println("Could not update: ")
-		fmt.Println(errN)
-	} else {
-		fmt.Println("User updated  successfully.")
+	var userchange models.User
+	// we decode our body request params
+	err = json.NewDecoder(r.Body).Decode(&userchange)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
 	}
 
-	defer cancel()
-
-	return userupdate, errN
+	err = logic.UpdateUserNetworks(userchange.Networks, userchange.IsAdmin, &user)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	functions.PrintUserLog(username, "status was updated", 1)
+	json.NewEncoder(w).Encode(user)
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	var params = mux.Vars(r)
-
 	var user models.User
-
-	//start here
-	user, err := GetUser(params["username"])
+	// start here
+	username := params["username"]
+	user, err := GetUserInternal(username)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
+	if auth.IsOauthUser(&user) == nil {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("can not update user info for oauth user %s", username), "forbidden"))
+		return
+	}
 	var userchange models.User
-
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	userchange.IsAdmin = true
-
-	err = ValidateUser("update", userchange)
-
+	userchange.Networks = nil
+	user, err = logic.UpdateUser(userchange, user)
 	if err != nil {
-		json.NewEncoder(w).Encode(err)
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
-	user, err = UpdateUser(userchange, user)
-
-	if err != nil {
-		json.NewEncoder(w).Encode(err)
-		return
-	}
-
+	functions.PrintUserLog(username, "was updated", 1)
 	json.NewEncoder(w).Encode(user)
 }
 
-func DeleteUser(user string) (bool, error) {
-
-	deleted := false
-
-	collection := mongoconn.Client.Database("netmaker").Collection("users")
-
-	filter := bson.M{"username": user}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	result, err := collection.DeleteOne(ctx, filter)
-
-	deletecount := result.DeletedCount
-
-	if deletecount > 0 {
-		deleted = true
+func updateUserAdm(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	var user models.User
+	// start here
+	username := params["username"]
+	user, err := GetUserInternal(username)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
 	}
-
-	defer cancel()
-
-	return deleted, err
+	if auth.IsOauthUser(&user) != nil {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("can not update user info for oauth user"), "forbidden"))
+		return
+	}
+	var userchange models.User
+	// we decode our body request params
+	err = json.NewDecoder(r.Body).Decode(&userchange)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	user, err = logic.UpdateUser(userchange, user)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	functions.PrintUserLog(username, "was updated (admin)", 1)
+	json.NewEncoder(w).Encode(user)
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
@@ -441,45 +348,17 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	success, err := DeleteUser(params["username"])
+	username := params["username"]
+	success, err := logic.DeleteUser(username)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else if !success {
-		returnErrorResponse(w, r, formatError(errors.New("Delete unsuccessful."), "badrequest"))
+		returnErrorResponse(w, r, formatError(errors.New("delete unsuccessful."), "badrequest"))
 		return
 	}
 
+	functions.PrintUserLog(username, "was deleted", 1)
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
-}
-
-func ValidateUser(operation string, user models.User) error {
-
-	v := validator.New()
-
-	_ = v.RegisterValidation("username_unique", func(fl validator.FieldLevel) bool {
-		_, err := GetUser(user.UserName)
-		return err == nil || operation == "update"
-	})
-
-	_ = v.RegisterValidation("username_valid", func(fl validator.FieldLevel) bool {
-		isvalid := functions.NameInNodeCharSet(user.UserName)
-		return isvalid
-	})
-
-	_ = v.RegisterValidation("password_check", func(fl validator.FieldLevel) bool {
-		notEmptyCheck := user.Password != ""
-		goodLength := len(user.Password) > 5
-		return (notEmptyCheck && goodLength) || operation == "update"
-	})
-
-	err := v.Struct(user)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
-		}
-	}
-	return err
 }

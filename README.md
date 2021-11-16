@@ -1,79 +1,95 @@
 
-
 <p align="center">
-  <img src="netmaker.png"><break/>
+  <img src="netmaker.png" width="75%"><break/>
 </p>
 <p align="center">
-<i>Connect any computers together over a secure, fast, private network, and manage multiple networks from a central server.</i> 
+<i>Create and control automated virtual networks.</i> 
 </p>
-
-## What is Netmaker?
-Netmaker is a tool for creating and managing virtual networks. The goal is to make virtual/overlay/mesh networking easy for non-networking people. It should be like clicking a button. Netmaker consists of a server, an agent, and a UI. You spin up the Netmaker server and then install netclient (the agent) on your computers. Netmaker will do the rest. It will tell all of your computers how to reach each other and will keep them informed of any changes to the network.
-
-Netmaker's handy dandy UI can be found [here](https://github.com/gravitl/netmaker-ui).
-
-Under the hood, Netmaker uses WireGuard to create encrypted tunnels between every node in your virtual network, creating a full mesh overlay. Netmaker takes the work out of manually configuring machines with WireGuard and updating them every time you have a change in your network. The netclient agent is self-updating and pulls any necessary changes (such as new peers) from the server. 
-
-## Why Netmaker?
- 1. Create a flat, secure network between multiple/hybrid cloud environments
- 2. Integrate central and edge services
- 3. Secure a home or office network while providing remote connectivity
- 4. Manage cryptocurrency proof-of-stake machines
- 6. Provide an additional layer of security on an existing network
- 7. Encrypt Kubernetes inter-node communications
- 8. Secure site-to-site connections
-
 
 <p align="center">
-  <img src="mesh-diagram.png">
+  <a href="https://github.com/gravitl/netmaker/releases">
+    <img src="https://img.shields.io/badge/Version-0.8.5-informational?style=flat-square" />
+  </a>
+  <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
+    <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />
+  </a>  
+  <a href="https://goreportcard.com/report/github.com/gravitl/netmaker">
+    <img src="https://goreportcard.com/badge/github.com/gravitl/netmaker" />
+  </a>
+  <a href="https://github.com/gravitl/netmaker/graphs/contributors">
+    <img src="https://img.shields.io/github/commit-activity/m/gravitl/netmaker?color=blue" />
+  </a>
+  <a href="https://twitter.com/intent/follow?screen_name=gravitlcorp">
+    <img src="https://img.shields.io/twitter/follow/gravitlcorp?style=social" />
+  </a>
+  <a href="https://www.youtube.com/channel/UCach3lJY_xBV7rGrbUSvkZQ">
+    <img src="https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social" />
+  </a>
 </p>
 
-## Compatible Systems
+# WireGuard® Automation from Homelab to Enterprise
+- [x] Peer-to-Peer Mesh Networks
+- [x] Kubernetes, Multi-Cloud
+- [x] OAuth and Private DNS
+- [x] Linux, Mac, Windows, iPhone, and Android
 
-Netmaker works on most linux systems that have systemd. It works with Fedora, Ubuntu, and Raspian. Just make sure you have WireGuard installed. Having a problem? Open an issue or Contact us.
+# Get Started in 5 Minutes
 
-In future releases, we have plans to support other platforms such as Windows and MacOS. 
+**For production-grade installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/develop/install.html).**  
+**For an HA install using helm on k8s, visit the [Helm Repo](https://github.com/gravitl/netmaker-helm/).**
+1. Get a cloud VM with Ubuntu 20.04 and a public IP.
+2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
+3. Run the script **(see below for optional configurations)**:
 
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
 
-## Docs
-**For more information, please read the docs, or check out the Quick Start below:**
+Upon completion, the logs will display a script that can be used to automatically connect Linux and Mac devices. It will also display instructions for Windows, iPhone, and Android.
 
- - [General Usage](docs/USAGE.md)
- - [Troubleshooting](docs/TROUBLESHOOTING.md)
- - [API Documentation](docs/API.md)
- - [Product Roadmap](docs/ROADMAP.md)
- - [Contributing](docs/CONTRIBUTING.md)
+<img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
+After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://gravitl.com/resources) for different use cases, including Kubernetes.
 
-## Quick Start
+### Optional configurations
 
-[Video Tutorial](https://youtu.be/PWLPT320Ybo)
+**Deploy a "Hub-And-Spoke VPN" on the server**  
+*This will configure a standard VPN (non-meshed) for private internet access, with 10 clients (-c).*  
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -- -v true -c 10`  
 
-#### Prereqs:
-1. A server with an IP reachable by your computers (a small ec2 instance or droplet would do just fine).
-2. Linux installed on the above server (we use Ubuntu, but anything that runs Docker should work).
-3. Install Docker (can run without Docker as well, but is not preferred. If this is a requirement, view the Advanced Usage docs).
+**Specify Domain and Email**  
+*Make sure your wildcard domain is pointing towards the server ip.*  
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash -s -- -d mynetmaker.domain.com -e example@email.com`  
 
+**Script Options**  
+```
+./nm-quick
+-d domain.example.com # specify a wildcard domain for netmaker to use (DNS must point to this server)
+-e myemail@example.com # specify your email (for SSL certificates)
+-m true # create a default 'mesh network' (on by default)
+-v false # create a default 'VPN network' (off by default)
+-c 7 # number of client configs to create (for VPN network, 5 by default)
+```
 
-#### Launch Netmaker:
-1. Clone this repo or just copy contents of "docker-compose.yml" to your Netmaker server (from prereqs).
-2. In docker-compose.yml, change BACKEND_URL to the public IP ofthat machine.
-3. Run `sudo docker-compose up`
-4. Navigate to your server's IP in the browser and you should see the Netmaker UI asking to create a new admin user.
-5. Create a new admin user
-6. . Click "Create Network" and fill out the details
-7. You are now ready to begin using Netmaker. Create a key or enable manual node sign up so that your nodes can connect.
+# Why Netmaker + WireGuard?
 
-#### On your machines :
-Run the following: `curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/v0.1/netclient-install.sh | SERVER_URL=<your server ip>:50051 NET_NAME=<your network name> KEY=<your access key> sh -`  
-(Note: Key can be left out if manual node signup is enabled)
+- Netmaker automates virtual networks between data centers, clouds, and edge devices, so you don't have to.
 
-#### LICENSE
+- Kernel WireGuard offers maximum speed, performance, and security. 
+
+- Netmaker is built to scale from the small business to the enterprise. 
+
+- Netmaker with WireGuard can be highly customized for peer-to-peer, site-to-site, Kubernetes, and more.
+
+# Get Support
+
+- [Community (Discord)](https://discord.gg/zRb9Vfhk8A)
+
+- [Business (Subscription)](https://gravitl.com/plans/business)
+
+- [Learning Resources](https://gravitl.com/resources)
+
+## Disclaimer
+ [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
+
+## License
 
 Netmaker's source code and all artifacts in this repository are freely available. All versions are published under the Server Side Public License (SSPL), version 1, which can be found here: [LICENSE.txt](./LICENSE.txt).
-
-#### CONTACT
-
-Email: info@gravitl.com  
-Discord: https://discord.gg/zRb9Vfhk8A
-

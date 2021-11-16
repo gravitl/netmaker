@@ -5,19 +5,15 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
-    services:
-      mongodb:
-        image: mongo:4.2
-        ports:
-          - 27017:27017
-        env:
-          MONGO_INITDB_ROOT_USERNAME: mongoadmin
-          MONGO_INITDB_ROOT_PASSWORD: mongopass
+    env:
+      DATABASE: sqlite
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: run tests
         run: |
-            cd test
-            go test . -v
+            go test -p 1 ./... -v
+        env:
+          DATABASE: sqlite
+          CLIENT_MODE: "off"

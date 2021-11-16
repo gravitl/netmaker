@@ -1,0 +1,1123 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="lang:clipboard.copy" content="Copy to clipboard">
+  <meta name="lang:clipboard.copied" content="Copied to clipboard">
+  <meta name="lang:search.language" content="en">
+  <meta name="lang:search.pipeline.stopwords" content="True">
+  <meta name="lang:search.pipeline.trimmer" content="True">
+  <meta name="lang:search.result.none" content="No matching documents">
+  <meta name="lang:search.result.one" content="1 matching document">
+  <meta name="lang:search.result.other" content="# matching documents">
+  <meta name="lang:search.tokenizer" content="[\s\-]+">
+
+  
+    <link href="https://fonts.gstatic.com/" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,700|Roboto:300,400,400i,700&display=fallback" rel="stylesheet">
+
+    <style>
+      body,
+      input {
+        font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: "Roboto Mono", "Courier New", Courier, monospace
+      }
+    </style>
+  
+
+  <link rel="stylesheet" href="_static/stylesheets/application.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-palette.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-fixes.css"/>
+  
+  <link rel="stylesheet" href="_static/fonts/material-icons.css"/>
+  
+  <meta name="theme-color" content="#3f51b5">
+  <script src="_static/javascripts/modernizr.js"></script>
+  
+  
+  
+    <title>Client Installation &#8212; Netmaker 0.8.5 documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/material.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="External Clients" href="external-clients.html" />
+    <link rel="prev" title="Advanced Server Installation" href="server-installation.html" />
+  
+   
+
+  </head>
+  <body dir=ltr
+        data-md-color-primary=indigo data-md-color-accent=light-blue>
+  
+  <svg class="md-svg">
+    <defs data-children-count="0">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+      
+    </defs>
+  </svg>
+  
+  <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer">
+  <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search">
+  <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+  <a href="#client-installation" tabindex="1" class="md-skip"> Skip to content </a>
+  <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex navheader">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="index.html" title="Netmaker 0.8.5 documentation"
+           class="md-header-nav__button md-logo">
+          
+            <i class="md-icon">&#xe869</i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          <span class="md-header-nav__topic">Netmaker Docs</span>
+          <span class="md-header-nav__topic"> Client Installation </span>
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+        
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" action="search.html" method="get" name="search">
+      <input type="text" class="md-search__input" name="q" placeholder="Search"
+             autocapitalize="off" autocomplete="off" spellcheck="false"
+             data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      </div>
+      
+        <div class="md-flex__cell md-flex__cell--shrink">
+          <div class="md-header-nav__source">
+            <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+          </div>
+        </div>
+      
+      
+  
+  <script src="_static/javascripts/version_dropdown.js"></script>
+  <script>
+    var json_loc = ""versions.json"",
+        target_loc = "../",
+        text = "Versions";
+    $( document ).ready( add_version_dropdown(json_loc, target_loc, text));
+  </script>
+  
+
+    </div>
+  </nav>
+</header>
+
+  
+  <div class="md-container">
+    
+    
+    
+  <nav class="md-tabs" data-md-component="tabs">
+    <div class="md-tabs__inner md-grid">
+      <ul class="md-tabs__list">
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.5 documentation</a></li>
+      </ul>
+    </div>
+  </nav>
+    <main class="md-main">
+      <div class="md-main__inner md-grid" data-md-component="container">
+        
+          <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="index.html" title="Netmaker 0.8.5 documentation" class="md-nav__button md-logo">
+      
+        <i class="md-icon">&#xe869</i>
+      
+    </a>
+    <a href="index.html"
+       title="Netmaker 0.8.5 documentation">Netmaker Docs</a>
+  </label>
+    <div class="md-nav__source">
+      <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+    </div>
+  
+  
+
+  
+  <ul class="md-nav__list">
+    <li class="md-nav__item">
+    
+    
+      <a href="about.html" class="md-nav__link">About</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="about.html#what-is-netmaker" class="md-nav__link">What is Netmaker?</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="about.html#how-does-netmaker-work" class="md-nav__link">How Does Netmaker Work?</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="about.html#use-cases-for-netmaker" class="md-nav__link">Use Cases for Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html" class="md-nav__link">Architecture</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#core-concepts" class="md-nav__link">Core Concepts</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#components" class="md-nav__link">Components</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#technical-process" class="md-nav__link">Technical Process</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#compatible-systems-for-netclient" class="md-nav__link">Compatible Systems for Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html#limitations" class="md-nav__link">Limitations</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="install.html" class="md-nav__link">Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html" class="md-nav__link">Quick Install</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#prerequisites" class="md-nav__link">0. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#prepare-dns" class="md-nav__link">1. Prepare DNS</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#open-firewall" class="md-nav__link">3. Open Firewall</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html" class="md-nav__link">Getting Started</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#setup" class="md-nav__link">Setup</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html" class="md-nav__link">Install with Nginx (depreciated)</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#introduction" class="md-nav__link">0. Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start-nginx.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#system-compatibility" class="md-nav__link">System Compatibility</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#server-configuration-reference" class="md-nav__link">Server Configuration Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#dns-mode-setup" class="md-nav__link">DNS Mode Setup</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#docker-compose-install" class="md-nav__link">Docker Compose Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#kubernetes-install" class="md-nav__link">Kubernetes Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#nginx-reverse-proxy-setup-with-https" class="md-nav__link">Nginx Reverse Proxy Setup with https</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#highly-available-installation-kubernetes" class="md-nav__link">Highly Available Installation (Kubernetes)</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html#highly-available-installation-vms-bare-metal" class="md-nav__link">Highly Available Installation (VMs/Bare Metal)</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Client Installation </label>
+    
+      <a href="#" class="md-nav__link md-nav__link--active">Client Installation</a>
+      
+        
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#client-installation--page-root" class="md-nav__link">Client Installation</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+        </li>
+        <li class="md-nav__item"><a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#cli" class="md-nav__link">CLI</a>
+        </li>
+        <li class="md-nav__item"><a href="#daemon" class="md-nav__link">Daemon</a>
+        </li>
+        <li class="md-nav__item"><a href="#private-dns-management" class="md-nav__link">Private DNS Management</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
+        </li>
+        <li class="md-nav__item"><a href="#configuration" class="md-nav__link">Configuration</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#cli-reference" class="md-nav__link">CLI Reference</a>
+        </li>
+        <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#installation" class="md-nav__link">Installation</a>
+        </li>
+        <li class="md-nav__item"><a href="#managing-netclient" class="md-nav__link">Managing Netclient</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#viewing-logs" class="md-nav__link">Viewing Logs</a>
+        </li>
+        <li class="md-nav__item"><a href="#making-updates" class="md-nav__link">Making Updates</a>
+        </li>
+        <li class="md-nav__item"><a href="#adding-removing-networks" class="md-nav__link">Adding/Removing Networks</a>
+        </li>
+        <li class="md-nav__item"><a href="#uninstalling" class="md-nav__link">Uninstalling</a>
+        </li></ul>
+            </nav>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#prerequisites" class="md-nav__link">Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#configuration" class="md-nav__link">Configuration</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#installation" class="md-nav__link">Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#managing-netclient" class="md-nav__link">Managing Netclient</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html" class="md-nav__link">External Clients</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html#external-tutorials" class="md-nav__link">External Tutorials</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html" class="md-nav__link">API Reference</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html#api-usage" class="md-nav__link">API Usage</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html#authentication" class="md-nav__link">Authentication</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html#format-of-calls-for-curl" class="md-nav__link">Format of Calls for Curl</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html#api-documentation" class="md-nav__link">API Documentation</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html" class="md-nav__link">Troubleshooting</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#common-issues" class="md-nav__link">Common Issues</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#server" class="md-nav__link">Server</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#ui" class="md-nav__link">UI</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#netclient" class="md-nav__link">Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html#coredns" class="md-nav__link">CoreDNS</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html" class="md-nav__link">Support</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html#faq" class="md-nav__link">FAQ</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html#contact" class="md-nav__link">Contact</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html" class="md-nav__link">Code of Conduct</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html#our-pledge" class="md-nav__link">Our Pledge</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html#our-standards" class="md-nav__link">Our Standards</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html#our-responsibilities" class="md-nav__link">Our Responsibilities</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html#scope" class="md-nav__link">Scope</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html#enforcement" class="md-nav__link">Enforcement</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html#attribution" class="md-nav__link">Attribution</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="license.html" class="md-nav__link">License</a>
+      
+    
+    </li>
+  </ul>
+  
+
+</nav>
+              </div>
+            </div>
+          </div>
+          <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#client-installation--page-root" class="md-nav__link">Client Installation</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+        </li>
+        <li class="md-nav__item"><a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#cli" class="md-nav__link">CLI</a>
+        </li>
+        <li class="md-nav__item"><a href="#daemon" class="md-nav__link">Daemon</a>
+        </li>
+        <li class="md-nav__item"><a href="#private-dns-management" class="md-nav__link">Private DNS Management</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">Prerequisites</a>
+        </li>
+        <li class="md-nav__item"><a href="#configuration" class="md-nav__link">Configuration</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#cli-reference" class="md-nav__link">CLI Reference</a>
+        </li>
+        <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#installation" class="md-nav__link">Installation</a>
+        </li>
+        <li class="md-nav__item"><a href="#managing-netclient" class="md-nav__link">Managing Netclient</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#viewing-logs" class="md-nav__link">Viewing Logs</a>
+        </li>
+        <li class="md-nav__item"><a href="#making-updates" class="md-nav__link">Making Updates</a>
+        </li>
+        <li class="md-nav__item"><a href="#adding-removing-networks" class="md-nav__link">Adding/Removing Networks</a>
+        </li>
+        <li class="md-nav__item"><a href="#uninstalling" class="md-nav__link">Uninstalling</a>
+        </li></ul>
+            </nav>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+              </div>
+            </div>
+          </div>
+        
+        <div class="md-content">
+          <article class="md-content__inner md-typeset" role="main">
+            
+  
+<h1 id="client-installation--page-root">Client Installation<a class="headerlink" href="#client-installation--page-root" title="Permalink to this headline">¶</a></h1>
+<p>This document tells you how to install the netclient on machines that will be a part of your Netmaker network, as well as non-compatible systems.</p>
+<p>These steps should be run after the Netmaker server has been created and a network has been designated within Netmaker.</p>
+
+<h2 id="introduction-to-netclient">Introduction to Netclient<a class="headerlink" href="#introduction-to-netclient" title="Permalink to this headline">¶</a></h2>
+<p>At its heart, the netclient is a simple CLI for managing access to various WireGuard-based networks. It manages WireGuard on the host system, so that you don’t have to. Why is this necessary?</p>
+<p>If you are setting up a WireGuard-based virtual network, you must configure each machine with very specific settings, so that every machine can reach it, and it can reach every machine. Any changes to the settings of any one of these machines can break those connections. Any machine that is added, removed, or modified on the network requires reconfiguring every peer in the network. This can be very time consuming.</p>
+<p>The netmaker server holds configuration details about every machine in your network and how other machines should connect to it.</p>
+<p>The netclient agent connects to the server, pushing and pulling information when the network (or its local configuration) changes.</p>
+<p>The netclient agent then configures WireGuard (and other network properties) locally, so that the network stays intact.</p>
+
+
+<h2 id="notes-on-windows">Notes on Windows<a class="headerlink" href="#notes-on-windows" title="Permalink to this headline">¶</a></h2>
+<p>If running the netclient on windows, you must download the netclient.exe binary and run it from Powershell as an Administrator.</p>
+<p>Windows will by default have firewall rules that prevent inbound connections. If you wish to allow inbound connections from particular peers, use the following command:</p>
+<p><code class="docutils literal notranslate"><span class="pre">netsh</span> <span class="pre">advfirewall</span> <span class="pre">firewall</span> <span class="pre">add</span> <span class="pre">rule</span> <span class="pre">name="Allow</span> <span class="pre">from</span> <span class="pre">&lt;peer</span> <span class="pre">private</span> <span class="pre">addr&gt;"</span> <span class="pre">dir=in</span> <span class="pre">action=allow</span> <span class="pre">protocol=ANY</span> <span class="pre">remoteip=&lt;peer</span> <span class="pre">private</span> <span class="pre">addr&gt;</span></code></p>
+<p>If you want to allow all peers access, but do not want to configure firewall rules for all peers, you can configure access for one peer, and set it as a Relay Server.</p>
+
+
+<h2 id="modes-and-system-compatibility">Modes and System Compatibility<a class="headerlink" href="#modes-and-system-compatibility" title="Permalink to this headline">¶</a></h2>
+<p><strong>Note: If you would like to connect non-Linux/Unix machines to your network such as phones and Windows desktops, please see the documentation on External Clients</strong></p>
+<p>The netclient can be run in a few “modes”. System compatibility depends on which modes you intend to use. These modes can be mixed and matched across a network, meaning all machines do not have to run with the same “mode.”</p>
+
+<h3 id="cli">CLI<a class="headerlink" href="#cli" title="Permalink to this headline">¶</a></h3>
+<p>In its simplest form, the netclient can be treated as just a simple, manual, CLI tool, which a user can call to configure the machine. The cli can be compiled from source code to run on most systems, and has already been compiled for x86 and ARM devices.</p>
+<p>As a CLI, the netclient should function on any Linux or Unix based system that has the wireguard utility (callable with <strong>wg</strong>) installed.</p>
+
+
+<h3 id="daemon">Daemon<a class="headerlink" href="#daemon" title="Permalink to this headline">¶</a></h3>
+<p>The netclient is intended to be run as a system daemon. This allows it to automatically retrieve and send updates. To do this, the netclient can install itself as a systemd service, or launchd/windows service for Mac or Windows.</p>
+<p>If running the netclient on non-systemd linux, it is recommended to manually configure the netclient as a daemon using whatever method is acceptable on the chosen operating system.</p>
+
+
+<h3 id="private-dns-management">Private DNS Management<a class="headerlink" href="#private-dns-management" title="Permalink to this headline">¶</a></h3>
+<p>To manage private DNS, the netclient relies on systemd-resolved (resolvectl). Absent this, it cannot set private DNS for the machine.</p>
+<p>A user may choose to manually set a private DNS nameserver of &lt;netmaker server&gt;:53. However, beware, as netmaker sets split dns, and the system must be configured properly. Otherwise, this nameserver may break your local DNS.</p>
+
+
+
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<p>To obtain the netclient, go to the GitHub releases: <a class="reference external" href="https://github.com/gravitl/netmaker/releases">https://github.com/gravitl/netmaker/releases</a></p>
+<p><strong>For netclient cli:</strong> Linux/Unix with WireGuard installed (wg command available)</p>
+<p><strong>For netclient daemon:</strong> Systemd Linux + WireGuard</p>
+<p><strong>For Private DNS management:</strong> Resolvectl (systemd-resolved)</p>
+
+
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>The CLI has information about all commands and variables. This section shows the “help” output for these commands as well as some additional reference.</p>
+
+<h3 id="cli-reference">CLI Reference<a class="headerlink" href="#cli-reference" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">--help</span></code></p>
+<div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="nt">NAME</span><span class="p">:</span>
+   <span class="l l-Scalar l-Scalar-Plain">Netclient CLI - Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config.</span>
+
+<span class="nt">USAGE</span><span class="p">:</span>
+   <span class="l l-Scalar l-Scalar-Plain">netclient [global options] command [command options] [arguments...]</span>
+
+<span class="nt">COMMANDS</span><span class="p">:</span>
+   <span class="l l-Scalar l-Scalar-Plain">register    Register with Netmaker Server for secure GRPC communications.</span>
+   <span class="l l-Scalar l-Scalar-Plain">join        Join a Netmaker network.</span>
+   <span class="l l-Scalar l-Scalar-Plain">leave       Leave a Netmaker network.</span>
+   <span class="l l-Scalar l-Scalar-Plain">checkin     Checks for local changes and then checks into the specified Netmaker network to ask about remote changes.</span>
+   <span class="l l-Scalar l-Scalar-Plain">push        Push configuration changes to server.</span>
+   <span class="l l-Scalar l-Scalar-Plain">pull        Pull latest configuration and peers from server.</span>
+   <span class="l l-Scalar l-Scalar-Plain">list        Get list of networks.</span>
+   <span class="l l-Scalar l-Scalar-Plain">uninstall   Uninstall the netclient system service.</span>
+   <span class="l l-Scalar l-Scalar-Plain">unregister  Unregister the netclient from secure server GRPC.</span>
+   <span class="l l-Scalar l-Scalar-Plain">help, h     Shows a list of commands or help for one command</span>
+
+<span class="nt">GLOBAL OPTIONS</span><span class="p">:</span>
+   <span class="l l-Scalar l-Scalar-Plain">--help, -h  show help (default</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">join</span> <span class="pre">--help</span></code></p>
+<div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">alex@workstation:~$ sudo netclient join --help</span>
+<span class="l l-Scalar l-Scalar-Plain">NAME</span><span class="p p-Indicator">:</span>
+   <span class="l l-Scalar l-Scalar-Plain">netclient join - Join a Netmaker network.</span>
+
+<span class="nt">USAGE</span><span class="p">:</span>
+   <span class="l l-Scalar l-Scalar-Plain">netclient join [command options] [arguments...]</span>
+
+<span class="nt">OPTIONS</span><span class="p">:</span>
+   <span class="l l-Scalar l-Scalar-Plain">--network value, -n value            Network to perform specified action against. (default</span><span class="p p-Indicator">:</span> <span class="s">"all"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_NETWORK]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--password value, -p value           Password for authenticating with netmaker. [$NETCLIENT_PASSWORD]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--endpoint value, -e value           Reachable (usually public) address for WireGuard (not the private WG address). [$NETCLIENT_ENDPOINT]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--macaddress value, -m value         Mac Address for this machine. Used as a unique identifier within Netmaker network. [$NETCLIENT_MACADDRESS]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--publickey value, --pubkey value    Public Key for WireGuard Interface. [$NETCLIENT_PUBLICKEY]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--privatekey value, --privkey value  Private Key for WireGuard Interface. [$NETCLIENT_PRIVATEKEY]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--port value                         Port for WireGuard Interface. [$NETCLIENT_PORT]</span>
+   <span class="nt">--keepalive value                    Default PersistentKeepAlive for Peers in WireGuard Interface. (default</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">0) [$NETCLIENT_KEEPALIVE]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--operatingsystem value, --os value  Identifiable name for machine within Netmaker network. [$NETCLIENT_OS]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--name value                         Identifiable name for machine within Netmaker network. [$NETCLIENT_NAME]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--localaddress value                 Local address for machine. Can be used in place of Endpoint for machines on the same LAN. [$NETCLIENT_LOCALADDRESS]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--address value, -a value            WireGuard address for machine within Netmaker network. [$NETCLIENT_ADDRESS]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--addressIPv6 value, --a6 value      WireGuard address for machine within Netmaker network. [$NETCLIENT_ADDRESSIPV6]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--interface value, -i value          WireGuard local network interface name. [$NETCLIENT_INTERFACE]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--apiserver value                    Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server. [$NETCLIENT_API_SERVER]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--grpcserver value                   Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server. [$NETCLIENT_GRPC_SERVER]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--key value, -k value                Access Key for signing up machine with Netmaker server during initial 'add'. [$NETCLIENT_ACCESSKEY]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--token value, -t value              Access Token for signing up machine with Netmaker server during initial 'add'. [$NETCLIENT_ACCESSTOKEN]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--localrange value                   Local Range if network is local, for instance 192.168.1.0/24. [$NETCLIENT_LOCALRANGE]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--dns value                          Sets private dns if 'on'. Ignores if 'off'. Will retrieve from network if unset. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_DNS]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--islocal value                      Sets endpoint to local address if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_IS_LOCAL]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--isdualstack value                  Sets ipv6 address if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_IS_DUALSTACK]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--udpholepunch value                 Turns on udp holepunching if 'yes'. Ignores if 'no'. Will retrieve from network if unset. [$NETCLIENT_UDP_HOLEPUNCH]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--ipforwarding value                 Sets ip forwarding on if 'on'. Ignores if 'off'. On by default. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_IPFORWARDING]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--postup value                       Sets PostUp command for WireGuard. [$NETCLIENT_POSTUP]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--postdown value                     Sets PostDown command for WireGuard. [$NETCLIENT_POSTDOWN]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--daemon value                       Installs daemon if 'on'. Ignores if 'off'. On by default. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_DAEMON]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--roaming value                      Checks for IP changes if 'on'. Ignores if 'off'. On by default. (default</span><span class="p p-Indicator">:</span> <span class="s">"on"</span><span class="l l-Scalar l-Scalar-Plain">) [$NETCLIENT_ROAMING]</span>
+   <span class="l l-Scalar l-Scalar-Plain">--help, -h                           show help (default</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false)</span>
+</pre></div>
+</div>
+
+
+<h3 id="config-file-reference">Config File Reference<a class="headerlink" href="#config-file-reference" title="Permalink to this headline">¶</a></h3>
+<p>There is a config file for each node under /etc/netconfig-&lt;network name&gt;. You can change these values and then set “postchanges” to “true”, or go to the CLI and run <code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">push</span> <span class="pre">-n</span> <span class="pre">&lt;network&gt;</span></code></p>
+<div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
+    <span class="nt">corednsaddr</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">147.182.251.203</span> <span class="c1"># Address of CoreDNS Server (set locally with resolvectl)</span>
+    <span class="nt">grpcaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">10.101.0.1:50051</span> <span class="c1"># Address of GRPC Server (used for all interaction with server after registration)</span>
+    <span class="nt">apiaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">1.2.3.4:8081</span> <span class="c1"># Address of API Server (used only for registration/unregistration)</span>
+    <span class="nt">accesskey</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">5qKTbTgsvb45y3qyRmWft</span> <span class="c1"># Key used to sign up with server. Used only during registration</span>
+<span class="nt">node</span><span class="p">:</span>
+    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-computer</span> <span class="c1"># name of this node</span>
+    <span class="nt">interface</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">nm-example</span> <span class="c1"># name of interface to create/use for WG</span>
+    <span class="nt">network</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">example</span> <span class="c1"># name of network this ode is a part of</span>
+    <span class="nt">password</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">$2a$0afehuytviN/thMpVlCYkonxy.Ws2.rNCJjBSAa3HZuhrK5hpYxme</span> <span class="c1"># encrypted node password, used to retrieve JWT. Can be changed to new pass in plaintext and CLI will update/replace with encrypted pass</span>
+    <span class="nt">macaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">6c:4b:91:0g:68:7b</span> <span class="c1"># MAC of node. Used as a Unique ID</span>
+    <span class="nt">localaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">192.168.1.32</span> <span class="c1"># Address on local network, used as endpoint for other local nodes for faster comms</span>
+    <span class="nt">wgaddress</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">10.7.11.2</span> <span class="c1"># Private WG addres on network</span>
+    <span class="nt">wgaddress6</span><span class="p">:</span> <span class="s">"f8:34:41:77:5c:15"</span> <span class="c1"># Private ipv6 address if network is dual stack</span>
+    <span class="nt">roaming</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># Whether or not to grab new endpoint value automatically</span>
+    <span class="nt">dnson</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># Whether or not to set local DNS based on Netmaker's Private DNS server</span>
+    <span class="nt">islocal</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># Based on network. If yes, will use local IP as endpoint.</span>
+    <span class="nt">isdualstack</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># Use IPv6 in addition to IPv4</span>
+    <span class="nt">isingressgateway</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># whether or not node is an ingress gateway (will set iptables forwarding rules)</span>
+    <span class="nt">allowedips</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># additional IP's to add to client</span>
+    <span class="nt">localrange</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># local range if it's a local network. For instance, 192.168.1.0/24</span>
+    <span class="nt">postup</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># postup command, used by ingress/egress gateways to set iptables</span>
+    <span class="nt">postdown</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># postdown command, used by ingress/egress gateways to set iptables</span>
+    <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">51821</span> <span class="c1"># WG port to use</span>
+    <span class="nt">keepalive</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">20</span> <span class="c1"># default keepalive with nodes</span>
+    <span class="nt">publickey</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8/q9cOg7c9QjnoXygVrY/VNE197VMRadJodkb1ZsujA=</span> <span class="c1"># public key of node to show to other nodes</span>
+    <span class="nt">privatekey</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># private key, set only for changing and then will revert to blank in config</span>
+    <span class="nt">endpoint</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">78.170.22.168</span> <span class="c1"># public endpoint for reaching node </span>
+    <span class="nt">postchanges</span><span class="p">:</span> <span class="s">"false"</span> <span class="c1"># if true, will post and config file changes on next checkin and then revert to false</span>
+    <span class="nt">ipforwarding</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># set ip forwarding; highly recommended to leave on</span>
+    <span class="nt">isstatic</span><span class="p">:</span> <span class="s">"no"</span> <span class="c1"># if yes, daemon will not change pubkey, endpoint, or address</span>
+    <span class="nt">udpholepunch</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># run UDP hole punching (will ignore port above, e.g. 51821)</span>
+    <span class="nt">network</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">home</span> <span class="c1"># the network (duplicate of node.network)</span>
+<span class="nt">daemon</span><span class="p">:</span> <span class="s">"yes"</span> <span class="c1"># whether or not to manage systemd</span>
+<span class="nt">operatingsystem</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># not currently in use</span>
+</pre></div>
+</div>
+
+
+
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>To install netmaker, you need a server token for a particular network, unless you’re joining a network that allows manual signup, in which case you can join without a token, but the server will quarantine the machine until the admin approves it.</p>
+<p>An admin creates a token in the ACCESS KEYS section of the UI. Upon creating a token, it generates 3 values:</p>
+<p><strong>Access Key:</strong> The secret key to authenticate as a node in the network</p>
+<p><strong>Access Token:</strong> The secret key plus information about how to access the server (addresses, ports), all decoded by the netclient to register with the server</p>
+<p><strong>Install Command:</strong> A short script that will obtain the netclient binary, register with the server, and join the network, all in one</p>
+<p>For first time installations, you can run the Install Command. For additional networks, simply run <code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">join</span> <span class="pre">-t</span> <span class="pre">&lt;access</span> <span class="pre">token&gt;</span></code>. The raw access key will not be needed unless there are special circumstances, mostly troubleshooting incorrect information in the token (you can instead manually specify the server location).</p>
+
+
+<h2 id="managing-netclient">Managing Netclient<a class="headerlink" href="#managing-netclient" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="viewing-logs">Viewing Logs<a class="headerlink" href="#viewing-logs" title="Permalink to this headline">¶</a></h3>
+<dl class="simple">
+<dt><strong>to view current networks</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">list</span></code></p>
+</dd>
+<dt><strong>to tail logs</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span> <span class="pre">-f</span></code></p>
+</dd>
+<dt><strong>to view all logs</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span></code></p>
+</dd>
+<dt><strong>to get most recent log run</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">status</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span></code></p>
+</dd>
+</dl>
+
+
+<h3 id="making-updates">Making Updates<a class="headerlink" href="#making-updates" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">vim</span> <span class="pre">/etc/netclient/netconfig-&lt;network&gt;</span></code></p>
+<p>Change any of the variables in this file, and changes will be pushed to the server and processed locally on the next checkin.</p>
+<p>For instance, change the private address, endpoint, or name. See above example config file for details</p>
+
+
+<h3 id="adding-removing-networks">Adding/Removing Networks<a class="headerlink" href="#adding-removing-networks" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">join</span> <span class="pre">-t</span> <span class="pre">&lt;token&gt;</span></code></p>
+<p>Set any of the above flags (netclient join –help) to override settings for joining the network.
+If a key is provided (-k), then a token is unnecessary, but grpc, server, ports, and network must all be provided via flags.</p>
+
+
+<h3 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">uninstall</span></code></p>
+
+
+
+
+
+          </article>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="md-footer">
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+          
+            <a href="server-installation.html" title="Advanced Server Installation"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> Advanced Server Installation </span>
+              </div>
+            </a>
+          
+          
+            <a href="external-clients.html" title="External Clients"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> External Clients </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          
+        </a>
+        
+      </nav>
+    </div>
+    <div class="md-footer-meta md-typeset">
+      <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+          <div class="md-footer-copyright__highlight">
+              &#169; Copyright 2021, Alex Feiszli.
+              
+          </div>
+            Created using
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+             and
+            <a href="https://github.com/bashtage/sphinx-material/">Material for
+              Sphinx</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="_static/javascripts/application.js"></script>
+  <script>app.initialize({version: "1.0.4", url: {base: ".."}})</script>
+  </body>
+</html>

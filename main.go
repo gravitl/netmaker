@@ -4,316 +4,195 @@
 package main
 
 import (
-    "log"
-    "flag"
-    "github.com/gravitl/netmaker/models"
-    "github.com/gravitl/netmaker/controllers"
-    "github.com/gravitl/netmaker/serverctl"
-    "github.com/gravitl/netmaker/functions"
-    "github.com/gravitl/netmaker/mongoconn"
-    "github.com/gravitl/netmaker/config"
-    "go.mongodb.org/mongo-driver/bson"
-    "fmt"
-    "time"
-    "net/http"
-    "strings"
-    "errors"
-    "io/ioutil"
-    "os"
-    "os/exec"
-    "net"
-    "context"
-    "strconv"
-    "sync"
-    "os/signal"
-    "go.mongodb.org/mongo-driver/mongo"
-    service "github.com/gravitl/netmaker/controllers"
-    nodepb "github.com/gravitl/netmaker/grpc"
-    "google.golang.org/grpc"
+	"fmt"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/gravitl/netmaker/auth"
+	controller "github.com/gravitl/netmaker/controllers"
+	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/functions"
+	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
+	"google.golang.org/grpc"
 )
 
-var ServerGRPC string
-var PortGRPC string
-
-//Start MongoDB Connection and start API Request Handler
+// Start DB Connection and start API Request Handler
 func main() {
+	fmt.Println(models.RetrieveLogo()) // print the logo
+	initialize()                       // initial db and grpc server
+	defer database.CloseDB()
+	startControllers() // start the grpc or rest endpoints
+}
 
+func initialize() { // Client Mode Prereq Check
+	var err error
 
-	var clientmode string
-	var defaultnet string
-	flag.StringVar(&clientmode, "clientmode", "on", "Have a client on the server")
-	flag.StringVar(&defaultnet, "defaultnet", "on", "Create a default network")
-	flag.Parse()
-	if clientmode == "on" {
+	if err = database.InitializeDatabase(); err != nil {
+		logic.Log("Error connecting to database", 0)
+		log.Fatal(err)
+	}
+	logic.Log("database successfully connected", 0)
 
-         cmd := exec.Command("id", "-u")
-         output, err := cmd.Output()
-
-         if err != nil {
-                 log.Fatal(err)
-         }
-         i, err := strconv.Atoi(string(output[:len(output)-1]))
-         if err != nil {
-                 log.Fatal(err)
-         }
-
-         if i != 0 {
-                 log.Fatal("To run in client mode requires root privileges. Either turn off client mode with the --clientmode=off flag, or run with sudo.")
-         }
+	var authProvider = auth.InitializeAuthProvider()
+	if authProvider != "" {
+		logic.Log("OAuth provider, "+authProvider+", initialized", 0)
+	} else {
+		logic.Log("no OAuth provider found or not configured, continuing without OAuth", 0)
 	}
 
-	log.Println("Server starting...")
-	mongoconn.ConnectDatabase()
-
-	installserver := false
-	if !(defaultnet == "off") {
-	if config.Config.Server.CreateDefault {
-		created, err := createDefaultNetwork()
+	if servercfg.IsClientMode() != "off" {
+		output, err := ncutils.RunCmd("id -u", true)
 		if err != nil {
-			fmt.Printf("Error creating default network: %v", err)
+			logic.Log("Error running 'id -u' for prereq check. Please investigate or disable client mode.", 0)
+			log.Fatal(output, err)
 		}
-		if created && clientmode != "off" {
-			installserver = true
+		uid, err := strconv.Atoi(string(output[:len(output)-1]))
+		if err != nil {
+			logic.Log("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.", 0)
+			log.Fatal(err)
+		}
+		if uid != 0 {
+			log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
+		}
+		if err := serverctl.InitServerNetclient(); err != nil {
+			log.Fatal("Did not find netclient to use CLIENT_MODE")
 		}
 	}
+
+	if servercfg.IsDNSMode() {
+		err := functions.SetDNSDir()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+}
+
+func startControllers() {
 	var waitnetwork sync.WaitGroup
-
-	if config.Config.Server.AgentBackend {
+	//Run Agent Server
+	if servercfg.IsAgentBackend() {
+		if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
+			err := servercfg.SetHost()
+			if err != nil {
+				logic.Log("Unable to Set host. Exiting...", 0)
+				log.Fatal(err)
+			}
+		}
 		waitnetwork.Add(1)
-		go runGRPC(&waitnetwork, installserver)
+		go runGRPC(&waitnetwork)
 	}
 
-	if config.Config.Server.RestBackend {
+	if servercfg.IsClientMode() == "on" {
+		waitnetwork.Add(1)
+		go runClient(&waitnetwork)
+	}
+
+	if servercfg.IsDNSMode() {
+		err := logic.SetDNS()
+		if err != nil {
+			logic.Log("error occurred initializing DNS: "+err.Error(), 0)
+		}
+	}
+	//Run Rest Server
+	if servercfg.IsRestBackend() {
+		if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
+			err := servercfg.SetHost()
+			if err != nil {
+				logic.Log("Unable to Set host. Exiting...", 0)
+				log.Fatal(err)
+			}
+		}
 		waitnetwork.Add(1)
 		controller.HandleRESTRequests(&waitnetwork)
 	}
-	if !config.Config.Server.RestBackend && !config.Config.Server.AgentBackend {
-		fmt.Println("Oops! No Server Mode selected. Nothing being served.")
+	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
+		logic.Log("No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.", 0)
 	}
+
 	waitnetwork.Wait()
-	fmt.Println("Exiting now.")
+	logic.Log("exiting", 0)
 }
 
+func runClient(wg *sync.WaitGroup) {
+	defer wg.Done()
+	go func() {
+		for {
+			if err := serverctl.HandleContainedClient(); err != nil {
+				// PASS
+			}
+			var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
+			time.Sleep(checkintime)
+		}
+	}()
+}
 
-func runGRPC(wg *sync.WaitGroup, installserver bool) {
-
+func runGRPC(wg *sync.WaitGroup) {
 
 	defer wg.Done()
 
-        // Configure 'log' package to give file name and line number on eg. log.Fatal
-        // Pipe flags to one another (log.LstdFLags = log.Ldate | log.Ltime)
-        log.SetFlags(log.LstdFlags | log.Lshortfile)
+	// Configure 'log' package to give file name and line number on eg. log.Fatal
+	// Pipe flags to one another (log.LstdFLags = log.Ldate | log.Ltime)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-        // Start our listener, 50051 is the default gRPC port
-	grpcport := ":50051"
-	if config.Config.Server.GrpcPort != "" {
-		grpcport = ":" + config.Config.Server.GrpcPort
+	grpcport := servercfg.GetGRPCPort()
+
+	listener, err := net.Listen("tcp", ":"+grpcport)
+	// Handle errors if any
+	if err != nil {
+		log.Fatalf("[netmaker] Unable to listen on port "+grpcport+", error: %v", err)
 	}
-        if os.Getenv("GRPC_PORT") != "" {
-		grpcport = ":" + os.Getenv("GRPC_PORT")
-        }
-	PortGRPC = grpcport
-	if os.Getenv("BACKEND_URL") == ""  {
-		if config.Config.Server.Host == "" {
-			ServerGRPC, _ = getPublicIP()
-		} else {
-			ServerGRPC = config.Config.Server.Host
+
+	s := grpc.NewServer(
+		authServerUnaryInterceptor(),
+	)
+	// Create NodeService type
+	srv := &controller.NodeServiceServer{}
+
+	// Register the service with the server
+	nodepb.RegisterNodeServiceServer(s, srv)
+
+	// Start the server in a child routine
+	go func() {
+		if err := s.Serve(listener); err != nil {
+			log.Fatalf("Failed to serve: %v", err)
 		}
-	} else {
-		ServerGRPC = os.Getenv("BACKEND_URL")
-	}
-	fmt.Println("GRPC Server set to: " + ServerGRPC)
-	fmt.Println("GRPC Port set to: " + PortGRPC)
-	var gconf models.GlobalConfig
-	gconf.ServerGRPC = ServerGRPC
-	gconf.PortGRPC = PortGRPC
-	gconf.Name = "netmaker"
-	err := setGlobalConfig(gconf)
+	}()
+	logic.Log("Agent Server successfully started on port "+grpcport+" (gRPC)", 0)
 
-	if err != nil && err != mongo.ErrNoDocuments{
-	      log.Fatalf("Unable to set global config: %v", err)
-	}
+	// Right way to stop the server using a SHUTDOWN HOOK
+	// Create a channel to receive OS signals
+	c := make(chan os.Signal)
 
+	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
+	// Ignore other incoming signals
+	signal.Notify(c, os.Interrupt)
 
-	listener, err := net.Listen("tcp", grpcport)
-        // Handle errors if any
-        if err != nil {
-                log.Fatalf("Unable to listen on port" + grpcport + ": %v", err)
-        }
+	// Block main routine until a signal is received
+	// As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
+	<-c
 
-         s := grpc.NewServer(
-		 authServerUnaryInterceptor(),
-		 authServerStreamInterceptor(),
-	 )
-         // Create NodeService type 
-         srv := &service.NodeServiceServer{}
-
-         // Register the service with the server 
-         nodepb.RegisterNodeServiceServer(s, srv)
-
-         srv.NodeDB = mongoconn.NodeDB
-
-        // Start the server in a child routine
-        go func() {
-                if err := s.Serve(listener); err != nil {
-                        log.Fatalf("Failed to serve: %v", err)
-                }
-        }()
-        fmt.Println("Agent Server succesfully started on port " + grpcport + " (gRPC)")
-
-	if installserver {
-			fmt.Println("Adding server to " + config.Config.Server.DefaultNetName)
-                        success, err := serverctl.AddNetwork(config.Config.Server.DefaultNetName)
-                        if err != nil {
-                                fmt.Printf("Error adding to default network: %v", err)
-				fmt.Println("")
-				fmt.Println("Unable to add server to network. Continuing.")
-				fmt.Println("Please investigate client installation on server.")
-			} else if !success {
-                                fmt.Println("Unable to add server to network. Continuing.")
-                                fmt.Println("Please investigate client installation on server.")
-			} else{
-                                fmt.Println("Server successfully added to default network.")
-			}
-	}
-        fmt.Println("Setup complete. You are ready to begin using netmaker.")
-
-
-
-        // Right way to stop the server using a SHUTDOWN HOOK
-        // Create a channel to receive OS signals
-        c := make(chan os.Signal)
-
-        // Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
-        // Ignore other incoming signals
-        signal.Notify(c, os.Interrupt)
-
-        // Block main routine until a signal is received
-        // As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
-        <-c
-
-        // After receiving CTRL+C Properly stop the server
-        fmt.Println("Stopping the Agent server...")
-        s.Stop()
-        listener.Close()
-        fmt.Println("Agent server closed..")
-        fmt.Println("Closing MongoDB connection")
-        mongoconn.Client.Disconnect(context.TODO())
-        fmt.Println("MongoDB connection closed.")
+	// After receiving CTRL+C Properly stop the server
+	logic.Log("Stopping the Agent server...", 0)
+	s.Stop()
+	listener.Close()
+	logic.Log("Agent server closed..", 0)
+	logic.Log("Closed DB connection.", 0)
 }
-func setGlobalConfig(globalconf models.GlobalConfig) (error) {
-
-        collection := mongoconn.Client.Database("netmaker").Collection("config")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	create, _, err := functions.GetGlobalConfig()
-	if create {
-		_, err := collection.InsertOne(ctx, globalconf)
-		defer cancel()
-		if err != nil {
-			if err == mongo.ErrNoDocuments || strings.Contains(err.Error(), "no documents in result"){
-				return nil
-			} else {
-				return err
-			}
-		}
-	} else {
-		filter := bson.M{"name": "netmaker"}
-		update := bson.D{
-			{"$set", bson.D{
-				{"servergrpc", globalconf.ServerGRPC},
-				{"portgrpc", globalconf.PortGRPC},
-			}},
-		}
-		err := collection.FindOneAndUpdate(ctx, filter, update).Decode(&globalconf)
-                        if err == mongo.ErrNoDocuments {
-			//if err == mongo.ErrNoDocuments || strings.Contains(err.Error(), "no documents in result"){
-                                return nil
-                        }
-	}
-	return err
-}
-
-func createDefaultNetwork() (bool, error) {
-
-	iscreated := false
-	exists, err := functions.NetworkExists(config.Config.Server.DefaultNetName)
-
-	if exists || err != nil {
-		fmt.Println("Default network already exists")
-		fmt.Println("Skipping default network create")
-		return iscreated, err
-	} else {
-
-	var network models.Network
-
-	network.NetID = config.Config.Server.DefaultNetName
-	network.AddressRange = config.Config.Server.DefaultNetRange
-	network.DisplayName = config.Config.Server.DefaultNetName
-        network.SetDefaults()
-        network.SetNodesLastModified()
-        network.SetNetworkLastModified()
-        network.KeyUpdateTimeStamp = time.Now().Unix()
-	priv := false
-	network.IsLocal = &priv
-        network.KeyUpdateTimeStamp = time.Now().Unix()
-	allow := true
-	network.AllowManualSignUp = &allow
-
-	fmt.Println("Creating default network.")
-
-
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-
-        // insert our network into the network table
-        _, err = collection.InsertOne(ctx, network)
-        defer cancel()
-
-	}
-	if err == nil {
-		iscreated = true
-	}
-	return iscreated, err
-
-
-}
-
-
-func getPublicIP() (string, error) {
-
-        iplist := []string{"https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
-        endpoint := ""
-        var err error
-            for _, ipserver := range iplist {
-                resp, err := http.Get(ipserver)
-                if err != nil {
-                        continue
-                }
-                defer resp.Body.Close()
-                if resp.StatusCode == http.StatusOK {
-                        bodyBytes, err := ioutil.ReadAll(resp.Body)
-                        if err != nil {
-                                continue
-                        }
-                        endpoint = string(bodyBytes)
-                        break
-                }
-
-        }
-        if err == nil && endpoint == "" {
-                err =  errors.New("Public Address Not Found.")
-        }
-        return endpoint, err
-}
-
 
 func authServerUnaryInterceptor() grpc.ServerOption {
 	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)
 }
-func authServerStreamInterceptor() grpc.ServerOption {
-        return grpc.StreamInterceptor(controller.AuthServerStreamInterceptor)
-}
 
+// func authServerStreamInterceptor() grpc.ServerOption {
+// 	return grpc.StreamInterceptor(controller.AuthServerStreamInterceptor)
+// }

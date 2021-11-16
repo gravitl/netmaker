@@ -1,443 +1,308 @@
-//TODO: Consider restructuring  this file/folder    "github.com/gorilla/handlers"
-
-//It may make more sense to split into different files and not call it "helpers"
-
 package functions
 
 import (
-    "fmt"
-    "errors"
-    "math/rand"
-    "time"
-    "context"
-    "encoding/base64"
-    "strings"
-    "net"
-    "github.com/gravitl/netmaker/models"
-    "github.com/gravitl/netmaker/mongoconn"
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/bson/primitive"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "go.mongodb.org/mongo-driver/mongo"
+	"encoding/json"
+	"fmt"
+	"log"
+	"math/rand"
+	"strings"
+	"time"
+
+	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
+
+// PrintUserLog - prints a log with a given username
+func PrintUserLog(username string, message string, loglevel int) {
+	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
+	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
+		log.Println("[netmaker]", username, message)
+	}
+}
+
+// ParseNetwork - parses a network into a model
+func ParseNetwork(value string) (models.Network, error) {
+	var network models.Network
+	err := json.Unmarshal([]byte(value), &network)
+	return network, err
+}
+
+// ParseNode - parses a node into a model
+func ParseNode(value string) (models.Node, error) {
+	var node models.Node
+	err := json.Unmarshal([]byte(value), &node)
+	return node, err
+}
+
+// ParseExtClient - parses an extclient into a model
+func ParseExtClient(value string) (models.ExtClient, error) {
+	var extClient models.ExtClient
+	err := json.Unmarshal([]byte(value), &extClient)
+	return extClient, err
+}
+
+// ParseIntClient - parses int client
+func ParseIntClient(value string) (models.IntClient, error) {
+	var intClient models.IntClient
+	err := json.Unmarshal([]byte(value), &intClient)
+	return intClient, err
+}
 
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the network
 
-func CreateServerToken(netID string) (string, error) {
-	fmt.Println("Creating token.")
-        var network models.Network
-        var accesskey models.AccessKey
+// SliceContains - sees if a slice contains something
+func SliceContains(slice []string, item string) bool {
+	set := make(map[string]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
 
-        network, err := GetParentNetwork(netID)
-        if err != nil {
-                return "", err
-        }
-
-                accesskey.Name = GenKeyName()
-                accesskey.Value = GenKey()
-                accesskey.Uses = 1
-        _, gconf, errG := GetGlobalConfig()
-        if errG != nil {
-                return "", errG
-        }
-        address := "localhost" + gconf.PortGRPC
-
-        privAddr := ""
-        if *network.IsLocal {
-                privAddr = network.LocalRange
-        }
-
-
-	fmt.Println("Token details:")
-	fmt.Println("    grpc address + port: " + address)
-	fmt.Println("                network: " + netID)
-	fmt.Println("          private range: " + privAddr)
-
-	accessstringdec := address + "|" + netID + "|" + accesskey.Value + "|" + privAddr
-
-	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(accessstringdec))
-
-        fmt.Println("          access string: " + accesskey.AccessString)
-
-
-        network.AccessKeys = append(network.AccessKeys, accesskey)
-
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        // Create filter
-        filter := bson.M{"netid": netID}
-
-        // Read update model from body request
-        fmt.Println("Adding key to " + network.NetID)
-
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"accesskeys", network.AccessKeys},
-                }},
-        }
-
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-
-        defer cancel()
-
-        if errN != nil {
-                return "", errN
-        }
-        return accesskey.AccessString, nil
+	_, ok := set[item]
+	return ok
 }
 
-func IsFieldUnique(network string,  field string, value string) bool {
+// GetPeersList - gets peers for given network
+func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 
-	var node models.Node
-	isunique := true
+	var peers []models.PeersResponse
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		return peers, err
+	}
 
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	for _, value := range collection {
 
-	filter := bson.M{field: value, "network": network}
+		var peer models.PeersResponse
+		err := json.Unmarshal([]byte(value), &peer)
+		if err != nil {
+			continue // try the rest
+		}
+		peers = append(peers, peer)
+	}
 
-        err := collection.FindOne(ctx, filter).Decode(&node)
-
-        defer cancel()
-
-        if err != nil {
-		return isunique
-        }
-
-        if (node.Name != "") {
-                isunique = false
-        }
-
-        return isunique
+	return peers, err
 }
 
+// GetIntPeersList - get int peers list
+func GetIntPeersList() ([]models.PeersResponse, error) {
+
+	var peers []models.PeersResponse
+	records, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
+
+	if err != nil {
+		return peers, err
+	}
+	// parse the peers
+
+	for _, value := range records {
+
+		var peer models.PeersResponse
+		err := json.Unmarshal([]byte(value), &peer)
+		if err != nil {
+			log.Fatal(err)
+		}
+		// add the node to our node array
+		//maybe better to just return this? But then that's just GetNodes...
+		peers = append(peers, peer)
+	}
+
+	return peers, err
+}
+
+// GetServerIntClient - get server int client
+func GetServerIntClient() (*models.IntClient, error) {
+
+	intClients, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
+	for _, value := range intClients {
+		var intClient models.IntClient
+		err = json.Unmarshal([]byte(value), &intClient)
+		if err != nil {
+			return nil, err
+		}
+		if intClient.IsServer == "yes" && intClient.Network == "comms" {
+			return &intClient, nil
+		}
+	}
+	return nil, err
+}
+
+// NetworkExists - check if network exists
 func NetworkExists(name string) (bool, error) {
 
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"netid": name}
-
-	var result bson.M
-        err := collection.FindOne(ctx, filter).Decode(&result)
-
-	defer cancel()
-
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return false, nil
-		}
-		fmt.Println("ERROR RETRIEVING GROUP!")
-		fmt.Println(err)
+	var network string
+	var err error
+	if network, err = database.FetchRecord(database.NETWORKS_TABLE_NAME, name); err != nil {
+		return false, err
 	}
-	return true, err
+	return len(network) > 0, nil
 }
 
-//TODO: This is  very inefficient (N-squared). Need to find a better way.
-//Takes a list of  nodes in a network and iterates through
-//for each node, it gets a unique address. That requires checking against all other nodes once more
-func UpdateNetworkNodeAddresses(networkName string) error {
+// NetworkNodesUpdateAction - updates action of network nodes
+func NetworkNodesUpdateAction(networkName string, action string) error {
 
-        //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"network": networkName}
-        cur, err := collection.Find(ctx, filter)
-
-        if err != nil {
-                return err
-        }
-
-        defer cancel()
-
-        for cur.Next(context.TODO()) {
-
-                var node models.Node
-
-                err := cur.Decode(&node)
+	for _, value := range collections {
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			fmt.Println("error in node address assignment!")
-                        return err
-                }
-		ipaddr, iperr := UniqueAddress(networkName)
-                if iperr != nil {
-			fmt.Println("error in node  address assignment!")
-                        return iperr
-                }
-
-		filter := bson.M{"macaddress": node.MacAddress}
-	        update := bson.D{{"$set", bson.D{{"address", ipaddr}}}}
-
-		errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
-
-		defer cancel()
-	        if errN != nil {
-			return errN
+			return err
 		}
-        }
-
-        return err
-}
-//TODO TODO TODO!!!!!
-func UpdateNetworkPrivateAddresses(networkName string) error {
-
-        //Connection mongoDB with mongoconn class
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"network": networkName}
-        cur, err := collection.Find(ctx, filter)
-
-        if err != nil {
-                return err
-        }
-
-        defer cancel()
-
-        for cur.Next(context.TODO()) {
-
-                var node models.Node
-
-                err := cur.Decode(&node)
-                if err != nil {
-                        fmt.Println("error in node address assignment!")
-                        return err
-                }
-                ipaddr, iperr := UniqueAddress(networkName)
-                if iperr != nil {
-                        fmt.Println("error in node  address assignment!")
-                        return iperr
-                }
-
-                filter := bson.M{"macaddress": node.MacAddress}
-                update := bson.D{{"$set", bson.D{{"address", ipaddr}}}}
-
-                errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&node)
-
-                defer cancel()
-                if errN != nil {
-                        return errN
-                }
-        }
-
-        return err
+		if action == models.NODE_UPDATE_KEY && node.IsStatic == "yes" {
+			continue
+		}
+		if node.Network == networkName {
+			node.Action = action
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+	return nil
 }
 
-//Checks to see if any other networks have the same name (id)
-func IsNetworkNameUnique(name string) (bool, error ){
+// NetworkNodesUpdatePullChanges - tells nodes on network to pull
+func NetworkNodesUpdatePullChanges(networkName string) error {
 
-        isunique := true
-
-        dbs, err := ListNetworks()
-
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
-		return false, err
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, value := range collections {
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			fmt.Println("error in node address assignment!")
+			return err
+		}
+		if node.Network == networkName {
+			node.PullChanges = "yes"
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+
+	return nil
+}
+
+// IsNetworkDisplayNameUnique - checks if network display name unique
+func IsNetworkDisplayNameUnique(name string) (bool, error) {
+
+	isunique := true
+
+	dbs, err := logic.GetNetworks()
+	if err != nil {
+		return database.IsEmptyRecord(err), err
 	}
 
 	for i := 0; i < len(dbs); i++ {
 
-		if name == dbs[i].NetID {
+		if name == dbs[i].DisplayName {
 			isunique = false
 		}
 	}
 
-        return isunique, nil
+	return isunique, nil
 }
 
-func IsNetworkDisplayNameUnique(name string) (bool, error){
+// IsMacAddressUnique - checks if mac is unique
+func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 
-        isunique := true
+	_, err := database.FetchRecord(database.NODES_TABLE_NAME, macaddress+"###"+networkName)
+	if err != nil {
+		return database.IsEmptyRecord(err), err
+	}
 
-        dbs, err := ListNetworks()
-        if err != nil {
-                return false, err
-        }
-
-
-        for i := 0; i < len(dbs); i++ {
-
-                if name == dbs[i].DisplayName {
-                        isunique = false
-                }
-        }
-
-        return isunique, nil
+	return true, nil
 }
 
-func GetNetworkNodeNumber(networkName string) (int,  error){
+// GetNetworkNonServerNodeCount - get number of network non server nodes
+func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 
-        collection := mongoconn.Client.Database("wirecat").Collection("nodes")
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	count := 0
+	if err != nil && !database.IsEmptyRecord(err) {
+		return count, err
+	}
+	for _, value := range collection {
+		var node models.Node
+		if err = json.Unmarshal([]byte(value), &node); err != nil {
+			return count, err
+		} else {
+			if node.Network == networkName && node.IsServer != "yes" {
+				count++
+			}
+		}
+	}
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"network": networkName}
-        count, err := collection.CountDocuments(ctx, filter)
-	returncount := int(count)
-
-	//not sure if this is the right way of handling this error...
-        if err != nil {
-                return 9999, err
-        }
-
-        defer cancel()
-
-        return returncount, err
+	return count, nil
 }
 
+// IsKeyValidGlobal - checks if a key is valid globally
+func IsKeyValidGlobal(keyvalue string) bool {
 
-//Kind  of a weird name. Should just be GetNetworks I think. Consider changing.
-//Anyway, returns all the networks
-func ListNetworks() ([]models.Network, error){
-
-        var networks []models.Network
-
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        cur, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"_id": 0}))
-
-        if err != nil {
-                return networks, err
-        }
-
-        defer cancel()
-
-        for cur.Next(context.TODO()) {
-
-                var network models.Network
-                err := cur.Decode(&network)
-                if err != nil {
-			return networks, err
-                }
-
-                // add network our array
-                networks = append(networks, network)
-        }
-
-        if err := cur.Err(); err != nil {
-                return networks, err
-        }
-
-        return networks, err
-}
-
-//Checks to see if access key is valid
-//Does so by checking against all keys and seeing if any have the same value
-//may want to hash values before comparing...consider this
-//TODO: No error handling!!!!
-func IsKeyValid(networkname string, keyvalue string) bool{
-
-	network, _ := GetParentNetwork(networkname)
+	networks, _ := logic.GetNetworks()
 	var key models.AccessKey
 	foundkey := false
 	isvalid := false
-
-	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
-              currentkey:= network.AccessKeys[i]
-              if currentkey.Value == keyvalue {
-			key = currentkey
-			foundkey = true
+	for _, network := range networks {
+		for i := len(network.AccessKeys) - 1; i >= 0; i-- {
+			currentkey := network.AccessKeys[i]
+			if currentkey.Value == keyvalue {
+				key = currentkey
+				foundkey = true
+				break
+			}
+		}
+		if foundkey {
+			break
 		}
 	}
 	if foundkey {
 		if key.Uses > 0 {
-			isvalid  = true
+			isvalid = true
 		}
 	}
 	return isvalid
 }
+
 //TODO: Contains a fatal error return. Need to change
 //This just gets a network object from a network name
-//Should probably just be GetNetwork. kind of a dumb name. 
+//Should probably just be GetNetwork. kind of a dumb name.
 //Used in contexts where it's not the Parent network.
-func GetParentNetwork(networkname string) (models.Network, error) {
-
-        var network models.Network
-
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"netid": networkname}
-        err := collection.FindOne(ctx, filter).Decode(&network)
-
-        defer cancel()
-
-        if err != nil {
-                return network, err
-        }
-
-        return network, nil
-}
-
-//Check for valid IPv4 address
-//Note: We dont handle IPv6 AT ALL!!!!! This definitely is needed at some point
-//But for iteration 1, lets just stick to IPv4. Keep it simple stupid.
-func IsIpv4Net(host string) bool {
-   return net.ParseIP(host) != nil
-}
 
 //Similar to above but checks if Cidr range is valid
 //At least this guy's got some print statements
 //still not good error handling
-func IsIpv4CIDR(host string) bool {
-
-   ip, ipnet, err := net.ParseCIDR(host)
-
-	if err != nil {
-                fmt.Println(err)
-                fmt.Println("Address Range is not valid!")
-                return false
-        }
-
-   return ip != nil && ipnet != nil
-}
-
-//This is used to validate public keys (make sure they're base64 encoded like all public keys should be).
-func IsBase64(s string) bool {
-	_, err := base64.StdEncoding.DecodeString(s)
-	return err == nil
-}
-
-//This should probably just be called GetNode
-//It returns a node based on the ID of the node.
-//Why do we need this?
-//TODO: Check references. This seems unnecessary.
-func GetNodeObj(id primitive.ObjectID) models.Node {
-
-        var node models.Node
-
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"_id": id}
-        err := collection.FindOne(ctx, filter).Decode(&node)
-
-	defer cancel()
-
-        if err != nil {
-                fmt.Println(err)
-		fmt.Println("Did not get the node...")
-                return node
-        }
-	fmt.Println("Got node " + node.Name)
-        return node
-}
 
 //This  checks to  make sure a network name is valid.
 //Switch to REGEX?
-func NameInNetworkCharSet(name string) bool{
 
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
+// NameInNetworkCharSet - see if name is in charset for networks
+func NameInNetworkCharSet(name string) bool {
+
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
 
 	for _, char := range name {
 		if !strings.Contains(charset, strings.ToLower(string(char))) {
@@ -447,249 +312,136 @@ func NameInNetworkCharSet(name string) bool{
 	return true
 }
 
-func NameInNodeCharSet(name string) bool{
+// NameInDNSCharSet - name in dns char set
+func NameInDNSCharSet(name string) bool {
 
-        charset := "abcdefghijklmnopqrstuvwxyz1234567890-"
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
 
-        for _, char := range name {
-                if !strings.Contains(charset, strings.ToLower(string(char))) {
-                        return false
-                }
-        }
-        return true
+	for _, char := range name {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
 }
 
+// NameInNodeCharSet - name in node char set
+func NameInNodeCharSet(name string) bool {
 
-//This returns a node based on its mac address.
-//The mac address acts as the Unique ID for nodes.
-//Is this a dumb thing to do? I thought it was cool but maybe it's dumb.
-//It doesn't really provide a tangible benefit over a random ID
-func GetNodeByMacAddress(network string, macaddress string) (models.Node, error) {
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-"
 
-        var node models.Node
-
-	filter := bson.M{"macaddress": macaddress, "network": network}
-
-	collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        err := collection.FindOne(ctx, filter).Decode(&node)
-
-        defer cancel()
-
-        if err != nil {
-                return node, err
-        }
-        return node, nil
+	for _, char := range name {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
 }
 
-//This returns a unique address for a node to use
-//it iterates through the list of IP's in the subnet
-//and checks against all nodes to see if it's taken, until it finds one.
-//TODO: We do not handle a case where we run out of addresses.
-//We will need to handle that eventually
-func UniqueAddress(networkName string) (string, error){
+// RemoveDeletedNode - remove deleted node
+func RemoveDeletedNode(nodeid string) bool {
+	return database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, nodeid) == nil
+}
 
-	var network models.Network
-	network, err := GetParentNetwork(networkName)
-        if err != nil {
-                fmt.Println("UniqueAddress encountered  an error")
-                return "666", err
-        }
-
-	offset := true
-	ip, ipnet, err := net.ParseCIDR(network.AddressRange)
+// DeleteAllIntClients - delete all int clients
+func DeleteAllIntClients() error {
+	err := database.DeleteAllRecords(database.INT_CLIENTS_TABLE_NAME)
 	if err != nil {
-		fmt.Println("UniqueAddress encountered  an error")
-		return "666", err
+		return err
 	}
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); Inc(ip) {
-		if offset {
-			offset = false
-			continue
-		}
-		if IsIPUnique(networkName, ip.String()){
-			return ip.String(), err
-		}
-	}
-	//TODO
-	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
-	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
+	return nil
 }
 
-//pretty simple get
-func GetGlobalConfig() (bool, models.GlobalConfig, error) {
+// GetAllIntClients - get all int clients
+func GetAllIntClients() ([]models.IntClient, error) {
+	var clients []models.IntClient
+	collection, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
 
-	create := false
+	if err != nil {
+		return clients, err
+	}
 
-        filter := bson.M{}
+	for _, value := range collection {
+		var client models.IntClient
+		err := json.Unmarshal([]byte(value), &client)
+		if err != nil {
+			return []models.IntClient{}, err
+		}
+		// add node to our array
+		clients = append(clients, client)
+	}
 
-        var globalconf models.GlobalConfig
-
-        collection := mongoconn.Client.Database("netmaker").Collection("config")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        err := collection.FindOne(ctx, filter).Decode(&globalconf)
-
-        defer cancel()
-
-	if err == mongo.ErrNoDocuments {
-                fmt.Println("Global config does not exist. Need to create.")
-		create = true
-		return create, globalconf, err
-	} else if err != nil {
-                fmt.Println(err)
-                fmt.Println("Could not get global config")
-                return create, globalconf, err
-        }
-	return create, globalconf, err
+	return clients, nil
 }
 
+// GetAllExtClients - get all ext clients
+func GetAllExtClients() ([]models.ExtClient, error) {
+	var extclients []models.ExtClient
+	collection, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 
+	if err != nil {
+		return extclients, err
+	}
 
-//generate an access key value
+	for _, value := range collection {
+		var extclient models.ExtClient
+		err := json.Unmarshal([]byte(value), &extclient)
+		if err != nil {
+			return []models.ExtClient{}, err
+		}
+		// add node to our array
+		extclients = append(extclients, extclient)
+	}
+
+	return extclients, nil
+}
+
+// GenKey - generates access key
 func GenKey() string {
 
-  var seededRand *rand.Rand = rand.New(
-  rand.NewSource(time.Now().UnixNano()))
+	var seededRand *rand.Rand = rand.New(
+		rand.NewSource(time.Now().UnixNano()))
 
-  length := 16
-  charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	length := 16
+	charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-  b := make([]byte, length)
-  for i := range b {
-    b[i] = charset[seededRand.Intn(len(charset))]
-  }
-  return string(b)
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }
 
 //generate a key value
 //we should probably just have 1 random string generator
 //that  can be used across all functions
 //have a "base string" a "length" and a "charset"
+
+// GenKeyName - generates a key name
 func GenKeyName() string {
 
-  var seededRand *rand.Rand = rand.New(
-  rand.NewSource(time.Now().UnixNano()))
+	var seededRand *rand.Rand = rand.New(
+		rand.NewSource(time.Now().UnixNano()))
 
-  length := 5
-  charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	length := 5
+	charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-  b := make([]byte, length)
-  for i := range b {
-    b[i] = charset[seededRand.Intn(len(charset))]
-  }
-  return "key-" + string(b)
-}
-
-//checks if IP is unique in the address range
-//used by UniqueAddress
-func IsIPUnique(network string, ip string) bool {
-
-	var node models.Node
-
-	isunique := true
-
-        collection := mongoconn.Client.Database("netmaker").Collection("nodes")
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	filter := bson.M{"address": ip, "network": network}
-
-        err := collection.FindOne(ctx, filter).Decode(&node)
-
-	defer cancel()
-
-        if err != nil {
-                fmt.Println(err)
-                return isunique
-        }
-
-	if (node.Address == ip) {
-		isunique = false
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
 	}
-	return isunique
+	return "key" + string(b)
 }
 
-//called once key has been used by createNode
-//reduces value by one and deletes if necessary
-func DecrimentKey(networkName string, keyvalue string) {
-
-        var network models.Network
-
-	network, err := GetParentNetwork(networkName)
-        if err != nil {
-                return
-        }
-
-        for i := len(network.AccessKeys) - 1; i >= 0; i-- {
-
-                currentkey := network.AccessKeys[i]
-                if currentkey.Value == keyvalue {
-                        network.AccessKeys[i].Uses--
-			if network.AccessKeys[i].Uses < 1 {
-				//this is the part where it will call the delete
-				//not sure if there's edge cases I'm missing
-				DeleteKey(network, i)
-				return
-			}
-                }
-        }
-
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        filter := bson.M{"netid": network.NetID}
-
-        update := bson.D{
-                {"$set", bson.D{
-                        {"accesskeys", network.AccessKeys},
-                }},
-        }
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-
-        defer cancel()
-
-        if errN != nil {
-                return
-        }
-}
-//takes the logic from controllers.deleteKey
+// DeleteKey - deletes a key
 func DeleteKey(network models.Network, i int) {
 
 	network.AccessKeys = append(network.AccessKeys[:i],
-                                network.AccessKeys[i+1:]...)
+		network.AccessKeys[i+1:]...)
 
-        collection := mongoconn.Client.Database("netmaker").Collection("networks")
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-        // Create filter
-        filter := bson.M{"netid": network.NetID}
-
-        // prepare update model.
-        update := bson.D{
-                {"$set", bson.D{
-                        {"accesskeys", network.AccessKeys},
-                }},
-        }
-
-        errN := collection.FindOneAndUpdate(ctx, filter, update).Decode(&network)
-
-        defer cancel()
-
-        if errN != nil {
-                return
-        }
-}
-//increments an IP over the previous
-func Inc(ip net.IP) {
-	for j := len(ip)-1; j>=0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
+	if networkData, err := json.Marshal(&network); err != nil {
+		return
+	} else {
+		database.Insert(network.NetID, string(networkData), database.NETWORKS_TABLE_NAME)
 	}
 }

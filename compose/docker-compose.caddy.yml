@@ -1,0 +1,76 @@
+version: "3.4"
+
+services:
+  netmaker:
+    container_name: netmaker
+    image: gravitl/netmaker:v0.8.5
+    volumes:
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+      - /run/systemd/system:/run/systemd/system
+      - /etc/systemd/system:/etc/systemd/system
+      - /sys/fs/cgroup:/sys/fs/cgroup
+      - /usr/bin/wg:/usr/bin/wg
+      - dnsconfig:/root/config/dnsconfig
+      - sqldata:/root/data
+    cap_add: 
+      - NET_ADMIN
+      - SYS_ADMIN
+    restart: always
+    network_mode: host
+    privileged: true
+    environment:
+      SERVER_HOST: "SERVER_PUBLIC_IP"
+      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
+      SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:443"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP"
+      GRPC_SSL: "on"
+      DNS_MODE: "on"
+      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
+      API_PORT: "8081"
+      GRPC_PORT: "50051"
+      CLIENT_MODE: "on"
+      MASTER_KEY: "REPLACE_MASTER_KEY"
+      SERVER_GRPC_WIREGUARD: "off"
+      CORS_ALLOWED_ORIGIN: "*"
+      DATABASE: "sqlite"
+      NODE_ID: "netmaker-server-1"
+  netmaker-ui:
+    container_name: netmaker-ui
+    depends_on:
+      - netmaker
+    image: gravitl/netmaker-ui:v0.8.5
+    links:
+      - "netmaker:api"
+    ports:
+      - "8082:80"
+    environment:
+      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
+    restart: always
+  coredns:
+    depends_on:
+      - netmaker 
+    image: coredns/coredns
+    command: -conf /root/dnsconfig/Corefile
+    container_name: coredns
+    restart: always
+    ports:
+      - "COREDNS_IP:53:53/udp"
+      - "COREDNS_IP:53:53/tcp"
+    volumes:
+      - dnsconfig:/root/dnsconfig
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    restart: unless-stopped
+    network_mode: host # Wants ports 80 and 443!
+    volumes:
+      - /root/Caddyfile:/etc/caddy/Caddyfile
+      # - $PWD/site:/srv # you could also serve a static site in site folder
+      - caddy_data:/data
+      - caddy_conf:/config
+volumes:
+  caddy_data: {}
+  caddy_conf: {}
+  sqldata: {}
+  dnsconfig: {}
