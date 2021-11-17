@@ -1,6 +1,7 @@
 #first stage - builder
-FROM golang:1.15 as builder
+FROM golang:1.15-alpine as builder
 ARG version
+RUN apk add build-base
 WORKDIR /app
 COPY . .
 ENV GO111MODULE=auto
