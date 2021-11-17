@@ -119,7 +119,7 @@ func GenPass() string {
 // GetPublicIP - gets public ip
 func GetPublicIP() (string, error) {
 
-	iplist := []string{"http://ip.client.gravitl.com", "https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+	iplist := []string{"https://ip.client.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {

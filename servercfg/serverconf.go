@@ -405,7 +405,7 @@ func GetPublicIP() (string, error) {
 	endpoint := ""
 	var err error
 
-	iplist := []string{"http://ip.server.gravitl.com", "https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	for _, ipserver := range iplist {
 		resp, err := http.Get(ipserver)
 		if err != nil {
