@@ -40,4 +40,4 @@ jobs:
           context: .
           platforms: linux/amd64, linux/arm64
           push: true
-          tags: gravitl/netmaker:${{ env.TAG }}
+          tags: ${{ github.respository }}:${{ env.TAG }}
