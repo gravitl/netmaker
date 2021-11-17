@@ -50,7 +50,7 @@ jobs:
       -
         name: Test x86
         run: |
-            docker run --rm ${{ env.TAG }}
+            docker run --rm ${{ env.TAG }}&
             sleep 10
             kill %1
       -
@@ -64,7 +64,7 @@ jobs:
       -
         name: Test arm
         run: |
-            docker run --rm ${{ env.TAG }}
+            docker run --rm ${{ env.TAG }}&
             sleep 10
             kill %1
       -
