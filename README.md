@@ -33,10 +33,9 @@
 - [x] OAuth and Private DNS
 - [x] Linux, Mac, Windows, iPhone, and Android
 
-[![DO button](https://www.deploytodo.com/do-btn-blue.svg)](https://marketplace.digitalocean.com/apps/netmaker?refcode=496ffcf1e252)  
-
 # Get Started in 5 Minutes  
 
+**For DigitalOcean, use the 1-Click App: <a href="https://marketplace.digitalocean.com/apps/netmaker?refcode=496ffcf1e252"><img src="https://www.deploytodo.com/do-btn-blue.svg" width="50%" /></a>
 **For production-grade installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/develop/install.html).**  
 **For an HA install using helm on k8s, visit the [Helm Repo](https://github.com/gravitl/netmaker-helm/).**
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
@@ -46,8 +45,6 @@
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/nm-quick.sh | bash`
 
 Upon completion, the logs will display a script that can be used to automatically connect Linux and Mac devices. It will also display instructions for Windows, iPhone, and Android.
-
-<img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
 After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://gravitl.com/resources) for different use cases, including Kubernetes.
 
