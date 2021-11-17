@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.8.5
+    image: gravitl/netmaker:v0.9.0
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - /usr/bin/wg:/usr/bin/wg
@@ -27,6 +27,7 @@ services:
       MASTER_KEY: "REPLACE_MASTER_KEY"
       SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
+      DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
     ports:
@@ -37,7 +38,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.8.5
+    image: gravitl/netmaker-ui:v0.9.0
     links:
       - "netmaker:api"
     ports:

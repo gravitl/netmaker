@@ -21,6 +21,6 @@ FROM gravitl/netmaker:${NM_VERSION}
 
 RUN apk add --no-cache --update bash libmnl iptables openresolv iproute2
 COPY --from=builder /usr/bin/wireguard-go /usr/bin/wg* /usr/bin/
-COPY scripts/userspace-entrypoint.sh ./entrypoint.sh
+COPY scripts/netclient.sh ./entrypoint.sh
 
 ENTRYPOINT ["/bin/sh", "./entrypoint.sh"]

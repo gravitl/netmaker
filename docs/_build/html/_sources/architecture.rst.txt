@@ -171,6 +171,8 @@ Simply clone the repo, cd to netmaker/netclient and run "go build" (Golang must 
 The following systems should be operable natively with Netclient in daemon mode:
         - Windows
         - Mac
+        - FreeBSD
+        - OpenWRT
         - Fedora
         - Ubuntu
         - Debian
