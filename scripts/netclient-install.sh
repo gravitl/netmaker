@@ -32,15 +32,15 @@ set -- $dependencies
 while [ -n "$1" ]; do
     echo $1
 	if [ "${OS}" = "FreeBSD" ]; then
-		is_installed=$(pkg check -d $1 | grep '100%')
-		if [ "${is_installed}" = '100%' ]; then
+		is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
+		if [ "$is_installed" != "" ]; then
 			echo "    " $1 is installed
 		else
 			echo "    " $1 is not installed. Attempting install.
 			${install_cmd} $1
 			sleep 5
-			is_installed=$(pkg check -d $1 | grep '100%')
-			if [ "${is_installed}" = '100%' ]; then
+			is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
+			if [ "$is_installed" != "" ]; then
 				echo "    " $1 is installed
 			elif [ -x "$(command -v $1)" ]; then
 				echo "    " $1 is installed
@@ -159,11 +159,12 @@ else
 	echo "Downloading $dist latest"
 	wget -nv -O netclient https://github.com/gravitl/netmaker/releases/download/latest/$dist
 fi
+
 chmod +x netclient
 
 EXTRA_ARGS=""
 if [ "${OS}" = "FreeBSD" ]; then
-	EXTRA_ARGS = "--daemon=off"
+	EXTRA_ARGS="--daemon=off"
 fi
 
 if [ -z "${NAME}" ]; then
@@ -172,17 +173,15 @@ else
   ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
 fi
 
-rm -f netclient
-
 if [ "${OS}" = "FreeBSD" ]; then
-	tee /usr/local/etc/rc.d/netclient <<'EOF' >/dev/null
+	mv ./netclient /etc/netclient/netclient
+	cat << 'END_OF_FILE' > ./netclient.service.tmp
 #!/bin/sh
 
 # PROVIDE: netclient
 # REQUIRE: LOGIN DAEMON NETWORKING SERVERS FILESYSTEM
 # BEFORE:  
 # KEYWORD: shutdown
-
 . /etc/rc.subr
 
 name="netclient"
@@ -194,7 +193,11 @@ command_args="-c -f -P ${pidfile} -R 10 -t "Netclient" -u root -o /etc/netclient
 load_rc_config $name
 run_rc_command "$1"
 
-EOF
-	/usr/local/etc/rc.d/netclient enable
-	/usr/local/etc/rc.d/netclient start
+END_OF_FILE
+	sudo mv ./netclient.service.tmp /usr/local/etc/rc.d/netclient
+	sudo chmod +x /usr/local/etc/rc.d/netclient
+	sudo /usr/local/etc/rc.d/netclient enable
+	sudo /usr/local/etc/rc.d/netclient start
+else
+	rm -f netclient
 fi
