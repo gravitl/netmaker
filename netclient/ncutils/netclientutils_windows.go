@@ -1,29 +1,9 @@
 package ncutils
 
 import (
-	"context"
-	"crypto/tls"
-	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
-	"math/rand"
-	"net"
-	"net/http"
-	"os"
 	"os/exec"
-	"regexp"
-	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
-	"time"
-
-	"golang.zx2c4.com/wireguard/wgctrl"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // RunCmd - runs a local command
