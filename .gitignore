@@ -4,6 +4,8 @@ netmaker-arm64
 netmaker-32
 netmaker-amd64
 netclient/netclient
+netclient/build
+netclient/build/
 netclient/files/netclient
 netclient/netclient-amd64
 netclient/netclient-arm

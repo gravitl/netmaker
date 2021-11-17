@@ -109,7 +109,10 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 			;;
 			arm*)
 				dist=netclient-$CPU_ARCH
-            		;;
+			;;
+                        mipsle)
+                                dist=netclient-mipsle
+			;;
 			*)
 				fatal "$CPU_ARCH : cpu architecture not supported"
     		esac
