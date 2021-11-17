@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -30,6 +31,7 @@ import (
 func main() {
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and grpc server
+	setGarbageCollection()
 	defer database.CloseDB()
 	startControllers() // start the grpc or rest endpoints
 }
@@ -191,6 +193,13 @@ func runGRPC(wg *sync.WaitGroup) {
 
 func authServerUnaryInterceptor() grpc.ServerOption {
 	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)
+}
+
+func setGarbageCollection() {
+	_, gcset := os.LookupEnv("GOGC")
+	if !gcset {
+		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
+	}
 }
 
 // func authServerStreamInterceptor() grpc.ServerOption {
