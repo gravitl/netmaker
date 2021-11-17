@@ -38,7 +38,7 @@ jobs:
               run: |
                 cd netclient
                 go build -ldflags="-X 'main.version=testing'" .
-                curl -H 'Authorization: Bearer ${{ NUSAK_MASTERKEY }}' \
+                curl -H 'Authorization: Bearer ${{ secrets.NUSAK_MASTERKEY }}' \
                 -H 'Content-Type: multipart/form-data' --form upload='./netclient' \
                 -X POST https://api.nusak.ca/api/file/netclient
     #deploy:
