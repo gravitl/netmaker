@@ -45,11 +45,12 @@ jobs:
         with:
           context: .
           load: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ env.TAG }}
       -
         name: Test
         run: |
-            docker run --rm ${{ env.TAG }}
+            docker run --rm --entrypoint apk add file; file netmaker ${{ env.TAG }}
       -
         name: Build and push
         uses: docker/build-push-action@v2
