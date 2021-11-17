@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -34,6 +35,9 @@ const LINUX_APP_DATA_PATH = "/etc/netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
+
+// WINDOWS_APP_DATA_PATH - windows path
+const WINDOWS_WG_DATA_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
 
 // WINDOWS_SVC_NAME - service name
 const WINDOWS_SVC_NAME = "netclient"
@@ -63,6 +67,11 @@ func IsMac() bool {
 // IsLinux - checks if is linux
 func IsLinux() bool {
 	return runtime.GOOS == "linux"
+}
+
+// IsLinux - checks if is linux
+func IsFreeBSD() bool {
+	return runtime.GOOS == "freebsd"
 }
 
 // GetWireGuard - checks if wg is installed
@@ -110,7 +119,7 @@ func GenPass() string {
 // GetPublicIP - gets public ip
 func GetPublicIP() (string, error) {
 
-	iplist := []string{"http://ip.client.gravitl.com", "https://ifconfig.me", "http://api.ipify.org", "http://ipinfo.io/ip"}
+	iplist := []string{"https://ip.client.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {
@@ -182,14 +191,18 @@ PersistentKeepAlive = %s
 }
 
 // CreateUserSpaceConf - creates a user space WireGuard conf
-func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
+func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, fwmark int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	peersString, err := parsePeers(perskeepalive, peers)
-	listenPortString := ""
+	var listenPortString string
+	var fwmarkString string
 	if mtu <= 0 {
 		mtu = 1280
 	}
 	if listenPort != "" {
 		listenPortString += "ListenPort = " + listenPort
+	}
+	if fwmark != 0 {
+		fwmarkString += "FWMark = " + strconv.Itoa(int(fwmark))
 	}
 	if err != nil {
 		return "", err
@@ -199,6 +212,7 @@ Address = %s
 PrivateKey = %s
 MTU = %s
 %s
+%s
 
 %s
 
@@ -207,6 +221,7 @@ MTU = %s
 		privatekey,
 		strconv.Itoa(int(mtu)),
 		listenPortString,
+		fwmarkString,
 		peersString)
 	return config, nil
 }
@@ -256,6 +271,16 @@ func GetLocalIP(localrange string) (string, error) {
 		return "", errors.New("Failed to find local IP in range " + localrange)
 	}
 	return local, nil
+}
+
+func GetNetworkIPMask(networkstring string) (string, string, error) {
+	ip, ipnet, err := net.ParseCIDR(networkstring)
+	if err != nil {
+		return "", "", err
+	}
+	ipstring := ip.String()
+	maskstring := ipnet.Mask.String()
+	return ipstring, maskstring, err
 }
 
 // GetFreePort - gets free port of machine
@@ -324,6 +349,15 @@ func GetNetclientPathSpecific() string {
 	}
 }
 
+// GetNetclientPathSpecific - gets specific netclient config path
+func GetWGPathSpecific() string {
+	if IsWindows() {
+		return WINDOWS_WG_DATA_PATH + "\\"
+	} else {
+		return "/etc/wireguard/"
+	}
+}
+
 // GRPCRequestOpts - gets grps request opts
 func GRPCRequestOpts(isSecure string) grpc.DialOption {
 	var requestOpts grpc.DialOption
@@ -336,46 +370,33 @@ func GRPCRequestOpts(isSecure string) grpc.DialOption {
 }
 
 // Copy - copies a src file to dest
-func Copy(src, dst string) (int64, error) {
+func Copy(src, dst string) error {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	if !sourceFileStat.Mode().IsRegular() {
-		return 0, errors.New(src + " is not a regular file")
+		return errors.New(src + " is not a regular file")
 	}
 
 	source, err := os.Open(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer source.Close()
 
 	destination, err := os.Create(dst)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
-	err = os.Chmod(dst, 0755)
+	_, err = io.Copy(destination, source)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
-	return nBytes, err
-}
-
-// RunCmd - runs a local command
-func RunCmd(command string, printerr bool) (string, error) {
-	args := strings.Fields(command)
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Wait()
-	out, err := cmd.CombinedOutput()
-	if err != nil && printerr {
-		log.Println("error running command:", command)
-		log.Println(strings.TrimSuffix(string(out), "\n"))
-	}
-	return string(out), err
+	err = os.Chmod(dst, 0755)
+	return err
 }
 
 // RunsCmds - runs cmds
@@ -442,4 +463,21 @@ func stringAfter(original string, substring string) string {
 		return ""
 	}
 	return original[adjustedPosition:]
+}
+
+func ShortenString(input string, length int) string {
+	output := input
+	if len(input) > length {
+		output = input[0:length]
+	}
+	return output
+}
+
+func DNSFormatString(input string) string {
+	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
+	if err != nil {
+		Log("error with regex: " + err.Error())
+		return ""
+	}
+	return reg.ReplaceAllString(input, "")
 }

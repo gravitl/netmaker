@@ -1,26 +1,39 @@
-#first stage - builder
+FROM gravitl/builder:latest as builder
+# add glib support daemon manager
+WORKDIR /app
 
-FROM golang:latest as builder
-
-COPY . /app
-
-WORKDIR /app/netclient
+COPY . .
 
 ENV GO111MODULE=auto
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o netclient main.go
-
-#second stage
-
-FROM debian:latest
-
-RUN apt-get update && apt-get -y install systemd procps
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient-app netclient/main.go
 
 WORKDIR /root/
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN apk add --update git build-base libmnl-dev iptables
 
-COPY --from=builder /app/netclient/netclient .
+RUN git clone https://git.zx2c4.com/wireguard-go && \
+    cd wireguard-go && \
+    make && \
+    make install
 
-CMD ["./netclient"]
+ENV WITH_WGQUICK=yes
+RUN git clone https://git.zx2c4.com/wireguard-tools && \
+    cd wireguard-tools && \
+    cd src && \
+    make && \
+    make install
 
+FROM alpine:3.13.6
+
+WORKDIR /root/
+
+RUN apk add --no-cache --update bash libmnl iptables openresolv iproute2
+COPY --from=builder /usr/bin/wireguard-go /usr/bin/wg* /usr/bin/
+COPY --from=builder /app/netclient-app ./netclient
+COPY --from=builder /app/scripts/netclient.sh .
+RUN chmod 0755 netclient && chmod 0755 netclient.sh
+
+ENV WG_QUICK_USERSPACE_IMPLEMENTATION=wireguard-go
+
+ENTRYPOINT ["/bin/sh", "./netclient.sh"]

@@ -24,12 +24,14 @@ type GlobalConfig struct {
 
 // ClientConfig - struct for dealing with client configuration
 type ClientConfig struct {
-	Server          ServerConfig `yaml:"server"`
-	Node            models.Node  `yaml:"node"`
-	Network         string       `yaml:"network"`
-	Daemon          string       `yaml:"daemon"`
-	OperatingSystem string       `yaml:"operatingsystem"`
-	DebugJoin       bool         `yaml:"debugjoin"`
+	Server          ServerConfig   `yaml:"server"`
+	Node            models.Node    `yaml:"node"`
+	NetworkSettings models.Network `yaml:"networksettings"`
+	Network         string         `yaml:"network"`
+	Daemon          string         `yaml:"daemon"`
+	OperatingSystem string         `yaml:"operatingsystem"`
+	DebugJoin       bool           `yaml:"debugjoin"`
+	FWMark          int32          `yaml:"fwmark"`
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient
@@ -191,6 +193,7 @@ func (config *ClientConfig) ReadConfig() {
 // ModConfig - overwrites the node inside client config on disk
 func ModConfig(node *models.Node) error {
 	network := node.Network
+	networksettings := node.NetworkSettings
 	if network == "" {
 		return errors.New("no network provided")
 	}
@@ -205,6 +208,7 @@ func ModConfig(node *models.Node) error {
 	}
 
 	modconfig.Node = (*node)
+	modconfig.NetworkSettings = (networksettings)
 	err = Write(&modconfig, network)
 	return err
 }

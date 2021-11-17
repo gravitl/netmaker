@@ -46,10 +46,10 @@
   
   
   
-    <title>Getting Started &#8212; Netmaker 0.8.5 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <title>Getting Started &#8212; Netmaker 0.9.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8.5 documentation"
+        <a href="index.html" title="Netmaker 0.9.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.5 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8.5 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.9.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8.5 documentation">Netmaker Docs</a>
+       title="Netmaker 0.9.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -346,11 +346,15 @@
   <ul class="md-nav__list" data-md-scrollfix="">
         <li class="md-nav__item"><a href="#getting-started--page-root" class="md-nav__link">Getting Started</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-network" class="md-nav__link">Create a Network</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#create-key" class="md-nav__link">Create Key</a>
+        <li class="md-nav__item"><a href="#network-settings-description" class="md-nav__link">Network Settings Description</a>
         </li></ul>
             </nav>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-key" class="md-nav__link">Create a Key</a>
         </li>
         <li class="md-nav__item"><a href="#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
         </li>
@@ -369,6 +373,20 @@
     
     
       <a href="#setup" class="md-nav__link">Setup</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#create-a-network" class="md-nav__link">Create a Network</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#create-a-key" class="md-nav__link">Create a Key</a>
       
     
     </li>
@@ -509,6 +527,41 @@
     
     
       <a href="server-installation.html#highly-available-installation-vms-bare-metal" class="md-nav__link">Highly Available Installation (VMs/Bare Metal)</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-your-provider" class="md-nav__link">Configuring your provider</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-netmaker" class="md-nav__link">Configuring Netmaker</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-user-permissions" class="md-nav__link">Configuring User Permissions</a>
       
     
     </li></ul>
@@ -789,11 +842,15 @@
   <ul class="md-nav__list" data-md-scrollfix="">
         <li class="md-nav__item"><a href="#getting-started--page-root" class="md-nav__link">Getting Started</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-network" class="md-nav__link">Create a Network</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#create-key" class="md-nav__link">Create Key</a>
+        <li class="md-nav__item"><a href="#network-settings-description" class="md-nav__link">Network Settings Description</a>
         </li></ul>
             </nav>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-key" class="md-nav__link">Create a Key</a>
         </li>
         <li class="md-nav__item"><a href="#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
         </li>
@@ -824,6 +881,9 @@
 <li><p>Login with your new user</p></li>
 <li><p>Create your first network by clicking on Create Network</p></li>
 </ol>
+
+
+<h2 id="create-a-network">Create a Network<a class="headerlink" href="#create-a-network" title="Permalink to this headline">¶</a></h2>
 <a class="reference internal image-reference" href="_images/create-net.png"><img alt="Create Network Screen" class="align-center" src="_images/create-net.png" style="width: 80%;"/></a>
 <p>This network should have a sensible name (nodes will use it to set their interfaces).</p>
 <p>More importantly, it should have a non-overlapping, private address range.</p>
@@ -833,17 +893,25 @@
 <li><p>10.20.30.0/24</p></li>
 <li><p>100.99.98.0/24</p></li>
 </ul>
+
+<h3 id="network-settings-description">Network Settings Description<a class="headerlink" href="#network-settings-description" title="Permalink to this headline">¶</a></h3>
+<p>The Network creation form has a few fields which may seem unfamiliar. Here is a brief description:</p>
+<p><strong>UDP Hole Punching:</strong> UDP Hole Punching enables the server to perform STUN. This means, when nodes check in, the server will record return addresses and ports. It will then communicate this information to the other nodes when they check in, allowing them to reach their peers more easily. This has two benefits. For one, it%. It also means, you dont usually have to worry about opening up the local firewall for ports (for instance, 51821). <strong>This setting is usually good to turn on, with some noteable exceptions.</strong> This setting cannot be enabled if “client mode” is turned off. This setting can also break peer-to-peer functionality if, for whatever reason, nodes are unable to reach the server.</p>
+<p><strong>Is Local Network:</strong>  This is almost always best to leave this turned off and is left for very special circumstances. If you are running a data center or a private WAN, you may want to enable this setting. It defines the range that nodes will set for Endpoints. Usually, Endpoints are just the public IP. But in some cases, you don’t want any nodes to be reachable via a public IP, and instead want to use a private range.</p>
+<p><strong>Is Dual Stack:</strong> This setting adds ipv6 private addresses to nodes, in addition to ipv4 addresses. Usually, this is unnecessary, but in some cases, you may have a requirement for ipv6 and can enable this setting.</p>
 <p>Once your network is created, you should see that the netmaker server has added itself to the network. From here, you can move on to adding additional nodes to the network.</p>
 <a class="reference internal image-reference" href="_images/netmaker-node.png"><img alt="Node Screen" class="align-center" src="_images/netmaker-node.png" style="width: 80%;"/></a>
 
-<h3 id="create-key">Create Key<a class="headerlink" href="#create-key" title="Permalink to this headline">¶</a></h3>
+
+
+<h2 id="create-a-key">Create a Key<a class="headerlink" href="#create-a-key" title="Permalink to this headline">¶</a></h2>
 <p>Adding nodes to the network typically requires a key.</p>
 <ol class="arabic simple">
 <li><p>Click on the ACCESS KEYS tab and select the network you created.</p></li>
 <li><p>Click ADD NEW ACCESS KEY</p></li>
 <li><p>Give it a name (ex: “mykey”) and a number of uses (ex: 25)</p></li>
 <li><p>Click CREATE KEY (<strong>Important:</strong> Do not click out of the following screen until you have saved your key details. It will appear only once.)</p></li>
-<li><p>Copy the bottom command under “Your agent install command with access token” and save it somewhere locally. E.x: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netclient-install.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code>.</p></li>
+<li><p>Copy the bottom command under “Your agent install command with access token” and save it somewhere locally. E.x: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code>.</p></li>
 </ol>
 <a class="reference internal image-reference" href="_images/access-key.png"><img alt="Access Key Screen" class="align-center" src="_images/access-key.png" style="width: 80%;"/></a>
 <p>You will use this command to install the netclient on your nodes. There are three different values for three different scenarios:</p>
@@ -855,14 +923,13 @@
 <p>Networks can also be enabled to allow nodes to sign up without keys at all. In this scenario, nodes enter a “pending state” and are not permitted to join the network until an admin approves them.</p>
 
 
-
 <h2 id="deploy-nodes">Deploy Nodes<a class="headerlink" href="#deploy-nodes" title="Permalink to this headline">¶</a></h2>
 <ol class="arabic simple" start="0">
 <li><p>Prereqisite: Every machine on which you install should have wireguard and systemd already installed.</p></li>
 <li><p>SSH to each machine</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span> <span class="pre">-</span></code></p></li>
 <li><p><strong>Prerequisite Check:</strong> Every Linux machine on which you run the netclient must have WireGuard and systemd installed</p></li>
-<li><p>For linux machines with SystemD and WireGuard installed, Run the install command, Ex: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netclient-install.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code></p></li>
+<li><p>For linux machines with SystemD and WireGuard installed, Run the install command, Ex: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sfL</span> <span class="pre">https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh</span> <span class="pre">|</span> <span class="pre">KEY=vm3ow4thatogiwnsla3thsl3894ths</span> <span class="pre">sh</span> <span class="pre">-</span></code></p></li>
 <li><p>For Mac, Windows, and arch-specific linux distributions (e.g. ARM), <a class="reference external" href="https://github.com/gravitl/netmaker/releases/tag/latest/">download the appropriate netclient for your system</a> . Then, run “netclient join -t &lt;your token&gt;”.</p></li>
 </ol>
 <p>You should get output similar to the below. The netclient retrieves local settings, submits them to the server for processing, and retrieves updated settings. Then it sets the local network configuration. For more information about this process, see the <a class="reference internal" href="client-installation.html"><span class="doc">client installation</span></a> documentation. If this process failed and you do not see your node in the console (see below), then reference the <a class="reference internal" href="troubleshoot.html"><span class="doc">troubleshooting</span></a> documentation.</p>
@@ -940,7 +1007,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

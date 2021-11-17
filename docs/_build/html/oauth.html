@@ -46,10 +46,10 @@
   
   
   
-    <title>Integrating OAuth &#8212; Netmaker 0.8.5 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <title>Integrating OAuth &#8212; Netmaker 0.9.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8.5 documentation"
+        <a href="index.html" title="Netmaker 0.9.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.5 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8.5 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.9.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8.5 documentation">Netmaker Docs</a>
+       title="Netmaker 0.9.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -341,6 +341,20 @@
     
     
       <a href="getting-started.html#setup" class="md-nav__link">Setup</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#create-a-network" class="md-nav__link">Create a Network</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html#create-a-key" class="md-nav__link">Create a Key</a>
       
     
     </li>
@@ -852,10 +866,10 @@
 
 <h2 id="configuring-your-provider">Configuring your provider<a class="headerlink" href="#configuring-your-provider" title="Permalink to this headline">¶</a></h2>
 <p>In order to use OAuth, configure your OAuth provider (GitHub, Google, Azure AD).</p>
-<p>You must configure your provider to use the Netmaker Dashboard URI dashboard.&lt;netmaker.base.domain&gt; as the origin URL.</p>
+<p>You must configure your provider (except for Azure AD) to use the Netmaker Dashboard URI dashboard.&lt;netmaker.base.domain&gt; as the origin URL.</p>
 <p>For example: <cite>https://dashboard.netmaker.mydomain.com</cite></p>
-<p>You must configure your provider to use the Netmaker API URI redirect route with the following format: <a class="reference external" href="https://api">https://api</a>.&lt;netmaker base domain&gt;/api/oauth2/callback.</p>
-<p>For example: <cite>https://api.netmaker.mydomain.com/api/oauth2/callback</cite></p>
+<p>You must configure your provider to use the Netmaker API URI redirect route with the following format: <a class="reference external" href="https://api">https://api</a>.&lt;netmaker base domain&gt;/api/oauth/callback.</p>
+<p>For example: <cite>https://api.netmaker.mydomain.com/api/oauth/callback</cite></p>
 <p>General provider instructions can be found with the following links:</p>
 <p>Instructions for GitHub: <a class="reference external" href="https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/oauth_provider/#github-auth-provider">https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/oauth_provider/#github-auth-provider</a>
 Instructions for Google: <a class="reference external" href="https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/oauth_provider/#google-auth-provider">https://oauth2-proxy.github.io/oauth2-proxy/docs/configuration/oauth_provider/#google-auth-provider</a>
@@ -865,14 +879,17 @@ Instructions for Microsoft Azure AD: <a class="reference external" href="https:/
 <h2 id="configuring-netmaker">Configuring Netmaker<a class="headerlink" href="#configuring-netmaker" title="Permalink to this headline">¶</a></h2>
 <p>After you have configured your OAuth provider, take note of the CLIENT_ID and CLIENT_SECRET.</p>
 <p>Next, Configure Netmaker with the following environment variables. If any are left blank, OAuth will fail.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">AUTH_PROVIDER</span><span class="o">=</span><span class="s2">"&lt;azure-ad|github|google&gt;"</span>
-<span class="n">CLIENT_ID</span><span class="o">=</span><span class="s2">"&lt;client id of your oauth provider&gt;"</span>
-<span class="n">CLIENT_SECRET</span><span class="o">=</span><span class="s2">"&lt;client secret of your oauth provider&gt;"</span>
-<span class="n">SERVER_HTTP_HOST</span><span class="o">=</span><span class="s2">"https://&lt;your-netmaker-api-domain&gt;"</span>
-<span class="n">FRONTEND_URL</span><span class="o">=</span><span class="s2">"https://&lt;your-netmaker-dashboard-domain&gt;"</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">AUTH_PROVIDER</span><span class="p">:</span> <span class="s2">"&lt;azure-ad|github|google&gt;"</span>
+<span class="n">CLIENT_ID</span><span class="p">:</span> <span class="s2">"&lt;client id of your oauth provider&gt;"</span>
+<span class="n">CLIENT_SECRET</span><span class="p">:</span> <span class="s2">"&lt;client secret of your oauth provider&gt;"</span>
+<span class="n">SERVER_HTTP_HOST</span><span class="p">:</span> <span class="s2">"api.&lt;netmaker base domain&gt;"</span>
+<span class="n">FRONTEND_URL</span><span class="p">:</span> <span class="s2">"https://dashboard.&lt;netmaker base domain&gt;"</span>
 </pre></div>
 </div>
-<p>After restarting your server, the Netmaker logs will indicate if the OAuth provider was successfully initialized.</p>
+<p>After restarting your server, the Netmaker logs will indicate if the OAuth provider was successfully initialized:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">docker</span> <span class="n">logs</span> <span class="n">netmaker</span>
+</pre></div>
+</div>
 <p>Once successful, users can click the key symbol on the login page to sign-in with your configured OAuth provider.</p>
 <a class="reference internal image-reference" href="_images/oauth1.png"><img alt="Login Oauth" class="align-center" src="_images/oauth1.png" style="width: 80%;"/></a>
 
@@ -933,7 +950,7 @@ Instructions for Microsoft Azure AD: <a class="reference external" href="https:/
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

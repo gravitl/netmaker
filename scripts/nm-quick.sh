@@ -102,7 +102,7 @@ echo "   ----------------------------"
 echo "                SETUP ARGUMENTS"
 echo "   ----------------------------"
 echo "        domain: $NETMAKER_BASE_DOMAIN"
-echo "         email: $NETMAKER_BASE_DOMAIN"
+echo "         email: $EMAIL"
 echo "    coredns ip: $COREDNS_IP"
 echo "     public ip: $SERVER_PUBLIC_IP"
 echo "    master key: $MASTER_KEY"
@@ -126,7 +126,7 @@ sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
 echo "setting docker-compose..."
 
-wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.caddy.yml
+wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.contained.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/COREDNS_IP/$COREDNS_IP/g" /root/docker-compose.yml
@@ -182,7 +182,7 @@ curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-
 echo "finished configuring server and network. You can now add clients."
 echo ""
 echo "For Linux and Mac clients, install with the following command:"
-echo "        curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netclient-install.sh | sudo KEY=$ACCESS_TOKEN sh -"
+echo "        curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh | sudo KEY=$ACCESS_TOKEN sh -"
 echo ""
 echo "For Windows clients, perform the following from powershell, as administrator:"
 echo "        1. Make sure WireGuardNT is installed - https://download.wireguard.com/windows-client/wireguard-installer.exe"

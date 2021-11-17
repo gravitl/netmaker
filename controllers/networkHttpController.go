@@ -114,10 +114,16 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 
 //Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	if tokenString == servercfg.GetMasterKey() {
-		return true
+	return tokenString == servercfg.GetMasterKey()
+}
+
+//Consider a more secure way of setting master key
+func authenticateDNSToken(tokenString string) bool {
+	tokens := strings.Split(tokenString, " ")
+	if len(tokens) < 2 {
+		return false
 	}
-	return false
+	return tokens[1] == servercfg.GetDNSKey()
 }
 
 //simple get all networks function
@@ -144,6 +150,12 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			if parentErr == nil {
 				allnetworks = append(allnetworks, netObject)
 			}
+		}
+	}
+	if !servercfg.IsDisplayKeys() {
+		for i, net := range allnetworks {
+			net.AccessKeys = logic.RemoveKeySensitiveInfo(net.AccessKeys)
+			allnetworks[i] = net
 		}
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "fetched networks.", 2)
@@ -182,6 +194,9 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if !servercfg.IsDisplayKeys() {
+		network.AccessKeys = logic.RemoveKeySensitiveInfo(network.AccessKeys)
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "fetched network "+netname, 2)
 	w.WriteHeader(http.StatusOK)
@@ -571,6 +586,9 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if !servercfg.IsDisplayKeys() {
+		keys = logic.RemoveKeySensitiveInfo(keys)
 	}
 	functions.PrintUserLog(r.Header.Get("user"), "fetched access keys on network "+network, 2)
 	w.WriteHeader(http.StatusOK)

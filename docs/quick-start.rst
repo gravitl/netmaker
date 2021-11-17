@@ -103,7 +103,7 @@ Now, insert the values for your base (wildcard) domain, public ip, and coredns i
 
 .. code-block::
 
-  wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.caddy.yml
+  wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.contained.yml
   sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.yml
   sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.yml
   sed -i 's/COREDNS_IP/<default interface ip>/g' docker-compose.yml
@@ -122,7 +122,7 @@ Prepare Caddy
 
 .. code-block::
 
-  wget -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/Caddyfile
+  wget -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile
 
   sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' /root/Caddyfile
   sed -i 's/YOUR_EMAIL/<your email>/g' /root/Caddyfile
