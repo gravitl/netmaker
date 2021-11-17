@@ -45,11 +45,11 @@ jobs:
         with:
           context: .
           load: true
-          tags: ${{ env.TEST_TAG }}
+          tags: ${{ env.TAG }}
       -
         name: Test
         run: |
-            docker run --rm ${{ env.TEST_TAG }}
+            docker run --rm ${{ env.TAG }}
       -
         name: Build and push
         uses: docker/build-push-action@v2
