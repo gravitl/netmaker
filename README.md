@@ -42,7 +42,7 @@
 2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
 3. Run the script **(see below for optional configurations)**:
 
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/masters/scripts/nm-quick.sh | bash`
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | bash`
 
 Upon completion, the logs will display a script that can be used to automatically connect Linux and Mac devices. It will also display instructions for Windows, iPhone, and Android.
 
