@@ -109,6 +109,7 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 			;;
 			arm*)
 				dist=netclient-$CPU_ARCH
+			;;
                         mipsle)
                                 dist=netclient-mipsle
 			;;
