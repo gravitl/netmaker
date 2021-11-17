@@ -2,11 +2,12 @@ package daemon
 
 import (
 	"fmt"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 const MAC_SERVICE_NAME = "com.gravitl.netclient"
@@ -20,7 +21,7 @@ func SetupMacDaemon(interval string) error {
 	binarypath := dir + "/netclient"
 
 	if !ncutils.FileExists("/etc/netclient/netclient") {
-		_, err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
+		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
 		if err != nil {
 			log.Println(err)
 			return err

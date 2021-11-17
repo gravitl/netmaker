@@ -2,6 +2,9 @@ package models
 
 import jwt "github.com/golang-jwt/jwt/v4"
 
+const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
+const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+
 // AuthParams - struct for auth params
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`

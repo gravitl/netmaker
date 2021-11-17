@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# PROVIDE: netclient
+# REQUIRE: LOGIN DAEMON NETWORKING SERVERS FILESYSTEM
+# BEFORE:  
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="netclient"
+rcvar=netclient_enable
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-c -f -P ${pidfile} -R 10 -t "Netclient" -u root -o /etc/netclient/netclient.log /etc/netclient/netclient checkin -n all"
+
+load_rc_config $name
+run_rc_command "$1"

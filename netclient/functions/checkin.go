@@ -234,7 +234,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		}
 	} else {
 		if err = wireguard.SetWGConfig(network, true); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
+			if errors.Is(err, os.ErrNotExist) && !ncutils.IsFreeBSD() {
 				return Pull(network, true)
 			} else {
 				return nil, err

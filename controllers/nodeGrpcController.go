@@ -29,10 +29,14 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	if err != nil {
 		return nil, err
 	}
+	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
+	if err != nil {
+		return nil, err
+	}
 	node.SetLastCheckIn()
 	// Cast to ReadNodeRes type
-	nodeData, err := json.Marshal(&node)
-	if err != nil {
+	nodeData, errN := json.Marshal(&node)
+	if errN != nil {
 		return nil, err
 	}
 	logic.UpdateNode(&node, &node)
@@ -75,7 +79,14 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	nodeData, err := json.Marshal(&node)
+	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
+	if err != nil {
+		return nil, err
+	}
+	nodeData, errN := json.Marshal(&node)
+	if errN != nil {
+		return nil, err
+	}
 	// return the node in a CreateNodeRes type
 	response := &nodepb.Object{
 		Data: string(nodeData),
@@ -107,8 +118,12 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	nodeData, err := json.Marshal(&newnode)
+	newnode.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
 	if err != nil {
+		return nil, err
+	}
+	nodeData, errN := json.Marshal(&newnode)
+	if errN != nil {
 		return nil, err
 	}
 	return &nodepb.Object{

@@ -51,6 +51,21 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 	return network, nil
 }
 
+// GetParentNetwork - get parent network
+func GetNetworkSettings(networkname string) (models.Network, error) {
+
+	var network models.Network
+	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
+	if err != nil {
+		return network, err
+	}
+	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+		return models.Network{}, err
+	}
+	network.AccessKeys = []models.AccessKey{}
+	return network, nil
+}
+
 // UniqueAddress - see if address is unique
 func UniqueAddress(networkName string) (string, error) {
 

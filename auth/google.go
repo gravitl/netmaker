@@ -41,7 +41,7 @@ func initGoogle(redirectURL string, clientID string, clientSecret string) {
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	oauth_state_string = logic.RandomString(16)
 	if auth_provider == nil && servercfg.GetFrontendURL() != "" {
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth=callback-error", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	} else if auth_provider == nil {
 		fmt.Fprintf(w, "%s", []byte("no frontend URL was provided and an OAuth login was attempted\nplease reconfigure server to use OAuth or use basic credentials"))
@@ -56,7 +56,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getGoogleUserInfo(r.FormValue("state"), r.FormValue("code"))
 	if err != nil {
 		logic.Log("error when getting user info from google: "+err.Error(), 1)
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"?oauth=callback-error", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
 	_, err = logic.GetUser(content.Email)
@@ -82,7 +82,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.Log("completed google OAuth sigin in for "+content.Email, 1)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }
 
 func getGoogleUserInfo(state string, code string) (*googleOauthUser, error) {
