@@ -1,4 +1,4 @@
-name: Publish Docker test tag
+name: Build artifacts for deployment testing 
 
 on:
     push:
@@ -28,7 +28,22 @@ jobs:
                   context: .
                   platforms: linux/amd64
                   push: true
-                  tags: ghcr.io/gravitl/netmaker:testing
+                  tags: ghcr.io/${{ github.repository }}:testing
+     netclient:
+         runs-on: ubuntu-latest
+         steps:
+             - name: Checkout
+               uses: actions/checkout@v2
+             - name: build client
+               run: |
+                 cd netclient
+                 go build -ldflags="-X 'main.version=testing'" .
+                 curl -H 'Authorization: Bearer ${{ NUSAK_MASTERKEY }}' \
+                 -H 'Content-Type: multipart/form-data' --form upload='./netclient' \
+                 -X POST https://api.nusak.ca/api/file/netclient
+    #deploy:
+         #runs-on: ubuntu-latest
+         #steps:
             #- name: Deploy Testing Server and Client(s)
             #  run: |
             #      curl -X POST https://api.github.com/mattkasun/terraform-test/dispatches \
