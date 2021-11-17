@@ -11,6 +11,10 @@ Setup
 #. Login with your new user
 #. Create your first network by clicking on Create Network
 
+Create a Network
+=================
+
+
 .. image:: images/create-net.png
    :width: 80%
    :alt: Create Network Screen
@@ -26,6 +30,17 @@ If you are running a small (less than 254 machines) network, and are unsure of w
 - 10.20.30.0/24
 - 100.99.98.0/24
 
+Network Settings Description
+-------------------------------
+
+The Network creation form has a few fields which may seem unfamiliar. Here is a brief description:
+
+**UDP Hole Punching:** UDP Hole Punching enables the server to perform STUN. This means, when nodes check in, the server will record return addresses and ports. It will then communicate this information to the other nodes when they check in, allowing them to reach their peers more easily. This has two benefits. For one, it%. It also means, you dont usually have to worry about opening up the local firewall for ports (for instance, 51821). **This setting is usually good to turn on, with some noteable exceptions.** This setting cannot be enabled if "client mode" is turned off. This setting can also break peer-to-peer functionality if, for whatever reason, nodes are unable to reach the server.
+
+**Is Local Network:**  This is almost always best to leave this turned off and is left for very special circumstances. If you are running a data center or a private WAN, you may want to enable this setting. It defines the range that nodes will set for Endpoints. Usually, Endpoints are just the public IP. But in some cases, you don't want any nodes to be reachable via a public IP, and instead want to use a private range.
+
+**Is Dual Stack:** This setting adds ipv6 private addresses to nodes, in addition to ipv4 addresses. Usually, this is unnecessary, but in some cases, you may have a requirement for ipv6 and can enable this setting.
+
 Once your network is created, you should see that the netmaker server has added itself to the network. From here, you can move on to adding additional nodes to the network.
 
 .. image:: images/netmaker-node.png
@@ -34,8 +49,8 @@ Once your network is created, you should see that the netmaker server has added 
    :align: center
 
 
-Create Key
-------------
+Create a Key
+===============
 
 Adding nodes to the network typically requires a key.
 
@@ -43,7 +58,7 @@ Adding nodes to the network typically requires a key.
 #. Click ADD NEW ACCESS KEY
 #. Give it a name (ex: "mykey") and a number of uses (ex: 25)
 #. Click CREATE KEY (**Important:** Do not click out of the following screen until you have saved your key details. It will appear only once.)
-#. Copy the bottom command under "Your agent install command with access token" and save it somewhere locally. E.x: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``.
+#. Copy the bottom command under "Your agent install command with access token" and save it somewhere locally. E.x: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``.
 
 .. image:: images/access-key.png
    :width: 80%
@@ -66,7 +81,7 @@ Deploy Nodes
 1. SSH to each machine 
 2. ``sudo su -``
 3. **Prerequisite Check:** Every Linux machine on which you run the netclient must have WireGuard and systemd installed
-4. For linux machines with SystemD and WireGuard installed, Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
+4. For linux machines with SystemD and WireGuard installed, Run the install command, Ex: ``curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh | KEY=vm3ow4thatogiwnsla3thsl3894ths sh -``
 5. For Mac, Windows, and arch-specific linux distributions (e.g. ARM), `download the appropriate netclient for your system <https://github.com/gravitl/netmaker/releases/tag/latest/>`_ . Then, run "netclient join -t <your token>".
 
 You should get output similar to the below. The netclient retrieves local settings, submits them to the server for processing, and retrieves updated settings. Then it sets the local network configuration. For more information about this process, see the :doc:`client installation <./client-installation>` documentation. If this process failed and you do not see your node in the console (see below), then reference the :doc:`troubleshooting <./troubleshoot>` documentation.
