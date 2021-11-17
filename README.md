@@ -33,7 +33,9 @@
 - [x] OAuth and Private DNS
 - [x] Linux, Mac, Windows, iPhone, and Android
 
-# Get Started in 5 Minutes
+[![DO button](https://www.deploytodo.com/do-btn-blue.svg)](https://marketplace.digitalocean.com/apps/netmaker?refcode=496ffcf1e252)  
+
+# Get Started in 5 Minutes  
 
 **For production-grade installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/develop/install.html).**  
 **For an HA install using helm on k8s, visit the [Helm Repo](https://github.com/gravitl/netmaker-helm/).**
