@@ -35,7 +35,7 @@
 
 # Get Started in 5 Minutes  
 
-**For DigitalOcean, use the 1-Click App:** <a href="https://marketplace.digitalocean.com/apps/netmaker?refcode=496ffcf1e252"><img src="https://www.deploytodo.com/do-btn-blue.svg" width="10%" /></a>  
+**For DigitalOcean, use the 1-Click App:** <a href="https://marketplace.digitalocean.com/apps/netmaker?refcode=496ffcf1e252"><img src="https://www.deploytodo.com/do-btn-blue.svg" width="25%" /></a>  
 **For production-grade installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/develop/install.html).**  
 **For an HA install using helm on k8s, visit the [Helm Repo](https://github.com/gravitl/netmaker-helm/).**
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
