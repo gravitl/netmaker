@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.8.5-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.9.0-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />
@@ -31,7 +31,7 @@
 - [x] Peer-to-Peer Mesh Networks
 - [x] Kubernetes, Multi-Cloud
 - [x] OAuth and Private DNS
-- [x] Linux, Mac, Windows, iPhone, and Android
+- [x] Linux, Mac, Windows, FreeBSD, iPhone, and Android
 
 # Get Started in 5 Minutes  
 

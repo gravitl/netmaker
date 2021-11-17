@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.8.5
+    image: gravitl/netmaker:v0.9.0
     volumes:
       - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
       - /run/systemd/system:/run/systemd/system
@@ -34,12 +34,13 @@ services:
       SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
       DATABASE: "sqlite"
+      DISPLAY_KEYS: "on"
       NODE_ID: "netmaker-server-1"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.8.5
+    image: gravitl/netmaker-ui:v0.9.0
     links:
       - "netmaker:api"
     ports:
