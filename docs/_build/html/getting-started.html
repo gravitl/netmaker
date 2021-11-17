@@ -47,9 +47,9 @@
   
   
     <title>Getting Started &#8212; Netmaker 0.9.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -346,11 +346,15 @@
   <ul class="md-nav__list" data-md-scrollfix="">
         <li class="md-nav__item"><a href="#getting-started--page-root" class="md-nav__link">Getting Started</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-network" class="md-nav__link">Create a Network</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#create-key" class="md-nav__link">Create Key</a>
+        <li class="md-nav__item"><a href="#network-settings-description" class="md-nav__link">Network Settings Description</a>
         </li></ul>
             </nav>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-key" class="md-nav__link">Create a Key</a>
         </li>
         <li class="md-nav__item"><a href="#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
         </li>
@@ -369,6 +373,20 @@
     
     
       <a href="#setup" class="md-nav__link">Setup</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#create-a-network" class="md-nav__link">Create a Network</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#create-a-key" class="md-nav__link">Create a Key</a>
       
     
     </li>
@@ -824,11 +842,15 @@
   <ul class="md-nav__list" data-md-scrollfix="">
         <li class="md-nav__item"><a href="#getting-started--page-root" class="md-nav__link">Getting Started</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a><nav class="md-nav">
+        <li class="md-nav__item"><a href="#setup" class="md-nav__link">Setup</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-network" class="md-nav__link">Create a Network</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#create-key" class="md-nav__link">Create Key</a>
+        <li class="md-nav__item"><a href="#network-settings-description" class="md-nav__link">Network Settings Description</a>
         </li></ul>
             </nav>
+        </li>
+        <li class="md-nav__item"><a href="#create-a-key" class="md-nav__link">Create a Key</a>
         </li>
         <li class="md-nav__item"><a href="#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
         </li>
@@ -859,6 +881,9 @@
 <li><p>Login with your new user</p></li>
 <li><p>Create your first network by clicking on Create Network</p></li>
 </ol>
+
+
+<h2 id="create-a-network">Create a Network<a class="headerlink" href="#create-a-network" title="Permalink to this headline">¶</a></h2>
 <a class="reference internal image-reference" href="_images/create-net.png"><img alt="Create Network Screen" class="align-center" src="_images/create-net.png" style="width: 80%;"/></a>
 <p>This network should have a sensible name (nodes will use it to set their interfaces).</p>
 <p>More importantly, it should have a non-overlapping, private address range.</p>
@@ -868,10 +893,18 @@
 <li><p>10.20.30.0/24</p></li>
 <li><p>100.99.98.0/24</p></li>
 </ul>
+
+<h3 id="network-settings-description">Network Settings Description<a class="headerlink" href="#network-settings-description" title="Permalink to this headline">¶</a></h3>
+<p>The Network creation form has a few fields which may seem unfamiliar. Here is a brief description:</p>
+<p><strong>UDP Hole Punching:</strong> UDP Hole Punching enables the server to perform STUN. This means, when nodes check in, the server will record return addresses and ports. It will then communicate this information to the other nodes when they check in, allowing them to reach their peers more easily. This has two benefits. For one, it%. It also means, you dont usually have to worry about opening up the local firewall for ports (for instance, 51821). <strong>This setting is usually good to turn on, with some noteable exceptions.</strong> This setting cannot be enabled if “client mode” is turned off. This setting can also break peer-to-peer functionality if, for whatever reason, nodes are unable to reach the server.</p>
+<p><strong>Is Local Network:</strong>  This is almost always best to leave this turned off and is left for very special circumstances. If you are running a data center or a private WAN, you may want to enable this setting. It defines the range that nodes will set for Endpoints. Usually, Endpoints are just the public IP. But in some cases, you don’t want any nodes to be reachable via a public IP, and instead want to use a private range.</p>
+<p><strong>Is Dual Stack:</strong> This setting adds ipv6 private addresses to nodes, in addition to ipv4 addresses. Usually, this is unnecessary, but in some cases, you may have a requirement for ipv6 and can enable this setting.</p>
 <p>Once your network is created, you should see that the netmaker server has added itself to the network. From here, you can move on to adding additional nodes to the network.</p>
 <a class="reference internal image-reference" href="_images/netmaker-node.png"><img alt="Node Screen" class="align-center" src="_images/netmaker-node.png" style="width: 80%;"/></a>
 
-<h3 id="create-key">Create Key<a class="headerlink" href="#create-key" title="Permalink to this headline">¶</a></h3>
+
+
+<h2 id="create-a-key">Create a Key<a class="headerlink" href="#create-a-key" title="Permalink to this headline">¶</a></h2>
 <p>Adding nodes to the network typically requires a key.</p>
 <ol class="arabic simple">
 <li><p>Click on the ACCESS KEYS tab and select the network you created.</p></li>
@@ -888,7 +921,6 @@
 <li><p>The <strong>install command</strong> value is a curl command that can be run on Linux systems. It is a simple script that downloads the netclient binary and runs the install command all in one.</p></li>
 </ul>
 <p>Networks can also be enabled to allow nodes to sign up without keys at all. In this scenario, nodes enter a “pending state” and are not permitted to join the network until an admin approves them.</p>
-
 
 
 <h2 id="deploy-nodes">Deploy Nodes<a class="headerlink" href="#deploy-nodes" title="Permalink to this headline">¶</a></h2>
@@ -975,7 +1007,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

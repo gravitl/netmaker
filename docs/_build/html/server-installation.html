@@ -47,9 +47,9 @@
   
   
     <title>Advanced Server Installation &#8212; Netmaker 0.9.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -1472,7 +1472,7 @@ This install has some notable exceptions:
 </pre></div>
 </div>
 <p>And here is a joining node:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">d</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4001</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4002</span><span class="p">:</span><span class="mi">4002</span> <span class="n">rqlite</span><span class="o">/</span><span class="n">rqlite</span> <span class="o">-</span><span class="n">node</span><span class="o">-</span><span class="nb">id</span> <span class="mi">2</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4001</span>  <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">join</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">netmaker</span><span class="p">:</span><span class="o">&lt;</span><span class="n">YOUR_DB_PASSWORD</span><span class="o">&gt;@</span><span class="mf">1.2</span><span class="o">.</span><span class="mf">3.4</span><span class="p">:</span><span class="mi">4001</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">d</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4001</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">p</span> <span class="mi">4002</span><span class="p">:</span><span class="mi">4002</span> <span class="n">rqlite</span><span class="o">/</span><span class="n">rqlite</span> <span class="o">-</span><span class="n">node</span><span class="o">-</span><span class="nb">id</span> <span class="mi">2</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4001</span> <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">addr</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">http</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4001</span>  <span class="o">-</span><span class="n">raft</span><span class="o">-</span><span class="n">adv</span><span class="o">-</span><span class="n">addr</span> <span class="mf">2.3</span><span class="o">.</span><span class="mf">4.5</span><span class="p">:</span><span class="mi">4002</span> <span class="o">-</span><span class="n">join</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">netmaker</span><span class="p">:</span><span class="o">&lt;</span><span class="n">YOUR_DB_PASSWORD</span><span class="o">&gt;</span><span class="nd">@1</span><span class="o">.</span><span class="mf">2.3</span><span class="o">.</span><span class="mi">4</span><span class="p">:</span><span class="mi">4001</span>
 </pre></div>
 </div>
 <ul class="simple">
@@ -1548,7 +1548,7 @@ This install has some notable exceptions:
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

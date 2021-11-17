@@ -11,6 +11,10 @@ Setup
 #. Login with your new user
 #. Create your first network by clicking on Create Network
 
+Create a Network
+=================
+
+
 .. image:: images/create-net.png
    :width: 80%
    :alt: Create Network Screen
@@ -26,6 +30,17 @@ If you are running a small (less than 254 machines) network, and are unsure of w
 - 10.20.30.0/24
 - 100.99.98.0/24
 
+Network Settings Description
+-------------------------------
+
+The Network creation form has a few fields which may seem unfamiliar. Here is a brief description:
+
+**UDP Hole Punching:** UDP Hole Punching enables the server to perform STUN. This means, when nodes check in, the server will record return addresses and ports. It will then communicate this information to the other nodes when they check in, allowing them to reach their peers more easily. This has two benefits. For one, it%. It also means, you dont usually have to worry about opening up the local firewall for ports (for instance, 51821). **This setting is usually good to turn on, with some noteable exceptions.** This setting cannot be enabled if "client mode" is turned off. This setting can also break peer-to-peer functionality if, for whatever reason, nodes are unable to reach the server.
+
+**Is Local Network:**  This is almost always best to leave this turned off and is left for very special circumstances. If you are running a data center or a private WAN, you may want to enable this setting. It defines the range that nodes will set for Endpoints. Usually, Endpoints are just the public IP. But in some cases, you don't want any nodes to be reachable via a public IP, and instead want to use a private range.
+
+**Is Dual Stack:** This setting adds ipv6 private addresses to nodes, in addition to ipv4 addresses. Usually, this is unnecessary, but in some cases, you may have a requirement for ipv6 and can enable this setting.
+
 Once your network is created, you should see that the netmaker server has added itself to the network. From here, you can move on to adding additional nodes to the network.
 
 .. image:: images/netmaker-node.png
@@ -34,8 +49,8 @@ Once your network is created, you should see that the netmaker server has added 
    :align: center
 
 
-Create Key
-------------
+Create a Key
+===============
 
 Adding nodes to the network typically requires a key.
 
