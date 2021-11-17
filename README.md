@@ -42,7 +42,7 @@
 2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
 3. Run the script **(see below for optional configurations)**:
 
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/masters/scripts/nm-quick.sh | bash`
+`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | bash`
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
