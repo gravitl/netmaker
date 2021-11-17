@@ -23,23 +23,29 @@ import (
 // SetPeers - sets peers on a given WireGuard interface
 func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 
-	client, err := wgctrl.New()
-	if err != nil {
-		ncutils.PrintLog("failed to start wgctrl", 0)
-		return err
+	var devicePeers []wgtypes.Peer
+	var err error
+	if ncutils.IsFreeBSD() {
+		if devicePeers, err = ncutils.GetPeers(iface); err != nil {
+			return err
+		}
+	} else {
+		client, err := wgctrl.New()
+		if err != nil {
+			ncutils.PrintLog("failed to start wgctrl", 0)
+			return err
+		}
+		device, err := client.Device(iface)
+		if err != nil {
+			ncutils.PrintLog("failed to parse interface", 0)
+			return err
+		}
+		devicePeers = device.Peers
 	}
-
-	device, err := client.Device(iface)
-	if err != nil {
-		ncutils.PrintLog("failed to parse interface", 0)
-		return err
-	}
-	devicePeers := device.Peers
 	if len(devicePeers) > 1 && len(peers) == 0 {
 		ncutils.PrintLog("no peers pulled", 1)
 		return err
 	}
-
 	for _, peer := range peers {
 
 		for _, currentPeer := range devicePeers {
@@ -60,7 +66,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		allowedips = strings.Join(iparr, ",")
 		keepAliveString := strconv.Itoa(int(keepalive))
 		if keepAliveString == "0" {
-			keepAliveString = "5"
+			keepAliveString = "15"
 		}
 		if peer.Endpoint != nil {
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
@@ -96,7 +102,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 }
 
 // Initializes a WireGuard interface
-func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
+func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string, syncconf bool) error {
 
 	key, err := wgtypes.ParseKey(privkey)
 	if err != nil {
@@ -112,7 +118,8 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		return err
 	}
-
+	fwmarkint32 := modcfg.FWMark
+	fwmarkint := int(fwmarkint32)
 	nodecfg := modcfg.Node
 	servercfg := modcfg.Server
 
@@ -160,6 +167,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		conf = wgtypes.Config{
 			PrivateKey:   &key,
 			ListenPort:   &nodeport,
+			FirewallMark: &fwmarkint,
 			ReplacePeers: true,
 			Peers:        peers,
 		}
@@ -167,9 +175,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if !ncutils.IsKernel() {
 		var newConf string
 		if node.UDPHolePunch != "yes" {
-			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, node.PersistentKeepalive, peers)
+			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, fwmarkint32, node.PersistentKeepalive, peers)
 		} else {
-			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, node.PersistentKeepalive, peers)
+			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, fwmarkint32, node.PersistentKeepalive, peers)
 		}
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
@@ -177,6 +185,16 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		if err != nil {
 			ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
 			return err
+		}
+		if ncutils.IsWindows() {
+			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
+			ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
+			err = ioutil.WriteFile(wgConfPath, []byte(newConf), 0644)
+			if err != nil {
+				ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
+				return err
+			}
+			confPath = wgConfPath
 		}
 		// spin up userspace / windows interface + apply the conf file
 		var deviceiface string
@@ -186,16 +204,20 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 				deviceiface = ifacename
 			}
 		}
-		d, _ := wgclient.Device(deviceiface)
-		for d != nil && d.Name == deviceiface {
-			_ = RemoveConf(ifacename, false) // remove interface first
-			time.Sleep(time.Second >> 2)
-			d, _ = wgclient.Device(deviceiface)
-		}
-		err = ApplyConf(confPath)
-		if err != nil {
-			ncutils.PrintLog("failed to create wireguard interface", 1)
-			return err
+		if syncconf {
+			err = SyncWGQuickConf(ifacename, confPath)
+		} else {
+			d, _ := wgclient.Device(deviceiface)
+			for d != nil && d.Name == deviceiface {
+				_ = RemoveConf(ifacename, false) // remove interface first
+				time.Sleep(time.Second >> 2)
+				d, _ = wgclient.Device(deviceiface)
+			}
+			err = ApplyConf(confPath)
+			if err != nil {
+				ncutils.PrintLog("failed to create wireguard interface", 1)
+				return err
+			}
 		}
 	} else {
 		ipExec, err := exec.LookPath("ip")
@@ -258,6 +280,17 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 
+	//extra network route setting required for freebsd and windows
+	if ncutils.IsWindows() {
+		ip, mask, err := ncutils.GetNetworkIPMask(nodecfg.NetworkSettings.AddressRange)
+		if err != nil {
+			return err
+		}
+		_, _ = ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
+	} else if ncutils.IsFreeBSD() {
+		_, _ = ncutils.RunCmd("route add -net "+nodecfg.NetworkSettings.AddressRange+" -interface "+ifacename, true)
+	}
+
 	return err
 }
 
@@ -279,7 +312,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	if peerupdate {
+	if peerupdate && !ncutils.IsFreeBSD() {
 		var iface string
 		iface = nodecfg.Interface
 		if ncutils.IsMac() {
@@ -289,8 +322,10 @@ func SetWGConfig(network string, peerupdate bool) error {
 			}
 		}
 		err = SetPeers(iface, nodecfg.PersistentKeepalive, peers)
+	} else if peerupdate {
+		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, true)
 	} else {
-		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways)
+		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, false)
 	}
 	return err
 }

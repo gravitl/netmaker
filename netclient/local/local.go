@@ -19,7 +19,9 @@ func SetIPForwarding() error {
 	var err error
 	switch os {
 	case "linux":
-		err = SetIPForwardingLinux()
+		err = SetIPForwardingUnix()
+	case "freebsd":
+		err = SetIPForwardingFreeBSD()
 	case "darwin":
 		err = SetIPForwardingMac()
 	default:
@@ -29,7 +31,7 @@ func SetIPForwarding() error {
 }
 
 // SetIPForwardingLinux - sets the ipforwarding for linux
-func SetIPForwardingLinux() error {
+func SetIPForwardingUnix() error {
 	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
 	if err != nil {
 		log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
@@ -38,6 +40,25 @@ func SetIPForwardingLinux() error {
 		s := strings.Fields(string(out))
 		if s[2] != "1" {
 			_, err = ncutils.RunCmd("sysctl -w net.ipv4.ip_forward=1", true)
+			if err != nil {
+				log.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// SetIPForwardingLinux - sets the ipforwarding for linux
+func SetIPForwardingFreeBSD() error {
+	out, err := ncutils.RunCmd("sysctl net.inet.ip.forwarding", true)
+	if err != nil {
+		log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
+		return err
+	} else {
+		s := strings.Fields(string(out))
+		if s[1] != "1" {
+			_, err = ncutils.RunCmd("sysctl -w net.inet.ip.forwarding=1", true)
 			if err != nil {
 				log.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
 				return err

@@ -21,6 +21,7 @@ func InitWindows() {
 	}
 	_, dataNetclientErr := os.Stat(ncutils.GetNetclientPathSpecific() + "netclient.exe")
 	_, currentNetclientErr := os.Stat(wdPath + "\\netclient.exe")
+
 	if os.IsNotExist(dataNetclientErr) { // check and see if netclient.exe is in appdata
 		if currentNetclientErr == nil { // copy it if it exists locally
 			input, err := ioutil.ReadFile(wdPath + "\\netclient.exe")
@@ -32,6 +33,8 @@ func InitWindows() {
 				log.Println("failed to copy netclient.exe to", ncutils.GetNetclientPath())
 				return
 			}
+		} else {
+			log.Fatalf("[netclient] netclient.exe not found in current working directory: %s \nexiting.", wdPath)
 		}
 	}
 	log.Println("Gravitl Netclient on Windows started")

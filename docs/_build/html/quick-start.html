@@ -46,10 +46,10 @@
   
   
   
-    <title>Quick Install &#8212; Netmaker 0.8.5 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/material.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <title>Quick Install &#8212; Netmaker 0.9.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.8.5 documentation"
+        <a href="index.html" title="Netmaker 0.9.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.8.5 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.8.5 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.9.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.8.5 documentation">Netmaker Docs</a>
+       title="Netmaker 0.9.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -515,6 +515,41 @@
     
     
       <a href="server-installation.html#highly-available-installation-vms-bare-metal" class="md-nav__link">Highly Available Installation (VMs/Bare Metal)</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-your-provider" class="md-nav__link">Configuring your provider</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-netmaker" class="md-nav__link">Configuring Netmaker</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html#configuring-user-permissions" class="md-nav__link">Configuring User Permissions</a>
       
     
     </li></ul>
@@ -908,7 +943,7 @@
 </pre></div>
 </div>
 <p>Now, insert the values for your base (wildcard) domain, public ip, and coredns ip.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">develop</span><span class="o">/</span><span class="n">compose</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">caddy</span><span class="o">.</span><span class="n">yml</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">compose</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">contained</span><span class="o">.</span><span class="n">yml</span>
 <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
 <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/SERVER_PUBLIC_IP/&lt;your server ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
 <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/COREDNS_IP/&lt;default interface ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
@@ -923,7 +958,7 @@
 
 
 <h3 id="prepare-caddy">Prepare Caddy<a class="headerlink" href="#prepare-caddy" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">develop</span><span class="o">/</span><span class="n">docker</span><span class="o">/</span><span class="n">Caddyfile</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">docker</span><span class="o">/</span><span class="n">Caddyfile</span>
 
 <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span>
 <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/YOUR_EMAIL/&lt;your email&gt;/g'</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span>
@@ -988,7 +1023,7 @@
               
           </div>
             Created using
-            <a href="http://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
              and
             <a href="https://github.com/bashtage/sphinx-material/">Material for
               Sphinx</a>

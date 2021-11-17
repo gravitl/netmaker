@@ -60,3 +60,13 @@ func IsKeyValid(networkname string, keyvalue string) bool {
 	}
 	return isvalid
 }
+
+func RemoveKeySensitiveInfo(keys []models.AccessKey) []models.AccessKey {
+	var returnKeys []models.AccessKey
+	for _, key := range keys {
+		key.Value = models.PLACEHOLDER_KEY_TEXT
+		key.AccessString = models.PLACEHOLDER_TOKEN_TEXT
+		returnKeys = append(returnKeys, key)
+	}
+	return returnKeys
+}

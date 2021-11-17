@@ -18,13 +18,13 @@ Configuring your provider
 
 In order to use OAuth, configure your OAuth provider (GitHub, Google, Azure AD).
 
-You must configure your provider to use the Netmaker Dashboard URI dashboard.<netmaker.base.domain> as the origin URL.
+You must configure your provider (except for Azure AD) to use the Netmaker Dashboard URI dashboard.<netmaker.base.domain> as the origin URL.
 
 For example: `https://dashboard.netmaker.mydomain.com`
 
-You must configure your provider to use the Netmaker API URI redirect route with the following format: https://api.<netmaker base domain>/api/oauth2/callback.
+You must configure your provider to use the Netmaker API URI redirect route with the following format: https://api.<netmaker base domain>/api/oauth/callback.
 
-For example: `https://api.netmaker.mydomain.com/api/oauth2/callback`
+For example: `https://api.netmaker.mydomain.com/api/oauth/callback`
 
 General provider instructions can be found with the following links:
 
@@ -41,14 +41,18 @@ Next, Configure Netmaker with the following environment variables. If any are le
 
 .. code-block::
 
-    AUTH_PROVIDER="<azure-ad|github|google>"
-    CLIENT_ID="<client id of your oauth provider>"
-    CLIENT_SECRET="<client secret of your oauth provider>"
-    SERVER_HTTP_HOST="https://<your-netmaker-api-domain>"
-    FRONTEND_URL="https://<your-netmaker-dashboard-domain>"
+    AUTH_PROVIDER: "<azure-ad|github|google>"
+    CLIENT_ID: "<client id of your oauth provider>"
+    CLIENT_SECRET: "<client secret of your oauth provider>"
+    SERVER_HTTP_HOST: "api.<netmaker base domain>"
+    FRONTEND_URL: "https://dashboard.<netmaker base domain>"
 
 
-After restarting your server, the Netmaker logs will indicate if the OAuth provider was successfully initialized.
+After restarting your server, the Netmaker logs will indicate if the OAuth provider was successfully initialized:
+
+.. code-block::
+
+   sudo docker logs netmaker
 
 Once successful, users can click the key symbol on the login page to sign-in with your configured OAuth provider.
 
