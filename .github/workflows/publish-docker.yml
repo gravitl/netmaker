@@ -50,7 +50,9 @@ jobs:
       -
         name: Test x86
         run: |
-            docker run --rm --entrypoint apk add file; file netmaker ${{ env.TAG }}
+            docker run --rm ${{ env.TAG }}
+            sleep 10
+            kill %1
       -
         name: Build arm and export to Docker
         uses: docker/build-push-action@v2
@@ -62,7 +64,9 @@ jobs:
       -
         name: Test arm
         run: |
-            docker run --rm --entrypoint apk add file; file netmaker ${{ env.TAG }}
+            docker run --rm ${{ env.TAG }}
+            sleep 10
+            kill %1
       -
         name: Build and push
         uses: docker/build-push-action@v2
