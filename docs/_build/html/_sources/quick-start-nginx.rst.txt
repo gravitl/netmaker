@@ -121,7 +121,7 @@ Nginx will serve the SSL certificate with your chosen domain and forward traffic
 
 Get the nginx configuration file:
 
-``wget https://raw.githubusercontent.com/gravitl/netmaker/develop/nginx/netmaker-nginx-template.conf``
+``wget https://raw.githubusercontent.com/gravitl/netmaker/master/nginx/netmaker-nginx-template.conf``
 
 Insert your domain in the configuration file and add to nginx:
 
@@ -142,7 +142,7 @@ Prepare Templates
 
 .. code-block::
 
-  wget https://raw.githubusercontent.com/gravitl/netmaker/develop/compose/docker-compose.yml
+  wget https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml
   sed -i 's/NETMAKER_BASE_DOMAIN/<your base domain>/g' docker-compose.yml
   sed -i 's/SERVER_PUBLIC_IP/<your server ip>/g' docker-compose.yml
   sed -i 's/COREDNS_IP/<your server ip>/g' docker-compose.yml
