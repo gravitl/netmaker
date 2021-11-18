@@ -190,42 +190,6 @@ PersistentKeepAlive = %s
 	return peersString, nil
 }
 
-// CreateUserSpaceConf - creates a user space WireGuard conf
-func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, fwmark int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
-	peersString, err := parsePeers(perskeepalive, peers)
-	var listenPortString string
-	var fwmarkString string
-	if mtu <= 0 {
-		mtu = 1280
-	}
-	if listenPort != "" {
-		listenPortString += "ListenPort = " + listenPort
-	}
-	if fwmark != 0 {
-		fwmarkString += "FWMark = " + strconv.Itoa(int(fwmark))
-	}
-	if err != nil {
-		return "", err
-	}
-	config := fmt.Sprintf(`[Interface]
-Address = %s
-PrivateKey = %s
-MTU = %s
-%s
-%s
-
-%s
-
-`,
-		address+"/32",
-		privatekey,
-		strconv.Itoa(int(mtu)),
-		listenPortString,
-		fwmarkString,
-		peersString)
-	return config, nil
-}
-
 // GetLocalIP - gets local ip of machine
 func GetLocalIP(localrange string) (string, error) {
 	_, localRange, err := net.ParseCIDR(localrange)
@@ -279,7 +243,9 @@ func GetNetworkIPMask(networkstring string) (string, string, error) {
 		return "", "", err
 	}
 	ipstring := ip.String()
-	maskstring := ipnet.Mask.String()
+	mask := ipnet.Mask
+	maskstring := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
+	//maskstring := ipnet.Mask.String()
 	return ipstring, maskstring, err
 }
 
