@@ -243,7 +243,9 @@ func GetNetworkIPMask(networkstring string) (string, string, error) {
 		return "", "", err
 	}
 	ipstring := ip.String()
-	maskstring := ipnet.Mask.String()
+	mask := ipnet.Mask
+	maskstring := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
+	//maskstring := ipnet.Mask.String()
 	return ipstring, maskstring, err
 }
 
