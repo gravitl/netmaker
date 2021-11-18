@@ -1,9 +1,13 @@
 package ncutils
 
 import (
+	"fmt"
 	"log"
 	"os/exec"
+	"strconv"
 	"strings"
+
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // RunCmd - runs a local command
@@ -17,6 +21,10 @@ func RunCmd(command string, printerr bool) (string, error) {
 		log.Println(strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
+}
+
+func RunCmdFormatted(command string, printerr bool) (string, error) {
+	return "", nil
 }
 
 // CreateUserSpaceConf - creates a user space WireGuard conf
