@@ -217,6 +217,16 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 				ncutils.PrintLog("failed to create wireguard interface", 1)
 				return err
 			}
+			if ncutils.IsWindows() {
+				var output string
+				starttime := time.Now()
+				ncutils.PrintLog("waiting for interface...", 1)
+				for !strings.Contains(output, ifacename) && !(time.Now().After(starttime.Add(time.Minute))) {
+					output, _ = ncutils.RunCmd("wg", false)
+					time.Sleep(time.Second >> 1)
+					err = ApplyConf(confPath)
+				}
+			}
 		}
 	} else {
 		ipExec, err := exec.LookPath("ip")

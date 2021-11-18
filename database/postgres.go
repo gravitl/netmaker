@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"github.com/gravitl/netmaker/servercfg"
 	_ "github.com/lib/pq"
 )

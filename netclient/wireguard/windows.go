@@ -1,9 +1,14 @@
 package wireguard
 
-import "github.com/gravitl/netmaker/netclient/ncutils"
+import (
+	"fmt"
+
+	"github.com/gravitl/netmaker/netclient/ncutils"
+)
 
 func ApplyWindowsConf(confPath string) error {
-	if _, err := ncutils.RunCmd("wireguard.exe /installtunnelservice "+confPath, false); err != nil {
+	var commandLine = fmt.Sprintf(`wireguard.exe /installtunnelservice "%s"`, confPath)
+	if _, err := ncutils.RunCmdFormatted(commandLine, false); err != nil {
 		return err
 	}
 	return nil
