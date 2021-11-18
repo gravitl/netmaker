@@ -25,8 +25,7 @@ new-module -name netclient-install -scriptblock {
         $outpath = "$env:userprofile\Downloads\wireguard-installer.exe"
         Invoke-WebRequest -Uri $url -OutFile $outpath
         $args = @("Comma","Separated","Arguments")
-        Start-Process -Filepath "$env:userprofile\Downloads\wireguard-installer.exe" -ArgumentList $args
-        Start-Sleep -Seconds 5
+        Start-Process -Filepath "$env:userprofile\Downloads\wireguard-installer.exe" -ArgumentList $args -Wait
         $software = "WireGuard";
         $installed = (Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where { $_.DisplayName -eq $software }) -ne $null
         If(-Not $installed) {
@@ -48,7 +47,7 @@ new-module -name netclient-install -scriptblock {
         Invoke-WebRequest -Uri $url -OutFile $outpath
     }
     $NetArgs = @("join","-t",$token)
-    Start-Process -Filepath $outpath -ArgumentList $NetArgs
+    Start-Process -Filepath $outpath -ArgumentList $NetArgs -Wait
     Add-MpPreference -ExclusionPath "C:\ProgramData\Netclient"
 
     if ((Get-Command "netclient.exe" -ErrorAction SilentlyContinue) -eq $null) { 
