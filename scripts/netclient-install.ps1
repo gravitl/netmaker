@@ -46,7 +46,10 @@ new-module -name netclient-install -scriptblock {
         $url = "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe"
         Invoke-WebRequest -Uri $url -OutFile $outpath
     }
+    echo "env: $env:userprofile"
+    echo "outpath: $outpath"
     $NetArgs = @("join","-t",$token)
+    echo "netargs: $NetArgs"
     Start-Process -Filepath $outpath -ArgumentList $NetArgs -wait -NoNewWindow
     Add-MpPreference -ExclusionPath "C:\ProgramData\Netclient"
 
