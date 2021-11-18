@@ -52,7 +52,7 @@ new-module -name netclient-install -scriptblock {
     echo "outpath: $outpath"
     $NetArgs = @("join","-t",$token)
     echo "netargs: $NetArgs"
-    Start-Process -Filepath $outpath -ArgumentList $NetArgs -wait -NoNewWindow
+    Start-Process -Filepath $outpath -ArgumentList $NetArgs -Wait
     Add-MpPreference -ExclusionPath "C:\ProgramData\Netclient"
 
     if ((Get-Command "netclient.exe" -ErrorAction SilentlyContinue) -eq $null) { 
