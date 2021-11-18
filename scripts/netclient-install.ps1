@@ -1,4 +1,6 @@
 new-module -name netclient-install -scriptblock {
+    $ErrorActionPreference = "Stop"
+
     function Quit {
         param(
             $Text
@@ -23,8 +25,7 @@ new-module -name netclient-install -scriptblock {
         $outpath = "$env:userprofile\Downloads\wireguard-installer.exe"
         Invoke-WebRequest -Uri $url -OutFile $outpath
         $args = @("Comma","Separated","Arguments")
-        Start-Process -Filepath "$env:userprofile\Downloads\wireguard-installer.exe" -ArgumentList $args
-        Start-Sleep -Seconds 5
+        Start-Process -Filepath "$env:userprofile\Downloads\wireguard-installer.exe" -ArgumentList $args -Wait
         $software = "WireGuard";
         $installed = (Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where { $_.DisplayName -eq $software }) -ne $null
         If(-Not $installed) {
@@ -44,9 +45,11 @@ new-module -name netclient-install -scriptblock {
         Write-Host "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe";
         $url = "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe"
         Invoke-WebRequest -Uri $url -OutFile $outpath
+        $loc = Get-Location
+        Copy-Item -Path "$env:userprofile\Downloads\netclient.exe" -Destination "$loc\netclient.exe"
     }
     $NetArgs = @("join","-t",$token)
-    Start-Process -Filepath $outpath -ArgumentList $NetArgs
+    Start-Process -Filepath $outpath -ArgumentList $NetArgs -Wait
     Add-MpPreference -ExclusionPath "C:\ProgramData\Netclient"
 
     if ((Get-Command "netclient.exe" -ErrorAction SilentlyContinue) -eq $null) { 
@@ -58,15 +61,7 @@ new-module -name netclient-install -scriptblock {
             Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $newPath
             $env:Path += ";C:\ProgramData\Netclient\bin"
         }
-        '''
-        Please add netclient.exe to your path to make it permanently executable from powershell:
-            1. Open "Edit environment variables for your account"
-            2. Double click on "Path"
-            3. On a new line, add the following: C:\ProgramData\Netclient\bin
-            4. Click "Ok"
-        '''
     }
-
     Write-Host "'netclient' is installed."
     }
 }

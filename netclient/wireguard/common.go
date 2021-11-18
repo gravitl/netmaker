@@ -1,6 +1,7 @@
 package wireguard
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -188,10 +189,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		if ncutils.IsWindows() {
 			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
-			ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
 			err = ioutil.WriteFile(wgConfPath, []byte(newConf), 0644)
 			if err != nil {
-				ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
+				ncutils.PrintLog("error writing wg conf file to "+wgConfPath+": "+err.Error(), 1)
 				return err
 			}
 			confPath = wgConfPath
@@ -217,6 +217,25 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			if err != nil {
 				ncutils.PrintLog("failed to create wireguard interface", 1)
 				return err
+			}
+			if ncutils.IsWindows() {
+				var output string
+				starttime := time.Now()
+				ncutils.PrintLog("waiting for interface...", 1)
+				for !strings.Contains(output, ifacename) && !(time.Now().After(starttime.Add(time.Duration(10) * time.Second))) {
+					output, _ = ncutils.RunCmd("wg", false)
+					time.Sleep(time.Second >> 1)
+					err = ApplyConf(confPath)
+				}
+				if !strings.Contains(output, ifacename) {
+					return errors.New("could not create wg interface for " + ifacename)
+				}
+				ip, mask, err := ncutils.GetNetworkIPMask(nodecfg.NetworkSettings.AddressRange)
+				if err != nil {
+					log.Println(err.Error())
+					return err
+				}
+				_, _ = ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
 			}
 		}
 	} else {
@@ -281,13 +300,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	//extra network route setting required for freebsd and windows
-	if ncutils.IsWindows() {
-		ip, mask, err := ncutils.GetNetworkIPMask(nodecfg.NetworkSettings.AddressRange)
-		if err != nil {
-			return err
-		}
-		_, _ = ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
-	} else if ncutils.IsFreeBSD() {
+	if ncutils.IsFreeBSD() {
 		_, _ = ncutils.RunCmd("route add -net "+nodecfg.NetworkSettings.AddressRange+" -interface "+ifacename, true)
 	}
 
