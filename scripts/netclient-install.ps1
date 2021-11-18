@@ -1,4 +1,6 @@
 new-module -name netclient-install -scriptblock {
+    $ErrorActionPreference = "Stop"
+
     function Quit {
         param(
             $Text
@@ -24,7 +26,7 @@ new-module -name netclient-install -scriptblock {
         Invoke-WebRequest -Uri $url -OutFile $outpath
         $args = @("Comma","Separated","Arguments")
         $procWG = Start-Process -Filepath "$env:userprofile\Downloads\wireguard-installer.exe" -ArgumentList $args
-        if ($procWG -eq $null) {}
+        if ($procWG -eq $null) {
             Start-Sleep -Seconds 5
         } else {
             $procWG.WaitForExit() 
@@ -53,7 +55,7 @@ new-module -name netclient-install -scriptblock {
     }
     $NetArgs = @("join","-t",$token)
     $procNC = Start-Process -Filepath $outpath -ArgumentList $NetArgs
-    if ($procNC -eq $null) {}
+    if ($procNC -eq $null) {
         Start-Sleep -Seconds 5
     } else {
         $procNC.WaitForExit() 
