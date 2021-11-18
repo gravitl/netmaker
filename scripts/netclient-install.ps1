@@ -40,12 +40,13 @@ new-module -name netclient-install -scriptblock {
     if (Test-Path -Path "C:\ProgramData\Netclient\bin\netclient.exe") {
         $outpath = "C:\ProgramData\Netclient\bin\netclient.exe";
     } else {
-        curDir = Get-Location
-        $outpath = "$curDir/netclient.exe"
+        $outpath = "$env:userprofile\Downloads\netclient.exe"
         Write-Host "'netclient.exe' is NOT installed. installing...";
         Write-Host "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe";
         $url = "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe"
         Invoke-WebRequest -Uri $url -OutFile $outpath
+        $loc = Get-Location
+        Copy-Item -Path "$env:userprofile\Downloads\netclient.exe" -Destination "$loc\netclient.exe"
     }
     echo "env: $env:userprofile"
     echo "outpath: $outpath"
@@ -57,8 +58,7 @@ new-module -name netclient-install -scriptblock {
     if ((Get-Command "netclient.exe" -ErrorAction SilentlyContinue) -eq $null) { 
         if (-not (Test-Path -Path "C:\ProgramData\Netclient\bin\netclient.exe")) {
             New-Item -Path "C:\ProgramData\Netclient" -Name "bin" -ItemType "directory"
-            curDir = Get-Location
-            Move-Item -Path "$curDur\netclient.exe" -Destination "C:\ProgramData\Netclient\bin\netclient.exe"
+            Move-Item -Path "$env:userprofile\Downloads\netclient.exe" -Destination "C:\ProgramData\Netclient\bin\netclient.exe"
             $oldpath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).path
             $newpath = "$oldpath;C:\ProgramData\Netclient\bin"
             Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $newPath
