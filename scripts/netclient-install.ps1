@@ -40,7 +40,8 @@ new-module -name netclient-install -scriptblock {
     if (Test-Path -Path "C:\ProgramData\Netclient\bin\netclient.exe") {
         $outpath = "C:\ProgramData\Netclient\bin\netclient.exe";
     } else {
-        $outpath = Get-Location
+        curDir = Get-Location
+        $outpath = "$curDir/netclient.exe"
         Write-Host "'netclient.exe' is NOT installed. installing...";
         Write-Host "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe";
         $url = "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe"
