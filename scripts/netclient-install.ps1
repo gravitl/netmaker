@@ -47,7 +47,7 @@ new-module -name netclient-install -scriptblock {
         Invoke-WebRequest -Uri $url -OutFile $outpath
     }
     $NetArgs = @("join","-t",$token)
-    Start-Process -Filepath $outpath -ArgumentList $NetArgs -Wait
+    Start-Process -Filepath $outpath -ArgumentList $NetArgs -wait -NoNewWindow
     Add-MpPreference -ExclusionPath "C:\ProgramData\Netclient"
 
     if ((Get-Command "netclient.exe" -ErrorAction SilentlyContinue) -eq $null) { 
