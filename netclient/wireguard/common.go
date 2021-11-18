@@ -235,8 +235,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 					log.Println(err.Error())
 					return err
 				}
-				log.Println("ip", ip)
-				log.Println("mask", mask)
 				_, _ = ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
 			}
 		}
