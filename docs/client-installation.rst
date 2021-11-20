@@ -69,6 +69,12 @@ To obtain the netclient, go to the GitHub releases: https://github.com/gravitl/n
 
 **For Private DNS management:** Resolvectl (systemd-resolved)
 
+Installation Linux/Uni
+===============
+
+You may install your downloaded binary system wide by applying:
+``sudo install ./netclient /usr/bin/``
+
 Configuration
 ===============
 
@@ -100,7 +106,6 @@ There is a config file for each node under /etc/netconfig-<network name>. You ca
 
 Installation
 ======================
-
 
 To install netmaker, you need a server token for a particular network, unless you're joining a network that allows manual signup, in which case you can join without a token, but the server will quarantine the machine until the admin approves it.
 
