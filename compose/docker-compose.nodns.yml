@@ -36,7 +36,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.9.0
+    image: gravitl/netmaker-ui:v0.9.1
     links:
       - "netmaker:api"
     ports:

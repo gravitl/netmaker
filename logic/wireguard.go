@@ -325,6 +325,9 @@ func setWGKeyConfig(node models.Node) error {
 func removeLocalServer(node *models.Node) error {
 	var ifacename = node.Interface
 	var err error
+	if err = RemovePrivKey(node.ID); err != nil {
+		Log("failed to remove server conf from db "+node.ID, 1)
+	}
 	if ifacename != "" {
 		if !ncutils.IsKernel() {
 			if err = RemoveConf(ifacename, true); err == nil {
