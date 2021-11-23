@@ -260,6 +260,38 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 	return nil
 }
 
+// RemoveNetworkNodeIPv6Addresses - removes network node IPv6 addresses
+func RemoveNetworkNodeIPv6Addresses(networkName string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range collections {
+
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			fmt.Println("error in node address assignment!")
+			return err
+		}
+		if node.Network == networkName {
+			node.IsDualStack = "no"
+			node.Address6 = ""
+			node.PullChanges = "yes"
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+
+	return nil
+}
+
 // UpdateNetworkNodeAddresses - updates network node addresses
 func UpdateNetworkNodeAddresses(networkName string) error {
 
