@@ -88,6 +88,17 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 - [Learning Resources](https://gravitl.com/resources)
 
+# Community Projects
+
+- [Netmaker + Traefik Proxy](https://github.com/bsherman/netmaker-traefik)
+
+- [OpenWRT Netclient Packager](https://github.com/sbilly/netmaker-openwrt)
+
+- [Golang GUI](https://github.com/mattkasun/netmaker-gui)
+
+- [CoreDNS Plugin](https://github.com/SekoiaLab/netmaker-coredns)
+
+
 ## Disclaimer
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
 
