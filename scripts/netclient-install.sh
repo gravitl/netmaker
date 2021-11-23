@@ -164,7 +164,7 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
                                 dist=netclient-freebsd-arm64
 			;;
 			armv7l)
-                                dist=netclient-freebsd-armv7
+                                dist=netclient-freebsd-arm7
 			;;
 			arm*)
 				dist=netclient-freebsd-$CPU_ARCH
