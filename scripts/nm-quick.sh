@@ -28,7 +28,7 @@ fi
 echo "checking dependencies..."
 
 declare -A osInfo;
-osInfo[/etc/debian_version]="apt-get install -y"
+osInfo[/etc/debian_version]="apt-get install -y"u
 osInfo[/etc/alpine-release]="apk --update add"
 osInfo[/etc/centos-release]="yum install -y"
 osInfo[/etc/fedora-release]="dnf install -y"
@@ -40,7 +40,19 @@ do
     fi
 done
 
+if [ -f /etc/debian_version ]; then
+	apt update
+elif [ -f /etc/alpine-release ]; then
+  apk update
+elif [ -f /etc/centos-release ]; then
+	yum update
+elif [ -f /etc/fedora-release ]; then
+	dnf update
+fi
+
 dependencies=("docker.io" "docker-compose" "wireguard" "jq")
+
+
 
 for dependency in ${dependencies[@]}; do
     is_installed=$(dpkg-query -W --showformat='${Status}\n' ${dependency} | grep "install ok installed")

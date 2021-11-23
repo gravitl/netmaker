@@ -39,14 +39,14 @@
 **For production-grade installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/master/install.html).**  
 **For an HA install using helm on k8s, visit the [Helm Repo](https://github.com/gravitl/netmaker-helm/).**
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
-2. Open ports 443, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
+2. Open ports 443, 80, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
 3. Run the script **(see below for optional configurations)**:
 
 `sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | bash`
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
-Upon completion, the logs will display the instructions to connect various devices. These can also be retrived from the UI under "Acess Keys."
+Upon completion, the logs will display the instructions to connect various devices. These can also be retrived from the UI under "Access Keys."
 
 After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://gravitl.com/resources) for different use cases, including Kubernetes.
 
@@ -87,6 +87,17 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 - [Business (Subscription)](https://gravitl.com/plans/business)
 
 - [Learning Resources](https://gravitl.com/resources)
+
+# Community Projects
+
+- [Netmaker + Traefik Proxy](https://github.com/bsherman/netmaker-traefik)
+
+- [OpenWRT Netclient Packager](https://github.com/sbilly/netmaker-openwrt)
+
+- [Golang GUI](https://github.com/mattkasun/netmaker-gui)
+
+- [CoreDNS Plugin](https://github.com/SekoiaLab/netmaker-coredns)
+
 
 ## Disclaimer
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
