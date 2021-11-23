@@ -275,11 +275,17 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+
 	rangeupdate, localrangeupdate, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+
+	// if newNetwork.IsDualStack != currentNetwork.IsDualStack && newNetwork.IsDualStack == "no" {
+	// 	// Remove IPv6 address from network nodes
+	// 	RemoveNetworkNodeIPv6Addresses(currentNetwork.NetID)
+	// }
 
 	if rangeupdate {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
