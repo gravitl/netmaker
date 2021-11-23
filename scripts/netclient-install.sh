@@ -128,7 +128,7 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
                                 dist=netclient-arm64
 			;;
 			armv7l)
-                                dist=netclient-armv7
+                                dist=netclient-arm7
 			;;
 			arm*)
 				dist=netclient-$CPU_ARCH
