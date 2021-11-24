@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -57,7 +56,7 @@ func writeServiceConfig() error {
 </service>
 `, strings.Replace(ncutils.GetNetclientPathSpecific()+"netclient.exe", `\\`, `\`, -1))
 	if !ncutils.FileExists(serviceConfigPath) {
-		err := ioutil.WriteFile(serviceConfigPath, []byte(scriptString), 0644)
+		err := os.WriteFile(serviceConfigPath, []byte(scriptString), 0644)
 		if err != nil {
 			return err
 		}
@@ -84,12 +83,12 @@ func RemoveWindowsDaemon() {
 
 // func copyWinswOver() error {
 
-// 	input, err := ioutil.ReadFile(".\\winsw.exe")
+// 	input, err := os.ReadFile(".\\winsw.exe")
 // 	if err != nil {
 // 		ncutils.Log("failed to find winsw.exe")
 // 		return err
 // 	}
-// 	if err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"winsw.exe", input, 0644); err != nil {
+// 	if err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"winsw.exe", input, 0644); err != nil {
 // 		ncutils.Log("failed to copy winsw.exe to " + ncutils.GetNetclientPath())
 // 		return err
 // 	}

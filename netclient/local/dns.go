@@ -1,20 +1,17 @@
 package local
 
 import (
-	"io/ioutil"
-	"os"
-	"strings"
-
-	//"github.com/davecgh/go-spew/spew"
 	"log"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // SetDNS - sets the DNS of a local machine
 func SetDNS(nameserver string) error {
-	bytes, err := ioutil.ReadFile("/etc/resolv.conf")
+	bytes, err := os.ReadFile("/etc/resolv.conf")
 	if err != nil {
 		return err
 	}

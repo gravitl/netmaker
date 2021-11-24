@@ -28,7 +28,7 @@ func TestReturnSuccessResponse(t *testing.T) {
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
-	//body, err := ioutil.ReadAll(resp.Body)
+	//body, err := io.ReadAll(resp.Body)
 	//assert.Nil(t, err)
 	//t.Log(body, string(body))
 	err := json.NewDecoder(resp.Body).Decode(&response)

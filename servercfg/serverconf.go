@@ -2,7 +2,7 @@ package servercfg
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -412,7 +412,7 @@ func GetPublicIP() (string, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				continue
 			}

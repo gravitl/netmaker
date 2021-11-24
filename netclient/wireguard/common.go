@@ -3,7 +3,6 @@ package wireguard
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -179,14 +178,14 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
-		err = ioutil.WriteFile(confPath, []byte(newConf), 0644)
+		err = os.WriteFile(confPath, []byte(newConf), 0644)
 		if err != nil {
 			ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
 			return err
 		}
 		if ncutils.IsWindows() {
 			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
-			err = ioutil.WriteFile(wgConfPath, []byte(newConf), 0644)
+			err = os.WriteFile(wgConfPath, []byte(newConf), 0644)
 			if err != nil {
 				ncutils.PrintLog("error writing wg conf file to "+wgConfPath+": "+err.Error(), 1)
 				return err
