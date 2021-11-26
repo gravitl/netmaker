@@ -11,28 +11,28 @@ OS=$(uname)
 
 if [ -f /etc/debian_version ]; then
 	dependencies="wireguard wireguard-tools"
-	update_cmd='apt update'
+	update_cmd='apt update -y'
 	install_cmd='apt-get install -y'
 elif [ -f /etc/alpine-release ]; then
 	dependencies="wireguard"
-	update_cmd='apk update'
+	update_cmd='apk update -y'
 	install_cmd='apk --update add'
 elif [ -f /etc/centos-release ]; then
 	dependencies="wireguard"
-	update_cmd='yum update'
+	update_cmd='yum update -y'
 	install_cmd='yum install -y'
 elif [ -f /etc/fedora-release ]; then
 	dependencies="wireguard"
-	update_cmd='dnf update'
+	update_cmd='dnf update -y'
 	install_cmd='dnf install -y'
 elif [ "${OS}" = "FreeBSD" ]; then
 	dependencies="wireguard"
-	update_cmd='pkg update'
+	update_cmd='pkg update -y'
 	install_cmd='pkg install -y'
 elif [ -f /etc/openwrt_release ]; then
 	dependencies="wireguard-tools"
 	OS="OpenWRT"
-	update_cmd='opkg update'	
+	update_cmd='opkg update -y'	
 	install_cmd='opkg install'
 else
 	install_cmd=''
