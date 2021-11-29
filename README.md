@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.9.0-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.9.1-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />
@@ -29,9 +29,10 @@
 
 # WireGuard® Automation from Homelab to Enterprise
 - [x] Peer-to-Peer Mesh Networks
-- [x] Kubernetes, Multi-Cloud
-- [x] OAuth and Private DNS
-- [x] Linux, Mac, Windows, FreeBSD, iPhone, and Android
+- [x] Kubernetes and Multi-Cloud Enablement
+- [x] Remote Site Access via Gateway
+- [x] OAuth and Private DNS Features
+- [x] Support for Linux, Mac, Windows, FreeBSD, iPhone, and Android
 
 # Get Started in 5 Minutes  
 
@@ -96,7 +97,11 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 - [Golang GUI](https://github.com/mattkasun/netmaker-gui)
 
-- [CoreDNS Plugin](https://github.com/SekoiaLab/netmaker-coredns)
+- [CoreDNS Plugin](https://github.com/gravitl/netmaker-coredns-plugin)
+
+- [Multi-Cluster K8S Plugin](https://github.com/gravitl/netmak8s)
+
+- [Terraform Provider](https://github.com/madacluster/netmaker-terraform-provider)
 
 
 ## Disclaimer

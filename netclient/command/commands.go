@@ -48,6 +48,10 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 		} else {
 			ncutils.PrintLog("success", 0)
 		}
+		if strings.Contains(err.Error(), "ALREADY_INSTALLED") {
+			ncutils.PrintLog(err.Error(), 0)
+			err = nil
+		}
 		return err
 	}
 	ncutils.PrintLog("joined "+cfg.Network, 1)
@@ -91,7 +95,7 @@ func RunUserspaceDaemon() {
 
 func CheckIn(cfg config.ClientConfig) error {
 	var err error
-
+	var errN error
 	if cfg.Network == "" {
 		ncutils.PrintLog("required, '-n', exiting", 0)
 		os.Exit(1)
@@ -119,9 +123,13 @@ func CheckIn(cfg config.ClientConfig) error {
 				daemon.StopWindowsDaemon()
 			}
 		}
+		errN = err
 		err = nil
 	} else {
 		err = functions.CheckConfig(cfg)
+	}
+	if err == nil && errN != nil {
+		err = errN
 	}
 	return err
 }

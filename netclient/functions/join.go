@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"os/exec"
-	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -34,12 +32,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		if local.HasNetwork(cfg.Network) {
 			err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
 			return err
-		}
-		if cfg.FWMark == 0 {
-			rand.Seed(time.Now().UnixNano())
-			var min int32 = 1000
-			var max int32 = 9999
-			cfg.FWMark = rand.Int31n(max-min) + min
 		}
 
 		err = config.Write(&cfg, cfg.Network)
@@ -111,6 +103,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		MacAddress:          cfg.Node.MacAddress,
 		AccessKey:           cfg.Server.AccessKey,
 		IsStatic:            cfg.Node.IsStatic,
+		Roaming:             cfg.Node.Roaming,
 		Network:             cfg.Network,
 		ListenPort:          cfg.Node.ListenPort,
 		PostUp:              cfg.Node.PostUp,
