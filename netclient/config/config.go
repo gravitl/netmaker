@@ -31,7 +31,6 @@ type ClientConfig struct {
 	Daemon          string         `yaml:"daemon"`
 	OperatingSystem string         `yaml:"operatingsystem"`
 	DebugJoin       bool           `yaml:"debugjoin"`
-	FWMark          int32          `yaml:"fwmark"`
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient
@@ -342,6 +341,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	cfg.Node.Roaming = c.String("roaming")
 	cfg.Node.DNSOn = c.String("dnson")
 	cfg.Node.IsLocal = c.String("islocal")
+	cfg.Node.IsStatic = c.String("isstatic")
 	cfg.Node.IsDualStack = c.String("isdualstack")
 	cfg.Node.PostUp = c.String("postup")
 	cfg.Node.PostDown = c.String("postdown")

@@ -106,6 +106,13 @@ func main() {
 			Usage:   "Local address for machine. Can be used in place of Endpoint for machines on the same LAN.",
 		},
 		&cli.StringFlag{
+			Name:    "isstatic",
+			Aliases: []string{"st"},
+			EnvVars: []string{"NETCLIENT_IS_STATIC"},
+			Value:   "",
+			Usage:   "Indicates if client is static by default (will not change addresses automatically).",
+		},
+		&cli.StringFlag{
 			Name:    "address",
 			Aliases: []string{"a"},
 			EnvVars: []string{"NETCLIENT_ADDRESS"},
