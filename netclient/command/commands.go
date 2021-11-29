@@ -95,7 +95,7 @@ func RunUserspaceDaemon() {
 
 func CheckIn(cfg config.ClientConfig) error {
 	var err error
-
+	var errN error
 	if cfg.Network == "" {
 		ncutils.PrintLog("required, '-n', exiting", 0)
 		os.Exit(1)
@@ -123,9 +123,13 @@ func CheckIn(cfg config.ClientConfig) error {
 				daemon.StopWindowsDaemon()
 			}
 		}
+		errN = err
 		err = nil
 	} else {
 		err = functions.CheckConfig(cfg)
+	}
+	if err == nil && errN != nil {
+		err = errN
 	}
 	return err
 }
