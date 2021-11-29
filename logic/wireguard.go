@@ -47,7 +47,7 @@ func RemoveConf(iface string, printlog bool) error {
 
 // Private Functions
 
-func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string, fwmark int32) error {
+func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
 
 	key, err := wgtypes.ParseKey(privkey)
 	if err != nil {
@@ -85,7 +85,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	if !ncutils.IsKernel() {
 		var newConf string
-		newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, fwmark, node.PersistentKeepalive, peers)
+		newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, node.PersistentKeepalive, peers)
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		Log("writing wg conf file to: "+confPath, 1)
 		err = ioutil.WriteFile(confPath, []byte(newConf), 0644)
@@ -293,7 +293,7 @@ func setWGConfig(node models.Node, network string, peerupdate bool) error {
 		err = setServerPeers(iface, node.PersistentKeepalive, peers)
 		Log("updated peers on server "+node.Name, 2)
 	} else {
-		err = initWireguard(&node, privkey, peers, hasGateway, gateways, 0)
+		err = initWireguard(&node, privkey, peers, hasGateway, gateways)
 		Log("finished setting wg config on server "+node.Name, 3)
 	}
 	return err

@@ -48,6 +48,10 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 		} else {
 			ncutils.PrintLog("success", 0)
 		}
+		if strings.Contains(err.Error(), "ALREADY_INSTALLED") {
+			ncutils.PrintLog(err.Error(), 0)
+			err = nil
+		}
 		return err
 	}
 	ncutils.PrintLog("joined "+cfg.Network, 1)
