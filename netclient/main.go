@@ -24,7 +24,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = "v0.9.0"
+	app.Version = "v0.9.1"
 
 	hostname, err := os.Hostname()
 	if err != nil {
