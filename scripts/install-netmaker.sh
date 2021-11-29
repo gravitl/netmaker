@@ -47,7 +47,7 @@ if [ -n "$email" ]; then
 fi
 
 while true; do
-    read -p "Configure a default network automatically? " yn
+    read -p "Configure a default network automatically (y/n)? " yn
     case $yn in
         [Yy]* ) MESH_SETUP="true"; break;;
         [Nn]* ) MESH_SETUP="false"; break;;
@@ -56,7 +56,7 @@ while true; do
 done
 
 while true; do
-    read -p "Configure a VPN gateway automatically? " yn
+    read -p "Configure a VPN gateway automatically (y/n)? " yn
     case $yn in
         [Yy]* ) VPN_SETUP="true"; break;;
         [Nn]* ) VPN_SETUP="false"; break;;
@@ -78,7 +78,7 @@ if [ -n "$num_clients" ]; then
 fi
 
 while true; do
-    read -p "Override master key ($MASTER_KEY)? " yn
+    read -p "Override master key ($MASTER_KEY) (y/n)? " yn
     case $yn in
         [Yy]* ) override="true"; break;;
         [Nn]* ) override="false"; break;;
@@ -117,7 +117,7 @@ echo "     # clients: $NUM_CLIENTS"
 fi
 
 while true; do
-    read -p "Does everything look right? " yn
+    read -p "Does everything look right (y/n)? " yn
     case $yn in
         [Yy]* ) override="true"; break;;
         [Nn]* ) echo "exiting..."; exit;;
