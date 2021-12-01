@@ -216,8 +216,8 @@ func main() {
 		&cli.StringFlag{
 			Name:    "roaming",
 			EnvVars: []string{"NETCLIENT_ROAMING"},
-			Value:   "on",
-			Usage:   "Checks for IP changes if 'on'. Ignores if 'off'. On by default.",
+			Value:   "yes",
+			Usage:   "Checks for IP changes if 'yes'. Ignores if 'no'. Yes by default.",
 		},
 	}
 
