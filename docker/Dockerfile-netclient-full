@@ -28,7 +28,7 @@ FROM alpine:3.13.6
 
 WORKDIR /root/
 
-RUN apk add --no-cache --update bash libmnl iptables openresolv iproute2
+RUN apk add --no-cache --update bash libmnl gcompat iptables openresolv iproute2
 COPY --from=builder /usr/bin/wireguard-go /usr/bin/wg* /usr/bin/
 COPY --from=builder /app/netclient-app ./netclient
 COPY --from=builder /app/scripts/netclient.sh .
