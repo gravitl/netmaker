@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -31,7 +32,7 @@ func DecrimentKey(networkName string, keyvalue string) {
 	}
 
 	if newNetworkData, err := json.Marshal(&network); err != nil {
-		Log("failed to decrement key", 2)
+		logger.Log(2, "failed to decrement key")
 		return
 	} else {
 		database.Insert(network.NetID, string(newNetworkData), database.NETWORKS_TABLE_NAME)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -22,12 +23,12 @@ func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersRe
 		var extClient models.ExtClient
 		err = json.Unmarshal([]byte(value), &peer)
 		if err != nil {
-			Log("failed to unmarshal peer when getting ext peer list", 2)
+			logger.Log(2, "failed to unmarshal peer when getting ext peer list")
 			continue
 		}
 		err = json.Unmarshal([]byte(value), &extClient)
 		if err != nil {
-			Log("failed to unmarshal ext client", 2)
+			logger.Log(2, "failed to unmarshal ext client")
 			continue
 		}
 		if extClient.Network == networkName && extClient.IngressGatewayID == macaddress {

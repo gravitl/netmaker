@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
@@ -118,7 +119,7 @@ func SetCorefile(domains string) error {
 	if os.IsNotExist(err) {
 		os.Mkdir(dir+"/config/dnsconfig", 744)
 	} else if err != nil {
-		Log("couldnt find or create /config/dnsconfig", 0)
+		logger.Log(0, "couldnt find or create /config/dnsconfig")
 		return err
 	}
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/validation"
@@ -471,7 +472,7 @@ func deleteInterface(ifacename string, postdown string) error {
 		ipExec, errN := exec.LookPath("ip")
 		err = errN
 		if err != nil {
-			Log(err.Error(), 1)
+			logger.Log(1, err.Error())
 		}
 		_, err = ncutils.RunCmd(ipExec+" link del "+ifacename, false)
 		if postdown != "" {
@@ -487,7 +488,7 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 	var err error
 	interfaces, err = net.Interfaces()
 	if err != nil {
-		Log("ERROR: could not read interfaces", 0)
+		logger.Log(0, "ERROR: could not read interfaces")
 		return "", true
 	}
 	for _, currIface := range interfaces {
@@ -498,11 +499,11 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 		}
 		for _, addr := range currAddrs {
 			if strings.Contains(addr.String(), address) && currIface.Name != iface {
-				Log("found iface "+addr.String()+" "+currIface.Name, 2)
+				logger.Log(2, "found iface", addr.String(), currIface.Name)
 				return currIface.Name, false
 			}
 		}
 	}
-	Log("failed to find iface "+iface, 2)
+	logger.Log(2, "failed to find iface", iface)
 	return "", true
 }

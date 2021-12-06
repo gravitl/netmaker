@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -158,7 +159,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			allnetworks[i] = net
 		}
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "fetched networks.", 2)
+	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(allnetworks)
 }
@@ -178,7 +179,7 @@ func ValidateNetworkUpdate(network models.Network) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("validator", e.Error(), 1)
+			logger.Log(1, "validator", e.Error())
 		}
 	}
 	return err
@@ -198,7 +199,7 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	if !servercfg.IsDisplayKeys() {
 		network.AccessKeys = logic.RemoveKeySensitiveInfo(network.AccessKeys)
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "fetched network "+netname, 2)
+	logger.Log(2, r.Header.Get("user"), "fetched network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
 }
@@ -226,7 +227,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "updated key on network "+netname, 2)
+	logger.Log(2, r.Header.Get("user"), "updated key on network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
 }
@@ -301,7 +302,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "updated network "+netname, 1)
+	logger.Log(1, r.Header.Get("user"), "updated network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetwork)
 }
@@ -329,7 +330,7 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		functions.PrintUserLog(r.Header.Get("user"), "updated network node limit on, "+netname, 1)
+		logger.Log(1, r.Header.Get("user"), "updated network node limit on", netname)
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
@@ -353,7 +354,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, errtype))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "deleted network "+network, 1)
+	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")
 }
@@ -366,13 +367,13 @@ func DeleteNetwork(network string) error {
 		if err == nil {
 			for _, s := range servers {
 				if err = logic.DeleteNode(&s, true); err != nil {
-					functions.PrintUserLog("", "could not removed server "+s.Name+" before deleting network "+network, 2)
+					logger.Log(2, "could not removed server", s.Name, "before deleting network", network)
 				} else {
-					functions.PrintUserLog("", "removed server "+s.Name+" before deleting network "+network, 2)
+					logger.Log(2, "removed server", s.Name, "before deleting network", network)
 				}
 			}
 		} else {
-			functions.PrintUserLog("", "could not remove servers before deleting network "+network, 1)
+			logger.Log(1, "could not remove servers before deleting network", network)
 		}
 		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}
@@ -399,7 +400,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "created network "+network.NetID, 1)
+	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
 	//json.NewEncoder(w).Encode(result)
 }
@@ -461,7 +462,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "created access key "+accesskey.Name+" on "+netname, 1)
+	logger.Log(1, r.Header.Get("user"), "created access key", accesskey.Name, "on", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(key)
 	//w.Write([]byte(accesskey.AccessString))
@@ -527,7 +528,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	err = v.Struct(accesskey)
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			functions.PrintUserLog("validator", e.Error(), 1)
+			logger.Log(1, "validator", e.Error())
 		}
 		return models.AccessKey{}, err
 	}
@@ -578,7 +579,7 @@ func getSignupToken(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "got signup token "+netID, 2)
+	logger.Log(2, r.Header.Get("user"), "got signup token", netID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(token)
 }
@@ -596,7 +597,7 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	if !servercfg.IsDisplayKeys() {
 		keys = logic.RemoveKeySensitiveInfo(keys)
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "fetched access keys on network "+network, 2)
+	logger.Log(2, r.Header.Get("user"), "fetched access keys on network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(keys)
 }
@@ -624,7 +625,7 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "deleted access key "+keyname+" on network "+netname, 1)
+	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
 	w.WriteHeader(http.StatusOK)
 }
 func DeleteKey(keyname, netname string) error {

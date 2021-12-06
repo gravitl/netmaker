@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -40,41 +41,39 @@ func initialize() { // Client Mode Prereq Check
 	var err error
 
 	if err = database.InitializeDatabase(); err != nil {
-		logic.Log("Error connecting to database", 0)
+		logger.Log(0, "Error connecting to database")
 		log.Fatal(err)
 	}
-	logic.Log("database successfully connected", 0)
+	logger.Log(0, "database successfully connected")
 
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {
-		logic.Log("OAuth provider, "+authProvider+", initialized", 0)
+		logger.Log(0, "OAuth provider, ", authProvider, ", initialized")
 	} else {
-		logic.Log("no OAuth provider found or not configured, continuing without OAuth", 0)
+		logger.Log(0, "no OAuth provider found or not configured, continuing without OAuth")
 	}
 
 	if servercfg.IsClientMode() != "off" {
 		output, err := ncutils.RunCmd("id -u", true)
 		if err != nil {
-			logic.Log("Error running 'id -u' for prereq check. Please investigate or disable client mode.", 0)
-			log.Fatal(output, err)
+			logger.FatalLog("Error running 'id -u' for prereq check. Please investigate or disable client mode.", output, err.Error())
 		}
 		uid, err := strconv.Atoi(string(output[:len(output)-1]))
 		if err != nil {
-			logic.Log("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.", 0)
-			log.Fatal(err)
+			logger.FatalLog("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.", err.Error())
 		}
 		if uid != 0 {
-			log.Fatal("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
+			logger.FatalLog("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
 		}
 		if err := serverctl.InitServerNetclient(); err != nil {
-			log.Fatal("Did not find netclient to use CLIENT_MODE")
+			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
 		}
 	}
 
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
 		if err != nil {
-			log.Fatal(err)
+			logger.FatalLog(err.Error())
 		}
 	}
 }
@@ -86,8 +85,7 @@ func startControllers() {
 		if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
 			err := servercfg.SetHost()
 			if err != nil {
-				logic.Log("Unable to Set host. Exiting...", 0)
-				log.Fatal(err)
+				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
 			}
 		}
 		waitnetwork.Add(1)
@@ -102,7 +100,7 @@ func startControllers() {
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
 		if err != nil {
-			logic.Log("error occurred initializing DNS: "+err.Error(), 0)
+			logger.Log(0, "error occurred initializing DNS: ", err.Error())
 		}
 	}
 	//Run Rest Server
@@ -110,19 +108,18 @@ func startControllers() {
 		if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
 			err := servercfg.SetHost()
 			if err != nil {
-				logic.Log("Unable to Set host. Exiting...", 0)
-				log.Fatal(err)
+				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
 			}
 		}
 		waitnetwork.Add(1)
 		controller.HandleRESTRequests(&waitnetwork)
 	}
 	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
-		logic.Log("No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.", 0)
+		logger.Log(0, "No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
 	}
 
 	waitnetwork.Wait()
-	logic.Log("exiting", 0)
+	logger.Log(0, "exiting")
 }
 
 func runClient(wg *sync.WaitGroup) {
@@ -169,7 +166,7 @@ func runGRPC(wg *sync.WaitGroup) {
 			log.Fatalf("Failed to serve: %v", err)
 		}
 	}()
-	logic.Log("Agent Server successfully started on port "+grpcport+" (gRPC)", 0)
+	logger.Log(0, "Agent Server successfully started on port ", grpcport, "(gRPC)")
 
 	// Right way to stop the server using a SHUTDOWN HOOK
 	// Create a channel to receive OS signals
@@ -184,11 +181,11 @@ func runGRPC(wg *sync.WaitGroup) {
 	<-c
 
 	// After receiving CTRL+C Properly stop the server
-	logic.Log("Stopping the Agent server...", 0)
+	logger.Log(0, "Stopping the Agent server...")
 	s.Stop()
 	listener.Close()
-	logic.Log("Agent server closed..", 0)
-	logic.Log("Closed DB connection.", 0)
+	logger.Log(0, "Agent server closed..")
+	logger.Log(0, "Closed DB connection.")
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/validation"
 )
@@ -83,7 +84,7 @@ func GetPeers(node models.Node) ([]models.Node, error) {
 func IsLeader(node *models.Node) bool {
 	nodes, err := GetSortedNetworkServerNodes(node.Network)
 	if err != nil {
-		Log("ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.", 0)
+		logger.Log(0, "ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.")
 		return false
 	}
 	for _, n := range nodes {
@@ -332,13 +333,13 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 		if database.IsEmptyRecord(err) {
 			return relay, nil
 		}
-		Log(err.Error(), 2)
+		logger.Log(2, err.Error())
 		return relay, err
 	}
 	for _, value := range collection {
 		err := json.Unmarshal([]byte(value), &relay)
 		if err != nil {
-			Log(err.Error(), 2)
+			logger.Log(2, err.Error())
 			continue
 		}
 		if relay.IsRelay == "yes" {

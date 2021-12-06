@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -275,7 +276,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Returns all the nodes in JSON format
-	functions.PrintUserLog(r.Header.Get("user"), "fetched nodes on network"+networkName, 2)
+	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
 }
@@ -304,7 +305,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//Return all the nodes in JSON format
-	functions.PrintUserLog(r.Header.Get("user"), "fetched nodes", 2)
+	logger.Log(2, r.Header.Get("user"), "fetched nodes")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(nodes)
 }
@@ -334,7 +335,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "fetched node "+params["macaddress"], 2)
+	logger.Log(2, r.Header.Get("user"), "fetched node", params["macaddress"])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -353,7 +354,7 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "called last modified", 2)
+	logger.Log(2, r.Header.Get("user"), "called last modified")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network.NodesLastModified)
 }
@@ -420,7 +421,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "created new node "+node.Name+" on network "+node.Network, 1)
+	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -435,7 +436,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "uncordoned node "+node.Name, 1)
+	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
 }
@@ -478,7 +479,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "created egress gateway on node "+gateway.NodeID+" on network "+gateway.NetID, 1)
+	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -561,7 +562,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "deleted egress gateway "+nodeMac+" on network "+netid, 1)
+	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeMac, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -612,7 +613,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "created ingress gateway on node "+nodeMac+" on network "+netid, 1)
+	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeMac, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -677,7 +678,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "deleted ingress gateway"+nodeMac, 1)
+	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeMac)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -761,7 +762,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayupdate {
 		UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
 		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
-			functions.PrintUserLog("netmaker", "error setting relay updates: "+err.Error(), 1)
+			logger.Log(1, "error setting relay updates:", err.Error())
 		}
 	}
 
@@ -772,7 +773,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "updated node "+node.MacAddress+" on network "+node.Network, 1)
+	logger.Log(1, r.Header.Get("user"), "updated node", node.MacAddress, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 }
@@ -792,6 +793,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "Deleted node "+params["macaddress"]+" from network "+params["network"], 1)
+	logger.Log(1, r.Header.Get("user"), "Deleted node", params["macaddress"], "from network", params["network"])
 	returnSuccessResponse(w, r, params["macaddress"]+" deleted.")
 }

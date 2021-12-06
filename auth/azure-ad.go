@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -56,7 +57,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 
 	var content, err = getAzureUserInfo(r.FormValue("state"), r.FormValue("code"))
 	if err != nil {
-		logic.Log("error when getting user info from azure: "+err.Error(), 1)
+		logger.Log(1, "error when getting user info from azure:", err.Error())
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
@@ -78,11 +79,11 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 
 	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
 	if jwtErr != nil {
-		logic.Log("could not parse jwt for user "+authRequest.UserName, 1)
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
 	}
 
-	logic.Log("completed azure OAuth sigin in for "+content.UserPrincipalName, 1)
+	logger.Log(1, "completed azure OAuth sigin in for", content.UserPrincipalName)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.UserPrincipalName, http.StatusPermanentRedirect)
 }
 

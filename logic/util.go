@@ -4,13 +4,13 @@ package logic
 import (
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -34,10 +34,10 @@ func CheckEndpoint(endpoint string) bool {
 func SetNetworkServerPeers(node *models.Node) {
 	if currentPeersList, err := GetSystemPeers(node); err == nil {
 		if database.SetPeers(currentPeersList, node.Network) {
-			Log("set new peers on network "+node.Network, 1)
+			logger.Log(1, "set new peers on network", node.Network)
 		}
 	} else {
-		Log("could not set peers on network "+node.Network+"\n"+err.Error(), 1)
+		logger.Log(1, "could not set peers on network", node.Network, ":", err.Error())
 	}
 }
 
@@ -63,7 +63,7 @@ func DeleteNode(node *models.Node, exterminate bool) error {
 		}
 	} else {
 		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			Log(err.Error(), 2)
+			logger.Log(2, err.Error())
 		}
 	}
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
@@ -192,19 +192,19 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 		if database.IsEmptyRecord(err) {
 			return peers, nil
 		}
-		Log(err.Error(), 2)
+		logger.Log(2, err.Error())
 		return nil, err
 	}
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
-		Log(errN.Error(), 2)
+		logger.Log(2, errN.Error())
 	}
 	for _, value := range collection {
 		var node models.Node
 		var peer models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			Log(err.Error(), 2)
+			logger.Log(2, err.Error())
 			continue
 		}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
@@ -288,6 +288,8 @@ func RandomString(length int) string {
 	return string(b)
 }
 
+// == Private Methods ==
+
 func setPeerInfo(node models.Node) models.Node {
 	var peer models.Node
 	peer.RelayAddrs = node.RelayAddrs
@@ -311,26 +313,17 @@ func setPeerInfo(node models.Node) models.Node {
 	return peer
 }
 
-func Log(message string, loglevel int) {
-	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
-	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() >= 0 {
-		log.Println("[netmaker] " + message)
-	}
-}
-
-// == Private Methods ==
-
 func setIPForwardingLinux() error {
 	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
 	if err != nil {
-		log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
+		logger.Log(0, "WARNING: Error encountered setting ip forwarding. This can break functionality.")
 		return err
 	} else {
 		s := strings.Fields(string(out))
 		if s[2] != "1" {
 			_, err = ncutils.RunCmd("sysctl -w net.ipv4.ip_forward=1", true)
 			if err != nil {
-				log.Println("WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
+				logger.Log(0, "WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
 				return err
 			}
 		}

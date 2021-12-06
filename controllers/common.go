@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -34,7 +34,7 @@ func DeleteNode(key string, exterminate bool) error {
 		}
 	} else {
 		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			functions.PrintUserLog("", err.Error(), 2)
+			logger.Log(2, err.Error())
 		}
 	}
 	if err := database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {

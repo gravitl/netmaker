@@ -6,8 +6,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -170,7 +170,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		}
 
 		peersData, err := json.Marshal(&peers)
-		functions.PrintUserLog(node.Address, "checked in successfully", 3)
+		logger.Log(3, node.Address, "checked in successfully")
 		return &nodepb.Object{
 			Data: string(peersData),
 			Type: nodepb.NODE_TYPE,

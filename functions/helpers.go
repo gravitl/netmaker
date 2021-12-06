@@ -11,16 +11,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
-
-// PrintUserLog - prints a log with a given username
-func PrintUserLog(username string, message string, loglevel int) {
-	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
-	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
-		log.Println("[netmaker]", username, message)
-	}
-}
 
 // ParseNetwork - parses a network into a model
 func ParseNetwork(value string) (models.Network, error) {

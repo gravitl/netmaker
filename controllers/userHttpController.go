@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -77,7 +77,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		returnErrorResponse(response, request, errorResponse)
 		return
 	}
-	functions.PrintUserLog(username, "was authenticated", 2)
+	logger.Log(2, username, "was authenticated")
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
 }
@@ -196,7 +196,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "fetched user "+usernameFetched, 2)
+	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	json.NewEncoder(w).Encode(user)
 }
 
@@ -212,7 +212,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	functions.PrintUserLog(r.Header.Get("user"), "fetched users", 2)
+	logger.Log(2, r.Header.Get("user"), "fetched users")
 	json.NewEncoder(w).Encode(users)
 }
 
@@ -229,7 +229,7 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(admin.UserName, "was made a new admin", 1)
+	logger.Log(1, admin.UserName, "was made a new admin")
 	json.NewEncoder(w).Encode(admin)
 }
 
@@ -246,7 +246,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(user.UserName, "was created", 1)
+	logger.Log(1, user.UserName, "was created")
 	json.NewEncoder(w).Encode(user)
 }
 
@@ -274,7 +274,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(username, "status was updated", 1)
+	logger.Log(1, username, "status was updated")
 	json.NewEncoder(w).Encode(user)
 }
 
@@ -306,7 +306,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(username, "was updated", 1)
+	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(user)
 }
 
@@ -337,7 +337,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	functions.PrintUserLog(username, "was updated (admin)", 1)
+	logger.Log(1, username, "was updated (admin)")
 	json.NewEncoder(w).Encode(user)
 }
 
@@ -359,6 +359,6 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	functions.PrintUserLog(username, "was deleted", 1)
+	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
 }

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -48,7 +48,7 @@ func returnErrorResponse(response http.ResponseWriter, request *http.Request, er
 	if err != nil {
 		panic(err)
 	}
-	logic.Log("processed request error: "+errorMessage.Message, 1)
+	logger.Log(1, "processed request error:", errorMessage.Message)
 	response.Header().Set("Content-Type", "application/json")
 	response.WriteHeader(errorMessage.Code)
 	response.Write(jsonResponse)

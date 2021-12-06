@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -29,7 +30,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "created relay on node "+relay.NodeID+" on network "+relay.NetID, 1)
+	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -84,7 +85,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "deleted egress gateway "+nodeMac+" on network "+netid, 1)
+	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeMac, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -137,11 +138,11 @@ func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
 	time.Sleep(time.Second / 4)
 	err := SetRelayedNodes("no", network, oldAddrs)
 	if err != nil {
-		functions.PrintUserLog("netmaker", err.Error(), 1)
+		logger.Log(1, err.Error())
 	}
 	err = SetRelayedNodes("yes", network, newAddrs)
 	if err != nil {
-		functions.PrintUserLog("netmaker", err.Error(), 1)
+		logger.Log(1, err.Error())
 	}
 }
 

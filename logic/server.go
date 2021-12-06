@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -47,7 +48,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	}
 
 	if node.LocalRange != "" && node.LocalAddress == "" {
-		Log("local vpn, getting local address from range: "+node.LocalRange, 1)
+		logger.Log(1, "local vpn, getting local address from range:", node.LocalRange)
 		node.LocalAddress = GetLocalIP(*node)
 	}
 
@@ -58,7 +59,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 			node.Endpoint, err = ncutils.GetPublicIP()
 		}
 		if err != nil || node.Endpoint == "" {
-			Log("Error setting server node Endpoint.", 0)
+			logger.Log(0, "Error setting server node Endpoint.")
 			return err
 		}
 	}
@@ -67,7 +68,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	if privateKey == "" {
 		wgPrivatekey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
-			Log(err.Error(), 1)
+			logger.Log(1, err.Error())
 			return err
 		}
 		privateKey = wgPrivatekey.String()
@@ -95,7 +96,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		UDPHolePunch:        node.UDPHolePunch,
 	}
 
-	Log("adding a server instance on network "+postnode.Network, 2)
+	logger.Log(2, "adding a server instance on network", postnode.Network)
 	*node, err = CreateNode(*postnode, network)
 	if err != nil {
 		return err
@@ -108,9 +109,9 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	// get free port based on returned default listen port
 	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
 	if err != nil {
-		Log("Error retrieving port: "+err.Error(), 2)
+		logger.Log(2, "Error retrieving port:", err.Error())
 	} else {
-		Log("Set client port to "+fmt.Sprintf("%d", node.ListenPort)+" for network "+node.Network, 1)
+		logger.Log(1, "Set client port to", fmt.Sprintf("%d", node.ListenPort), "for network", node.Network)
 	}
 
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
@@ -132,7 +133,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 
 	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, network, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
 	if err != nil && !ncutils.IsEmptyRecord(err) {
-		Log("failed to retrieve peers", 1)
+		logger.Log(1, "failed to retrieve peers")
 		return err
 	}
 
@@ -188,9 +189,9 @@ func ServerPull(serverNode *models.Node, onErr bool) (*models.Node, error) {
 		oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
 		if !isIfacePresent {
 			if err = deleteInterface(oldIfaceName, serverNode.PostDown); err != nil {
-				Log("could not delete old interface "+oldIfaceName, 1)
+				logger.Log(1, "could not delete old interface", oldIfaceName)
 			}
-			Log("removed old interface "+oldIfaceName, 1)
+			logger.Log(1, "removed old interface", oldIfaceName)
 		}
 		serverNode.PullChanges = "no"
 		if err = setWGConfig(*serverNode, serverNode.Network, false); err != nil {
@@ -255,14 +256,14 @@ func GetServerPeers(macaddress string, network string, dualstack bool, isIngress
 	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
 	keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
 	if err != nil {
-		Log("Issue with format of keepalive value. Please view server config. "+err.Error(), 1)
+		logger.Log(1, "Issue with format of keepalive value, Please view server config:", err.Error())
 		return nil, hasGateway, gateways, err
 	}
 
 	for _, node := range nodes {
 		pubkey, err := wgtypes.ParseKey(node.PublicKey)
 		if err != nil {
-			Log("error parsing key "+pubkey.String(), 1)
+			logger.Log(1, "error parsing key", pubkey.String())
 			return peers, hasGateway, gateways, err
 		}
 
@@ -306,21 +307,21 @@ func GetServerPeers(macaddress string, network string, dualstack bool, isIngress
 			for _, iprange := range ranges { // go through each cidr for egress gateway
 				_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 				if err != nil {
-					Log("could not parse gateway IP range. Not adding "+iprange, 1)
+					logger.Log(1, "could not parse gateway IP range. Not adding", iprange)
 					continue // if can't parse CIDR
 				}
 				nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
 				if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain public ip of node
-					Log("egress IP range of "+iprange+" overlaps with "+node.Endpoint+", omitting", 2)
+					logger.Log(2, "egress IP range of", iprange, "overlaps with", node.Endpoint, ", omitting")
 					continue // skip adding egress range if overlaps with node's ip
 				}
 				if ipnet.Contains(net.ParseIP(nodecfg.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
-					Log("egress IP range of "+iprange+" overlaps with "+nodecfg.LocalAddress+", omitting", 2)
+					logger.Log(2, "egress IP range of", iprange, "overlaps with", nodecfg.LocalAddress, ", omitting")
 					continue // skip adding egress range if overlaps with node's local ip
 				}
 				gateways = append(gateways, iprange)
 				if err != nil {
-					Log("ERROR ENCOUNTERED SETTING GATEWAY", 1)
+					logger.Log(1, "ERROR ENCOUNTERED SETTING GATEWAY:", err.Error())
 				} else {
 					allowedips = append(allowedips, *ipnet)
 				}
@@ -369,7 +370,7 @@ func GetServerPeers(macaddress string, network string, dualstack bool, isIngress
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
-			Log("ERROR RETRIEVING EXTERNAL PEERS ON SERVER", 1)
+			logger.Log(1, "ERROR RETRIEVING EXTERNAL PEERS ON SERVER:", err.Error())
 		}
 	}
 	return peers, hasGateway, gateways, err
@@ -449,14 +450,14 @@ func checkNodeActions(node *models.Node, networkName string, localNode *models.N
 		node.IsStatic != "yes" {
 		err := setWGKeyConfig(*node)
 		if err != nil {
-			Log("unable to process reset keys request: "+err.Error(), 1)
+			logger.Log(1, "unable to process reset keys request:", err.Error())
 			return ""
 		}
 	}
 	if node.Action == models.NODE_DELETE || localNode.Action == models.NODE_DELETE {
 		err := ServerLeave(node.MacAddress, networkName)
 		if err != nil {
-			Log("error deleting locally: "+err.Error(), 1)
+			logger.Log(1, "error deleting locally:", err.Error())
 		}
 		return models.NODE_DELETE
 	}

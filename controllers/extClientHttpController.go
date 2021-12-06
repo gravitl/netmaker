@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/skip2/go-qrcode"
@@ -162,14 +163,14 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 
 	gwnode, err := logic.GetNodeByMacAddress(client.Network, client.IngressGatewayID)
 	if err != nil {
-		functions.PrintUserLog(r.Header.Get("user"), "Could not retrieve Ingress Gateway Node "+client.IngressGatewayID, 1)
+		logger.Log(1, fmt.Sprintf("%s %s %s", r.Header.Get("user"), "Could not retrieve Ingress Gateway Node", client.IngressGatewayID))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	network, err := logic.GetParentNetwork(client.Network)
 	if err != nil {
-		functions.PrintUserLog(r.Header.Get("user"), "Could not retrieve Ingress Gateway Network "+client.Network, 1)
+		logger.Log(1, r.Header.Get("user"), "Could not retrieve Ingress Gateway Network", client.Network)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -234,7 +235,7 @@ Endpoint = %s
 		}
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "retrieved ext client config", 2)
+	logger.Log(2, r.Header.Get("user"), "retrieved ext client config")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
 }
@@ -348,7 +349,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"), "updated client "+newExtClient.ClientID, 1)
+	logger.Log(1, r.Header.Get("user"), "updated client", newExtClient.ClientID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 }
@@ -384,7 +385,7 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	for _, extClient := range currentExtClients {
 		if extClient.IngressGatewayID == gatewayID {
 			if err = DeleteExtClient(networkName, extClient.ClientID); err != nil {
-				functions.PrintUserLog(models.NODE_SERVER_NAME, "failed to remove ext client "+extClient.ClientID, 2)
+				logger.Log(1, "failed to remove ext client", extClient.ClientID)
 				continue
 			}
 		}
@@ -408,7 +409,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	functions.PrintUserLog(r.Header.Get("user"),
-		"Deleted extclient client "+params["clientid"]+" from network "+params["network"], 1)
+	logger.Log(1, r.Header.Get("user"),
+		"Deleted extclient client", params["clientid"], "from network", params["network"])
 	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }

@@ -3,13 +3,12 @@ package serverctl
 import (
 	"encoding/json"
 	"errors"
-	"io"
-	"log"
 	"net"
 	"os"
 	"strings"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -41,35 +40,6 @@ func FileExists(f string) bool {
 	return !info.IsDir()
 }
 
-func copy(src, dst string) (int64, error) {
-	sourceFileStat, err := os.Stat(src)
-	if err != nil {
-		return 0, err
-	}
-
-	if !sourceFileStat.Mode().IsRegular() {
-		return 0, errors.New(src + " is not a regular file")
-	}
-
-	source, err := os.Open(src)
-	if err != nil {
-		return 0, err
-	}
-	defer source.Close()
-
-	destination, err := os.Create(dst)
-	if err != nil {
-		return 0, err
-	}
-	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
-	err = os.Chmod(dst, 0755)
-	if err != nil {
-		logic.Log(err.Error(), 1)
-	}
-	return nBytes, err
-}
-
 // RemoveNetwork - removes a network locally on server
 func RemoveNetwork(network string) (bool, error) {
 	err := logic.ServerLeave(servercfg.GetNodeID(), network)
@@ -81,9 +51,9 @@ func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
 	_, err := os.Stat(netclientDir + "/config")
 	if os.IsNotExist(err) {
-		os.MkdirAll(netclientDir+"/config", 744)
+		os.MkdirAll(netclientDir+"/config", 0744)
 	} else if err != nil {
-		logic.Log("[netmaker] could not find or create "+netclientDir, 1)
+		logger.Log(1, "could not find or create", netclientDir)
 		return err
 	}
 	return nil
@@ -102,16 +72,16 @@ func HandleContainedClient() error {
 		for _, serverNet := range servernets {
 			err = logic.ServerCheckin(servercfg.GetNodeID(), serverNet.NetID)
 			if err != nil {
-				logic.Log("error occurred during server checkin: "+err.Error(), 1)
+				logger.Log(1, "error occurred during server checkin:", err.Error())
 			} else {
-				logic.Log("completed peers check of network "+serverNet.NetID, 3)
+				logger.Log(3, "completed peers check of network", serverNet.NetID)
 			}
 		}
 		err := SyncNetworks(servernets)
 		if err != nil {
-			logic.Log("error syncing networks: "+err.Error(), 1)
+			logger.Log(1, "error syncing networks:", err.Error())
 		}
-		// logic.Log("completed a checkin call", 3)
+		// logger.Log("completed a checkin call", 3)
 	}
 	return nil
 }
@@ -137,10 +107,8 @@ func SyncNetworks(servernets []models.Network) error {
 				if err == nil {
 					err = errors.New("network add failed for " + servernet.NetID)
 				}
-				if servercfg.GetVerbose() >= 1 {
-					if !strings.Contains(err.Error(), "macaddress_unique") { // ignore macaddress unique error throws
-						log.Printf("[netmaker] error adding network %s during sync %s \n", servernet.NetID, err)
-					}
+				if !strings.Contains(err.Error(), "macaddress_unique") { // ignore macaddress unique error throws
+					logger.Log(1, "error adding network", servernet.NetID, "during sync:", err.Error())
 				}
 			}
 		}
@@ -160,9 +128,7 @@ func SyncNetworks(servernets []models.Network) error {
 					if err == nil {
 						err = errors.New("network delete failed for " + exists)
 					}
-					if servercfg.GetVerbose() >= 1 {
-						log.Printf("[netmaker] error removing network %s during sync %s \n", exists, err)
-					}
+					logger.Log(1, "error removing network", exists, "during sync", err.Error())
 				}
 			}
 		}
