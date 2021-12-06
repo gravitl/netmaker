@@ -94,7 +94,6 @@ func Retrieve(filePath string) string {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(string(contents))
 	return string(contents)
 }
 

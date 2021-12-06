@@ -44,6 +44,9 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: "W1R3: It's not you it's me.",
 		}
+		if strings.Contains(r.RequestURI, "/dns") && r.Method == "GET" {
+
+		}
 
 		var params = mux.Vars(r)
 		bearerToken := r.Header.Get("Authorization")
@@ -68,6 +71,7 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
+// SecurityCheck - checks token stuff
 func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string, string) {
 
 	var hasBearer = true
