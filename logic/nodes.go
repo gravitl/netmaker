@@ -63,6 +63,28 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 	return nodes, nil
 }
 
+// UncordonNode - approves a node to join a network
+func UncordonNode(network, macaddress string) (models.Node, error) {
+	node, err := GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
+	node.SetLastModified()
+	node.IsPending = "no"
+	node.PullChanges = "yes"
+	data, err := json.Marshal(&node)
+	if err != nil {
+		return node, err
+	}
+	key, err := GetRecordKey(node.MacAddress, node.Network)
+	if err != nil {
+		return node, err
+	}
+
+	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	return node, err
+}
+
 // GetPeers - gets the peers of a given node
 func GetPeers(node models.Node) ([]models.Node, error) {
 	if node.IsServer == "yes" && IsLeader(&node) {

@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -16,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/skip2/go-qrcode"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func extClientHandlers(r *mux.Router) {
@@ -45,7 +43,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
 	var extclients []models.ExtClient
 	var params = mux.Vars(r)
-	extclients, err := GetNetworkExtClients(params["network"])
+	extclients, err := logic.GetNetworkExtClients(params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -54,27 +52,6 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	//Returns all the extclients in JSON format
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclients)
-}
-
-// GetNetworkExtClients - gets the ext clients of given network
-func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
-	var extclients []models.ExtClient
-
-	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
-	if err != nil {
-		return extclients, err
-	}
-	for _, value := range records {
-		var extclient models.ExtClient
-		err = json.Unmarshal([]byte(value), &extclient)
-		if err != nil {
-			continue
-		}
-		if extclient.Network == network {
-			extclients = append(extclients, extclient)
-		}
-	}
-	return extclients, err
 }
 
 //A separate function to get all extclients, not just extclients for a particular network.
@@ -100,7 +77,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		for _, network := range networksSlice {
-			extclients, err := GetNetworkExtClients(network)
+			extclients, err := logic.GetNetworkExtClients(network)
 			if err == nil {
 				clients = append(clients, extclients...)
 			}
@@ -121,7 +98,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 
 	clientid := params["clientid"]
 	network := params["network"]
-	client, err := GetExtClient(clientid, network)
+	client, err := logic.GetExtClient(clientid, network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -129,22 +106,6 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
-}
-
-// GetExtClient - gets a single ext client on a network
-func GetExtClient(clientid string, network string) (models.ExtClient, error) {
-	var extclient models.ExtClient
-	key, err := logic.GetRecordKey(clientid, network)
-	if err != nil {
-		return extclient, err
-	}
-	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	if err != nil {
-		return extclient, err
-	}
-	err = json.Unmarshal([]byte(data), &extclient)
-
-	return extclient, err
 }
 
 //Get an individual extclient. Nothin fancy here folks.
@@ -155,7 +116,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	clientid := params["clientid"]
 	networkid := params["network"]
-	client, err := GetExtClient(clientid, networkid)
+	client, err := logic.GetExtClient(clientid, networkid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -240,47 +201,6 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
-// CreateExtClient - creates an extclient
-func CreateExtClient(extclient models.ExtClient) error {
-	if extclient.PrivateKey == "" {
-		privateKey, err := wgtypes.GeneratePrivateKey()
-		if err != nil {
-			return err
-		}
-
-		extclient.PrivateKey = privateKey.String()
-		extclient.PublicKey = privateKey.PublicKey().String()
-	}
-
-	if extclient.Address == "" {
-		newAddress, err := logic.UniqueAddress(extclient.Network)
-		if err != nil {
-			return err
-		}
-		extclient.Address = newAddress
-	}
-
-	if extclient.ClientID == "" {
-		extclient.ClientID = models.GenerateNodeName()
-	}
-
-	extclient.LastModified = time.Now().Unix()
-
-	key, err := logic.GetRecordKey(extclient.ClientID, extclient.Network)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(&extclient)
-	if err != nil {
-		return err
-	}
-	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
-		return err
-	}
-	err = logic.SetNetworkNodesLastModified(extclient.Network)
-	return err
-}
-
 /**
  * To create a extclient
  * Must have valid key and be unique
@@ -312,7 +232,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	err = CreateExtClient(extclient)
+	err = logic.CreateExtClient(extclient)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -344,7 +264,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	newclient, err := UpdateExtClient(newExtClient.ClientID, params["network"], oldExtClient)
+	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], oldExtClient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -352,45 +272,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated client", newExtClient.ClientID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
-}
-
-// UpdateExtClient - only supports name changes right now
-func UpdateExtClient(newclientid string, network string, client models.ExtClient) (models.ExtClient, error) {
-
-	err := DeleteExtClient(network, client.ClientID)
-	if err != nil {
-		return client, err
-	}
-	client.ClientID = newclientid
-	CreateExtClient(client)
-	return client, err
-}
-
-// DeleteExtClient - deletes an existing ext client
-func DeleteExtClient(network string, clientid string) error {
-	key, err := logic.GetRecordKey(clientid, network)
-	if err != nil {
-		return err
-	}
-	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	return err
-}
-
-// DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
-func DeleteGatewayExtClients(gatewayID string, networkName string) error {
-	currentExtClients, err := GetNetworkExtClients(networkName)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return err
-	}
-	for _, extClient := range currentExtClients {
-		if extClient.IngressGatewayID == gatewayID {
-			if err = DeleteExtClient(networkName, extClient.ClientID); err != nil {
-				logger.Log(1, "failed to remove ext client", extClient.ClientID)
-				continue
-			}
-		}
-	}
-	return nil
 }
 
 //Delete a extclient
@@ -402,7 +283,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	err := DeleteExtClient(params["network"], params["clientid"])
+	err := logic.DeleteExtClient(params["network"], params["clientid"])
 
 	if err != nil {
 		err = errors.New("Could not delete extclient " + params["clientid"])

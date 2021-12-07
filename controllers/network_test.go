@@ -25,7 +25,7 @@ func TestCreateNetwork(t *testing.T) {
 	network.AddressRange = "10.0.0.1/24"
 	network.DisplayName = "mynetwork"
 
-	err := CreateNetwork(network)
+	err := logic.CreateNetwork(network)
 	assert.Nil(t, err)
 }
 func TestGetNetwork(t *testing.T) {
@@ -33,12 +33,12 @@ func TestGetNetwork(t *testing.T) {
 	createNet()
 
 	t.Run("GetExistingNetwork", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, "skynet", network.NetID)
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
-		network, err := GetNetwork("doesnotexist")
+		network, err := logic.GetNetwork("doesnotexist")
 		assert.EqualError(t, err, "no result found")
 		assert.Equal(t, "", network.NetID)
 	})
@@ -51,11 +51,11 @@ func TestDeleteNetwork(t *testing.T) {
 	t.Run("NetworkwithNodes", func(t *testing.T) {
 	})
 	t.Run("DeleteExistingNetwork", func(t *testing.T) {
-		err := DeleteNetwork("skynet")
+		err := logic.DeleteNetwork("skynet")
 		assert.Nil(t, err)
 	})
 	t.Run("NonExistantNetwork", func(t *testing.T) {
-		err := DeleteNetwork("skynet")
+		err := logic.DeleteNetwork("skynet")
 		assert.Nil(t, err)
 	})
 }
@@ -64,12 +64,12 @@ func TestKeyUpdate(t *testing.T) {
 	t.Skip() //test is failing on last assert  --- not sure why
 	database.InitializeDatabase()
 	createNet()
-	existing, err := GetNetwork("skynet")
+	existing, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
 	time.Sleep(time.Second * 1)
-	network, err := KeyUpdate("skynet")
+	network, err := logic.KeyUpdate("skynet")
 	assert.Nil(t, err)
-	network, err = GetNetwork("skynet")
+	network, err = logic.GetNetwork("skynet")
 	assert.Nil(t, err)
 	assert.Greater(t, network.KeyUpdateTimeStamp, existing.KeyUpdateTimeStamp)
 }
@@ -77,70 +77,70 @@ func TestKeyUpdate(t *testing.T) {
 func TestCreateKey(t *testing.T) {
 	database.InitializeDatabase()
 	createNet()
-	keys, _ := GetKeys("skynet")
+	keys, _ := logic.GetKeys("skynet")
 	for _, key := range keys {
-		DeleteKey(key.Name, "skynet")
+		logic.DeleteKey(key.Name, "skynet")
 	}
 	var accesskey models.AccessKey
 	var network models.Network
 	network.NetID = "skynet"
 	t.Run("NameTooLong", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		accesskey.Name = "Thisisareallylongkeynamethatwillfail"
-		_, err = CreateAccessKey(accesskey, network)
+		_, err = logic.CreateAccessKey(accesskey, network)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'max' tag")
 	})
 	t.Run("BlankName", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		accesskey.Name = ""
-		key, err := CreateAccessKey(accesskey, network)
+		key, err := logic.CreateAccessKey(accesskey, network)
 		assert.Nil(t, err)
 		assert.NotEqual(t, "", key.Name)
 	})
 	t.Run("InvalidValue", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		accesskey.Value = "bad-value"
-		_, err = CreateAccessKey(accesskey, network)
+		_, err = logic.CreateAccessKey(accesskey, network)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Value' failed on the 'alphanum' tag")
 	})
 	t.Run("BlankValue", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		accesskey.Name = "mykey"
 		accesskey.Value = ""
-		key, err := CreateAccessKey(accesskey, network)
+		key, err := logic.CreateAccessKey(accesskey, network)
 		assert.Nil(t, err)
 		assert.NotEqual(t, "", key.Value)
 		assert.Equal(t, accesskey.Name, key.Name)
 	})
 	t.Run("ValueTooLong", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		accesskey.Name = "keyname"
 		accesskey.Value = "AccessKeyValuethatistoolong"
-		_, err = CreateAccessKey(accesskey, network)
+		_, err = logic.CreateAccessKey(accesskey, network)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Value' failed on the 'max' tag")
 	})
 	t.Run("BlankUses", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		accesskey.Uses = 0
 		accesskey.Value = ""
-		key, err := CreateAccessKey(accesskey, network)
+		key, err := logic.CreateAccessKey(accesskey, network)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, key.Uses)
 	})
 	t.Run("DuplicateKey", func(t *testing.T) {
-		network, err := GetNetwork("skynet")
+		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
 		accesskey.Name = "mykey"
-		_, err = CreateAccessKey(accesskey, network)
+		_, err = logic.CreateAccessKey(accesskey, network)
 		assert.NotNil(t, err)
 		assert.EqualError(t, err, "duplicate AccessKey Name")
 	})
@@ -150,21 +150,21 @@ func TestGetKeys(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllNetworks()
 	createNet()
-	network, err := GetNetwork("skynet")
+	network, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
 	var key models.AccessKey
 	key.Name = "mykey"
-	_, err = CreateAccessKey(key, network)
+	_, err = logic.CreateAccessKey(key, network)
 	assert.Nil(t, err)
 	t.Run("KeyExists", func(t *testing.T) {
-		keys, err := GetKeys(network.NetID)
+		keys, err := logic.GetKeys(network.NetID)
 		assert.Nil(t, err)
 		assert.NotEqual(t, models.AccessKey{}, keys)
 	})
 	t.Run("NonExistantKey", func(t *testing.T) {
-		err := DeleteKey("mykey", "skynet")
+		err := logic.DeleteKey("mykey", "skynet")
 		assert.Nil(t, err)
-		keys, err := GetKeys(network.NetID)
+		keys, err := logic.GetKeys(network.NetID)
 		assert.Nil(t, err)
 		assert.Equal(t, []models.AccessKey(nil), keys)
 	})
@@ -172,18 +172,18 @@ func TestGetKeys(t *testing.T) {
 func TestDeleteKey(t *testing.T) {
 	database.InitializeDatabase()
 	createNet()
-	network, err := GetNetwork("skynet")
+	network, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
 	var key models.AccessKey
 	key.Name = "mykey"
-	_, err = CreateAccessKey(key, network)
+	_, err = logic.CreateAccessKey(key, network)
 	assert.Nil(t, err)
 	t.Run("ExistingKey", func(t *testing.T) {
-		err := DeleteKey("mykey", "skynet")
+		err := logic.DeleteKey("mykey", "skynet")
 		assert.Nil(t, err)
 	})
 	t.Run("NonExistantKey", func(t *testing.T) {
-		err := DeleteKey("mykey", "skynet")
+		err := logic.DeleteKey("mykey", "skynet")
 		assert.NotNil(t, err)
 		assert.Equal(t, "key mykey does not exist", err.Error())
 	})
@@ -325,7 +325,7 @@ func TestValidateNetworkUpdate(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.testname, func(t *testing.T) {
 			network := models.Network(tc.network)
-			err := ValidateNetworkUpdate(network)
+			err := logic.ValidateNetworkUpdate(network)
 			assert.NotNil(t, err)
 			assert.Contains(t, err.Error(), tc.errMessage)
 		})
@@ -336,7 +336,7 @@ func deleteAllNetworks() {
 	deleteAllNodes()
 	nets, _ := logic.GetNetworks()
 	for _, net := range nets {
-		DeleteNetwork(net.NetID)
+		logic.DeleteNetwork(net.NetID)
 	}
 }
 
@@ -345,13 +345,13 @@ func createNet() {
 	network.NetID = "skynet"
 	network.AddressRange = "10.0.0.1/24"
 	network.DisplayName = "mynetwork"
-	_, err := GetNetwork("skynet")
+	_, err := logic.GetNetwork("skynet")
 	if err != nil {
-		CreateNetwork(network)
+		logic.CreateNetwork(network)
 	}
 }
 
 func getNet() models.Network {
-	network, _ := GetNetwork("skynet")
+	network, _ := logic.GetNetwork("skynet")
 	return network
 }

@@ -1,17 +1,13 @@
 package controller
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -32,7 +28,6 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(false, http.HandlerFunc(keyUpdate))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(createAccessKey))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(getAccessKeys))).Methods("GET")
-	r.HandleFunc("/api/networks/{networkname}/signuptoken", securityCheck(false, http.HandlerFunc(getSignupToken))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(false, http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
 }
 
@@ -73,34 +68,13 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allnetworks)
 }
 
-func ValidateNetworkUpdate(network models.Network) error {
-	v := validator.New()
-
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		if fl.Field().String() == "" {
-			return true
-		}
-		inCharSet := functions.NameInNetworkCharSet(fl.Field().String())
-		return inCharSet
-	})
-
-	err := v.Struct(network)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			logger.Log(1, "validator", e.Error())
-		}
-	}
-	return err
-}
-
 //Simple get network function
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	network, err := GetNetwork(netname)
+	network, err := logic.GetNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -113,25 +87,11 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-func GetNetwork(name string) (models.Network, error) {
-	var network models.Network
-	record, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, name)
-	if err != nil {
-		return network, err
-	}
-
-	if err = json.Unmarshal([]byte(record), &network); err != nil {
-		return models.Network{}, err
-	}
-
-	return network, nil
-}
-
 func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	network, err := KeyUpdate(netname)
+	network, err := logic.KeyUpdate(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -139,33 +99,6 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated key on network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
-}
-
-func KeyUpdate(netname string) (models.Network, error) {
-	err := functions.NetworkNodesUpdateAction(netname, models.NODE_UPDATE_KEY)
-	if err != nil {
-		return models.Network{}, err
-	}
-	return models.Network{}, nil
-}
-
-//Update a network
-func AlertNetwork(netid string) error {
-
-	var network models.Network
-	network, err := logic.GetParentNetwork(netid)
-	if err != nil {
-		return err
-	}
-	updatetime := time.Now().Unix()
-	network.NodesLastModified = updatetime
-	network.NetworkLastModified = updatetime
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return err
-	}
-	database.Insert(netid, string(data), database.NETWORKS_TABLE_NAME)
-	return nil
 }
 
 //Update a network
@@ -253,7 +186,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	err := DeleteNetwork(network)
+	err := logic.DeleteNetwork(network)
 
 	if err != nil {
 		errtype := "badrequest"
@@ -268,29 +201,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode("success")
 }
 
-func DeleteNetwork(network string) error {
-	nodeCount, err := functions.GetNetworkNonServerNodeCount(network)
-	if nodeCount == 0 || database.IsEmptyRecord(err) {
-		// delete server nodes first then db records
-		servers, err := logic.GetSortedNetworkServerNodes(network)
-		if err == nil {
-			for _, s := range servers {
-				if err = logic.DeleteNode(&s, true); err != nil {
-					logger.Log(2, "could not removed server", s.Name, "before deleting network", network)
-				} else {
-					logger.Log(2, "removed server", s.Name, "before deleting network", network)
-				}
-			}
-		} else {
-			logger.Log(1, "could not remove servers before deleting network", network)
-		}
-		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
-	}
-	return errors.New("node check failed. All nodes must be deleted before deleting network")
-}
-
-//Create a network
-//Pretty simple
 func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -304,49 +214,27 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = CreateNetwork(network)
+	err = logic.CreateNetwork(network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
-	}
-	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
-	w.WriteHeader(http.StatusOK)
-	//json.NewEncoder(w).Encode(result)
-}
-
-func CreateNetwork(network models.Network) error {
-
-	network.SetDefaults()
-	network.SetNodesLastModified()
-	network.SetNetworkLastModified()
-	network.KeyUpdateTimeStamp = time.Now().Unix()
-
-	err := logic.ValidateNetwork(&network, false)
-	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return err
-	}
-
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return err
-	}
-	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
-		return err
 	}
 
 	if servercfg.IsClientMode() != "off" {
 		var success bool
 		success, err = serverctl.AddNetwork(network.NetID)
 		if err != nil || !success {
-			DeleteNetwork(network.NetID)
+			logic.DeleteNetwork(network.NetID)
 			if err == nil {
 				err = errors.New("Failed to add server to network " + network.DisplayName)
 			}
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
 		}
 	}
 
-	return err
+	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
+	w.WriteHeader(http.StatusOK)
 }
 
 // BEGIN KEY MANAGEMENT SECTION
@@ -366,7 +254,7 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	key, err := CreateAccessKey(accesskey, network)
+	key, err := logic.CreateAccessKey(accesskey, network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -374,131 +262,14 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created access key", accesskey.Name, "on", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(key)
-	//w.Write([]byte(accesskey.AccessString))
 }
 
-func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models.AccessKey, error) {
-
-	if accesskey.Name == "" {
-		accesskey.Name = functions.GenKeyName()
-	}
-
-	if accesskey.Value == "" {
-		accesskey.Value = functions.GenKey()
-	}
-	if accesskey.Uses == 0 {
-		accesskey.Uses = 1
-	}
-
-	checkkeys, err := GetKeys(network.NetID)
-	if err != nil {
-		return models.AccessKey{}, errors.New("could not retrieve network keys")
-	}
-
-	for _, key := range checkkeys {
-		if key.Name == accesskey.Name {
-			return models.AccessKey{}, errors.New("duplicate AccessKey Name")
-		}
-	}
-	privAddr := ""
-	if network.IsLocal != "" {
-		privAddr = network.LocalRange
-	}
-
-	netID := network.NetID
-
-	var accessToken models.AccessToken
-	s := servercfg.GetServerConfig()
-	servervals := models.ServerConfig{
-		CoreDNSAddr:     s.CoreDNSAddr,
-		APIConnString:   s.APIConnString,
-		APIHost:         s.APIHost,
-		APIPort:         s.APIPort,
-		GRPCConnString:  s.GRPCConnString,
-		GRPCHost:        s.GRPCHost,
-		GRPCPort:        s.GRPCPort,
-		GRPCSSL:         s.GRPCSSL,
-		CheckinInterval: s.CheckinInterval,
-	}
-	accessToken.ServerConfig = servervals
-	accessToken.ClientConfig.Network = netID
-	accessToken.ClientConfig.Key = accesskey.Value
-	accessToken.ClientConfig.LocalRange = privAddr
-
-	tokenjson, err := json.Marshal(accessToken)
-	if err != nil {
-		return accesskey, err
-	}
-
-	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
-
-	//validate accesskey
-	v := validator.New()
-	err = v.Struct(accesskey)
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			logger.Log(1, "validator", e.Error())
-		}
-		return models.AccessKey{}, err
-	}
-
-	network.AccessKeys = append(network.AccessKeys, accesskey)
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return models.AccessKey{}, err
-	}
-	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
-		return models.AccessKey{}, err
-	}
-
-	return accesskey, nil
-}
-
-func GetSignupToken(netID string) (models.AccessKey, error) {
-
-	var accesskey models.AccessKey
-	var accessToken models.AccessToken
-	s := servercfg.GetServerConfig()
-	servervals := models.ServerConfig{
-		APIConnString:  s.APIConnString,
-		APIHost:        s.APIHost,
-		APIPort:        s.APIPort,
-		GRPCConnString: s.GRPCConnString,
-		GRPCHost:       s.GRPCHost,
-		GRPCPort:       s.GRPCPort,
-		GRPCSSL:        s.GRPCSSL,
-	}
-	accessToken.ServerConfig = servervals
-
-	tokenjson, err := json.Marshal(accessToken)
-	if err != nil {
-		return accesskey, err
-	}
-
-	accesskey.AccessString = base64.StdEncoding.EncodeToString([]byte(tokenjson))
-	return accesskey, nil
-}
-func getSignupToken(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	netID := params["networkname"]
-
-	token, err := GetSignupToken(netID)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-	logger.Log(2, r.Header.Get("user"), "got signup token", netID)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(token)
-}
-
-//pretty simple get
+// pretty simple get
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	keys, err := GetKeys(network)
+	keys, err := logic.GetKeys(network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -510,60 +281,18 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(keys)
 }
-func GetKeys(net string) ([]models.AccessKey, error) {
 
-	record, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, net)
-	if err != nil {
-		return []models.AccessKey{}, err
-	}
-	network, err := functions.ParseNetwork(record)
-	if err != nil {
-		return []models.AccessKey{}, err
-	}
-	return network.AccessKeys, nil
-}
-
-//delete key. Has to do a little funky logic since it's not a collection item
+// delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	keyname := params["name"]
 	netname := params["networkname"]
-	err := DeleteKey(keyname, netname)
+	err := logic.DeleteKey(keyname, netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
 	w.WriteHeader(http.StatusOK)
-}
-func DeleteKey(keyname, netname string) error {
-	network, err := logic.GetParentNetwork(netname)
-	if err != nil {
-		return err
-	}
-	//basically, turn the list of access keys into the list of access keys before and after the item
-	//have not done any error handling for if there's like...1 item. I think it works? need to test.
-	found := false
-	var updatedKeys []models.AccessKey
-	for _, currentkey := range network.AccessKeys {
-		if currentkey.Name == keyname {
-			found = true
-		} else {
-			updatedKeys = append(updatedKeys, currentkey)
-		}
-	}
-	if !found {
-		return errors.New("key " + keyname + " does not exist")
-	}
-	network.AccessKeys = updatedKeys
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return err
-	}
-	if err := database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
-		return err
-	}
-
-	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -138,5 +139,107 @@ func SetCorefile(domains string) error {
 	if err != nil {
 		return err
 	}
+	return err
+}
+
+// GetAllDNS - gets all dns entries
+func GetAllDNS() ([]models.DNSEntry, error) {
+	var dns []models.DNSEntry
+	networks, err := GetNetworks()
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.DNSEntry{}, err
+	}
+	for _, net := range networks {
+		netdns, err := GetDNS(net.NetID)
+		if err != nil {
+			return []models.DNSEntry{}, nil
+		}
+		dns = append(dns, netdns...)
+	}
+	return dns, nil
+}
+
+// GetDNSEntryNum - gets which entry the dns was
+func GetDNSEntryNum(domain string, network string) (int, error) {
+
+	num := 0
+
+	entries, err := GetDNS(network)
+	if err != nil {
+		return 0, err
+	}
+
+	for i := 0; i < len(entries); i++ {
+
+		if domain == entries[i].Name {
+			num++
+		}
+	}
+
+	return num, nil
+}
+
+// ValidateDNSCreate - checks if an entry is valid
+func ValidateDNSCreate(entry models.DNSEntry) error {
+
+	v := validator.New()
+
+	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
+		num, err := GetDNSEntryNum(entry.Name, entry.Network)
+		return err == nil && num == 0
+	})
+
+	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
+		_, err := GetParentNetwork(entry.Network)
+		return err == nil
+	})
+
+	err := v.Struct(entry)
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			logger.Log(1, e.Error())
+		}
+	}
+	return err
+}
+
+// ValidateDNSUpdate - validates a DNS update
+func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
+
+	v := validator.New()
+
+	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
+		//if name & net not changing name we are good
+		if change.Name == entry.Name && change.Network == entry.Network {
+			return true
+		}
+		num, err := GetDNSEntryNum(change.Name, change.Network)
+		return err == nil && num == 0
+	})
+	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
+		_, err := GetParentNetwork(change.Network)
+		if err != nil {
+			logger.Log(0, err.Error())
+		}
+		return err == nil
+	})
+
+	err := v.Struct(change)
+
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			logger.Log(1, e.Error())
+		}
+	}
+	return err
+}
+
+// DeleteDNS - deletes a DNS entry
+func DeleteDNS(domain string, network string) error {
+	key, err := GetRecordKey(domain, network)
+	if err != nil {
+		return err
+	}
+	err = database.DeleteRecord(database.DNS_TABLE_NAME, key)
 	return err
 }

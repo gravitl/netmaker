@@ -2,10 +2,8 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -349,7 +347,7 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-	network, err := GetNetwork(params["network"])
+	network, err := logic.GetNetwork(params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -431,7 +429,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	node, err := UncordonNode(params["network"], params["macaddress"])
+	node, err := logic.UncordonNode(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -439,28 +437,6 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
-}
-
-// UncordonNode - approves a node to join a network
-func UncordonNode(network, macaddress string) (models.Node, error) {
-	node, err := logic.GetNodeByMacAddress(network, macaddress)
-	if err != nil {
-		return models.Node{}, err
-	}
-	node.SetLastModified()
-	node.IsPending = "no"
-	node.PullChanges = "yes"
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return node, err
-	}
-	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return node, err
-	}
-
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
-	return node, err
 }
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -474,7 +450,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["macaddress"]
-	node, err := CreateEgressGateway(gateway)
+	node, err := logic.CreateEgressGateway(gateway)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -484,80 +460,12 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-// CreateEgressGateway - creates an egress gateway
-func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
-	node, err := logic.GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
-	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
-		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
-	}
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = ValidateEgressGateway(gateway)
-	if err != nil {
-		return models.Node{}, err
-	}
-	node.IsEgressGateway = "yes"
-	node.EgressGatewayRanges = gateway.Ranges
-	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-	if gateway.PostUp != "" {
-		postUpCmd = gateway.PostUp
-	}
-	if gateway.PostDown != "" {
-		postDownCmd = gateway.PostDown
-	}
-	if node.PostUp != "" {
-		if !strings.Contains(node.PostUp, postUpCmd) {
-			postUpCmd = node.PostUp + "; " + postUpCmd
-		}
-	}
-	if node.PostDown != "" {
-		if !strings.Contains(node.PostDown, postDownCmd) {
-			postDownCmd = node.PostDown + "; " + postDownCmd
-		}
-	}
-	key, err := logic.GetRecordKey(gateway.NodeID, gateway.NetID)
-	if err != nil {
-		return node, err
-	}
-	node.PostUp = postUpCmd
-	node.PostDown = postDownCmd
-	node.SetLastModified()
-	node.PullChanges = "yes"
-	nodeData, err := json.Marshal(&node)
-	if err != nil {
-		return node, err
-	}
-	if err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME); err != nil {
-		return models.Node{}, err
-	}
-	if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
-		return models.Node{}, err
-	}
-	return node, nil
-}
-
-func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
-	var err error
-	//isIp := functions.IsIpCIDR(gateway.RangeString)
-	empty := len(gateway.Ranges) == 0
-	if empty {
-		err = errors.New("IP Ranges Cannot Be Empty")
-	}
-	empty = gateway.Interface == ""
-	if empty {
-		err = errors.New("Interface cannot be empty")
-	}
-	return err
-}
-
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	nodeMac := params["macaddress"]
 	netid := params["network"]
-	node, err := DeleteEgressGateway(netid, nodeMac)
+	node, err := logic.DeleteEgressGateway(netid, nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -567,48 +475,13 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-// DeleteEgressGateway - deletes egress from node
-func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
-
-	node, err := logic.GetNodeByMacAddress(network, macaddress)
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	node.IsEgressGateway = "no"
-	node.EgressGatewayRanges = []string{}
-	node.PostUp = ""
-	node.PostDown = ""
-	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
-		node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-		node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-	}
-	node.SetLastModified()
-	node.PullChanges = "yes"
-	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return models.Node{}, err
-	}
-	if err = database.Insert(key, string(data), database.NODES_TABLE_NAME); err != nil {
-		return models.Node{}, err
-	}
-	if err = functions.NetworkNodesUpdatePullChanges(network); err != nil {
-		return models.Node{}, err
-	}
-	return node, nil
-}
-
 // == INGRESS ==
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
 	nodeMac := params["macaddress"]
 	netid := params["network"]
-	node, err := CreateIngressGateway(netid, nodeMac)
+	node, err := logic.CreateIngressGateway(netid, nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -618,62 +491,11 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-// CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
-
-	node, err := logic.GetNodeByMacAddress(netid, macaddress)
-	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
-		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
-	}
-
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	network, err := logic.GetParentNetwork(netid)
-	if err != nil {
-		return models.Node{}, err
-	}
-	node.IsIngressGateway = "yes"
-	node.IngressGatewayRange = network.AddressRange
-	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-	if node.PostUp != "" {
-		if !strings.Contains(node.PostUp, postUpCmd) {
-			postUpCmd = node.PostUp + "; " + postUpCmd
-		}
-	}
-	if node.PostDown != "" {
-		if !strings.Contains(node.PostDown, postDownCmd) {
-			postDownCmd = node.PostDown + "; " + postDownCmd
-		}
-	}
-	node.SetLastModified()
-	node.PostUp = postUpCmd
-	node.PostDown = postDownCmd
-	node.PullChanges = "yes"
-	node.UDPHolePunch = "no"
-	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = logic.SetNetworkNodesLastModified(netid)
-	return node, err
-}
-
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	nodeMac := params["macaddress"]
-	node, err := DeleteIngressGateway(params["network"], nodeMac)
+	node, err := logic.DeleteIngressGateway(params["network"], nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -681,44 +503,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeMac)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-}
-
-// DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(networkName string, macaddress string) (models.Node, error) {
-
-	node, err := logic.GetNodeByMacAddress(networkName, macaddress)
-	if err != nil {
-		return models.Node{}, err
-	}
-	network, err := logic.GetParentNetwork(networkName)
-	if err != nil {
-		return models.Node{}, err
-	}
-	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(macaddress, networkName); err != nil {
-		return models.Node{}, err
-	}
-
-	node.UDPHolePunch = network.DefaultUDPHolePunch
-	node.LastModified = time.Now().Unix()
-	node.IsIngressGateway = "no"
-	node.IngressGatewayRange = ""
-	node.PullChanges = "yes"
-
-	key, err := logic.GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = logic.SetNetworkNodesLastModified(networkName)
-	return node, err
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -760,8 +544,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
-		if err = functions.NetworkNodesUpdatePullChanges(node.Network); err != nil {
+		logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
+		if err = logic.NetworkNodesUpdatePullChanges(node.Network); err != nil {
 			logger.Log(1, "error setting relay updates:", err.Error())
 		}
 	}

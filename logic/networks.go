@@ -7,6 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -36,6 +37,107 @@ func GetNetworks() ([]models.Network, error) {
 	}
 
 	return networks, err
+}
+
+// DeleteNetwork - deletes a network
+func DeleteNetwork(network string) error {
+	nodeCount, err := GetNetworkNonServerNodeCount(network)
+	if nodeCount == 0 || database.IsEmptyRecord(err) {
+		// delete server nodes first then db records
+		servers, err := GetSortedNetworkServerNodes(network)
+		if err == nil {
+			for _, s := range servers {
+				if err = DeleteNode(&s, true); err != nil {
+					logger.Log(2, "could not removed server", s.Name, "before deleting network", network)
+				} else {
+					logger.Log(2, "removed server", s.Name, "before deleting network", network)
+				}
+			}
+		} else {
+			logger.Log(1, "could not remove servers before deleting network", network)
+		}
+		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+	}
+	return errors.New("node check failed. All nodes must be deleted before deleting network")
+}
+
+// CreateNetwork - creates a network in database
+func CreateNetwork(network models.Network) error {
+
+	network.SetDefaults()
+	network.SetNodesLastModified()
+	network.SetNetworkLastModified()
+	network.KeyUpdateTimeStamp = time.Now().Unix()
+
+	err := ValidateNetwork(&network, false)
+	if err != nil {
+		//returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return err
+	}
+
+	data, err := json.Marshal(&network)
+	if err != nil {
+		return err
+	}
+	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
+		return err
+	}
+
+	return err
+}
+
+// NetworkNodesUpdatePullChanges - tells nodes on network to pull
+func NetworkNodesUpdatePullChanges(networkName string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, value := range collections {
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			fmt.Println("error in node address assignment!")
+			return err
+		}
+		if node.Network == networkName {
+			node.PullChanges = "yes"
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+
+	return nil
+}
+
+// GetNetworkNonServerNodeCount - get number of network non server nodes
+func GetNetworkNonServerNodeCount(networkName string) (int, error) {
+
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	count := 0
+	if err != nil && !database.IsEmptyRecord(err) {
+		return count, err
+	}
+	for _, value := range collection {
+		var node models.Node
+		if err = json.Unmarshal([]byte(value), &node); err != nil {
+			return count, err
+		} else {
+			if node.Network == networkName && node.IsServer != "yes" {
+				count++
+			}
+		}
+	}
+
+	return count, nil
 }
 
 // GetParentNetwork - get parent network
@@ -462,7 +564,90 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	return err
 }
 
+// ParseNetwork - parses a network into a model
+func ParseNetwork(value string) (models.Network, error) {
+	var network models.Network
+	err := json.Unmarshal([]byte(value), &network)
+	return network, err
+}
+
+// ValidateNetworkUpdate - checks if network is valid to update
+func ValidateNetworkUpdate(network models.Network) error {
+	v := validator.New()
+
+	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
+		if fl.Field().String() == "" {
+			return true
+		}
+		inCharSet := nameInNetworkCharSet(fl.Field().String())
+		return inCharSet
+	})
+
+	err := v.Struct(network)
+
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			logger.Log(1, "validator", e.Error())
+		}
+	}
+	return err
+}
+
+// KeyUpdate - updates keys on network
+func KeyUpdate(netname string) (models.Network, error) {
+	err := networkNodesUpdateAction(netname, models.NODE_UPDATE_KEY)
+	if err != nil {
+		return models.Network{}, err
+	}
+	return models.Network{}, nil
+}
+
 // == Private ==
+
+func networkNodesUpdateAction(networkName string, action string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, value := range collections {
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			fmt.Println("error in node address assignment!")
+			return err
+		}
+		if action == models.NODE_UPDATE_KEY && node.IsStatic == "yes" {
+			continue
+		}
+		if node.Network == networkName {
+			node.Action = action
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			node.SetID()
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+	return nil
+}
+
+func nameInNetworkCharSet(name string) bool {
+
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
+
+	for _, char := range name {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
+}
 
 func deleteInterface(ifacename string, postdown string) error {
 	var err error

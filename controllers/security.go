@@ -112,36 +112,6 @@ func authenticateDNSToken(tokenString string) bool {
 	return tokens[1] == servercfg.GetDNSKey()
 }
 
-// ValidateUserToken - self explained
-func ValidateUserToken(token string, user string, adminonly bool) error {
-	var tokenSplit = strings.Split(token, " ")
-	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
-	//There's probably a smarter way of handling this.
-	var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
-
-	if len(tokenSplit) > 1 {
-		authToken = tokenSplit[1]
-	} else {
-		return errors.New("Missing Auth Token.")
-	}
-
-	username, _, isadmin, err := logic.VerifyUserToken(authToken)
-	if err != nil {
-		return errors.New("Error Verifying Auth Token")
-	}
-	isAuthorized := false
-	if adminonly {
-		isAuthorized = isadmin
-	} else {
-		isAuthorized = username == user || isadmin
-	}
-	if !isAuthorized {
-		return errors.New("You are unauthorized to access this endpoint.")
-	}
-
-	return nil
-}
-
 func continueIfUserMatch(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{

@@ -241,29 +241,29 @@ func TestUpdateUser(t *testing.T) {
 	})
 }
 
-func TestValidateUserToken(t *testing.T) {
-	t.Run("EmptyToken", func(t *testing.T) {
-		err := ValidateUserToken("", "", false)
-		assert.NotNil(t, err)
-		assert.Equal(t, "Missing Auth Token.", err.Error())
-	})
-	t.Run("InvalidToken", func(t *testing.T) {
-		err := ValidateUserToken("Bearer: badtoken", "", false)
-		assert.NotNil(t, err)
-		assert.Equal(t, "Error Verifying Auth Token", err.Error())
-	})
-	t.Run("InvalidUser", func(t *testing.T) {
-		t.Skip()
-		err := ValidateUserToken("Bearer: secretkey", "baduser", false)
-		assert.NotNil(t, err)
-		assert.Equal(t, "Error Verifying Auth Token", err.Error())
-		//need authorization
-	})
-	t.Run("ValidToken", func(t *testing.T) {
-		err := ValidateUserToken("Bearer: secretkey", "", true)
-		assert.Nil(t, err)
-	})
-}
+// func TestValidateUserToken(t *testing.T) {
+// 	t.Run("EmptyToken", func(t *testing.T) {
+// 		err := ValidateUserToken("", "", false)
+// 		assert.NotNil(t, err)
+// 		assert.Equal(t, "Missing Auth Token.", err.Error())
+// 	})
+// 	t.Run("InvalidToken", func(t *testing.T) {
+// 		err := ValidateUserToken("Bearer: badtoken", "", false)
+// 		assert.NotNil(t, err)
+// 		assert.Equal(t, "Error Verifying Auth Token", err.Error())
+// 	})
+// 	t.Run("InvalidUser", func(t *testing.T) {
+// 		t.Skip()
+// 		err := ValidateUserToken("Bearer: secretkey", "baduser", false)
+// 		assert.NotNil(t, err)
+// 		assert.Equal(t, "Error Verifying Auth Token", err.Error())
+// 		//need authorization
+// 	})
+// 	t.Run("ValidToken", func(t *testing.T) {
+// 		err := ValidateUserToken("Bearer: secretkey", "", true)
+// 		assert.Nil(t, err)
+// 	})
+// }
 
 func TestVerifyAuthRequest(t *testing.T) {
 	database.InitializeDatabase()
