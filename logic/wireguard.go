@@ -280,7 +280,7 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 	return nil
 }
 
-func setWGConfig(node models.Node, network string, peerupdate bool) error {
+func setWGConfig(node *models.Node, network string, peerupdate bool) error {
 
 	node.SetID()
 	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, node.Network, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
@@ -296,13 +296,13 @@ func setWGConfig(node models.Node, network string, peerupdate bool) error {
 		err = setServerPeers(iface, node.PersistentKeepalive, peers)
 		logger.Log(2, "updated peers on server", node.Name)
 	} else {
-		err = initWireguard(&node, privkey, peers, hasGateway, gateways)
+		err = initWireguard(node, privkey, peers, hasGateway, gateways)
 		logger.Log(3, "finished setting wg config on server", node.Name)
 	}
 	return err
 }
 
-func setWGKeyConfig(node models.Node) error {
+func setWGKeyConfig(node *models.Node) error {
 
 	node.SetID()
 	privatekey, err := wgtypes.GeneratePrivateKey()

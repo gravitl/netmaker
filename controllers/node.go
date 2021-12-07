@@ -379,10 +379,10 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var node models.Node
+	var node = &models.Node{}
 
 	//get node from body of request
-	err = json.NewDecoder(r.Body).Decode(&node)
+	err = json.NewDecoder(r.Body).Decode(node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -390,7 +390,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	node.Network = networkName
 
-	network, err := logic.GetNetworkByNode(&node)
+	network, err := logic.GetNetworkByNode(node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

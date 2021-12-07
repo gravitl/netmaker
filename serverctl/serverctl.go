@@ -77,7 +77,7 @@ func HandleContainedClient() error {
 				logger.Log(3, "completed peers check of network", serverNet.NetID)
 			}
 		}
-		err := SyncNetworks(servernets)
+		err := SyncNetworks(servernets[:])
 		if err != nil {
 			logger.Log(1, "error syncing networks:", err.Error())
 		}

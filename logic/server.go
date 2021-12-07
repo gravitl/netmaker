@@ -31,8 +31,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	}
 
 	var err error
-	var node *models.Node // fill this object with server node specifics
-	node = &models.Node{
+	var node = &models.Node{
 		IsServer:     "yes",
 		DNSOn:        "no",
 		IsStatic:     "yes",
@@ -74,30 +73,11 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		privateKey = wgPrivatekey.String()
 		node.PublicKey = wgPrivatekey.PublicKey().String()
 	}
-	// should never set mac address for server anymore
 
-	var postnode *models.Node
-	postnode = &models.Node{
-		Password:            node.Password,
-		MacAddress:          node.MacAddress,
-		AccessKey:           node.AccessKey,
-		Network:             network,
-		ListenPort:          node.ListenPort,
-		PostUp:              node.PostUp,
-		PostDown:            node.PostDown,
-		PersistentKeepalive: node.PersistentKeepalive,
-		LocalAddress:        node.LocalAddress,
-		Interface:           node.Interface,
-		PublicKey:           node.PublicKey,
-		DNSOn:               node.DNSOn,
-		Name:                node.Name,
-		Endpoint:            node.Endpoint,
-		SaveConfig:          node.SaveConfig,
-		UDPHolePunch:        node.UDPHolePunch,
-	}
+	node.Network = network
 
-	logger.Log(2, "adding a server instance on network", postnode.Network)
-	*node, err = CreateNode(*postnode, network)
+	logger.Log(2, "adding a server instance on network", node.Network)
+	node, err = CreateNode(node, network)
 	if err != nil {
 		return err
 	}
@@ -194,7 +174,7 @@ func ServerPull(serverNode *models.Node, onErr bool) (*models.Node, error) {
 			logger.Log(1, "removed old interface", oldIfaceName)
 		}
 		serverNode.PullChanges = "no"
-		if err = setWGConfig(*serverNode, serverNode.Network, false); err != nil {
+		if err = setWGConfig(serverNode, serverNode.Network, false); err != nil {
 			return serverNode, err
 		}
 		// handle server side update
@@ -202,7 +182,7 @@ func ServerPull(serverNode *models.Node, onErr bool) (*models.Node, error) {
 			return serverNode, err
 		}
 	} else {
-		if err = setWGConfig(*serverNode, serverNode.Network, true); err != nil {
+		if err = setWGConfig(serverNode, serverNode.Network, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return ServerPull(serverNode, true)
 			} else {
@@ -233,6 +213,11 @@ func ServerLeave(mac string, network string) error {
 	serverNode.SetID()
 	return DeleteNode(&serverNode, true)
 }
+
+/**
+ * Below function needs major refactor
+ *
+ */
 
 // GetServerPeers - gets peers of server
 func GetServerPeers(macaddress string, network string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
@@ -373,7 +358,7 @@ func GetServerPeers(macaddress string, network string, dualstack bool, isIngress
 			logger.Log(1, "ERROR RETRIEVING EXTERNAL PEERS ON SERVER:", err.Error())
 		}
 	}
-	return peers, hasGateway, gateways, err
+	return peers[:], hasGateway, gateways[:], err
 }
 
 // GetServerExtPeers - gets the extpeers for a client
@@ -436,7 +421,7 @@ func GetServerExtPeers(macaddress string, network string, dualstack bool) ([]wgt
 		}
 		peers = append(peers, peer)
 	}
-	return peers, err
+	return peers[:], err
 }
 
 // == Private ==
@@ -448,7 +433,7 @@ func isDeleteError(err error) bool {
 func checkNodeActions(node *models.Node, networkName string, localNode *models.Node) string {
 	if (node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY) &&
 		node.IsStatic != "yes" {
-		err := setWGKeyConfig(*node)
+		err := setWGKeyConfig(node)
 		if err != nil {
 			logger.Log(1, "unable to process reset keys request:", err.Error())
 			return ""

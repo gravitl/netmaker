@@ -25,7 +25,7 @@ func TestGetPeerList(t *testing.T) {
 		assert.Equal(t, node.Address, peers[0].Address)
 	})
 	t.Run("Multiple Nodes", func(t *testing.T) {
-		createnode := models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "02:02:03:04:05:06", Password: "password", Network: "skynet"}
+		createnode := &models.Node{PublicKey: "RM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.2", MacAddress: "02:02:03:04:05:06", Password: "password", Network: "skynet"}
 		logic.CreateNode(createnode, "skynet")
 		peers, err := logic.GetPeersList("skynet", false, "")
 		assert.Nil(t, err)
@@ -95,7 +95,7 @@ func TestCreateNode(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllNetworks()
 	createNet()
-	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
+	createnode := &models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
 	//err := ValidateNodeCreate("skynet", createnode)
 	//assert.Nil(t, err)
 	node, err := logic.CreateNode(createnode, "skynet")
@@ -123,8 +123,8 @@ func TestSetNetworkNodesLastModified(t *testing.T) {
 	})
 }
 
-func createTestNode() models.Node {
+func createTestNode() *models.Node {
 	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
-	node, _ := logic.CreateNode(createnode, "skynet")
+	node, _ := logic.CreateNode(&createnode, "skynet")
 	return node
 }

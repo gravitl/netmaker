@@ -51,9 +51,9 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// Get the protobuf node type from the protobuf request type
 	// Essentially doing req.Node to access the struct with a nil check
-	var node models.Node
+	var node = &models.Node{}
 	data := req.GetData()
-	if err := json.Unmarshal([]byte(data), &node); err != nil {
+	if err := json.Unmarshal([]byte(data), node); err != nil {
 		return nil, err
 	}
 

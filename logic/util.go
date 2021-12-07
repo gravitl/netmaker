@@ -76,7 +76,7 @@ func DeleteNode(node *models.Node, exterminate bool) error {
 }
 
 // CreateNode - creates a node in database
-func CreateNode(node models.Node, networkName string) (models.Node, error) {
+func CreateNode(node *models.Node, networkName string) (*models.Node, error) {
 
 	//encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
@@ -98,7 +98,7 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 			node.DNSOn = "no"
 		}
 	}
-	SetNodeDefaults(&node)
+	SetNodeDefaults(node)
 	node.Address, err = UniqueAddress(networkName)
 	if err != nil {
 		return node, err
@@ -113,7 +113,7 @@ func CreateNode(node models.Node, networkName string) (models.Node, error) {
 		//returnErrorResponse(w, r, errorResponse)
 		return node, err
 	}
-	err = ValidateNode(&node, false)
+	err = ValidateNode(node, false)
 	if err != nil {
 		return node, err
 	}
