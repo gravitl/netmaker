@@ -144,13 +144,15 @@ func TestValidateEgressGateway(t *testing.T) {
 	})
 }
 
-//
-////func TestUpdateNode(t *testing.T) {
-////}
 func deleteAllNodes() {
 	nodes, _ := logic.GetAllNodes()
 	for _, node := range nodes {
-		key := node.MacAddress + "###" + node.Network
-		DeleteNode(key, true)
+		logic.DeleteNode(&node, true)
 	}
+}
+
+func createTestNode() *models.Node {
+	createnode := &models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
+	node, _ := logic.CreateNode(createnode, "skynet")
+	return node
 }

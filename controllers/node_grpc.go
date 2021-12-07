@@ -25,7 +25,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	if len(macAndNetwork) != 2 {
 		return nil, errors.New("could not read node, invalid node id given")
 	}
-	node, err := GetNode(macAndNetwork[0], macAndNetwork[1])
+	node, err := logic.GetNode(macAndNetwork[0], macAndNetwork[1])
 	if err != nil {
 		return nil, err
 	}
@@ -135,8 +135,12 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	nodeID := req.GetData()
-
-	err := DeleteNode(nodeID, true)
+	var nodeInfo = strings.Split(nodeID, "###")
+	if len(nodeInfo) != 2 {
+		return nil, errors.New("node not found")
+	}
+	var node, err = logic.GetNode(nodeInfo[0], nodeInfo[1])
+	err = logic.DeleteNode(&node, true)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +156,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 	macAndNetwork := strings.Split(req.Data, "###")
 	if len(macAndNetwork) == 2 {
 		// TODO: Make constant and new variable for isServer
-		node, err := GetNode(macAndNetwork[0], macAndNetwork[1])
+		node, err := logic.GetNode(macAndNetwork[0], macAndNetwork[1])
 		if err != nil {
 			return nil, err
 		}

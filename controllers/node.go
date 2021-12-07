@@ -328,7 +328,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 
-	node, err := GetNode(params["macaddress"], params["network"])
+	node, err := logic.GetNode(params["macaddress"], params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -570,13 +570,17 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
-
-	err := DeleteNode(params["macaddress"]+"###"+params["network"], false)
-
+	var node, err = logic.GetNode(params["macaddress"], params["network"])
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	err = logic.DeleteNode(&node, false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	logger.Log(1, r.Header.Get("user"), "Deleted node", params["macaddress"], "from network", params["network"])
 	returnSuccessResponse(w, r, params["macaddress"]+" deleted.")
 }

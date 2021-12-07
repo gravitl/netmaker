@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// AuthServerUnaryInterceptor - auth unary interceptor logic
 func AuthServerUnaryInterceptor(ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
@@ -38,6 +39,8 @@ func AuthServerUnaryInterceptor(ctx context.Context,
 
 	return h, err
 }
+
+// AuthServerStreamInterceptor - auth stream interceptor
 func AuthServerStreamInterceptor(
 	srv interface{},
 	stream grpc.ServerStream,
