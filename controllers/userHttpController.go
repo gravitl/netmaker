@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/auth"
@@ -20,13 +19,13 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods("GET")
 	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
-	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(updateUser))).Methods("PUT")
-	r.HandleFunc("/api/users/networks/{username}", authorizeUserAdm(http.HandlerFunc(updateUserNetworks))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}/adm", authorizeUserAdm(http.HandlerFunc(updateUserAdm))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}", authorizeUserAdm(http.HandlerFunc(createUser))).Methods("POST")
-	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(deleteUser))).Methods("DELETE")
-	r.HandleFunc("/api/users/{username}", authorizeUser(http.HandlerFunc(getUser))).Methods("GET")
-	r.HandleFunc("/api/users", authorizeUserAdm(http.HandlerFunc(getUsers))).Methods("GET")
+	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(updateUser)))).Methods("PUT")
+	r.HandleFunc("/api/users/networks/{username}", securityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}/adm", securityCheck(true, http.HandlerFunc(updateUserAdm))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}", securityCheck(true, http.HandlerFunc(createUser))).Methods("POST")
+	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(deleteUser)))).Methods("DELETE")
+	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(getUser)))).Methods("GET")
+	r.HandleFunc("/api/users", securityCheck(true, http.HandlerFunc(getUsers))).Methods("GET")
 	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
 }
@@ -80,79 +79,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	logger.Log(2, username, "was authenticated")
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
-}
-
-// The middleware for most requests to the API
-// They all pass  through here first
-// This will validate the JWT (or check for master token)
-// This will also check against the authNetwork and make sure the node should be accessing that endpoint,
-// even if it's technically ok
-// This is kind of a poor man's RBAC. There's probably a better/smarter way.
-// TODO: Consider better RBAC implementations
-func authorizeUser(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		var params = mux.Vars(r)
-
-		// get the auth token
-		bearerToken := r.Header.Get("Authorization")
-		username := params["username"]
-		err := ValidateUserToken(bearerToken, username, false)
-		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "unauthorized"))
-			return
-		}
-		r.Header.Set("user", username)
-		next.ServeHTTP(w, r)
-	}
-}
-
-func authorizeUserAdm(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		var params = mux.Vars(r)
-
-		//get the auth token
-		bearerToken := r.Header.Get("Authorization")
-		username := params["username"]
-		err := ValidateUserToken(bearerToken, username, true)
-		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "unauthorized"))
-			return
-		}
-		r.Header.Set("user", username)
-		next.ServeHTTP(w, r)
-	}
-}
-
-// ValidateUserToken - self explained
-func ValidateUserToken(token string, user string, adminonly bool) error {
-	var tokenSplit = strings.Split(token, " ")
-	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
-	//There's probably a smarter way of handling this.
-	var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
-
-	if len(tokenSplit) > 1 {
-		authToken = tokenSplit[1]
-	} else {
-		return errors.New("Missing Auth Token.")
-	}
-
-	username, _, isadmin, err := logic.VerifyUserToken(authToken)
-	if err != nil {
-		return errors.New("Error Verifying Auth Token")
-	}
-	isAuthorized := false
-	if adminonly {
-		isAuthorized = isadmin
-	} else {
-		isAuthorized = username == user || isadmin
-	}
-	if !isAuthorized {
-		return errors.New("You are unauthorized to access this endpoint.")
-	}
-
-	return nil
 }
 
 func hasAdmin(w http.ResponseWriter, r *http.Request) {

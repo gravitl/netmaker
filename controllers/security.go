@@ -14,45 +14,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-//Security check DNS is middleware for every DNS function and just checks to make sure that its the master or dns token calling
-//Only admin should have access to all these network-level actions
-//DNS token should have access to only read functions
-func securityCheck(reqAdmin bool, allowDNSToken bool, next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "W1R3: It's not you it's me.",
-		}
-
-		var params = mux.Vars(r)
-		bearerToken := r.Header.Get("Authorization")
-		if allowDNSToken && authenticateDNSToken(bearerToken) {
-			r.Header.Set("user", "nameserver")
-			networks, _ := json.Marshal([]string{ALL_NETWORK_ACCESS})
-			r.Header.Set("networks", string(networks))
-			next.ServeHTTP(w, r)
-		} else {
-			err, networks, username := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
-			if err != nil {
-				if strings.Contains(err.Error(), "does not exist") {
-					errorResponse.Code = http.StatusNotFound
-				}
-				errorResponse.Message = err.Error()
-				returnErrorResponse(w, r, errorResponse)
-				return
-			}
-			networksJson, err := json.Marshal(&networks)
-			if err != nil {
-				errorResponse.Message = err.Error()
-				returnErrorResponse(w, r, errorResponse)
-				return
-			}
-			r.Header.Set("user", username)
-			r.Header.Set("networks", string(networksJson))
-			next.ServeHTTP(w, r)
-		}
-	}
-}
-
 func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
@@ -61,6 +22,14 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 		var params = mux.Vars(r)
 		bearerToken := r.Header.Get("Authorization")
+		if strings.Contains(r.RequestURI, "/dns") && strings.ToUpper(r.Method) == "GET" && authenticateDNSToken(bearerToken) {
+			// do dns stuff
+			r.Header.Set("user", "nameserver")
+			networks, _ := json.Marshal([]string{ALL_NETWORK_ACCESS})
+			r.Header.Set("networks", string(networks))
+			next.ServeHTTP(w, r)
+		}
+
 		err, networks, username := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
 		if err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
@@ -140,4 +109,49 @@ func authenticateDNSToken(tokenString string) bool {
 		return false
 	}
 	return tokens[1] == servercfg.GetDNSKey()
+}
+
+// ValidateUserToken - self explained
+func ValidateUserToken(token string, user string, adminonly bool) error {
+	var tokenSplit = strings.Split(token, " ")
+	//I put this in in case the user doesn't put in a token at all (in which case it's empty)
+	//There's probably a smarter way of handling this.
+	var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
+
+	if len(tokenSplit) > 1 {
+		authToken = tokenSplit[1]
+	} else {
+		return errors.New("Missing Auth Token.")
+	}
+
+	username, _, isadmin, err := logic.VerifyUserToken(authToken)
+	if err != nil {
+		return errors.New("Error Verifying Auth Token")
+	}
+	isAuthorized := false
+	if adminonly {
+		isAuthorized = isadmin
+	} else {
+		isAuthorized = username == user || isadmin
+	}
+	if !isAuthorized {
+		return errors.New("You are unauthorized to access this endpoint.")
+	}
+
+	return nil
+}
+
+func continueIfUserMatch(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var errorResponse = models.ErrorResponse{
+			Code: http.StatusUnauthorized, Message: "W1R3: This doesn't look like you.",
+		}
+		var params = mux.Vars(r)
+		var requestedUser = params["username"]
+		if requestedUser != r.Header.Get("user") {
+			returnErrorResponse(w, r, errorResponse)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
 }
