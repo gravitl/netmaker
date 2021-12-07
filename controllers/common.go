@@ -15,6 +15,7 @@ import (
  * If being deleted by server, create a record in the DELETED_NODES_TABLE for the client to find
  * If being deleted by the client, delete completely
  */
+// DeleteNode - deletes a node
 func DeleteNode(key string, exterminate bool) error {
 	var err error
 	if !exterminate {
@@ -46,6 +47,7 @@ func DeleteNode(key string, exterminate bool) error {
 	return err
 }
 
+// DeleteIntClient - deletes an int client
 func DeleteIntClient(clientid string) (bool, error) {
 
 	err := database.DeleteRecord(database.INT_CLIENTS_TABLE_NAME, clientid)
@@ -56,6 +58,7 @@ func DeleteIntClient(clientid string) (bool, error) {
 	return true, nil
 }
 
+// GetNode - gets a node
 func GetNode(macaddress string, network string) (models.Node, error) {
 
 	var node models.Node
@@ -80,6 +83,7 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	return node, err
 }
 
+// GetIntClient - gets int client
 func GetIntClient(clientid string) (models.IntClient, error) {
 
 	var client models.IntClient

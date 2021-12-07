@@ -28,6 +28,7 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			networks, _ := json.Marshal([]string{ALL_NETWORK_ACCESS})
 			r.Header.Set("networks", string(networks))
 			next.ServeHTTP(w, r)
+			return
 		}
 
 		err, networks, username := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
