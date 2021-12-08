@@ -213,7 +213,7 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 
 	device, err := client.Device(iface)
 	if err != nil {
-		logger.Log(0, "failed to parse interface")
+		logger.Log(1, "failed to parse interface")
 		return err
 	}
 	devicePeers := device.Peers

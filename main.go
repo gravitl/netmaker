@@ -92,11 +92,6 @@ func startControllers() {
 		go runGRPC(&waitnetwork)
 	}
 
-	if servercfg.IsClientMode() == "on" {
-		waitnetwork.Add(1)
-		go runClient(&waitnetwork)
-	}
-
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
 		if err != nil {
@@ -112,27 +107,31 @@ func startControllers() {
 			}
 		}
 		waitnetwork.Add(1)
-		controller.HandleRESTRequests(&waitnetwork)
+		go controller.HandleRESTRequests(&waitnetwork)
 	}
+
 	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
 	}
 
+	if servercfg.IsClientMode() == "on" {
+		var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
+		for { // best effort currently
+			var netSyncGroup sync.WaitGroup
+			netSyncGroup.Add(1)
+			go runClient(&netSyncGroup)
+			netSyncGroup.Wait()
+			logger.Log(0, "ran a checkin")
+			time.Sleep(checkintime)
+		}
+	}
+
 	waitnetwork.Wait()
-	logger.Log(0, "exiting")
 }
 
 func runClient(wg *sync.WaitGroup) {
 	defer wg.Done()
-	go func() {
-		for {
-			if err := serverctl.HandleContainedClient(); err != nil {
-				// PASS
-			}
-			var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
-			time.Sleep(checkintime)
-		}
-	}()
+	go serverctl.HandleContainedClient()
 }
 
 func runGRPC(wg *sync.WaitGroup) {
@@ -198,7 +197,3 @@ func setGarbageCollection() {
 		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
 }
-
-// func authServerStreamInterceptor() grpc.ServerOption {
-// 	return grpc.StreamInterceptor(controller.AuthServerStreamInterceptor)
-// }

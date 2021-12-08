@@ -24,6 +24,9 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// MAX_NAME_LENGTH - maximum node name length
+const MAX_NAME_LENGTH = 62
+
 // NO_DB_RECORD - error message result
 const NO_DB_RECORD = "no result found"
 
@@ -446,4 +449,48 @@ func DNSFormatString(input string) string {
 		return ""
 	}
 	return reg.ReplaceAllString(input, "")
+}
+
+func GetHostname() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	if len(hostname) > MAX_NAME_LENGTH {
+		hostname = hostname[0:MAX_NAME_LENGTH]
+	}
+	return hostname
+}
+
+func CheckUID() {
+	// start our application
+	out, err := RunCmd("id -u", true)
+
+	if err != nil {
+		log.Fatal(out, err)
+	}
+	id, err := strconv.Atoi(string(out[:len(out)-1]))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if id != 0 {
+		log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
+	}
+}
+
+// CheckWG - Checks if WireGuard is installed. If not, exit
+func CheckWG() {
+	var _, err = exec.LookPath("wg")
+	uspace := GetWireGuard()
+	if err != nil {
+		if uspace == "wg" {
+			PrintLog(err.Error(), 0)
+			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
+		}
+		PrintLog("Running with userspace wireguard: "+uspace, 0)
+	} else if uspace != "wg" {
+		log.Println("running userspace WireGuard with " + uspace)
+	}
 }

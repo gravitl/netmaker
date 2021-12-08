@@ -15,6 +15,17 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+var HttpHandlers = []interface{}{
+	nodeHandlers,
+	userHandlers,
+	networkHandlers,
+	dnsHandlers,
+	fileHandlers,
+	serverHandlers,
+	extClientHandlers,
+	loggerHandlers,
+}
+
 // HandleRESTRequests - handles the rest requests
 func HandleRESTRequests(wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -27,14 +38,9 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	originsOk := handlers.AllowedOrigins([]string{servercfg.GetAllowedOrigin()})
 	methodsOk := handlers.AllowedMethods([]string{"GET", "PUT", "POST", "DELETE"})
 
-	nodeHandlers(r)
-	userHandlers(r)
-	networkHandlers(r)
-	dnsHandlers(r)
-	fileHandlers(r)
-	serverHandlers(r)
-	extClientHandlers(r)
-	loggerHandlers(r)
+	for _, handler := range HttpHandlers {
+		handler.(func(*mux.Router))(r)
+	}
 
 	port := servercfg.GetAPIPort()
 
