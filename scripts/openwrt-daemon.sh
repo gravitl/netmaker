@@ -8,10 +8,12 @@ START=99
 LOG_FILE="/tmp/netclient.logs"
 
 start() {
+  mkdir -p /etc/netclient/config
+  mkdir -p /etc/systemd/system
   if [ ! -f "${LOG_FILE}" ];then
       touch "${LOG_FILE}"
   fi
-  local PIDS=($(ps -e|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}'))
+  local PIDS=($(ps|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}'))
   if [ ${PIDS} ];then
     echo "service is running"
     return
@@ -22,7 +24,7 @@ start() {
 }
 
 stop() {
-  local PIDS=($(ps -e|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}'))
+  local PIDS=($(ps|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}'))
   for i in "${PIDS[@]}"; do
     kill $i
   done
@@ -30,7 +32,7 @@ stop() {
 }
 
 status() {
-  local PIDS=($(ps -e|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}'))
+  local PIDS=($(ps|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}'))
   if [ ${PIDS} ];then
     echo -e "netclient[${PIDS}] is running \n"
   else
