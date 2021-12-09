@@ -58,14 +58,14 @@ Node
 
 A machine in a Netmaker network, which is managed by the Netclient, is referred to as a Node, as you will see in the UI. A Node can be a VM, a bare metal server, a desktop computer, an IoT device, or any other number of internet-connected machines on which the netclient is installed. A node is simply an endpoint in the network, which can send traffic to all the other nodes, and recieve traffic from all of the other nodes.
 
-SystemD
+systemd
 -------
 
-SystemD is a system service manager for a wide array of Linux operating systems. Not all Linux distributions have adopted systemd, but, for better or worse, it has become a fairly common standard in the Linux world. That said, any non-Linux operating system will not have systemd, and many Linux/Unix distributionshave alternative system service managers.
+systemd is a system service manager for a wide array of Linux operating systems. Not all Linux distributions have adopted systemd, but, for better or worse, it has become a fairly common standard in the Linux world. That said, any non-Linux operating system will not have systemd, and many Linux/Unix distributionshave alternative system service managers.
 
 Netmaker's netclient, the agent which controls networking on all nodes, can be run as a CLI or as a system daemon. On Linux, it runs as a daemon by default, and this requires systemd. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices. However, for the time being, the netclient should be run "unmanaged" (netclient join -daemon=off) on systems that do not run systemd, and some other method can be used like a cron job or custom script.
 
-As of 0.8, Mac and Windows are supported. On these operating systems, netclient launches the daemon using LaunchD and Windows Service, respectively, as opposed to SystemD.
+As of 0.8, Mac and Windows are supported. On these operating systems, netclient launches the daemon using LaunchD and Windows Service, respectively, as opposed to systemd.
 
 Components
 ===========
