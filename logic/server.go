@@ -21,6 +21,8 @@ import (
 
 // KUBERNETES_LISTEN_PORT - starting port for Kubernetes in order to use NodePort range
 const KUBERNETES_LISTEN_PORT = 31821
+
+// KUBERNETES_SERVER_MTU - ideal mtu for kubernetes deployments right now
 const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
@@ -111,13 +113,13 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		return err
 	}
 
-	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, network, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
+	peers, hasGateway, gateways, err := GetServerPeers(node)
 	if err != nil && !ncutils.IsEmptyRecord(err) {
 		logger.Log(1, "failed to retrieve peers")
 		return err
 	}
 
-	err = initWireguard(node, privateKey, peers, hasGateway, gateways)
+	err = initWireguard(node, privateKey, peers[:], hasGateway, gateways[:])
 	if err != nil {
 		return err
 	}
@@ -127,46 +129,43 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 
 // ServerCheckin - runs pulls and pushes for server
 func ServerCheckin(mac string, network string) error {
-	var serverNode models.Node
-	var newNode *models.Node
-	var err error
-	serverNode, err = GetNode(mac, network)
+	var serverNode *models.Node
+	var currentNode, err = GetNode(mac, network)
 	if err != nil {
 		return err
 	}
+	serverNode = &currentNode
 
-	newNode, err = ServerPull(&serverNode, false)
+	err = ServerPull(serverNode, false)
 	if isDeleteError(err) {
 		return ServerLeave(mac, network)
 	} else if err != nil {
 		return err
 	}
 
-	actionCompleted := checkNodeActions(newNode, network, &serverNode)
+	actionCompleted := checkNodeActions(serverNode)
 	if actionCompleted == models.NODE_DELETE {
 		return errors.New("node has been removed")
 	}
 
-	return ServerPush(newNode)
+	return ServerPush(serverNode)
 }
 
 // ServerPull - pulls current config/peers for server
-func ServerPull(serverNode *models.Node, onErr bool) (*models.Node, error) {
+func ServerPull(serverNode *models.Node, onErr bool) error {
 
 	var err error
 	if serverNode.IPForwarding == "yes" {
 		if err = setIPForwardingLinux(); err != nil {
-			return serverNode, err
+			return err
 		}
 	}
 	serverNode.OS = runtime.GOOS
 
 	if serverNode.PullChanges == "yes" || onErr {
 		// check for interface change
-		var isIfacePresent bool
-		var oldIfaceName string
 		// checks if address is in use by another interface
-		oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
+		var oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
 		if !isIfacePresent {
 			if err = deleteInterface(oldIfaceName, serverNode.PostDown); err != nil {
 				logger.Log(1, "could not delete old interface", oldIfaceName)
@@ -174,24 +173,24 @@ func ServerPull(serverNode *models.Node, onErr bool) (*models.Node, error) {
 			logger.Log(1, "removed old interface", oldIfaceName)
 		}
 		serverNode.PullChanges = "no"
-		if err = setWGConfig(serverNode, serverNode.Network, false); err != nil {
-			return serverNode, err
+		if err = setWGConfig(serverNode, false); err != nil {
+			return err
 		}
 		// handle server side update
 		if err = UpdateNode(serverNode, serverNode); err != nil {
-			return serverNode, err
+			return err
 		}
 	} else {
-		if err = setWGConfig(serverNode, serverNode.Network, true); err != nil {
+		if err = setWGConfig(serverNode, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return ServerPull(serverNode, true)
 			} else {
-				return serverNode, err
+				return err
 			}
 		}
 	}
 
-	return serverNode, nil
+	return nil
 }
 
 // ServerPush - pushes config changes for server checkins/join
@@ -204,9 +203,7 @@ func ServerPush(serverNode *models.Node) error {
 // ServerLeave - removes a server node
 func ServerLeave(mac string, network string) error {
 
-	var serverNode models.Node
-	var err error
-	serverNode, err = GetNode(mac, network)
+	var serverNode, err = GetNode(mac, network)
 	if err != nil {
 		return err
 	}
@@ -220,28 +217,25 @@ func ServerLeave(mac string, network string) error {
  */
 
 // GetServerPeers - gets peers of server
-func GetServerPeers(macaddress string, network string, dualstack bool, isIngressGateway bool) ([]wgtypes.PeerConfig, bool, []string, error) {
+func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []string, error) {
 	hasGateway := false
-	var err error
 	var gateways []string
 	var peers []wgtypes.PeerConfig
-	var nodecfg models.Node
 	var nodes []models.Node // fill above fields from server or client
 
-	nodecfg, err = GetNode(macaddress, network)
+	var nodecfg, err = GetNode(serverNode.MacAddress, serverNode.Network)
 	if err != nil {
 		return nil, hasGateway, gateways, err
 	}
-	nodes, err = GetPeers(nodecfg)
+	nodes, err = GetPeers(&nodecfg)
 	if err != nil {
 		return nil, hasGateway, gateways, err
 	}
 
 	keepalive := nodecfg.PersistentKeepalive
 	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
-	keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
 	if err != nil {
-		logger.Log(1, "Issue with format of keepalive value, Please view server config:", err.Error())
+		logger.Log(1, "Issue with format of keepalive duration value, Please view server config:", err.Error())
 		return nil, hasGateway, gateways, err
 	}
 
@@ -268,8 +262,9 @@ func GetServerPeers(macaddress string, network string, dualstack bool, isIngress
 			IP:   net.ParseIP(node.Address),
 			Mask: net.CIDRMask(32, 32),
 		}
-		var allowedips []net.IPNet
-		allowedips = append(allowedips, peeraddr)
+		var allowedips = []net.IPNet{
+			peeraddr,
+		}
 		// handle manually set peers
 		for _, allowedIp := range node.AllowedIPs {
 			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
@@ -288,7 +283,7 @@ func GetServerPeers(macaddress string, network string, dualstack bool, isIngress
 		// handle egress gateway peers
 		if node.IsEgressGateway == "yes" {
 			hasGateway = true
-			ranges := node.EgressGatewayRanges
+			ranges := node.EgressGatewayRanges[:]
 			for _, iprange := range ranges { // go through each cidr for egress gateway
 				_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 				if err != nil {
@@ -311,73 +306,47 @@ func GetServerPeers(macaddress string, network string, dualstack bool, isIngress
 					allowedips = append(allowedips, *ipnet)
 				}
 			}
+			ranges = nil
 		}
-		if node.Address6 != "" && dualstack {
+		if node.Address6 != "" && serverNode.IsDualStack == "yes" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(node.Address6),
 				Mask: net.CIDRMask(128, 128),
 			}
 			allowedips = append(allowedips, addr6)
 		}
-		if nodecfg.IsServer == "yes" && !(node.IsServer == "yes") {
-			peer = wgtypes.PeerConfig{
-				PublicKey:                   pubkey,
-				PersistentKeepaliveInterval: &keepaliveserver,
-				ReplaceAllowedIPs:           true,
-				AllowedIPs:                  allowedips,
-			}
-		} else if keepalive != 0 {
-			peer = wgtypes.PeerConfig{
-				PublicKey:                   pubkey,
-				PersistentKeepaliveInterval: &keepalivedur,
-				Endpoint: &net.UDPAddr{
-					IP:   net.ParseIP(node.Endpoint),
-					Port: int(node.ListenPort),
-				},
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        allowedips,
-			}
-		} else {
-			peer = wgtypes.PeerConfig{
-				PublicKey: pubkey,
-				Endpoint: &net.UDPAddr{
-					IP:   net.ParseIP(node.Endpoint),
-					Port: int(node.ListenPort),
-				},
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        allowedips,
-			}
+		peer = wgtypes.PeerConfig{
+			PublicKey:                   pubkey,
+			PersistentKeepaliveInterval: &(keepalivedur),
+			ReplaceAllowedIPs:           true,
+			AllowedIPs:                  allowedips,
 		}
 		peers = append(peers, peer)
 	}
-	if isIngressGateway {
-		extPeers, err := GetServerExtPeers(macaddress, network, dualstack)
+	if serverNode.IsIngressGateway == "yes" {
+		extPeers, err := GetServerExtPeers(serverNode)
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
 			logger.Log(1, "ERROR RETRIEVING EXTERNAL PEERS ON SERVER:", err.Error())
 		}
+		extPeers = nil
 	}
-	return peers[:], hasGateway, gateways[:], err
+	return peers, hasGateway, gateways, err
 }
 
 // GetServerExtPeers - gets the extpeers for a client
-func GetServerExtPeers(macaddress string, network string, dualstack bool) ([]wgtypes.PeerConfig, error) {
+func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 	var peers []wgtypes.PeerConfig
-	var nodecfg models.Node
 	var extPeers []models.Node
 	var err error
-	// fill above fields from either client or server
-
-	nodecfg, err = GetNode(macaddress, network)
-	if err != nil {
-		return nil, err
-	}
 	var tempPeers []models.ExtPeersResponse
-	tempPeers, err = GetExtPeersList(nodecfg.MacAddress, nodecfg.Network)
+
+	tempPeers, err = GetExtPeersList(serverNode.MacAddress, serverNode.Network)
 	if err != nil {
 		return nil, err
 	}
+
 	for i := 0; i < len(tempPeers); i++ {
 		extPeers = append(extPeers, models.Node{
 			Address:             tempPeers[i].Address,
@@ -395,7 +364,7 @@ func GetServerExtPeers(macaddress string, network string, dualstack bool) ([]wgt
 			return peers, err
 		}
 
-		if nodecfg.PublicKey == extPeer.PublicKey {
+		if serverNode.PublicKey == extPeer.PublicKey {
 			continue
 		}
 
@@ -404,10 +373,11 @@ func GetServerExtPeers(macaddress string, network string, dualstack bool) ([]wgt
 			IP:   net.ParseIP(extPeer.Address),
 			Mask: net.CIDRMask(32, 32),
 		}
-		var allowedips []net.IPNet
-		allowedips = append(allowedips, peeraddr)
+		var allowedips = []net.IPNet{
+			peeraddr,
+		}
 
-		if extPeer.Address6 != "" && dualstack {
+		if extPeer.Address6 != "" && serverNode.IsDualStack == "yes" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
@@ -420,8 +390,11 @@ func GetServerExtPeers(macaddress string, network string, dualstack bool) ([]wgt
 			AllowedIPs:        allowedips,
 		}
 		peers = append(peers, peer)
+		allowedips = nil
 	}
-	return peers[:], err
+	tempPeers = nil
+	extPeers = nil
+	return peers, err
 }
 
 // == Private ==
@@ -430,8 +403,8 @@ func isDeleteError(err error) bool {
 	return err != nil && strings.Contains(err.Error(), models.NODE_DELETE)
 }
 
-func checkNodeActions(node *models.Node, networkName string, localNode *models.Node) string {
-	if (node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY) &&
+func checkNodeActions(node *models.Node) string {
+	if (node.Action == models.NODE_UPDATE_KEY) &&
 		node.IsStatic != "yes" {
 		err := setWGKeyConfig(node)
 		if err != nil {
@@ -439,8 +412,8 @@ func checkNodeActions(node *models.Node, networkName string, localNode *models.N
 			return ""
 		}
 	}
-	if node.Action == models.NODE_DELETE || localNode.Action == models.NODE_DELETE {
-		err := ServerLeave(node.MacAddress, networkName)
+	if node.Action == models.NODE_DELETE {
+		err := ServerLeave(node.MacAddress, node.Network)
 		if err != nil {
 			logger.Log(1, "error deleting locally:", err.Error())
 		}

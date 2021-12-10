@@ -70,7 +70,7 @@ func DeleteNode(node *models.Node, exterminate bool) error {
 		return err
 	}
 	if servercfg.IsDNSMode() {
-		err = SetDNS()
+		SetDNS()
 	}
 	return removeLocalServer(node)
 }
@@ -171,7 +171,7 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
 	if err != nil {
 		if data == "" {
-			data, err = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+			data, _ = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
 			err = json.Unmarshal([]byte(data), &node)
 		}
 		return node, err
@@ -200,9 +200,9 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 		logger.Log(2, errN.Error())
 	}
 	for _, value := range collection {
-		var node models.Node
+		var node *models.Node
 		var peer models.Node
-		err := json.Unmarshal([]byte(value), &node)
+		err := json.Unmarshal([]byte(value), node)
 		if err != nil {
 			logger.Log(2, err.Error())
 			continue
@@ -244,32 +244,31 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 // GetPeersList - gets the peers of a given network
 func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
 	var peers []models.Node
-	var relayNode models.Node
 	var err error
 	if relayedNodeAddr == "" {
 		peers, err = GetNodePeers(networkName, excludeRelayed)
-
 	} else {
+		var relayNode models.Node
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
 		if relayNode.Address != "" {
-			relayNode = setPeerInfo(relayNode)
+			var peerNode = setPeerInfo(&relayNode) // WHAT DO
 			network, err := GetNetwork(networkName)
 			if err == nil {
-				relayNode.AllowedIPs = append(relayNode.AllowedIPs, network.AddressRange)
+				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
 			} else {
-				relayNode.AllowedIPs = append(relayNode.AllowedIPs, relayNode.RelayAddrs...)
+				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
 			nodepeers, err := GetNodePeers(networkName, false)
-			if err == nil && relayNode.UDPHolePunch == "yes" {
+			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
-					if nodepeer.Address == relayNode.Address {
-						relayNode.Endpoint = nodepeer.Endpoint
-						relayNode.ListenPort = nodepeer.ListenPort
+					if nodepeer.Address == peerNode.Address {
+						peerNode.Endpoint = nodepeer.Endpoint
+						peerNode.ListenPort = nodepeer.ListenPort
 					}
 				}
 			}
 
-			peers = append(peers, relayNode)
+			peers = append(peers, peerNode)
 		}
 	}
 	return peers, err
@@ -277,7 +276,7 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 
 // RandomString - returns a random string in a charset
 func RandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -290,7 +289,8 @@ func RandomString(length int) string {
 
 // == Private Methods ==
 
-func setPeerInfo(node models.Node) models.Node {
+// WHAT DO
+func setPeerInfo(node *models.Node) models.Node {
 	var peer models.Node
 	peer.RelayAddrs = node.RelayAddrs
 	peer.IsRelay = node.IsRelay

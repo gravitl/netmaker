@@ -1,6 +1,3 @@
-//TODO: Harden. Add failover for every method and agent calls
-//TODO: Figure out why mongodb keeps failing (log rotation?)
-
 package main
 
 import (
@@ -117,11 +114,10 @@ func startControllers() {
 	if servercfg.IsClientMode() == "on" {
 		var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
 		for { // best effort currently
-			var netSyncGroup sync.WaitGroup
-			netSyncGroup.Add(1)
-			go runClient(&netSyncGroup)
-			netSyncGroup.Wait()
-			logger.Log(0, "ran a checkin")
+			var serverGroup sync.WaitGroup
+			serverGroup.Add(1)
+			go runClient(&serverGroup)
+			serverGroup.Wait()
 			time.Sleep(checkintime)
 		}
 	}
@@ -169,7 +165,7 @@ func runGRPC(wg *sync.WaitGroup) {
 
 	// Right way to stop the server using a SHUTDOWN HOOK
 	// Create a channel to receive OS signals
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 
 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
 	// Ignore other incoming signals

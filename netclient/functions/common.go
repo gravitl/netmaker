@@ -33,6 +33,7 @@ func ListPorts() error {
 	if err != nil {
 		return err
 	}
+	defer wgclient.Close()
 	devices, err := wgclient.Devices()
 	if err != nil {
 		return err

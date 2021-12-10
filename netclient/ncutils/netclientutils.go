@@ -261,6 +261,7 @@ func GetFreePort(rangestart int32) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer wgclient.Close()
 	devices, err := wgclient.Devices()
 	if err != nil {
 		return 0, err

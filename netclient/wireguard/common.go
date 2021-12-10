@@ -36,6 +36,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 			ncutils.PrintLog("failed to start wgctrl", 0)
 			return err
 		}
+		defer client.Close()
 		device, err := client.Device(iface)
 		if err != nil {
 			ncutils.PrintLog("failed to parse interface", 0)
@@ -114,7 +115,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		return err
 	}
-
+	defer wgclient.Close()
 	modcfg, err := config.ReadConfig(node.Network)
 	if err != nil {
 		return err
@@ -125,7 +126,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		log.Fatalf("failed to open client: %v", err)
 	}
-	defer wgclient.Close()
 
 	var ifacename string
 	if nodecfg.Interface != "" {

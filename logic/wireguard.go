@@ -25,6 +25,7 @@ func GetSystemPeers(node *models.Node) (map[string]string, error) {
 	if err != nil {
 		return peers, err
 	}
+	defer client.Close()
 	device, err := client.Device(node.Interface)
 	if err != nil {
 		return nil, err
@@ -45,7 +46,7 @@ func RemoveConf(iface string, printlog bool) error {
 	return err
 }
 
-// Private Functions
+// == Private Functions ==
 
 func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
 
@@ -210,6 +211,7 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 		logger.Log(0, "failed to start wgctrl")
 		return err
 	}
+	defer client.Close()
 
 	device, err := client.Device(iface)
 	if err != nil {
@@ -280,10 +282,10 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 	return nil
 }
 
-func setWGConfig(node *models.Node, network string, peerupdate bool) error {
+func setWGConfig(node *models.Node, peerupdate bool) error {
 
 	node.SetID()
-	peers, hasGateway, gateways, err := GetServerPeers(node.MacAddress, node.Network, node.IsDualStack == "yes", node.IsIngressGateway == "yes")
+	peers, hasGateway, gateways, err := GetServerPeers(node)
 	if err != nil {
 		return err
 	}
@@ -292,11 +294,10 @@ func setWGConfig(node *models.Node, network string, peerupdate bool) error {
 		return err
 	}
 	if peerupdate {
-		var iface string = node.Interface
-		err = setServerPeers(iface, node.PersistentKeepalive, peers)
+		err = setServerPeers(node.Interface, node.PersistentKeepalive, peers[:])
 		logger.Log(2, "updated peers on server", node.Name)
 	} else {
-		err = initWireguard(node, privkey, peers, hasGateway, gateways)
+		err = initWireguard(node, privkey, peers[:], hasGateway, gateways[:])
 		logger.Log(3, "finished setting wg config on server", node.Name)
 	}
 	return err
@@ -311,7 +312,6 @@ func setWGKeyConfig(node *models.Node) error {
 	}
 	privkeystring := privatekey.String()
 	publickey := privatekey.PublicKey()
-
 	node.PublicKey = publickey.String()
 
 	err = StorePrivKey(node.ID, privkeystring)
@@ -322,7 +322,7 @@ func setWGKeyConfig(node *models.Node) error {
 		node.Action = models.NODE_NOOP
 	}
 
-	return setWGConfig(node, node.Network, false)
+	return setWGConfig(node, false)
 }
 
 func removeLocalServer(node *models.Node) error {

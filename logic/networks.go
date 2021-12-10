@@ -685,10 +685,14 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 		for _, addr := range currAddrs {
 			if strings.Contains(addr.String(), address) && currIface.Name != iface {
 				logger.Log(2, "found iface", addr.String(), currIface.Name)
+				interfaces = nil
+				currAddrs = nil
 				return currIface.Name, false
 			}
 		}
+		currAddrs = nil
 	}
+	interfaces = nil
 	logger.Log(2, "failed to find iface", iface)
 	return "", true
 }

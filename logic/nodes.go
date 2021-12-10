@@ -86,9 +86,9 @@ func UncordonNode(network, macaddress string) (models.Node, error) {
 }
 
 // GetPeers - gets the peers of a given node
-func GetPeers(node models.Node) ([]models.Node, error) {
-	if node.IsServer == "yes" && IsLeader(&node) {
-		SetNetworkServerPeers(&node)
+func GetPeers(node *models.Node) ([]models.Node, error) {
+	if IsLeader(node) {
+		SetNetworkServerPeers(node)
 	}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
@@ -137,11 +137,13 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	return fmt.Errorf("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
 }
 
+// IsNodeIDUnique - checks if node id is unique
 func IsNodeIDUnique(node *models.Node) (bool, error) {
 	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
 	return database.IsEmptyRecord(err), err
 }
 
+// ValidateNode - validates node values
 func ValidateNode(node *models.Node, isUpdate bool) error {
 	v := validator.New()
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
@@ -212,7 +214,7 @@ func CheckIsServer(node *models.Node) bool {
 // GetNetworkByNode - gets the network model from a node
 func GetNetworkByNode(node *models.Node) (models.Network, error) {
 
-	var network models.Network
+	var network = models.Network{}
 	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
 	if err != nil {
 		return network, err

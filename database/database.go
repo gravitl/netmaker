@@ -89,6 +89,7 @@ func getCurrentDB() map[string]interface{} {
 	}
 }
 
+// InitializeDatabase - initializes database
 func InitializeDatabase() error {
 	logger.Log(0, "connecting to", servercfg.GetDB())
 	tperiod := time.Now().Add(10 * time.Second)
