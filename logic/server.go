@@ -129,7 +129,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 
 // ServerCheckin - runs pulls and pushes for server
 func ServerCheckin(mac string, network string) error {
-	var serverNode *models.Node
+	var serverNode = &models.Node{}
 	var currentNode, err = GetNode(mac, network)
 	if err != nil {
 		return err
