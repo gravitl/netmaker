@@ -76,18 +76,15 @@ func DeleteNode(node *models.Node, exterminate bool) error {
 }
 
 // CreateNode - creates a node in database
-func CreateNode(node *models.Node, networkName string) (*models.Node, error) {
+func CreateNode(node *models.Node) error {
 
 	//encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
-
 	if err != nil {
-		return node, err
+		return err
 	}
 	//set password to encrypted password
 	node.Password = string(hash)
-
-	node.Network = networkName
 	if node.Name == models.NODE_SERVER_NAME {
 		node.IsServer = "yes"
 	}
@@ -99,35 +96,35 @@ func CreateNode(node *models.Node, networkName string) (*models.Node, error) {
 		}
 	}
 	SetNodeDefaults(node)
-	node.Address, err = UniqueAddress(networkName)
+	node.Address, err = UniqueAddress(node.Network)
 	if err != nil {
-		return node, err
+		return err
 	}
-	node.Address6, err = UniqueAddress6(networkName)
+	node.Address6, err = UniqueAddress6(node.Network)
 	if err != nil {
-		return node, err
+		return err
 	}
 	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.MacAddress, networkName)
+	tokenString, _ := CreateJWT(node.MacAddress, node.Network)
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
-		return node, err
+		return err
 	}
 	err = ValidateNode(node, false)
 	if err != nil {
-		return node, err
+		return err
 	}
 	key, err := GetRecordKey(node.MacAddress, node.Network)
 	if err != nil {
-		return node, err
+		return err
 	}
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
-		return node, err
+		return err
 	}
 	err = database.Insert(key, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
-		return node, err
+		return err
 	}
 	if node.IsPending != "yes" {
 		DecrimentKey(node.Network, node.AccessKey)
@@ -136,7 +133,7 @@ func CreateNode(node *models.Node, networkName string) (*models.Node, error) {
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
 	}
-	return node, err
+	return err
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified

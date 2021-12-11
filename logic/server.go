@@ -79,7 +79,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	node.Network = network
 
 	logger.Log(2, "adding a server instance on network", node.Network)
-	node, err = CreateNode(node, network)
+	err = CreateNode(node)
 	if err != nil {
 		return err
 	}
@@ -283,7 +283,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 		// handle egress gateway peers
 		if node.IsEgressGateway == "yes" {
 			hasGateway = true
-			ranges := node.EgressGatewayRanges[:]
+			ranges := node.EgressGatewayRanges
 			for _, iprange := range ranges { // go through each cidr for egress gateway
 				_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 				if err != nil {

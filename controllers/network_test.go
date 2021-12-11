@@ -350,8 +350,3 @@ func createNet() {
 		logic.CreateNetwork(network)
 	}
 }
-
-func getNet() models.Network {
-	network, _ := logic.GetNetwork("skynet")
-	return network
-}

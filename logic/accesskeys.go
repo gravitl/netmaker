@@ -196,6 +196,7 @@ func IsKeyValid(networkname string, keyvalue string) bool {
 	return isvalid
 }
 
+// RemoveKeySensitiveInfo - remove sensitive key info
 func RemoveKeySensitiveInfo(keys []models.AccessKey) []models.AccessKey {
 	var returnKeys []models.AccessKey
 	for _, key := range keys {

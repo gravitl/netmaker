@@ -103,7 +103,7 @@ func grpcAuthorize(ctx context.Context) error {
 	return nil
 }
 
-//Node authenticates using its password and retrieves a JWT for authorization.
+// Login - node authenticates using its password and retrieves a JWT for authorization.
 func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
 	//out := new(LoginResponse)
@@ -117,15 +117,15 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 	password := reqNode.Password
 
 	var result models.NodeAuth
-
-	err := errors.New("Generic server error.")
+	var err error
+	// err := errors.New("generic server error")
 
 	if macaddress == "" {
 		//TODO: Set Error  response
-		err = errors.New("Missing Mac Address.")
+		err = errors.New("missing mac address")
 		return nil, err
 	} else if password == "" {
-		err = errors.New("Missing Password.")
+		err = errors.New("missing password")
 		return nil, err
 	} else {
 		//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
@@ -156,7 +156,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 				return nil, err
 			}
 			if tokenString == "" {
-				err = errors.New("Something went wrong. Could not retrieve token.")
+				err = errors.New("something went wrong, could not retrieve token")
 				return nil, err
 			}
 

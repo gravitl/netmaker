@@ -60,10 +60,7 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 
 //Consider a more secure way of setting master key
 func authenticateMasterServer(tokenString string) bool {
-	if tokenString == servercfg.GetMasterKey() {
-		return true
-	}
-	return false
+	return tokenString == servercfg.GetMasterKey()
 }
 
 func removeNetwork(w http.ResponseWriter, r *http.Request) {

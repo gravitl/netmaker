@@ -155,15 +155,15 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 }
 
 // GetParentNetwork - get parent network
-func GetNetworkSettings(networkname string) (*models.Network, error) {
+func GetNetworkSettings(networkname string) (models.Network, error) {
 
-	var network *models.Network
+	var network models.Network
 	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
 	if err != nil {
 		return network, err
 	}
-	if err = json.Unmarshal([]byte(networkData), network); err != nil {
-		return &models.Network{}, err
+	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+		return models.Network{}, err
 	}
 	network.AccessKeys = []models.AccessKey{}
 	return network, nil

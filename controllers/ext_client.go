@@ -232,8 +232,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	err = logic.CreateExtClient(extclient)
-
+	err = logic.CreateExtClient(&extclient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -264,7 +263,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], oldExtClient)
+	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], &oldExtClient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

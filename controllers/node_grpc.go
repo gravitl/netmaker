@@ -49,49 +49,42 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 
 // NodeServiceServer.CreateNode - creates a node and responds over gRPC
 func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	// Get the protobuf node type from the protobuf request type
-	// Essentially doing req.Node to access the struct with a nil check
-	var node = &models.Node{}
+	var node = models.Node{}
+	var err error
 	data := req.GetData()
-	if err := json.Unmarshal([]byte(data), node); err != nil {
+	if err := json.Unmarshal([]byte(data), &node); err != nil {
 		return nil, err
 	}
 
-	//Check to see if key is valid
-	//TODO: Triple inefficient!!! This is the third call to the DB we make for networks
 	validKey := logic.IsKeyValid(node.Network, node.AccessKey)
-	network, err := logic.GetParentNetwork(node.Network)
+	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
 	if err != nil {
 		return nil, err
 	}
 
 	if !validKey {
-		//Check to see if network will allow manual sign up
-		//may want to switch this up with the valid key check and avoid a DB call that way.
-		if network.AllowManualSignUp == "yes" {
+		if node.NetworkSettings.AllowManualSignUp == "yes" {
 			node.IsPending = "yes"
 		} else {
 			return nil, errors.New("invalid key, and network does not allow no-key signups")
 		}
 	}
 
-	node, err = logic.CreateNode(node, node.Network)
+	err = logic.CreateNode(&node)
 	if err != nil {
 		return nil, err
 	}
-	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
-	if err != nil {
-		return nil, err
-	}
+
 	nodeData, errN := json.Marshal(&node)
 	if errN != nil {
 		return nil, err
 	}
-	// return the node in a CreateNodeRes type
+
 	response := &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
 	}
+
 	err = logic.SetNetworkNodesLastModified(node.Network)
 	if err != nil {
 		return nil, err

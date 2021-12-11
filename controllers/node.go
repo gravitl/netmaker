@@ -35,20 +35,17 @@ func nodeHandlers(r *mux.Router) {
 
 }
 
-//Node authenticates using its password and retrieves a JWT for authorization.
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var params = mux.Vars(request)
 	networkname := params["network"]
-	//Auth request consists of Mac Address and Password (from node that is authorizing
-	//in case of Master, auth is ignored and mac is set to "mastermac"
+
 	var authRequest models.AuthParams
 	var result models.Node
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
 
-	//Get password fnd mac rom request
 	decoder := json.NewDecoder(request.Body)
 	decoderErr := decoder.Decode(&authRequest)
 	defer request.Body.Close()
@@ -70,7 +67,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			return
 		} else {
 
-			//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
 			collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 			if err != nil {
 				errorResponse.Code = http.StatusBadRequest
@@ -94,9 +90,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				return
 			}
 
-			//compare password from request to stored password in database
-			//might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
-			//TODO: Consider a way of hashing the password client side before sending, or using certificates
 			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
 			if err != nil {
 				errorResponse.Code = http.StatusBadRequest
@@ -104,7 +97,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				returnErrorResponse(response, request, errorResponse)
 				return
 			} else {
-				//Create a new JWT for the node
 				tokenString, _ := logic.CreateJWT(authRequest.MacAddress, result.Network)
 
 				if tokenString == "" {
@@ -122,7 +114,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 						MacAddress: authRequest.MacAddress,
 					},
 				}
-				//Send back the JWT
 				successJSONResponse, jsonError := json.Marshal(successResponse)
 
 				if jsonError != nil {
@@ -185,10 +176,6 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				return
 			}
 
-			//This checks if
-			//A: the token is the master password
-			//B: the token corresponds to a mac address, and if so, which one
-			//TODO: There's probably a better way of dealing with the "master token"/master password. Plz Help.
 			var isAuthorized = false
 			var macaddress = ""
 			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
@@ -379,10 +366,10 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var node = &models.Node{}
+	var node = models.Node{}
 
 	//get node from body of request
-	err = json.NewDecoder(r.Body).Decode(node)
+	err = json.NewDecoder(r.Body).Decode(&node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -390,14 +377,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	node.Network = networkName
 
-	network, err := logic.GetNetworkByNode(node)
+	network, err := logic.GetNetworkByNode(&node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	//Check to see if key is valid
-	//TODO: Triple inefficient!!! This is the third call to the DB we make for networks
 	validKey := logic.IsKeyValid(networkName, node.AccessKey)
 
 	if !validKey {
@@ -414,7 +399,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	node, err = logic.CreateNode(node, networkName)
+	err = logic.CreateNode(&node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -476,6 +461,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 }
 
 // == INGRESS ==
+
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -562,8 +548,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newNode)
 }
 
-//Delete a node
-//Pretty straightforward
 func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

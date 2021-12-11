@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -38,8 +37,7 @@ func initialize() { // Client Mode Prereq Check
 	var err error
 
 	if err = database.InitializeDatabase(); err != nil {
-		logger.Log(0, "Error connecting to database")
-		log.Fatal(err)
+		logger.FatalLog("Error connecting to database")
 	}
 	logger.Log(0, "database successfully connected")
 
@@ -134,16 +132,12 @@ func runGRPC(wg *sync.WaitGroup) {
 
 	defer wg.Done()
 
-	// Configure 'log' package to give file name and line number on eg. log.Fatal
-	// Pipe flags to one another (log.LstdFLags = log.Ldate | log.Ltime)
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	grpcport := servercfg.GetGRPCPort()
 
 	listener, err := net.Listen("tcp", ":"+grpcport)
 	// Handle errors if any
 	if err != nil {
-		log.Fatalf("[netmaker] Unable to listen on port "+grpcport+", error: %v", err)
+		logger.FatalLog("[netmaker] Unable to listen on port", grpcport, ": error:", err.Error())
 	}
 
 	s := grpc.NewServer(
@@ -158,7 +152,7 @@ func runGRPC(wg *sync.WaitGroup) {
 	// Start the server in a child routine
 	go func() {
 		if err := s.Serve(listener); err != nil {
-			log.Fatalf("Failed to serve: %v", err)
+			logger.FatalLog("Failed to serve:", err.Error())
 		}
 	}()
 	logger.Log(0, "Agent Server successfully started on port ", grpcport, "(gRPC)")

@@ -114,7 +114,7 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 }
 
 // CreateExtClient - creates an extclient
-func CreateExtClient(extclient models.ExtClient) error {
+func CreateExtClient(extclient *models.ExtClient) error {
 	if extclient.PrivateKey == "" {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
@@ -155,7 +155,7 @@ func CreateExtClient(extclient models.ExtClient) error {
 }
 
 // UpdateExtClient - only supports name changes right now
-func UpdateExtClient(newclientid string, network string, client models.ExtClient) (models.ExtClient, error) {
+func UpdateExtClient(newclientid string, network string, client *models.ExtClient) (*models.ExtClient, error) {
 
 	err := DeleteExtClient(network, client.ClientID)
 	if err != nil {
