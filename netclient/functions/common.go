@@ -216,6 +216,8 @@ func LeaveNetwork(network string) error {
 		_, _ = ncutils.RunCmd("route delete "+ip+" mask "+mask+" "+node.Address, true)
 	} else if ncutils.IsFreeBSD() {
 		_, _ = ncutils.RunCmd("route del -net "+node.NetworkSettings.AddressRange+" -interface "+node.Interface, true)
+	} else if ncutils.IsLinux() {
+		_, _ = ncutils.RunCmd("ip -4 route del "+node.NetworkSettings.AddressRange+" dev "+node.Interface, false)
 	}
 	return RemoveLocalInstance(cfg, network)
 }
