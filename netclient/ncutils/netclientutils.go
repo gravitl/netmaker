@@ -110,7 +110,7 @@ func GenPass() string {
 		rand.NewSource(time.Now().UnixNano()))
 
 	length := 16
-	charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	b := make([]byte, length)
 	for i := range b {

@@ -2,10 +2,8 @@ package daemon
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 
@@ -23,13 +21,7 @@ func SetupWindowsDaemon() error {
 
 	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.exe") {
 		ncutils.Log("performing first time daemon setup")
-		if !ncutils.FileExists(".\\winsw.exe") {
-			err := downloadWinsw()
-			if err != nil {
-				return err
-			}
-		}
-		err := copyWinswOver()
+		err := ncutils.GetEmbedded()
 		if err != nil {
 			return err
 		}
@@ -90,56 +82,57 @@ func RemoveWindowsDaemon() {
 	ncutils.Log("uninstalled Windows, Netclient daemon")
 }
 
-func copyWinswOver() error {
+// func copyWinswOver() error {
 
-	input, err := ioutil.ReadFile(".\\winsw.exe")
-	if err != nil {
-		ncutils.Log("failed to find winsw.exe")
-		return err
-	}
-	if err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"winsw.exe", input, 0644); err != nil {
-		ncutils.Log("failed to copy winsw.exe to " + ncutils.GetNetclientPath())
-		return err
-	}
-	if err = os.Remove(".\\winsw.exe"); err != nil {
-		ncutils.Log("failed to cleanup local winsw.exe, feel free to delete it")
-		return err
-	}
-	ncutils.Log("finished copying winsw.exe")
-	return nil
-}
+// 	input, err := ioutil.ReadFile(".\\winsw.exe")
+// 	if err != nil {
+// 		ncutils.Log("failed to find winsw.exe")
+// 		return err
+// 	}
+// 	if err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"winsw.exe", input, 0644); err != nil {
+// 		ncutils.Log("failed to copy winsw.exe to " + ncutils.GetNetclientPath())
+// 		return err
+// 	}
+// 	if err = os.Remove(".\\winsw.exe"); err != nil {
+// 		ncutils.Log("failed to cleanup local winsw.exe, feel free to delete it")
+// 		return err
+// 	}
+// 	ncutils.Log("finished copying winsw.exe")
+// 	return nil
+// }
 
-func downloadWinsw() error {
-	fullURLFile := "https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe"
-	fileName := "winsw.exe"
+// func downloadWinsw() error {
+// 	fullURLFile := "https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe"
+// 	fileName := "winsw.exe"
 
-	// Create the file
-	file, err := os.Create(fileName)
-	if err != nil {
-		ncutils.Log("could not create file on OS for Winsw")
-		return err
-	}
-	client := http.Client{
-		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			r.URL.Opaque = r.URL.Path
-			return nil
-		},
-	}
-	// Put content on file
-	ncutils.Log("downloading service tool...")
-	resp, err := client.Get(fullURLFile)
-	if err != nil {
-		ncutils.Log("could not GET Winsw")
-		return err
-	}
-	defer resp.Body.Close()
+// 	// Create the file
+// 	file, err := os.Create(fileName)
+// 	if err != nil {
+// 		ncutils.Log("could not create file on OS for Winsw")
+// 		return err
+// 	}
+// 	defer file.Close()
 
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		ncutils.Log("could not mount winsw.exe")
-		return err
-	}
-	defer file.Close()
-	ncutils.Log("finished downloading Winsw")
-	return nil
-}
+// 	client := http.Client{
+// 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+// 			r.URL.Opaque = r.URL.Path
+// 			return nil
+// 		},
+// 	}
+// 	// Put content on file
+// 	ncutils.Log("downloading service tool...")
+// 	resp, err := client.Get(fullURLFile)
+// 	if err != nil {
+// 		ncutils.Log("could not GET Winsw")
+// 		return err
+// 	}
+// 	defer resp.Body.Close()
+
+// 	_, err = io.Copy(file, resp.Body)
+// 	if err != nil {
+// 		ncutils.Log("could not mount winsw.exe")
+// 		return err
+// 	}
+// 	ncutils.Log("finished downloading Winsw")
+// 	return nil
+// }
