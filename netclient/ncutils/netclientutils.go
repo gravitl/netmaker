@@ -40,7 +40,7 @@ const LINUX_APP_DATA_PATH = "/etc/netclient"
 const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
-const WINDOWS_WG_DATA_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
+const WINDOWS_WG_DPAPI_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
 
 // WINDOWS_SVC_NAME - service name
 const WINDOWS_SVC_NAME = "netclient"
@@ -322,7 +322,7 @@ func GetNetclientPathSpecific() string {
 // GetNetclientPathSpecific - gets specific netclient config path
 func GetWGPathSpecific() string {
 	if IsWindows() {
-		return WINDOWS_WG_DATA_PATH + "\\"
+		return WINDOWS_APP_DATA_PATH + "\\"
 	} else {
 		return "/etc/wireguard/"
 	}

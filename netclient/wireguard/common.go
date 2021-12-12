@@ -202,6 +202,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			}
 		}
 		if syncconf {
+			log.Println("syncing conf")
 			err = SyncWGQuickConf(ifacename, confPath)
 		} else {
 			d, _ := wgclient.Device(deviceiface)
@@ -210,19 +211,22 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 				time.Sleep(time.Second >> 2)
 				d, _ = wgclient.Device(deviceiface)
 			}
-			err = ApplyConf(confPath)
-			if err != nil {
-				ncutils.PrintLog("failed to create wireguard interface", 1)
-				return err
-			}
-			if ncutils.IsWindows() {
+			if !ncutils.IsWindows() {
+				err = ApplyConf(confPath)
+				if err != nil {
+					ncutils.PrintLog("failed to create wireguard interface", 1)
+					return err
+				}
+			} else {
 				var output string
 				starttime := time.Now()
+				RemoveConf(ifacename, false)
+				time.Sleep(time.Second >> 2)
 				ncutils.PrintLog("waiting for interface...", 1)
 				for !strings.Contains(output, ifacename) && !(time.Now().After(starttime.Add(time.Duration(10) * time.Second))) {
 					output, _ = ncutils.RunCmd("wg", false)
-					time.Sleep(time.Second >> 1)
 					err = ApplyConf(confPath)
+					time.Sleep(time.Second)
 				}
 				if !strings.Contains(output, ifacename) {
 					return errors.New("could not create wg interface for " + ifacename)
@@ -232,7 +236,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 					log.Println(err.Error())
 					return err
 				}
-				_, _ = ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
+				ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
+				time.Sleep(time.Second >> 2)
+				ncutils.RunCmd("route change "+ip+" mask "+mask+" "+node.Address, true)
 			}
 		}
 	} else {
@@ -348,6 +354,7 @@ func RemoveConf(iface string, printlog bool) error {
 	var err error
 	switch os {
 	case "windows":
+
 		err = RemoveWindowsConf(iface, printlog)
 	default:
 		confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
