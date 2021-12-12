@@ -85,7 +85,7 @@ type AccessKey struct {
 	Name         string `json:"name" bson:"name" validate:"omitempty,max=20"`
 	Value        string `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
 	AccessString string `json:"accessstring" bson:"accessstring"`
-	Uses         int    `json:"uses" bson:"uses"`
+	Uses         int    `json:"uses" bson:"uses" validate:"numeric,min=0"`
 }
 
 // DisplayKey - what is displayed for key

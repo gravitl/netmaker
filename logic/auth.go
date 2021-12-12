@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -220,7 +221,7 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
 		return models.User{}, err
 	}
-	Log("updated user "+queryUser, 1)
+	logger.Log(1, "updated user", queryUser)
 	return user, nil
 }
 
@@ -232,7 +233,7 @@ func ValidateUser(user models.User) error {
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
-			Log(e.Error(), 2)
+			logger.Log(2, e.Error())
 		}
 	}
 
