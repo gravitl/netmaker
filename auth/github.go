@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -55,7 +56,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 
 	var content, err = getGithubUserInfo(r.URL.Query().Get("state"), r.URL.Query().Get("code"))
 	if err != nil {
-		logic.Log("error when getting user info from github: "+err.Error(), 1)
+		logger.Log(1, "error when getting user info from github:", err.Error())
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
@@ -77,11 +78,11 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 
 	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
 	if jwtErr != nil {
-		logic.Log("could not parse jwt for user "+authRequest.UserName, 1)
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
 	}
 
-	logic.Log("completed github OAuth sigin in for "+content.Login, 1)
+	logger.Log(1, "completed github OAuth sigin in for", content.Login)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Login, http.StatusPermanentRedirect)
 }
 

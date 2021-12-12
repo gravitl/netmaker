@@ -49,6 +49,7 @@ func pgCreateTable(tableName string) error {
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 	_, err = statement.Exec()
 	if err != nil {
 		return err
@@ -63,6 +64,7 @@ func pgInsert(key string, value string, tableName string) error {
 		if err != nil {
 			return err
 		}
+		defer statement.Close()
 		_, err = statement.Exec(key, value, value)
 		if err != nil {
 			return err
@@ -91,6 +93,7 @@ func pgDeleteRecord(tableName string, key string) error {
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 	if _, err = statement.Exec(key); err != nil {
 		return err
 	}
@@ -103,6 +106,7 @@ func pgDeleteAllRecords(tableName string) error {
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 	if _, err = statement.Exec(); err != nil {
 		return err
 	}

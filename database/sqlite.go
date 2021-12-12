@@ -12,7 +12,7 @@ import (
 // == sqlite ==
 const dbFilename = "netmaker.db"
 
-// SqliteDB is the db object fro sqlite database connections
+// SqliteDB is the db object for sqlite database connections
 var SqliteDB *sql.DB
 
 // SQLITE_FUNCTIONS - contains a map of the functions for sqlite
@@ -50,6 +50,7 @@ func sqliteCreateTable(tableName string) error {
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 	_, err = statement.Exec()
 	if err != nil {
 		return err
@@ -64,6 +65,7 @@ func sqliteInsert(key string, value string, tableName string) error {
 		if err != nil {
 			return err
 		}
+		defer statement.Close()
 		_, err = statement.Exec(key, value)
 		if err != nil {
 			return err
@@ -90,6 +92,7 @@ func sqliteDeleteRecord(tableName string, key string) error {
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 	if _, err = statement.Exec(); err != nil {
 		return err
 	}
@@ -102,6 +105,7 @@ func sqliteDeleteAllRecords(tableName string) error {
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 	if _, err = statement.Exec(); err != nil {
 		return err
 	}

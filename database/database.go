@@ -3,9 +3,9 @@ package database
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"time"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -89,12 +89,13 @@ func getCurrentDB() map[string]interface{} {
 	}
 }
 
+// InitializeDatabase - initializes database
 func InitializeDatabase() error {
-	log.Println("[netmaker] connecting to", servercfg.GetDB())
+	logger.Log(0, "connecting to", servercfg.GetDB())
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
 		if err := getCurrentDB()[INIT_DB].(func() error)(); err != nil {
-			log.Println("[netmaker] unable to connect to db, retrying . . .")
+			logger.Log(0, "unable to connect to db, retrying . . .")
 			if time.Now().After(tperiod) {
 				return err
 			}

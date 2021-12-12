@@ -24,6 +24,9 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// MAX_NAME_LENGTH - maximum node name length
+const MAX_NAME_LENGTH = 62
+
 // NO_DB_RECORD - error message result
 const NO_DB_RECORD = "no result found"
 
@@ -37,7 +40,7 @@ const LINUX_APP_DATA_PATH = "/etc/netclient"
 const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
-const WINDOWS_WG_DATA_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
+const WINDOWS_WG_DPAPI_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
 
 // WINDOWS_SVC_NAME - service name
 const WINDOWS_SVC_NAME = "netclient"
@@ -107,7 +110,7 @@ func GenPass() string {
 		rand.NewSource(time.Now().UnixNano()))
 
 	length := 16
-	charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	b := make([]byte, length)
 	for i := range b {
@@ -258,6 +261,7 @@ func GetFreePort(rangestart int32) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer wgclient.Close()
 	devices, err := wgclient.Devices()
 	if err != nil {
 		return 0, err
@@ -318,7 +322,7 @@ func GetNetclientPathSpecific() string {
 // GetNetclientPathSpecific - gets specific netclient config path
 func GetWGPathSpecific() string {
 	if IsWindows() {
-		return WINDOWS_WG_DATA_PATH + "\\"
+		return WINDOWS_APP_DATA_PATH + "\\"
 	} else {
 		return "/etc/wireguard/"
 	}
@@ -446,4 +450,48 @@ func DNSFormatString(input string) string {
 		return ""
 	}
 	return reg.ReplaceAllString(input, "")
+}
+
+func GetHostname() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	if len(hostname) > MAX_NAME_LENGTH {
+		hostname = hostname[0:MAX_NAME_LENGTH]
+	}
+	return hostname
+}
+
+func CheckUID() {
+	// start our application
+	out, err := RunCmd("id -u", true)
+
+	if err != nil {
+		log.Fatal(out, err)
+	}
+	id, err := strconv.Atoi(string(out[:len(out)-1]))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if id != 0 {
+		log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
+	}
+}
+
+// CheckWG - Checks if WireGuard is installed. If not, exit
+func CheckWG() {
+	var _, err = exec.LookPath("wg")
+	uspace := GetWireGuard()
+	if err != nil {
+		if uspace == "wg" {
+			PrintLog(err.Error(), 0)
+			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
+		}
+		PrintLog("Running with userspace wireguard: "+uspace, 0)
+	} else if uspace != "wg" {
+		log.Println("running userspace WireGuard with " + uspace)
+	}
 }
