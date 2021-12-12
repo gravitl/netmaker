@@ -46,7 +46,9 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: netclient/build/netclient
-          tag: ${{ env.NETMAKER_VERSION }}
+          tag: |
+              ${{ env.NETMAKER_VERSION }}
+              latest
           overwrite: true
           prerelease: true
           asset_name: netclient
@@ -56,7 +58,9 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: netclient/build/netclient-arm5/netclient
-          tag: ${{ env.NETMAKER_VERSION }}
+          tag: |
+              ${{ env.NETMAKER_VERSION }}
+              latest
           overwrite: true
           prerelease: true
           asset_name: netclient-arm5
@@ -66,7 +70,9 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: netclient/build/netclient-arm6/netclient
-          tag: ${{ env.NETMAKER_VERSION }}
+          tag: |
+              ${{ env.NETMAKER_VERSION }}
+              latest
           overwrite: true
           prerelease: true
           asset_name: netclient-arm6
@@ -76,7 +82,9 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: netclient/build/netclient-arm7/netclient
-          tag: ${{ env.NETMAKER_VERSION }}
+          tag: |
+              ${{ env.NETMAKER_VERSION }}
+              latest
           overwrite: true
           prerelease: true
           asset_name: netclient-arm7
@@ -86,7 +94,9 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: netclient/build/netclient-arm64/netclient
-          tag: ${{ env.NETMAKER_VERSION }}
+          tag: |
+              ${{ env.NETMAKER_VERSION }}
+              latest
           overwrite: true
           prerelease: true
           asset_name: netclient-arm64
@@ -96,7 +106,9 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: netclient/build/netclient-mipsle/netclient
-          tag: ${{ env.NETMAKER_VERSION }}
+          tag: |
+              ${{ env.NETMAKER_VERSION }}
+              latest
           overwrite: true
           prerelease: true
           asset_name: netclient-mipsle
