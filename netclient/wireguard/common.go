@@ -119,8 +119,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		return err
 	}
-	fwmarkint32 := modcfg.FWMark
-	fwmarkint := int(fwmarkint32)
 	nodecfg := modcfg.Node
 	servercfg := modcfg.Server
 
@@ -168,7 +166,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		conf = wgtypes.Config{
 			PrivateKey:   &key,
 			ListenPort:   &nodeport,
-			FirewallMark: &fwmarkint,
 			ReplacePeers: true,
 			Peers:        peers,
 		}
@@ -176,9 +173,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if !ncutils.IsKernel() {
 		var newConf string
 		if node.UDPHolePunch != "yes" {
-			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, fwmarkint32, node.PersistentKeepalive, peers)
+			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, node.PersistentKeepalive, peers)
 		} else {
-			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, fwmarkint32, node.PersistentKeepalive, peers)
+			newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, node.PersistentKeepalive, peers)
 		}
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
@@ -325,7 +322,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	if peerupdate && !ncutils.IsFreeBSD() {
+	if peerupdate && !ncutils.IsFreeBSD() && !(ncutils.IsLinux() && !ncutils.IsKernel()) {
 		var iface string
 		iface = nodecfg.Interface
 		if ncutils.IsMac() {

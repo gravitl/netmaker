@@ -24,7 +24,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = "v0.9.0"
+	app.Version = "v0.9.1"
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -104,6 +104,13 @@ func main() {
 			EnvVars: []string{"NETCLIENT_LOCALADDRESS"},
 			Value:   "",
 			Usage:   "Local address for machine. Can be used in place of Endpoint for machines on the same LAN.",
+		},
+		&cli.StringFlag{
+			Name:    "isstatic",
+			Aliases: []string{"st"},
+			EnvVars: []string{"NETCLIENT_IS_STATIC"},
+			Value:   "",
+			Usage:   "Indicates if client is static by default (will not change addresses automatically).",
 		},
 		&cli.StringFlag{
 			Name:    "address",
@@ -209,8 +216,8 @@ func main() {
 		&cli.StringFlag{
 			Name:    "roaming",
 			EnvVars: []string{"NETCLIENT_ROAMING"},
-			Value:   "on",
-			Usage:   "Checks for IP changes if 'on'. Ignores if 'off'. On by default.",
+			Value:   "yes",
+			Usage:   "Checks for IP changes if 'yes'. Ignores if 'no'. Yes by default.",
 		},
 	}
 

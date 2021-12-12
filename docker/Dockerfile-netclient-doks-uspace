@@ -1,5 +1,24 @@
-FROM gravitl/builder:latest as builder
+FROM debian:buster as builder
 # add glib support daemon manager
+
+RUN apt update -y && apt install -y wget bash gcc musl-dev openssl golang git build-essential libmnl-dev iptables
+
+RUN wget -O go.tgz https://dl.google.com/go/go1.17.1.linux-amd64.tar.gz
+
+RUN tar -C /usr/local -xzf go.tgz
+
+WORKDIR /usr/local/go/src
+
+RUN chmod +x make.bash
+
+RUN ./make.bash
+
+ENV PATH="/usr/local/go/bin:$PATH"
+
+ENV GOPATH=/opt/go/
+
+ENV PATH=$PATH:$GOPATH/bin
+
 WORKDIR /app
 
 COPY . .
@@ -9,8 +28,6 @@ ENV GO111MODULE=auto
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient-app netclient/main.go
 
 WORKDIR /root/
-
-RUN apk add --update git build-base libmnl-dev iptables
 
 RUN git clone https://git.zx2c4.com/wireguard-go && \
     cd wireguard-go && \
@@ -24,11 +41,12 @@ RUN git clone https://git.zx2c4.com/wireguard-tools && \
     make && \
     make install
 
-FROM alpine:3.13.6
+
+FROM debian:buster
 
 WORKDIR /root/
 
-RUN apk add --no-cache --update bash libmnl gcompat iptables openresolv iproute2
+RUN apt update -y && apt install -y bash curl wget traceroute procps dnsutils iptables openresolv iproute2
 COPY --from=builder /usr/bin/wireguard-go /usr/bin/wg* /usr/bin/
 COPY --from=builder /app/netclient-app ./netclient
 COPY --from=builder /app/scripts/netclient.sh .
