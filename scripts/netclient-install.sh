@@ -143,6 +143,9 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 	darwin)
         	dist=netclient-darwin
 	;;
+	Darwin)
+        	dist=netclient-darwin
+	;;
 	freebsd*)
 		if [ -z "$CPU_ARCH" ]; then
 			CPU_ARCH=$(uname -m)
