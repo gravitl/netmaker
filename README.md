@@ -43,7 +43,7 @@
 2. Open ports 443, 80, 53, and 51821-51830/udp on the VM firewall and in cloud security settings.
 3. Run the script **(see below for optional configurations)**:
 
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | bash`
+`wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash`
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
@@ -55,11 +55,11 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 **Deploy a "Hub-And-Spoke VPN" on the server**  
 *This will configure a standard VPN (non-meshed) for private internet access, with 10 clients (-c).*  
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | bash -s -- -v true -c 10`  
+`wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash -s -- -v true -c 10`  
 
 **Specify Domain and Email**  
 *Make sure your wildcard domain is pointing towards the server ip.*  
-`sudo wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | bash -s -- -d mynetmaker.domain.com -e example@email.com`  
+`wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash -s -- -d mynetmaker.domain.com -e example@email.com`  
 
 **Script Options**  
 ```
