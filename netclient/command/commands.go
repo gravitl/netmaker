@@ -58,6 +58,11 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Daemon != "off" {
 		err = daemon.InstallDaemon(cfg)
 	}
+	if ncutils.IsWindows() {
+		ncutils.PrintLog("setting up WireGuard app", 0)
+		time.Sleep(time.Second >> 1)
+		functions.Pull(cfg.Network, true)
+	}
 	return err
 }
 

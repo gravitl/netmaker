@@ -12,12 +12,11 @@ type serverData struct {
 
 // StorePrivKey - stores server client WireGuard privatekey if needed
 func StorePrivKey(serverID string, privateKey string) error {
-	var newData *serverData
-	newData = &serverData{}
+	var newData = serverData{}
 	var err error
 	var data []byte
 	newData.PrivateKey = privateKey
-	data, err = json.Marshal(newData)
+	data, err = json.Marshal(&newData)
 	if err != nil {
 		return err
 	}
@@ -28,8 +27,7 @@ func StorePrivKey(serverID string, privateKey string) error {
 func FetchPrivKey(serverID string) (string, error) {
 	var dbData string
 	var err error
-	var fetchedData serverData
-	fetchedData = serverData{}
+	var fetchedData = serverData{}
 	dbData, err = database.FetchRecord(database.SERVERCONF_TABLE_NAME, serverID)
 	if err != nil {
 		return "", err

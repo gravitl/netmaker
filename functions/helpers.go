@@ -2,32 +2,13 @@ package functions
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
-	"math/rand"
 	"strings"
-	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
-
-// PrintUserLog - prints a log with a given username
-func PrintUserLog(username string, message string, loglevel int) {
-	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
-	if int32(loglevel) <= servercfg.GetVerbose() && servercfg.GetVerbose() != 0 {
-		log.Println("[netmaker]", username, message)
-	}
-}
-
-// ParseNetwork - parses a network into a model
-func ParseNetwork(value string) (models.Network, error) {
-	var network models.Network
-	err := json.Unmarshal([]byte(value), &network)
-	return network, err
-}
 
 // ParseNode - parses a node into a model
 func ParseNode(value string) (models.Node, error) {
@@ -140,72 +121,6 @@ func NetworkExists(name string) (bool, error) {
 	return len(network) > 0, nil
 }
 
-// NetworkNodesUpdateAction - updates action of network nodes
-func NetworkNodesUpdateAction(networkName string, action string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
-		return err
-	}
-
-	for _, value := range collections {
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if action == models.NODE_UPDATE_KEY && node.IsStatic == "yes" {
-			continue
-		}
-		if node.Network == networkName {
-			node.Action = action
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			node.SetID()
-			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
-		}
-	}
-	return nil
-}
-
-// NetworkNodesUpdatePullChanges - tells nodes on network to pull
-func NetworkNodesUpdatePullChanges(networkName string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
-		return err
-	}
-
-	for _, value := range collections {
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			node.PullChanges = "yes"
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			node.SetID()
-			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
-}
-
 // IsNetworkDisplayNameUnique - checks if network display name unique
 func IsNetworkDisplayNameUnique(name string) (bool, error) {
 
@@ -237,28 +152,6 @@ func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
 	return true, nil
 }
 
-// GetNetworkNonServerNodeCount - get number of network non server nodes
-func GetNetworkNonServerNodeCount(networkName string) (int, error) {
-
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	count := 0
-	if err != nil && !database.IsEmptyRecord(err) {
-		return count, err
-	}
-	for _, value := range collection {
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			return count, err
-		} else {
-			if node.Network == networkName && node.IsServer != "yes" {
-				count++
-			}
-		}
-	}
-
-	return count, nil
-}
-
 // IsKeyValidGlobal - checks if a key is valid globally
 func IsKeyValidGlobal(keyvalue string) bool {
 
@@ -285,31 +178,6 @@ func IsKeyValidGlobal(keyvalue string) bool {
 		}
 	}
 	return isvalid
-}
-
-//TODO: Contains a fatal error return. Need to change
-//This just gets a network object from a network name
-//Should probably just be GetNetwork. kind of a dumb name.
-//Used in contexts where it's not the Parent network.
-
-//Similar to above but checks if Cidr range is valid
-//At least this guy's got some print statements
-//still not good error handling
-
-//This  checks to  make sure a network name is valid.
-//Switch to REGEX?
-
-// NameInNetworkCharSet - see if name is in charset for networks
-func NameInNetworkCharSet(name string) bool {
-
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
-
-	for _, char := range name {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
-			return false
-		}
-	}
-	return true
 }
 
 // NameInDNSCharSet - name in dns char set
@@ -394,43 +262,6 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 	}
 
 	return extclients, nil
-}
-
-// GenKey - generates access key
-func GenKey() string {
-
-	var seededRand *rand.Rand = rand.New(
-		rand.NewSource(time.Now().UnixNano()))
-
-	length := 16
-	charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
-//generate a key value
-//we should probably just have 1 random string generator
-//that  can be used across all functions
-//have a "base string" a "length" and a "charset"
-
-// GenKeyName - generates a key name
-func GenKeyName() string {
-
-	var seededRand *rand.Rand = rand.New(
-		rand.NewSource(time.Now().UnixNano()))
-
-	length := 5
-	charset := "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return "key" + string(b)
 }
 
 // DeleteKey - deletes a key

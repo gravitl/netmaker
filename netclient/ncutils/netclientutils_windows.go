@@ -1,6 +1,7 @@
 package ncutils
 
 import (
+	"embed"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,9 @@ import (
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+//go:embed windowsdaemon/winsw.exe
+var winswContent embed.FS
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {
@@ -71,4 +75,19 @@ MTU = %s
 		listenPortString,
 		peersString)
 	return config, nil
+}
+
+// GetEmbedded - Gets the Windows daemon creator
+func GetEmbedded() error {
+	data, err := winswContent.ReadFile("windowsdaemon/winsw.exe")
+	if err != nil {
+		return err
+	}
+	fileName := fmt.Sprintf("%swinsw.exe", GetNetclientPathSpecific())
+	err = os.WriteFile(fileName, data, 0700)
+	if err != nil {
+		Log("could not mount winsw.exe")
+		return err
+	}
+	return nil
 }

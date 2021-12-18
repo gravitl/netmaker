@@ -16,7 +16,7 @@ spec:
       hostNetwork: true
       containers:
       - name: netclient-1
-        image: gravitl/netclient:0.9.1-doks
+        image: gravitl/netclient:0.9.2-doks
         env:
         - name: NETCLIENT_ROAMING
           value: "no"
@@ -64,7 +64,7 @@ spec:
     spec:
       hostNetwork: true
       containers:
-      - image: gravitl/netclient:0.9.1-doks
+      - image: gravitl/netclient:0.9.2-doks
         imagePullPolicy: IfNotPresent
         name: wg-installer
         command: ['bash', '-c']

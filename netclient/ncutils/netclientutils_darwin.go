@@ -23,8 +23,14 @@ func RunCmd(command string, printerr bool) (string, error) {
 	return string(out), err
 }
 
+// RunCmdFormatted - run a command formatted for MacOS
 func RunCmdFormatted(command string, printerr bool) (string, error) {
 	return "", nil
+}
+
+// GetEmbedded - if files required for MacOS, put here
+func GetEmbedded() error {
+	return nil
 }
 
 // CreateUserSpaceConf - creates a user space WireGuard conf

@@ -2,17 +2,29 @@ package controller
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+var HttpHandlers = []interface{}{
+	nodeHandlers,
+	userHandlers,
+	networkHandlers,
+	dnsHandlers,
+	fileHandlers,
+	serverHandlers,
+	extClientHandlers,
+	loggerHandlers,
+}
 
 // HandleRESTRequests - handles the rest requests
 func HandleRESTRequests(wg *sync.WaitGroup) {
@@ -26,13 +38,9 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	originsOk := handlers.AllowedOrigins([]string{servercfg.GetAllowedOrigin()})
 	methodsOk := handlers.AllowedMethods([]string{"GET", "PUT", "POST", "DELETE"})
 
-	nodeHandlers(r)
-	userHandlers(r)
-	networkHandlers(r)
-	dnsHandlers(r)
-	fileHandlers(r)
-	serverHandlers(r)
-	extClientHandlers(r)
+	for _, handler := range HttpHandlers {
+		handler.(func(*mux.Router))(r)
+	}
 
 	port := servercfg.GetAPIPort()
 
@@ -40,10 +48,10 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {
-			log.Println(err)
+			logger.Log(0, err.Error())
 		}
 	}()
-	logic.Log("REST Server successfully started on port "+port+" (REST)", 0)
+	logger.Log(0, "REST Server successfully started on port ", port, " (REST)")
 	c := make(chan os.Signal)
 
 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
@@ -55,7 +63,9 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	<-c
 
 	// After receiving CTRL+C Properly stop the server
-	logic.Log("Stopping the REST server...", 0)
+	logger.Log(0, "Stopping the REST server...")
 	srv.Shutdown(context.TODO())
-	logic.Log("REST Server closed.", 0)
+	logger.Log(0, "REST Server closed.")
+	logger.DumpFile(fmt.Sprintf("data/netmaker.log.%s", time.Now().Format(logger.TimeFormatDay)))
+
 }

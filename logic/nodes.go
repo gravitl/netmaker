@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/validation"
 )
@@ -62,10 +63,32 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 	return nodes, nil
 }
 
+// UncordonNode - approves a node to join a network
+func UncordonNode(network, macaddress string) (models.Node, error) {
+	node, err := GetNodeByMacAddress(network, macaddress)
+	if err != nil {
+		return models.Node{}, err
+	}
+	node.SetLastModified()
+	node.IsPending = "no"
+	node.PullChanges = "yes"
+	data, err := json.Marshal(&node)
+	if err != nil {
+		return node, err
+	}
+	key, err := GetRecordKey(node.MacAddress, node.Network)
+	if err != nil {
+		return node, err
+	}
+
+	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	return node, err
+}
+
 // GetPeers - gets the peers of a given node
-func GetPeers(node models.Node) ([]models.Node, error) {
-	if node.IsServer == "yes" && IsLeader(&node) {
-		SetNetworkServerPeers(&node)
+func GetPeers(node *models.Node) ([]models.Node, error) {
+	if IsLeader(node) {
+		SetNetworkServerPeers(node)
 	}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
@@ -83,7 +106,7 @@ func GetPeers(node models.Node) ([]models.Node, error) {
 func IsLeader(node *models.Node) bool {
 	nodes, err := GetSortedNetworkServerNodes(node.Network)
 	if err != nil {
-		Log("ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.", 0)
+		logger.Log(0, "ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.")
 		return false
 	}
 	for _, n := range nodes {
@@ -114,11 +137,13 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	return fmt.Errorf("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
 }
 
+// IsNodeIDUnique - checks if node id is unique
 func IsNodeIDUnique(node *models.Node) (bool, error) {
 	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
 	return database.IsEmptyRecord(err), err
 }
 
+// ValidateNode - validates node values
 func ValidateNode(node *models.Node, isUpdate bool) error {
 	v := validator.New()
 	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
@@ -189,7 +214,7 @@ func CheckIsServer(node *models.Node) bool {
 // GetNetworkByNode - gets the network model from a node
 func GetNetworkByNode(node *models.Node) (models.Network, error) {
 
-	var network models.Network
+	var network = models.Network{}
 	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
 	if err != nil {
 		return network, err
@@ -332,13 +357,13 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 		if database.IsEmptyRecord(err) {
 			return relay, nil
 		}
-		Log(err.Error(), 2)
+		logger.Log(2, err.Error())
 		return relay, err
 	}
 	for _, value := range collection {
 		err := json.Unmarshal([]byte(value), &relay)
 		if err != nil {
-			Log(err.Error(), 2)
+			logger.Log(2, err.Error())
 			continue
 		}
 		if relay.IsRelay == "yes" {

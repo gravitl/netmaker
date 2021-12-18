@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -55,7 +56,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	var content, err = getGoogleUserInfo(r.FormValue("state"), r.FormValue("code"))
 	if err != nil {
-		logic.Log("error when getting user info from google: "+err.Error(), 1)
+		logger.Log(1, "error when getting user info from google:", err.Error())
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
@@ -77,11 +78,11 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
 	if jwtErr != nil {
-		logic.Log("could not parse jwt for user "+authRequest.UserName, 1)
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
 	}
 
-	logic.Log("completed google OAuth sigin in for "+content.Email, 1)
+	logger.Log(1, "completed google OAuth sigin in for", content.Email)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }
 

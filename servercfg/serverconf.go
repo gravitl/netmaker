@@ -36,7 +36,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
-	cfg.Verbosity = GetVerbose()
 	cfg.NodeID = GetNodeID()
 	cfg.CheckinInterval = GetCheckinInterval()
 	cfg.ServerCheckinInterval = GetServerCheckinInterval()
@@ -109,7 +108,7 @@ func GetAPIConnString() string {
 
 // GetVersion - version of netmaker
 func GetVersion() string {
-	version := "0.9.1"
+	version := "0.9.2"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
@@ -422,21 +421,9 @@ func GetPublicIP() (string, error) {
 		}
 	}
 	if err == nil && endpoint == "" {
-		err = errors.New("Public Address Not Found.")
+		err = errors.New("public address not found")
 	}
 	return endpoint, err
-}
-
-// GetVerbose - get the verbosity of server
-func GetVerbose() int32 {
-	level, err := strconv.Atoi(os.Getenv("VERBOSITY"))
-	if err != nil || level < 0 {
-		level = 0
-	}
-	if level > 3 {
-		level = 3
-	}
-	return int32(level)
 }
 
 // GetPlatform - get the system type of server
