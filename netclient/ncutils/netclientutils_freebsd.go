@@ -12,8 +12,14 @@ import (
 	"time"
 )
 
+// RunCmdFormatted - run a command formatted for freebsd
 func RunCmdFormatted(command string, printerr bool) (string, error) {
 	return "", nil
+}
+
+// GetEmbedded - if files required for freebsd, put here
+func GetEmbedded() error {
+	return nil
 }
 
 // Runs Commands for FreeBSD

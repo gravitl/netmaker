@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -53,7 +54,7 @@ func InitializeAuthProvider() string {
 	}
 	var _, err = fetchPassValue(logic.RandomString(64))
 	if err != nil {
-		logic.Log(err.Error(), 0)
+		logger.Log(0, err.Error())
 		return ""
 	}
 	var currentFrontendURL = servercfg.GetFrontendURL()
@@ -64,10 +65,10 @@ func InitializeAuthProvider() string {
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
 		serverConn = "http://" + serverConn
-		logic.Log("localhost OAuth detected, proceeding with insecure http redirect: "+serverConn+")", 1)
+		logger.Log(1, "localhost OAuth detected, proceeding with insecure http redirect: (", serverConn, ")")
 	} else {
 		serverConn = "https://" + serverConn
-		logic.Log("external OAuth detected, proceeding with https redirect: ("+serverConn+")", 1)
+		logger.Log(1, "external OAuth detected, proceeding with https redirect: ("+serverConn+")")
 	}
 
 	functions[init_provider].(func(string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2])
@@ -122,7 +123,7 @@ func IsOauthUser(user *models.User) error {
 func addUser(email string) error {
 	var hasAdmin, err = logic.HasAdmin()
 	if err != nil {
-		logic.Log("error checking for existence of admin user during OAuth login for "+email+", user not added", 1)
+		logger.Log(1, "error checking for existence of admin user during OAuth login for", email, "; user not added")
 		return err
 	} // generate random password to adapt to current model
 	var newPass, fetchErr = fetchPassValue("")
@@ -135,17 +136,17 @@ func addUser(email string) error {
 	}
 	if !hasAdmin { // must be first attempt, create an admin
 		if newUser, err = logic.CreateAdmin(newUser); err != nil {
-			logic.Log("error creating admin from user, "+email+", user not added", 1)
+			logger.Log(1, "error creating admin from user,", email, "; user not added")
 		} else {
-			logic.Log("admin created from user, "+email+", was first user added", 0)
+			logger.Log(1, "admin created from user,", email, "; was first user added")
 		}
 	} else { // otherwise add to db as admin..?
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
 		if newUser, err = logic.CreateUser(newUser); err != nil {
-			logic.Log("error creating user, "+email+", user not added", 1)
+			logger.Log(1, "error creating user,", email, "; user not added")
 		} else {
-			logic.Log("user created from, "+email+"", 0)
+			logger.Log(0, "user created from ", email)
 		}
 	}
 	return nil
@@ -176,7 +177,7 @@ func fetchPassValue(newValue string) (string, error) {
 
 	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
 	if b64Err != nil {
-		logic.Log("could not decode pass", 0)
+		logger.Log(0, "could not decode pass")
 		return "", nil
 	}
 	return string(b64CurrentValue), nil

@@ -16,7 +16,7 @@ spec:
       hostNetwork: true
       containers:
       - name: netclient-1
-        image: gravitl/netclient:0.9.1-doks-uspace
+        image: gravitl/netclient:0.9.2-doks-uspace
         env:
         - name: NETCLIENT_ROAMING
           value: "no"
