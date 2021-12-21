@@ -34,15 +34,15 @@ func ParseIntClient(value string) (models.IntClient, error) {
 //Takes in an arbitrary field and value for field and checks to see if any other
 //node has that value for the same field within the network
 
-// SliceContains - sees if a slice contains something
-func SliceContains(slice []string, item string) bool {
-	set := make(map[string]struct{}, len(slice))
+// StringSliceContains - sees if a string slice contains a string element
+func StringSliceContains(slice []string, item string) bool {
 	for _, s := range slice {
-		set[s] = struct{}{}
+		if s == item {
+			return true
+		}
 	}
 
-	_, ok := set[item]
-	return ok
+	return false
 }
 
 // GetPeersList - gets peers for given network
