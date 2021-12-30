@@ -8,8 +8,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
-	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -244,22 +242,7 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 
 // DeleteInterface - delete an interface of a network
 func DeleteInterface(ifacename string, postdown string) error {
-	var err error
-	if !ncutils.IsKernel() {
-		err = wireguard.RemoveConf(ifacename, true)
-	} else {
-		ipExec, errN := exec.LookPath("ip")
-		err = errN
-		if err != nil {
-			ncutils.PrintLog(err.Error(), 1)
-		}
-		_, err = ncutils.RunCmd(ipExec+" link del "+ifacename, false)
-		if postdown != "" {
-			runcmds := strings.Split(postdown, "; ")
-			err = ncutils.RunCmds(runcmds, true)
-		}
-	}
-	return err
+	return wireguard.RemoveConf(ifacename, true)
 }
 
 // WipeLocal - wipes local instance
@@ -271,27 +254,11 @@ func WipeLocal(network string) error {
 	nodecfg := cfg.Node
 	ifacename := nodecfg.Interface
 	if ifacename != "" {
-		if !ncutils.IsKernel() {
-			if err = wireguard.RemoveConf(ifacename, true); err == nil {
-				ncutils.PrintLog("removed WireGuard interface: "+ifacename, 1)
-			}
-		} else {
-			ipExec, err := exec.LookPath("ip")
-			if err != nil {
-				return err
-			}
-			out, err := ncutils.RunCmd(ipExec+" link del "+ifacename, false)
-			dontprint := strings.Contains(out, "does not exist") || strings.Contains(out, "Cannot find device")
-			if err != nil && !dontprint {
-				ncutils.PrintLog("error running command: "+ipExec+" link del "+ifacename, 1)
-				ncutils.PrintLog(out, 1)
-			}
-			if nodecfg.PostDown != "" {
-				runcmds := strings.Split(nodecfg.PostDown, "; ")
-				_ = ncutils.RunCmds(runcmds, false)
-			}
+		if err = wireguard.RemoveConf(ifacename, true); err == nil {
+			ncutils.PrintLog("removed WireGuard interface: "+ifacename, 1)
 		}
 	}
+
 	home := ncutils.GetNetclientPathSpecific()
 	if ncutils.FileExists(home + "netconfig-" + network) {
 		_ = os.Remove(home + "netconfig-" + network)
