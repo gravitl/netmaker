@@ -34,7 +34,7 @@ func GetEmbedded() error {
 }
 
 // CreateUserSpaceConf - creates a user space WireGuard conf
-func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
+func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, dns string, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	peersString, err := parsePeers(perskeepalive, peers)
 	var listenPortString string
 	if mtu <= 0 {
@@ -48,6 +48,7 @@ func CreateUserSpaceConf(address string, privatekey string, listenPort string, m
 	}
 	config := fmt.Sprintf(`[Interface]
 Address = %s
+DNS = %s
 PrivateKey = %s
 MTU = %s
 %s
@@ -56,6 +57,7 @@ MTU = %s
 
 `,
 		address+"/32",
+		dns,
 		privatekey,
 		strconv.Itoa(int(mtu)),
 		listenPortString,
