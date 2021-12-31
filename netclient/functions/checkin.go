@@ -156,7 +156,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	}
 
 	node := cfg.Node
-	servercfg := cfg.Server
+	//servercfg := cfg.Server
 
 	if cfg.Node.IPForwarding == "yes" && !ncutils.IsWindows() {
 		if err = local.SetIPForwarding(); err != nil {
@@ -241,9 +241,9 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			}
 		}
 	}
-	if ncutils.IsLinux() {
-		setDNS(&resNode, servercfg, &cfg.Node)
-	}
+	//if ncutils.IsLinux() {
+	//	setDNS(&resNode, servercfg, &cfg.Node)
+	//}
 	var bkupErr = config.SaveBackup(network)
 	if bkupErr != nil {
 		ncutils.Log("unable to update backup file")

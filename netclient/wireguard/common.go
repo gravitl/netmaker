@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -135,8 +136,14 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Address == "" {
 		log.Fatal("no address to configure")
 	}
-
 	var nameserver string
+	if ncutils.IsLinux() {
+		if _, err := exec.LookPath("resolvconf"); err != nil {
+			ncutils.PrintLog("resolvconf not present", 2)
+			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
+			node.DNSOn = "no"
+		}
+	}
 	if node.DNSOn == "yes" {
 		nameserver = servercfg.CoreDNSAddr
 	}
