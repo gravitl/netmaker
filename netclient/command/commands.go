@@ -99,6 +99,8 @@ func RunUserspaceDaemon() {
 }
 
 func CheckIn(cfg config.ClientConfig) error {
+	log.Println("checkin --- diabled for now")
+	return nil
 	var err error
 	var errN error
 	if cfg.Network == "" {

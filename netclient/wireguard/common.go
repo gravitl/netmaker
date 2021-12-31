@@ -136,7 +136,10 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		log.Fatal("no address to configure")
 	}
 
-	nameserver := servercfg.CoreDNSAddr
+	var nameserver string
+	if node.DNSOn == "yes" {
+		nameserver = servercfg.CoreDNSAddr
+	}
 	var newConf string
 	if node.UDPHolePunch != "yes" {
 		newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, nameserver, node.PersistentKeepalive, peers)

@@ -35,6 +35,7 @@ func GetEmbedded() error {
 
 // CreateUserSpaceConf - creates a user space WireGuard conf
 func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, dns string, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
+	log.Println("---------- dns passed to create conf ", dns)
 	peersString, err := parsePeers(perskeepalive, peers)
 	var listenPortString string
 	if mtu <= 0 {
