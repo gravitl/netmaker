@@ -68,9 +68,20 @@ services:
       # - $PWD/site:/srv # you could also serve a static site in site folder
       - caddy_data:/data
       - caddy_conf:/config
+  mosquitto:
+    image: eclipse-mosquitto:2.0.14
+    container_name: broker
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/var/lib/mosquitto
+      - mosquitto_logs:/var/log/mosquitto/mosquitto.log
 volumes:
   caddy_data: {}
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
+  mosquitto_data: {}
+  mosquitto_logs: {}
 
