@@ -135,6 +135,10 @@ wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/ma
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
+echo "setting mosquitto.conf..."
+
+wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravil/netmaker/master/docker/mosquitto.conf
+sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/mosquitto.conf
 
 echo "setting docker-compose..."
 
