@@ -215,3 +215,8 @@ func Daemon() error {
 	err := functions.Daemon()
 	return err
 }
+
+func Daemon() error {
+	err := functions.Daemon()
+	return err
+}
