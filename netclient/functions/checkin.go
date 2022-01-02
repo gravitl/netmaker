@@ -82,14 +82,15 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 	return ipchange && err == nil
 }
 
-func setDNS(node *models.Node, servercfg config.ServerConfig, nodecfg *models.Node) {
-	if nodecfg.DNSOn == "yes" {
-		ifacename := node.Interface
-		nameserver := servercfg.CoreDNSAddr
-		network := node.Network
-		local.UpdateDNS(ifacename, network, nameserver)
-	}
-}
+// DEPRECATED
+// func setDNS(node *models.Node, servercfg config.ServerConfig, nodecfg *models.Node) {
+// 	if nodecfg.DNSOn == "yes" {
+// 		ifacename := node.Interface
+// 		nameserver := servercfg.CoreDNSAddr
+// 		network := node.Network
+// 		local.UpdateDNS(ifacename, network, nameserver)
+// 	}
+// }
 
 func checkNodeActions(node *models.Node, networkName string, servercfg config.ServerConfig, localNode *models.Node, cfg *config.ClientConfig) string {
 	if (node.Action == models.NODE_UPDATE_KEY || localNode.Action == models.NODE_UPDATE_KEY) &&
