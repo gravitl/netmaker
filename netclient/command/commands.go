@@ -209,3 +209,8 @@ func Uninstall() error {
 	err := functions.Uninstall()
 	return err
 }
+
+func Daemon() error {
+	err := functions.Daemon()
+	return err
+}
