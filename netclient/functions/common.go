@@ -1,8 +1,6 @@
 package functions
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -19,10 +17,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-)
-
-var (
-	wcclient nodepb.NodeServiceClient
 )
 
 // ListPorts - lists ports of WireGuard devices
@@ -101,30 +95,31 @@ func getPrivateAddrBackup() (string, error) {
 		}
 	}
 	if !found {
-		err := errors.New("Local Address Not Found.")
+		err := errors.New("local ip address not found")
 		return "", err
 	}
 	return local, err
 }
 
-func needInterfaceUpdate(ctx context.Context, mac string, network string, iface string) (bool, string, error) {
-	var header metadata.MD
-	req := &nodepb.Object{
-		Data: mac + "###" + network,
-		Type: nodepb.STRING_TYPE,
-	}
-	readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
-	if err != nil {
-		return false, "", err
-	}
-	var resNode models.Node
-	if err := json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
-		return false, iface, err
-	}
-	oldiface := resNode.Interface
+// DEPRECATED
+// func needInterfaceUpdate(ctx context.Context, mac string, network string, iface string) (bool, string, error) {
+// 	var header metadata.MD
+// 	req := &nodepb.Object{
+// 		Data: mac + "###" + network,
+// 		Type: nodepb.STRING_TYPE,
+// 	}
+// 	readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
+// 	if err != nil {
+// 		return false, "", err
+// 	}
+// 	var resNode models.Node
+// 	if err := json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
+// 		return false, iface, err
+// 	}
+// 	oldiface := resNode.Interface
 
-	return iface != oldiface, oldiface, err
-}
+// 	return iface != oldiface, oldiface, err
+// }
 
 // GetNode - gets node locally
 func GetNode(network string) models.Node {

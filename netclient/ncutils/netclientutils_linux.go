@@ -2,7 +2,6 @@ package ncutils
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -17,8 +16,8 @@ func RunCmd(command string, printerr bool) (string, error) {
 	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
-		log.Println("error running command:", command)
-		log.Println(strings.TrimSuffix(string(out), "\n"))
+		Log(fmt.Sprintf("error running command: %s", command))
+		Log(strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
 }
@@ -33,9 +32,8 @@ func GetEmbedded() error {
 	return nil
 }
 
-// CreateUserSpaceConf - creates a user space WireGuard conf
-func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, dns string, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
-	log.Println("---------- dns passed to create conf ", dns)
+// CreateWireGuardConf - creates a user space WireGuard conf
+func CreateWireGuardConf(address string, privatekey string, listenPort string, mtu int32, dns string, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	peersString, err := parsePeers(perskeepalive, peers)
 	var listenPortString string
 	if mtu <= 0 {

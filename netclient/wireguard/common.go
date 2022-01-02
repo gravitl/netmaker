@@ -149,9 +149,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	var newConf string
 	if node.UDPHolePunch != "yes" {
-		newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, nameserver, node.PersistentKeepalive, peers)
+		newConf, _ = ncutils.CreateWireGuardConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, nameserver, node.PersistentKeepalive, peers)
 	} else {
-		newConf, _ = ncutils.CreateUserSpaceConf(node.Address, key.String(), "", node.MTU, nameserver, node.PersistentKeepalive, peers)
+		newConf, _ = ncutils.CreateWireGuardConf(node.Address, key.String(), "", node.MTU, nameserver, node.PersistentKeepalive, peers)
 	}
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
@@ -178,7 +178,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	if syncconf {
-		log.Println("syncing conf")
 		err = SyncWGQuickConf(ifacename, confPath)
 	} else {
 		d, _ := wgclient.Device(deviceiface)
