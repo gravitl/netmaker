@@ -50,7 +50,7 @@ elif [ -f /etc/fedora-release ]; then
 	dnf update
 fi
 
-dependencies=("docker.io" "docker-compose" "wireguard" "jq")
+dependencies=("docker.io" "docker-compose" "wireguard" "jq" "resolvconf")
 
 
 

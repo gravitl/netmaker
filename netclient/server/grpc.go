@@ -50,6 +50,9 @@ func CheckIn(network string) (*models.Node, error) {
 		// == run client action ==
 		var header metadata.MD
 		ctx, err := auth.SetJWT(wcclient, network)
+		if err != nil {
+			return nil, err
+		}
 		nodeData, err := json.Marshal(&node)
 		if err != nil {
 			return nil, err
@@ -123,7 +126,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 	}
 
 	keepalive := nodecfg.PersistentKeepalive
-	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
+	keepalivedur, _ := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
 	keepaliveserver, err := time.ParseDuration(strconv.FormatInt(int64(5), 10) + "s")
 	if err != nil {
 		log.Fatalf("Issue with format of keepalive value. Please update netconfig: %v", err)
