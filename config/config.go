@@ -68,6 +68,7 @@ type ServerConfig struct {
 	ClientSecret          string `yaml:"clientsecret"`
 	FrontendURL           string `yaml:"frontendurl"`
 	DisplayKeys           string `yaml:"displaykeys"`
+	AzureTenant           string `yaml:"azuretenant"`
 }
 
 // Generic SQL Config
