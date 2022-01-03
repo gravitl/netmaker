@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -36,7 +35,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"User.Read"},
-		Endpoint:     microsoft.AzureADEndpoint(os.Getenv("AZURE_TENANT")),
+		Endpoint:     microsoft.AzureADEndpoint(servercfg.GetAzureTenant()),
 	}
 }
 
