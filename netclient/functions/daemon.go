@@ -16,11 +16,12 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
-//Daemon runs netclient daemon from command line
+// Daemon runs netclient daemon from command line
 func Daemon() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	networks, err := ncutils.GetSystemNetworks()
 	if err != nil {
+		cancel()
 		return err
 	}
 	for _, network := range networks {
@@ -34,7 +35,7 @@ func Daemon() error {
 	return nil
 }
 
-//SetupMQTT creates a connection to broker and return client
+// SetupMQTT creates a connection to broker and return client
 func SetupMQTT(cfg config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	ncutils.Log("setting broker to " + cfg.Server.CoreDNSAddr + ":1883")
@@ -47,7 +48,7 @@ func SetupMQTT(cfg config.ClientConfig) mqtt.Client {
 	return client
 }
 
-//Netclient sets up Message Queue and subsribes/publishes updates to/from server
+// Netclient sets up Message Queue and subsribes/publishes updates to/from server
 func Netclient(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
@@ -55,7 +56,7 @@ func Netclient(ctx context.Context, network string) {
 	cfg.ReadConfig()
 	//fix NodeID to remove ### so NodeID can be used as message topic
 	//remove with GRA-73
-	cfg.Node.ID = strings.ReplaceAll(cfg.Node.ID, "###", "-")
+	cfg.Node.ID = strings.Replace(cfg.Node.ID, "###", "-", 1)
 	ncutils.Log("daemon started for network:" + network)
 	client := SetupMQTT(cfg)
 	if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
@@ -69,32 +70,30 @@ func Netclient(ctx context.Context, network string) {
 	go Metrics(ctx, cfg, network)
 	<-ctx.Done()
 	ncutils.Log("shutting down daemon")
-	return
-	ncutils.Log("netclient go routine ended for " + network)
 }
 
-//All -- mqtt message hander for all ('#') topics
+// All -- mqtt message hander for all ('#') topics
 var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("Topic: " + string(msg.Topic()))
 	ncutils.Log("Message: " + string(msg.Payload()))
 }
 
-//NodeUpdate -- mqtt message handler for /update/<NodeID> topic
+// NodeUpdate -- mqtt message handler for /update/<NodeID> topic
 var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("received message to update node " + string(msg.Payload()))
 }
 
-//UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
+// UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
 var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("received message to update peers " + string(msg.Payload()))
 }
 
-//UpdateKeys -- mqtt message handler for /update/keys/<NodeID> topic
+// UpdateKeys -- mqtt message handler for /update/keys/<NodeID> topic
 var UpdateKeys mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("received message to update keys " + string(msg.Payload()))
 }
 
-//Checkin  -- go routine that checks for public or local ip changes, publishes changes
+// Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
 func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 	for {
@@ -138,7 +137,7 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 	}
 }
 
-//UpdateEndpoint -- publishes an endpoint update to broker
+// UpdateEndpoint -- publishes an endpoint update to broker
 func UpdateEndpoint(cfg config.ClientConfig, network, ip string) {
 	ncutils.Log("Updating endpoint")
 	client := SetupMQTT(cfg)
@@ -148,7 +147,7 @@ func UpdateEndpoint(cfg config.ClientConfig, network, ip string) {
 	client.Disconnect(250)
 }
 
-//UpdateLocalAddress -- publishes a local address update to broker
+// UpdateLocalAddress -- publishes a local address update to broker
 func UpdateLocalAddress(cfg config.ClientConfig, network, ip string) {
 	ncutils.Log("Updating local address")
 	client := SetupMQTT(cfg)
@@ -158,7 +157,7 @@ func UpdateLocalAddress(cfg config.ClientConfig, network, ip string) {
 	client.Disconnect(250)
 }
 
-//Hello -- ping the broker to let server know node is alive and doing fine
+// Hello -- ping the broker to let server know node is alive and doing fine
 func Hello(cfg config.ClientConfig, network string) {
 	client := SetupMQTT(cfg)
 	if token := client.Publish("ping/"+cfg.Node.ID, 0, false, "hello world!"); token.Wait() && token.Error() != nil {
@@ -167,7 +166,7 @@ func Hello(cfg config.ClientConfig, network string) {
 	client.Disconnect(250)
 }
 
-//Metics --  go routine that collects wireguard metrics and publishes to broker
+// Metics --  go routine that collects wireguard metrics and publishes to broker
 func Metrics(ctx context.Context, cfg config.ClientConfig, network string) {
 	for {
 		select {
