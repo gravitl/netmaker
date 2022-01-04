@@ -502,6 +502,17 @@ func GetAuthProviderInfo() []string {
 	return []string{"", "", ""}
 }
 
+// GetAzureTenant - retrieve the azure tenant ID from env variable or config file
+func GetAzureTenant() string {
+	var azureTenant = ""
+	if os.Getenv("AZURE_TENANT") != "" {
+		azureTenant = os.Getenv("AZURE_TENANT")
+	} else if config.Config.Server.AzureTenant != "" {
+		azureTenant = config.Config.Server.AzureTenant
+	}
+	return azureTenant
+}
+
 // GetMacAddr - get's mac address
 func getMacAddr() string {
 	ifas, err := net.Interfaces()

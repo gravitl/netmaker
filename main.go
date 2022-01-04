@@ -43,7 +43,7 @@ func initialize() { // Client Mode Prereq Check
 
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {
-		logger.Log(0, "OAuth provider, ", authProvider, ", initialized")
+		logger.Log(0, "OAuth provider,", authProvider+",", "initialized")
 	} else {
 		logger.Log(0, "no OAuth provider found or not configured, continuing without OAuth")
 	}

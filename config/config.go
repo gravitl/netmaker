@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//setting dev by default
+// setting dev by default
 func getEnv() string {
 
 	env := os.Getenv("NETMAKER_ENV")
@@ -27,13 +27,13 @@ func getEnv() string {
 // Config : application config stored as global variable
 var Config *EnvironmentConfig
 
-// EnvironmentConfig :
+// EnvironmentConfig - environment conf struct
 type EnvironmentConfig struct {
 	Server ServerConfig `yaml:"server"`
 	SQL    SQLConfig    `yaml:"sql"`
 }
 
-// ServerConfig :
+// ServerConfig - server conf struct
 type ServerConfig struct {
 	CoreDNSAddr           string `yaml:"corednsaddr"`
 	APIConnString         string `yaml:"apiconn"`
@@ -58,8 +58,8 @@ type ServerConfig struct {
 	Version               string `yaml:"version"`
 	SQLConn               string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
-	Database              string `yaml:database`
-	CheckinInterval       string `yaml:checkininterval`
+	Database              string `yaml:"database"`
+	CheckinInterval       string `yaml:"checkininterval"`
 	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
 	Verbosity             int32  `yaml:"verbosity"`
 	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
@@ -68,9 +68,10 @@ type ServerConfig struct {
 	ClientSecret          string `yaml:"clientsecret"`
 	FrontendURL           string `yaml:"frontendurl"`
 	DisplayKeys           string `yaml:"displaykeys"`
+	AzureTenant           string `yaml:"azuretenant"`
 }
 
-// Generic SQL Config
+// SQLConfig - Generic SQL Config
 type SQLConfig struct {
 	Host     string `yaml:"host"`
 	Port     int32  `yaml:"port"`
@@ -80,7 +81,7 @@ type SQLConfig struct {
 	SSLMode  string `yaml:"sslmode"`
 }
 
-//reading in the env file
+// reading in the env file
 func readConfig() *EnvironmentConfig {
 	file := fmt.Sprintf("config/environments/%s.yaml", getEnv())
 	f, err := os.Open(file)

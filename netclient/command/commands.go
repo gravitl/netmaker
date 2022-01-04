@@ -205,8 +205,9 @@ func List(cfg config.ClientConfig) error {
 
 // Uninstall - runs uninstall command from cli
 func Uninstall() error {
-	ncutils.PrintLog("uninstalling netclient", 0)
+	ncutils.PrintLog("uninstalling netclient...", 0)
 	err := functions.Uninstall()
+	ncutils.PrintLog("uninstalled netclient", 0)
 	return err
 }
 
