@@ -252,7 +252,7 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
 				if err == nil {
 					for _, egress := range egressNetworkNodes {
-						if egress.Address != peerNode.Address {
+						if egress.Address != relayedNodeAddr {
 							peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
 						}
 					}
