@@ -1,6 +1,7 @@
 package wireguard
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -86,7 +87,7 @@ func SyncWGQuickConf(iface string, confPath string) error {
 
 // RemoveWGQuickConf - calls wg-quick down
 func RemoveWGQuickConf(confPath string, printlog bool) error {
-	_, err := ncutils.RunCmd("wg-quick down "+confPath, printlog)
+	_, err := ncutils.RunCmd(fmt.Sprintf("wg-quick down %s", confPath), printlog)
 	return err
 }
 

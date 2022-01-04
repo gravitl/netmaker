@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -33,15 +34,23 @@ func GetEmbedded() error {
 }
 
 // CreateWireGuardConf - creates a user space WireGuard conf
-func CreateWireGuardConf(address string, privatekey string, listenPort string, mtu int32, dns string, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
-	peersString, err := parsePeers(perskeepalive, peers)
-	var listenPortString string
-	if mtu <= 0 {
-		mtu = 1280
+func CreateWireGuardConf(node *models.Node, privatekey string, listenPort string, dns string, peers []wgtypes.PeerConfig) (string, error) {
+	peersString, err := parsePeers(node.PersistentKeepalive, peers)
+	var listenPortString, postDownString, postUpString string
+	if node.MTU <= 0 {
+		node.MTU = 1280
 	}
+	if node.PostDown != "" {
+		postDownString = fmt.Sprintf("PostDown = %s", node.PostDown)
+	}
+	if node.PostUp != "" {
+		postUpString = fmt.Sprintf("PostUp = %s", node.PostUp)
+	}
+
 	if listenPort != "" {
-		listenPortString += "ListenPort = " + listenPort
+		listenPortString = fmt.Sprintf("ListenPort = %s", listenPort)
 	}
+
 	if err != nil {
 		return "", err
 	}
@@ -51,14 +60,18 @@ DNS = %s
 PrivateKey = %s
 MTU = %s
 %s
+%s
+%s
 
 %s
 
 `,
-		address+"/32",
+		node.Address+"/32",
 		dns,
 		privatekey,
-		strconv.Itoa(int(mtu)),
+		strconv.Itoa(int(node.MTU)),
+		postDownString,
+		postUpString,
 		listenPortString,
 		peersString)
 	return config, nil
