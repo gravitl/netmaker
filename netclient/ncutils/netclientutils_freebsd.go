@@ -3,13 +3,15 @@ package ncutils
 import (
 	"context"
 	"fmt"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"log"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/gravitl/netmaker/models"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // RunCmdFormatted - run a command formatted for freebsd
@@ -41,12 +43,12 @@ func RunCmd(command string, printerr bool) (string, error) {
 	return string(out), err
 }
 
-// CreateUserSpaceConf - creates a user space WireGuard conf
-func CreateUserSpaceConf(address string, privatekey string, listenPort string, mtu int32, perskeepalive int32, peers []wgtypes.PeerConfig) (string, error) {
-	peersString, err := parsePeers(perskeepalive, peers)
+// CreateWireGuardConf - creates a WireGuard conf string
+func CreateWireGuardConf(node *models.Node, privatekey string, listenPort string, dns string, peers []wgtypes.PeerConfig) (string, error) {
+	peersString, err := parsePeers(node.PersistentKeepalive, peers)
 	var listenPortString string
-	if mtu <= 0 {
-		mtu = 1280
+	if node.MTU <= 0 {
+		node.MTU = 1280
 	}
 	if listenPort != "" {
 		listenPortString += "ListenPort = " + listenPort
@@ -63,9 +65,9 @@ MTU = %s
 %s
 
 `,
-		address+"/32",
+		node.Address+"/32",
 		privatekey,
-		strconv.Itoa(int(mtu)),
+		strconv.Itoa(int(node.MTU)),
 		listenPortString,
 		peersString)
 	return config, nil

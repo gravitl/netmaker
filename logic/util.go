@@ -249,6 +249,14 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 			network, err := GetNetwork(networkName)
 			if err == nil {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
+				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
+				if err == nil {
+					for _, egress := range egressNetworkNodes {
+						if egress.Address != relayedNodeAddr {
+							peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
+						}
+					}
+				}
 			} else {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
