@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // NodeServiceServer - represents the service server for gRPC
@@ -107,6 +108,12 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
+
+	if !servercfg.GetRce() {
+		newnode.PostDown = node.PostDown
+		newnode.PostUp = node.PostUp
+	}
+
 	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {
 		return nil, err
