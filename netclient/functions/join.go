@@ -83,9 +83,9 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 	if ncutils.IsLinux() {
-		_, err := exec.LookPath("resolveconf")
+		_, err := exec.LookPath("resolvconf")
 		if err != nil {
-			ncutils.PrintLog("resolveconf not present", 2)
+			ncutils.PrintLog("resolvconf not present", 2)
 			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
 			cfg.Node.DNSOn = "no"
 		}
