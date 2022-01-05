@@ -49,4 +49,5 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	google.golang.org/appengine v1.4.0 // indirect
+	gopkg.in/ini.v1 v1.66.2 // indirect
 )
