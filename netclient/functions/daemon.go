@@ -11,9 +11,12 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // Daemon runs netclient daemon from command line
@@ -81,16 +84,88 @@ var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
 var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("received message to update node " + string(msg.Payload()))
+	//potentiall blocking i/o so do this in a go routine
+	go func() {
+		var data models.Node
+		err := json.Unmarshal(msg.Payload(), &data)
+		if err != nil {
+			ncutils.Log("error unmarshalling node update data" + err.Error())
+			return
+		}
+		var cfg config.ClientConfig
+		cfg.Network = data.Network
+		cfg.ReadConfig()
+		nameserver := cfg.Server.CoreDNSAddr
+		privateKey, err := wireguard.RetrievePrivKey(data.Network)
+		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, data); err != nil {
+			ncutils.Log("error updating wireguard config " + err.Error())
+			return
+		}
+		// path hardcoded for now... should be updated
+		err = wireguard.ApplyWGQuickConf("/etc/netclient/config/" + cfg.Node.Interface + ".conf")
+		if err != nil {
+			ncutils.Log("error restarting wg after peer update " + err.Error())
+			return
+		}
+	}()
 }
 
 // UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
 var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("received message to update peers " + string(msg.Payload()))
+	//potentiall blocking i/o so do this in a go routine
+	go func() {
+		var peerUpdate models.PeerUpdate
+		err := json.Unmarshal(msg.Payload(), &peerUpdate)
+		if err != nil {
+			ncutils.Log("error unmarshalling peer data")
+			return
+		}
+		var cfg config.ClientConfig
+		cfg.Network = peerUpdate.Network
+		cfg.ReadConfig()
+		err = wireguard.UpdateWgPeers(cfg.Node.Interface, peerUpdate.Peers)
+		if err != nil {
+			ncutils.Log("error updating peers" + err.Error())
+			return
+		}
+		// path hardcoded for now... should be updated
+		err = wireguard.ApplyWGQuickConf("/etc/netclient/config/" + cfg.Node.Interface + ".conf")
+		if err != nil {
+			ncutils.Log("error restarting wg after peer update " + err.Error())
+			return
+		}
+	}()
 }
 
 // UpdateKeys -- mqtt message handler for /update/keys/<NodeID> topic
 var UpdateKeys mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("received message to update keys " + string(msg.Payload()))
+	//potentiall blocking i/o so do this in a go routine
+	go func() {
+		var data models.KeyUpdate
+		if err := json.Unmarshal(msg.Payload(), &data); err != nil {
+			ncutils.Log("error unmarshalling key update data" + err.Error())
+			return
+		}
+		var cfg config.ClientConfig
+		cfg.Network = data.Network
+		cfg.ReadConfig()
+		key, err := wgtypes.GeneratePrivateKey()
+		if err != nil {
+			ncutils.Log("error generating privatekey " + err.Error())
+			return
+		}
+		if err := wireguard.UpdatePrivateKey(data.Interface, key.String()); err != nil {
+			ncutils.Log("error updating wireguard key " + err.Error())
+			return
+		}
+		publicKey := key.PublicKey()
+		if token := client.Publish("update/publickey/"+cfg.Node.ID, 0, false, publicKey.String()); token.Wait() && token.Error() != nil {
+			ncutils.Log("error publishing publickey update " + token.Error().Error())
+		}
+		client.Disconnect(250)
+	}()
 }
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
