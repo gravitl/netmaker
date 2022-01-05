@@ -19,6 +19,11 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+const (
+	section_interface = "Interface"
+	section_peers     = "Peer"
+)
+
 // SetPeers - sets peers on a given WireGuard interface
 func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 
@@ -298,40 +303,40 @@ func WriteWgConfig(cfg config.ClientConfig, privateKey string, peers []wgtypes.P
 		AllowShadows:           true,
 	}
 	wireguard := ini.Empty(options)
-	wireguard.Section("Interface").Key("PrivateKey").SetValue(privateKey)
-	wireguard.Section("Interface").Key("ListenPort").SetValue(strconv.Itoa(int(cfg.Node.ListenPort)))
+	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
+	wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(cfg.Node.ListenPort)))
 	if cfg.Node.Address != "" {
-		wireguard.Section("Interface").Key("Address").SetValue(cfg.Node.Address)
+		wireguard.Section(section_interface).Key("Address").SetValue(cfg.Node.Address)
 	}
 	if cfg.Node.Address6 != "" {
-		wireguard.Section("Interface").Key("Address").SetValue(cfg.Node.Address6)
+		wireguard.Section(section_interface).Key("Address").SetValue(cfg.Node.Address6)
 	}
 	if cfg.Node.DNSOn == "yes" {
-		wireguard.Section("Interface").Key("DNS").SetValue(cfg.Server.CoreDNSAddr)
+		wireguard.Section(section_interface).Key("DNS").SetValue(cfg.Server.CoreDNSAddr)
 	}
 	if cfg.Node.PostUp != "" {
-		wireguard.Section("Interface").Key("PostUp").SetValue(cfg.Node.PostUp)
+		wireguard.Section(section_interface).Key("PostUp").SetValue(cfg.Node.PostUp)
 	}
 	if cfg.Node.PostDown != "" {
-		wireguard.Section("Interface").Key("PostDown").SetValue(cfg.Node.PostDown)
+		wireguard.Section(section_interface).Key("PostDown").SetValue(cfg.Node.PostDown)
 	}
 	for i, peer := range peers {
-		wireguard.SectionWithIndex("Peer", i).Key("PublicKey").SetValue(peer.PublicKey.String())
+		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
 		if peer.PresharedKey.String() != "" {
-			wireguard.SectionWithIndex("Peer", i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
+			wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
 		}
 		if peer.AllowedIPs != nil {
 			var allowedIPs string
 			for _, ip := range peer.AllowedIPs {
 				allowedIPs = allowedIPs + ", " + ip.String()
 			}
-			wireguard.SectionWithIndex("Peer", i).Key("AllowedIps").SetValue(allowedIPs)
+			wireguard.SectionWithIndex(section_peers, i).Key("AllowedIps").SetValue(allowedIPs)
 		}
 		if peer.Endpoint != nil {
-			wireguard.SectionWithIndex("Peer", i).Key("Endpoint").SetValue(peer.Endpoint.String())
+			wireguard.SectionWithIndex(section_peers, i).Key("Endpoint").SetValue(peer.Endpoint.String())
 		}
 	}
-	if err := wireguard.SaveTo("/etc/netclient/config" + cfg.Node.Interface + ".conf"); err != nil {
+	if err := wireguard.SaveTo(ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"); err != nil {
 		return err
 	}
 	return nil
@@ -340,25 +345,25 @@ func WriteWgConfig(cfg config.ClientConfig, privateKey string, peers []wgtypes.P
 // UpdateWgPeers - updates the peers of a network
 func UpdateWgPeers(wgInterface string, peers []wgtypes.Peer) error {
 	//update to get path properly
-	file := "/etc/netclient/config/" + wgInterface + ".conf"
+	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
 	wireguard, err := ini.ShadowLoad(file)
 	if err != nil {
 		return err
 	}
 	for i, peer := range peers {
-		wireguard.SectionWithIndex("Peer", i).Key("PublicKey").SetValue(peer.PublicKey.String())
+		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
 		if peer.PresharedKey.String() != "" {
-			wireguard.SectionWithIndex("Peer", i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
+			wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
 		}
 		if peer.AllowedIPs != nil {
 			var allowedIPs string
 			for _, ip := range peer.AllowedIPs {
 				allowedIPs = allowedIPs + ", " + ip.String()
 			}
-			wireguard.SectionWithIndex("Peer", i).Key("AllowedIps").SetValue(allowedIPs)
+			wireguard.SectionWithIndex(section_peers, i).Key("AllowedIps").SetValue(allowedIPs)
 		}
 		if peer.Endpoint != nil {
-			wireguard.SectionWithIndex("Peer", i).Key("Endpoint").SetValue(peer.Endpoint.String())
+			wireguard.SectionWithIndex(section_peers, i).Key("Endpoint").SetValue(peer.Endpoint.String())
 		}
 	}
 	if err := wireguard.SaveTo(file); err != nil {
@@ -370,27 +375,27 @@ func UpdateWgPeers(wgInterface string, peers []wgtypes.Peer) error {
 // UpdateWgInterface - updates the interface section of a wireguard config file
 func UpdateWgInterface(wgInterface, privateKey, nameserver string, node models.Node) error {
 	//update to get path properly
-	file := "/etc/netclient/config/" + wgInterface + ".conf"
+	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
 	wireguard, err := ini.ShadowLoad(file)
 	if err != nil {
 		return err
 	}
-	wireguard.Section("Interface").Key("PrivateKey").SetValue(privateKey)
-	wireguard.Section("Interface").Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))
+	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
+	wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))
 	if node.Address != "" {
-		wireguard.Section("Interface").Key("Address").SetValue(node.Address)
+		wireguard.Section(section_interface).Key("Address").SetValue(node.Address)
 	}
 	if node.Address6 != "" {
-		wireguard.Section("Interface").Key("Address").SetValue(node.Address6)
+		wireguard.Section(section_interface).Key("Address").SetValue(node.Address6)
 	}
 	if node.DNSOn == "yes" {
-		wireguard.Section("Interface").Key("DNS").SetValue(nameserver)
+		wireguard.Section(section_interface).Key("DNS").SetValue(nameserver)
 	}
 	if node.PostUp != "" {
-		wireguard.Section("Interface").Key("PostUp").SetValue(node.PostUp)
+		wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostUp)
 	}
 	if node.PostDown != "" {
-		wireguard.Section("Interface").Key("PostDown").SetValue(node.PostDown)
+		wireguard.Section(section_interface).Key("PostDown").SetValue(node.PostDown)
 	}
 	if err := wireguard.SaveTo(file); err != nil {
 		return err
@@ -401,12 +406,12 @@ func UpdateWgInterface(wgInterface, privateKey, nameserver string, node models.N
 // UpdatePrivateKey - updates the private key of a wireguard config file
 func UpdatePrivateKey(wgInterface, privateKey string) error {
 	//update to get path properly
-	file := "/etc/netclient/config/" + wgInterface + ".conf"
+	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
 	wireguard, err := ini.ShadowLoad(file)
 	if err != nil {
 		return err
 	}
-	wireguard.Section("Interface").Key("PrivateKey").SetValue(privateKey)
+	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
 	if err := wireguard.SaveTo(file); err != nil {
 		return err
 	}
