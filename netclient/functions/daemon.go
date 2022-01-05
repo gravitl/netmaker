@@ -97,6 +97,10 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 		cfg.ReadConfig()
 		nameserver := cfg.Server.CoreDNSAddr
 		privateKey, err := wireguard.RetrievePrivKey(data.Network)
+		if err != nil {
+			ncutils.Log("error generating PrivateKey " + err.Error())
+			return
+		}
 		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, data); err != nil {
 			ncutils.Log("error updating wireguard config " + err.Error())
 			return
