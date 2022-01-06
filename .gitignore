@@ -16,3 +16,4 @@ netclient/netclient.exe
 config/dnsconfig/
 data/
 .vscode/
+.idea/
