@@ -25,7 +25,7 @@ func SetIPForwarding() error {
 	case "darwin":
 		err = SetIPForwardingMac()
 	default:
-		err = errors.New("This OS is not supported")
+		err = errors.New("this OS is not currently supported")
 	}
 	return err
 }

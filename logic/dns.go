@@ -2,7 +2,6 @@ package logic
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 
 	"github.com/go-playground/validator/v10"
@@ -135,7 +134,7 @@ func SetCorefile(domains string) error {
 `
 	corebytes := []byte(corefile)
 
-	err = ioutil.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
+	err = os.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
 	if err != nil {
 		return err
 	}

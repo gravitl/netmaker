@@ -184,26 +184,18 @@ func GetNode(macaddress string, network string) (models.Node, error) {
 // GetNodePeers - fetches peers for a given node
 func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error) {
 	var peers []models.Node
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return peers, nil
-		}
-		logger.Log(2, err.Error())
-		return nil, err
+		return peers, nil
 	}
+
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
 		logger.Log(2, errN.Error())
 	}
-	for _, value := range collection {
-		var node = &models.Node{}
+
+	for _, node := range networkNodes {
 		var peer = models.Node{}
-		err := json.Unmarshal([]byte(value), node)
-		if err != nil {
-			logger.Log(2, err.Error())
-			continue
-		}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
 			peer.IsEgressGateway = node.IsEgressGateway
@@ -211,7 +203,7 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 		allow := node.IsRelayed != "yes" || !excludeRelayed
 
 		if node.Network == networkName && node.IsPending != "yes" && allow {
-			peer = setPeerInfo(node)
+			peer = setPeerInfo(&node)
 			if node.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[node.PublicKey]) {
 				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
@@ -229,6 +221,11 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
 				} else {
 					peer.AllowedIPs = append(peer.AllowedIPs, node.RelayAddrs...)
+				}
+				for _, egressNode := range egressNetworkNodes {
+					if egressNode.IsRelayed == "yes" && StringSliceContains(node.RelayAddrs, egressNode.Address) {
+						peer.AllowedIPs = append(peer.AllowedIPs, egressNode.EgressGatewayRanges...)
+					}
 				}
 			}
 			peers = append(peers, peer)
@@ -252,6 +249,14 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 			network, err := GetNetwork(networkName)
 			if err == nil {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
+				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
+				if err == nil {
+					for _, egress := range egressNetworkNodes {
+						if egress.Address != relayedNodeAddr {
+							peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
+						}
+					}
+				}
 			} else {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
@@ -285,6 +290,34 @@ func RandomString(length int) string {
 }
 
 // == Private Methods ==
+
+func getNetworkEgressAndNodes(networkName string) ([]models.Node, []models.Node, error) {
+	var networkNodes, egressNetworkNodes []models.Node
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return networkNodes, egressNetworkNodes, nil
+		}
+		logger.Log(2, err.Error())
+		return nil, nil, err
+	}
+
+	for _, value := range collection {
+		var node = models.Node{}
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			logger.Log(2, err.Error())
+			continue
+		}
+		if node.Network == networkName {
+			networkNodes = append(networkNodes, node)
+			if node.IsEgressGateway == "yes" {
+				egressNetworkNodes = append(egressNetworkNodes, node)
+			}
+		}
+	}
+	return networkNodes, egressNetworkNodes, nil
+}
 
 func setPeerInfo(node *models.Node) models.Node {
 	var peer models.Node
@@ -325,4 +358,14 @@ func setIPForwardingLinux() error {
 		}
 	}
 	return nil
+}
+
+// StringSliceContains - sees if a string slice contains a string element
+func StringSliceContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

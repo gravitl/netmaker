@@ -524,6 +524,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	if !servercfg.GetRce() {
+		newNode.PostDown = node.PostDown
+		newNode.PostUp = node.PostUp
+	}
+
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))

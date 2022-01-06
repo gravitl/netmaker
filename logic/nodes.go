@@ -253,6 +253,10 @@ func SetNodeDefaults(node *models.Node) {
 		postup := parentNetwork.DefaultPostUp
 		node.PostUp = postup
 	}
+	if node.PostDown == "" {
+		postdown := parentNetwork.DefaultPostDown
+		node.PostDown = postdown
+	}
 	if node.IsStatic == "" {
 		node.IsStatic = "no"
 	}

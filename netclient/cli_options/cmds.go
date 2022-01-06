@@ -21,11 +21,11 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 					return err
 				}
 				if cfg.Network == "all" {
-					err = errors.New("No network provided.")
+					err = errors.New("no network provided")
 					return err
 				}
 				if cfg.Server.GRPCAddress == "" {
-					err = errors.New("No server address provided.")
+					err = errors.New("no server address provided")
 					return err
 				}
 				err = command.Join(cfg, pvtKey)

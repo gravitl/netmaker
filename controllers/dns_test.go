@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -200,7 +199,7 @@ func TestSetDNS(t *testing.T) {
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
 		assert.False(t, info.IsDir())
-		content, err := ioutil.ReadFile("./config/dnsconfig/netmaker.hosts")
+		content, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
 		assert.Contains(t, string(content), "testnode.skynet")
 	})
@@ -212,7 +211,7 @@ func TestSetDNS(t *testing.T) {
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
 		assert.False(t, info.IsDir())
-		content, err := ioutil.ReadFile("./config/dnsconfig/netmaker.hosts")
+		content, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
 		assert.Contains(t, string(content), "newhost.skynet")
 	})

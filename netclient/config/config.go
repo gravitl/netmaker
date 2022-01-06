@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -133,12 +132,12 @@ func SaveBackup(network string) error {
 	var configPath = ncutils.GetNetclientPathSpecific() + "netconfig-" + network
 	var backupPath = ncutils.GetNetclientPathSpecific() + "backup.netconfig-" + network
 	if FileExists(configPath) {
-		input, err := ioutil.ReadFile(configPath)
+		input, err := os.ReadFile(configPath)
 		if err != nil {
 			ncutils.Log("failed to read " + configPath + " to make a backup")
 			return err
 		}
-		if err = ioutil.WriteFile(backupPath, input, 0644); err != nil {
+		if err = os.WriteFile(backupPath, input, 0644); err != nil {
 			ncutils.Log("failed to copy backup to " + backupPath)
 			return err
 		}
@@ -151,12 +150,12 @@ func ReplaceWithBackup(network string) error {
 	var backupPath = ncutils.GetNetclientPathSpecific() + "backup.netconfig-" + network
 	var configPath = ncutils.GetNetclientPathSpecific() + "netconfig-" + network
 	if FileExists(backupPath) {
-		input, err := ioutil.ReadFile(backupPath)
+		input, err := os.ReadFile(backupPath)
 		if err != nil {
 			ncutils.Log("failed to read file " + backupPath + " to backup network: " + network)
 			return err
 		}
-		if err = ioutil.WriteFile(configPath, input, 0644); err != nil {
+		if err = os.WriteFile(configPath, input, 0644); err != nil {
 			ncutils.Log("failed backup " + backupPath + " to " + configPath)
 			return err
 		}
