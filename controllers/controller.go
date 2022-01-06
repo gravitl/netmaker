@@ -52,20 +52,19 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 		}
 	}()
 	logger.Log(0, "REST Server successfully started on port ", port, " (REST)")
-	c := make(chan os.Signal)
 
 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
 	// Ignore other incoming signals
-	signal.Notify(c, os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt)
+	defer stop()
 
 	// Block main routine until a signal is received
 	// As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
-	<-c
+	<-ctx.Done()
 
 	// After receiving CTRL+C Properly stop the server
 	logger.Log(0, "Stopping the REST server...")
 	srv.Shutdown(context.TODO())
 	logger.Log(0, "REST Server closed.")
 	logger.DumpFile(fmt.Sprintf("data/netmaker.log.%s", time.Now().Format(logger.TimeFormatDay)))
-
 }
