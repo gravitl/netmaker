@@ -7,7 +7,7 @@ on:
         description: 'Netmaker version'
         required: false
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   build:
