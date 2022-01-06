@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -119,7 +118,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		return err
 	}
 	nodecfg := modcfg.Node
-	servercfg := modcfg.Server
 
 	if err != nil {
 		log.Fatalf("failed to open client: %v", err)
@@ -136,22 +134,11 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Address == "" {
 		log.Fatal("no address to configure")
 	}
-	var nameserver string
-	if ncutils.IsLinux() {
-		if _, err := exec.LookPath("resolvconf"); err != nil {
-			ncutils.PrintLog("resolvconf not present", 2)
-			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
-			node.DNSOn = "no"
-		}
-	}
-	if node.DNSOn == "yes" {
-		nameserver = servercfg.CoreDNSAddr
-	}
 	var newConf string
 	if node.UDPHolePunch != "yes" {
-		newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), nameserver, peers)
+		newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), peers)
 	} else {
-		newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), "", nameserver, peers)
+		newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), "", peers)
 	}
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
@@ -259,6 +246,9 @@ func SetWGConfig(network string, peerupdate bool) error {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, true)
 	} else {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, false)
+	}
+	if nodecfg.DNSOn == "yes" {
+		_ = local.UpdateDNS(nodecfg.Interface, nodecfg.Network, servercfg.CoreDNSAddr)
 	}
 	return err
 }
