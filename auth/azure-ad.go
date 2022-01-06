@@ -3,9 +3,8 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
-	"os"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -36,7 +35,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"User.Read"},
-		Endpoint:     microsoft.AzureADEndpoint(os.Getenv("AZURE_TENANT")),
+		Endpoint:     microsoft.AzureADEndpoint(servercfg.GetAzureTenant()),
 	}
 }
 
@@ -110,7 +109,7 @@ func getAzureUserInfo(state string, code string) (*azureOauthUser, error) {
 		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
 	}
 	defer response.Body.Close()
-	contents, err := ioutil.ReadAll(response.Body)
+	contents, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}

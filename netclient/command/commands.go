@@ -7,22 +7,13 @@ import (
 	"strings"
 	"time"
 
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
-var (
-	wgclient *wgctrl.Client
-)
-
-var (
-	wcclient nodepb.NodeServiceClient
-)
-
+// Join - join command to run from cli
 func Join(cfg config.ClientConfig, privateKey string) error {
 
 	var err error
@@ -83,6 +74,7 @@ func getWindowsInterval() int {
 	return interval
 }
 
+// RunUserspaceDaemon - runs continual checkins
 func RunUserspaceDaemon() {
 
 	cfg := config.ClientConfig{
@@ -91,14 +83,15 @@ func RunUserspaceDaemon() {
 	interval := getWindowsInterval()
 	dur := time.Duration(interval) * time.Second
 	for {
-		if err := CheckIn(cfg); err != nil {
-			// pass
-		}
+		CheckIn(cfg)
 		time.Sleep(dur)
 	}
 }
 
+// CheckIn - runs checkin command from cli
 func CheckIn(cfg config.ClientConfig) error {
+	//log.Println("checkin --- diabled for now")
+	//return nil
 	var err error
 	var errN error
 	if cfg.Network == "" {
@@ -139,6 +132,7 @@ func CheckIn(cfg config.ClientConfig) error {
 	return err
 }
 
+// Leave - runs the leave command from cli
 func Leave(cfg config.ClientConfig) error {
 	err := functions.LeaveNetwork(cfg.Network)
 	if err != nil {
@@ -149,6 +143,7 @@ func Leave(cfg config.ClientConfig) error {
 	return err
 }
 
+// Push - runs push command
 func Push(cfg config.ClientConfig) error {
 	var err error
 	if cfg.Network == "all" || ncutils.IsWindows() {
@@ -175,6 +170,7 @@ func Push(cfg config.ClientConfig) error {
 	return err
 }
 
+// Pull - runs pull command from cli
 func Pull(cfg config.ClientConfig) error {
 	var err error
 	if cfg.Network == "all" {
@@ -201,13 +197,16 @@ func Pull(cfg config.ClientConfig) error {
 	return err
 }
 
+// List - runs list command from cli
 func List(cfg config.ClientConfig) error {
 	err := functions.List(cfg.Network)
 	return err
 }
 
+// Uninstall - runs uninstall command from cli
 func Uninstall() error {
-	ncutils.PrintLog("uninstalling netclient", 0)
+	ncutils.PrintLog("uninstalling netclient...", 0)
 	err := functions.Uninstall()
+	ncutils.PrintLog("uninstalled netclient", 0)
 	return err
 }

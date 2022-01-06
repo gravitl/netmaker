@@ -1,7 +1,6 @@
 package ncwindows
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -24,12 +23,12 @@ func InitWindows() {
 
 	if os.IsNotExist(dataNetclientErr) { // check and see if netclient.exe is in appdata
 		if currentNetclientErr == nil { // copy it if it exists locally
-			input, err := ioutil.ReadFile(wdPath + "\\netclient.exe")
+			input, err := os.ReadFile(wdPath + "\\netclient.exe")
 			if err != nil {
 				log.Println("failed to find netclient.exe")
 				return
 			}
-			if err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"netclient.exe", input, 0644); err != nil {
+			if err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"netclient.exe", input, 0644); err != nil {
 				log.Println("failed to copy netclient.exe to", ncutils.GetNetclientPath())
 				return
 			}

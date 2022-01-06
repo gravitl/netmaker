@@ -68,7 +68,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allnetworks)
 }
 
-//Simple get network function
+// Simple get network function
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -101,7 +101,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-//Update a network
+// Update a network
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -117,6 +117,11 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
+	}
+
+	if !servercfg.GetRce() {
+		newNetwork.DefaultPostDown = network.DefaultPostDown
+		newNetwork.DefaultPostUp = network.DefaultPostUp
 	}
 
 	rangeupdate, localrangeupdate, err := logic.UpdateNetwork(&network, &newNetwork)

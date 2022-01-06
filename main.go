@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -43,7 +44,7 @@ func initialize() { // Client Mode Prereq Check
 
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {
-		logger.Log(0, "OAuth provider, ", authProvider, ", initialized")
+		logger.Log(0, "OAuth provider,", authProvider+",", "initialized")
 	} else {
 		logger.Log(0, "no OAuth provider found or not configured, continuing without OAuth")
 	}
@@ -157,21 +158,18 @@ func runGRPC(wg *sync.WaitGroup) {
 	}()
 	logger.Log(0, "Agent Server successfully started on port ", grpcport, "(gRPC)")
 
-	// Right way to stop the server using a SHUTDOWN HOOK
-	// Create a channel to receive OS signals
-	c := make(chan os.Signal, 1)
-
 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
 	// Ignore other incoming signals
-	signal.Notify(c, os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt)
+	defer stop()
 
 	// Block main routine until a signal is received
 	// As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
-	<-c
+	<-ctx.Done()
 
 	// After receiving CTRL+C Properly stop the server
 	logger.Log(0, "Stopping the Agent server...")
-	s.Stop()
+	s.GracefulStop()
 	listener.Close()
 	logger.Log(0, "Agent server closed..")
 	logger.Log(0, "Closed DB connection.")
