@@ -44,7 +44,7 @@ func RunCmd(command string, printerr bool) (string, error) {
 }
 
 // CreateWireGuardConf - creates a WireGuard conf string
-func CreateWireGuardConf(node *models.Node, privatekey string, listenPort string, dns string, peers []wgtypes.PeerConfig) (string, error) {
+func CreateWireGuardConf(node *models.Node, privatekey string, listenPort string, peers []wgtypes.PeerConfig) (string, error) {
 	peersString, err := parsePeers(node.PersistentKeepalive, peers)
 	var listenPortString string
 	if node.MTU <= 0 {
