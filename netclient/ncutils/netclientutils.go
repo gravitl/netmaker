@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -132,7 +131,7 @@ func GetPublicIP() (string, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				continue
 			}
@@ -409,7 +408,7 @@ func PrintLog(message string, loglevel int) {
 // GetSystemNetworks - get networks locally
 func GetSystemNetworks() ([]string, error) {
 	var networks []string
-	files, err := ioutil.ReadDir(GetNetclientPathSpecific())
+	files, err := os.ReadDir(GetNetclientPathSpecific())
 	if err != nil {
 		return networks, err
 	}

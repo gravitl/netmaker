@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -64,7 +63,7 @@ func CreateMacService(servicename string, interval string) error {
 	daemonbytes := []byte(daemonstring)
 
 	if !ncutils.FileExists("/Library/LaunchDaemons/com.gravitl.netclient.plist") {
-		err = ioutil.WriteFile("/Library/LaunchDaemons/com.gravitl.netclient.plist", daemonbytes, 0644)
+		err = os.WriteFile("/Library/LaunchDaemons/com.gravitl.netclient.plist", daemonbytes, 0644)
 	}
 	return err
 }

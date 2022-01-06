@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
@@ -90,7 +89,7 @@ func DumpFile(filePath string) {
 
 // Retrieve - retrieves logs from given file
 func Retrieve(filePath string) string {
-	contents, err := ioutil.ReadFile(filePath)
+	contents, err := os.ReadFile(filePath)
 	if err != nil {
 		panic(err)
 	}

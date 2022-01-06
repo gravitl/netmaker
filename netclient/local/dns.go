@@ -1,7 +1,6 @@
 package local
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -14,7 +13,7 @@ import (
 
 // SetDNS - sets the DNS of a local machine
 func SetDNS(nameserver string) error {
-	bytes, err := ioutil.ReadFile("/etc/resolv.conf")
+	bytes, err := os.ReadFile("/etc/resolv.conf")
 	if err != nil {
 		return err
 	}
