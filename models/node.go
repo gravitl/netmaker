@@ -2,12 +2,12 @@ package models
 
 import (
 	"bytes"
-	"errors"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -192,7 +192,7 @@ func (node *Node) SetLastPeerUpdate() {
 }
 
 func (node *Node) SetID() {
-	node.ID = node.MacAddress + "###" + node.Network
+	node.ID = uuid.New().String()
 }
 
 func (node *Node) SetExpirationDateTime() {
@@ -380,9 +380,9 @@ func (node *Node) NameInNodeCharSet() bool {
 	return true
 }
 
-func (node *Node) GetID() (string, error) {
-	if node.MacAddress == "" || node.Network == "" {
-		return "", errors.New("unable to get record key")
-	}
-	return node.MacAddress + "###" + node.Network, nil
-}
+//func (node *Node) GetID() (string, error) {
+//	if node.MacAddress == "" || node.Network == "" {
+//		return "", errors.New("unable to get record key")
+//	}
+//	return node.MacAddress + "###" + node.Network, nil
+//}

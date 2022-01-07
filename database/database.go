@@ -42,6 +42,9 @@ const DATABASE_FILENAME = "netmaker.db"
 // GENERATED_TABLE_NAME - stores server generated k/v
 const GENERATED_TABLE_NAME = "generated"
 
+// UUID_MAP_TABLE_NAME - stores mapping between uuid and macaddress/network
+const UUID_MAP_TABLE_NAME = "uuid"
+
 // == ERROR CONSTS ==
 
 // NO_RECORD - no singular result found
@@ -119,6 +122,7 @@ func createTables() {
 	createTable(PEERS_TABLE_NAME)
 	createTable(SERVERCONF_TABLE_NAME)
 	createTable(GENERATED_TABLE_NAME)
+	createTable(UUID_MAP_TABLE_NAME)
 }
 
 func createTable(tableName string) error {

@@ -297,12 +297,23 @@ func SetNodeDefaults(node *models.Node) {
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
-// GetRecordKey - get record key
-func GetRecordKey(id string, network string) (string, error) {
+// GETRecordKey - gets mac/network key string
+func GetRecordKey(id, network string) (string, error) {
 	if id == "" || network == "" {
 		return "", errors.New("unable to get record key")
 	}
 	return id + "###" + network, nil
+}
+
+// GetUUID - get UUID matching mac/network
+func GetUUID(macnet string) (string, error) {
+	record, err := database.FetchRecord(database.UUID_MAP_TABLE_NAME, macnet)
+	if err != nil {
+		return "", err
+	}
+	var uuid string
+	err = json.Unmarshal([]byte(record), &uuid)
+	return uuid, err
 }
 
 // GetNodeByMacAddress - gets a node by mac address
@@ -314,8 +325,12 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	if err != nil {
 		return node, err
 	}
+	uuid, err := GetUUID(key)
+	if err != nil {
+		return node, err
+	}
 
-	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
+	record, err := database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {
 		return models.Node{}, err
 	}

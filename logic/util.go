@@ -118,12 +118,18 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	uuid, err := GetUUID(key)
+	if err != nil {
+		return err
+	}
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
 	}
-	err = database.Insert(key, string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
+	if err = database.Insert(key, uuid, database.UUID_MAP_TABLE_NAME); err != nil {
+		return err
+	}
+	if err = database.Insert(uuid, string(nodebytes), database.NODES_TABLE_NAME); err != nil {
 		return err
 	}
 	if node.IsPending != "yes" {
