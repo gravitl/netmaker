@@ -21,6 +21,7 @@ import (
 // SetPeers - sets peers on a given WireGuard interface
 func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 
+	ncutils.PrintLog("DELETEME: Check for SetPeers", 0)
 	var devicePeers []wgtypes.Peer
 	var err error
 	if ncutils.IsFreeBSD() {
@@ -102,6 +103,8 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 
 // Initializes a WireGuard interface
 func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string, syncconf bool) error {
+
+	ncutils.PrintLog("DELETEME: In InitWireGuard", 0)
 
 	key, err := wgtypes.ParseKey(privkey)
 	if err != nil {
@@ -232,7 +235,8 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	if peerupdate && !ncutils.IsFreeBSD() && !(ncutils.IsLinux() && !ncutils.IsKernel()) {
+	var notKernelLinux = !(ncutils.IsLinux() && !ncutils.IsKernel())
+	if peerupdate && !ncutils.IsFreeBSD() && notKernelLinux {
 		var iface string
 		iface = nodecfg.Interface
 		if ncutils.IsMac() {

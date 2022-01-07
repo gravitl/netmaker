@@ -202,6 +202,8 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
 	if resNode.PullChanges == "yes" || manual {
+
+		ncutils.PrintLog("DELETEME: Check #1 for PullChanges/Manual", 0)
 		// check for interface change
 		if cfg.Node.Interface != resNode.Interface {
 			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
