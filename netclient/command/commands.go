@@ -210,3 +210,8 @@ func Uninstall() error {
 	ncutils.PrintLog("uninstalled netclient", 0)
 	return err
 }
+
+func Daemon() error {
+	err := functions.Daemon()
+	return err
+}
