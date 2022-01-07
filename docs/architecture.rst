@@ -107,7 +107,7 @@ The check in process is what allows Netmaker to create dynamic mesh networks. As
 Database (sqlite, rqlite, postgres)
 -------------------------------------
 
-As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) databaseand. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
+As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) database. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
 
 Additional database support (besides sqlite and rqlite) is very easy to implement for special use cases. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.
 
