@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -57,7 +56,7 @@ func writeServiceConfig() error {
 </service>
 `, strings.Replace(ncutils.GetNetclientPathSpecific()+"netclient.exe", `\\`, `\`, -1))
 	if !ncutils.FileExists(serviceConfigPath) {
-		err := ioutil.WriteFile(serviceConfigPath, []byte(scriptString), 0644)
+		err := os.WriteFile(serviceConfigPath, []byte(scriptString), 0644)
 		if err != nil {
 			return err
 		}

@@ -3,7 +3,6 @@ package daemon
 import (
 	//"github.com/davecgh/go-spew/spew"
 
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -75,7 +74,7 @@ WantedBy=timers.target
 	timerbytes := []byte(systemtimer)
 
 	if !ncutils.FileExists("/etc/systemd/system/netclient.service") {
-		err = ioutil.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
+		err = os.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
 		if err != nil {
 			log.Println(err)
 			return err
@@ -83,7 +82,7 @@ WantedBy=timers.target
 	}
 
 	if !ncutils.FileExists("/etc/systemd/system/netclient.timer") {
-		err = ioutil.WriteFile("/etc/systemd/system/netclient.timer", timerbytes, 0644)
+		err = os.WriteFile("/etc/systemd/system/netclient.timer", timerbytes, 0644)
 		if err != nil {
 			log.Println(err)
 			return err

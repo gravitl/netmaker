@@ -2,7 +2,6 @@ package wireguard
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -68,7 +67,7 @@ func SyncWGQuickConf(iface string, confPath string) error {
 	}
 	regex := regexp.MustCompile(".*Warning.*\n")
 	conf := regex.ReplaceAllString(confRaw, "")
-	err = ioutil.WriteFile(tmpConf, []byte(conf), 0644)
+	err = os.WriteFile(tmpConf, []byte(conf), 0644)
 	if err != nil {
 		return err
 	}
@@ -95,12 +94,12 @@ func RemoveWGQuickConf(confPath string, printlog bool) error {
 func StorePrivKey(key string, network string) error {
 	var err error
 	d1 := []byte(key)
-	err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0644)
+	err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0644)
 	return err
 }
 
 // RetrievePrivKey - reads wg priv key from local disk
 func RetrievePrivKey(network string) (string, error) {
-	dat, err := ioutil.ReadFile(ncutils.GetNetclientPathSpecific() + "wgkey-" + network)
+	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "wgkey-" + network)
 	return string(dat), err
 }

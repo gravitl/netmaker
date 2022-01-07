@@ -3,7 +3,6 @@ package logic
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -87,11 +85,10 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	if !ncutils.IsKernel() {
 		var newConf string
-		var nameserver string
-		newConf, _ = ncutils.CreateWireGuardConf(node.Address, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), node.MTU, nameserver, servercfg.GetCoreDNSAddr(), node.PersistentKeepalive, peers)
+		newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), peers)
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		logger.Log(1, "writing wg conf file to:", confPath)
-		err = ioutil.WriteFile(confPath, []byte(newConf), 0644)
+		err = os.WriteFile(confPath, []byte(newConf), 0644)
 		if err != nil {
 			logger.Log(1, "error writing wg conf file to", confPath, ":", err.Error())
 			return err
@@ -99,7 +96,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		if ncutils.IsWindows() {
 			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
 			logger.Log(1, "writing wg conf file to:", confPath)
-			err = ioutil.WriteFile(wgConfPath, []byte(newConf), 0644)
+			err = os.WriteFile(wgConfPath, []byte(newConf), 0644)
 			if err != nil {
 				logger.Log(1, "error writing wg conf file to", wgConfPath, ":", err.Error())
 				return err

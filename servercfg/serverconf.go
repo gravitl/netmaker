@@ -2,7 +2,7 @@ package servercfg
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -80,6 +80,11 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ClientID = authInfo[1]
 	cfg.ClientSecret = authInfo[2]
 	cfg.FrontendURL = GetFrontendURL()
+	if GetRce() {
+		cfg.RCE = "on"
+	} else {
+		cfg.RCE = "off"
+	}
 
 	return cfg
 }
@@ -108,7 +113,7 @@ func GetAPIConnString() string {
 
 // GetVersion - version of netmaker
 func GetVersion() string {
-	version := "0.9.2"
+	version := "0.9.3"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
@@ -412,7 +417,7 @@ func GetPublicIP() (string, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				continue
 			}
@@ -527,4 +532,9 @@ func getMacAddr() string {
 		}
 	}
 	return as[0]
+}
+
+// GetRce - sees if Rce is enabled, off by default
+func GetRce() bool {
+	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
 }

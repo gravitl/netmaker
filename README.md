@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.9.2-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.9.3-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />
@@ -47,7 +47,7 @@
 
 <img src="./docs/images/install-server.gif" width="50%" /><img src="./docs/images/visit-website.gif" width="50%" />
 
-Upon completion, the logs will display the instructions to connect various devices. These can also be retrived from the UI under "Access Keys."
+Upon completion, the logs will display the instructions to connect various devices. These can also be retrieved from the UI under "Access Keys."
 
 After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://gravitl.com/resources) for different use cases, including Kubernetes.
 
