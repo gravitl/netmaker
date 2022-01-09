@@ -44,29 +44,26 @@ func SetNetworkServerPeers(node *models.Node) {
 // DeleteNode - deletes a node from database or moves into delete nodes table
 func DeleteNode(node *models.Node, exterminate bool) error {
 	var err error
-	node.SetID()
-	var key = node.ID
 	if !exterminate {
-		args := strings.Split(key, "###")
-		node, err := GetNode(args[0], args[1])
-		if err != nil {
-			return err
-		}
 		node.Action = models.NODE_DELETE
 		nodedata, err := json.Marshal(&node)
 		if err != nil {
 			return err
 		}
-		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
+		err = database.Insert(node.ID, string(nodedata), database.DELETED_NODES_TABLE_NAME)
 		if err != nil {
 			return err
 		}
 	} else {
-		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
+		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, node.ID); err != nil {
 			logger.Log(2, err.Error())
 		}
 	}
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
+	if err = database.DeleteRecord(database.NODES_TABLE_NAME, node.ID); err != nil {
+		return err
+	}
+	macnet := node.MacAddress + "###" + node.Network
+	if err = database.DeleteRecord(database.UUID_MAP_TABLE_NAME, macnet); err != nil {
 		return err
 	}
 	if servercfg.IsDNSMode() {
@@ -118,18 +115,19 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	uuid, err := GetUUID(key)
-	if err != nil {
-		return err
-	}
+	node.SetID()
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
 	}
-	if err = database.Insert(key, uuid, database.UUID_MAP_TABLE_NAME); err != nil {
+	uuidbytes, err := json.Marshal(&node.ID)
+	if err != nil {
 		return err
 	}
-	if err = database.Insert(uuid, string(nodebytes), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(key, string(uuidbytes), database.UUID_MAP_TABLE_NAME); err != nil {
+		return err
+	}
+	if err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME); err != nil {
 		return err
 	}
 	if node.IsPending != "yes" {

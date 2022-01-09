@@ -13,8 +13,8 @@ import (
 func TestGetAllDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	t.Run("NoEntries", func(t *testing.T) {
 		entries, err := logic.GetAllDNS()
 		assert.Nil(t, err)
@@ -39,8 +39,8 @@ func TestGetAllDNS(t *testing.T) {
 func TestGetNodeDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	t.Run("NoNodes", func(t *testing.T) {
 		dns, err := logic.GetNodeDNS("skynet")
 		assert.EqualError(t, err, "could not find any records")
@@ -64,14 +64,14 @@ func TestGetNodeDNS(t *testing.T) {
 func TestGetCustomDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
+	deleteAllNetworks(t)
 	t.Run("NoNetworks", func(t *testing.T) {
 		dns, err := logic.GetCustomDNS("skynet")
 		assert.EqualError(t, err, "could not find any records")
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
-		createNet()
+		createNet(t)
 		dns, err := logic.GetCustomDNS("skynet")
 		assert.EqualError(t, err, "could not find any records")
 		assert.Equal(t, []models.DNSEntry(nil), dns)
@@ -101,8 +101,8 @@ func TestGetCustomDNS(t *testing.T) {
 func TestGetDNSEntryNum(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	t.Run("NoNodes", func(t *testing.T) {
 		num, err := logic.GetDNSEntryNum("myhost", "skynet")
 		assert.Nil(t, err)
@@ -120,8 +120,8 @@ func TestGetDNSEntryNum(t *testing.T) {
 func TestGetDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	t.Run("NoEntries", func(t *testing.T) {
 		dns, err := logic.GetDNS("skynet")
 		assert.Nil(t, err)
@@ -163,8 +163,8 @@ func TestGetDNS(t *testing.T) {
 func TestCreateDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
 	dns, err := CreateDNS(entry)
 	assert.Nil(t, err)
@@ -174,7 +174,7 @@ func TestCreateDNS(t *testing.T) {
 func TestSetDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
+	deleteAllNetworks(t)
 	t.Run("NoNetworks", func(t *testing.T) {
 		err := logic.SetDNS()
 		assert.Nil(t, err)
@@ -184,7 +184,7 @@ func TestSetDNS(t *testing.T) {
 		assert.Equal(t, int64(0), info.Size())
 	})
 	t.Run("NoEntries", func(t *testing.T) {
-		createNet()
+		createNet(t)
 		err := logic.SetDNS()
 		assert.Nil(t, err)
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
@@ -221,8 +221,8 @@ func TestSetDNS(t *testing.T) {
 func TestGetDNSEntry(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	createTestNode()
 	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
 	CreateDNS(entry)
@@ -278,8 +278,8 @@ func TestGetDNSEntry(t *testing.T) {
 func TestDeleteDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
 	CreateDNS(entry)
 	t.Run("EntryExists", func(t *testing.T) {
@@ -300,8 +300,8 @@ func TestDeleteDNS(t *testing.T) {
 func TestValidateDNSUpdate(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	entry := models.DNSEntry{"10.0.0.2", "myhost", "skynet"}
 	t.Run("BadNetwork", func(t *testing.T) {
 		change := models.DNSEntry{"10.0.0.2", "myhost", "badnet"}

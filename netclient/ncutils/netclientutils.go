@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math/rand"
 	"net"
@@ -385,7 +386,7 @@ func RunCmds(commands []string, printerr bool) error {
 // FileExists - checks if file exists locally
 func FileExists(f string) bool {
 	info, err := os.Stat(f)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return false
 	}
 	if err != nil && strings.Contains(err.Error(), "not a directory") {
@@ -393,6 +394,11 @@ func FileExists(f string) bool {
 	}
 	if err != nil {
 		Log("error reading file: " + f + ", " + err.Error())
+	}
+	//needed to prevent panic accessing info.IsDir if true
+	if errors.Is(err, fs.ErrPermission) {
+		Log("error reading file: " + f + " " + err.Error())
+		return false
 	}
 	return !info.IsDir()
 }

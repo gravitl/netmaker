@@ -14,8 +14,8 @@ func TestCreateEgressGateway(t *testing.T) {
 	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
 	database.InitializeDatabase()
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := logic.CreateEgressGateway(gateway)
 		assert.Equal(t, models.Node{}, node)
@@ -36,8 +36,8 @@ func TestCreateEgressGateway(t *testing.T) {
 func TestDeleteEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
 	database.InitializeDatabase()
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	createTestNode()
 	testnode := createTestNode()
 	gateway.Interface = "eth0"
@@ -79,8 +79,8 @@ func TestDeleteEgressGateway(t *testing.T) {
 
 func TestGetNetworkNodes(t *testing.T) {
 	database.InitializeDatabase()
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("badnet")
 		assert.Nil(t, err)
@@ -102,8 +102,8 @@ func TestGetNetworkNodes(t *testing.T) {
 }
 func TestUncordonNode(t *testing.T) {
 	database.InitializeDatabase()
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	node := createTestNode()
 	t.Run("BadNet", func(t *testing.T) {
 		resp, err := logic.UncordonNode("badnet", node.MacAddress)
@@ -144,11 +144,9 @@ func TestValidateEgressGateway(t *testing.T) {
 	})
 }
 
-func deleteAllNodes() {
-	nodes, _ := logic.GetAllNodes()
-	for _, node := range nodes {
-		logic.DeleteNode(&node, true)
-	}
+func deleteAllNodes(t *testing.T) {
+	err := database.DeleteAllRecords("nodes")
+	assert.Nil(t, err)
 }
 
 func createTestNode() *models.Node {

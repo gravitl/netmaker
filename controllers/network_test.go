@@ -18,7 +18,7 @@ type NetworkValidationTestCase struct {
 
 func TestCreateNetwork(t *testing.T) {
 	database.InitializeDatabase()
-	deleteAllNetworks()
+	deleteAllNetworks(t)
 
 	var network models.Network
 	network.NetID = "skynet"
@@ -30,7 +30,8 @@ func TestCreateNetwork(t *testing.T) {
 }
 func TestGetNetwork(t *testing.T) {
 	database.InitializeDatabase()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 
 	t.Run("GetExistingNetwork", func(t *testing.T) {
 		network, err := logic.GetNetwork("skynet")
@@ -46,10 +47,8 @@ func TestGetNetwork(t *testing.T) {
 
 func TestDeleteNetwork(t *testing.T) {
 	database.InitializeDatabase()
-	createNet()
-	//create nodes
-	t.Run("NetworkwithNodes", func(t *testing.T) {
-	})
+	deleteAllNetworks(t)
+	createNet(t)
 	t.Run("DeleteExistingNetwork", func(t *testing.T) {
 		err := logic.DeleteNetwork("skynet")
 		assert.Nil(t, err)
@@ -58,12 +57,29 @@ func TestDeleteNetwork(t *testing.T) {
 		err := logic.DeleteNetwork("skynet")
 		assert.Nil(t, err)
 	})
+	createNet(t)
+	createTestNode()
+	t.Run("NetworkWithNodes", func(t *testing.T) {
+		err := logic.DeleteNetwork("skynet")
+		assert.Contains(t, err.Error(), "node check failed. All nodes must be deleted before deleting network")
+	})
+	t.Run("NetworkWithNoNodes", func(t *testing.T) {
+		nodes, err := logic.GetAllNodes()
+		assert.Nil(t, err)
+		for _, node := range nodes {
+			err := logic.DeleteNode(&node, true)
+			assert.Nil(t, err)
+		}
+		err = logic.DeleteNetwork("skynet")
+		assert.Nil(t, err)
+	})
+
 }
 
 func TestKeyUpdate(t *testing.T) {
 	t.Skip() //test is failing on last assert  --- not sure why
 	database.InitializeDatabase()
-	createNet()
+	createNet(t)
 	existing, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
 	time.Sleep(time.Second * 1)
@@ -76,7 +92,7 @@ func TestKeyUpdate(t *testing.T) {
 
 func TestCreateKey(t *testing.T) {
 	database.InitializeDatabase()
-	createNet()
+	createNet(t)
 	keys, _ := logic.GetKeys("skynet")
 	for _, key := range keys {
 		logic.DeleteKey(key.Name, "skynet")
@@ -148,8 +164,8 @@ func TestCreateKey(t *testing.T) {
 
 func TestGetKeys(t *testing.T) {
 	database.InitializeDatabase()
-	deleteAllNetworks()
-	createNet()
+	deleteAllNetworks(t)
+	createNet(t)
 	network, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
 	var key models.AccessKey
@@ -171,7 +187,7 @@ func TestGetKeys(t *testing.T) {
 }
 func TestDeleteKey(t *testing.T) {
 	database.InitializeDatabase()
-	createNet()
+	createNet(t)
 	network, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
 	var key models.AccessKey
@@ -332,21 +348,20 @@ func TestValidateNetworkUpdate(t *testing.T) {
 	}
 }
 
-func deleteAllNetworks() {
-	deleteAllNodes()
-	nets, _ := logic.GetNetworks()
-	for _, net := range nets {
-		logic.DeleteNetwork(net.NetID)
-	}
+func deleteAllNetworks(t *testing.T) {
+	deleteAllNodes(t)
+	err := database.DeleteAllRecords("networks")
+	assert.Nil(t, err)
 }
 
-func createNet() {
+func createNet(t *testing.T) {
 	var network models.Network
 	network.NetID = "skynet"
 	network.AddressRange = "10.0.0.1/24"
 	network.DisplayName = "mynetwork"
 	_, err := logic.GetNetwork("skynet")
 	if err != nil {
-		logic.CreateNetwork(network)
+		err := logic.CreateNetwork(network)
+		assert.Nil(t, err)
 	}
 }

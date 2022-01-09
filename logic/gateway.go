@@ -44,10 +44,10 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 			postDownCmd = node.PostDown + "; " + postDownCmd
 		}
 	}
-	key, err := GetRecordKey(gateway.NodeID, gateway.NetID)
-	if err != nil {
-		return node, err
-	}
+	//key, err := GetRecordKey(gateway.NodeID, gateway.NetID)
+	//if err != nil {
+	//	return node, err
+	//}
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
 	node.SetLastModified()
@@ -56,7 +56,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return node, err
 	}
-	if err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
 	if err = NetworkNodesUpdatePullChanges(node.Network); err != nil {
