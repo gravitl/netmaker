@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -27,7 +29,7 @@ func Daemon() error {
 		return err
 	}
 	for _, network := range networks {
-		go MessageQueue(ctx, network)
+		go Netclient(ctx, network)
 	}
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
@@ -50,40 +52,35 @@ func SetupMQTT(cfg config.ClientConfig) mqtt.Client {
 	return client
 }
 
-// MessageQueue sets up Message Queue and subsribes/publishes updates to/from server
-func MessageQueue(ctx context.Context, network string) {
+// Netclient sets up Message Queue and subsribes/publishes updates to/from server
+func Netclient(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
 	cfg.Network = network
 	cfg.ReadConfig()
+	//fix NodeID to remove ### so NodeID can be used as message topic
+	//remove with GRA-73
+	cfg.Node.ID = strings.Replace(cfg.Node.ID, "###", "-", 1)
 	ncutils.Log("daemon started for network:" + network)
 	client := SetupMQTT(cfg)
 	if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
-	if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
-	}
-	if token := client.Subscribe("/update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
-	}
-
-	//addroute doesn't seem to work consistently
-	//client.AddRoute("update/"+cfg.Node.ID, NodeUpdate)
-	//client.AddRoute("update/peers/"+cfg.Node.ID, UpdatePeers)
+	client.AddRoute("update/"+cfg.Node.ID, NodeUpdate)
+	client.AddRoute("update/peers/"+cfg.Node.ID, UpdatePeers)
 	//handle key updates in node update
 	//client.AddRoute("update/keys/"+cfg.Node.ID, UpdateKeys)
 	defer client.Disconnect(250)
 	go Checkin(ctx, cfg, network)
+	go Metrics(ctx, cfg, network)
 	<-ctx.Done()
 	ncutils.Log("shutting down daemon")
 }
 
 // All -- mqtt message hander for all ('#') topics
 var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	ncutils.Log("default message handler -- received message but not handling")
 	ncutils.Log("Topic: " + string(msg.Topic()))
-	//ncutils.Log("Message: " + string(msg.Payload()))
+	ncutils.Log("Message: " + string(msg.Payload()))
 }
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
@@ -103,7 +100,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 		//check if interface name has changed if so delete.
 		if cfg.Node.Interface != newNode.Interface {
 			if err = wireguard.RemoveConf(cfg.Node.Interface, true); err != nil {
-				ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface+": "+err.Error(), 1)
+				ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface+": ", err.Error(), 1)
 			}
 		}
 		newNode.PullChanges = "no"
@@ -112,12 +109,12 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 		cfg.Node = newNode
 		switch newNode.Action {
 		case models.NODE_DELETE:
-			if err := RemoveLocalInstance(&cfg, cfg.Network); err != nil {
-				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
+			if err := RemoveLocalInstance(cfg, cfg.Network); err != nil {
+				ncutils.Printlog("error deleting local instance: "+err.Error(), 1)
 				return
 			}
 		case models.NODE_UPDATE_KEY:
-			UpdateKeys(&cfg, client)
+			UpdateKeys(cfg)
 		case models.NODE_NOOP:
 		default:
 		}
@@ -126,12 +123,12 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			ncutils.PrintLog("error updating node configuration: "+err.Error(), 1)
 		}
 		nameserver := cfg.Server.CoreDNSAddr
-		privateKey, err := wireguard.RetrievePrivKey(newNode.Network)
+		privateKey, err := wireguard.RetrievePrivKey(data.Network)
 		if err != nil {
 			ncutils.Log("error reading PrivateKey " + err.Error())
 			return
 		}
-		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, newNode); err != nil {
+		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, data); err != nil {
 			ncutils.Log("error updating wireguard config " + err.Error())
 			return
 		}
@@ -146,6 +143,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 
 // UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
 var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+	ncutils.Log("received message to update peers " + string(msg.Payload()))
 	go func() {
 		var peerUpdate models.PeerUpdate
 		err := json.Unmarshal(msg.Payload(), &peerUpdate)
@@ -153,18 +151,16 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			ncutils.Log("error unmarshalling peer data")
 			return
 		}
-		ncutils.Log("update peer handler")
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
 		err = wireguard.UpdateWgPeers(cfg.Node.Interface, peerUpdate.Peers)
 		if err != nil {
-			ncutils.Log("error updating wireguard peers" + err.Error())
+			ncutils.Log("error updating peers" + err.Error())
 			return
 		}
-		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
-		ncutils.Log("applyWGQuickConf to " + file)
-		err = wireguard.ApplyWGQuickConf(file)
+		// path hardcoded for now... should be updated
+		err = wireguard.ApplyWGQuickConf("/etc/netclient/config/" + cfg.Node.Interface + ".conf")
 		if err != nil {
 			ncutils.Log("error restarting wg after peer update " + err.Error())
 			return
@@ -181,7 +177,7 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) (*config.ClientCon
 		ncutils.Log("error generating privatekey " + err.Error())
 		return cfg, err
 	}
-	if err := wireguard.UpdatePrivateKey(cfg.Node.Interface, key.String()); err != nil {
+	if err := wireguard.UpdatePrivateKey(data.Interface, key.String()); err != nil {
 		ncutils.Log("error updating wireguard key " + err.Error())
 		return cfg, err
 	}
@@ -191,9 +187,7 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) (*config.ClientCon
 		client.Disconnect(250)
 		return cfg, err
 	}
-	if err := config.ModConfig(&cfg.Node); err != nil {
-		ncutils.Log("error updating local config " + err.Error())
-	}
+	client.Disconnect(250)
 	return cfg, nil
 }
 
@@ -206,10 +200,8 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 			ncutils.Log("Checkin cancelled")
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
-		case <-time.After(time.Second * 60):
+		case <-time.After(time.Second * 10):
 			ncutils.Log("Checkin running")
-			//read latest config
-			cfg.ReadConfig()
 			if cfg.Node.Roaming == "yes" && cfg.Node.IsStatic != "yes" {
 				extIP, err := ncutils.GetPublicIP()
 				if err != nil {
@@ -250,10 +242,6 @@ func UpdateEndpoint(cfg config.ClientConfig, network, ip string) {
 	if token := client.Publish("update/ip/"+cfg.Node.ID, 0, false, ip); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing endpoint update " + token.Error().Error())
 	}
-	cfg.Node.Endpoint = ip
-	if err := config.Write(&cfg, cfg.Network); err != nil {
-		ncutils.Log("error updating local config " + err.Error())
-	}
 	client.Disconnect(250)
 }
 
@@ -264,20 +252,51 @@ func UpdateLocalAddress(cfg config.ClientConfig, network, ip string) {
 	if token := client.Publish("update/localaddress/"+cfg.Node.ID, 0, false, ip); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing local address update " + token.Error().Error())
 	}
-	cfg.Node.LocalAddress = ip
-	ncutils.Log("updating local address in local config to: " + cfg.Node.LocalAddress)
-	if err := config.Write(&cfg, cfg.Network); err != nil {
-		ncutils.Log("error updating local config " + err.Error())
-	}
 	client.Disconnect(250)
 }
 
 // Hello -- ping the broker to let server know node is alive and doing fine
 func Hello(cfg config.ClientConfig, network string) {
 	client := SetupMQTT(cfg)
-	ncutils.Log("sending ping " + cfg.Node.ID)
-	if token := client.Publish("ping/"+cfg.Node.ID, 2, false, "hello world!"); token.Wait() && token.Error() != nil {
+	if token := client.Publish("ping/"+cfg.Node.ID, 0, false, "hello world!"); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing ping " + token.Error().Error())
 	}
 	client.Disconnect(250)
+}
+
+// Metics --  go routine that collects wireguard metrics and publishes to broker
+func Metrics(ctx context.Context, cfg config.ClientConfig, network string) {
+	for {
+		select {
+		case <-ctx.Done():
+			ncutils.Log("Metrics collection cancelled")
+			return
+			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
+		case <-time.After(time.Second * 60):
+			ncutils.Log("Metrics collection running")
+			ncutils.Log("Metrics running")
+			wg, err := wgctrl.New()
+			if err != nil {
+				ncutils.Log("error getting devices " + err.Error())
+				break
+			}
+			device, err := wg.Device(cfg.Node.Interface)
+			if err != nil {
+				ncutils.Log("error readind wg device " + err.Error())
+				break
+			}
+			bytes, err := json.Marshal(device.Peers)
+			if err != nil {
+				ncutils.Log("error marshaling peers " + err.Error())
+				break
+			}
+			client := SetupMQTT(cfg)
+			if token := client.Publish("metrics/"+cfg.Node.ID, 1, false, bytes); token.Wait() && token.Error() != nil {
+				ncutils.Log("error publishing metrics " + token.Error().Error())
+			}
+			wg.Close()
+			client.Disconnect(250)
+			ncutils.Log("metrics collection complete")
+		}
+	}
 }
