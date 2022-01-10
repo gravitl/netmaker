@@ -23,9 +23,9 @@ const NODE_NOOP = "noop"
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-// node struct
+// Node - struct for node model
 type Node struct {
-	ID                  string   `json:"id,omitempty" bson:"id,omitempty"`
+	ID                  string   `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5"`
 	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
@@ -46,7 +46,7 @@ type Node struct {
 	ExpirationDateTime  int64    `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
 	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
-	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"required,min=5,macaddress_unique"`
+	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress"`
 	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
@@ -72,6 +72,7 @@ type Node struct {
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS                  string   `json:"os" bson:"os" yaml:"os"`
 	MTU                 int32    `json:"mtu" bson:"mtu" yaml:"mtu"`
+	Version             string   `json:"version" bson:"version" yaml:"version"`
 }
 
 // NodesArray - used for node sorting

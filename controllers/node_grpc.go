@@ -139,12 +139,16 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	nodeID := req.GetData()
-	var nodeInfo = strings.Split(nodeID, "###")
-	if len(nodeInfo) != 2 {
-		return nil, errors.New("node not found")
+	var nodeInfo = make([]string, 2)
+	if strings.Contains(nodeID, "###") {
+		nodeInfo = strings.Split(nodeID, "###")
+		if len(nodeInfo) != 2 {
+			return nil, errors.New("node not found")
+		}
 	}
-	var node, err = logic.GetNode(nodeInfo[0], nodeInfo[1])
-	err = logic.DeleteNodeByMacAddress(&node, true)
+
+	var node, err = logic.GetNodeByIDorMacAddress(nodeID, nodeInfo[0], nodeInfo[1])
+	err = logic.DeleteNodeByID(&node, true)
 	if err != nil {
 		return nil, err
 	}
@@ -157,37 +161,38 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 
 // NodeServiceServer.GetPeers - fetches peers over gRPC
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	macAndNetwork := strings.Split(req.Data, "###")
-	if len(macAndNetwork) == 2 {
-		// TODO: Make constant and new variable for isServer
-		node, err := logic.GetNode(macAndNetwork[0], macAndNetwork[1])
-		if err != nil {
-			return nil, err
+	nodeID := req.GetData()
+	var nodeInfo = make([]string, 2)
+	if strings.Contains(nodeID, "###") {
+		nodeInfo = strings.Split(nodeID, "###")
+		if len(nodeInfo) != 2 {
+			return nil, errors.New("could not fetch peers, invalid node id")
 		}
-		if node.IsServer == "yes" && logic.IsLeader(&node) {
-			logic.SetNetworkServerPeers(&node)
-		}
-		excludeIsRelayed := node.IsRelay != "yes"
-		var relayedNode string
-		if node.IsRelayed == "yes" {
-			relayedNode = node.Address
-		}
-		peers, err := logic.GetPeersList(macAndNetwork[1], excludeIsRelayed, relayedNode)
-		if err != nil {
-			return nil, err
-		}
-
-		peersData, err := json.Marshal(&peers)
-		logger.Log(3, node.Address, "checked in successfully")
-		return &nodepb.Object{
-			Data: string(peersData),
-			Type: nodepb.NODE_TYPE,
-		}, err
 	}
+
+	node, err := logic.GetNodeByIDorMacAddress(nodeID, nodeInfo[0], nodeInfo[1])
+	if err != nil {
+		return nil, err
+	}
+	if node.IsServer == "yes" && logic.IsLeader(&node) {
+		logic.SetNetworkServerPeers(&node)
+	}
+	excludeIsRelayed := node.IsRelay != "yes"
+	var relayedNode string
+	if node.IsRelayed == "yes" {
+		relayedNode = node.Address
+	}
+	peers, err := logic.GetPeersList(node.Network, excludeIsRelayed, relayedNode)
+	if err != nil {
+		return nil, err
+	}
+
+	peersData, err := json.Marshal(&peers)
+	logger.Log(3, node.Address, "checked in successfully")
 	return &nodepb.Object{
-		Data: "",
+		Data: string(peersData),
 		Type: nodepb.NODE_TYPE,
-	}, errors.New("could not fetch peers, invalid node id")
+	}, err
 }
 
 // NodeServiceServer.GetExtPeers - returns ext peers for a gateway node
@@ -199,7 +204,21 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 	if len(macAndNetwork) != 2 {
 		return nil, errors.New("did not receive valid node id when fetching ext peers")
 	}
-	peers, err := logic.GetExtPeersList(macAndNetwork[0], macAndNetwork[1])
+	nodeID := req.GetData()
+	var nodeInfo = make([]string, 2)
+	if strings.Contains(nodeID, "###") {
+		nodeInfo = strings.Split(nodeID, "###")
+		if len(nodeInfo) != 2 {
+			return nil, errors.New("could not fetch peers, invalid node id")
+		}
+	}
+
+	node, err := logic.GetNodeByIDorMacAddress(nodeID, nodeInfo[0], nodeInfo[1])
+	if err != nil {
+		return nil, err
+	}
+
+	peers, err := logic.GetExtPeersList(&node)
 	if err != nil {
 		return nil, err
 	}

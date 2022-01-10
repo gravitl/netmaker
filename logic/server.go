@@ -39,6 +39,7 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 		IsStatic:     "yes",
 		Name:         models.NODE_SERVER_NAME,
 		MacAddress:   serverID,
+		ID:           serverID,
 		UDPHolePunch: "no",
 		IsLocal:      networkSettings.IsLocal,
 		LocalRange:   networkSettings.LocalRange,
@@ -135,9 +136,9 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 }
 
 // ServerCheckin - runs pulls and pushes for server
-func ServerCheckin(mac string, network string) error {
+func ServerCheckin(serverID string, mac string, network string) error {
 	var serverNode = &models.Node{}
-	var currentNode, err = GetNode(mac, network)
+	var currentNode, err = GetNodeByIDorMacAddress(serverID, mac, network)
 	if err != nil {
 		return err
 	}
@@ -145,7 +146,7 @@ func ServerCheckin(mac string, network string) error {
 
 	err = ServerPull(serverNode, false)
 	if isDeleteError(err) {
-		return ServerLeave(mac, network)
+		return ServerLeave(currentNode.ID)
 	} else if err != nil {
 		return err
 	}
@@ -208,13 +209,13 @@ func ServerPush(serverNode *models.Node) error {
 }
 
 // ServerLeave - removes a server node
-func ServerLeave(mac string, network string) error {
+func ServerLeave(serverID string) error {
 
-	var serverNode, err = GetNode(mac, network)
+	var serverNode, err = GetNodeByID(serverID)
 	if err != nil {
 		return err
 	}
-	return DeleteNodeByMacAddress(&serverNode, true)
+	return DeleteNodeByID(&serverNode, true)
 }
 
 /**
@@ -229,7 +230,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 	var peers []wgtypes.PeerConfig
 	var nodes []models.Node // fill above fields from server or client
 
-	var nodecfg, err = GetNode(serverNode.MacAddress, serverNode.Network)
+	var nodecfg, err = GetNodeByIDorMacAddress(serverNode.ID, serverNode.MacAddress, serverNode.Network)
 	if err != nil {
 		return nil, hasGateway, gateways, err
 	}
@@ -348,7 +349,7 @@ func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 	var err error
 	var tempPeers []models.ExtPeersResponse
 
-	tempPeers, err = GetExtPeersList(serverNode.MacAddress, serverNode.Network)
+	tempPeers, err = GetExtPeersList(serverNode)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +420,7 @@ func checkNodeActions(node *models.Node) string {
 		}
 	}
 	if node.Action == models.NODE_DELETE {
-		err := ServerLeave(node.MacAddress, node.Network)
+		err := ServerLeave(node.ID)
 		if err != nil {
 			logger.Log(1, "error deleting locally:", err.Error())
 		}

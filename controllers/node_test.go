@@ -142,7 +142,7 @@ func TestValidateEgressGateway(t *testing.T) {
 func deleteAllNodes() {
 	nodes, _ := logic.GetAllNodes()
 	for _, node := range nodes {
-		logic.DeleteNodeByMacAddress(&node, true)
+		logic.DeleteNodeByID(&node, true)
 	}
 }
 
