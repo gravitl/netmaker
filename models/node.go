@@ -23,9 +23,9 @@ const NODE_NOOP = "noop"
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-// Node - struct for node model
+// node struct
 type Node struct {
-	ID                  string   `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5"`
+	ID                  string   `json:"id,omitempty" bson:"id,omitempty"`
 	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
@@ -46,7 +46,7 @@ type Node struct {
 	ExpirationDateTime  int64    `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
 	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
-	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress"`
+	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"required,min=5,macaddress_unique"`
 	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
@@ -72,8 +72,6 @@ type Node struct {
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS                  string   `json:"os" bson:"os" yaml:"os"`
 	MTU                 int32    `json:"mtu" bson:"mtu" yaml:"mtu"`
-	Version             string   `json:"version" bson:"version" yaml:"version"`
-	ExcludedAddrs       []string `json:"excludedaddrs" bson:"excludedaddrs" yaml:"excludedaddrs"`
 }
 
 // NodesArray - used for node sorting
@@ -108,91 +106,78 @@ func (node *Node) SetDefaulIsPending() {
 	}
 }
 
-// Node.SetDefaultIsRelayed - set default is relayed
 func (node *Node) SetDefaultIsRelayed() {
 	if node.IsRelayed == "" {
 		node.IsRelayed = "no"
 	}
 }
 
-// Node.SetDefaultIsRelay - set default isrelay
 func (node *Node) SetDefaultIsRelay() {
 	if node.IsRelay == "" {
 		node.IsRelay = "no"
 	}
 }
 
-// Node.SetDefaultEgressGateway - sets default egress gateway status
 func (node *Node) SetDefaultEgressGateway() {
 	if node.IsEgressGateway == "" {
 		node.IsEgressGateway = "no"
 	}
 }
 
-// Node.SetDefaultIngressGateway - sets default ingress gateway status
 func (node *Node) SetDefaultIngressGateway() {
 	if node.IsIngressGateway == "" {
 		node.IsIngressGateway = "no"
 	}
 }
 
-// Node.SetDefaultAction - sets default action status
 func (node *Node) SetDefaultAction() {
 	if node.Action == "" {
 		node.Action = NODE_NOOP
 	}
 }
 
-// Node.SetRoamingDefault - sets default roaming status
 func (node *Node) SetRoamingDefault() {
 	if node.Roaming == "" {
 		node.Roaming = "yes"
 	}
 }
 
-// Node.SetPullChangesDefault - sets default pull changes status
 func (node *Node) SetPullChangesDefault() {
 	if node.PullChanges == "" {
 		node.PullChanges = "no"
 	}
 }
 
-// Node.SetIPForwardingDefault - set ip forwarding default
 func (node *Node) SetIPForwardingDefault() {
 	if node.IPForwarding == "" {
 		node.IPForwarding = "yes"
 	}
 }
 
-// Node.SetIsLocalDefault - set is local default
 func (node *Node) SetIsLocalDefault() {
 	if node.IsLocal == "" {
 		node.IsLocal = "no"
 	}
 }
 
-// Node.SetDNSOnDefault - sets dns on default
 func (node *Node) SetDNSOnDefault() {
 	if node.DNSOn == "" {
 		node.DNSOn = "yes"
 	}
 }
 
-// Node.SetIsDualStackDefault - set is dual stack default status
 func (node *Node) SetIsDualStackDefault() {
 	if node.IsDualStack == "" {
 		node.IsDualStack = "no"
 	}
 }
 
-// Node.SetIsServerDefault - sets node isserver default
 func (node *Node) SetIsServerDefault() {
 	if node.IsServer != "yes" {
 		node.IsServer = "no"
 	}
 }
 
-// Node.SetIsStaticDefault - set is static default
 func (node *Node) SetIsStaticDefault() {
 	if node.IsServer == "yes" {
 		node.IsStatic = "yes"
@@ -201,44 +186,32 @@ func (node *Node) SetIsStaticDefault() {
 	}
 }
 
-// Node.SetLastModified - set last modified initial time
 func (node *Node) SetLastModified() {
 	node.LastModified = time.Now().Unix()
 }
 
-// Node.SetLastCheckIn - time.Now().Unix()
 func (node *Node) SetLastCheckIn() {
 	node.LastCheckIn = time.Now().Unix()
 }
 
-// Node.SetLastPeerUpdate - sets last peer update time
 func (node *Node) SetLastPeerUpdate() {
 	node.LastPeerUpdate = time.Now().Unix()
 }
 
-// Node.SetExpirationDateTime - sets node expiry time
 func (node *Node) SetExpirationDateTime() {
 	node.ExpirationDateTime = time.Now().Unix() + TEN_YEARS_IN_SECONDS
 }
 
-// Node.SetDefaultName - sets a random name to node
 func (node *Node) SetDefaultName() {
 	if node.Name == "" {
 		node.Name = GenerateNodeName()
 	}
 }
 
-// Node.SetDefaultExcludedAddrs - sets ExcludedAddrs to empty array if nil
-func (node *Node) SetDefaultExcludedAddrs() {
-	if node.ExcludedAddrs == nil {
-		node.ExcludedAddrs = make([]string, 0)
-	}
-}
-
-// Node.Fill - fills other node data into calling node data if not set on calling node
 func (newNode *Node) Fill(currentNode *Node) {
-	newNode.ID = currentNode.ID
-
+	if newNode.ID == "" {
+		newNode.ID = currentNode.ID
+	}
 	if newNode.Address == "" && newNode.IsStatic != "yes" {
 		newNode.Address = currentNode.Address
 	}
@@ -381,15 +354,8 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.IsRelayed == "" {
 		newNode.IsRelayed = currentNode.IsRelayed
 	}
-	if newNode.Version == "" {
-		newNode.Version = currentNode.Version
-	}
-	if newNode.ExcludedAddrs == nil || len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) {
-		newNode.ExcludedAddrs = currentNode.ExcludedAddrs
-	}
 }
 
-// StringWithCharset - returns random string inside defined charset
 func StringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
 	for i := range b {
@@ -398,14 +364,13 @@ func StringWithCharset(length int, charset string) string {
 	return string(b)
 }
 
-// IsIpv4Net - check for valid IPv4 address
-// Note: We dont handle IPv6 AT ALL!!!!! This definitely is needed at some point
-// But for iteration 1, lets just stick to IPv4. Keep it simple stupid.
+//Check for valid IPv4 address
+//Note: We dont handle IPv6 AT ALL!!!!! This definitely is needed at some point
+//But for iteration 1, lets just stick to IPv4. Keep it simple stupid.
 func IsIpv4Net(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
-// Node.NameInNodeCharset - returns if name is in charset below or not
 func (node *Node) NameInNodeCharSet() bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-"
