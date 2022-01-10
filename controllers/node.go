@@ -29,9 +29,10 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", securityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
+	// r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
+
 }
 
 func authenticate(response http.ResponseWriter, request *http.Request) {
@@ -185,7 +186,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				r.Header.Set("ismasterkey", "yes")
 			}
 			if !isadmin && params["network"] != "" {
-				if logic.StringSliceContains(networks, params["network"]) {
+				if functions.SliceContains(networks, params["network"]) {
 					isnetadmin = true
 				}
 			}
@@ -403,11 +404,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	if err = runServerPeerUpdate(node.Network, true); err != nil {
-		logger.Log(1, "internal error when creating node:", node.ID)
-	}
-
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -418,14 +414,10 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	var nodeid = params["nodeid"]
-	node, err := logic.UncordonNode(nodeid)
+	node, err := logic.UncordonNode(params["nodeid"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
-	}
-	if err = runServerPeerUpdate(node.Network, false); err != nil {
-		logger.Log(1, "internal error when approving node:", nodeid)
 	}
 	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
 	w.WriteHeader(http.StatusOK)
@@ -448,9 +440,6 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(gateway.NetID, true); err != nil {
-		logger.Log(1, "internal error when setting peers after creating egress on node:", gateway.NodeID)
-	}
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -465,9 +454,6 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
-	}
-	if err = runServerPeerUpdate(netid, true); err != nil {
-		logger.Log(1, "internal error when setting peers after removing egress on node:", nodeid)
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
@@ -486,7 +472,6 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -501,7 +486,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -546,14 +530,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
-	var shouldPeersUpdate = logic.ShouldPeersUpdate(&node, &newNode)
-
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	if relayupdate {
 		logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
 		if err = logic.NetworkNodesUpdatePullChanges(node.Network); err != nil {
@@ -561,16 +542,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if servercfg.IsDNSMode() { // TODO check when this should be updated..
+	if servercfg.IsDNSMode() {
 		err = logic.SetDNS()
 	}
-
-	err = runServerPeerUpdate(node.Network, shouldPeersUpdate)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "updated node", node.ID)
+	logger.Log(1, r.Header.Get("user"), "updated node", node.MacAddress, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 }
@@ -587,13 +566,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	err = logic.DeleteNodeByID(&node, false)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	err = runServerPeerUpdate(node.Network, true)
+	err = logic.DeleteNodeByMacAddress(&node, false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
