@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -67,7 +68,8 @@ func Netclient(ctx context.Context, network string) {
 	}
 	client.AddRoute("update/"+cfg.Node.ID, NodeUpdate)
 	client.AddRoute("update/peers/"+cfg.Node.ID, UpdatePeers)
-	client.AddRoute("update/keys/"+cfg.Node.ID, UpdateKeys)
+	//handle key updates in node update
+	//client.AddRoute("update/keys/"+cfg.Node.ID, UpdateKeys)
 	defer client.Disconnect(250)
 	go Checkin(ctx, cfg, network)
 	go Metrics(ctx, cfg, network)
@@ -86,19 +88,44 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 	ncutils.Log("received message to update node " + string(msg.Payload()))
 	//potentiall blocking i/o so do this in a go routine
 	go func() {
-		var data models.Node
-		err := json.Unmarshal(msg.Payload(), &data)
+		var newNode models.Node
+		var cfg config.ClientConfig
+		cfg.Network = newNode.Network
+		cfg.ReadConfig()
+		err := json.Unmarshal(msg.Payload(), &newNode)
 		if err != nil {
 			ncutils.Log("error unmarshalling node update data" + err.Error())
 			return
 		}
-		var cfg config.ClientConfig
-		cfg.Network = data.Network
-		cfg.ReadConfig()
+		//check if interface name has changed if so delete.
+		if cfg.Node.Interface != newNode.Interface {
+			if err = wireguard.RemoveConf(cfg.Node.Interface, true); err != nil {
+				ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface+": ", err.Error(), 1)
+			}
+		}
+		newNode.PullChanges = "no"
+		//ensure that OS never changes
+		newNode.OS = runtime.GOOS
+		cfg.Node = newNode
+		switch newNode.Action {
+		case models.NODE_DELETE:
+			if err := RemoveLocalInstance(cfg, cfg.Network); err != nil {
+				ncutils.Printlog("error deleting local instance: "+err.Error(), 1)
+				return
+			}
+		case models.NODE_UPDATE_KEY:
+			UpdateKeys(cfg)
+		case models.NODE_NOOP:
+		default:
+		}
+		//Save new config
+		if err := config.Write(&cfg, cfg.Network); err != nil {
+			ncutils.PrintLog("error updating node configuration: "+err.Error(), 1)
+		}
 		nameserver := cfg.Server.CoreDNSAddr
 		privateKey, err := wireguard.RetrievePrivKey(data.Network)
 		if err != nil {
-			ncutils.Log("error generating PrivateKey " + err.Error())
+			ncutils.Log("error reading PrivateKey " + err.Error())
 			return
 		}
 		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, data); err != nil {
@@ -108,7 +135,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 		// path hardcoded for now... should be updated
 		err = wireguard.ApplyWGQuickConf("/etc/netclient/config/" + cfg.Node.Interface + ".conf")
 		if err != nil {
-			ncutils.Log("error restarting wg after peer update " + err.Error())
+			ncutils.Log("error restarting wg after node update " + err.Error())
 			return
 		}
 	}()
@@ -117,7 +144,6 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 // UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
 var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	ncutils.Log("received message to update peers " + string(msg.Payload()))
-	//potentiall blocking i/o so do this in a go routine
 	go func() {
 		var peerUpdate models.PeerUpdate
 		err := json.Unmarshal(msg.Payload(), &peerUpdate)
@@ -142,34 +168,27 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 	}()
 }
 
-// UpdateKeys -- mqtt message handler for /update/keys/<NodeID> topic
-var UpdateKeys mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	ncutils.Log("received message to update keys " + string(msg.Payload()))
+// UpdateKeys -- updates private key and returns new publickey
+func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) (*config.ClientConfig, error) {
+	ncutils.Log("received message to update keys")
 	//potentiall blocking i/o so do this in a go routine
-	go func() {
-		var data models.KeyUpdate
-		if err := json.Unmarshal(msg.Payload(), &data); err != nil {
-			ncutils.Log("error unmarshalling key update data" + err.Error())
-			return
-		}
-		var cfg config.ClientConfig
-		cfg.Network = data.Network
-		cfg.ReadConfig()
-		key, err := wgtypes.GeneratePrivateKey()
-		if err != nil {
-			ncutils.Log("error generating privatekey " + err.Error())
-			return
-		}
-		if err := wireguard.UpdatePrivateKey(data.Interface, key.String()); err != nil {
-			ncutils.Log("error updating wireguard key " + err.Error())
-			return
-		}
-		publicKey := key.PublicKey()
-		if token := client.Publish("update/publickey/"+cfg.Node.ID, 0, false, publicKey.String()); token.Wait() && token.Error() != nil {
-			ncutils.Log("error publishing publickey update " + token.Error().Error())
-		}
+	key, err := wgtypes.GeneratePrivateKey()
+	if err != nil {
+		ncutils.Log("error generating privatekey " + err.Error())
+		return cfg, err
+	}
+	if err := wireguard.UpdatePrivateKey(data.Interface, key.String()); err != nil {
+		ncutils.Log("error updating wireguard key " + err.Error())
+		return cfg, err
+	}
+	publicKey := key.PublicKey()
+	if token := client.Publish("update/publickey/"+cfg.Node.ID, 0, false, publicKey.String()); token.Wait() && token.Error() != nil {
+		ncutils.Log("error publishing publickey update " + token.Error().Error())
 		client.Disconnect(250)
-	}()
+		return cfg, err
+	}
+	client.Disconnect(250)
+	return cfg, nil
 }
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
