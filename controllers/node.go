@@ -566,7 +566,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	err = logic.DeleteNodeByMacAddress(&node, false)
+	err = logic.DeleteNodeByID(&node, false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

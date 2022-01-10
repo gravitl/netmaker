@@ -42,7 +42,7 @@ func FileExists(f string) bool {
 
 // RemoveNetwork - removes a network locally on server
 func RemoveNetwork(network string) (bool, error) {
-	err := logic.ServerLeave(servercfg.GetNodeID(), network)
+	err := logic.ServerLeave(servercfg.GetNodeID())
 	return true, err
 }
 
@@ -70,7 +70,7 @@ func HandleContainedClient() error {
 			return err
 		}
 		for _, serverNet := range servernets {
-			err = logic.ServerCheckin(servercfg.GetNodeID(), serverNet.NetID)
+			err = logic.ServerCheckin(servercfg.GetNodeID(), servercfg.GetNodeID(), serverNet.NetID)
 			if err != nil {
 				logger.Log(1, "error occurred during server checkin:", err.Error())
 			} else {
