@@ -21,15 +21,21 @@ type NodeServiceServer struct {
 // NodeServiceServer.ReadNode - reads node and responds with gRPC
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// convert string id (from proto) to mongoDB ObjectId
-	macAndNetwork := strings.Split(req.Data, "###")
-
-	if len(macAndNetwork) != 2 {
-		return nil, errors.New("could not read node, invalid node id given")
+	var err error
+	var node models.Node
+	var macAndNetwork = make([]string, 2)
+	if strings.Contains(req.Data, "###") {
+		macAndNetwork = strings.Split(req.Data, "###")
+		if len(macAndNetwork) != 2 {
+			return nil, errors.New("could not read node, invalid node id given")
+		}
 	}
-	node, err := logic.GetNode(macAndNetwork[0], macAndNetwork[1])
+
+	node, err = logic.GetNodeByIDorMacAddress(req.Data, macAndNetwork[0], macAndNetwork[1])
 	if err != nil {
 		return nil, err
 	}
+
 	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
 	if err != nil {
 		return nil, err
@@ -101,10 +107,8 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err := json.Unmarshal([]byte(req.GetData()), &newnode); err != nil {
 		return nil, err
 	}
-	macaddress := newnode.MacAddress
-	networkName := newnode.Network
 
-	node, err := logic.GetNodeByMacAddress(networkName, macaddress)
+	node, err := logic.GetNodeByIDorMacAddress(newnode.ID, newnode.MacAddress, newnode.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +144,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 		return nil, errors.New("node not found")
 	}
 	var node, err = logic.GetNode(nodeInfo[0], nodeInfo[1])
-	err = logic.DeleteNode(&node, true)
+	err = logic.DeleteNodeByMacAddress(&node, true)
 	if err != nil {
 		return nil, err
 	}

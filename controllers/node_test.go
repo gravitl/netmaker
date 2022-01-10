@@ -105,18 +105,13 @@ func TestUncordonNode(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	node := createTestNode()
-	t.Run("BadNet", func(t *testing.T) {
-		resp, err := logic.UncordonNode("badnet", node.MacAddress)
-		assert.Equal(t, models.Node{}, resp)
-		assert.EqualError(t, err, "no result found")
-	})
-	t.Run("BadMac", func(t *testing.T) {
-		resp, err := logic.UncordonNode("skynet", "01:02:03")
+	t.Run("BadID", func(t *testing.T) {
+		resp, err := logic.UncordonNode("blahblah")
 		assert.Equal(t, models.Node{}, resp)
 		assert.EqualError(t, err, "no result found")
 	})
 	t.Run("Success", func(t *testing.T) {
-		resp, err := logic.UncordonNode("skynet", node.MacAddress)
+		resp, err := logic.UncordonNode(node.ID)
 		assert.Nil(t, err)
 		assert.Equal(t, "no", resp.IsPending)
 	})
@@ -147,7 +142,7 @@ func TestValidateEgressGateway(t *testing.T) {
 func deleteAllNodes() {
 	nodes, _ := logic.GetAllNodes()
 	for _, node := range nodes {
-		logic.DeleteNode(&node, true)
+		logic.DeleteNodeByMacAddress(&node, true)
 	}
 }
 

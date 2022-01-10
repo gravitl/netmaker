@@ -64,8 +64,8 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 }
 
 // UncordonNode - approves a node to join a network
-func UncordonNode(network, macaddress string) (models.Node, error) {
-	node, err := GetNodeByMacAddress(network, macaddress)
+func UncordonNode(nodeid string) (models.Node, error) {
+	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -296,6 +296,7 @@ func SetNodeDefaults(node *models.Node) {
 }
 
 // GetRecordKey - get record key
+// depricated
 func GetRecordKey(id string, network string) (string, error) {
 	if id == "" || network == "" {
 		return "", errors.New("unable to get record key")
@@ -379,6 +380,28 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
 }
 
+// GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
+func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (models.Node, error) {
+	var node models.Node
+	var err error
+	node, err = GetNodeByID(uuid)
+	if err != nil && macaddress != "" && network != "" {
+		node, err = GetNodeByMacAddress(network, macaddress)
+		if err != nil {
+			return models.Node{}, err
+		}
+		err = DeleteNodeByMacAddress(&node, true) // remove node
+		if err != nil {
+			return models.Node{}, err
+		}
+		err = CreateNode(&node)
+		if err != nil {
+			return models.Node{}, err
+		}
+	}
+	return node, err
+}
+
 // GetNodeByID - get node by uuid, should have been set by create
 func GetNodeByID(uuid string) (models.Node, error) {
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
@@ -389,5 +412,24 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
+	return node, nil
+}
+
+// GetDeletedNodeByID - get a deleted node
+func GetDeletedNodeByID(uuid string) (models.Node, error) {
+
+	var node models.Node
+
+	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, uuid)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+
+	SetNodeDefaults(&node)
+
 	return node, nil
 }
