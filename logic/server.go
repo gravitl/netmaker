@@ -113,7 +113,6 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 		node.Endpoint = node.LocalAddress
 	}
 
-	node.SetID()
 	if err = StorePrivKey(node.ID, privateKey); err != nil {
 		return err
 	}
@@ -215,7 +214,6 @@ func ServerLeave(mac string, network string) error {
 	if err != nil {
 		return err
 	}
-	serverNode.SetID()
 	return DeleteNode(&serverNode, true)
 }
 

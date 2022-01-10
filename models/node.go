@@ -2,7 +2,6 @@ package models
 
 import (
 	"bytes"
-	"errors"
 	"math/rand"
 	"net"
 	"strings"
@@ -75,11 +74,17 @@ type Node struct {
 	MTU                 int32    `json:"mtu" bson:"mtu" yaml:"mtu"`
 }
 
+// NodesArray - used for node sorting
 type NodesArray []Node
 
-func (a NodesArray) Len() int           { return len(a) }
+// NodesArray.Len - gets length of node array
+func (a NodesArray) Len() int { return len(a) }
+
+// NodesArray.Less - gets returns lower rank of two node addresses
 func (a NodesArray) Less(i, j int) bool { return isLess(a[i].Address, a[j].Address) }
-func (a NodesArray) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// NodesArray.Swap - swaps two nodes in array
+func (a NodesArray) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
 func isLess(ipA string, ipB string) bool {
 	ipNetA := net.ParseIP(ipA)
@@ -87,12 +92,14 @@ func isLess(ipA string, ipB string) bool {
 	return bytes.Compare(ipNetA, ipNetB) < 0
 }
 
+// Node.SetDefaultMTU - sets default MTU of a node
 func (node *Node) SetDefaultMTU() {
 	if node.MTU == 0 {
 		node.MTU = 1280
 	}
 }
 
+// Node.SetDefaulIsPending - sets ispending default
 func (node *Node) SetDefaulIsPending() {
 	if node.IsPending == "" {
 		node.IsPending = "no"
@@ -189,10 +196,6 @@ func (node *Node) SetLastCheckIn() {
 
 func (node *Node) SetLastPeerUpdate() {
 	node.LastPeerUpdate = time.Now().Unix()
-}
-
-func (node *Node) SetID() {
-	node.ID = node.MacAddress + "###" + node.Network
 }
 
 func (node *Node) SetExpirationDateTime() {
@@ -378,11 +381,4 @@ func (node *Node) NameInNodeCharSet() bool {
 		}
 	}
 	return true
-}
-
-func (node *Node) GetID() (string, error) {
-	if node.MacAddress == "" || node.Network == "" {
-		return "", errors.New("unable to get record key")
-	}
-	return node.MacAddress + "###" + node.Network, nil
 }
