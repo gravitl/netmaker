@@ -97,9 +97,6 @@ func (config *ClientConfig) ReadConfig() {
 			fmt.Println("no config or invalid")
 			fmt.Println(err)
 			log.Fatal(err)
-		} else {
-			config.Node.SetID()
-			//config = cfg
 		}
 	}
 }

@@ -125,7 +125,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
 	}
-	newNode.SetID()
 	if newNode.ID == currentNode.ID {
 		newNode.SetLastModified()
 		if data, err := json.Marshal(newNode); err != nil {
@@ -285,7 +284,6 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetRoamingDefault()
 	node.SetPullChangesDefault()
 	node.SetDefaultAction()
-	node.SetID()
 	node.SetIsServerDefault()
 	node.SetIsStaticDefault()
 	node.SetDefaultEgressGateway()
@@ -379,4 +377,17 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 		}
 	}
 	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
+}
+
+// GetNodeByID - get node by uuid, should have been set by create
+func GetNodeByID(uuid string) (models.Node, error) {
+	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
+	if err != nil {
+		return models.Node{}, err
+	}
+	var node models.Node
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+	return node, nil
 }

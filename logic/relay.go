@@ -73,7 +73,6 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 					if err != nil {
 						return err
 					}
-					node.SetID()
 					database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 				}
 			}

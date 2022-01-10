@@ -110,7 +110,6 @@ func NetworkNodesUpdatePullChanges(networkName string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -355,7 +354,6 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 				fmt.Println("error in node  address assignment!")
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
 		}
 	}
@@ -387,7 +385,6 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -424,7 +421,6 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -630,7 +626,6 @@ func networkNodesUpdateAction(networkName string, action string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
