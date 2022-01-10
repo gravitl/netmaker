@@ -214,7 +214,7 @@ func ServerLeave(mac string, network string) error {
 	if err != nil {
 		return err
 	}
-	return DeleteNode(&serverNode, true)
+	return DeleteNodeByMacAddress(&serverNode, true)
 }
 
 /**

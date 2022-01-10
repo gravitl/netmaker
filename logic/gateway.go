@@ -13,7 +13,7 @@ import (
 
 // CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
-	node, err := GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
+	node, err := GetNodeByID(gateway.NodeID)
 	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
@@ -80,9 +80,9 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 }
 
 // DeleteEgressGateway - deletes egress from node
-func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
+func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 
-	node, err := GetNodeByMacAddress(network, macaddress)
+	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -115,10 +115,10 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 }
 
 // CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
+func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 
-	node, err := GetNodeByMacAddress(netid, macaddress)
-	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
+	node, err := GetNodeByID(nodeid)
+	if node.OS == "windows" || node.OS == "darwin" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
 	}
 

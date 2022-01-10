@@ -25,11 +25,11 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", securityCheck(false, http.HandlerFunc(getExtClientConf))).Methods("GET")
 	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(updateExtClient))).Methods("PUT")
 	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(deleteExtClient))).Methods("DELETE")
-	r.HandleFunc("/api/extclients/{network}/{macaddress}", securityCheck(false, http.HandlerFunc(createExtClient))).Methods("POST")
+	r.HandleFunc("/api/extclients/{network}/{nodeid}", securityCheck(false, http.HandlerFunc(createExtClient))).Methods("POST")
 }
 
-func checkIngressExists(network string, macaddress string) bool {
-	node, err := logic.GetNodeByMacAddress(network, macaddress)
+func checkIngressExists(nodeID string) bool {
+	node, err := logic.GetNodeByID(nodeID)
 	if err != nil {
 		return false
 	}
@@ -122,7 +122,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gwnode, err := logic.GetNodeByMacAddress(client.Network, client.IngressGatewayID)
+	gwnode, err := logic.GetNodeByID(client.IngressGatewayID)
 	if err != nil {
 		logger.Log(1, fmt.Sprintf("%s %s %s", r.Header.Get("user"), "Could not retrieve Ingress Gateway Node", client.IngressGatewayID))
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -211,8 +211,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 
 	networkName := params["network"]
-	macaddress := params["macaddress"]
-	ingressExists := checkIngressExists(networkName, macaddress)
+	nodeid := params["nodeid"]
+	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
 		returnErrorResponse(w, r, formatError(errors.New("ingress does not exist"), "internal"))
 		return
@@ -220,8 +220,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var extclient models.ExtClient
 	extclient.Network = networkName
-	extclient.IngressGatewayID = macaddress
-	node, err := logic.GetNodeByMacAddress(networkName, macaddress)
+	extclient.IngressGatewayID = nodeid
+	node, err := logic.GetNodeByIDorMacAddress(nodeid, nodeid, networkName)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

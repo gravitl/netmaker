@@ -8,6 +8,7 @@ const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 // AuthParams - struct for auth params
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`
+	ID         string `json:"id"`
 	Password   string `json:"password"`
 }
 
@@ -49,8 +50,9 @@ type SuccessfulUserLoginResponse struct {
 // Claims is  a struct that will be encoded to a JWT.
 // jwt.StandardClaims is an embedded type to provide expiry time
 type Claims struct {
-	Network    string
+	ID         string
 	MacAddress string
+	Network    string
 	jwt.StandardClaims
 }
 
@@ -70,7 +72,8 @@ type ErrorResponse struct {
 type NodeAuth struct {
 	Network    string
 	Password   string
-	MacAddress string
+	MacAddress string // Depricated
+	ID         string
 }
 
 // SuccessResponse is struct for sending error message with code.
