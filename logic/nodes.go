@@ -395,6 +395,7 @@ func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (mo
 			return models.Node{}, err
 		}
 		err = CreateNode(&node)
+		logger.Log(2, "rewriting legacy node data; node now has id,", node.ID)
 		if err != nil {
 			return models.Node{}, err
 		}
