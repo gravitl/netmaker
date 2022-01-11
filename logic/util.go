@@ -105,10 +105,10 @@ func CreateNode(node *models.Node) error {
 		return err
 	}
 
+	// TODO: This covers legacy nodes, eventually want to remove legacy check
 	if (node.IsServer != "yes" && (node.ID == "" || strings.Contains(node.ID, "###"))) || (node.IsServer == "yes" && servercfg.GetNodeID() == "") {
 		node.ID = uuid.NewString()
 	}
-	logger.Log(0, "server ID: ", node.ID)
 
 	//Create a JWT for the node
 	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
