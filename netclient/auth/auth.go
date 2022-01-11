@@ -55,6 +55,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 	node := models.Node{
 		Password:   pass,
 		MacAddress: cfg.Node.MacAddress,
+		ID:         cfg.Node.ID,
 		Network:    network,
 	}
 	data, err := json.Marshal(&node)
@@ -64,6 +65,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 
 	login := &nodepb.Object{
 		Data: string(data),
+		Type: nodepb.NODE_TYPE,
 	}
 	// RPC call
 	res, err := client.Login(context.TODO(), login)
