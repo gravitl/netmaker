@@ -135,10 +135,7 @@ func TestValidateEgressGateway(t *testing.T) {
 }
 
 func deleteAllNodes() {
-	nodes, _ := logic.GetAllNodes()
-	for _, node := range nodes {
-		logic.DeleteNodeByID(&node, true)
-	}
+	database.DeleteAllRecords(database.NODES_TABLE_NAME)
 }
 
 func createTestNode() *models.Node {
