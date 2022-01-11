@@ -76,12 +76,8 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return node, err
-	}
 
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	return node, err
 }
 

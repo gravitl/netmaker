@@ -95,15 +95,12 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	}
 	node.SetLastModified()
 	node.PullChanges = "yes"
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
+
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	if err = database.Insert(key, string(data), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
 	if err = NetworkNodesUpdatePullChanges(network); err != nil {
@@ -147,15 +144,12 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	node.PostDown = postDownCmd
 	node.PullChanges = "yes"
 	node.UDPHolePunch = "no"
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
+
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -185,15 +179,11 @@ func DeleteIngressGateway(networkName string, macaddress string) (models.Node, e
 	node.IngressGatewayRange = ""
 	node.PullChanges = "yes"
 
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return models.Node{}, err
 	}
