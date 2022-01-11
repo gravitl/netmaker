@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
@@ -22,16 +21,14 @@ type NodeServiceServer struct {
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 	// convert string id (from proto) to mongoDB ObjectId
 	var err error
-	var node models.Node
-	var macAndNetwork = make([]string, 2)
-	if strings.Contains(req.Data, "###") {
-		macAndNetwork = strings.Split(req.Data, "###")
-		if len(macAndNetwork) != 2 {
-			return nil, errors.New("could not read node, invalid node id given")
-		}
+	var reqNode models.Node
+	err = json.Unmarshal([]byte(req.Data), &reqNode)
+	if err != nil {
+		return nil, err
 	}
 
-	node, err = logic.GetNodeByIDorMacAddress(req.Data, macAndNetwork[0], macAndNetwork[1])
+	var node models.Node
+	node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -138,16 +135,17 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	nodeID := req.GetData()
-	var nodeInfo = make([]string, 2)
-	if strings.Contains(nodeID, "###") {
-		nodeInfo = strings.Split(nodeID, "###")
-		if len(nodeInfo) != 2 {
-			return nil, errors.New("node not found")
-		}
+
+	var reqNode models.Node
+	if err := json.Unmarshal([]byte(req.GetData()), &reqNode); err != nil {
+		return nil, err
 	}
 
-	var node, err = logic.GetNodeByIDorMacAddress(nodeID, nodeInfo[0], nodeInfo[1])
+	node, err := logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+	if err != nil {
+		return nil, err
+	}
+
 	err = logic.DeleteNodeByID(&node, true)
 	if err != nil {
 		return nil, err
@@ -161,16 +159,13 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 
 // NodeServiceServer.GetPeers - fetches peers over gRPC
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	nodeID := req.GetData()
-	var nodeInfo = make([]string, 2)
-	if strings.Contains(nodeID, "###") {
-		nodeInfo = strings.Split(nodeID, "###")
-		if len(nodeInfo) != 2 {
-			return nil, errors.New("could not fetch peers, invalid node id")
-		}
+
+	var reqNode models.Node
+	if err := json.Unmarshal([]byte(req.GetData()), &reqNode); err != nil {
+		return nil, err
 	}
 
-	node, err := logic.GetNodeByIDorMacAddress(nodeID, nodeInfo[0], nodeInfo[1])
+	node, err := logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -200,20 +195,12 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 	// Initiate a NodeItem type to write decoded data to
 	//data := &models.PeersResponse{}
 	// collection.Find returns a cursor for our (empty) query
-	macAndNetwork := strings.Split(req.Data, "###")
-	if len(macAndNetwork) != 2 {
-		return nil, errors.New("did not receive valid node id when fetching ext peers")
-	}
-	nodeID := req.GetData()
-	var nodeInfo = make([]string, 2)
-	if strings.Contains(nodeID, "###") {
-		nodeInfo = strings.Split(nodeID, "###")
-		if len(nodeInfo) != 2 {
-			return nil, errors.New("could not fetch peers, invalid node id")
-		}
+	var reqNode models.Node
+	if err := json.Unmarshal([]byte(req.GetData()), &reqNode); err != nil {
+		return nil, err
 	}
 
-	node, err := logic.GetNodeByIDorMacAddress(nodeID, nodeInfo[0], nodeInfo[1])
+	node, err := logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
 	if err != nil {
 		return nil, err
 	}
