@@ -68,13 +68,13 @@ func TestDeleteEgressGateway(t *testing.T) {
 		node, err := logic.DeleteEgressGateway(gateway.NetID, "01:02:03")
 		assert.EqualError(t, err, "no result found")
 		assert.Equal(t, models.Node{}, node)
+		deleteAllNodes()
 	})
 }
 
 func TestGetNetworkNodes(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllNetworks()
-	deleteAllNodes()
 	createNet()
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("badnet")
