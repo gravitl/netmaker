@@ -71,7 +71,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 		return err
 	}
 	tokenstring := []byte(res.Data)
-	err = os.WriteFile(home+"nettoken-"+network, tokenstring, 0644)
+	err = os.WriteFile(home+"nettoken-"+network, tokenstring, 0644) // TODO: Proper permissions?
 	if err != nil {
 		return err
 	}

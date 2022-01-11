@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -164,18 +165,21 @@ func LeaveNetwork(network string) error {
 			log.Printf("Failed to authenticate: %v", err)
 		} else { // handle client side
 			var header metadata.MD
-			_, err = wcclient.DeleteNode(
-				ctx,
-				&nodepb.Object{
-					Data: node.ID,
-					Type: nodepb.STRING_TYPE,
-				},
-				grpc.Header(&header),
-			)
-			if err != nil {
-				ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
-			} else {
-				ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
+			nodeData, err := json.Marshal(&node)
+			if err == nil {
+				_, err = wcclient.DeleteNode(
+					ctx,
+					&nodepb.Object{
+						Data: string(nodeData),
+						Type: nodepb.NODE_TYPE,
+					},
+					grpc.Header(&header),
+				)
+				if err != nil {
+					ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
+				} else {
+					ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
+				}
 			}
 		}
 	}

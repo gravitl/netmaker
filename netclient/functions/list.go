@@ -98,9 +98,14 @@ func getPeers(network string) ([]Peer, error) {
 	// Instantiate the BlogServiceClient with our client connection to the server
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
+	nodeData, err := json.Marshal(&nodecfg)
+	if err != nil {
+		return []Peer{}, fmt.Errorf("could not parse config node on network %s : %w", network, err)
+	}
+
 	req := &nodepb.Object{
-		Data: nodecfg.MacAddress + "###" + nodecfg.Network,
-		Type: nodepb.STRING_TYPE,
+		Data: string(nodeData),
+		Type: nodepb.NODE_TYPE,
 	}
 
 	ctx, err := auth.SetJWT(wcclient, network)
