@@ -48,7 +48,7 @@ func DeleteNodeByMacAddress(node *models.Node, exterminate bool) error {
 	var key = node.ID
 	if !exterminate {
 		args := strings.Split(key, "###")
-		node, err := GetNode(args[0], args[1])
+		node, err := GetNodeByMacAddress(args[0], args[1])
 		if err != nil {
 			return err
 		}
@@ -160,29 +160,29 @@ func SetNetworkNodesLastModified(networkName string) error {
 	return nil
 }
 
-// GetNode - fetches a node from database
-func GetNode(macaddress string, network string) (models.Node, error) {
-	var node models.Node
+// // GetNode - fetches a node from database
+// func GetNode(macaddress string, network string) (models.Node, error) {
+// 	var node models.Node
 
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	if err != nil {
-		if data == "" {
-			data, _ = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
-			err = json.Unmarshal([]byte(data), &node)
-		}
-		return node, err
-	}
-	if err = json.Unmarshal([]byte(data), &node); err != nil {
-		return node, err
-	}
-	SetNodeDefaults(&node)
+// 	key, err := GetRecordKey(macaddress, network)
+// 	if err != nil {
+// 		return node, err
+// 	}
+// 	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
+// 	if err != nil {
+// 		if data == "" {
+// 			data, _ = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+// 			err = json.Unmarshal([]byte(data), &node)
+// 		}
+// 		return node, err
+// 	}
+// 	if err = json.Unmarshal([]byte(data), &node); err != nil {
+// 		return node, err
+// 	}
+// 	SetNodeDefaults(&node)
 
-	return node, err
-}
+// 	return node, err
+// }
 
 // DeleteNodeByID - deletes a node from database or moves into delete nodes table
 func DeleteNodeByID(node *models.Node, exterminate bool) error {
