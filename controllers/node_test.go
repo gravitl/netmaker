@@ -74,6 +74,7 @@ func TestDeleteEgressGateway(t *testing.T) {
 func TestGetNetworkNodes(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllNetworks()
+	deleteAllNodes()
 	createNet()
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("badnet")
