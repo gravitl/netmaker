@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -117,6 +118,8 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 	network := reqNode.Network
 	password := reqNode.Password
 	macaddress := reqNode.MacAddress
+
+	log.Printf("authing node: %v \n", reqNode)
 
 	var result models.NodeAuth
 	var err error
