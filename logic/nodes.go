@@ -16,7 +16,7 @@ import (
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes []models.Node
+	var nodes = []models.Node{}
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
