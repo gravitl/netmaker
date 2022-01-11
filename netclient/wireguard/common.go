@@ -159,22 +159,28 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	// spin up userspace / windows interface + apply the conf file
 	var deviceiface string
 	if ncutils.IsMac() {
+		log.Println("DELETE ME: check for local iface")
 		deviceiface, err = local.GetMacIface(node.Address)
 		if err != nil || deviceiface == "" {
 			deviceiface = ifacename
 		}
 	}
 	if syncconf {
+		log.Println("DELETE ME: syncconf")
 		err = SyncWGQuickConf(ifacename, confPath)
 	} else {
-		d, _ := wgclient.Device(deviceiface)
-		for d != nil && d.Name == deviceiface {
-			RemoveConf(ifacename, false) // remove interface first
-			time.Sleep(time.Second >> 2)
-			d, _ = wgclient.Device(deviceiface)
+		if !ncutils.IsMac() {
+			log.Println("DELETE ME: get device")
+			d, _ := wgclient.Device(deviceiface)
+			for d != nil && d.Name == deviceiface {
+				RemoveConf(ifacename, false) // remove interface first
+				time.Sleep(time.Second >> 2)
+				d, _ = wgclient.Device(deviceiface)
+			}
 		}
 		if !ncutils.IsWindows() {
-			err = ApplyConf(confPath)
+			log.Println("DELETE ME: apply conf")
+			err = ApplyConf(*node, ifacename, confPath)
 			if err != nil {
 				ncutils.PrintLog("failed to create wireguard interface", 1)
 				return err
@@ -187,7 +193,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			ncutils.PrintLog("waiting for interface...", 1)
 			for !strings.Contains(output, ifacename) && !(time.Now().After(starttime.Add(time.Duration(10) * time.Second))) {
 				output, _ = ncutils.RunCmd("wg", false)
-				err = ApplyConf(confPath)
+				err = ApplyConf(*node, ifacename, confPath)
 				time.Sleep(time.Second)
 			}
 			if !strings.Contains(output, ifacename) {
@@ -259,8 +265,9 @@ func RemoveConf(iface string, printlog bool) error {
 	var err error
 	switch os {
 	case "windows":
-
 		err = RemoveWindowsConf(iface, printlog)
+	case "darwin":
+		err = WgQuickDownShortMac(iface)
 	default:
 		confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
 		err = RemoveWGQuickConf(confPath, printlog)
@@ -269,12 +276,14 @@ func RemoveConf(iface string, printlog bool) error {
 }
 
 // ApplyConf - applys a conf on disk to WireGuard interface
-func ApplyConf(confPath string) error {
+func ApplyConf(node models.Node, ifacename string, confPath string) error {
 	os := runtime.GOOS
 	var err error
 	switch os {
 	case "windows":
 		_ = ApplyWindowsConf(confPath)
+	case "darwin":
+		_ = ApplyMacOSConf(node, ifacename, confPath)
 	default:
 		err = ApplyWGQuickConf(confPath)
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -316,6 +317,38 @@ func GetNetclientPathSpecific() string {
 	} else {
 		return LINUX_APP_DATA_PATH + "/config/"
 	}
+}
+
+func GetNewIface(dir string) (string, error) {
+	files, _ := ioutil.ReadDir(dir)
+	var newestFile string
+	var newestTime int64 = 0
+	var err error
+	for _, f := range files {
+		fi, err := os.Stat(dir + f.Name())
+		if err != nil {
+			return "", err
+		}
+		currTime := fi.ModTime().Unix()
+		if currTime > newestTime && strings.Contains(f.Name(), ".sock") {
+			newestTime = currTime
+			newestFile = f.Name()
+		}
+	}
+	resultArr := strings.Split(newestFile, ".")
+	if resultArr[0] == "" {
+		err = errors.New("sock file does not exist")
+	}
+	return resultArr[0], err
+}
+
+func GetFileAsString(path string) (string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	text := string(content)
+	return text, err
 }
 
 // GetNetclientPathSpecific - gets specific netclient config path

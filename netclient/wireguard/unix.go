@@ -58,10 +58,22 @@ func ApplyWGQuickConf(confPath string) error {
 	return err
 }
 
+// ApplyMacOSConf - applies system commands similar to wg-quick using golang for MacOS
+func ApplyMacOSConf(node models.Node, ifacename string, confPath string) error {
+	var err error
+	err = WgQuickDownMac(node, ifacename)
+	err = WgQuickUpMac(node, ifacename, confPath)
+	return err
+}
+
 // SyncWGQuickConf - formats config file and runs sync command
 func SyncWGQuickConf(iface string, confPath string) error {
 	var tmpConf = confPath + ".sync.tmp"
-	confRaw, err := ncutils.RunCmd("wg-quick strip "+confPath, false)
+	var confCmd = "wg-quick strip "
+	if ncutils.IsMac() {
+		confCmd = "grep -v -e Address -e MTU -e PostUp -e PostDown "
+	}
+	confRaw, err := ncutils.RunCmd(confCmd+confPath, false)
 	if err != nil {
 		return err
 	}
