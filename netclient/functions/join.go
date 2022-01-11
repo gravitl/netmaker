@@ -8,6 +8,7 @@ import (
 	"log"
 	"os/exec"
 
+	"github.com/google/uuid"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
@@ -76,12 +77,15 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		macs, err := ncutils.GetMacAddr()
 		if err != nil {
 			return err
-		} else if len(macs) == 0 {
-			log.Fatal("could not retrieve mac address")
 		} else {
 			cfg.Node.MacAddress = macs[0]
 		}
 	}
+
+	if cfg.Node.ID == "" {
+		cfg.Node.ID = uuid.NewString()
+	}
+
 	if ncutils.IsLinux() {
 		_, err := exec.LookPath("resolvconf")
 		if err != nil {
@@ -100,6 +104,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	var node models.Node // fill this node with appropriate calls
 	postnode := &models.Node{
 		Password:            cfg.Node.Password,
+		ID:                  cfg.Node.ID,
 		MacAddress:          cfg.Node.MacAddress,
 		AccessKey:           cfg.Server.AccessKey,
 		IsStatic:            cfg.Node.IsStatic,
@@ -122,6 +127,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Node.IsServer != "yes" {
 		ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 		var wcclient nodepb.NodeServiceClient
+		log.Printf("used: %v\n", postnode)
 
 		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
