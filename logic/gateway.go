@@ -158,9 +158,9 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(networkName string, macaddress string) (models.Node, error) {
+func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error) {
 
-	node, err := GetNodeByMacAddress(networkName, macaddress)
+	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -169,7 +169,7 @@ func DeleteIngressGateway(networkName string, macaddress string) (models.Node, e
 		return models.Node{}, err
 	}
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(macaddress, networkName); err != nil {
+	if err = DeleteGatewayExtClients(node.ID, networkName); err != nil {
 		return models.Node{}, err
 	}
 
