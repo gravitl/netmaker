@@ -69,12 +69,6 @@ func TestDeleteEgressGateway(t *testing.T) {
 		assert.EqualError(t, err, "no result found")
 		assert.Equal(t, models.Node{}, node)
 	})
-	t.Run("BadNet", func(t *testing.T) {
-		node, err := logic.DeleteEgressGateway("badnet", gateway.NodeID)
-		assert.EqualError(t, err, "no result found")
-		assert.Equal(t, models.Node{}, node)
-	})
-
 }
 
 func TestGetNetworkNodes(t *testing.T) {
