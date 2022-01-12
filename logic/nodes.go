@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
@@ -397,6 +398,7 @@ func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (mo
 		logger.Log(2, "rewriting legacy node data; node now has id,", node.ID)
 		node.PullChanges = "yes"
 	}
+	log.Printf("Node is %v, Error is %v \n", node, err)
 	return node, err
 }
 
