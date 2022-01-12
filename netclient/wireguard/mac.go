@@ -1,6 +1,7 @@
 package wireguard
 
 import (
+	"bufio"
 	"errors"
 	"os"
 	"strconv"
@@ -14,7 +15,12 @@ import (
 func AddInterface(iface string) (string, error) {
 	ncutils.RunCmd("mkdir -p /var/run/wireguard/", true)
 	ncutils.RunCmd("wireguard-go utun", true)
-	return ncutils.GetNewIface("/var/run/wireguard/")
+	realIface, err := ncutils.GetNewIface("/var/run/wireguard/")
+	if iface != "" && err == nil {
+		ifacePath := "/var/run/wireguard/" + iface + ".name"
+		err = os.WriteFile(ifacePath, []byte(realIface), 0644)
+	}
+	return realIface, err
 }
 
 func GetRealIface(iface string) (string, error) {
@@ -55,14 +61,18 @@ func DeleteRoutes(iface string) error {
 	return nil
 }
 
-func DeleteInterface(iface string) error {
+func DeleteInterface(iface string, realIface string) error {
 	var err error
+	var out string
 	if iface != "" {
-		ncutils.RunCmd("rm -f /var/run/wireguard/"+iface+".sock", true)
+		os.Remove("/var/run/wireguard/" + realIface + ".sock")
+		os.Remove("/var/run/wireguard/" + iface + ".name")
 	}
-	_, err = ncutils.RunCmd("ifconfig "+iface+" down", false)
+	out, err = ncutils.RunCmd("ifconfig "+realIface+" down", false)
 	if strings.Contains(err.Error(), "does not exist") {
 		err = nil
+	} else if err != nil && out != "" {
+		err = errors.New(out)
 	}
 	return err
 }
@@ -103,7 +113,7 @@ func AddRoute(addr string, iface string) error {
 	if err != nil {
 		return err
 	}
-	if out == "" {
+	if !(strings.Contains(out, iface)) {
 		_, err = ncutils.RunCmd("route -q -n add -"+inetx+" "+addr+" -interface "+iface, true)
 	}
 	return err
@@ -129,15 +139,17 @@ func GetConfig(path string) string {
 func WgQuickUpMac(node models.Node, iface string, confPath string) error {
 	var err error
 	var realIface string
-	DeleteInterface(iface)
-	DeleteRoutes(iface)
-
+	realIface, err = GetRealIface(iface)
+	if realIface != "" && err == nil {
+		DeleteInterface(iface, realIface)
+		DeleteRoutes(realIface)
+	}
 	realIface, err = AddInterface(iface)
 	if err != nil {
 		ncutils.PrintLog("error creating wg interface", 1)
 		return err
 	}
-	time.Sleep(1)
+	time.Sleep(time.Second / 2)
 	err = SetConfig(realIface, confPath)
 	if err != nil {
 		ncutils.PrintLog("error setting config for "+realIface, 1)
@@ -146,6 +158,10 @@ func WgQuickUpMac(node models.Node, iface string, confPath string) error {
 	var ips []string
 	ips = append(node.AllowedIPs, node.Address)
 	ips = append(ips, node.Address6)
+	peerIPs := getPeerIPs(realIface)
+	if len(peerIPs) > 0 {
+		ips = append(ips, peerIPs...)
+	}
 	for _, i := range ips {
 		if i != "" {
 			err = AddAddress(realIface, i)
@@ -172,7 +188,7 @@ func WgQuickUpMac(node models.Node, iface string, confPath string) error {
 	}
 	//next, wg-quick runs set_endpoint_direct_route
 	//next, wg-quick runs monitor_daemon
-	time.Sleep(1)
+	time.Sleep(time.Second / 2)
 	if node.PostUp != "" {
 		runcmds := strings.Split(node.PostUp, "; ")
 		ncutils.RunCmds(runcmds, true)
@@ -180,11 +196,52 @@ func WgQuickUpMac(node models.Node, iface string, confPath string) error {
 	return err
 }
 
+func SetMacPeerRoutes(iface string) error {
+	var err error
+	realIface := iface
+	/*
+		realIface, err := GetRealIface(iface)
+		if err != nil || realIface == "" {
+			return err
+		}
+	*/
+	peerIPs := getPeerIPs(realIface)
+	if len(peerIPs) == 0 {
+		return err
+	}
+	for _, i := range peerIPs {
+		if i != "" {
+			err = AddRoute(i, realIface)
+			if err != nil {
+				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)
+				return err
+			}
+		}
+	}
+	return err
+}
+
+func getPeerIPs(realIface string) []string {
+	allowedIps := []string{}
+	out, err := ncutils.RunCmd("wg show "+realIface+" allowed-ips", false)
+	if err != nil {
+		return allowedIps
+	}
+	scanner := bufio.NewScanner(strings.NewReader(out))
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) > 1 {
+			allowedIps = append(allowedIps, fields[1:]...)
+		}
+	}
+	return allowedIps
+}
+
 func WgQuickDownShortMac(iface string) error {
 	var err error
 	realIface, err := GetRealIface(iface)
 	if realIface != "" {
-		err = DeleteInterface(iface)
+		err = DeleteInterface(iface, realIface)
 	}
 	return err
 }
@@ -193,7 +250,7 @@ func WgQuickDownMac(node models.Node, iface string) error {
 	var err error
 	realIface, err := GetRealIface(iface)
 	if realIface != "" {
-		err = DeleteInterface(iface)
+		err = DeleteInterface(iface, realIface)
 	} else if err != nil {
 		return err
 	}

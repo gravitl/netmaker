@@ -96,6 +96,11 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 			}
 		}
 	}
+	if ncutils.IsMac() {
+		log.Println("DELETE ME: setting mac peers")
+		err = SetMacPeerRoutes(iface)
+		return err
+	}
 
 	return nil
 }
@@ -159,18 +164,15 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	// spin up userspace / windows interface + apply the conf file
 	var deviceiface string
 	if ncutils.IsMac() {
-		log.Println("DELETE ME: check for local iface")
 		deviceiface, err = local.GetMacIface(node.Address)
 		if err != nil || deviceiface == "" {
 			deviceiface = ifacename
 		}
 	}
 	if syncconf {
-		log.Println("DELETE ME: syncconf")
 		err = SyncWGQuickConf(ifacename, confPath)
 	} else {
 		if !ncutils.IsMac() {
-			log.Println("DELETE ME: get device")
 			d, _ := wgclient.Device(deviceiface)
 			for d != nil && d.Name == deviceiface {
 				RemoveConf(ifacename, false) // remove interface first
@@ -179,7 +181,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			}
 		}
 		if !ncutils.IsWindows() {
-			log.Println("DELETE ME: apply conf")
 			err = ApplyConf(*node, ifacename, confPath)
 			if err != nil {
 				ncutils.PrintLog("failed to create wireguard interface", 1)

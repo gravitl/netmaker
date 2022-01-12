@@ -61,7 +61,7 @@ func ApplyWGQuickConf(confPath string) error {
 // ApplyMacOSConf - applies system commands similar to wg-quick using golang for MacOS
 func ApplyMacOSConf(node models.Node, ifacename string, confPath string) error {
 	var err error
-	err = WgQuickDownMac(node, ifacename)
+	_ = WgQuickDownMac(node, ifacename)
 	err = WgQuickUpMac(node, ifacename, confPath)
 	return err
 }
