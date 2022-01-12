@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -108,9 +107,8 @@ func grpcAuthorize(ctx context.Context) error {
 // Login - node authenticates using its password and retrieves a JWT for authorization.
 func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	//out := new(LoginResponse)
-	var reqNode models.Node
-	if err := json.Unmarshal([]byte(req.Data), &reqNode); err != nil {
+	var reqNode, err = getNewOrLegacyNode(req.Data)
+	if err != nil {
 		return nil, err
 	}
 
@@ -119,11 +117,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 	password := reqNode.Password
 	macaddress := reqNode.MacAddress
 
-	log.Printf("authing node: %v \n", reqNode)
-
 	var result models.NodeAuth
-	var err error
-	// err := errors.New("generic server error")
 
 	if nodeID == "" {
 		//TODO: Set Error  response
@@ -133,7 +127,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 		err = errors.New("missing password")
 		return nil, err
 	} else {
-		//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
+		//Search DB for node with ID. Ignore pending nodes (they should not be able to authenticate with API until approved).
 		collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 		if err != nil {
 			return nil, err

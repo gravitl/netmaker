@@ -127,7 +127,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Node.IsServer != "yes" {
 		ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
 		var wcclient nodepb.NodeServiceClient
-		log.Printf("used: %v\n", postnode)
 
 		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
