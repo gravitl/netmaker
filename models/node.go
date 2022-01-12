@@ -210,9 +210,8 @@ func (node *Node) SetDefaultName() {
 }
 
 func (newNode *Node) Fill(currentNode *Node) {
-	if newNode.ID == "" {
-		newNode.ID = currentNode.ID
-	}
+	newNode.ID = currentNode.ID
+
 	if newNode.Address == "" && newNode.IsStatic != "yes" {
 		newNode.Address = currentNode.Address
 	}
