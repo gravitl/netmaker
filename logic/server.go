@@ -137,7 +137,6 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 
 // ServerCheckin - runs pulls and pushes for server
 func ServerCheckin(serverID string, mac string, network string) error {
-	cleanupLegacyServers(network)
 	var serverNode = &models.Node{}
 	var currentNode, err = GetNodeByIDorMacAddress(serverID, mac, network)
 	if err != nil {
