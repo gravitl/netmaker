@@ -218,7 +218,7 @@ func getNewOrLegacyNode(data string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
 		oldID := strings.Split(data, "###") // handle legacy client IDs
 		if len(oldID) == 2 {
-			if node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network); err != nil {
+			if node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, oldID[0], oldID[1]); err != nil {
 				return models.Node{}, err
 			}
 		} else {
