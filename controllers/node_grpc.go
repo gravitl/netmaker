@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
@@ -19,16 +20,7 @@ type NodeServiceServer struct {
 
 // NodeServiceServer.ReadNode - reads node and responds with gRPC
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	// convert string id (from proto) to mongoDB ObjectId
-	var err error
-	var reqNode models.Node
-	err = json.Unmarshal([]byte(req.Data), &reqNode)
-	if err != nil {
-		return nil, err
-	}
-
-	var node models.Node
-	node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+	var node, err = getNewOrLegacyNode(req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +91,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 
 // NodeServiceServer.UpdateNode updates a node and responds over gRPC
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	// Get the node data from the request
+
 	var newnode models.Node
 	if err := json.Unmarshal([]byte(req.GetData()), &newnode); err != nil {
 		return nil, err
@@ -136,12 +128,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var reqNode models.Node
-	if err := json.Unmarshal([]byte(req.GetData()), &reqNode); err != nil {
-		return nil, err
-	}
-
-	node, err := logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+	var node, err = getNewOrLegacyNode(req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -160,15 +147,11 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 // NodeServiceServer.GetPeers - fetches peers over gRPC
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var reqNode models.Node
-	if err := json.Unmarshal([]byte(req.GetData()), &reqNode); err != nil {
-		return nil, err
-	}
-
-	node, err := logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+	var node, err = getNewOrLegacyNode(req.Data)
 	if err != nil {
 		return nil, err
 	}
+
 	if node.IsServer == "yes" && logic.IsLeader(&node) {
 		logic.SetNetworkServerPeers(&node)
 	}
@@ -192,15 +175,8 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 
 // NodeServiceServer.GetExtPeers - returns ext peers for a gateway node
 func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	// Initiate a NodeItem type to write decoded data to
-	//data := &models.PeersResponse{}
-	// collection.Find returns a cursor for our (empty) query
-	var reqNode models.Node
-	if err := json.Unmarshal([]byte(req.GetData()), &reqNode); err != nil {
-		return nil, err
-	}
 
-	node, err := logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+	var node, err = getNewOrLegacyNode(req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -231,4 +207,28 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 		Data: string(extData),
 		Type: nodepb.EXT_PEER,
 	}, nil
+}
+
+// == private methods ==
+
+func getNewOrLegacyNode(data string) (models.Node, error) {
+	var reqNode, node models.Node
+	var err error
+
+	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
+		oldID := strings.Split(data, "###") // handle legacy client IDs
+		if len(oldID) == 2 {
+			if node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network); err != nil {
+				return models.Node{}, err
+			}
+		} else {
+			return models.Node{}, err
+		}
+	} else {
+		node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+		if err != nil {
+			return models.Node{}, err
+		}
+	}
+	return node, nil
 }
