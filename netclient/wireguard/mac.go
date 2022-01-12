@@ -12,7 +12,91 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-func AddInterface(iface string) (string, error) {
+// WgQuickDownMac - bring down mac interface, remove routes, and run post-down commands
+func WgQuickDownMac(node models.Node, iface string) error {
+	if err := RemoveConfMac(iface); err != nil {
+		return err
+	}
+	if node.PostDown != "" {
+		runcmds := strings.Split(node.PostDown, "; ")
+		ncutils.RunCmds(runcmds, true)
+	}
+	return nil
+}
+
+// RemoveConfMac - bring down mac interface and remove routes
+func RemoveConfMac(iface string) error {
+	var err error
+	realIface, err := getRealIface(iface)
+	if realIface != "" {
+		err = deleteInterface(iface, realIface)
+	}
+	return err
+}
+
+// WgQuickUpMac - bring up mac interface and set routes
+func WgQuickUpMac(node models.Node, iface string, confPath string) error {
+	var err error
+	var realIface string
+	realIface, err = getRealIface(iface)
+	if realIface != "" && err == nil {
+		deleteInterface(iface, realIface)
+		deleteRoutes(realIface)
+	}
+	realIface, err = addInterface(iface)
+	if err != nil {
+		ncutils.PrintLog("error creating wg interface", 1)
+		return err
+	}
+	time.Sleep(time.Second / 2)
+	err = setConfig(realIface, confPath)
+	if err != nil {
+		ncutils.PrintLog("error setting config for "+realIface, 1)
+		return err
+	}
+	var ips []string
+	ips = append(node.AllowedIPs, node.Address)
+	ips = append(ips, node.Address6)
+	peerIPs := getPeerIPs(realIface)
+	if len(peerIPs) > 0 {
+		ips = append(ips, peerIPs...)
+	}
+	for _, i := range ips {
+		if i != "" {
+			err = addAddress(realIface, i)
+			if err != nil {
+				ncutils.PrintLog("error adding address "+i+" on interface "+realIface, 1)
+				return err
+			}
+		}
+	}
+	setMTU(realIface, int(node.MTU))
+	err = upInterface(realIface)
+	if err != nil {
+		ncutils.PrintLog("error turning on interface "+iface, 1)
+		return err
+	}
+	for _, i := range ips {
+		if i != "" {
+			err = addRoute(i, realIface)
+			if err != nil {
+				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)
+				return err
+			}
+		}
+	}
+	//next, wg-quick runs set_endpoint_direct_route
+	//next, wg-quick runs monitor_daemon
+	time.Sleep(time.Second / 2)
+	if node.PostUp != "" {
+		runcmds := strings.Split(node.PostUp, "; ")
+		ncutils.RunCmds(runcmds, true)
+	}
+	return err
+}
+
+// addInterface - adds mac interface and creates reference file to match iface name with tun iface
+func addInterface(iface string) (string, error) {
 	ncutils.RunCmd("mkdir -p /var/run/wireguard/", true)
 	ncutils.RunCmd("wireguard-go utun", true)
 	realIface, err := ncutils.GetNewIface("/var/run/wireguard/")
@@ -23,7 +107,8 @@ func AddInterface(iface string) (string, error) {
 	return realIface, err
 }
 
-func GetRealIface(iface string) (string, error) {
+// getRealIface - retrieves tun iface based on reference iface name from config file
+func getRealIface(iface string) (string, error) {
 	ncutils.RunCmd("wg show interfaces", false)
 	ifacePath := "/var/run/wireguard/" + iface + ".name"
 	if !(ncutils.FileExists(ifacePath)) {
@@ -39,8 +124,9 @@ func GetRealIface(iface string) (string, error) {
 	return realIfaceName, nil
 }
 
-func DeleteRoutes(iface string) error {
-	realIface, err := GetRealIface(iface)
+// deleteRoutes - deletes network routes associated with interface
+func deleteRoutes(iface string) error {
+	realIface, err := getRealIface(iface)
 	if err != nil {
 		return err
 	}
@@ -61,7 +147,8 @@ func DeleteRoutes(iface string) error {
 	return nil
 }
 
-func DeleteInterface(iface string, realIface string) error {
+// deleteInterface - deletes the real interface and the referance file
+func deleteInterface(iface string, realIface string) error {
 	var err error
 	var out string
 	if iface != "" {
@@ -77,13 +164,15 @@ func DeleteInterface(iface string, realIface string) error {
 	return err
 }
 
-func UpInterface(iface string) error {
+// upInterface -
+func upInterface(iface string) error {
 	var err error
 	_, err = ncutils.RunCmd("ifconfig "+iface+" up", true)
 	return err
 }
 
-func AddAddress(iface string, addr string) error {
+// addAddress - adds private address to the interface
+func addAddress(iface string, addr string) error {
 	var err error
 	if strings.Contains(addr, ":") {
 		_, err = ncutils.RunCmd("ifconfig "+iface+" inet6 "+addr+" alias", true)
@@ -93,7 +182,8 @@ func AddAddress(iface string, addr string) error {
 	return err
 }
 
-func SetMTU(iface string, mtu int) error {
+// setMTU - sets MTU for the interface
+func setMTU(iface string, mtu int) error {
 	var err error
 	if mtu == 0 {
 		mtu = 1280
@@ -102,7 +192,8 @@ func SetMTU(iface string, mtu int) error {
 	return err
 }
 
-func AddRoute(addr string, iface string) error {
+// addRoute - adds network route to the interface if it does not already exist
+func addRoute(addr string, iface string) error {
 	var err error
 	var out string
 	var inetx = "inet"
@@ -119,8 +210,9 @@ func AddRoute(addr string, iface string) error {
 	return err
 }
 
-func SetConfig(realIface string, confPath string) error {
-	confString := GetConfig(confPath)
+// setConfig - sets configuration of the wireguard interface from the config file
+func setConfig(realIface string, confPath string) error {
+	confString := getConfig(confPath)
 	err := os.WriteFile(confPath+".tmp", []byte(confString), 0644)
 	if err != nil {
 		return err
@@ -130,77 +222,19 @@ func SetConfig(realIface string, confPath string) error {
 	return err
 }
 
-func GetConfig(path string) string {
+// getConfig - gets config from config file and strips out incompatible fields
+func getConfig(path string) string {
 	var confCmd = "grep -v -e Address -e MTU -e PostUp -e PostDown "
 	confRaw, _ := ncutils.RunCmd(confCmd+path, false)
 	return confRaw
 }
 
-func WgQuickUpMac(node models.Node, iface string, confPath string) error {
-	var err error
-	var realIface string
-	realIface, err = GetRealIface(iface)
-	if realIface != "" && err == nil {
-		DeleteInterface(iface, realIface)
-		DeleteRoutes(realIface)
-	}
-	realIface, err = AddInterface(iface)
-	if err != nil {
-		ncutils.PrintLog("error creating wg interface", 1)
-		return err
-	}
-	time.Sleep(time.Second / 2)
-	err = SetConfig(realIface, confPath)
-	if err != nil {
-		ncutils.PrintLog("error setting config for "+realIface, 1)
-		return err
-	}
-	var ips []string
-	ips = append(node.AllowedIPs, node.Address)
-	ips = append(ips, node.Address6)
-	peerIPs := getPeerIPs(realIface)
-	if len(peerIPs) > 0 {
-		ips = append(ips, peerIPs...)
-	}
-	for _, i := range ips {
-		if i != "" {
-			err = AddAddress(realIface, i)
-			if err != nil {
-				ncutils.PrintLog("error adding address "+i+" on interface "+realIface, 1)
-				return err
-			}
-		}
-	}
-	SetMTU(realIface, int(node.MTU))
-	err = UpInterface(realIface)
-	if err != nil {
-		ncutils.PrintLog("error turning on interface "+iface, 1)
-		return err
-	}
-	for _, i := range ips {
-		if i != "" {
-			err = AddRoute(i, realIface)
-			if err != nil {
-				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)
-				return err
-			}
-		}
-	}
-	//next, wg-quick runs set_endpoint_direct_route
-	//next, wg-quick runs monitor_daemon
-	time.Sleep(time.Second / 2)
-	if node.PostUp != "" {
-		runcmds := strings.Split(node.PostUp, "; ")
-		ncutils.RunCmds(runcmds, true)
-	}
-	return err
-}
-
+// SetMacPeerRoutes - sets routes for interface from the peer list for all AllowedIps
 func SetMacPeerRoutes(iface string) error {
 	var err error
 	realIface := iface
 	/*
-		realIface, err := GetRealIface(iface)
+		realIface, err := getRealIface(iface)
 		if err != nil || realIface == "" {
 			return err
 		}
@@ -211,7 +245,7 @@ func SetMacPeerRoutes(iface string) error {
 	}
 	for _, i := range peerIPs {
 		if i != "" {
-			err = AddRoute(i, realIface)
+			err = addRoute(i, realIface)
 			if err != nil {
 				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)
 				return err
@@ -221,6 +255,7 @@ func SetMacPeerRoutes(iface string) error {
 	return err
 }
 
+// getPeerIPs - retrieves peer AllowedIPs from WireGuard interface
 func getPeerIPs(realIface string) []string {
 	allowedIps := []string{}
 	out, err := ncutils.RunCmd("wg show "+realIface+" allowed-ips", false)
@@ -235,28 +270,4 @@ func getPeerIPs(realIface string) []string {
 		}
 	}
 	return allowedIps
-}
-
-func WgQuickDownShortMac(iface string) error {
-	var err error
-	realIface, err := GetRealIface(iface)
-	if realIface != "" {
-		err = DeleteInterface(iface, realIface)
-	}
-	return err
-}
-
-func WgQuickDownMac(node models.Node, iface string) error {
-	var err error
-	realIface, err := GetRealIface(iface)
-	if realIface != "" {
-		err = DeleteInterface(iface, realIface)
-	} else if err != nil {
-		return err
-	}
-	if node.PostDown != "" {
-		runcmds := strings.Split(node.PostDown, "; ")
-		ncutils.RunCmds(runcmds, true)
-	}
-	return err
 }

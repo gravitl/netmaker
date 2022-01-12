@@ -268,7 +268,7 @@ func RemoveConf(iface string, printlog bool) error {
 	case "windows":
 		err = RemoveWindowsConf(iface, printlog)
 	case "darwin":
-		err = WgQuickDownShortMac(iface)
+		err = RemoveConfMac(iface)
 	default:
 		confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
 		err = RemoveWGQuickConf(confPath, printlog)
