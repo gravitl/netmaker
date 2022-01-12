@@ -31,19 +31,21 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 	if networkSettings == nil || networkSettings.NetID == "" {
 		return errors.New("no network provided")
 	}
-
+	var privateKey = ""
 	var err error
+
 	var node = &models.Node{
 		IsServer:     "yes",
 		DNSOn:        "no",
 		IsStatic:     "yes",
 		Name:         models.NODE_SERVER_NAME,
-		MacAddress:   serverID,
-		ID:           serverID,
+		MacAddress:   servercfg.GetNodeID(),
+		ID:           "", // will be set to new uuid
 		UDPHolePunch: "no",
 		IsLocal:      networkSettings.IsLocal,
 		LocalRange:   networkSettings.LocalRange,
 	}
+
 	SetNodeDefaults(node)
 
 	if servercfg.GetPlatform() == "Kubernetes" {
