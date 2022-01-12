@@ -87,8 +87,6 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 
 	node.Network = networkSettings.NetID
 
-	cleanupServerIfLegacy(node.MacAddress, network)
-
 	logger.Log(2, "adding a server instance on network", node.Network)
 	err = CreateNode(node)
 	if err != nil {
@@ -139,6 +137,7 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 
 // ServerCheckin - runs pulls and pushes for server
 func ServerCheckin(serverID string, mac string, network string) error {
+	cleanupLegacyServers(network)
 	var serverNode = &models.Node{}
 	var currentNode, err = GetNodeByIDorMacAddress(serverID, mac, network)
 	if err != nil {
