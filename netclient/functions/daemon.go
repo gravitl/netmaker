@@ -100,7 +100,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 		//check if interface name has changed if so delete.
 		if cfg.Node.Interface != newNode.Interface {
 			if err = wireguard.RemoveConf(cfg.Node.Interface, true); err != nil {
-				ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface+": ", err.Error(), 1)
+				ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface+": "+err.Error(), 1)
 			}
 		}
 		newNode.PullChanges = "no"
@@ -109,12 +109,12 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 		cfg.Node = newNode
 		switch newNode.Action {
 		case models.NODE_DELETE:
-			if err := RemoveLocalInstance(cfg, cfg.Network); err != nil {
-				ncutils.Printlog("error deleting local instance: "+err.Error(), 1)
+			if err := RemoveLocalInstance(&cfg, cfg.Network); err != nil {
+				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
 				return
 			}
 		case models.NODE_UPDATE_KEY:
-			UpdateKeys(cfg)
+			UpdateKeys(&cfg, client)
 		case models.NODE_NOOP:
 		default:
 		}
@@ -123,12 +123,12 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			ncutils.PrintLog("error updating node configuration: "+err.Error(), 1)
 		}
 		nameserver := cfg.Server.CoreDNSAddr
-		privateKey, err := wireguard.RetrievePrivKey(data.Network)
+		privateKey, err := wireguard.RetrievePrivKey(newNode.Network)
 		if err != nil {
 			ncutils.Log("error reading PrivateKey " + err.Error())
 			return
 		}
-		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, data); err != nil {
+		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, newNode); err != nil {
 			ncutils.Log("error updating wireguard config " + err.Error())
 			return
 		}
@@ -177,7 +177,7 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) (*config.ClientCon
 		ncutils.Log("error generating privatekey " + err.Error())
 		return cfg, err
 	}
-	if err := wireguard.UpdatePrivateKey(data.Interface, key.String()); err != nil {
+	if err := wireguard.UpdatePrivateKey(cfg.Node.Interface, key.String()); err != nil {
 		ncutils.Log("error updating wireguard key " + err.Error())
 		return cfg, err
 	}
