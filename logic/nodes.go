@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
 )
 
@@ -430,4 +432,29 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 	SetNodeDefaults(&node)
 
 	return node, nil
+}
+
+// GetNetworkServerNodeID - get network server node ID if exists
+func GetNetworkServerNodeID(network string) (string, error) {
+	var nodes, err = GetNetworkNodes(network)
+	if err != nil {
+		return "", err
+	}
+	for _, node := range nodes {
+		if node.IsServer == "yes" {
+			if servercfg.GetNodeID() != "" {
+				if servercfg.GetNodeID() == node.MacAddress {
+					if strings.Contains(node.ID, "###") {
+						DeleteNodeByMacAddress(&node, true)
+						logger.Log(1, "deleted legacy server node on network "+node.Network)
+						return "", errors.New("deleted legacy server node on network " + node.Network)
+					}
+					return node.ID, nil
+				}
+				continue
+			}
+			return node.ID, nil
+		}
+	}
+	return "", errors.New("could not find server node")
 }
