@@ -244,6 +244,18 @@ func GetGRPCPort() string {
 	return grpcport
 }
 
+// GetMessageQueueEndpoint - gets the message queue endpoint
+func GetMessageQueueEndpoint() string {
+	host, _ := GetPublicIP()
+	if os.Getenv("MQ_HOST") != "" {
+		host = os.Getenv("MQ_HOST")
+	} else if config.Config.Server.MQHOST != "" {
+		host = config.Config.Server.MQHOST
+	}
+	//Do we want MQ port configurable???
+	return host + ":1883"
+}
+
 // GetMasterKey - gets the configured master key of server
 func GetMasterKey() string {
 	key := "secretkey"
@@ -305,6 +317,21 @@ func IsAgentBackend() bool {
 		}
 	}
 	return isagent
+}
+
+// IsMessageQueueBackend - checks if message queue is on or off
+func IsMessageQueueBackend() bool {
+	ismessagequeue := true
+	if os.Getenv("MESSAGEQUEUE_BACKEND") != "" {
+		if os.Getenv("MESSAGEQUEUE_BACKEND") == "off" {
+			ismessagequeue = false
+		}
+	} else if config.Config.Server.MessageQueueBackend != "" {
+		if config.Config.Server.MessageQueueBackend == "off" {
+			ismessagequeue = false
+		}
+	}
+	return ismessagequeue
 }
 
 // IsClientMode - checks if it should run in client mode
