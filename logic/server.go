@@ -41,6 +41,7 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 		MacAddress:   serverID,
 		UDPHolePunch: "no",
 		IsLocal:      networkSettings.IsLocal,
+		LocalRange:   networkSettings.LocalRange,
 	}
 	SetNodeDefaults(node)
 
@@ -55,15 +56,15 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 	}
 
 	if node.Endpoint == "" {
-		if node.IsLocal == "yes" {
-			var localAddr, localErr = getServerLocalIP(networkSettings)
-			if localErr != nil {
-				logger.Log(1, "could not acquire local address", localErr.Error())
-			} else {
-				node.LocalAddress = localAddr
-				node.LocalRange = networkSettings.LocalRange
-			}
-		}
+		// if node.IsLocal == "yes" {
+		// 	var localAddr, localErr = getServerLocalIP(networkSettings)
+		// 	if localErr != nil {
+		// 		logger.Log(1, "could not acquire local address", localErr.Error())
+		// 	} else {
+		// 		node.LocalAddress = localAddr
+		// 		node.LocalRange = networkSettings.LocalRange
+		// 	}
+		// }
 		if node.IsLocal == "yes" && node.LocalAddress != "" {
 			node.Endpoint = node.LocalAddress
 		} else {
@@ -446,6 +447,7 @@ func getServerLocalIP(networkSettings *models.Network) (string, error) {
 		return "", err
 	}
 	for _, address := range currentAddresses {
+		logger.Log(3, "looking at local address:", address.String())
 		if currentCIDR.Contains(net.IP(address.Network())) {
 			logger.Log(1, "setting local ip", address.String())
 			return address.String(), nil
