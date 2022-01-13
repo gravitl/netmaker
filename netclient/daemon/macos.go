@@ -13,14 +13,15 @@ const MAC_SERVICE_NAME = "com.gravitl.netclient"
 
 func SetupMacDaemon(interval string) error {
 
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	ex, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	binarypath := dir + "/netclient"
 
+	exPath := filepath.Dir(ex)
+	ncutils.PrintLog("installing netclient from "+exPath, 0)
 	if !ncutils.FileExists("/etc/netclient/netclient") {
-		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
+		err = ncutils.Copy(exPath, "/etc/netclient/netclient")
 		if err != nil {
 			log.Println(err)
 			return err

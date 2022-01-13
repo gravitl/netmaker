@@ -35,7 +35,7 @@ Instructions for Microsoft Azure AD: https://oauth2-proxy.github.io/oauth2-proxy
 Configuring Netmaker
 ======================
 
-After you have configured your OAuth provider, take note of the CLIENT_ID and CLIENT_SECRET.
+After you have configured your OAuth provider, take note of the CLIENT_ID and CLIENT_SECRET. If you are using Azure for oauth, you may also want to note down the Azure tenant ID you wish to use.
 
 Next, Configure Netmaker with the following environment variables. If any are left blank, OAuth will fail.
 
@@ -46,7 +46,7 @@ Next, Configure Netmaker with the following environment variables. If any are le
     CLIENT_SECRET: "<client secret of your oauth provider>"
     SERVER_HTTP_HOST: "api.<netmaker base domain>"
     FRONTEND_URL: "https://dashboard.<netmaker base domain>"
-
+    AZURE_TENANT: "<only for azure, you may optionally specify the tenant for the OAuth>"
 
 After restarting your server, the Netmaker logs will indicate if the OAuth provider was successfully initialized:
 

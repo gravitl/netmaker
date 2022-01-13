@@ -23,6 +23,7 @@ Netmaker is a platform for creating and managing fast, secure, and dynamic virtu
 
 This documentation covers Netmaker's :doc:`installation <./server-installation>`, :doc:`usage <./usage>`, :doc:`troubleshooting <./support>`, and customization, as well as reference documents for the :doc:`API <./api>`, UI and Agent configuration. All of the `source code <https://github.com/gravitl/netmaker>`_ for Netmaker is on GitHub.
 
+**For Kubernetes-specific guidance, please see the** `Netmaker Kubernetes Documentation. <https://nm-k8s.readthedocs.io>`_
 
 .. :raw-html:`<br />`
 
@@ -30,13 +31,14 @@ This documentation covers Netmaker's :doc:`installation <./server-installation>`
 ..   :file: youtube-1.html
 
 About
-------
-A quick overview of Netmaker, explaining what it is, how it works, and why you should be using it.
+--------
 
 .. toctree::
    :maxdepth: 2
-   
+
    about
+
+A quick overview of Netmaker, explaining what it is, how it works, and why you should be using it.
 
 Architecture
 ---------------
@@ -73,16 +75,6 @@ A quick start guide to getting up and running with Netmaker and WireGuard as qui
 
    getting-started
 
-Quick Start Nginx (depreciated)
-------------------------------------
-
-An older guide to getting up and running with Netmaker using Nginx as quickly as possible.
-
-.. toctree::
-   :maxdepth: 1
-
-   quick-start-nginx
-
 Server Installation
 --------------------
 
@@ -114,15 +106,31 @@ A detailed guide to installing the Netmaker agent (netclient) on devices and con
    
    client-installation
 
-External Clients
---------------------
+Ingress, Egress, and Relays
+------------------------------
 
-A detailed guide to give clients outside of the Netmaker network access to network resources.
+**Ingress:** A guide on how to give machines outside of the Netmaker network access to network resources via an Ingress Gateway.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    
    external-clients
+
+**Egress:** A guide on how to give machines inside the Netmaker network access to external network resources via an Egress Gateway.
+
+
+.. toctree::
+   :maxdepth: 1
+   
+   egress-gateway
+
+**Relay:** A guide on how to make machines inside the network reachable if they are blocked by NAT/Firewall.
+
+.. toctree::
+   :maxdepth: 1
+   
+   relay-server
+
 
 Guides
 ----------------
@@ -133,6 +141,16 @@ A handful of guides for use cases including site-to-site, Kubernetes, private DN
    :maxdepth: 2
    
    usage
+
+UI Reference
+---------------
+
+A reference document for the Netmaker Server UI, with annotated screenshot detailing each field.
+
+.. toctree::
+   :maxdepth: 2
+
+   ui-reference
 
 API Reference
 ---------------
@@ -145,6 +163,17 @@ A reference document for the Netmaker Server API, and example API calls for vari
    :maxdepth: 1
 
    api
+
+Upgrades
+----------------
+
+Upgrading the Netmaker server and clients.
+
+.. toctree::
+   :maxdepth: 1
+
+   upgrades
+
 
 Troubleshooting
 ----------------
