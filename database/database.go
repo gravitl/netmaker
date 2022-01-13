@@ -92,7 +92,7 @@ func getCurrentDB() map[string]interface{} {
 }
 
 var ctx context.Context
-var sem semaphore.Weighted
+var sem *semaphore.Weighted
 
 // InitializeDatabase - initializes database
 func InitializeDatabase() error {
