@@ -53,18 +53,16 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 	if node.LocalRange != "" && node.LocalAddress == "" {
 		logger.Log(1, "local vpn, getting local address from range:", node.LocalRange)
 		node.LocalAddress = GetLocalIP(*node)
+		var _, currentCIDR, cidrErr = net.ParseCIDR(node.LocalRange)
+		if cidrErr != nil {
+			return err
+		}
+		if !currentCIDR.Contains(net.IP(node.LocalAddress)) {
+			node.LocalAddress = ""
+		}
 	}
 
 	if node.Endpoint == "" {
-		// if node.IsLocal == "yes" {
-		// 	var localAddr, localErr = getServerLocalIP(networkSettings)
-		// 	if localErr != nil {
-		// 		logger.Log(1, "could not acquire local address", localErr.Error())
-		// 	} else {
-		// 		node.LocalAddress = localAddr
-		// 		node.LocalRange = networkSettings.LocalRange
-		// 	}
-		// }
 		if node.IsLocal == "yes" && node.LocalAddress != "" {
 			node.Endpoint = node.LocalAddress
 		} else {
@@ -433,25 +431,4 @@ func checkNodeActions(node *models.Node) string {
 		return models.NODE_DELETE
 	}
 	return ""
-}
-
-// best effort, or get public ip
-func getServerLocalIP(networkSettings *models.Network) (string, error) {
-	var networkCIDR = networkSettings.AddressRange
-	var currentAddresses, err = net.InterfaceAddrs()
-	if err != nil { // attempt to use public IP
-		return "", err
-	}
-	var _, currentCIDR, cidrErr = net.ParseCIDR(networkCIDR)
-	if cidrErr != nil {
-		return "", err
-	}
-	for _, address := range currentAddresses {
-		logger.Log(3, "looking at local address:", address.String())
-		if currentCIDR.Contains(net.IP(address.Network())) {
-			logger.Log(1, "setting local ip", address.String())
-			return address.String(), nil
-		}
-	}
-	return "", errors.New("could not find local ip")
 }
