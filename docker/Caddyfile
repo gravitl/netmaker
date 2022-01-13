@@ -5,6 +5,20 @@
 
 # Dashboard
 https://dashboard.NETMAKER_BASE_DOMAIN {
+    # Apply basic security headers
+    header {
+        # Enable HTTP Strict Transport Security (HSTS)
+        Strict-Transport-Security "max-age=31536000;"
+        # Enable cross-site filter (XSS) and tell browser to block detected attacks
+        X-XSS-Protection "1; mode=block"
+        # Disallow the site to be rendered within a frame on a foreign domain (clickjacking protection)
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent search engines from indexing
+        X-Robots-Tag "none"
+        # Remove the server name
+        -Server
+    }
+
     reverse_proxy http://127.0.0.1:8082
 }
 
