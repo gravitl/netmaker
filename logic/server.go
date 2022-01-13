@@ -26,9 +26,9 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
-func ServerJoin(network string, serverID string, privateKey string) error {
+func ServerJoin(networkSettings *models.Network, serverID string) error {
 
-	if network == "" {
+	if networkSettings == nil || networkSettings.NetID == "" {
 		return errors.New("no network provided")
 	}
 
@@ -54,6 +54,15 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	}
 
 	if node.Endpoint == "" {
+		if node.IsLocal == "yes" {
+			var localAddr, localErr = getServerLocalIP(networkSettings)
+			if localErr != nil {
+				logger.Log(1, "could not acquire local address", localErr.Error())
+			} else {
+				node.LocalAddress = localAddr
+				node.LocalRange = networkSettings.LocalRange
+			}
+		}
 		if node.IsLocal == "yes" && node.LocalAddress != "" {
 			node.Endpoint = node.LocalAddress
 		} else {
@@ -64,6 +73,8 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 			return err
 		}
 	}
+
+	var privateKey = ""
 
 	// Generate and set public/private WireGuard Keys
 	if privateKey == "" {
@@ -76,7 +87,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		node.PublicKey = wgPrivatekey.PublicKey().String()
 	}
 
-	node.Network = network
+	node.Network = networkSettings.NetID
 
 	logger.Log(2, "adding a server instance on network", node.Network)
 	err = CreateNode(node)
@@ -420,4 +431,24 @@ func checkNodeActions(node *models.Node) string {
 		return models.NODE_DELETE
 	}
 	return ""
+}
+
+// best effort, or get public ip
+func getServerLocalIP(networkSettings *models.Network) (string, error) {
+	var networkCIDR = networkSettings.AddressRange
+	var currentAddresses, err = net.InterfaceAddrs()
+	if err != nil { // attempt to use public IP
+		return "", err
+	}
+	var _, currentCIDR, cidrErr = net.ParseCIDR(networkCIDR)
+	if cidrErr != nil {
+		return "", err
+	}
+	for _, address := range currentAddresses {
+		if currentCIDR.Contains(net.IP(address.Network())) {
+			logger.Log(1, "setting local ip", address.String())
+			return address.String(), nil
+		}
+	}
+	return "", errors.New("could not find local ip")
 }
