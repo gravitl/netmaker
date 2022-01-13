@@ -40,6 +40,7 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 		Name:         models.NODE_SERVER_NAME,
 		MacAddress:   serverID,
 		UDPHolePunch: "no",
+		IsLocal:      networkSettings.IsLocal,
 	}
 	SetNodeDefaults(node)
 
