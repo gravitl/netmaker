@@ -154,9 +154,19 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
-		err = wireguard.UpdateWgPeers(cfg.Node.Interface, peerUpdate.Peers)
+		peers, err := CalculatePeers(cfg.Node, peerUpdate.Nodes, cfg.Node.IsDualStack, cfg.Node.IsEgressGateway, cfg.Node.IsServer)
 		if err != nil {
-			ncutils.Log("error updating peers" + err.Error())
+			ncutils.Log("error calculating Peers " + err.Error())
+			return
+		}
+		extpeers, err := CalculateExtPeers(cfg.Node, peerUpdate.ExtPeers)
+		if err != nil {
+			ncutils.Log("error updated external wireguard peers " + err.Error())
+		}
+		peers = append(peers, extpeers...)
+		err = wireguard.UpdateWgPeers(cfg.Node.Interface, peers)
+		if err != nil {
+			ncutils.Log("error updating wireguard peers" + err.Error())
 			return
 		}
 		// path hardcoded for now... should be updated
@@ -187,7 +197,9 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) (*config.ClientCon
 		client.Disconnect(250)
 		return cfg, err
 	}
-	client.Disconnect(250)
+	if err := config.ModConfig(&cfg.Node); err != nil {
+		ncutils.Log("error updating local config " + err.Error())
+	}
 	return cfg, nil
 }
 
@@ -202,6 +214,11 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-time.After(time.Second * 10):
 			ncutils.Log("Checkin running")
+			//read latest config
+			cfg.ReadConfig()
+			//fix NodeID to remove ### so NodeID can be used as message topic
+			//remove with GRA-73
+			cfg.Node.ID = strings.Replace(cfg.Node.ID, "###", "-", 1)
 			if cfg.Node.Roaming == "yes" && cfg.Node.IsStatic != "yes" {
 				extIP, err := ncutils.GetPublicIP()
 				if err != nil {
@@ -242,6 +259,10 @@ func UpdateEndpoint(cfg config.ClientConfig, network, ip string) {
 	if token := client.Publish("update/ip/"+cfg.Node.ID, 0, false, ip); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing endpoint update " + token.Error().Error())
 	}
+	cfg.Node.Endpoint = ip
+	if err := config.Write(&cfg, cfg.Network); err != nil {
+		ncutils.Log("error updating local config " + err.Error())
+	}
 	client.Disconnect(250)
 }
 
@@ -252,13 +273,19 @@ func UpdateLocalAddress(cfg config.ClientConfig, network, ip string) {
 	if token := client.Publish("update/localaddress/"+cfg.Node.ID, 0, false, ip); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing local address update " + token.Error().Error())
 	}
+	cfg.Node.LocalAddress = ip
+	ncutils.Log("updating local address in local config to: " + cfg.Node.LocalAddress)
+	if err := config.Write(&cfg, cfg.Network); err != nil {
+		ncutils.Log("error updating local config " + err.Error())
+	}
 	client.Disconnect(250)
 }
 
 // Hello -- ping the broker to let server know node is alive and doing fine
 func Hello(cfg config.ClientConfig, network string) {
 	client := SetupMQTT(cfg)
-	if token := client.Publish("ping/"+cfg.Node.ID, 0, false, "hello world!"); token.Wait() && token.Error() != nil {
+	ncutils.Log("sending ping " + cfg.Node.ID)
+	if token := client.Publish("ping/"+cfg.Node.ID, 2, false, "hello world!"); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing ping " + token.Error().Error())
 	}
 	client.Disconnect(250)
