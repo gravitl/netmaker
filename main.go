@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
+	"syscall"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/auth"
@@ -117,7 +118,23 @@ func startControllers() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
+	//if servercfg.IsClientMode() == "on" {
+	//	var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
+	//	for { // best effort currently
+	//		var serverGroup sync.WaitGroup
+	//		serverGroup.Add(1)
+	//		go runClient(&serverGroup)
+	//		serverGroup.Wait()
+	//		time.Sleep(checkintime)
+	//	}
+	//}
+
 	waitnetwork.Wait()
+}
+
+func runClient(wg *sync.WaitGroup) {
+	defer wg.Done()
+	go serverctl.HandleContainedClient()
 }
 
 func runGRPC(wg *sync.WaitGroup) {
@@ -187,7 +204,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 		logger.Log(0, "could not subscribe to message queue ...")
 		return
 	}
-	if token := client.Subscribe("ping/#", 0, mq.Ping); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe("ping/#", 2, mq.Ping); token.Wait() && token.Error() != nil {
 		client.Disconnect(240)
 		logger.Log(0, "ping sub failed")
 	}
@@ -207,8 +224,10 @@ func runMessageQueue(wg *sync.WaitGroup) {
 		client.Disconnect(240)
 		logger.Log(0, "metrics sub failed")
 	}
-	for {
-	}
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+	<-quit
+	logger.Log(0, "Message Queue shutting down")
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {
