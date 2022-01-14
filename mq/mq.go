@@ -175,5 +175,5 @@ func GetID(topic string) (string, error) {
 		return "", errors.New("invalid topic")
 	}
 	//the last part of the topic will be the node.ID
-	return parts[count], nil
+	return parts[count-1], nil
 }
