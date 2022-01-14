@@ -13,7 +13,7 @@ import (
 )
 
 func serverHandlers(r *mux.Router) {
-	r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
+	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
 	r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
 	r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
 }
@@ -91,19 +91,21 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	//w.WriteHeader(http.StatusOK)
 }
 
-func addNetwork(w http.ResponseWriter, r *http.Request) {
-	// Set header
-	w.Header().Set("Content-Type", "application/json")
+// func addNetwork(w http.ResponseWriter, r *http.Request) {
+// 	// Set header
+// 	w.Header().Set("Content-Type", "application/json")
 
-	// get params
-	var params = mux.Vars(r)
+// 	// get params
+// 	var params = mux.Vars(r)
+// 	var networkName = params["network"]
+// 	var networkSettings, err := logic.GetNetwork(netwnetworkName)
 
-	success, err := serverctl.AddNetwork(params["network"])
+// 	success, err := serverctl.AddNetwork(params["network"])
 
-	if err != nil || !success {
-		json.NewEncoder(w).Encode("Could not add server to network " + params["network"])
-		return
-	}
+// 	if err != nil || !success {
+// 		json.NewEncoder(w).Encode("Could not add server to network " + params["network"])
+// 		return
+// 	}
 
-	json.NewEncoder(w).Encode("Server added to network " + params["network"])
-}
+// 	json.NewEncoder(w).Encode("Server added to network " + params["network"])
+// }
