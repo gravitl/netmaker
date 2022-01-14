@@ -24,16 +24,15 @@ var Metrics mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "Ping Handler: "+msg.Topic())
 	go func() {
-		mac, net, err := GetMacNetwork(msg.Topic())
+		id, err := GetID(msg.Topic())
 		if err != nil {
 			logger.Log(0, "error getting node.ID sent on ping topic ")
 			return
 		}
-		logger.Log(0, "ping recieved from "+mac+" on net "+net)
-		node, err := logic.GetNodeByMacAddress(net, mac)
+		node, err := logic.GetNodeByID(id)
 		if err != nil {
 			logger.Log(0, "mq-ping error getting node: "+err.Error())
-			record, err := database.FetchRecord(database.NODES_TABLE_NAME, mac+"###"+net)
+			record, err := database.FetchRecord(database.NODES_TABLE_NAME, id)
 			if err != nil {
 				logger.Log(0, "error reading database ", err.Error())
 				return
@@ -54,11 +53,11 @@ var PublicKeyUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Mess
 	go func() {
 		logger.Log(0, "public key update "+msg.Topic())
 		key := string(msg.Payload())
-		mac, network, err := GetMacNetwork(msg.Topic())
+		id, err := GetID(msg.Topic())
 		if err != nil {
 			logger.Log(0, "error getting node.ID sent on "+msg.Topic()+" "+err.Error())
 		}
-		node, err := logic.GetNode(mac, network)
+		node, err := logic.GetNodeByID(id)
 		if err != nil {
 			logger.Log(0, "error retrieving node "+msg.Topic()+" "+err.Error())
 		}
@@ -74,13 +73,13 @@ var IPUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	go func() {
 		ip := string(msg.Payload())
 		logger.Log(0, "IPUpdate Handler")
-		mac, network, err := GetMacNetwork(msg.Topic())
-		logger.Log(0, "ipUpdate recieved from "+mac+" on net "+network)
+		id, err := GetID(msg.Topic())
+		logger.Log(0, "ipUpdate recieved from "+id)
 		if err != nil {
 			logger.Log(0, "error getting node.ID sent on update/ip topic ")
 			return
 		}
-		node, err := logic.GetNode(mac, network)
+		node, err := logic.GetNodeByID(id)
 		if err != nil {
 			logger.Log(0, "invalid ID recieved on update/ip topic: "+err.Error())
 			return
@@ -110,7 +109,8 @@ func UpdatePeers(client mqtt.Client, node models.Node) error {
 			continue
 		}
 		peerUpdate.Nodes = append(peerUpdate.Nodes, peer)
-		peerUpdate.ExtPeers, err = logic.GetExtPeersList(node.MacAddress, node.Network)
+		peerUpdate.ExtPeers, err = logic.GetExtPeersList(&node)
+
 		if err != nil {
 			logger.Log(0)
 		}
@@ -150,12 +150,12 @@ var LocalAddressUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.M
 	logger.Log(0, "LocalAddressUpdate Handler")
 	go func() {
 		logger.Log(0, "LocalAddressUpdate handler")
-		mac, net, err := GetMacNetwork(msg.Topic())
+		id, err := GetID(msg.Topic())
 		if err != nil {
 			logger.Log(0, "error getting node.ID "+msg.Topic())
 			return
 		}
-		node, err := logic.GetNode(mac, net)
+		node, err := logic.GetNodeByID(id)
 		if err != nil {
 			logger.Log(0, "error get node "+msg.Topic())
 			return
@@ -168,28 +168,12 @@ var LocalAddressUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.M
 	}()
 }
 
-func GetMacNetwork(topic string) (string, string, error) {
-	parts := strings.Split(topic, "/")
-	count := len(parts)
-	if count == 1 {
-		return "", "", errors.New("invalid topic")
-	}
-	macnet := strings.Split(parts[count-1], "-")
-	if len(macnet) != 2 {
-		return "", "", errors.New("topic id not in mac---network format")
-	}
-	return macnet[0], macnet[1], nil
-}
-
 func GetID(topic string) (string, error) {
 	parts := strings.Split(topic, "/")
 	count := len(parts)
 	if count == 1 {
 		return "", errors.New("invalid topic")
 	}
-	macnet := strings.Split(parts[count-1], "-")
-	if len(macnet) != 2 {
-		return "", errors.New("topic id not in mac---network format")
-	}
-	return macnet[0] + "###" + macnet[1], nil
+	//the last part of the topic will be the node.ID
+	return parts[count], nil
 }
