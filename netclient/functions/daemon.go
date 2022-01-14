@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
@@ -58,9 +57,6 @@ func Netclient(ctx context.Context, network string) {
 	var cfg config.ClientConfig
 	cfg.Network = network
 	cfg.ReadConfig()
-	//fix NodeID to remove ### so NodeID can be used as message topic
-	//remove with GRA-73
-	cfg.Node.ID = strings.Replace(cfg.Node.ID, "###", "-", 1)
 	ncutils.Log("daemon started for network:" + network)
 	client := SetupMQTT(cfg)
 	if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
@@ -216,9 +212,6 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 			ncutils.Log("Checkin running")
 			//read latest config
 			cfg.ReadConfig()
-			//fix NodeID to remove ### so NodeID can be used as message topic
-			//remove with GRA-73
-			cfg.Node.ID = strings.Replace(cfg.Node.ID, "###", "-", 1)
 			if cfg.Node.Roaming == "yes" && cfg.Node.IsStatic != "yes" {
 				extIP, err := ncutils.GetPublicIP()
 				if err != nil {
@@ -301,15 +294,15 @@ func Metrics(ctx context.Context, cfg config.ClientConfig, network string) {
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-time.After(time.Second * 60):
 			ncutils.Log("Metrics collection running")
-			ncutils.Log("Metrics running")
 			wg, err := wgctrl.New()
+			defer wg.Close()
 			if err != nil {
 				ncutils.Log("error getting devices " + err.Error())
 				break
 			}
 			device, err := wg.Device(cfg.Node.Interface)
 			if err != nil {
-				ncutils.Log("error readind wg device " + err.Error())
+				ncutils.Log("error reading wg device " + err.Error())
 				break
 			}
 			bytes, err := json.Marshal(device.Peers)
@@ -321,8 +314,6 @@ func Metrics(ctx context.Context, cfg config.ClientConfig, network string) {
 			if token := client.Publish("metrics/"+cfg.Node.ID, 1, false, bytes); token.Wait() && token.Error() != nil {
 				ncutils.Log("error publishing metrics " + token.Error().Error())
 			}
-			wg.Close()
-			client.Disconnect(250)
 			ncutils.Log("metrics collection complete")
 		}
 	}
