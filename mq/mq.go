@@ -1,19 +1,15 @@
 package mq
 
 import (
-	"encoding/json"
 	"errors"
-	"log"
-	"net"
+	"fmt"
 	"strings"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var DefaultHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -22,20 +18,11 @@ var DefaultHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 
 var Metrics mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "Metrics Handler")
+	//TODOD -- handle metrics data ---- store to database?
 }
 
 var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	logger.Log(0, "Ping Handler")
-	//test code --- create a node if it doesn't exit for testing only
-	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode",
-		Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
-	if _, err := logic.GetNode("01:02:03:04:05:06", "skynet"); err != nil {
-		err := logic.CreateNode(&createnode)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-	//end of test code
+	logger.Log(0, "Ping Handler: "+msg.Topic())
 	go func() {
 		mac, net, err := GetMacNetwork(msg.Topic())
 		if err != nil {
@@ -56,6 +43,7 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		node.SetLastCheckIn()
+		logger.Log(0, "ping processed")
 		// --TODO --set client version once feature is implemented.
 		//node.SetClientVersion(msg.Payload())
 	}()
@@ -76,7 +64,9 @@ var PublicKeyUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Mess
 		}
 		node.PublicKey = key
 		node.SetLastCheckIn()
-		UpdatePeers(&node, client)
+		if err := UpdatePeers(client, node); err != nil {
+			logger.Log(0, "error updating peers "+err.Error())
+		}
 	}()
 }
 
@@ -97,58 +87,63 @@ var IPUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 		}
 		node.Endpoint = ip
 		node.SetLastCheckIn()
-		UpdatePeers(&node, client)
+		if err := UpdatePeers(client, node); err != nil {
+			logger.Log(0, "error updating peers "+err.Error())
+		}
 	}()
 }
 
-func UpdatePeers(node *models.Node, client mqtt.Client) {
-	peersToUpdate, err := logic.GetPeers(node)
-	if err != nil {
-		logger.Log(0, "error retrieving peers")
-		return
-	}
-	for _, peerToUpdate := range peersToUpdate {
-		var peerUpdate models.PeerUpdate
-		peerUpdate.Network = node.Network
+func UpdatePeers(client mqtt.Client, node models.Node) error {
+	var peerUpdate models.PeerUpdate
+	peerUpdate.Network = node.Network
 
-		myPeers, err := logic.GetPeers(&peerToUpdate)
-		if err != nil {
-			logger.Log(0, "uable to get peers "+err.Error())
+	nodes, err := logic.GetNetworkNodes(node.Network)
+	if err != nil {
+		return fmt.Errorf("unable to get network nodes %v: ", err)
+	}
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	for _, peer := range nodes {
+		//don't need to update the initiatiing client
+		if peer.ID == node.ID {
 			continue
 		}
-		for i, myPeer := range myPeers {
-			var allowedIPs []net.IPNet
-			var allowedIP net.IPNet
-			endpoint, err := net.ResolveUDPAddr("udp", myPeer.Address+":"+string(myPeer.ListenPort))
-			if err != nil {
-				logger.Log(0, "error setting endpoint for peer "+err.Error())
-			}
-			for _, ipString := range myPeer.AllowedIPs {
-				_, ipNet, _ := net.ParseCIDR(ipString)
-				allowedIP = *ipNet
-				allowedIPs = append(allowedIPs, allowedIP)
-			}
-			key, err := wgtypes.ParseKey(myPeer.PublicKey)
-			if err != nil {
-				logger.Log(0, "err parsing publickey")
-				continue
-			}
-			peerUpdate.Peers[i].PublicKey = key
-			peerUpdate.Peers[i].Endpoint = endpoint
-			peerUpdate.Peers[i].PersistentKeepaliveInterval = time.Duration(myPeer.PersistentKeepalive)
-			peerUpdate.Peers[i].AllowedIPs = allowedIPs
-			peerUpdate.Peers[i].ProtocolVersion = 0
-		}
-		//PublishPeerUpdate(my)
-		data, err := json.Marshal(peerUpdate)
+		peerUpdate.Nodes = append(peerUpdate.Nodes, peer)
+		peerUpdate.ExtPeers, err = logic.GetExtPeersList(node.MacAddress, node.Network)
 		if err != nil {
-			logger.Log(0, "err marshalling data for peer update "+err.Error())
+			logger.Log(0)
 		}
-		if token := client.Publish("update/peers/"+peerToUpdate.ID, 0, false, data); token.Wait() && token.Error() != nil {
-			logger.Log(0, "error publishing peer update "+token.Error().Error())
+		if token := client.Publish("update/peers/"+peer.ID, 0, false, nodes); token.Wait() && token.Error() != nil {
+			logger.Log(0, "error publishing peer update "+peer.ID+" "+token.Error().Error())
 		}
-		client.Disconnect(250)
 	}
+
+	return nil
+}
+
+func UpdateLocalPeers(client mqtt.Client, node models.Node) error {
+	nodes, err := logic.GetNetworkNodes(node.Network)
+	if err != nil {
+		return fmt.Errorf("unable to get network nodes %v: ", err)
+	}
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	for _, peer := range nodes {
+		//don't need to update the initiatiing client
+		if peer.ID == node.ID {
+			continue
+		}
+		//if peer.Endpoint is on same lan as node.LocalAddress
+		//if TODO{
+		//continue
+		//}
+		if token := client.Publish("update/peers/"+peer.ID, 0, false, nodes); token.Wait() && token.Error() != nil {
+			logger.Log(0, "error publishing peer update "+peer.ID+" "+token.Error().Error())
+		}
+	}
+	return nil
 }
 
 var LocalAddressUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -167,6 +162,9 @@ var LocalAddressUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.M
 		}
 		node.LocalAddress = string(msg.Payload())
 		node.SetLastCheckIn()
+		if err := UpdateLocalPeers(client, node); err != nil {
+			logger.Log(0, "error updating peers "+err.Error())
+		}
 	}()
 }
 
@@ -176,7 +174,7 @@ func GetMacNetwork(topic string) (string, string, error) {
 	if count == 1 {
 		return "", "", errors.New("invalid topic")
 	}
-	macnet := strings.Split(parts[count-1], "---")
+	macnet := strings.Split(parts[count-1], "-")
 	if len(macnet) != 2 {
 		return "", "", errors.New("topic id not in mac---network format")
 	}
@@ -189,7 +187,7 @@ func GetID(topic string) (string, error) {
 	if count == 1 {
 		return "", errors.New("invalid topic")
 	}
-	macnet := strings.Split(parts[count-1], "---")
+	macnet := strings.Split(parts[count-1], "-")
 	if len(macnet) != 2 {
 		return "", errors.New("topic id not in mac---network format")
 	}
