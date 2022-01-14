@@ -31,7 +31,7 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 	if networkSettings == nil || networkSettings.NetID == "" {
 		return errors.New("no network provided")
 	}
-	var privateKey = ""
+
 	var err error
 
 	var node = &models.Node{
