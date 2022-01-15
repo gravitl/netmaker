@@ -1,8 +1,8 @@
 package mq
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -86,61 +86,38 @@ var IPUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 		}
 		node.Endpoint = ip
 		node.SetLastCheckIn()
-		if err := UpdatePeers(client, node); err != nil {
+		if err != UpdatePeers(client, node) {
 			logger.Log(0, "error updating peers "+err.Error())
 		}
 	}()
 }
 
 func UpdatePeers(client mqtt.Client, node models.Node) error {
-	var peerUpdate models.PeerUpdate
-	peerUpdate.Network = node.Network
-
-	nodes, err := logic.GetNetworkNodes(node.Network)
+	peersToUpdate, err := logic.GetNetworkNodes(node.Network)
 	if err != nil {
-		return fmt.Errorf("unable to get network nodes %v: ", err)
+		logger.Log(0, "error retrieving peers to be updated "+err.Error())
+		return err
 	}
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
-	for _, peer := range nodes {
-		//don't need to update the initiatiing client
-		if peer.ID == node.ID {
-			continue
-		}
-		peerUpdate.Nodes = append(peerUpdate.Nodes, peer)
-		peerUpdate.ExtPeers, err = logic.GetExtPeersList(&node)
-
+	for _, peerToUpdate := range peersToUpdate {
+		peers, _, _, err := logic.GetServerPeers(&peerToUpdate)
 		if err != nil {
-			logger.Log(0)
+			logger.Log(0, "error retrieving peers "+err.Error())
+			return err
 		}
-		if token := client.Publish("update/peers/"+peer.ID, 0, false, nodes); token.Wait() && token.Error() != nil {
-			logger.Log(0, "error publishing peer update "+peer.ID+" "+token.Error().Error())
-		}
-	}
-
-	return nil
-}
-
-func UpdateLocalPeers(client mqtt.Client, node models.Node) error {
-	nodes, err := logic.GetNetworkNodes(node.Network)
-	if err != nil {
-		return fmt.Errorf("unable to get network nodes %v: ", err)
-	}
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
-	for _, peer := range nodes {
-		//don't need to update the initiatiing client
-		if peer.ID == node.ID {
+		if peerToUpdate.ID == node.ID {
 			continue
 		}
-		//if peer.Endpoint is on same lan as node.LocalAddress
-		//if TODO{
-		//continue
-		//}
-		if token := client.Publish("update/peers/"+peer.ID, 0, false, nodes); token.Wait() && token.Error() != nil {
-			logger.Log(0, "error publishing peer update "+peer.ID+" "+token.Error().Error())
+		var peerUpdate models.PeerUpdate
+		peerUpdate.Network = node.Network
+		peerUpdate.Peers = peers
+		data, err := json.Marshal(peerUpdate)
+		if err != nil {
+			logger.Log(0, "error marshaling peer update "+err.Error())
+			return err
+		}
+		if token := client.Publish("/update/peers/"+peerToUpdate.ID, 0, false, data); token.Wait() && token.Error() != nil {
+			logger.Log(0, "error sending peer updatte to no")
+			return err
 		}
 	}
 	return nil
@@ -162,7 +139,7 @@ var LocalAddressUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.M
 		}
 		node.LocalAddress = string(msg.Payload())
 		node.SetLastCheckIn()
-		if err := UpdateLocalPeers(client, node); err != nil {
+		if err := UpdatePeers(client, node); err != nil {
 			logger.Log(0, "error updating peers "+err.Error())
 		}
 	}()

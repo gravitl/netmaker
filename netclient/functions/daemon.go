@@ -28,7 +28,7 @@ func Daemon() error {
 		return err
 	}
 	for _, network := range networks {
-		go Netclient(ctx, network)
+		go MessageQueue(ctx, network)
 	}
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
@@ -51,8 +51,8 @@ func SetupMQTT(cfg config.ClientConfig) mqtt.Client {
 	return client
 }
 
-// Netclient sets up Message Queue and subsribes/publishes updates to/from server
-func Netclient(ctx context.Context, network string) {
+// MessageQueue sets up Message Queue and subsribes/publishes updates to/from server
+func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
 	cfg.Network = network
@@ -150,17 +150,7 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
-		peers, err := CalculatePeers(cfg.Node, peerUpdate.Nodes, cfg.Node.IsDualStack, cfg.Node.IsEgressGateway, cfg.Node.IsServer)
-		if err != nil {
-			ncutils.Log("error calculating Peers " + err.Error())
-			return
-		}
-		extpeers, err := CalculateExtPeers(cfg.Node, peerUpdate.ExtPeers)
-		if err != nil {
-			ncutils.Log("error updated external wireguard peers " + err.Error())
-		}
-		peers = append(peers, extpeers...)
-		err = wireguard.UpdateWgPeers(cfg.Node.Interface, peers)
+		err = wireguard.UpdateWgPeers(cfg.Node.Interface, peerUpdate.Peers)
 		if err != nil {
 			ncutils.Log("error updating wireguard peers" + err.Error())
 			return
@@ -315,6 +305,7 @@ func Metrics(ctx context.Context, cfg config.ClientConfig, network string) {
 				ncutils.Log("error publishing metrics " + token.Error().Error())
 			}
 			ncutils.Log("metrics collection complete")
+			client.Disconnect(250)
 		}
 	}
 }
