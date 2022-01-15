@@ -343,7 +343,7 @@ func WriteWgConfig(cfg config.ClientConfig, privateKey string, peers []wgtypes.P
 }
 
 // UpdateWgPeers - updates the peers of a network
-func UpdateWgPeers(wgInterface string, peers []wgtypes.Peer) error {
+func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
 	//update to get path properly
 	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
 	wireguard, err := ini.ShadowLoad(file)
