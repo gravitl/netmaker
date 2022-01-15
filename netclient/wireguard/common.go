@@ -97,7 +97,6 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		}
 	}
 	if ncutils.IsMac() {
-		log.Println("DELETE ME: setting mac peers")
 		err = SetMacPeerRoutes(iface)
 		return err
 	}

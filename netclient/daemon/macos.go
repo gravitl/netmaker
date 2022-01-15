@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -13,13 +12,12 @@ const MAC_SERVICE_NAME = "com.gravitl.netclient"
 
 func SetupMacDaemon(interval string) error {
 
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		return err
-	}
-	binarypath := dir + "/netclient"
-
 	if !ncutils.FileExists("/etc/netclient/netclient") {
+		binarypath, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		ncutils.PrintLog("installing binary from "+binarypath, 0)
 		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
 		if err != nil {
 			log.Println(err)
@@ -27,8 +25,8 @@ func SetupMacDaemon(interval string) error {
 		}
 	}
 
-	_, errN := os.Stat("~/Library/LaunchAgents")
-	if os.IsNotExist(errN) {
+	_, err := os.Stat("~/Library/LaunchAgents")
+	if os.IsNotExist(err) {
 		os.Mkdir("~/Library/LaunchAgents", 0755)
 	}
 	err = CreateMacService(MAC_SERVICE_NAME, interval)

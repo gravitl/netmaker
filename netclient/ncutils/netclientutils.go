@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -319,8 +318,9 @@ func GetNetclientPathSpecific() string {
 	}
 }
 
+// GetNewIface - Gets the name of the real interface created on Mac
 func GetNewIface(dir string) (string, error) {
-	files, _ := ioutil.ReadDir(dir)
+	files, _ := os.ReadDir(dir)
 	var newestFile string
 	var newestTime int64 = 0
 	var err error
@@ -342,13 +342,13 @@ func GetNewIface(dir string) (string, error) {
 	return resultArr[0], err
 }
 
+// GetFileAsString - returns the string contents of a given file
 func GetFileAsString(path string) (string, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
-	text := string(content)
-	return text, err
+	return string(content), err
 }
 
 // GetNetclientPathSpecific - gets specific netclient config path
@@ -467,6 +467,7 @@ func stringAfter(original string, substring string) string {
 	return original[adjustedPosition:]
 }
 
+//ShortenString - Brings string down to specified length. Stops names from being too long
 func ShortenString(input string, length int) string {
 	output := input
 	if len(input) > length {
@@ -475,6 +476,7 @@ func ShortenString(input string, length int) string {
 	return output
 }
 
+//DNSFormatString - Formats a string with correct usage for DNS
 func DNSFormatString(input string) string {
 	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
 	if err != nil {
@@ -484,6 +486,7 @@ func DNSFormatString(input string) string {
 	return reg.ReplaceAllString(input, "")
 }
 
+//GetHostname - Gets hostname of machine
 func GetHostname() string {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -495,6 +498,7 @@ func GetHostname() string {
 	return hostname
 }
 
+//CheckUID - Checks to make sure user has root privileges
 func CheckUID() {
 	// start our application
 	out, err := RunCmd("id -u", true)

@@ -26,7 +26,6 @@ func WgQuickDownMac(node models.Node, iface string) error {
 
 // RemoveConfMac - bring down mac interface and remove routes
 func RemoveConfMac(iface string) error {
-	var err error
 	realIface, err := getRealIface(iface)
 	if realIface != "" {
 		err = deleteInterface(iface, realIface)
@@ -54,9 +53,7 @@ func WgQuickUpMac(node models.Node, iface string, confPath string) error {
 		ncutils.PrintLog("error setting config for "+realIface, 1)
 		return err
 	}
-	var ips []string
-	ips = append(node.AllowedIPs, node.Address)
-	ips = append(ips, node.Address6)
+	var ips = append(node.AllowedIPs, node.Address, node.Address6)
 	peerIPs := getPeerIPs(realIface)
 	if len(peerIPs) > 0 {
 		ips = append(ips, peerIPs...)
@@ -230,15 +227,8 @@ func getConfig(path string) string {
 }
 
 // SetMacPeerRoutes - sets routes for interface from the peer list for all AllowedIps
-func SetMacPeerRoutes(iface string) error {
+func SetMacPeerRoutes(realIface string) error {
 	var err error
-	realIface := iface
-	/*
-		realIface, err := getRealIface(iface)
-		if err != nil || realIface == "" {
-			return err
-		}
-	*/
 	peerIPs := getPeerIPs(realIface)
 	if len(peerIPs) == 0 {
 		return err
