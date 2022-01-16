@@ -42,8 +42,8 @@ Edit
 
 **NOTE:** With the exception of Address Ranges (1-2) any setting that affects nodes will not take effect on existing nodes. It will only set the settings on any **new** node, after the setting has been changed.
 
-(1) **Address Range (ipv4): The ipv4 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.** 
-(2) **Address Range (ipv6): The ipv6 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.**
+(1) **Address Range (ipv4):** The ipv4 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.** 
+(2) **Address Range (ipv6):** The ipv6 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.**
 (3) **Local Range:** Only relevant if "Is Local" was switched on during creation. Specifies the local range that nodes will base their Endpoint off of (note: if a node cannot find an enpoint within the range it will fallback to public ip).
 (4) **Display Name:** The display name of the network. Network Name cannot be changed (acts as a unique ID) but display name can be changed. Only effects appearance in UI.
 (5) **Default Interface:** The default network interface name configured on each node. This defaults to "nm-<network name>".

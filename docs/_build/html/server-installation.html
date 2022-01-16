@@ -56,8 +56,8 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Integrating OAuth" href="oauth.html" />
-    <link rel="prev" title="Getting Started" href="getting-started.html" />
+    <link rel="next" title="Advanced Client Installation" href="client-installation.html" />
+    <link rel="prev" title="Relay Servers" href="relay-server.html" />
   
    
 
@@ -209,7 +209,7 @@
     <li class="md-nav__item">
     
     
-      <a href="about.html" class="md-nav__link">1. About</a>
+      <a href="about.html" class="md-nav__link">About</a>
       
     
     </li>
@@ -238,6 +238,34 @@
     
     
       <a href="getting-started.html" class="md-nav__link">Getting Started</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="egress-gateway.html" class="md-nav__link">Egress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="relay-server.html" class="md-nav__link">Relay Servers</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
       
     
     </li>
@@ -404,6 +432,13 @@
     <li class="md-nav__item">
     
     
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
       <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
       
     
@@ -411,35 +446,7 @@
     <li class="md-nav__item">
     
     
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html" class="md-nav__link">Ingress GW + External Clients</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="egress-gateway.html" class="md-nav__link">Egress Gateway</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="relay-server.html" class="md-nav__link">Relay Servers</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -720,7 +727,7 @@
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">rqlite</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.9.3</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.9.4</span>
     <span class="nt">volumes</span><span class="p">:</span> <span class="c1"># Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">dnsconfig:/root/config/dnsconfig</span> <span class="c1"># Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/usr/bin/wg:/usr/bin/wg</span>
@@ -1133,7 +1140,7 @@ This install has some notable exceptions:
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
           
-            <a href="getting-started.html" title="Getting Started"
+            <a href="relay-server.html" title="Relay Servers"
                class="md-flex md-footer-nav__link md-footer-nav__link--prev"
                rel="prev">
               <div class="md-flex__cell md-flex__cell--shrink">
@@ -1142,17 +1149,17 @@ This install has some notable exceptions:
               <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
                 <span class="md-flex__ellipsis">
                   <span
-                      class="md-footer-nav__direction"> Previous </span> Getting Started </span>
+                      class="md-footer-nav__direction"> Previous </span> Relay Servers </span>
               </div>
             </a>
           
           
-            <a href="oauth.html" title="Integrating OAuth"
+            <a href="client-installation.html" title="Advanced Client Installation"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Integrating OAuth </span>
+                class="md-footer-nav__direction"> Next </span> Advanced Client Installation </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>

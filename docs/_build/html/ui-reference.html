@@ -57,7 +57,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="API Reference" href="api.html" />
-    <link rel="prev" title="Using Netmaker" href="usage.html" />
+    <link rel="prev" title="External Guides" href="usage.html" />
   
    
 
@@ -244,27 +244,6 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
       <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
@@ -286,7 +265,35 @@
     <li class="md-nav__item">
     
     
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -507,8 +514,8 @@
 <a class="reference internal image-reference" href="_images/ui-3.jpg"><img alt="edit network" class="align-center" src="_images/ui-3.jpg" style="width: 80%;"/></a>
 <p><strong>NOTE:</strong> With the exception of Address Ranges (1-2) any setting that affects nodes will not take effect on existing nodes. It will only set the settings on any <strong>new</strong> node, after the setting has been changed.</p>
 <ol class="arabic simple">
-<li><p><strong>Address Range (ipv4): The ipv4 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.</strong></p></li>
-<li><p><strong>Address Range (ipv6): The ipv6 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.</strong></p></li>
+<li><p><strong>Address Range (ipv4):</strong> The ipv4 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.**</p></li>
+<li><p><strong>Address Range (ipv6):</strong> The ipv6 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.**</p></li>
 <li><p><strong>Local Range:</strong> Only relevant if “Is Local” was switched on during creation. Specifies the local range that nodes will base their Endpoint off of (note: if a node cannot find an enpoint within the range it will fallback to public ip).</p></li>
 <li><p><strong>Display Name:</strong> The display name of the network. Network Name cannot be changed (acts as a unique ID) but display name can be changed. Only effects appearance in UI.</p></li>
 <li><p><strong>Default Interface:</strong> The default network interface name configured on each node. This defaults to “nm-&lt;network name&gt;”.</p></li>
@@ -640,7 +647,7 @@
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
           
-            <a href="usage.html" title="Using Netmaker"
+            <a href="usage.html" title="External Guides"
                class="md-flex md-footer-nav__link md-footer-nav__link--prev"
                rel="prev">
               <div class="md-flex__cell md-flex__cell--shrink">
@@ -649,7 +656,7 @@
               <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
                 <span class="md-flex__ellipsis">
                   <span
-                      class="md-footer-nav__direction"> Previous </span> Using Netmaker </span>
+                      class="md-footer-nav__direction"> Previous </span> External Guides </span>
               </div>
             </a>
           
