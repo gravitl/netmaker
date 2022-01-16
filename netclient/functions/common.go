@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -251,6 +252,8 @@ func WipeLocal(network string) error {
 	if ifacename != "" {
 		if err = wireguard.RemoveConf(ifacename, true); err == nil {
 			ncutils.PrintLog("removed WireGuard interface: "+ifacename, 1)
+		} else if strings.Contains(err.Error(), "does not exist") {
+			err = nil
 		}
 	}
 

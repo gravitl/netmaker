@@ -113,7 +113,7 @@ func GetAPIConnString() string {
 
 // GetVersion - version of netmaker
 func GetVersion() string {
-	version := "0.9.3"
+	version := "0.9.4"
 	if config.Config.Server.Version != "" {
 		version = config.Config.Server.Version
 	}
