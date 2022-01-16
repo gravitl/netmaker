@@ -23,68 +23,71 @@ Netmaker is a platform for creating and managing fast, secure, and dynamic virtu
 
 This documentation covers Netmaker's :doc:`installation <./server-installation>`, :doc:`usage <./usage>`, :doc:`troubleshooting <./support>`, and customization, as well as reference documents for the :doc:`API <./api>`, UI and Agent configuration. All of the `source code <https://github.com/gravitl/netmaker>`_ for Netmaker is on GitHub.
 
-
-.. :raw-html:`<br />`
-
-.. .. raw:: html
-..   :file: youtube-1.html
+**For Kubernetes-specific guidance, please see the** `Netmaker Kubernetes Documentation. <https://nm-k8s.readthedocs.io>`_
 
 About
-------
-A quick overview of Netmaker, explaining what it is, how it works, and why you should be using it.
+--------
+
+High-level information about what Netmaker is and how it works.
 
 .. toctree::
    :maxdepth: 2
-   
+
    about
-
-Architecture
----------------
-
-A technical overview of Netmaker, including design decisions and limitations.
-
-.. toctree::
-   :maxdepth: 2
    
    architecture
 
-Install
+Getting Started
 ------------------------------------
 
-Choose the right install method for you.
+How to install Netmaker and set up your first network.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    install
 
-Quick Start
----------------
-
-A quick start guide to getting up and running with Netmaker and WireGuard as quickly as possible.
-
-.. toctree::
-   :maxdepth: 2
-
    quick-start
-
-.. toctree::
-   :maxdepth: 2
 
    getting-started
 
-Quick Start Nginx (depreciated)
-------------------------------------
+Ingress, Egress, and Relays
+------------------------------
 
-An older guide to getting up and running with Netmaker using Nginx as quickly as possible.
+How to give machines outside of the Netmaker network access to network resources via an Ingress Gateway:
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
+   
+   external-clients
 
-   quick-start-nginx
+How to give machines inside the Netmaker network access to external network resources via an Egress Gateway:
 
-Server Installation
---------------------
+
+.. toctree::
+   :maxdepth: 2
+   
+   egress-gateway
+
+How to make machines inside the network reachable if they are blocked by NAT/Firewall:
+
+.. toctree::
+   :maxdepth: 2
+   
+   relay-server
+
+Kubernetes Documentation
+---------------------------
+
+.. toctree::
+
+   Kubernetes <https://nm-k8s.readthedocs.io>
+   
+`Netmaker Kubernetes Documentation <https://nm-k8s.readthedocs.io>`_
+
+
+Advanced Server Installation
+-------------------------------
 
 A detailed guide to installing the Netmaker server (API, DB, UI, DNS), and configuration options.
 
@@ -92,6 +95,17 @@ A detailed guide to installing the Netmaker server (API, DB, UI, DNS), and confi
    :maxdepth: 2
    
    server-installation
+
+Advanced Client Installation
+--------------------------------
+
+A detailed guide to installing the Netmaker agent (netclient) on devices and configuration options.
+
+.. toctree::
+   :maxdepth: 2
+   
+   client-installation
+
 
 Oauth Configuration
 --------------------
@@ -104,27 +118,7 @@ A simple guide to configuring OAuth for Netmaker.
    oauth
 
 
-Client Installation
---------------------
-
-A detailed guide to installing the Netmaker agent (netclient) on devices and configuration options.
-
-.. toctree::
-   :maxdepth: 2
-   
-   client-installation
-
-External Clients
---------------------
-
-A detailed guide to give clients outside of the Netmaker network access to network resources.
-
-.. toctree::
-   :maxdepth: 2
-   
-   external-clients
-
-Guides
+External Guides
 ----------------
 
 A handful of guides for use cases including site-to-site, Kubernetes, private DNS, and more.
@@ -134,17 +128,36 @@ A handful of guides for use cases including site-to-site, Kubernetes, private DN
    
    usage
 
+UI Reference
+---------------
+
+A reference document for the Netmaker Server UI, with annotated screenshot detailing each field.
+
+.. toctree::
+   :maxdepth: 2
+
+   ui-reference
+
 API Reference
 ---------------
 
 A reference document for the Netmaker Server API, and example API calls for various use cases.
 
-**Coming Soon:** Swagger Documentation
-
 .. toctree::
    :maxdepth: 1
 
    api
+
+Upgrades
+----------------
+
+Upgrading the Netmaker server and clients.
+
+.. toctree::
+   :maxdepth: 1
+
+   upgrades
+
 
 Troubleshooting
 ----------------
