@@ -1,9 +1,14 @@
-================
-External Clients
-================
+=====================================
+Ingress + External Clients
+=====================================
 
 Introduction
 ===============
+
+.. image:: images/ingress1.png
+   :width: 50%
+   :alt: Gateway
+   :align: center
 
 Netmaker allows for "external clients" to reach into a network and access services via an Ingress Gateway. So what is an "external client"? An external client is any machine which cannot or should not be meshed. This can include:
         - Phones
