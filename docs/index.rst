@@ -25,58 +25,69 @@ This documentation covers Netmaker's :doc:`installation <./server-installation>`
 
 **For Kubernetes-specific guidance, please see the** `Netmaker Kubernetes Documentation. <https://nm-k8s.readthedocs.io>`_
 
-.. :raw-html:`<br />`
-
-.. .. raw:: html
-..   :file: youtube-1.html
-
 About
 --------
+
+High-level information about what Netmaker is and how it works.
 
 .. toctree::
    :maxdepth: 2
 
    about
+   
+   architecture
 
-A quick overview of Netmaker, explaining what it is, how it works, and why you should be using it.
+Getting Started
+------------------------------------
 
-Architecture
----------------
+How to install Netmaker and set up your first network.
 
-A technical overview of Netmaker, including design decisions and limitations.
+.. toctree::
+   :maxdepth: 2
+
+   install
+
+   quick-start
+
+   getting-started
+
+Ingress, Egress, and Relays
+------------------------------
+
+How to give machines outside of the Netmaker network access to network resources via an Ingress Gateway:
 
 .. toctree::
    :maxdepth: 2
    
-   architecture
+   external-clients
 
-Install
-------------------------------------
+How to give machines inside the Netmaker network access to external network resources via an Egress Gateway:
 
-Choose the right install method for you.
-
-.. toctree::
-   :maxdepth: 1
-
-   install
-
-Quick Start
----------------
-
-A quick start guide to getting up and running with Netmaker and WireGuard as quickly as possible.
 
 .. toctree::
    :maxdepth: 2
+   
+   egress-gateway
 
-   quick-start
+How to make machines inside the network reachable if they are blocked by NAT/Firewall:
 
 .. toctree::
    :maxdepth: 2
+   
+   relay-server
 
-   getting-started
+Kubernetes Documentation
+---------------------------
 
-Server Installation
---------------------
+.. toctree::
+
+   Kubernetes <https://nm-k8s.readthedocs.io>
+   
+`Netmaker Kubernetes Documentation <https://nm-k8s.readthedocs.io>`_
+
+
+Advanced Server Installation
+-------------------------------
 
 A detailed guide to installing the Netmaker server (API, DB, UI, DNS), and configuration options.
 
@@ -84,6 +95,17 @@ A detailed guide to installing the Netmaker server (API, DB, UI, DNS), and confi
    :maxdepth: 2
    
    server-installation
+
+Advanced Client Installation
+--------------------------------
+
+A detailed guide to installing the Netmaker agent (netclient) on devices and configuration options.
+
+.. toctree::
+   :maxdepth: 2
+   
+   client-installation
+
 
 Oauth Configuration
 --------------------
@@ -96,43 +118,7 @@ A simple guide to configuring OAuth for Netmaker.
    oauth
 
 
-Client Installation
---------------------
-
-A detailed guide to installing the Netmaker agent (netclient) on devices and configuration options.
-
-.. toctree::
-   :maxdepth: 2
-   
-   client-installation
-
-Ingress, Egress, and Relays
-------------------------------
-
-**Ingress:** A guide on how to give machines outside of the Netmaker network access to network resources via an Ingress Gateway.
-
-.. toctree::
-   :maxdepth: 1
-   
-   external-clients
-
-**Egress:** A guide on how to give machines inside the Netmaker network access to external network resources via an Egress Gateway.
-
-
-.. toctree::
-   :maxdepth: 1
-   
-   egress-gateway
-
-**Relay:** A guide on how to make machines inside the network reachable if they are blocked by NAT/Firewall.
-
-.. toctree::
-   :maxdepth: 1
-   
-   relay-server
-
-
-Guides
+External Guides
 ----------------
 
 A handful of guides for use cases including site-to-site, Kubernetes, private DNS, and more.
@@ -156,8 +142,6 @@ API Reference
 ---------------
 
 A reference document for the Netmaker Server API, and example API calls for various use cases.
-
-**Coming Soon:** Swagger Documentation
 
 .. toctree::
    :maxdepth: 1

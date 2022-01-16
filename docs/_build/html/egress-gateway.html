@@ -57,7 +57,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Relay Servers" href="relay-server.html" />
-    <link rel="prev" title="Ingress GW + External Clients" href="external-clients.html" />
+    <link rel="prev" title="Ingress + External Clients" href="external-clients.html" />
   
    
 
@@ -209,7 +209,7 @@
     <li class="md-nav__item">
     
     
-      <a href="about.html" class="md-nav__link">1. About</a>
+      <a href="about.html" class="md-nav__link">About</a>
       
     
     </li>
@@ -244,28 +244,7 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html" class="md-nav__link">Ingress GW + External Clients</a>
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
     </li>
@@ -285,11 +264,15 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+        <li class="md-nav__item"><a href="#configuring-an-egress-gateway" class="md-nav__link">Configuring an Egress Gateway</a>
         </li>
-        <li class="md-nav__item"><a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
+        <li class="md-nav__item"><a href="#use-cases" class="md-nav__link">Use Cases</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#remote-access" class="md-nav__link">1) Remote Access</a>
         </li>
-        <li class="md-nav__item"><a href="#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+        <li class="md-nav__item"><a href="#vpn-nat-gateway" class="md-nav__link">2) VPN / NAT Gateway</a>
+        </li></ul>
+            </nav>
         </li></ul>
             </nav>
         </li>
@@ -306,21 +289,14 @@
     <li class="md-nav__item">
     
     
-      <a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+      <a href="#configuring-an-egress-gateway" class="md-nav__link">Configuring an Egress Gateway</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+      <a href="#use-cases" class="md-nav__link">Use Cases</a>
       
     
     </li></ul>
@@ -336,7 +312,35 @@
     <li class="md-nav__item">
     
     
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -407,11 +411,15 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
+        <li class="md-nav__item"><a href="#configuring-an-egress-gateway" class="md-nav__link">Configuring an Egress Gateway</a>
         </li>
-        <li class="md-nav__item"><a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
+        <li class="md-nav__item"><a href="#use-cases" class="md-nav__link">Use Cases</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#remote-access" class="md-nav__link">1) Remote Access</a>
         </li>
-        <li class="md-nav__item"><a href="#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+        <li class="md-nav__item"><a href="#vpn-nat-gateway" class="md-nav__link">2) VPN / NAT Gateway</a>
+        </li></ul>
+            </nav>
         </li></ul>
             </nav>
         </li>
@@ -428,53 +436,54 @@
 <h1 id="egress-gateway--page-root">Egress Gateway<a class="headerlink" href="#egress-gateway--page-root" title="Permalink to this headline">¶</a></h1>
 
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
-<dl class="simple">
-<dt>Netmaker allows for “external clients” to reach into a network and access services via an Ingress Gateway. So what is an “external client”? An external client is any machine which cannot or should not be meshed. This can include:</dt><dd><ul class="simple">
-<li><p>Phones</p></li>
-<li><p>Laptops</p></li>
-<li><p>Desktops</p></li>
+<a class="reference internal image-reference" href="_images/egress1.png"><img alt="Gateway" class="align-center" src="_images/egress1.png" style="width: 80%;"/></a>
+<p>Netmaker allows your clients to reach external networks via an Egress Gateway. The Egress Gateway is a netclient which has been deployed to a server or router with access to a given subnet.</p>
+<p>In the netmaker UI, that node is set as an “egress gateway.” Range(s) are specified which this node has access to. Once created, all clients (and all new ext clients) in the network will be able to reach those ranges via the gateway.</p>
+
+
+<h2 id="configuring-an-egress-gateway">Configuring an Egress Gateway<a class="headerlink" href="#configuring-an-egress-gateway" title="Permalink to this headline">¶</a></h2>
+<p>Configuring an Egress Gateway is very straight forward. As a prerequisite, you must know what you are trying to access remotely. For instance:</p>
+<ul class="simple">
+<li><p>a VPC</p></li>
+<li><p>a Kubernetes network</p></li>
+<li><p>a home network</p></li>
+<li><p>an office network</p></li>
+<li><p>a data center</p></li>
 </ul>
-</dd>
-</dl>
-<p>An external client is not “managed,” meaning it does not automatically pull the latest network configuration, or push changes to its configuration. Instead, it uses a generated WireGuard config file to access the designated <strong>Ingress Gateway</strong>, which <strong>is</strong> a managed server (running netclient). This server then forwards traffic to the appropriate endpoint, acting as a middle-man/relay.</p>
-<p>By using this method, you can hook any machine into a netmaker network that can run WireGuard.</p>
-<p>It is recommended to run the netclient where compatible, but for all other cases, a machine can be configured as an external client.</p>
-<p>Important to note, an external client is not <strong>reachable</strong> by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource running on the virtual network, and <strong>not</strong> for use cases where one wishes to make a resource accessible on the network. For that, use netclient.</p>
-
-
-<h2 id="configuring-an-ingress-gateway">Configuring an Ingress Gateway<a class="headerlink" href="#configuring-an-ingress-gateway" title="Permalink to this headline">¶</a></h2>
-<p>External Clients must attach to an Ingress Gateway. By default, your network will not have an ingress gateway. To configure an ingress gateway, you can use any node in your network, but it should have a public IP address (not behind a NAT). Your Netmaker server can be an ingress gateway and makes for a good default choice if you are unsure of which node to select.</p>
-<a class="reference internal image-reference" href="_images/exclient1.png"><img alt="Gateway" class="align-center" src="_images/exclient1.png" style="width: 80%;"/></a>
-
-
-<h2 id="adding-clients-to-a-gateway">Adding Clients to a Gateway<a class="headerlink" href="#adding-clients-to-a-gateway" title="Permalink to this headline">¶</a></h2>
-<p>Once you have configured a node as a gateway, you can then add clients to that gateway. Clients will be able to access other nodes in the network just as the gateway node does.</p>
-<a class="reference internal image-reference" href="_images/exclient2.png"><img alt="Gateway" class="align-center" src="_images/exclient2.png" style="width: 80%;"/></a>
-<p>After creating a client, you can edit the name to something more logical.</p>
-<a class="reference internal image-reference" href="_images/exclient3.png"><img alt="Gateway" class="align-center" src="_images/exclient3.png" style="width: 80%;"/></a>
-<p>Then, you can either download the configuration file directly, or scan the QR code from your phone (assuming you have the WireGuard app installed). It will accept the configuration just as it would accept a typical WireGuard configuration file.</p>
-<a class="reference internal image-reference" href="_images/exclient4.png"><img alt="Gateway" class="align-center" src="_images/exclient4.png" style="width: 80%;"/></a>
-<p>Example config file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Interface</span><span class="p">]</span>
-<span class="n">Address</span> <span class="o">=</span> <span class="mf">10.7</span><span class="o">.</span><span class="mf">11.5</span><span class="o">/</span><span class="mi">32</span>
-<span class="n">PrivateKey</span> <span class="o">=</span> <span class="n">EJf6Yy51M</span><span class="o">/</span><span class="n">YDaZgedRpuxMmrqul35WfjmHvRZR1rQ0U</span><span class="o">=</span>
-
-<span class="p">[</span><span class="n">Peer</span><span class="p">]</span>
-<span class="n">PublicKey</span> <span class="o">=</span> <span class="n">m</span><span class="o">/</span><span class="n">RPuMVsbpgQ</span><span class="o">+</span><span class="n">RkxlgK2mG</span><span class="o">+</span><span class="n">dDFlzqn</span><span class="o">+</span><span class="n">ua2zJt8Wn7GA</span><span class="o">=</span>
-<span class="n">AllowedIPs</span> <span class="o">=</span> <span class="mf">10.7</span><span class="o">.</span><span class="mf">11.0</span><span class="o">/</span><span class="mi">24</span>
-<span class="n">Endpoint</span> <span class="o">=</span> <span class="mf">3.236</span><span class="o">.</span><span class="mf">60.247</span><span class="p">:</span><span class="mi">51822</span>
-<span class="n">PersistentKeepalive</span> <span class="o">=</span> <span class="mi">20</span>
-
+<p>After you have determined this, you must next deploy a netclient in a compatible location where the network is accessible. For instance, a Linux server or router in the office, or a Kubernetes worker node. This machine should be stable and relatively static (not expected to change its IP frequently or shut down unexpectedly).</p>
+<p>Next, you must determine which interface to use in order to reach the internal network. As an example, lets say there is a machine in the network at 10.10.10.2, and you have deployed the netclient on a different machine. You can run</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ip</span> <span class="n">route</span> <span class="n">get</span> <span class="mf">10.10</span><span class="o">.</span><span class="mf">10.2</span>
 </pre></div>
 </div>
-<p>Your client should now be able to access the network! A client can be invalidated at any time by simply deleting it from the UI.</p>
+<p>This should return the interface used to reach that address (e.x. “eth2”)</p>
+<p>Finally, once you have determined the interface, the subnet, and deployed your netclient, you can go to your Netmaker UI and set the node as a gateway.</p>
+<a class="reference internal image-reference" href="_images/egress7.png"><img alt="Gateway" class="align-center" src="_images/egress7.png" style="width: 80%;"/></a>
+<p>At this point simply insert the range(s) into the first field, and the interface name into the second field, and click “create”.</p>
+<a class="reference internal image-reference" href="_images/ui-6.jpg"><img alt="Gateway" class="align-center" src="_images/ui-6.jpg" style="width: 80%;"/></a>
+<p>Netmaker will set iptables rules on the node, which will then implement these rules, allowing it to route traffic from the network to the specified range(s).</p>
 
 
-<h2 id="configuring-dns-for-ext-clients-optional">Configuring DNS for Ext Clients (OPTIONAL)<a class="headerlink" href="#configuring-dns-for-ext-clients-optional" title="Permalink to this headline">¶</a></h2>
-<p>If you wish to have a DNS field on your ext clients conf, simply edit the network field as shown below to 1.1.1.1 or 8.8.8.8 for example.
-If you do not want DNS on your ext client conf files, simply leave it blank.</p>
-<a class="reference internal image-reference" href="_images/extclient5.png"><img alt="Gateway" class="align-center" src="_images/extclient5.png" style="width: 80%;"/></a>
-<p>Important to note, your client automatically adds egress gateway ranges (if any on the same network) to it’s allowed IPs.</p>
+<h2 id="use-cases">Use Cases<a class="headerlink" href="#use-cases" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="remote-access">1) Remote Access<a class="headerlink" href="#remote-access" title="Permalink to this headline">¶</a></h3>
+<p>A common scenario would be to combine this with an “Ingress Gateway” to create a simple method for accessing a home or office network. Such a setup would typically have only two nodes: the ingress and egress gateways. The Ingress Gateway should usually be globally accessible, which makes the Netmaker server itself a good candidate. This means you need only the netmaker server as the Ingress, and one additional machine (in the private network you wish to reach), as the Egress.</p>
+<a class="reference internal image-reference" href="_images/egress2.png"><img alt="Gateway" class="align-center" src="_images/egress2.png" style="width: 80%;"/></a>
+<p>In some scenarios, a single node will act as both ingress and egress! For instance, you can enable acess to a VPC using your Netmaker server, deployed with a public IP. Traffic comes in over the public IP (encrypted of course) and then routes to the VPC subnet via the egress gateway.</p>
+<a class="reference internal image-reference" href="_images/egress3.png"><img alt="Gateway" class="align-center" src="_images/egress3.png" style="width: 50%;"/></a>
+
+
+<h3 id="vpn-nat-gateway">2) VPN / NAT Gateway<a class="headerlink" href="#vpn-nat-gateway" title="Permalink to this headline">¶</a></h3>
+<p>Most people think of a VPN as a remote server that keeps your internet traffic secure while you browse the web, or as a tool for accessing internet services in another country,using a VPN server based in that country.</p>
+<p>These are not typical use cases for Netmaker, but can be easily enabled.</p>
+<p><strong>The most important note is this: Do not use 0.0.0.0/0 as your egress gateway.</strong> This is how you typically set up a “standard” VPN with WireGuard, however, it will not work with Netmaker. The Netclient specifically ignores gateways that overlap with local ranges (for efficiency ranges). 0.0.0.0 overlaps with everything, so it is always ignored.</p>
+<p>Instead, use the following list of ranges:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">5</span><span class="p">,</span><span class="mf">8.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">7</span><span class="p">,</span><span class="mf">11.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">8</span><span class="p">,</span><span class="mf">12.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">6</span><span class="p">,</span><span class="mf">16.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span><span class="mf">32.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">3</span><span class="p">,</span><span class="mf">64.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="mf">128.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">3</span><span class="p">,</span><span class="mf">160.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">5</span><span class="p">,</span><span class="mf">168.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">6</span><span class="p">,</span><span class="mf">172.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">12</span><span class="p">,</span><span class="mf">172.32</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">11</span><span class="p">,</span><span class="mf">172.64</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">10</span><span class="p">,</span><span class="mf">172.128</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">9</span><span class="p">,</span><span class="mf">173.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">8</span><span class="p">,</span><span class="mf">174.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">7</span><span class="p">,</span><span class="mf">176.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span><span class="mf">192.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">9</span><span class="p">,</span><span class="mf">192.128</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">11</span><span class="p">,</span><span class="mf">192.160</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">13</span><span class="p">,</span><span class="mf">192.169</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">16</span><span class="p">,</span><span class="mf">192.170</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">15</span><span class="p">,</span><span class="mf">192.172</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">14</span><span class="p">,</span><span class="mf">192.176</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">12</span><span class="p">,</span><span class="mf">192.192</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">10</span><span class="p">,</span><span class="mf">193.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">8</span><span class="p">,</span><span class="mf">194.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">7</span><span class="p">,</span><span class="mf">196.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">6</span><span class="p">,</span><span class="mf">200.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">5</span><span class="p">,</span><span class="mf">208.0</span><span class="o">.</span><span class="mf">0.0</span><span class="o">/</span><span class="mi">4</span>
+</pre></div>
+</div>
+<p>This list encompasses the standard “public” network ranges, and ignores the standard “private” network ranges.</p>
+<p>Simply paste this list into your “egress gateway ranges” and your clients should begin routing public-facing traffic over the gateway.</p>
+<a class="reference internal image-reference" href="_images/egress5.png"><img alt="Gateway" class="align-center" src="_images/egress5.png" style="width: 50%;"/></a>
+
 
 
 
@@ -488,7 +497,7 @@ If you do not want DNS on your ext client conf files, simply leave it blank.</p>
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
           
-            <a href="external-clients.html" title="Ingress GW + External Clients"
+            <a href="external-clients.html" title="Ingress + External Clients"
                class="md-flex md-footer-nav__link md-footer-nav__link--prev"
                rel="prev">
               <div class="md-flex__cell md-flex__cell--shrink">
@@ -497,7 +506,7 @@ If you do not want DNS on your ext client conf files, simply leave it blank.</p>
               <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
                 <span class="md-flex__ellipsis">
                   <span
-                      class="md-footer-nav__direction"> Previous </span> Ingress GW + External Clients </span>
+                      class="md-footer-nav__direction"> Previous </span> Ingress + External Clients </span>
               </div>
             </a>
           

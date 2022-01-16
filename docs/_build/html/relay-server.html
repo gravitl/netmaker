@@ -56,7 +56,7 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Using Netmaker" href="usage.html" />
+    <link rel="next" title="Advanced Server Installation" href="server-installation.html" />
     <link rel="prev" title="Egress Gateway" href="egress-gateway.html" />
   
    
@@ -209,7 +209,7 @@
     <li class="md-nav__item">
     
     
-      <a href="about.html" class="md-nav__link">1. About</a>
+      <a href="about.html" class="md-nav__link">About</a>
       
     
     </li>
@@ -244,28 +244,7 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html" class="md-nav__link">Ingress GW + External Clients</a>
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
     </li>
@@ -292,11 +271,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
-        </li>
-        <li class="md-nav__item"><a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
-        </li>
-        <li class="md-nav__item"><a href="#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+        <li class="md-nav__item"><a href="#configuring-a-relay" class="md-nav__link">Configuring a Relay</a>
         </li></ul>
             </nav>
         </li>
@@ -313,21 +288,7 @@
     <li class="md-nav__item">
     
     
-      <a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+      <a href="#configuring-a-relay" class="md-nav__link">Configuring a Relay</a>
       
     
     </li></ul>
@@ -336,7 +297,35 @@
     <li class="md-nav__item">
     
     
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -407,11 +396,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
-        </li>
-        <li class="md-nav__item"><a href="#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
-        </li>
-        <li class="md-nav__item"><a href="#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
+        <li class="md-nav__item"><a href="#configuring-a-relay" class="md-nav__link">Configuring a Relay</a>
         </li></ul>
             </nav>
         </li>
@@ -428,53 +413,18 @@
 <h1 id="relay-server--page-root">Relay Servers<a class="headerlink" href="#relay-server--page-root" title="Permalink to this headline">¶</a></h1>
 
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
-<dl class="simple">
-<dt>Netmaker allows for “external clients” to reach into a network and access services via an Ingress Gateway. So what is an “external client”? An external client is any machine which cannot or should not be meshed. This can include:</dt><dd><ul class="simple">
-<li><p>Phones</p></li>
-<li><p>Laptops</p></li>
-<li><p>Desktops</p></li>
-</ul>
-</dd>
-</dl>
-<p>An external client is not “managed,” meaning it does not automatically pull the latest network configuration, or push changes to its configuration. Instead, it uses a generated WireGuard config file to access the designated <strong>Ingress Gateway</strong>, which <strong>is</strong> a managed server (running netclient). This server then forwards traffic to the appropriate endpoint, acting as a middle-man/relay.</p>
-<p>By using this method, you can hook any machine into a netmaker network that can run WireGuard.</p>
-<p>It is recommended to run the netclient where compatible, but for all other cases, a machine can be configured as an external client.</p>
-<p>Important to note, an external client is not <strong>reachable</strong> by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource running on the virtual network, and <strong>not</strong> for use cases where one wishes to make a resource accessible on the network. For that, use netclient.</p>
+<a class="reference internal image-reference" href="_images/relay1.png"><img alt="Relay" class="align-center" src="_images/relay1.png" style="width: 80%;"/></a>
+<p>Sometimes nodes are in hard-to-reach places. Typically this will be due to a CGNAT, Double NAT, or restrictive firewall. In such scenarios, a direct peer-to-peer connection with all other nodes might be impossible.</p>
+<p>For this reason, Netmaker has a Relay Server functionality. At any time you may designate a publicly reachable node (such as the Netmaker Server) as a Relay, and tell it which machines it should relay. Then, all traffic routing to and from that machine will go through the relay. This allows you to circumvent the above issues and ensure connectivity when direct measures do not work.</p>
 
 
-<h2 id="configuring-an-ingress-gateway">Configuring an Ingress Gateway<a class="headerlink" href="#configuring-an-ingress-gateway" title="Permalink to this headline">¶</a></h2>
-<p>External Clients must attach to an Ingress Gateway. By default, your network will not have an ingress gateway. To configure an ingress gateway, you can use any node in your network, but it should have a public IP address (not behind a NAT). Your Netmaker server can be an ingress gateway and makes for a good default choice if you are unsure of which node to select.</p>
-<a class="reference internal image-reference" href="_images/exclient1.png"><img alt="Gateway" class="align-center" src="_images/exclient1.png" style="width: 80%;"/></a>
-
-
-<h2 id="adding-clients-to-a-gateway">Adding Clients to a Gateway<a class="headerlink" href="#adding-clients-to-a-gateway" title="Permalink to this headline">¶</a></h2>
-<p>Once you have configured a node as a gateway, you can then add clients to that gateway. Clients will be able to access other nodes in the network just as the gateway node does.</p>
-<a class="reference internal image-reference" href="_images/exclient2.png"><img alt="Gateway" class="align-center" src="_images/exclient2.png" style="width: 80%;"/></a>
-<p>After creating a client, you can edit the name to something more logical.</p>
-<a class="reference internal image-reference" href="_images/exclient3.png"><img alt="Gateway" class="align-center" src="_images/exclient3.png" style="width: 80%;"/></a>
-<p>Then, you can either download the configuration file directly, or scan the QR code from your phone (assuming you have the WireGuard app installed). It will accept the configuration just as it would accept a typical WireGuard configuration file.</p>
-<a class="reference internal image-reference" href="_images/exclient4.png"><img alt="Gateway" class="align-center" src="_images/exclient4.png" style="width: 80%;"/></a>
-<p>Example config file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Interface</span><span class="p">]</span>
-<span class="n">Address</span> <span class="o">=</span> <span class="mf">10.7</span><span class="o">.</span><span class="mf">11.5</span><span class="o">/</span><span class="mi">32</span>
-<span class="n">PrivateKey</span> <span class="o">=</span> <span class="n">EJf6Yy51M</span><span class="o">/</span><span class="n">YDaZgedRpuxMmrqul35WfjmHvRZR1rQ0U</span><span class="o">=</span>
-
-<span class="p">[</span><span class="n">Peer</span><span class="p">]</span>
-<span class="n">PublicKey</span> <span class="o">=</span> <span class="n">m</span><span class="o">/</span><span class="n">RPuMVsbpgQ</span><span class="o">+</span><span class="n">RkxlgK2mG</span><span class="o">+</span><span class="n">dDFlzqn</span><span class="o">+</span><span class="n">ua2zJt8Wn7GA</span><span class="o">=</span>
-<span class="n">AllowedIPs</span> <span class="o">=</span> <span class="mf">10.7</span><span class="o">.</span><span class="mf">11.0</span><span class="o">/</span><span class="mi">24</span>
-<span class="n">Endpoint</span> <span class="o">=</span> <span class="mf">3.236</span><span class="o">.</span><span class="mf">60.247</span><span class="p">:</span><span class="mi">51822</span>
-<span class="n">PersistentKeepalive</span> <span class="o">=</span> <span class="mi">20</span>
-
-</pre></div>
-</div>
-<p>Your client should now be able to access the network! A client can be invalidated at any time by simply deleting it from the UI.</p>
-
-
-<h2 id="configuring-dns-for-ext-clients-optional">Configuring DNS for Ext Clients (OPTIONAL)<a class="headerlink" href="#configuring-dns-for-ext-clients-optional" title="Permalink to this headline">¶</a></h2>
-<p>If you wish to have a DNS field on your ext clients conf, simply edit the network field as shown below to 1.1.1.1 or 8.8.8.8 for example.
-If you do not want DNS on your ext client conf files, simply leave it blank.</p>
-<a class="reference internal image-reference" href="_images/extclient5.png"><img alt="Gateway" class="align-center" src="_images/extclient5.png" style="width: 80%;"/></a>
-<p>Important to note, your client automatically adds egress gateway ranges (if any on the same network) to it’s allowed IPs.</p>
+<h2 id="configuring-a-relay">Configuring a Relay<a class="headerlink" href="#configuring-a-relay" title="Permalink to this headline">¶</a></h2>
+<p>To create a relay, you can use any node in your network, but it should have a public IP address (not behind a NAT). Your Netmaker server can be a relay server and makes for a good default choice if you are unsure of which node to select.</p>
+<p>Simply click the relay button in the nodes list. Then, specify the nodes which it should relay. You can either enter the IP’s directly, select from a list, or click “Select All.”</p>
+<a class="reference internal image-reference" href="_images/ui-7.jpg"><img alt="Relay" class="align-center" src="_images/ui-7.jpg" style="width: 80%;"/></a>
+<p>If you choose “select all” this essentially turns your network into a hub-and-spoke network. All traffic now routes over the relay node. This can create a bottleneck and slow down your network, but in some scenarios may simplify network operations.</p>
+<p>After creation, you can change the list of relayed nodes by clicking “edit node” and editing the list (Field #12 below).</p>
+<a class="reference internal image-reference" href="_images/ui-5.jpg"><img alt="Relay" class="align-center" src="_images/ui-5.jpg" style="width: 40%;"/></a>
 
 
 
@@ -502,12 +452,12 @@ If you do not want DNS on your ext client conf files, simply leave it blank.</p>
             </a>
           
           
-            <a href="usage.html" title="Using Netmaker"
+            <a href="server-installation.html" title="Advanced Server Installation"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Using Netmaker </span>
+                class="md-footer-nav__direction"> Next </span> Advanced Server Installation </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>

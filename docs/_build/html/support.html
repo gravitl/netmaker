@@ -209,7 +209,7 @@
     <li class="md-nav__item">
     
     
-      <a href="about.html" class="md-nav__link">1. About</a>
+      <a href="about.html" class="md-nav__link">About</a>
       
     
     </li>
@@ -244,28 +244,7 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html" class="md-nav__link">Ingress GW + External Clients</a>
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
     </li>
@@ -286,7 +265,35 @@
     <li class="md-nav__item">
     
     
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -334,13 +341,11 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#faq" class="md-nav__link">FAQ</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#does-will-netmaker-support-x-operating-system" class="md-nav__link">Does/Will Netmaker Support X Operating System?</a>
-        </li>
-        <li class="md-nav__item"><a href="#how-do-i-install-the-netclient-on-x" class="md-nav__link">How do I install the Netclient on X?</a>
-        </li>
         <li class="md-nav__item"><a href="#is-netmaker-a-vpn-like-nordnpn" class="md-nav__link">Is Netmaker a VPN like NordNPN?</a>
         </li>
-        <li class="md-nav__item"><a href="#do-you-offer-any-enterprise-support" class="md-nav__link">Do you offer any enterprise support?</a>
+        <li class="md-nav__item"><a href="#do-you-have-an-exit-nodes-feature" class="md-nav__link">Do you have an ‘Exit Nodes’ feature?</a>
+        </li>
+        <li class="md-nav__item"><a href="#do-you-offer-any-business-or-enterprise-support" class="md-nav__link">Do you offer any business or enterprise support?</a>
         </li>
         <li class="md-nav__item"><a href="#why-the-sspl-license" class="md-nav__link">Why the SSPL License?</a>
         </li></ul>
@@ -401,13 +406,11 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#faq" class="md-nav__link">FAQ</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#does-will-netmaker-support-x-operating-system" class="md-nav__link">Does/Will Netmaker Support X Operating System?</a>
-        </li>
-        <li class="md-nav__item"><a href="#how-do-i-install-the-netclient-on-x" class="md-nav__link">How do I install the Netclient on X?</a>
-        </li>
         <li class="md-nav__item"><a href="#is-netmaker-a-vpn-like-nordnpn" class="md-nav__link">Is Netmaker a VPN like NordNPN?</a>
         </li>
-        <li class="md-nav__item"><a href="#do-you-offer-any-enterprise-support" class="md-nav__link">Do you offer any enterprise support?</a>
+        <li class="md-nav__item"><a href="#do-you-have-an-exit-nodes-feature" class="md-nav__link">Do you have an ‘Exit Nodes’ feature?</a>
+        </li>
+        <li class="md-nav__item"><a href="#do-you-offer-any-business-or-enterprise-support" class="md-nav__link">Do you offer any business or enterprise support?</a>
         </li>
         <li class="md-nav__item"><a href="#why-the-sspl-license" class="md-nav__link">Why the SSPL License?</a>
         </li></ul>
@@ -431,18 +434,8 @@
 
 <h2 id="faq">FAQ<a class="headerlink" href="#faq" title="Permalink to this headline">¶</a></h2>
 
-<h3 id="does-will-netmaker-support-x-operating-system">Does/Will Netmaker Support X Operating System?<a class="headerlink" href="#does-will-netmaker-support-x-operating-system" title="Permalink to this headline">¶</a></h3>
-<p>Netmaker is initially available on a limited number of operating systems for good reason: Every operating system is designed differently. With a small team, we can either focus on making Netmaker do a lot on a few number of operating systems, or a little on a bunch of operating systems. We chose the first option. You can view the System Compatibility docs for more info, but in general, you should only be using Netmaker on systemd linux right now.</p>
-<p>However, via “external clients”, any device that supports WireGuard can be added to the network.</p>
-<p>In future iterations will expand the operating system support for Netclient, and devices that must use the “external client” feature can switch to Netclient.</p>
-
-
-<h3 id="how-do-i-install-the-netclient-on-x">How do I install the Netclient on X?<a class="headerlink" href="#how-do-i-install-the-netclient-on-x" title="Permalink to this headline">¶</a></h3>
-<p>As per the above, there are many unsupported operating systems. You are still welcome to try, it is just an executable binary file after all. If the system is unix-based and has kernel WireGuard installed, netclient may very well mesh the device into the network. However, the service likely will encounter problems retrieving updates.</p>
-
-
 <h3 id="is-netmaker-a-vpn-like-nordnpn">Is Netmaker a VPN like NordNPN?<a class="headerlink" href="#is-netmaker-a-vpn-like-nordnpn" title="Permalink to this headline">¶</a></h3>
-<p>No. Netmaker makes Virtual Networks, which are technically VPNs, but different. It’s more like a corporate VPN, or a VPC (if you’re familiar with AWS).</p>
+<p>No. Netmaker makes Virtual Networks, which are technically VPNs, but different. It’s more like a corporate VPN, or a VPC (if you’re familiar with AWS). Netmaker is often compared to OpenVPN, Tailscale, or Nebula.</p>
 <p>If you’re looking to achieve self-hosted web browsing, with functionality similar to NordVPN, ExpressVPN, Surfshark, Tunnelbear, or Private Internet Access, this is probably not the project for you. Technically, you can accomplish this with Netmaker, but it would be a little like using a all-terrain vehicle for stock car racing.</p>
 <p>There are many good projects out there that support general internet privacy using WireGuard. Here are just a few of them:</p>
 <p><a class="reference external" href="https://github.com/trailofbits/algo">https://github.com/trailofbits/algo</a>
@@ -451,15 +444,18 @@
 <a class="reference external" href="https://github.com/mullvad/mullvadvpn-app">https://github.com/mullvad/mullvadvpn-app</a></p>
 
 
-<h3 id="do-you-offer-any-enterprise-support">Do you offer any enterprise support?<a class="headerlink" href="#do-you-offer-any-enterprise-support" title="Permalink to this headline">¶</a></h3>
-<p>If you are interested in enterprise support for your project, please contact <a class="reference external" href="mailto:info%40gravitl.com">info<span>@</span>gravitl<span>.</span>com</a>.</p>
+<h3 id="do-you-have-an-exit-nodes-feature">Do you have an ‘Exit Nodes’ feature?<a class="headerlink" href="#do-you-have-an-exit-nodes-feature" title="Permalink to this headline">¶</a></h3>
+<p>Please see the <a class="reference internal" href="egress-gateway.html"><span class="doc">Egress Gateway</span></a> documentation.</p>
+
+
+<h3 id="do-you-offer-any-business-or-enterprise-support">Do you offer any business or enterprise support?<a class="headerlink" href="#do-you-offer-any-business-or-enterprise-support" title="Permalink to this headline">¶</a></h3>
+<p>Yes, please contact <a class="reference external" href="mailto:info%40gravitl.com">info<span>@</span>gravitl<span>.</span>com</a> or visit <a class="reference external" href="https://gravitl.com/plans">https://gravitl.com/plans</a>.</p>
 
 
 <h3 id="why-the-sspl-license">Why the SSPL License?<a class="headerlink" href="#why-the-sspl-license" title="Permalink to this headline">¶</a></h3>
-<p>We thought long and hard about the license. Ultimately, we think this is the best way to support and ensure the health of the project long term. The community deserves something that is well-maintained, and in order to do that, eventually we need some financial support. We won’t do that by limiting the project, but we will offer some additional support, and hosted options for things people would end up paying for anyway (relay servers, load balancing support, backups).</p>
-<p>While SSPL is not an OSI-approved open source license, it let’s people generally run the project however they want, both for private use and business use, without running into the issue of someone else monetizing the project and making it financially untenable. We are working on making the guidelines clear, and will make sure that the license does not impact the communities ability to use and modify the project.</p>
-<p>If you have concerns about the license leading to project restrictions down the road, just know that there are other paid, closed-source/closed-core options out there, so beyond not wanting to follow that path, we also don’t think it’s a good idea economically either. We firmly believe that having the project open is not only right, but the best option.</p>
-<p>All that said, we will re-evaluate the license on a regular basis and determine if an OSI-approved license makes more sense. It’s just easier to move from SSPL to another license than vice-versa.</p>
+<p>As of now, we think the SSPL is the best way to ensure the long-term viability of the project, but we are regularly evaluating this to see if an OSI-approved license makes more sense.</p>
+<p>We believe the SSPL lets most people run the project the way they want, for both for private use and business use, while giving us a path to maintain viability. We are working to make sure the guidelines clear, and do not want the license to impact the community’s ability to use and modify the project.</p>
+<p>If you believe the SSPL will negatively impact your ability to use the project, please do not hesitate to reach out.</p>
 
 
 

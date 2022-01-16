@@ -5,68 +5,32 @@ Relay Servers
 Introduction
 ===============
 
-Netmaker allows for "external clients" to reach into a network and access services via an Ingress Gateway. So what is an "external client"? An external client is any machine which cannot or should not be meshed. This can include:
-        - Phones
-        - Laptops
-        - Desktops
+.. image:: images/relay1.png
+   :width: 80%
+   :alt: Relay
+   :align: center
 
-An external client is not "managed," meaning it does not automatically pull the latest network configuration, or push changes to its configuration. Instead, it uses a generated WireGuard config file to access the designated **Ingress Gateway**, which **is** a managed server (running netclient). This server then forwards traffic to the appropriate endpoint, acting as a middle-man/relay.
+Sometimes nodes are in hard-to-reach places. Typically this will be due to a CGNAT, Double NAT, or restrictive firewall. In such scenarios, a direct peer-to-peer connection with all other nodes might be impossible.
 
-By using this method, you can hook any machine into a netmaker network that can run WireGuard.
+For this reason, Netmaker has a Relay Server functionality. At any time you may designate a publicly reachable node (such as the Netmaker Server) as a Relay, and tell it which machines it should relay. Then, all traffic routing to and from that machine will go through the relay. This allows you to circumvent the above issues and ensure connectivity when direct measures do not work.
 
-It is recommended to run the netclient where compatible, but for all other cases, a machine can be configured as an external client.
-
-Important to note, an external client is not **reachable** by the network, meaning the client can establish connections to other machines, but those machines cannot independently establish a connection back. The External Client method should only be used in use cases where one wishes to access resource running on the virtual network, and **not** for use cases where one wishes to make a resource accessible on the network. For that, use netclient.
-
-Configuring an Ingress Gateway
+Configuring a Relay
 ==================================
 
-External Clients must attach to an Ingress Gateway. By default, your network will not have an ingress gateway. To configure an ingress gateway, you can use any node in your network, but it should have a public IP address (not behind a NAT). Your Netmaker server can be an ingress gateway and makes for a good default choice if you are unsure of which node to select.
+To create a relay, you can use any node in your network, but it should have a public IP address (not behind a NAT). Your Netmaker server can be a relay server and makes for a good default choice if you are unsure of which node to select.
 
-.. image:: images/exclient1.png
+Simply click the relay button in the nodes list. Then, specify the nodes which it should relay. You can either enter the IP's directly, select from a list, or click "Select All."
+
+.. image:: images/ui-7.jpg
    :width: 80%
-   :alt: Gateway
+   :alt: Relay
    :align: center
 
-Adding Clients to a Gateway
-=============================
+If you choose "select all" this essentially turns your network into a hub-and-spoke network. All traffic now routes over the relay node. This can create a bottleneck and slow down your network, but in some scenarios may simplify network operations.
 
-Once you have configured a node as a gateway, you can then add clients to that gateway. Clients will be able to access other nodes in the network just as the gateway node does.
+After creation, you can change the list of relayed nodes by clicking "edit node" and editing the list (Field #12 below).
 
-.. image:: images/exclient2.png
-   :width: 80%
-   :alt: Gateway
+.. image:: images/ui-5.jpg
+   :width: 40%
+   :alt: Relay
    :align: center
-
-After creating a client, you can edit the name to something more logical.
-
-.. image:: images/exclient3.png
-   :width: 80%
-   :alt: Gateway
-   :align: center
-
-Then, you can either download the configuration file directly, or scan the QR code from your phone (assuming you have the WireGuard app installed). It will accept the configuration just as it would accept a typical WireGuard configuration file.
-
-.. image:: images/exclient4.png
-   :width: 80%
-   :alt: Gateway
-   :align: center
-
-Example config file: 
-
-.. literalinclude:: ./examplecode/myclient.conf
-
-Your client should now be able to access the network! A client can be invalidated at any time by simply deleting it from the UI.
-
-Configuring DNS for Ext Clients (OPTIONAL)
-============================================
-
-If you wish to have a DNS field on your ext clients conf, simply edit the network field as shown below to 1.1.1.1 or 8.8.8.8 for example.
-If you do not want DNS on your ext client conf files, simply leave it blank.
-
-.. image:: images/extclient5.png
-   :width: 80%
-   :alt: Gateway
-   :align: center
-
-Important to note, your client automatically adds egress gateway ranges (if any on the same network) to it's allowed IPs.

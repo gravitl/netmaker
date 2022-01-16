@@ -243,27 +243,6 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
       <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
@@ -285,7 +264,35 @@
     <li class="md-nav__item">
     
     
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -356,21 +363,19 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#about" class="md-nav__link">About</a>
         </li>
-        <li class="md-nav__item"><a href="#architecture" class="md-nav__link">Architecture</a>
-        </li>
-        <li class="md-nav__item"><a href="#install" class="md-nav__link">Install</a>
-        </li>
-        <li class="md-nav__item"><a href="#quick-start" class="md-nav__link">Quick Start</a>
-        </li>
-        <li class="md-nav__item"><a href="#server-installation" class="md-nav__link">Server Installation</a>
-        </li>
-        <li class="md-nav__item"><a href="#oauth-configuration" class="md-nav__link">Oauth Configuration</a>
-        </li>
-        <li class="md-nav__item"><a href="#client-installation" class="md-nav__link">Client Installation</a>
+        <li class="md-nav__item"><a href="#getting-started" class="md-nav__link">Getting Started</a>
         </li>
         <li class="md-nav__item"><a href="#ingress-egress-and-relays" class="md-nav__link">Ingress, Egress, and Relays</a>
         </li>
-        <li class="md-nav__item"><a href="#guides" class="md-nav__link">Guides</a>
+        <li class="md-nav__item"><a href="#kubernetes-documentation" class="md-nav__link">Kubernetes Documentation</a>
+        </li>
+        <li class="md-nav__item"><a href="#advanced-server-installation" class="md-nav__link">Advanced Server Installation</a>
+        </li>
+        <li class="md-nav__item"><a href="#advanced-client-installation" class="md-nav__link">Advanced Client Installation</a>
+        </li>
+        <li class="md-nav__item"><a href="#oauth-configuration" class="md-nav__link">Oauth Configuration</a>
+        </li>
+        <li class="md-nav__item"><a href="#external-guides" class="md-nav__link">External Guides</a>
         </li>
         <li class="md-nav__item"><a href="#ui-reference" class="md-nav__link">UI Reference</a>
         </li>
@@ -406,6 +411,7 @@
 <p><strong>For Kubernetes-specific guidance, please see the</strong> <a class="reference external" href="https://nm-k8s.readthedocs.io">Netmaker Kubernetes Documentation.</a></p>
 
 <h2 id="about">About<a class="headerlink" href="#about" title="Permalink to this headline">¶</a></h2>
+<p>High-level information about what Netmaker is and how it works.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a><ul>
@@ -414,15 +420,6 @@
 <li class="toctree-l2"><a class="reference internal" href="about.html#use-cases-for-netmaker">Use Cases for Netmaker</a></li>
 </ul>
 </li>
-</ul>
-</div>
-<p>A quick overview of Netmaker, explaining what it is, how it works, and why you should be using it.</p>
-
-
-<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline">¶</a></h2>
-<p>A technical overview of Netmaker, including design decisions and limitations.</p>
-<div class="toctree-wrapper compound">
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#core-concepts">Core Concepts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#components">Components</a></li>
@@ -435,19 +432,11 @@
 </div>
 
 
-<h2 id="install">Install<a class="headerlink" href="#install" title="Permalink to this headline">¶</a></h2>
-<p>Choose the right install method for you.</p>
+<h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<p>How to install Netmaker and set up your first network.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="install.html">Install</a></li>
-</ul>
-</div>
-
-
-<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permalink to this headline">¶</a></h2>
-<p>A quick start guide to getting up and running with Netmaker and WireGuard as quickly as possible.</p>
-<div class="toctree-wrapper compound">
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick Install</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="quick-start.html#introduction">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quick-start.html#prerequisites">0. Prerequisites</a></li>
@@ -457,10 +446,6 @@
 <li class="toctree-l2"><a class="reference internal" href="quick-start.html#install-netmaker">4. Install Netmaker</a></li>
 </ul>
 </li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="getting-started.html#setup">Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="getting-started.html#create-a-network">Create a Network</a></li>
@@ -475,7 +460,52 @@
 </div>
 
 
-<h2 id="server-installation">Server Installation<a class="headerlink" href="#server-installation" title="Permalink to this headline">¶</a></h2>
+<h2 id="ingress-egress-and-relays">Ingress, Egress, and Relays<a class="headerlink" href="#ingress-egress-and-relays" title="Permalink to this headline">¶</a></h2>
+<p>How to give machines outside of the Netmaker network access to network resources via an Ingress Gateway:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="external-clients.html">Ingress + External Clients</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="external-clients.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="external-clients.html#configuring-an-ingress-gateway">Configuring an Ingress Gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="external-clients.html#adding-clients-to-a-gateway">Adding Clients to a Gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="external-clients.html#configuring-dns-for-ext-clients-optional">Configuring DNS for Ext Clients (OPTIONAL)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<p>How to give machines inside the Netmaker network access to external network resources via an Egress Gateway:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="egress-gateway.html">Egress Gateway</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="egress-gateway.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="egress-gateway.html#configuring-an-egress-gateway">Configuring an Egress Gateway</a></li>
+<li class="toctree-l2"><a class="reference internal" href="egress-gateway.html#use-cases">Use Cases</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<p>How to make machines inside the network reachable if they are blocked by NAT/Firewall:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="relay-server.html">Relay Servers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="relay-server.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="relay-server.html#configuring-a-relay">Configuring a Relay</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+
+<h2 id="kubernetes-documentation">Kubernetes Documentation<a class="headerlink" href="#kubernetes-documentation" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://nm-k8s.readthedocs.io">Kubernetes</a></li>
+</ul>
+</div>
+<p><a class="reference external" href="https://nm-k8s.readthedocs.io">Netmaker Kubernetes Documentation</a></p>
+
+
+<h2 id="advanced-server-installation">Advanced Server Installation<a class="headerlink" href="#advanced-server-installation" title="Permalink to this headline">¶</a></h2>
 <p>A detailed guide to installing the Netmaker server (API, DB, UI, DNS), and configuration options.</p>
 <div class="toctree-wrapper compound">
 <ul>
@@ -489,6 +519,24 @@
 <li class="toctree-l2"><a class="reference internal" href="server-installation.html#nginx-reverse-proxy-setup-with-https">Nginx Reverse Proxy Setup with https</a></li>
 <li class="toctree-l2"><a class="reference internal" href="server-installation.html#highly-available-installation-kubernetes">Highly Available Installation (Kubernetes)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="server-installation.html#highly-available-installation-vms-bare-metal">Highly Available Installation (VMs/Bare Metal)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+
+<h2 id="advanced-client-installation">Advanced Client Installation<a class="headerlink" href="#advanced-client-installation" title="Permalink to this headline">¶</a></h2>
+<p>A detailed guide to installing the Netmaker agent (netclient) on devices and configuration options.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="client-installation.html">Advanced Client Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="client-installation.html#introduction-to-netclient">Introduction to Netclient</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client-installation.html#notes-on-windows">Notes on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client-installation.html#modes-and-system-compatibility">Modes and System Compatibility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client-installation.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client-installation.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client-installation.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client-installation.html#managing-netclient">Managing Netclient</a></li>
 </ul>
 </li>
 </ul>
@@ -510,51 +558,13 @@
 </div>
 
 
-<h2 id="client-installation">Client Installation<a class="headerlink" href="#client-installation" title="Permalink to this headline">¶</a></h2>
-<p>A detailed guide to installing the Netmaker agent (netclient) on devices and configuration options.</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="client-installation.html">Client Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="client-installation.html#introduction-to-netclient">Introduction to Netclient</a></li>
-<li class="toctree-l2"><a class="reference internal" href="client-installation.html#notes-on-windows">Notes on Windows</a></li>
-<li class="toctree-l2"><a class="reference internal" href="client-installation.html#modes-and-system-compatibility">Modes and System Compatibility</a></li>
-<li class="toctree-l2"><a class="reference internal" href="client-installation.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="client-installation.html#configuration">Configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="client-installation.html#installation">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="client-installation.html#managing-netclient">Managing Netclient</a></li>
-</ul>
-</li>
-</ul>
-</div>
-
-
-<h2 id="ingress-egress-and-relays">Ingress, Egress, and Relays<a class="headerlink" href="#ingress-egress-and-relays" title="Permalink to this headline">¶</a></h2>
-<p><strong>Ingress:</strong> A guide on how to give machines outside of the Netmaker network access to network resources via an Ingress Gateway.</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="external-clients.html">Ingress + External Clients</a></li>
-</ul>
-</div>
-<p><strong>Egress:</strong> A guide on how to give machines inside the Netmaker network access to external network resources via an Egress Gateway.</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="egress-gateway.html">Egress Gateway</a></li>
-</ul>
-</div>
-<p><strong>Relay:</strong> A guide on how to make machines inside the network reachable if they are blocked by NAT/Firewall.</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="relay-server.html">Relay Servers</a></li>
-</ul>
-</div>
-
-
-<h2 id="guides">Guides<a class="headerlink" href="#guides" title="Permalink to this headline">¶</a></h2>
+<h2 id="external-guides">External Guides<a class="headerlink" href="#external-guides" title="Permalink to this headline">¶</a></h2>
 <p>A handful of guides for use cases including site-to-site, Kubernetes, private DNS, and more.</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="usage.html">Using Netmaker</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#external-tutorials">External Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">External Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#video-tutorials">Video Tutorials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#written-tutorials">Written Tutorials</a></li>
 </ul>
 </li>
 </ul>
@@ -580,7 +590,6 @@
 
 <h2 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permalink to this headline">¶</a></h2>
 <p>A reference document for the Netmaker Server API, and example API calls for various use cases.</p>
-<p><strong>Coming Soon:</strong> Swagger Documentation</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
