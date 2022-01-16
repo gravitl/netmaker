@@ -239,6 +239,7 @@ func GetLocalIP(localrange string) (string, error) {
 	return local, nil
 }
 
+//GetNetworkIPMask - Pulls the netmask out of the network
 func GetNetworkIPMask(networkstring string) (string, string, error) {
 	ip, ipnet, err := net.ParseCIDR(networkstring)
 	if err != nil {
@@ -467,7 +468,7 @@ func stringAfter(original string, substring string) string {
 	return original[adjustedPosition:]
 }
 
-//ShortenString - Brings string down to specified length. Stops names from being too long
+// ShortenString - Brings string down to specified length. Stops names from being too long
 func ShortenString(input string, length int) string {
 	output := input
 	if len(input) > length {
@@ -476,7 +477,7 @@ func ShortenString(input string, length int) string {
 	return output
 }
 
-//DNSFormatString - Formats a string with correct usage for DNS
+// DNSFormatString - Formats a string with correct usage for DNS
 func DNSFormatString(input string) string {
 	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
 	if err != nil {
@@ -486,7 +487,7 @@ func DNSFormatString(input string) string {
 	return reg.ReplaceAllString(input, "")
 }
 
-//GetHostname - Gets hostname of machine
+// GetHostname - Gets hostname of machine
 func GetHostname() string {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -498,7 +499,7 @@ func GetHostname() string {
 	return hostname
 }
 
-//CheckUID - Checks to make sure user has root privileges
+// CheckUID - Checks to make sure user has root privileges
 func CheckUID() {
 	// start our application
 	out, err := RunCmd("id -u", true)

@@ -161,7 +161,7 @@ func deleteInterface(iface string, realIface string) error {
 	return err
 }
 
-// upInterface -
+// upInterface - bring up the interface with ifconfig
 func upInterface(iface string) error {
 	var err error
 	_, err = ncutils.RunCmd("ifconfig "+iface+" up", true)
