@@ -16,7 +16,7 @@ func init() {
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {
-	RemakePeers bool        `json:"remakepeers" bson:"remakepeers"`
+	UpdatePeers bool        `json:"updatepeers" bson:"updatepeers"`
 	ServerNode  models.Node `json:"servernode" bson:"servernode"`
 }
 
