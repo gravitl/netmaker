@@ -138,6 +138,12 @@ CLIENT_MODE:
 
     **Description:** Specifies if server should deploy itself as a node (client) in each network. May be turned to "off" for more restricted servers.
 
+RCE:  
+    **Default:** "off"
+
+    **Description:** The server enables you to set PostUp and PostDown commands for nodes, which is standard for WireGuard with wg-quick, but is also **Remote Code Execution**, which is a critical vulnerability if the server is exploited. Because of this, it's turned off by default, but if turned on, PostUp and PostDown become editable.
+
+
 Config File Reference
 ----------------------
 A config file may be placed under config/environments/<env-name>.yml. To read this file at runtime, provide the environment variable NETMAKER_ENV at runtime. For instance, dev.yml paired with ENV=dev. Netmaker will load the specified Config file. This allows you to store and manage configurations for different environments. Below is a reference Config File you may use.

@@ -12,3 +12,4 @@ server:
   sqlconn: "" # defaults to "http://" or SQL_CONN (if set)
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
   version: "" # version of server
+  rce: "" # defaults to "off"

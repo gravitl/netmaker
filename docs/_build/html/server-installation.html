@@ -265,7 +265,7 @@
     <li class="md-nav__item">
     
     
-      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
       
     
     </li>
@@ -689,6 +689,9 @@
 <dt>CLIENT_MODE:</dt><dd><p><strong>Default:</strong> “on”</p>
 <p><strong>Description:</strong> Specifies if server should deploy itself as a node (client) in each network. May be turned to “off” for more restricted servers.</p>
 </dd>
+<dt>RCE:</dt><dd><p><strong>Default:</strong> “off”</p>
+<p><strong>Description:</strong> The server enables you to set PostUp and PostDown commands for nodes, which is standard for WireGuard with wg-quick, but is also <strong>Remote Code Execution</strong>, which is a critical vulnerability if the server is exploited. Because of this, it’s turned off by default, but if turned on, PostUp and PostDown become editable.</p>
+</dd>
 </dl>
 
 
@@ -708,6 +711,7 @@
   <span class="nt">sqlconn</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "http://" or SQL_CONN (if set)</span>
   <span class="nt">disableremoteipcheck</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)</span>
   <span class="nt">version</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># version of server</span>
+  <span class="nt">rce</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "off"</span>
 </pre></div>
 </div>
 
@@ -753,6 +757,7 @@
       <span class="nt">DISPLAY_KEYS</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Show keys permanently in UI (until deleted) as opposed to 1-time display.</span>
       <span class="nt">SERVER_API_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT</span>
       <span class="nt">SERVER_GRPC_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT</span>
+      <span class="nt">RCE</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.</span>
   <span class="nt">netmaker-ui</span><span class="p">:</span> <span class="c1"># The Netmaker UI Component</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>

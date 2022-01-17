@@ -265,7 +265,7 @@
     <li class="md-nav__item">
     
     
-      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
       
     
     </li>
@@ -293,6 +293,8 @@
         <li class="md-nav__item"><a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
         </li>
         <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+        </li>
+        <li class="md-nav__item"><a href="#notes-on-openwrt" class="md-nav__link">Notes on OpenWRT</a>
         </li>
         <li class="md-nav__item"><a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a><nav class="md-nav">
               <ul class="md-nav__list">
@@ -344,6 +346,13 @@
     
     
       <a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#notes-on-openwrt" class="md-nav__link">Notes on OpenWRT</a>
       
     
     </li>
@@ -467,6 +476,8 @@
         </li>
         <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
         </li>
+        <li class="md-nav__item"><a href="#notes-on-openwrt" class="md-nav__link">Notes on OpenWRT</a>
+        </li>
         <li class="md-nav__item"><a href="#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a><nav class="md-nav">
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#cli" class="md-nav__link">CLI</a>
@@ -530,6 +541,27 @@
 <p>Windows will by default have firewall rules that prevent inbound connections. If you wish to allow inbound connections from particular peers, use the following command:</p>
 <p><code class="docutils literal notranslate"><span class="pre">netsh</span> <span class="pre">advfirewall</span> <span class="pre">firewall</span> <span class="pre">add</span> <span class="pre">rule</span> <span class="pre">name="Allow</span> <span class="pre">from</span> <span class="pre">&lt;peer</span> <span class="pre">private</span> <span class="pre">addr&gt;"</span> <span class="pre">dir=in</span> <span class="pre">action=allow</span> <span class="pre">protocol=ANY</span> <span class="pre">remoteip=&lt;peer</span> <span class="pre">private</span> <span class="pre">addr&gt;</span></code></p>
 <p>If you want to allow all peers access, but do not want to configure firewall rules for all peers, you can configure access for one peer, and set it as a Relay Server.</p>
+
+
+<h2 id="notes-on-openwrt">Notes on OpenWRT<a class="headerlink" href="#notes-on-openwrt" title="Permalink to this headline">¶</a></h2>
+<p>Deploying on OpenWRT depends a lot on the version of OpenWRT and the hardware being used. If the primary installer does not work, there are two things you can try:</p>
+<ol class="arabic simple">
+<li><p>This community-run package for OpenWRT: <a class="reference external" href="https://github.com/sbilly/netmaker-openwrt">https://github.com/sbilly/netmaker-openwrt</a></p></li>
+<li><p>Manual installation:</p></li>
+</ol>
+<ul class="simple">
+<li><p>download (wget) the netclient package for your hardware from the netclient releases: <a class="reference external" href="https://github.com/gravitl/netmaker/releases">https://github.com/gravitl/netmaker/releases</a></p></li>
+<li><p>rename to “netclient”</p></li>
+<li><p>Run as root from a bash shell on OpenWRT</p></li>
+</ul>
+<ol class="arabic simple" start="3">
+<li><p>You may experience an issue with the length of the token, which has limits on some OpenWRT shells. If you run into this problem, you can use the following script to convert your token into a “netclient join” command:</p></li>
+</ol>
+<ul class="simple">
+<li><p><cite>wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/token-convert.sh</cite></p></li>
+<li><p>./token-convert &lt;token value&gt;</p></li>
+<li><p>Run the output on your OpenWRT machine</p></li>
+</ul>
 
 
 <h2 id="modes-and-system-compatibility">Modes and System Compatibility<a class="headerlink" href="#modes-and-system-compatibility" title="Permalink to this headline">¶</a></h2>

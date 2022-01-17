@@ -30,6 +30,25 @@ Windows will by default have firewall rules that prevent inbound connections. If
 
 If you want to allow all peers access, but do not want to configure firewall rules for all peers, you can configure access for one peer, and set it as a Relay Server.
 
+Notes on OpenWRT
+===========================
+
+Deploying on OpenWRT depends a lot on the version of OpenWRT and the hardware being used. If the primary installer does not work, there are two things you can try:
+
+1. This community-run package for OpenWRT: https://github.com/sbilly/netmaker-openwrt
+
+2. Manual installation:
+
+- download (wget) the netclient package for your hardware from the netclient releases: https://github.com/gravitl/netmaker/releases
+- rename to "netclient"
+- Run as root from a bash shell on OpenWRT
+
+3. You may experience an issue with the length of the token, which has limits on some OpenWRT shells. If you run into this problem, you can use the following script to convert your token into a "netclient join" command:
+
+- `wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/token-convert.sh`
+- ./token-convert <token value>
+- Run the output on your OpenWRT machine
+
 Modes and System Compatibility
 ==================================
 
