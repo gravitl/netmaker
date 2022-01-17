@@ -20,7 +20,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	relay.NetID = params["network"]
-	relay.NodeID = params["macaddress"]
+	relay.NodeID = params["nodeid"]
 	node, err := logic.CreateRelay(relay)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -34,14 +34,14 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeMac := params["macaddress"]
+	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := logic.DeleteRelay(netid, nodeMac)
+	node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeMac, "on network", netid)
+	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }

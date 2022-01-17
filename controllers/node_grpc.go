@@ -20,16 +20,11 @@ type NodeServiceServer struct {
 
 // NodeServiceServer.ReadNode - reads node and responds with gRPC
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	// convert string id (from proto) to mongoDB ObjectId
-	macAndNetwork := strings.Split(req.Data, "###")
-
-	if len(macAndNetwork) != 2 {
-		return nil, errors.New("could not read node, invalid node id given")
-	}
-	node, err := logic.GetNode(macAndNetwork[0], macAndNetwork[1])
+	var node, err = getNewOrLegacyNode(req.Data)
 	if err != nil {
 		return nil, err
 	}
+
 	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
 	if err != nil {
 		return nil, err
@@ -96,15 +91,13 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 
 // NodeServiceServer.UpdateNode updates a node and responds over gRPC
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	// Get the node data from the request
+
 	var newnode models.Node
 	if err := json.Unmarshal([]byte(req.GetData()), &newnode); err != nil {
 		return nil, err
 	}
-	macaddress := newnode.MacAddress
-	networkName := newnode.Network
 
-	node, err := logic.GetNodeByMacAddress(networkName, macaddress)
+	node, err := logic.GetNodeByIDorMacAddress(newnode.ID, newnode.MacAddress, newnode.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -134,13 +127,13 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	nodeID := req.GetData()
-	var nodeInfo = strings.Split(nodeID, "###")
-	if len(nodeInfo) != 2 {
-		return nil, errors.New("node not found")
+
+	var node, err = getNewOrLegacyNode(req.Data)
+	if err != nil {
+		return nil, err
 	}
-	var node, err = logic.GetNode(nodeInfo[0], nodeInfo[1])
-	err = logic.DeleteNode(&node, true)
+
+	err = logic.DeleteNodeByID(&node, true)
 	if err != nil {
 		return nil, err
 	}
@@ -153,49 +146,42 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 
 // NodeServiceServer.GetPeers - fetches peers over gRPC
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	macAndNetwork := strings.Split(req.Data, "###")
-	if len(macAndNetwork) == 2 {
-		// TODO: Make constant and new variable for isServer
-		node, err := logic.GetNode(macAndNetwork[0], macAndNetwork[1])
-		if err != nil {
-			return nil, err
-		}
-		if node.IsServer == "yes" && logic.IsLeader(&node) {
-			logic.SetNetworkServerPeers(&node)
-		}
-		excludeIsRelayed := node.IsRelay != "yes"
-		var relayedNode string
-		if node.IsRelayed == "yes" {
-			relayedNode = node.Address
-		}
-		peers, err := logic.GetPeersList(macAndNetwork[1], excludeIsRelayed, relayedNode)
-		if err != nil {
-			return nil, err
-		}
 
-		peersData, err := json.Marshal(&peers)
-		logger.Log(3, node.Address, "checked in successfully")
-		return &nodepb.Object{
-			Data: string(peersData),
-			Type: nodepb.NODE_TYPE,
-		}, err
+	var node, err = getNewOrLegacyNode(req.Data)
+	if err != nil {
+		return nil, err
 	}
+
+	if node.IsServer == "yes" && logic.IsLeader(&node) {
+		logic.SetNetworkServerPeers(&node)
+	}
+	excludeIsRelayed := node.IsRelay != "yes"
+	var relayedNode string
+	if node.IsRelayed == "yes" {
+		relayedNode = node.Address
+	}
+	peers, err := logic.GetPeersList(node.Network, excludeIsRelayed, relayedNode)
+	if err != nil {
+		return nil, err
+	}
+
+	peersData, err := json.Marshal(&peers)
+	logger.Log(3, node.Address, "checked in successfully")
 	return &nodepb.Object{
-		Data: "",
+		Data: string(peersData),
 		Type: nodepb.NODE_TYPE,
-	}, errors.New("could not fetch peers, invalid node id")
+	}, err
 }
 
 // NodeServiceServer.GetExtPeers - returns ext peers for a gateway node
 func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	// Initiate a NodeItem type to write decoded data to
-	//data := &models.PeersResponse{}
-	// collection.Find returns a cursor for our (empty) query
-	macAndNetwork := strings.Split(req.Data, "###")
-	if len(macAndNetwork) != 2 {
-		return nil, errors.New("did not receive valid node id when fetching ext peers")
+
+	var node, err = getNewOrLegacyNode(req.Data)
+	if err != nil {
+		return nil, err
 	}
-	peers, err := logic.GetExtPeersList(macAndNetwork[0], macAndNetwork[1])
+
+	peers, err := logic.GetExtPeersList(&node)
 	if err != nil {
 		return nil, err
 	}
@@ -221,4 +207,28 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 		Data: string(extData),
 		Type: nodepb.EXT_PEER,
 	}, nil
+}
+
+// == private methods ==
+
+func getNewOrLegacyNode(data string) (models.Node, error) {
+	var reqNode, node models.Node
+	var err error
+
+	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
+		oldID := strings.Split(data, "###") // handle legacy client IDs
+		if len(oldID) == 2 {
+			if node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, oldID[0], oldID[1]); err != nil {
+				return models.Node{}, err
+			}
+		} else {
+			return models.Node{}, err
+		}
+	} else {
+		node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+		if err != nil {
+			return models.Node{}, err
+		}
+	}
+	return node, nil
 }

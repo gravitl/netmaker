@@ -186,9 +186,15 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			return nil, err
 		}
 
+		data, err := json.Marshal(&node)
+		if err != nil {
+			ncutils.PrintLog("Failed to parse node config: "+err.Error(), 1)
+			return nil, err
+		}
+
 		req := &nodepb.Object{
-			Data: node.MacAddress + "###" + node.Network,
-			Type: nodepb.STRING_TYPE,
+			Data: string(data),
+			Type: nodepb.NODE_TYPE,
 		}
 
 		readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))

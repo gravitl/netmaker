@@ -5,18 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
 )
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes []models.Node
+	var nodes = []models.Node{}
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
@@ -64,8 +66,8 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 }
 
 // UncordonNode - approves a node to join a network
-func UncordonNode(network, macaddress string) (models.Node, error) {
-	node, err := GetNodeByMacAddress(network, macaddress)
+func UncordonNode(nodeid string) (models.Node, error) {
+	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -76,12 +78,8 @@ func UncordonNode(network, macaddress string) (models.Node, error) {
 	if err != nil {
 		return node, err
 	}
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return node, err
-	}
 
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	return node, err
 }
 
@@ -125,7 +123,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
 	}
-	newNode.SetID()
 	if newNode.ID == currentNode.ID {
 		newNode.SetLastModified()
 		if data, err := json.Marshal(newNode); err != nil {
@@ -285,7 +282,6 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetRoamingDefault()
 	node.SetPullChangesDefault()
 	node.SetDefaultAction()
-	node.SetID()
 	node.SetIsServerDefault()
 	node.SetIsStaticDefault()
 	node.SetDefaultEgressGateway()
@@ -298,6 +294,7 @@ func SetNodeDefaults(node *models.Node) {
 }
 
 // GetRecordKey - get record key
+// depricated
 func GetRecordKey(id string, network string) (string, error) {
 	if id == "" || network == "" {
 		return "", errors.New("unable to get record key")
@@ -379,4 +376,85 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 		}
 	}
 	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
+}
+
+// GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
+func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (models.Node, error) {
+	var node models.Node
+	var err error
+	node, err = GetNodeByID(uuid)
+	if err != nil && macaddress != "" && network != "" {
+		node, err = GetNodeByMacAddress(network, macaddress)
+		if err != nil {
+			return models.Node{}, err
+		}
+		err = DeleteNodeByMacAddress(&node, true) // remove node
+		if err != nil {
+			return models.Node{}, err
+		}
+		err = CreateNode(&node)
+		if err != nil {
+			return models.Node{}, err
+		}
+		logger.Log(2, "rewriting legacy node data; node now has id,", node.ID)
+		node.PullChanges = "yes"
+	}
+	return node, err
+}
+
+// GetNodeByID - get node by uuid, should have been set by create
+func GetNodeByID(uuid string) (models.Node, error) {
+	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
+	if err != nil {
+		return models.Node{}, err
+	}
+	var node models.Node
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+	return node, nil
+}
+
+// GetDeletedNodeByID - get a deleted node
+func GetDeletedNodeByID(uuid string) (models.Node, error) {
+
+	var node models.Node
+
+	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, uuid)
+	if err != nil {
+		return models.Node{}, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &node); err != nil {
+		return models.Node{}, err
+	}
+
+	SetNodeDefaults(&node)
+
+	return node, nil
+}
+
+// GetNetworkServerNodeID - get network server node ID if exists
+func GetNetworkServerNodeID(network string) (string, error) {
+	var nodes, err = GetNetworkNodes(network)
+	if err != nil {
+		return "", err
+	}
+	for _, node := range nodes {
+		if node.IsServer == "yes" {
+			if servercfg.GetNodeID() != "" {
+				if servercfg.GetNodeID() == node.MacAddress {
+					if strings.Contains(node.ID, "###") {
+						DeleteNodeByMacAddress(&node, true)
+						logger.Log(1, "deleted legacy server node on network "+node.Network)
+						return "", errors.New("deleted legacy server node on network " + node.Network)
+					}
+					return node.ID, nil
+				}
+				continue
+			}
+			return node.ID, nil
+		}
+	}
+	return "", errors.New("could not find server node")
 }

@@ -19,12 +19,12 @@ func TestCreateEgressGateway(t *testing.T) {
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := logic.CreateEgressGateway(gateway)
 		assert.Equal(t, models.Node{}, node)
-		assert.EqualError(t, err, "unable to get record key")
+		assert.EqualError(t, err, "could not find any records")
 	})
 	t.Run("Success", func(t *testing.T) {
 		testnode := createTestNode()
 		gateway.NetID = "skynet"
-		gateway.NodeID = testnode.MacAddress
+		gateway.NodeID = testnode.ID
 
 		node, err := logic.CreateEgressGateway(gateway)
 		assert.Nil(t, err)
@@ -43,7 +43,7 @@ func TestDeleteEgressGateway(t *testing.T) {
 	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
 	gateway.NetID = "skynet"
-	gateway.NodeID = testnode.MacAddress
+	gateway.NodeID = testnode.ID
 	t.Run("Success", func(t *testing.T) {
 		node, err := logic.CreateEgressGateway(gateway)
 		assert.Nil(t, err)
@@ -68,13 +68,8 @@ func TestDeleteEgressGateway(t *testing.T) {
 		node, err := logic.DeleteEgressGateway(gateway.NetID, "01:02:03")
 		assert.EqualError(t, err, "no result found")
 		assert.Equal(t, models.Node{}, node)
+		deleteAllNodes()
 	})
-	t.Run("BadNet", func(t *testing.T) {
-		node, err := logic.DeleteEgressGateway("badnet", gateway.NodeID)
-		assert.EqualError(t, err, "no result found")
-		assert.Equal(t, models.Node{}, node)
-	})
-
 }
 
 func TestGetNetworkNodes(t *testing.T) {
@@ -105,18 +100,13 @@ func TestUncordonNode(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	node := createTestNode()
-	t.Run("BadNet", func(t *testing.T) {
-		resp, err := logic.UncordonNode("badnet", node.MacAddress)
-		assert.Equal(t, models.Node{}, resp)
-		assert.EqualError(t, err, "no result found")
-	})
-	t.Run("BadMac", func(t *testing.T) {
-		resp, err := logic.UncordonNode("skynet", "01:02:03")
+	t.Run("BadID", func(t *testing.T) {
+		resp, err := logic.UncordonNode("blahblah")
 		assert.Equal(t, models.Node{}, resp)
 		assert.EqualError(t, err, "no result found")
 	})
 	t.Run("Success", func(t *testing.T) {
-		resp, err := logic.UncordonNode("skynet", node.MacAddress)
+		resp, err := logic.UncordonNode(node.ID)
 		assert.Nil(t, err)
 		assert.Equal(t, "no", resp.IsPending)
 	})
@@ -145,10 +135,7 @@ func TestValidateEgressGateway(t *testing.T) {
 }
 
 func deleteAllNodes() {
-	nodes, _ := logic.GetAllNodes()
-	for _, node := range nodes {
-		logic.DeleteNode(&node, true)
-	}
+	database.DeleteAllRecords(database.NODES_TABLE_NAME)
 }
 
 func createTestNode() *models.Node {

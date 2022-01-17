@@ -47,7 +47,7 @@ func DeleteNetwork(network string) error {
 		servers, err := GetSortedNetworkServerNodes(network)
 		if err == nil {
 			for _, s := range servers {
-				if err = DeleteNode(&s, true); err != nil {
+				if err = DeleteNodeByID(&s, true); err != nil {
 					logger.Log(2, "could not removed server", s.Name, "before deleting network", network)
 				} else {
 					logger.Log(2, "removed server", s.Name, "before deleting network", network)
@@ -110,7 +110,6 @@ func NetworkNodesUpdatePullChanges(networkName string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -355,7 +354,6 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 				fmt.Println("error in node  address assignment!")
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
 		}
 	}
@@ -387,7 +385,6 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -424,7 +421,6 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -630,7 +626,6 @@ func networkNodesUpdateAction(networkName string, action string) error {
 			if err != nil {
 				return err
 			}
-			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}

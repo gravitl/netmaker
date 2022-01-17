@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -102,26 +103,6 @@ func getPrivateAddrBackup() (string, error) {
 	return local, err
 }
 
-// DEPRECATED
-// func needInterfaceUpdate(ctx context.Context, mac string, network string, iface string) (bool, string, error) {
-// 	var header metadata.MD
-// 	req := &nodepb.Object{
-// 		Data: mac + "###" + network,
-// 		Type: nodepb.STRING_TYPE,
-// 	}
-// 	readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
-// 	if err != nil {
-// 		return false, "", err
-// 	}
-// 	var resNode models.Node
-// 	if err := json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
-// 		return false, iface, err
-// 	}
-// 	oldiface := resNode.Interface
-
-// 	return iface != oldiface, oldiface, err
-// }
-
 // GetNode - gets node locally
 func GetNode(network string) models.Node {
 
@@ -184,20 +165,22 @@ func LeaveNetwork(network string) error {
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
 		} else { // handle client side
-			node.SetID()
 			var header metadata.MD
-			_, err = wcclient.DeleteNode(
-				ctx,
-				&nodepb.Object{
-					Data: node.ID,
-					Type: nodepb.STRING_TYPE,
-				},
-				grpc.Header(&header),
-			)
-			if err != nil {
-				ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
-			} else {
-				ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
+			nodeData, err := json.Marshal(&node)
+			if err == nil {
+				_, err = wcclient.DeleteNode(
+					ctx,
+					&nodepb.Object{
+						Data: string(nodeData),
+						Type: nodepb.NODE_TYPE,
+					},
+					grpc.Header(&header),
+				)
+				if err != nil {
+					ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
+				} else {
+					ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
+				}
 			}
 		}
 	}

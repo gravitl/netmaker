@@ -283,7 +283,6 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 
 func setWGConfig(node *models.Node, peerupdate bool) error {
 
-	node.SetID()
 	peers, hasGateway, gateways, err := GetServerPeers(node)
 	if err != nil {
 		return err
@@ -305,7 +304,6 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 
 func setWGKeyConfig(node *models.Node) error {
 
-	node.SetID()
 	privatekey, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
 		return err

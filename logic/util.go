@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -41,14 +42,13 @@ func SetNetworkServerPeers(node *models.Node) {
 	}
 }
 
-// DeleteNode - deletes a node from database or moves into delete nodes table
-func DeleteNode(node *models.Node, exterminate bool) error {
+// DeleteNodeByMacAddress - deletes a node from database or moves into delete nodes table
+func DeleteNodeByMacAddress(node *models.Node, exterminate bool) error {
 	var err error
-	node.SetID()
 	var key = node.ID
 	if !exterminate {
 		args := strings.Split(key, "###")
-		node, err := GetNode(args[0], args[1])
+		node, err := GetNodeByMacAddress(args[0], args[1])
 		if err != nil {
 			return err
 		}
@@ -104,8 +104,16 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+
+	// TODO: This covers legacy nodes, eventually want to remove legacy check
+	if node.IsServer == "yes" {
+		node.ID = uuid.NewString()
+	} else if node.IsServer != "yes" || (node.ID == "" || strings.Contains(node.ID, "###")) {
+		node.ID = uuid.NewString()
+	}
+
 	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.MacAddress, node.Network)
+	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
 		return err
@@ -114,15 +122,12 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return err
-	}
+
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
 	}
-	err = database.Insert(key, string(nodebytes), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
 	}
@@ -157,28 +162,56 @@ func SetNetworkNodesLastModified(networkName string) error {
 	return nil
 }
 
-// GetNode - fetches a node from database
-func GetNode(macaddress string, network string) (models.Node, error) {
-	var node models.Node
+// // GetNode - fetches a node from database
+// func GetNode(macaddress string, network string) (models.Node, error) {
+// 	var node models.Node
 
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	if err != nil {
-		if data == "" {
-			data, _ = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
-			err = json.Unmarshal([]byte(data), &node)
+// 	key, err := GetRecordKey(macaddress, network)
+// 	if err != nil {
+// 		return node, err
+// 	}
+// 	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
+// 	if err != nil {
+// 		if data == "" {
+// 			data, _ = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
+// 			err = json.Unmarshal([]byte(data), &node)
+// 		}
+// 		return node, err
+// 	}
+// 	if err = json.Unmarshal([]byte(data), &node); err != nil {
+// 		return node, err
+// 	}
+// 	SetNodeDefaults(&node)
+
+// 	return node, err
+// }
+
+// DeleteNodeByID - deletes a node from database or moves into delete nodes table
+func DeleteNodeByID(node *models.Node, exterminate bool) error {
+	var err error
+	var key = node.ID
+	if !exterminate {
+		node.Action = models.NODE_DELETE
+		nodedata, err := json.Marshal(&node)
+		if err != nil {
+			return err
 		}
-		return node, err
+		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
+		if err != nil {
+			return err
+		}
+	} else {
+		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
+			logger.Log(2, err.Error())
+		}
 	}
-	if err = json.Unmarshal([]byte(data), &node); err != nil {
-		return node, err
+	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
+		return err
 	}
-	SetNodeDefaults(&node)
-
-	return node, err
+	if servercfg.IsDNSMode() {
+		SetDNS()
+	}
+	return removeLocalServer(node)
 }
 
 // GetNodePeers - fetches peers for a given node

@@ -13,7 +13,7 @@ import (
 
 // CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
-	node, err := GetNodeByMacAddress(gateway.NetID, gateway.NodeID)
+	node, err := GetNodeByID(gateway.NodeID)
 	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
@@ -44,10 +44,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 			postDownCmd = node.PostDown + "; " + postDownCmd
 		}
 	}
-	key, err := GetRecordKey(gateway.NodeID, gateway.NetID)
-	if err != nil {
-		return node, err
-	}
+
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
 	node.SetLastModified()
@@ -56,7 +53,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return node, err
 	}
-	if err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
 	if err = NetworkNodesUpdatePullChanges(node.Network); err != nil {
@@ -65,6 +62,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	return node, nil
 }
 
+// ValidateEgressGateway - validates the egress gateway model
 func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	var err error
 
@@ -80,9 +78,9 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 }
 
 // DeleteEgressGateway - deletes egress from node
-func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
+func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 
-	node, err := GetNodeByMacAddress(network, macaddress)
+	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -97,15 +95,12 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 	}
 	node.SetLastModified()
 	node.PullChanges = "yes"
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
+
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	if err = database.Insert(key, string(data), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
 	if err = NetworkNodesUpdatePullChanges(network); err != nil {
@@ -115,10 +110,10 @@ func DeleteEgressGateway(network, macaddress string) (models.Node, error) {
 }
 
 // CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, macaddress string) (models.Node, error) {
+func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 
-	node, err := GetNodeByMacAddress(netid, macaddress)
-	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
+	node, err := GetNodeByID(nodeid)
+	if node.OS == "windows" || node.OS == "darwin" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
 	}
 
@@ -149,15 +144,12 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 	node.PostDown = postDownCmd
 	node.PullChanges = "yes"
 	node.UDPHolePunch = "no"
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
+
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -166,9 +158,9 @@ func CreateIngressGateway(netid string, macaddress string) (models.Node, error) 
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(networkName string, macaddress string) (models.Node, error) {
+func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error) {
 
-	node, err := GetNodeByMacAddress(networkName, macaddress)
+	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -177,7 +169,7 @@ func DeleteIngressGateway(networkName string, macaddress string) (models.Node, e
 		return models.Node{}, err
 	}
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(macaddress, networkName); err != nil {
+	if err = DeleteGatewayExtClients(node.ID, networkName); err != nil {
 		return models.Node{}, err
 	}
 
@@ -187,15 +179,11 @@ func DeleteIngressGateway(networkName string, macaddress string) (models.Node, e
 	node.IngressGatewayRange = ""
 	node.PullChanges = "yes"
 
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	err = database.Insert(key, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return models.Node{}, err
 	}

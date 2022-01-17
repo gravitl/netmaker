@@ -11,7 +11,7 @@ import (
 )
 
 // GetExtPeersList - gets the ext peers lists
-func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersResponse, error) {
+func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 
 	var peers []models.ExtPeersResponse
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
@@ -33,7 +33,7 @@ func GetExtPeersList(macaddress string, networkName string) ([]models.ExtPeersRe
 			logger.Log(2, "failed to unmarshal ext client")
 			continue
 		}
-		if extClient.Network == networkName && extClient.IngressGatewayID == macaddress {
+		if extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
 			peers = append(peers, peer)
 		}
 	}

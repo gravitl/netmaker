@@ -2,7 +2,6 @@ package models
 
 import (
 	"bytes"
-	"errors"
 	"math/rand"
 	"net"
 	"strings"
@@ -24,9 +23,9 @@ const NODE_NOOP = "noop"
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-// node struct
+// Node - struct for node model
 type Node struct {
-	ID                  string   `json:"id,omitempty" bson:"id,omitempty"`
+	ID                  string   `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5"`
 	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
@@ -47,7 +46,7 @@ type Node struct {
 	ExpirationDateTime  int64    `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
 	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
-	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"required,min=5,macaddress_unique"`
+	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress"`
 	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
 	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
@@ -73,13 +72,20 @@ type Node struct {
 	IPForwarding        string   `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS                  string   `json:"os" bson:"os" yaml:"os"`
 	MTU                 int32    `json:"mtu" bson:"mtu" yaml:"mtu"`
+	Version             string   `json:"version" bson:"version" yaml:"version"`
 }
 
+// NodesArray - used for node sorting
 type NodesArray []Node
 
-func (a NodesArray) Len() int           { return len(a) }
+// NodesArray.Len - gets length of node array
+func (a NodesArray) Len() int { return len(a) }
+
+// NodesArray.Less - gets returns lower rank of two node addresses
 func (a NodesArray) Less(i, j int) bool { return isLess(a[i].Address, a[j].Address) }
-func (a NodesArray) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// NodesArray.Swap - swaps two nodes in array
+func (a NodesArray) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
 func isLess(ipA string, ipB string) bool {
 	ipNetA := net.ParseIP(ipA)
@@ -87,12 +93,14 @@ func isLess(ipA string, ipB string) bool {
 	return bytes.Compare(ipNetA, ipNetB) < 0
 }
 
+// Node.SetDefaultMTU - sets default MTU of a node
 func (node *Node) SetDefaultMTU() {
 	if node.MTU == 0 {
 		node.MTU = 1280
 	}
 }
 
+// Node.SetDefaulIsPending - sets ispending default
 func (node *Node) SetDefaulIsPending() {
 	if node.IsPending == "" {
 		node.IsPending = "no"
@@ -191,10 +199,6 @@ func (node *Node) SetLastPeerUpdate() {
 	node.LastPeerUpdate = time.Now().Unix()
 }
 
-func (node *Node) SetID() {
-	node.ID = node.MacAddress + "###" + node.Network
-}
-
 func (node *Node) SetExpirationDateTime() {
 	node.ExpirationDateTime = time.Now().Unix() + TEN_YEARS_IN_SECONDS
 }
@@ -206,9 +210,8 @@ func (node *Node) SetDefaultName() {
 }
 
 func (newNode *Node) Fill(currentNode *Node) {
-	if newNode.ID == "" {
-		newNode.ID = currentNode.ID
-	}
+	newNode.ID = currentNode.ID
+
 	if newNode.Address == "" && newNode.IsStatic != "yes" {
 		newNode.Address = currentNode.Address
 	}
@@ -378,11 +381,4 @@ func (node *Node) NameInNodeCharSet() bool {
 		}
 	}
 	return true
-}
-
-func (node *Node) GetID() (string, error) {
-	if node.MacAddress == "" || node.Network == "" {
-		return "", errors.New("unable to get record key")
-	}
-	return node.MacAddress + "###" + node.Network, nil
 }
