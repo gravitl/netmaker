@@ -44,7 +44,7 @@ For information about deploying more advanced configurations, see the :doc:`Adva
 1. Prepare DNS
 ================
 
-Create a wildcard A record pointing to the public IP of your VM. As an example, *.netmaker.example.com.
+Create a wildcard A record pointing to the public IP of your VM. As an example, \*.netmaker.example.com.
 
 Caddy will create 3 subdomains with this wildcard, EX:
 

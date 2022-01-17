@@ -105,6 +105,23 @@ Netclient
 **I have a hard to reach machine behind a firewall or a corporate NAT, what can I do?**
   In this situation you can use the Relay Server functionality introduced in Netmaker v0.8 to designate a node as a relay to your "stuck" machine. Simply click the button to make a node into a relay and tell it to relay traffic to this hard-to-reach peer. 
 
+**I am unable to run the netclient on my OpenWRT machine, what's wrong?**
+  Deploying on OpenWRT depends a lot on the version of OpenWRT and the hardware being used. If the primary installer does not work, there are two things you can try:
+
+  1. This community-run package for OpenWRT: https://github.com/sbilly/netmaker-openwrt
+
+  2. Manual installation:
+
+  - download (wget) the netclient package for your hardware from the netclient releases: https://github.com/gravitl/netmaker/releases
+  - rename to "netclient"
+  - Run as root from a bash shell on OpenWRT
+
+  3. You may experience an issue with the length of the token, which has limits on some OpenWRT shells. If you run into this problem, you can use the following script to convert your token into a "netclient join" command:
+
+  - `wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/token-convert.sh`
+  - ./token-convert <token value>
+  - Run the output on your OpenWRT machine
+
 
 CoreDNS
 --------

@@ -37,6 +37,7 @@ services:
       DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
       SERVER_API_CONN_STRING: "" # Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT
       SERVER_GRPC_CONN_STRING: "" # Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT
+      RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.
   netmaker-ui: # The Netmaker UI Component
     container_name: netmaker-ui
     depends_on:

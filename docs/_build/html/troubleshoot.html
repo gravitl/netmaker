@@ -209,7 +209,7 @@
     <li class="md-nav__item">
     
     
-      <a href="about.html" class="md-nav__link">1. About</a>
+      <a href="about.html" class="md-nav__link">About</a>
       
     
     </li>
@@ -244,28 +244,7 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html" class="md-nav__link">Ingress GW + External Clients</a>
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
     </li>
@@ -286,7 +265,35 @@
     <li class="md-nav__item">
     
     
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -524,6 +531,25 @@ You can also see the current WireGuard configuration with <code class="docutils 
 <dt><strong>I have a handshake with a peer but can’t ping it, what gives?</strong></dt><dd><p>This is commonly due to incorrect MTU settings. Typically, it will be because MTU is too high. Try setting MTU lower on the node. This can be done via netconfig, or by editing the node in the UI.</p>
 </dd>
 <dt><strong>I have a hard to reach machine behind a firewall or a corporate NAT, what can I do?</strong></dt><dd><p>In this situation you can use the Relay Server functionality introduced in Netmaker v0.8 to designate a node as a relay to your “stuck” machine. Simply click the button to make a node into a relay and tell it to relay traffic to this hard-to-reach peer.</p>
+</dd>
+<dt><strong>I am unable to run the netclient on my OpenWRT machine, what’s wrong?</strong></dt><dd><p>Deploying on OpenWRT depends a lot on the version of OpenWRT and the hardware being used. If the primary installer does not work, there are two things you can try:</p>
+<ol class="arabic simple">
+<li><p>This community-run package for OpenWRT: <a class="reference external" href="https://github.com/sbilly/netmaker-openwrt">https://github.com/sbilly/netmaker-openwrt</a></p></li>
+<li><p>Manual installation:</p></li>
+</ol>
+<ul class="simple">
+<li><p>download (wget) the netclient package for your hardware from the netclient releases: <a class="reference external" href="https://github.com/gravitl/netmaker/releases">https://github.com/gravitl/netmaker/releases</a></p></li>
+<li><p>rename to “netclient”</p></li>
+<li><p>Run as root from a bash shell on OpenWRT</p></li>
+</ul>
+<ol class="arabic simple" start="3">
+<li><p>You may experience an issue with the length of the token, which has limits on some OpenWRT shells. If you run into this problem, you can use the following script to convert your token into a “netclient join” command:</p></li>
+</ol>
+<ul class="simple">
+<li><p><cite>wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/token-convert.sh</cite></p></li>
+<li><p>./token-convert &lt;token value&gt;</p></li>
+<li><p>Run the output on your OpenWRT machine</p></li>
+</ul>
 </dd>
 </dl>
 
