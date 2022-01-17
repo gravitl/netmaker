@@ -5,17 +5,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -31,14 +30,23 @@ func CheckEndpoint(endpoint string) bool {
 	return len(endpointarr) == 2
 }
 
+// FileExists - checks if local file exists
+func FileExists(f string) bool {
+	info, err := os.Stat(f)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
 // SetNetworkServerPeers - sets the network server peers of a given node
-func SetNetworkServerPeers(node *models.Node) {
-	if currentPeersList, err := GetSystemPeers(node); err == nil {
-		if database.SetPeers(currentPeersList, node.Network) {
-			logger.Log(1, "set new peers on network", node.Network)
+func SetNetworkServerPeers(serverNode *models.Node) {
+	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if database.SetPeers(currentPeersList, serverNode.Network) {
+			logger.Log(1, "set new peers on network", serverNode.Network)
 		}
 	} else {
-		logger.Log(1, "could not set peers on network", node.Network, ":", err.Error())
+		logger.Log(1, "could not set peers on network", serverNode.Network, ":", err.Error())
 	}
 }
 
@@ -73,72 +81,6 @@ func DeleteNodeByMacAddress(node *models.Node, exterminate bool) error {
 		SetDNS()
 	}
 	return removeLocalServer(node)
-}
-
-// CreateNode - creates a node in database
-func CreateNode(node *models.Node) error {
-
-	//encrypt that password so we never see it
-	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
-	if err != nil {
-		return err
-	}
-	//set password to encrypted password
-	node.Password = string(hash)
-	if node.Name == models.NODE_SERVER_NAME {
-		node.IsServer = "yes"
-	}
-	if node.DNSOn == "" {
-		if servercfg.IsDNSMode() {
-			node.DNSOn = "yes"
-		} else {
-			node.DNSOn = "no"
-		}
-	}
-	SetNodeDefaults(node)
-	node.Address, err = UniqueAddress(node.Network)
-	if err != nil {
-		return err
-	}
-	node.Address6, err = UniqueAddress6(node.Network)
-	if err != nil {
-		return err
-	}
-
-	// TODO: This covers legacy nodes, eventually want to remove legacy check
-	if node.IsServer == "yes" {
-		node.ID = uuid.NewString()
-	} else if node.IsServer != "yes" || (node.ID == "" || strings.Contains(node.ID, "###")) {
-		node.ID = uuid.NewString()
-	}
-
-	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
-	if tokenString == "" {
-		//returnErrorResponse(w, r, errorResponse)
-		return err
-	}
-	err = ValidateNode(node, false)
-	if err != nil {
-		return err
-	}
-
-	nodebytes, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if node.IsPending != "yes" {
-		DecrimentKey(node.Network, node.AccessKey)
-	}
-	SetNetworkNodesLastModified(node.Network)
-	if servercfg.IsDNSMode() {
-		err = SetDNS()
-	}
-	return err
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified

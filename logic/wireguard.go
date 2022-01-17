@@ -16,8 +16,18 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// GetSystemPeers - gets the server peers
-func GetSystemPeers(node *models.Node) (map[string]string, error) {
+// RemoveConf - removes a configuration for a given WireGuard interface
+func RemoveConf(iface string, printlog bool) error {
+	var err error
+	confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
+	err = removeWGQuickConf(confPath, printlog)
+	return err
+}
+
+// == Private Functions ==
+
+// gets the server peers locally
+func getSystemPeers(node *models.Node) (map[string]string, error) {
 	peers := make(map[string]string)
 
 	client, err := wgctrl.New()
@@ -36,16 +46,6 @@ func GetSystemPeers(node *models.Node) (map[string]string, error) {
 	}
 	return peers, nil
 }
-
-// RemoveConf - removes a configuration for a given WireGuard interface
-func RemoveConf(iface string, printlog bool) error {
-	var err error
-	confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
-	err = removeWGQuickConf(confPath, printlog)
-	return err
-}
-
-// == Private Functions ==
 
 func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
 
@@ -92,16 +92,6 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		if err != nil {
 			logger.Log(1, "error writing wg conf file to", confPath, ":", err.Error())
 			return err
-		}
-		if ncutils.IsWindows() {
-			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
-			logger.Log(1, "writing wg conf file to:", confPath)
-			err = os.WriteFile(wgConfPath, []byte(newConf), 0644)
-			if err != nil {
-				logger.Log(1, "error writing wg conf file to", wgConfPath, ":", err.Error())
-				return err
-			}
-			confPath = wgConfPath
 		}
 		// spin up userspace + apply the conf file
 		var deviceiface = ifacename
@@ -182,9 +172,10 @@ func setKernelDevice(ifacename string, address string) error {
 		return err
 	}
 
-	_, _ = ncutils.RunCmd("ip link delete dev "+ifacename, false)
-	_, _ = ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
-	_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/24", true) // this is a bug waiting to happen
+	// == best effort ==
+	ncutils.RunCmd("ip link delete dev "+ifacename, false)
+	ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
+	ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/24", true) // this is a bug waiting to happen
 
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 const ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
@@ -226,9 +225,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsClientMode() != "off" {
-		var success bool
-		success, err = serverctl.AddNetwork(&network)
-		if err != nil || !success {
+		err = logic.ServerJoin(&network)
+		if err != nil {
 			logic.DeleteNetwork(network.NetID)
 			if err == nil {
 				err = errors.New("Failed to add server to network " + network.DisplayName)

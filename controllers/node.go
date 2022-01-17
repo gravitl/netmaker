@@ -32,7 +32,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
-
 }
 
 func authenticate(response http.ResponseWriter, request *http.Request) {
@@ -535,6 +534,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	if relayupdate {
 		logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
 		if err = logic.NetworkNodesUpdatePullChanges(node.Network); err != nil {
@@ -542,7 +542,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if servercfg.IsDNSMode() {
+	if servercfg.IsDNSMode() { // TODO check when this should be updated..
 		err = logic.SetDNS()
 	}
 	if err != nil {

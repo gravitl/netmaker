@@ -26,7 +26,7 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
-func ServerJoin(networkSettings *models.Network, serverID string) error {
+func ServerJoin(networkSettings *models.Network) error {
 
 	if networkSettings == nil || networkSettings.NetID == "" {
 		return errors.New("no network provided")
@@ -119,7 +119,7 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 	if err = StorePrivKey(node.ID, privateKey); err != nil {
 		return err
 	}
-	if err = ServerPush(node); err != nil {
+	if err = serverPush(node); err != nil {
 		return err
 	}
 
@@ -137,18 +137,12 @@ func ServerJoin(networkSettings *models.Network, serverID string) error {
 	return nil
 }
 
-// ServerCheckin - runs pulls and pushes for server
-func ServerCheckin(serverID string, mac string, network string) error {
-	var serverNode = &models.Node{}
-	var currentNode, err = GetNodeByIDorMacAddress(serverID, mac, network)
-	if err != nil {
-		return err
-	}
-	serverNode = &currentNode
-
-	err = ServerPull(serverNode, false)
+// ServerUpdate - updates the server
+// replaces legacy Checkin code
+func ServerUpdate(serverNode *models.Node) error {
+	var err = serverPull(serverNode, false)
 	if isDeleteError(err) {
-		return ServerLeave(currentNode.ID)
+		return DeleteNodeByID(serverNode, true)
 	} else if err != nil {
 		return err
 	}
@@ -158,66 +152,7 @@ func ServerCheckin(serverID string, mac string, network string) error {
 		return errors.New("node has been removed")
 	}
 
-	return ServerPush(serverNode)
-}
-
-// ServerPull - pulls current config/peers for server
-func ServerPull(serverNode *models.Node, onErr bool) error {
-
-	var err error
-	if serverNode.IPForwarding == "yes" {
-		if err = setIPForwardingLinux(); err != nil {
-			return err
-		}
-	}
-	serverNode.OS = runtime.GOOS
-
-	if serverNode.PullChanges == "yes" || onErr {
-		// check for interface change
-		// checks if address is in use by another interface
-		var oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
-		if !isIfacePresent {
-			if err = deleteInterface(oldIfaceName, serverNode.PostDown); err != nil {
-				logger.Log(1, "could not delete old interface", oldIfaceName)
-			}
-			logger.Log(1, "removed old interface", oldIfaceName)
-		}
-		serverNode.PullChanges = "no"
-		if err = setWGConfig(serverNode, false); err != nil {
-			return err
-		}
-		// handle server side update
-		if err = UpdateNode(serverNode, serverNode); err != nil {
-			return err
-		}
-	} else {
-		if err = setWGConfig(serverNode, true); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return ServerPull(serverNode, true)
-			} else {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// ServerPush - pushes config changes for server checkins/join
-func ServerPush(serverNode *models.Node) error {
-	serverNode.OS = runtime.GOOS
-	serverNode.SetLastCheckIn()
-	return UpdateNode(serverNode, serverNode)
-}
-
-// ServerLeave - removes a server node
-func ServerLeave(serverID string) error {
-
-	var serverNode, err = GetNodeByID(serverID)
-	if err != nil {
-		return err
-	}
-	return DeleteNodeByID(&serverNode, true)
+	return serverPush(serverNode)
 }
 
 /**
@@ -422,13 +357,54 @@ func checkNodeActions(node *models.Node) string {
 		}
 	}
 	if node.Action == models.NODE_DELETE {
-		err := ServerLeave(node.ID)
+		err := DeleteNodeByID(node, true)
 		if err != nil {
 			logger.Log(1, "error deleting locally:", err.Error())
 		}
 		return models.NODE_DELETE
 	}
 	return ""
+}
+
+func serverPull(serverNode *models.Node, onErr bool) error {
+
+	var err error
+	if serverNode.IPForwarding == "yes" {
+		if err = setIPForwardingLinux(); err != nil {
+			return err
+		}
+	}
+	serverNode.OS = runtime.GOOS
+
+	if serverNode.PullChanges == "yes" || onErr {
+		// check for interface change
+		// checks if address is in use by another interface
+		var oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
+		if !isIfacePresent {
+			if err = deleteInterface(oldIfaceName, serverNode.PostDown); err != nil {
+				logger.Log(1, "could not delete old interface", oldIfaceName)
+			}
+			logger.Log(1, "removed old interface", oldIfaceName)
+		}
+		serverNode.PullChanges = "no"
+		if err = setWGConfig(serverNode, false); err != nil {
+			return err
+		}
+		// handle server side update
+		if err = UpdateNode(serverNode, serverNode); err != nil {
+			return err
+		}
+	} else {
+		if err = setWGConfig(serverNode, true); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return serverPull(serverNode, true)
+			} else {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func getServerLocalIP(networkSettings *models.Network) (string, error) {
@@ -451,4 +427,10 @@ func getServerLocalIP(networkSettings *models.Network) (string, error) {
 		}
 	}
 	return "", errors.New("could not find a local ip for server")
+}
+
+func serverPush(serverNode *models.Node) error {
+	serverNode.OS = runtime.GOOS
+	serverNode.SetLastCheckIn()
+	return UpdateNode(serverNode, serverNode)
 }

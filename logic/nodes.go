@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // GetNetworkNodes - gets the nodes of a network
@@ -166,8 +168,75 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 	return err
 }
 
+// CreateNode - creates a node in database
+func CreateNode(node *models.Node) error {
+
+	//encrypt that password so we never see it
+	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
+	if err != nil {
+		return err
+	}
+	//set password to encrypted password
+	node.Password = string(hash)
+	if node.Name == models.NODE_SERVER_NAME {
+		node.IsServer = "yes"
+	}
+	if node.DNSOn == "" {
+		if servercfg.IsDNSMode() {
+			node.DNSOn = "yes"
+		} else {
+			node.DNSOn = "no"
+		}
+	}
+	SetNodeDefaults(node)
+	node.Address, err = UniqueAddress(node.Network)
+	if err != nil {
+		return err
+	}
+	node.Address6, err = UniqueAddress6(node.Network)
+	if err != nil {
+		return err
+	}
+
+	// TODO: This covers legacy nodes, eventually want to remove legacy check
+	if node.IsServer == "yes" {
+		node.ID = uuid.NewString()
+	} else if node.IsServer != "yes" || (node.ID == "" || strings.Contains(node.ID, "###")) {
+		node.ID = uuid.NewString()
+	}
+
+	//Create a JWT for the node
+	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
+	if tokenString == "" {
+		//returnErrorResponse(w, r, errorResponse)
+		return err
+	}
+	err = ValidateNode(node, false)
+	if err != nil {
+		return err
+	}
+
+	nodebytes, err := json.Marshal(&node)
+	if err != nil {
+		return err
+	}
+	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	if node.IsPending != "yes" {
+		DecrimentKey(node.Network, node.AccessKey)
+	}
+	SetNetworkNodesLastModified(node.Network)
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
+	return err
+}
+
 // ShouldPeersUpdate - takes old node and sees if certain fields changing would trigger a peer update
 func ShouldPeersUpdate(currentNode *models.Node, newNode *models.Node) bool {
+	SetNodeDefaults(newNode)
 	// single comparison statements
 	if newNode.Endpoint != currentNode.Endpoint ||
 		newNode.LocalAddress != currentNode.LocalAddress ||
@@ -177,6 +246,8 @@ func ShouldPeersUpdate(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
 		newNode.IsRelay != currentNode.IsRelay ||
 		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
+		newNode.IsPending != currentNode.IsPending ||
+		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
 		return true
 	}
