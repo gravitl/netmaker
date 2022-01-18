@@ -140,8 +140,8 @@ func ServerJoin(networkSettings *models.Network) error {
 
 // ServerUpdate - updates the server
 // replaces legacy Checkin code
-func ServerUpdate(serverNode *models.Node) error {
-	var err = serverPull(serverNode, false)
+func ServerUpdate(serverNode *models.Node, shouldPeerUpdate bool) error {
+	var err = serverPull(serverNode, shouldPeerUpdate)
 	if isDeleteError(err) {
 		return DeleteNodeByID(serverNode, true)
 	} else if err != nil {
@@ -167,17 +167,14 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 	var gateways []string
 	var peers []wgtypes.PeerConfig
 	var nodes []models.Node // fill above fields from server or client
+	var err error
 
-	var nodecfg, err = GetNodeByIDorMacAddress(serverNode.ID, serverNode.MacAddress, serverNode.Network)
-	if err != nil {
-		return nil, hasGateway, gateways, err
-	}
-	nodes, err = GetPeers(&nodecfg)
+	nodes, err = GetPeers(serverNode)
 	if err != nil {
 		return nil, hasGateway, gateways, err
 	}
 
-	keepalive := nodecfg.PersistentKeepalive
+	keepalive := serverNode.PersistentKeepalive
 	keepalivedur, err := time.ParseDuration(strconv.FormatInt(int64(keepalive), 10) + "s")
 	if err != nil {
 		logger.Log(1, "Issue with format of keepalive duration value, Please view server config:", err.Error())
@@ -191,11 +188,11 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 			return peers, hasGateway, gateways, err
 		}
 
-		if nodecfg.PublicKey == node.PublicKey {
+		if serverNode.PublicKey == node.PublicKey {
 			continue
 		}
-		if nodecfg.Endpoint == node.Endpoint {
-			if nodecfg.LocalAddress != node.LocalAddress && node.LocalAddress != "" {
+		if serverNode.Endpoint == node.Endpoint {
+			if serverNode.LocalAddress != node.LocalAddress && node.LocalAddress != "" {
 				node.Endpoint = node.LocalAddress
 			} else {
 				continue
@@ -240,8 +237,8 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 					logger.Log(2, "egress IP range of", iprange, "overlaps with", node.Endpoint, ", omitting")
 					continue // skip adding egress range if overlaps with node's ip
 				}
-				if ipnet.Contains(net.ParseIP(nodecfg.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
-					logger.Log(2, "egress IP range of", iprange, "overlaps with", nodecfg.LocalAddress, ", omitting")
+				if ipnet.Contains(net.ParseIP(serverNode.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
+					logger.Log(2, "egress IP range of", iprange, "overlaps with", serverNode.LocalAddress, ", omitting")
 					continue // skip adding egress range if overlaps with node's local ip
 				}
 				gateways = append(gateways, iprange)

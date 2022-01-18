@@ -39,17 +39,6 @@ func FileExists(f string) bool {
 	return !info.IsDir()
 }
 
-// SetNetworkServerPeers - sets the network server peers of a given node
-func SetNetworkServerPeers(serverNode *models.Node) {
-	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
-		if database.SetPeers(currentPeersList, serverNode.Network) {
-			logger.Log(1, "set new peers on network", serverNode.Network)
-		}
-	} else {
-		logger.Log(1, "could not set peers on network", serverNode.Network, ":", err.Error())
-	}
-}
-
 // DeleteNodeByMacAddress - deletes a node from database or moves into delete nodes table
 func DeleteNodeByMacAddress(node *models.Node, exterminate bool) error {
 	var err error
@@ -343,4 +332,17 @@ func StringSliceContains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// == private ==
+
+// sets the network server peers of a given node
+func setNetworkServerPeers(serverNode *models.Node) {
+	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if database.SetPeers(currentPeersList, serverNode.Network) {
+			logger.Log(1, "set new peers on network", serverNode.Network)
+		}
+	} else {
+		logger.Log(1, "could not set peers on network", serverNode.Network, ":", err.Error())
+	}
 }

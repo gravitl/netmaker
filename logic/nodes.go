@@ -20,21 +20,11 @@ import (
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes = []models.Node{}
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	var nodes, err = GetAllNodes()
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
-		}
-		return nodes, err
+		return []models.Node{}, err
 	}
-	for _, value := range collection {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			continue
-		}
+	for _, node := range nodes {
 		if node.Network == network {
 			nodes = append(nodes, node)
 		}
@@ -88,7 +78,7 @@ func UncordonNode(nodeid string) (models.Node, error) {
 // GetPeers - gets the peers of a given node
 func GetPeers(node *models.Node) ([]models.Node, error) {
 	if IsLeader(node) {
-		SetNetworkServerPeers(node)
+		setNetworkServerPeers(node)
 	}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
