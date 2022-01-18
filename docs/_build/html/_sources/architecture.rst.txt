@@ -182,7 +182,7 @@ The following systems should be operable natively with Netclient in daemon mode:
         - Raspian.
         - Arch
         - CentOS
-        - CoreOS
+        - Fedora CoreOS
 
 To manage DNS (optional), the node must have systemd-resolved. Systems that have this enabled include:
         - Arch
