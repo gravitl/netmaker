@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -68,7 +67,6 @@ func MessageQueue(ctx context.Context, network string) {
 	//client.AddRoute("update/keys/"+cfg.Node.ID, UpdateKeys)
 	defer client.Disconnect(250)
 	go Checkin(ctx, cfg, network)
-	go Metrics(ctx, cfg, network)
 	<-ctx.Done()
 	ncutils.Log("shutting down daemon")
 }
@@ -198,7 +196,7 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 			ncutils.Log("Checkin cancelled")
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * 60):
 			ncutils.Log("Checkin running")
 			//read latest config
 			cfg.ReadConfig()
@@ -272,40 +270,4 @@ func Hello(cfg config.ClientConfig, network string) {
 		ncutils.Log("error publishing ping " + token.Error().Error())
 	}
 	client.Disconnect(250)
-}
-
-// Metics --  go routine that collects wireguard metrics and publishes to broker
-func Metrics(ctx context.Context, cfg config.ClientConfig, network string) {
-	for {
-		select {
-		case <-ctx.Done():
-			ncutils.Log("Metrics collection cancelled")
-			return
-			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
-		case <-time.After(time.Second * 60):
-			ncutils.Log("Metrics collection running")
-			wg, err := wgctrl.New()
-			defer wg.Close()
-			if err != nil {
-				ncutils.Log("error getting devices " + err.Error())
-				break
-			}
-			device, err := wg.Device(cfg.Node.Interface)
-			if err != nil {
-				ncutils.Log("error reading wg device " + err.Error())
-				break
-			}
-			bytes, err := json.Marshal(device.Peers)
-			if err != nil {
-				ncutils.Log("error marshaling peers " + err.Error())
-				break
-			}
-			client := SetupMQTT(cfg)
-			if token := client.Publish("metrics/"+cfg.Node.ID, 1, false, bytes); token.Wait() && token.Error() != nil {
-				ncutils.Log("error publishing metrics " + token.Error().Error())
-			}
-			ncutils.Log("metrics collection complete")
-			client.Disconnect(250)
-		}
-	}
 }
