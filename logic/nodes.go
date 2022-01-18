@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // GetNetworkNodes - gets the nodes of a network
@@ -74,7 +77,7 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	node.SetLastModified()
 	node.IsPending = "no"
 	node.PullChanges = "yes"
-	data, err := json.Marshal(&node)
+ 	data, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
 	}
@@ -83,11 +86,52 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	return node, err
 }
 
-// GetPeers - gets the peers of a given node
-func GetPeers(node *models.Node) ([]models.Node, error) {
-	if IsLeader(node) {
-		SetNetworkServerPeers(node)
+// GetWGNodePeers - gets the wg peers of a given node
+func GetWGNodePeers(node *models.Node) ([]wgtypes.PeerConfig, error){
+	var peers []wgtypes.PeerConfig
+	var peerData wgtypes.PeerConfig
+	nodes, err := GetPeers(node)
+	if err != nil {
+		return peers, err
 	}
+	logger.Log(0, "the peers of " + node.Name + " are:")
+	for _, peer := range nodes {
+		logger.Log(0, "peer: " + peer.Name)
+	}
+	for _, peer := range nodes {
+		//this should not happen but it does
+		if peer.Name == node.Name {
+			logger.Log(0, "GetPeers returned me " + node.Name)
+			continue
+		}
+		pubkey, err :=wgtypes.ParseKey(peer.PublicKey)
+		if err != nil {
+			logger.Log(0, "ParseKey failed " +err.Error())
+			continue
+		}
+		endpoint := peer.Endpoint + ":" + strconv.Itoa(int(peer.ListenPort))
+		address, err := net.ResolveUDPAddr("udp", endpoint)
+		if err != nil  {
+			logger.Log(0, "could not resolve endpoint " + err.Error())
+			continue
+		}
+		///Persitent Keepalive
+		//Allowed IPs
+		peerData = wgtypes.PeerConfig{
+			PublicKey: pubkey,
+			Endpoint: address,
+		}
+		peers = append (peers, peerData)
+	}
+	return peers, nil
+}
+
+// GetPeers - gets a list of nodes that are peers of a given node
+func GetPeers(node *models.Node) ([]models.Node, error) {
+	//if IsLeader(node) {
+	//	logger.Log(0, node.Name + " is a leader")
+	//	SetNetworkServerPeers(node)
+	//}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
 	if node.IsRelayed == "yes" {

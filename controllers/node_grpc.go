@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -84,6 +85,10 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	err = logic.SetNetworkNodesLastModified(node.Network)
 	if err != nil {
 		return nil, err
+	}
+	// notify other nodes on network of new peer
+	if err := mq.NewPeer(node); err != nil {
+		logger.Log(0, "failed to inform peers of new node "+err.Error())
 	}
 
 	return response, nil
