@@ -7,13 +7,25 @@ import (
 	"github.com/gravitl/netmaker/serverctl"
 )
 
-func runServerUpdateIfNeeded(currentNode *models.Node, newNode *models.Node) error {
-	// check if a peer/server update is needed
-	var serverData = serverctl.ServerUpdateData{
-		UpdatePeers: logic.ShouldPeersUpdate(currentNode, newNode),
+func runServerPeerUpdate() error {
+	var serverData = models.ServerUpdateData{
+		UpdatePeers: true,
 	}
-	if currentNode.IsServer == "yes" {
-		serverData.ServerNode = *currentNode
+	serverctl.Push(serverData)
+	var settings, err = serverctl.Pop()
+	if err != nil {
+		return err
+	}
+	return handlePeerUpdate(&settings.ServerNode)
+}
+
+func runServerUpdateIfNeeded(shouldPeersUpdate bool, serverNode *models.Node) error {
+	// check if a peer/server update is needed
+	var serverData = models.ServerUpdateData{
+		UpdatePeers: shouldPeersUpdate,
+	}
+	if serverNode.IsServer == "yes" {
+		serverData.ServerNode = *serverNode
 	}
 	serverctl.Push(serverData)
 

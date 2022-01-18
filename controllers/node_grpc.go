@@ -86,6 +86,11 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
+	err = runServerPeerUpdate()
+	if err != nil {
+		logger.Log(1, "internal error when setting peers after node,", node.ID, "was created (gRPC)")
+	}
+
 	return response, nil
 }
 
@@ -106,6 +111,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		newnode.PostDown = node.PostDown
 		newnode.PostUp = node.PostUp
 	}
+	var shouldPeersUpdate = logic.ShouldPeersUpdate(&node, &newnode)
 
 	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {
@@ -118,6 +124,10 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	nodeData, errN := json.Marshal(&newnode)
 	if errN != nil {
 		return nil, err
+	}
+	err = runServerUpdateIfNeeded(shouldPeersUpdate, &models.Node{})
+	if err != nil {
+		logger.Log(1, "could not update peers on gRPC after node,", newnode.ID, "updated (gRPC)")
 	}
 	return &nodepb.Object{
 		Data: string(nodeData),
@@ -138,6 +148,11 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
+	err = runServerPeerUpdate()
+	if err != nil {
+		logger.Log(1, "internal error when setting peers after deleting node:", node.ID, "over gRPC")
+	}
+
 	return &nodepb.Object{
 		Data: "success",
 		Type: nodepb.STRING_TYPE,
@@ -152,9 +167,6 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		return nil, err
 	}
 
-	if node.IsServer == "yes" && logic.IsLeader(&node) {
-		logic.SetNetworkServerPeers(&node)
-	}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
 	if node.IsRelayed == "yes" {

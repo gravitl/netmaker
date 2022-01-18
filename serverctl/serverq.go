@@ -7,30 +7,23 @@ import (
 )
 
 // ServerQueue - holds data to be updated across the server
-var ServerQueue chan ServerUpdateData
+var ServerQueue chan models.ServerUpdateData
 
 func init() {
-	ServerQueue = make(chan ServerUpdateData, 100)
-}
-
-// ServerUpdateData - contains data to configure server
-// and if it should set peers
-type ServerUpdateData struct {
-	UpdatePeers bool        `json:"updatepeers" bson:"updatepeers"`
-	ServerNode  models.Node `json:"servernode" bson:"servernode"`
+	ServerQueue = make(chan models.ServerUpdateData, 100)
 }
 
 // Push - Pushes ServerUpdateData to be used later
-func Push(serverData ServerUpdateData) {
+func Push(serverData models.ServerUpdateData) {
 	ServerQueue <- serverData
 }
 
 // Pop - fetches first available data from queue
-func Pop() (ServerUpdateData, error) {
+func Pop() (models.ServerUpdateData, error) {
 	select {
 	case serverData := <-ServerQueue:
 		return serverData, nil
 	default:
-		return ServerUpdateData{}, fmt.Errorf("empty server queue")
+		return models.ServerUpdateData{}, fmt.Errorf("empty server queue")
 	}
 }
