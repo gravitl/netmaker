@@ -208,10 +208,6 @@ func runMessageQueue(wg *sync.WaitGroup) {
 		client.Disconnect(240)
 		logger.Log(0, "ping sub failed")
 	}
-	if token := client.Subscribe("metrics/#", 0, mq.Metrics); token.Wait() && token.Error() != nil {
-		client.Disconnect(240)
-		logger.Log(0, "metrics sub failed")
-	}
 	if token := client.Subscribe("update/localaddress/#", 0, mq.LocalAddressUpdate); token.Wait() && token.Error() != nil {
 		client.Disconnect(240)
 		logger.Log(0, "metrics sub failed")
