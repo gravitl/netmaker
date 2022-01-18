@@ -20,13 +20,11 @@ func runServerPeerUpdate() error {
 	return handlePeerUpdate(&settings.ServerNode)
 }
 
-func runServerUpdateIfNeeded(shouldPeersUpdate bool, serverNode *models.Node) error {
+func runServerUpdateIfNeeded(shouldPeersUpdate bool, serverNode models.Node) error {
 	// check if a peer/server update is needed
 	var serverData = models.ServerUpdateData{
 		UpdatePeers: shouldPeersUpdate,
-	}
-	if serverNode.IsServer == "yes" {
-		serverData.ServerNode = *serverNode
+		ServerNode:  serverNode,
 	}
 	serverctl.Push(serverData)
 

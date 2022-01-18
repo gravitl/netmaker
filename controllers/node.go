@@ -565,7 +565,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		err = logic.SetDNS()
 	}
 
-	err = runServerUpdateIfNeeded(shouldPeersUpdate, &newNode)
+	err = runServerUpdateIfNeeded(shouldPeersUpdate, newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
