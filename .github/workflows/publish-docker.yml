@@ -18,10 +18,10 @@ jobs:
         run: |
             if [[ -n "${{ github.event.inputs.tag }}" ]]; then
               TAG=${{ github.event.inputs.tag }}
-            elif [[ "${{ github.base_ref }}" == 'master' ]]; then
+            elif [[ "${{ github.ref_name }}" == 'master' ]]; then
               TAG="latest"
             else
-              TAG="${{ github.base_ref }}"
+              TAG="${{ github.ref_name }}"
             fi
             echo "TAG=${TAG}" >> $GITHUB_ENV
       - 
