@@ -161,5 +161,5 @@ type RelayRequest struct {
 // and if it should set peers
 type ServerUpdateData struct {
 	UpdatePeers bool `json:"updatepeers" bson:"updatepeers"`
-	ServerNode  Node `json:"servernode" bson:"servernode"`
+	Node        Node `json:"servernode" bson:"servernode"`
 }
