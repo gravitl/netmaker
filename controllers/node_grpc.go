@@ -127,7 +127,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	}
 	err = runServerUpdateIfNeeded(shouldPeersUpdate, &models.Node{})
 	if err != nil {
-		logger.Log(1, "could not update peers on gRPC after node,", newnode.ID, "updated (gRPC)")
+		logger.Log(1, "could not update peers on gRPC after node,", newnode.ID, "updated (gRPC), \nerror:", err.Error())
 	}
 	return &nodepb.Object{
 		Data: string(nodeData),

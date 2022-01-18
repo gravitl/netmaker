@@ -565,6 +565,7 @@ func GetNetworkServerNodeID(network string) (string, error) {
 		return "", err
 	}
 	for _, node := range nodes {
+		logger.Log(3, "looking for server node, current node:", node.Name, ",", node.ID, ",", servercfg.GetNodeID(), ",", node.MacAddress)
 		if node.IsServer == "yes" {
 			if servercfg.GetNodeID() != "" {
 				if servercfg.GetNodeID() == node.MacAddress {
