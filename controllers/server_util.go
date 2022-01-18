@@ -14,6 +14,7 @@ func runServerPeerUpdate() error {
 	serverctl.Push(serverData)
 	var settings, err = serverctl.Pop()
 	if err != nil {
+		logger.Log(1, "error during pop,", err.Error())
 		return err
 	}
 	return handlePeerUpdate(&settings.ServerNode)
@@ -50,15 +51,10 @@ func handleServerUpdate() error {
 	}
 	// if peers should update, update peers on network
 	if settings.UpdatePeers {
-		var currentServerNode, err = logic.GetNodeByID(currentServerNodeID)
-		if err != nil {
+		if err = handlePeerUpdate(&settings.ServerNode); err != nil {
 			return err
 		}
-
-		if err = handlePeerUpdate(&currentServerNode); err != nil {
-			return err
-		}
-		logger.Log(1, "updated peers on network:", currentServerNode.Network)
+		logger.Log(1, "updated peers on network:", settings.ServerNode.Network)
 	}
 	// if the server node had an update, run the update function
 	if settings.ServerNode.ID == currentServerNodeID {
@@ -71,8 +67,17 @@ func handleServerUpdate() error {
 }
 
 // tells server to update it's peers
-func handlePeerUpdate(serverNode *models.Node) error {
-	logger.Log(1, "updating peers on network:", serverNode.Network)
-	logic.SetNetworkServerPeers(serverNode)
+func handlePeerUpdate(node *models.Node) error {
+	logger.Log(1, "updating peers on network:", node.Network)
+	var currentServerNodeID, err = logic.GetNetworkServerNodeID(node.Network)
+	if err != nil {
+		return err
+	}
+	var currentServerNode, currErr = logic.GetNodeByID(currentServerNodeID)
+	if currErr != nil {
+		return currErr
+	}
+	logic.SetNetworkServerPeers(&currentServerNode)
+	logger.Log(1, "finished a peer update for network,", currentServerNode.Network)
 	return nil
 }
