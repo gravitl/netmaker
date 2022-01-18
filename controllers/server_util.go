@@ -43,14 +43,22 @@ func handleServerUpdate() error {
 	}
 	// ensure server client is available
 	if settings.UpdatePeers || (settings.ServerNode.ID == currentServerNodeID) {
-		serverctl.SyncServerNetwork(&settings.ServerNode)
+		err = serverctl.SyncServerNetwork(&settings.ServerNode)
+		if err != nil {
+			logger.Log(1, "failed to sync,", settings.ServerNode.Network, ", error:", err.Error())
+		}
 	}
 	// if peers should update, update peers on network
 	if settings.UpdatePeers {
-		if err = handlePeerUpdate(&settings.ServerNode); err != nil {
+		var currentServerNode, err = logic.GetNodeByID(currentServerNodeID)
+		if err != nil {
 			return err
 		}
-		logger.Log(1, "updated peers on network:", settings.ServerNode.Network)
+
+		if err = handlePeerUpdate(&currentServerNode); err != nil {
+			return err
+		}
+		logger.Log(1, "updated peers on network:", currentServerNode.Network)
 	}
 	// if the server node had an update, run the update function
 	if settings.ServerNode.ID == currentServerNodeID {
