@@ -90,6 +90,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		logger.Log(1, "internal error when setting peers after node,", node.ID, "was created (gRPC)")
 	}
+	logger.Log(0, "new node,", node.Name, ", added on network,"+node.Network)
 
 	return response, nil
 }
