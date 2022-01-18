@@ -156,3 +156,10 @@ type RelayRequest struct {
 	NetID      string   `json:"netid" bson:"netid"`
 	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
 }
+
+// ServerUpdateData - contains data to configure server
+// and if it should set peers
+type ServerUpdateData struct {
+	UpdatePeers bool `json:"updatepeers" bson:"updatepeers"`
+	Node        Node `json:"servernode" bson:"servernode"`
+}

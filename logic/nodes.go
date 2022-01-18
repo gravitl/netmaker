@@ -9,30 +9,22 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes = []models.Node{}
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	var nodes, err = GetAllNodes()
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
-		}
-		return nodes, err
+		return []models.Node{}, err
 	}
-	for _, value := range collection {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			continue
-		}
+	for _, node := range nodes {
 		if node.Network == network {
 			nodes = append(nodes, node)
 		}
@@ -86,7 +78,7 @@ func UncordonNode(nodeid string) (models.Node, error) {
 // GetPeers - gets the peers of a given node
 func GetPeers(node *models.Node) ([]models.Node, error) {
 	if IsLeader(node) {
-		SetNetworkServerPeers(node)
+		setNetworkServerPeers(node)
 	}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
@@ -164,6 +156,128 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 	err := v.Struct(node)
 
 	return err
+}
+
+// CreateNode - creates a node in database
+func CreateNode(node *models.Node) error {
+
+	//encrypt that password so we never see it
+	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
+	if err != nil {
+		return err
+	}
+	//set password to encrypted password
+	node.Password = string(hash)
+	if node.Name == models.NODE_SERVER_NAME {
+		node.IsServer = "yes"
+	}
+	if node.DNSOn == "" {
+		if servercfg.IsDNSMode() {
+			node.DNSOn = "yes"
+		} else {
+			node.DNSOn = "no"
+		}
+	}
+	SetNodeDefaults(node)
+	node.Address, err = UniqueAddress(node.Network)
+	if err != nil {
+		return err
+	}
+	node.Address6, err = UniqueAddress6(node.Network)
+	if err != nil {
+		return err
+	}
+
+	// TODO: This covers legacy nodes, eventually want to remove legacy check
+	if node.IsServer == "yes" {
+		node.ID = uuid.NewString()
+	} else if node.IsServer != "yes" || (node.ID == "" || strings.Contains(node.ID, "###")) {
+		node.ID = uuid.NewString()
+	}
+
+	//Create a JWT for the node
+	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
+	if tokenString == "" {
+		//returnErrorResponse(w, r, errorResponse)
+		return err
+	}
+	err = ValidateNode(node, false)
+	if err != nil {
+		return err
+	}
+
+	nodebytes, err := json.Marshal(&node)
+	if err != nil {
+		return err
+	}
+	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	if node.IsPending != "yes" {
+		DecrimentKey(node.Network, node.AccessKey)
+	}
+	SetNetworkNodesLastModified(node.Network)
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
+	return err
+}
+
+// ShouldPeersUpdate - takes old node and sees if certain fields changing would trigger a peer update
+func ShouldPeersUpdate(currentNode *models.Node, newNode *models.Node) bool {
+	SetNodeDefaults(newNode)
+	// single comparison statements
+	if newNode.Endpoint != currentNode.Endpoint ||
+		newNode.LocalAddress != currentNode.LocalAddress ||
+		newNode.PublicKey != currentNode.PublicKey ||
+		newNode.Address != currentNode.Address ||
+		newNode.IsEgressGateway != currentNode.IsEgressGateway ||
+		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
+		newNode.IsRelay != currentNode.IsRelay ||
+		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
+		newNode.IsPending != currentNode.IsPending ||
+		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
+		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
+		return true
+	}
+
+	// multi-comparison statements
+	if newNode.IsDualStack == "yes" {
+		if newNode.Address6 != currentNode.Address6 {
+			return true
+		}
+	}
+
+	if newNode.IsEgressGateway == "yes" {
+		if len(currentNode.EgressGatewayRanges) != len(newNode.EgressGatewayRanges) {
+			return true
+		}
+		for _, address := range newNode.EgressGatewayRanges {
+			if !StringSliceContains(currentNode.EgressGatewayRanges, address) {
+				return true
+			}
+		}
+	}
+
+	if newNode.IsRelay == "yes" {
+		if len(currentNode.RelayAddrs) != len(newNode.RelayAddrs) {
+			return true
+		}
+		for _, address := range newNode.RelayAddrs {
+			if !StringSliceContains(currentNode.RelayAddrs, address) {
+				return true
+			}
+		}
+	}
+
+	for _, address := range newNode.AllowedIPs {
+		if !StringSliceContains(currentNode.AllowedIPs, address) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetAllNodes - returns all nodes in the DB

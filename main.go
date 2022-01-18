@@ -9,7 +9,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/gravitl/netmaker/auth"
 	controller "github.com/gravitl/netmaker/controllers"
@@ -110,23 +109,7 @@ func startControllers() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
 	}
 
-	if servercfg.IsClientMode() == "on" {
-		var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
-		for { // best effort currently
-			var serverGroup sync.WaitGroup
-			serverGroup.Add(1)
-			go runClient(&serverGroup)
-			serverGroup.Wait()
-			time.Sleep(checkintime)
-		}
-	}
-
 	waitnetwork.Wait()
-}
-
-func runClient(wg *sync.WaitGroup) {
-	defer wg.Done()
-	go serverctl.HandleContainedClient()
 }
 
 func runGRPC(wg *sync.WaitGroup) {

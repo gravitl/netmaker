@@ -26,6 +26,9 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	if err = runServerPeerUpdate(relay.NetID, true); err != nil {
+		logger.Log(1, "internal error when creating relay on node:", relay.NodeID)
+	}
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -40,6 +43,9 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if err = runServerPeerUpdate(netid, true); err != nil {
+		logger.Log(1, "internal error when deleting relay on node:", nodeid)
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
