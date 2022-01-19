@@ -142,6 +142,10 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
+	// notify other nodes on network of deleted peer
+	if err := mq.NewPeer(node); err != nil {
+		logger.Log(0, "failed to inform peers of deleted node "+err.Error())
+	}
 
 	return &nodepb.Object{
 		Data: "success",
