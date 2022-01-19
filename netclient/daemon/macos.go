@@ -19,8 +19,8 @@ func SetupMacDaemon(interval string) error {
 	}
 	binarypath := dir + "/netclient"
 
-	if !ncutils.FileExists("/etc/netclient/netclient") {
-		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
+	if !ncutils.FileExists("/sbin/netclient") {
+		err = ncutils.Copy(binarypath, "/sbin/netclient")
 		if err != nil {
 			log.Println(err)
 			return err
@@ -49,6 +49,7 @@ func CleanupMac() {
 	}
 
 	os.RemoveAll(ncutils.GetNetclientPath())
+	os.Remove("/sbin/netclient")
 }
 
 func CreateMacService(servicename string, interval string) error {
@@ -76,10 +77,8 @@ func MacDaemonString(interval string) string {
 	<key>Label</key><string>com.gravitl.netclient</string>
 	<key>ProgramArguments</key>
 		<array>
-			<string>/etc/netclient/netclient</string>
-			<string>checkin</string>
-			<string>-n</string>
-			<string>all</string>
+			<string>/sbin/netclient</string>
+			<string>daemon</string>
 		</array>
 	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
 	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
