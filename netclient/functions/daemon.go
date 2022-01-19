@@ -154,13 +154,6 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			return
 		}
 		ncutils.Log("update peer handler")
-		ncutils.Log("recieved " + string(len(peerUpdate.Peers)) + "peers to update")
-		ncutils.Log(string(msg.Payload()))
-		ncutils.Log(peerUpdate.Network)
-		for _, peer := range peerUpdate.Peers {
-			key := peer.PublicKey.String()
-			ncutils.Log(key)
-		}
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
