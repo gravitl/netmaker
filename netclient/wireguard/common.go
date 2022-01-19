@@ -361,7 +361,6 @@ func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
 	//delete the peers sections as they are going to be replaced
 	wireguard.DeleteSection(section_peers)
 	for i, peer := range peers {
-		ncutils.Log("adding peer section for peer #: " + string(i) + peer.PublicKey.String())
 		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
 		//if peer.PresharedKey.String() != "" {
 		//wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
