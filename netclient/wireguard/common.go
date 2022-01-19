@@ -318,8 +318,12 @@ func WriteWgConfig(cfg config.ClientConfig, privateKey string, peers []wgtypes.P
 		}
 		if peer.AllowedIPs != nil {
 			var allowedIPs string
-			for _, ip := range peer.AllowedIPs {
-				allowedIPs = allowedIPs + ", " + ip.String()
+			for i, ip := range peer.AllowedIPs {
+				if i == 0 {
+					allowedIPs = ip.String()
+				} else {
+					allowedIPs = allowedIPs + ", " + ip.String()
+				}
 			}
 			wireguard.SectionWithIndex(section_peers, i).Key("AllowedIps").SetValue(allowedIPs)
 		}
@@ -335,21 +339,27 @@ func WriteWgConfig(cfg config.ClientConfig, privateKey string, peers []wgtypes.P
 
 // UpdateWgPeers - updates the peers of a network
 func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
-	//update to get path properly
 	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
+	ncutils.Log("updating " + file)
 	wireguard, err := ini.ShadowLoad(file)
 	if err != nil {
 		return err
 	}
+	//delete the peers sections as they are going to be replaced
+	wireguard.DeleteSection(section_peers)
 	for i, peer := range peers {
 		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
-		if peer.PresharedKey.String() != "" {
-			wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
-		}
+		//if peer.PresharedKey.String() != "" {
+		//wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
+		//}
 		if peer.AllowedIPs != nil {
 			var allowedIPs string
-			for _, ip := range peer.AllowedIPs {
-				allowedIPs = allowedIPs + ", " + ip.String()
+			for i, ip := range peer.AllowedIPs {
+				if i == 0 {
+					allowedIPs = ip.String()
+				} else {
+					allowedIPs = allowedIPs + ", " + ip.String()
+				}
 			}
 			wireguard.SectionWithIndex(section_peers, i).Key("AllowedIps").SetValue(allowedIPs)
 		}

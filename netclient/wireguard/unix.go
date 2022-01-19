@@ -53,8 +53,19 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 
 // ApplyWGQuickConf - applies wg-quick commands if os supports
 func ApplyWGQuickConf(confPath string) error {
-	_, _ = ncutils.RunCmd("wg-quick down "+confPath, false)
-	_, err := ncutils.RunCmd("wg-quick up "+confPath, false)
+	_, err := os.Stat(confPath)
+	if err != nil {
+		ncutils.Log(confPath + " does not exist " + err.Error())
+		return err
+	}
+	_, err = ncutils.RunCmd("wg-quick down "+confPath, false)
+	if err != nil {
+		ncutils.Log("err runing wg-quick down " + confPath + err.Error())
+	}
+	_, err = ncutils.RunCmd("wg-quick up "+confPath, false)
+	if err != nil {
+		ncutils.Log("err runing wg-quick up " + confPath + err.Error())
+	}
 	return err
 }
 
