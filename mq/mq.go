@@ -266,6 +266,9 @@ var LocalAddressUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.M
 		}
 		node.LocalAddress = string(msg.Payload())
 		node.SetLastCheckIn()
+		if err := logic.UpdateNode(&node, &node); err != nil {
+			logger.Log(0, "error updating node "+err.Error())
+		}
 		if err := UpdatePeers(client, node); err != nil {
 			logger.Log(0, "error updating peers "+err.Error())
 		}
