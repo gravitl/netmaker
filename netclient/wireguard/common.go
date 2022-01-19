@@ -348,15 +348,20 @@ func WriteWgConfig(cfg config.ClientConfig, privateKey string, peers []wgtypes.P
 
 // UpdateWgPeers - updates the peers of a network
 func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
+	options := ini.LoadOptions{
+		AllowNonUniqueSections: true,
+		AllowShadows:           true,
+	}
 	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
 	ncutils.Log("updating " + file)
-	wireguard, err := ini.ShadowLoad(file)
+	wireguard, err := ini.LoadSources(options, file)
 	if err != nil {
 		return err
 	}
 	//delete the peers sections as they are going to be replaced
 	wireguard.DeleteSection(section_peers)
 	for i, peer := range peers {
+		ncutils.Log("adding peer section for peer #: " + string(i) + peer.PublicKey.String())
 		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
 		//if peer.PresharedKey.String() != "" {
 		//wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
