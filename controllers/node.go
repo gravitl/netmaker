@@ -570,7 +570,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "updated node", node.MacAddress, "on network", node.Network)
+	logger.Log(1, r.Header.Get("user"), "updated node", node.ID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 }

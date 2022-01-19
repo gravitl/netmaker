@@ -82,7 +82,6 @@ func grpcAuthorize(ctx context.Context) error {
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "Unauthorized. Network does not exist: "+network)
 	}
-	emptynode := models.Node{}
 	node, err := logic.GetNodeByIDorMacAddress(nodeID, mac, network)
 	if database.IsEmptyRecord(err) {
 		// == DELETE replace logic after 2 major version updates ==
@@ -94,7 +93,7 @@ func grpcAuthorize(ctx context.Context) error {
 		}
 		return status.Errorf(codes.Unauthenticated, "Empty record")
 	}
-	if err != nil || node.MacAddress == emptynode.MacAddress {
+	if err != nil || node.ID == "" {
 		return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 	}
 
