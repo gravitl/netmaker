@@ -61,8 +61,16 @@ func MessageQueue(ctx context.Context, network string) {
 	if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
-	client.AddRoute("update/"+cfg.Node.ID, NodeUpdate)
-	client.AddRoute("update/peers/"+cfg.Node.ID, UpdatePeers)
+	if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
+		log.Fatal(token.Error())
+	}
+	if token := client.Subscribe("/update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+		log.Fatal(token.Error())
+	}
+
+	//addroute doesn't seem to work consistently
+	//client.AddRoute("update/"+cfg.Node.ID, NodeUpdate)
+	//client.AddRoute("update/peers/"+cfg.Node.ID, UpdatePeers)
 	//handle key updates in node update
 	//client.AddRoute("update/keys/"+cfg.Node.ID, UpdateKeys)
 	defer client.Disconnect(250)
@@ -73,8 +81,9 @@ func MessageQueue(ctx context.Context, network string) {
 
 // All -- mqtt message hander for all ('#') topics
 var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+	ncutils.Log("default message handler -- received message but not handling")
 	ncutils.Log("Topic: " + string(msg.Topic()))
-	ncutils.Log("Message: " + string(msg.Payload()))
+	//ncutils.Log("Message: " + string(msg.Payload()))
 }
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
@@ -137,13 +146,20 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 
 // UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
 var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	ncutils.Log("received message to update peers " + string(msg.Payload()))
 	go func() {
 		var peerUpdate models.PeerUpdate
 		err := json.Unmarshal(msg.Payload(), &peerUpdate)
 		if err != nil {
 			ncutils.Log("error unmarshalling peer data")
 			return
+		}
+		ncutils.Log("update peer handler")
+		ncutils.Log("recieved " + string(len(peerUpdate.Peers)) + "peers to update")
+		ncutils.Log(string(msg.Payload()))
+		ncutils.Log(peerUpdate.Network)
+		for _, peer := range peerUpdate.Peers {
+			key := peer.PublicKey.String()
+			ncutils.Log(key)
 		}
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
@@ -153,8 +169,9 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			ncutils.Log("error updating wireguard peers" + err.Error())
 			return
 		}
-		// path hardcoded for now... should be updated
-		err = wireguard.ApplyWGQuickConf("/etc/netclient/config/" + cfg.Node.Interface + ".conf")
+		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+		ncutils.Log("applyWGQuickConf to " + file)
+		err = wireguard.ApplyWGQuickConf(file)
 		if err != nil {
 			ncutils.Log("error restarting wg after peer update " + err.Error())
 			return
