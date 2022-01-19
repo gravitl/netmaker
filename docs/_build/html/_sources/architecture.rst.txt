@@ -21,7 +21,7 @@ WireGuard
 
 WireGuard is a relatively new but very important technology which was recently added to the Linux kernel. WireGuard creates very fast but simple encrypted tunnels between devices. From the `WireGuard <https://www.wireguard.com/>`_ website, "it might be regarded as the most secure, easiest to use, and simplest VPN solution in the industry."
 
-Previous solutions like OpenVPN and IPSec are considerably more heavy and complex, while being less performant. All existing VPN tunnelling solutions will cause a significant increase in your network latency. WireGuard is the first to achieve near over-the-line network speeds, meaning you see no signigifant performance impact.  With the release of WireGuard, there is little reason to use any other existing tunnel encryption technology.
+Previous solutions like OpenVPN and IPSec are considerably more heavy and complex, while being less performant. All existing VPN tunneling solutions will cause a significant increase in your network latency. WireGuard is the first to achieve near over-the-line network speeds, meaning you see no significant performance impact.  With the release of WireGuard, there is little reason to use any other existing tunnel encryption technology.
 
 Mesh Network
 -------------
@@ -56,7 +56,7 @@ Netmaker does a lot of work to set configurations for you, so that you don't hav
 Node
 ------
 
-A machine in a Netmaker network, which is managed by the Netclient, is referred to as a Node, as you will see in the UI. A Node can be a VM, a bare metal server, a desktop computer, an IoT device, or any other number of internet-connected machines on which the netclient is installed. A node is simply an endpoint in the network, which can send traffic to all the other nodes, and recieve traffic from all of the other nodes.
+A machine in a Netmaker network, which is managed by the Netclient, is referred to as a Node, as you will see in the UI. A Node can be a VM, a bare metal server, a desktop computer, an IoT device, or any other number of internet-connected machines on which the netclient is installed. A node is simply an endpoint in the network, which can send traffic to all the other nodes, and receive traffic from all of the other nodes.
 
 SystemD
 -------
@@ -107,7 +107,7 @@ The check in process is what allows Netmaker to create dynamic mesh networks. As
 Database (sqlite, rqlite, postgres)
 -------------------------------------
 
-As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) databaseand. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
+As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) database. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users. 
 
 Additional database support (besides sqlite and rqlite) is very easy to implement for special use cases. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.
 
@@ -153,7 +153,7 @@ Below is a high level, step-by-step overview of the flow of communications withi
 9. Netmaker server verifies information and creates the node, setting default values for any missing information. 
 10. Timestamp is set for the network (see #16). 
 11. Netmaker returns settings as response to netclient. Some settings may be added or modified based on the network.
-12. Netclient recieves response. If successful, it takes any additional info returned from Netmaker and configures the local system/WireGuard
+12. Netclient receives response. If successful, it takes any additional info returned from Netmaker and configures the local system/WireGuard
 13. Netclient sends another request to Netmaker's GRPC server, this time to retrieve the peers list (all other clients in the network).
 14. Netmaker sends back peers list, including current known configurations of all nodes in network.
 15. Netclient configures WireGuard with this information. At this point, the node is fully configured as a part of the network and should be able to reach the other nodes via private address.

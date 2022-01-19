@@ -227,7 +227,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	if servercfg.IsClientMode() != "off" {
 		var success bool
-		success, err = serverctl.AddNetwork(network.NetID)
+		success, err = serverctl.AddNetwork(&network)
 		if err != nil || !success {
 			logic.DeleteNetwork(network.NetID)
 			if err == nil {

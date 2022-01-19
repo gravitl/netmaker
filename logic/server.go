@@ -26,9 +26,9 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
-func ServerJoin(network string, serverID string, privateKey string) error {
+func ServerJoin(networkSettings *models.Network, serverID string) error {
 
-	if network == "" {
+	if networkSettings == nil || networkSettings.NetID == "" {
 		return errors.New("no network provided")
 	}
 
@@ -40,6 +40,8 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		Name:         models.NODE_SERVER_NAME,
 		MacAddress:   serverID,
 		UDPHolePunch: "no",
+		IsLocal:      networkSettings.IsLocal,
+		LocalRange:   networkSettings.LocalRange,
 	}
 	SetNodeDefaults(node)
 
@@ -49,8 +51,12 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 	}
 
 	if node.LocalRange != "" && node.LocalAddress == "" {
-		logger.Log(1, "local vpn, getting local address from range:", node.LocalRange)
-		node.LocalAddress = GetLocalIP(*node)
+		logger.Log(1, "local vpn, getting local address from range:", networkSettings.LocalRange)
+		node.LocalAddress, err = getServerLocalIP(networkSettings)
+		if err != nil {
+			node.LocalAddress = ""
+			node.IsLocal = "no"
+		}
 	}
 
 	if node.Endpoint == "" {
@@ -65,6 +71,8 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		}
 	}
 
+	var privateKey = ""
+
 	// Generate and set public/private WireGuard Keys
 	if privateKey == "" {
 		wgPrivatekey, err := wgtypes.GeneratePrivateKey()
@@ -76,7 +84,7 @@ func ServerJoin(network string, serverID string, privateKey string) error {
 		node.PublicKey = wgPrivatekey.PublicKey().String()
 	}
 
-	node.Network = network
+	node.Network = networkSettings.NetID
 
 	logger.Log(2, "adding a server instance on network", node.Network)
 	err = CreateNode(node)
@@ -420,4 +428,26 @@ func checkNodeActions(node *models.Node) string {
 		return models.NODE_DELETE
 	}
 	return ""
+}
+
+func getServerLocalIP(networkSettings *models.Network) (string, error) {
+
+	var networkCIDR = networkSettings.LocalRange
+	var currentAddresses, _ = net.InterfaceAddrs()
+	var _, currentCIDR, cidrErr = net.ParseCIDR(networkCIDR)
+	if cidrErr != nil {
+		logger.Log(1, "error on server local IP, invalid CIDR provided:", networkCIDR)
+		return "", cidrErr
+	}
+	for _, addr := range currentAddresses {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			continue
+		}
+		if currentCIDR.Contains(ip) {
+			logger.Log(1, "found local ip on network,", networkSettings.NetID, ", set to", ip.String())
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("could not find a local ip for server")
 }
