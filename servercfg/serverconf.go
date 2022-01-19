@@ -310,20 +310,11 @@ func IsAgentBackend() bool {
 // IsClientMode - checks if it should run in client mode
 func IsClientMode() string {
 	isclient := "on"
-	if os.Getenv("CLIENT_MODE") != "" {
-		if os.Getenv("CLIENT_MODE") == "off" {
-			isclient = "off"
-		}
-		if os.Getenv("CLIENT_MODE") == "contained" {
-			isclient = "contained"
-		}
-	} else if config.Config.Server.ClientMode != "" {
-		if config.Config.Server.ClientMode == "off" {
-			isclient = "off"
-		}
-		if config.Config.Server.ClientMode == "contained" {
-			isclient = "contained"
-		}
+	if os.Getenv("CLIENT_MODE") == "off" {
+		isclient = "off"
+	}
+	if config.Config.Server.ClientMode == "off" {
+		isclient = "off"
 	}
 	return isclient
 }

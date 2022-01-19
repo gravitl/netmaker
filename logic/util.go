@@ -4,7 +4,9 @@ package logic
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -37,6 +39,29 @@ func FileExists(f string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+// IsAddressInCIDR - util to see if an address is in a cidr or not
+func IsAddressInCIDR(address, cidr string) bool {
+	var _, currentCIDR, cidrErr = net.ParseCIDR(cidr)
+	if cidrErr != nil {
+		return false
+	}
+	var addrParts = strings.Split(address, ".")
+	var addrPartLength = len(addrParts)
+	if addrPartLength != 4 {
+		return false
+	} else {
+		if addrParts[addrPartLength-1] == "0" ||
+			addrParts[addrPartLength-1] == "255" {
+			return false
+		}
+	}
+	ip, _, err := net.ParseCIDR(fmt.Sprintf("%s/32", address))
+	if err != nil {
+		return false
+	}
+	return currentCIDR.Contains(ip)
 }
 
 // DeleteNodeByMacAddress - deletes a node from database or moves into delete nodes table

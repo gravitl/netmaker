@@ -111,6 +111,13 @@ func IsLeader(node *models.Node) bool {
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
+	if newNode.Address != currentNode.Address {
+		if network, err := GetParentNetwork(newNode.Network); err == nil {
+			if !IsAddressInCIDR(newNode.Address, network.AddressRange) {
+				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
+			}
+		}
+	}
 	newNode.Fill(currentNode)
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
