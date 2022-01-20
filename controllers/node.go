@@ -186,7 +186,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				r.Header.Set("ismasterkey", "yes")
 			}
 			if !isadmin && params["network"] != "" {
-				if functions.SliceContains(networks, params["network"]) {
+				if logic.StringSliceContains(networks, params["network"]) {
 					isnetadmin = true
 				}
 			}

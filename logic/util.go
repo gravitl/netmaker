@@ -33,7 +33,7 @@ func CheckEndpoint(endpoint string) bool {
 
 // SetNetworkServerPeers - sets the network server peers of a given node
 func SetNetworkServerPeers(node *models.Node) {
-	if currentPeersList, err := GetSystemPeers(node); err == nil {
+	if currentPeersList, err := getSystemPeers(node); err == nil {
 		if database.SetPeers(currentPeersList, node.Network) {
 			logger.Log(1, "set new peers on network", node.Network)
 		}

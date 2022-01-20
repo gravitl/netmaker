@@ -71,6 +71,7 @@ type ServerConfig struct {
 	FrontendURL           string `yaml:"frontendurl"`
 	DisplayKeys           string `yaml:"displaykeys"`
 	AzureTenant           string `yaml:"azuretenant"`
+	RCE                   string `yaml:"rce"`
 }
 
 // SQLConfig - Generic SQL Config

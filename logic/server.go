@@ -26,7 +26,7 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
-func ServerJoin(networkSettings *models.Network, serverID string) error {
+func ServerJoin(networkSettings *models.Network) error {
 
 	if networkSettings == nil || networkSettings.NetID == "" {
 		return errors.New("no network provided")
