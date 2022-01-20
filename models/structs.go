@@ -163,3 +163,9 @@ type ServerUpdateData struct {
 	UpdatePeers bool `json:"updatepeers" bson:"updatepeers"`
 	Node        Node `json:"servernode" bson:"servernode"`
 }
+
+// ServerUUID - contains UUID of the server
+type Telemetry struct {
+	UUID     string `json:"uuid" bson:"uuid"`
+	LastSend int64  `json:"lastsend" bson:"lastsend"`
+}

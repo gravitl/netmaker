@@ -3,9 +3,12 @@ package database
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -35,6 +38,12 @@ const PEERS_TABLE_NAME = "peers"
 
 // SERVERCONF_TABLE_NAME
 const SERVERCONF_TABLE_NAME = "serverconf"
+
+// SERVER_UUID_TABLE_NAME
+const SERVER_UUID_TABLE_NAME = "serveruuid"
+
+// SERVER_UUID_RECORD_KEY
+const SERVER_UUID_RECORD_KEY = "serveruuid"
 
 // DATABASE_FILENAME - database file name
 const DATABASE_FILENAME = "netmaker.db"
@@ -118,6 +127,7 @@ func createTables() {
 	createTable(INT_CLIENTS_TABLE_NAME)
 	createTable(PEERS_TABLE_NAME)
 	createTable(SERVERCONF_TABLE_NAME)
+	createTable(SERVER_UUID_TABLE_NAME)
 	createTable(GENERATED_TABLE_NAME)
 }
 
@@ -182,6 +192,25 @@ func FetchRecord(tableName string, key string) (string, error) {
 // FetchRecords - fetches all records in given table
 func FetchRecords(tableName string) (map[string]string, error) {
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
+}
+
+// FetchRecords - fetches all records in given table
+func InitializeUUID() error {
+	records, err := FetchRecords(SERVER_UUID_TABLE_NAME)
+	if err != nil {
+		if !strings.Contains("could not find any records", err.Error()) {
+			return err
+		}
+	} else if len(records) > 0 {
+		return nil
+	}
+	telemetry := models.Telemetry{UUID: uuid.NewString()}
+	telJSON, err := json.Marshal(telemetry)
+	if err != nil {
+		return err
+	}
+	err = Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
+	return err
 }
 
 // CloseDB - closes a database gracefully

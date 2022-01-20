@@ -4,9 +4,16 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 func runServerPeerUpdate(network string, shouldPeerUpdate bool) error {
+	if servercfg.Telemetry() == "on" {
+		err := serverctl.TelemetryCheckpoint()
+		if err != nil {
+			logger.Log(1, "failed to send telemetry:", err.Error())
+		}
+	}
 	if servercfg.IsClientMode() != "on" {
 		return nil
 	}

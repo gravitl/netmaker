@@ -411,6 +411,8 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultMTU()
 	node.SetDefaultIsRelayed()
 	node.SetDefaultIsRelay()
+	node.SetDefaultIsDocker()
+	node.SetDefaultIsK8S()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
