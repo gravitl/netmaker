@@ -35,7 +35,9 @@ require (
 	cloud.google.com/go v0.34.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/eclipse/paho.mqtt.golang v1.3.5 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/google/go-cmp v0.5.5 // indirect
@@ -47,5 +49,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	google.golang.org/appengine v1.4.0 // indirect
+	gopkg.in/ini.v1 v1.66.2 // indirect
 )
