@@ -161,9 +161,9 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		return nil, err
 	}
 
-	if node.IsServer == "yes" && logic.IsLeader(&node) {
-		logic.SetNetworkServerPeers(&node)
-	}
+	//if node.IsServer == "yes" && logic.IsLeader(&node) {
+	//	logic.setNetworkServerPeers(&node)
+	//}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
 	if node.IsRelayed == "yes" {
