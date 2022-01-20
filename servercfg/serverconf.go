@@ -320,7 +320,7 @@ func IsClientMode() string {
 	return isclient
 }
 
-// IsClientMode - checks if it should run in client mode
+// Telemetry - checks if telemetry data should be sent
 func Telemetry() string {
 	telemetry := "on"
 	if os.Getenv("TELEMETRY") == "off" {

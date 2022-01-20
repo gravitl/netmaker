@@ -164,7 +164,7 @@ type ServerUpdateData struct {
 	Node        Node `json:"servernode" bson:"servernode"`
 }
 
-// ServerUUID - contains UUID of the server
+// Telemetry - contains UUID of the server and timestamp of last send to posthog
 type Telemetry struct {
 	UUID     string `json:"uuid" bson:"uuid"`
 	LastSend int64  `json:"lastsend" bson:"lastsend"`
