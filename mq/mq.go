@@ -109,8 +109,11 @@ func UpdatePeers(client mqtt.Client, newnode models.Node) error {
 		return err
 	}
 	dualstack := false
-	keepalive, _ := time.ParseDuration(string(newnode.PersistentKeepalive) + "s")
-	defaultkeepalive, _ := time.ParseDuration("25s")
+	var keepalive time.Duration
+	//keepalive = time.Duration{}
+	if newnode.PersistentKeepalive != 0 {
+		keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(newnode.PersistentKeepalive), 10) + "s")
+	}
 	for _, node := range networkNodes {
 		var peers []wgtypes.PeerConfig
 		var peerUpdate models.PeerUpdate
@@ -144,6 +147,7 @@ func UpdatePeers(client mqtt.Client, newnode models.Node) error {
 			if err != nil {
 				return err
 			}
+
 			//calculate Allowed IPs.
 			allowedips = append(allowedips, peeraddr)
 			// handle manually set peers
@@ -196,43 +200,22 @@ func UpdatePeers(client mqtt.Client, newnode models.Node) error {
 				}
 				allowedips = append(allowedips, addr6)
 			}
-			if node.IsServer == "yes" && !(node.IsServer == "yes") {
+			if &keepalive == nil {
 				peerData = wgtypes.PeerConfig{
-					PublicKey:                   pubkey,
-					PersistentKeepaliveInterval: &defaultkeepalive,
-					ReplaceAllowedIPs:           true,
-					AllowedIPs:                  allowedips,
-				}
-			} else if keepalive != 0 {
-				peerData = wgtypes.PeerConfig{
-					PublicKey:                   pubkey,
-					PersistentKeepaliveInterval: &defaultkeepalive,
-					//Endpoint: &net.UDPAddr{
-					//	IP:   net.ParseIP(node.Endpoint),
-					//	Port: int(node.ListenPort),
-					//},
+					PublicKey:         pubkey,
 					Endpoint:          address,
 					ReplaceAllowedIPs: true,
 					AllowedIPs:        allowedips,
 				}
 			} else {
 				peerData = wgtypes.PeerConfig{
-					PublicKey: pubkey,
-					//Endpoint: &net.UDPAddr{
-					//	IP:   net.ParseIP(node.Endpoint),
-					//	Port: int(node.ListenPort),
-					//},
-					Endpoint:          address,
-					ReplaceAllowedIPs: true,
-					AllowedIPs:        allowedips,
+					PublicKey:                   pubkey,
+					PersistentKeepaliveInterval: &keepalive,
+					Endpoint:                    address,
+					ReplaceAllowedIPs:           true,
+					AllowedIPs:                  allowedips,
 				}
 			}
-			//peerData = wgtypes.PeerConfig{
-			//	PublicKey:                   pubkey,
-			//	Endpoint:                    address,
-			//	PersistentKeepaliveInterval: &keepalive,
-			//AllowedIPs: allowedIPs
-			//}
 			peers = append(peers, peerData)
 		}
 		peerUpdate.Network = node.Network
