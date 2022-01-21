@@ -3,26 +3,22 @@ package mq
 import (
 	"encoding/json"
 	"errors"
-	"log"
-	"net"
-	"strconv"
 	"strings"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// default message handler - only called in GetDebug == true
 var DefaultHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "MQTT Message: Topic: "+string(msg.Topic())+" Message: "+string(msg.Payload()))
 }
 
+// Ping message Handler -- handles ping topic from client nodes
 var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "Ping Handler: "+msg.Topic())
 	go func() {
@@ -53,211 +49,64 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	}()
 }
 
-var PublicKeyUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	logger.Log(0, "PublicKey Handler")
+// UpdateNode  message Handler -- handles updates from client nodes
+var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	go func() {
-		logger.Log(0, "public key update "+msg.Topic())
-		key := string(msg.Payload())
 		id, err := GetID(msg.Topic())
 		if err != nil {
-			logger.Log(0, "error getting node.ID sent on "+msg.Topic()+" "+err.Error())
+			logger.Log(1, "error getting node.ID sent on "+msg.Topic()+" "+err.Error())
+			return
 		}
-		node, err := logic.GetNodeByID(id)
+		logger.Log(1, "Update Node Handler"+id)
+		var newNode models.Node
+		if err := json.Unmarshal(msg.Payload(), &newNode); err != nil {
+			logger.Log(1, "error unmarshaling payload "+err.Error())
+			return
+		}
+		currentNode, err := logic.GetNodeByID(newNode.ID)
 		if err != nil {
-			logger.Log(0, "error retrieving node "+msg.Topic()+" "+err.Error())
+			logger.Log(1, "error getting node "+newNode.ID+" "+err.Error())
+			return
 		}
-		node.PublicKey = key
-		node.SetLastCheckIn()
-		if err := logic.UpdateNode(&node, &node); err != nil {
-			logger.Log(0, "error updating node "+err.Error())
+		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
+			logger.Log(1, "error saving node"+err.Error())
 		}
-		if err := UpdatePeers(client, node); err != nil {
-			logger.Log(0, "error updating peers "+err.Error())
+		if logic.ShouldPeersUpdate(&currentNode, &newNode) {
+			if err := PublishPeerUpdate(client, &newNode); err != nil {
+				logger.Log(1, "error publishing peer update "+err.Error())
+				return
+			}
 		}
 	}()
 }
 
-var IPUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	go func() {
-		ip := string(msg.Payload())
-		logger.Log(0, "IPUpdate Handler")
-		id, err := GetID(msg.Topic())
-		logger.Log(0, "ipUpdate recieved from "+id)
-		if err != nil {
-			logger.Log(0, "error getting node.ID sent on update/ip topic ")
-			return
-		}
-		node, err := logic.GetNodeByID(id)
-		if err != nil {
-			logger.Log(0, "invalid ID recieved on update/ip topic: "+err.Error())
-			return
-		}
-		node.Endpoint = ip
-		node.SetLastCheckIn()
-		if err := logic.UpdateNode(&node, &node); err != nil {
-			logger.Log(0, "error updating node "+err.Error())
-		}
-		if err != UpdatePeers(client, node) {
-			logger.Log(0, "error updating peers "+err.Error())
-		}
-	}()
-}
-
-func UpdatePeers(client mqtt.Client, newnode models.Node) error {
-	networkNodes, err := logic.GetNetworkNodes(newnode.Network)
+// PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
+func PublishPeerUpdate(client mqtt.Client, newNode *models.Node) error {
+	networkNodes, err := logic.GetNetworkNodes(newNode.Network)
 	if err != nil {
+		logger.Log(1, "err getting Network Nodes"+err.Error())
 		return err
 	}
-	dualstack := false
-	var keepalive time.Duration
-	//keepalive = time.Duration{}
-	if newnode.PersistentKeepalive != 0 {
-		keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(newnode.PersistentKeepalive), 10) + "s")
-	}
 	for _, node := range networkNodes {
-		var peers []wgtypes.PeerConfig
-		var peerUpdate models.PeerUpdate
-		var gateways []string
-
-		for _, peer := range networkNodes {
-			if peer.ID == node.ID {
-				//skip
-				continue
-			}
-			var allowedips []net.IPNet
-			var peeraddr = net.IPNet{
-				IP:   net.ParseIP(peer.Address),
-				Mask: net.CIDRMask(32, 32),
-			}
-			//hasGateway := false
-			pubkey, err := wgtypes.ParseKey(peer.PublicKey)
-			if err != nil {
-				return err
-			}
-			if node.Endpoint == peer.Endpoint {
-				if node.LocalAddress != peer.LocalAddress && peer.LocalAddress != "" {
-					peer.Endpoint = peer.LocalAddress
-				} else {
-					continue
-				}
-			}
-			endpoint := peer.Endpoint + ":" + strconv.Itoa(int(peer.ListenPort))
-			//fmt.Println("endpoint: ", endpoint, peer.Endpoint, peer.ListenPort)
-			address, err := net.ResolveUDPAddr("udp", endpoint)
-			if err != nil {
-				return err
-			}
-
-			//calculate Allowed IPs.
-			allowedips = append(allowedips, peeraddr)
-			// handle manually set peers
-			for _, allowedIp := range node.AllowedIPs {
-				if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
-					nodeEndpointArr := strings.Split(node.Endpoint, ":")
-					if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != node.Address { // don't need to add an allowed ip that already exists..
-						allowedips = append(allowedips, *ipnet)
-					}
-				} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != node.Address {
-					ipnet := net.IPNet{
-						IP:   net.ParseIP(allowedIp),
-						Mask: net.CIDRMask(32, 32),
-					}
-					allowedips = append(allowedips, ipnet)
-				}
-			}
-			// handle egress gateway peers
-			if node.IsEgressGateway == "yes" {
-				//hasGateway = true
-				ranges := node.EgressGatewayRanges
-				for _, iprange := range ranges { // go through each cidr for egress gateway
-					_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
-					if err != nil {
-						ncutils.PrintLog("could not parse gateway IP range. Not adding "+iprange, 1)
-						continue // if can't parse CIDR
-					}
-					nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
-					if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain public ip of node
-						ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.Endpoint+", omitting", 2)
-						continue // skip adding egress range if overlaps with node's ip
-					}
-					if ipnet.Contains(net.ParseIP(node.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
-						ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.LocalAddress+", omitting", 2)
-						continue // skip adding egress range if overlaps with node's local ip
-					}
-					gateways = append(gateways, iprange)
-					if err != nil {
-						log.Println("ERROR ENCOUNTERED SETTING GATEWAY")
-					} else {
-						allowedips = append(allowedips, *ipnet)
-					}
-				}
-			}
-			var peerData wgtypes.PeerConfig
-			if node.Address6 != "" && dualstack {
-				var addr6 = net.IPNet{
-					IP:   net.ParseIP(node.Address6),
-					Mask: net.CIDRMask(128, 128),
-				}
-				allowedips = append(allowedips, addr6)
-			}
-			if &keepalive == nil {
-				peerData = wgtypes.PeerConfig{
-					PublicKey:         pubkey,
-					Endpoint:          address,
-					ReplaceAllowedIPs: true,
-					AllowedIPs:        allowedips,
-				}
-			} else {
-				peerData = wgtypes.PeerConfig{
-					PublicKey:                   pubkey,
-					PersistentKeepaliveInterval: &keepalive,
-					Endpoint:                    address,
-					ReplaceAllowedIPs:           true,
-					AllowedIPs:                  allowedips,
-				}
-			}
-			peers = append(peers, peerData)
+		peerUpdate, err := logic.GetPeerUpdate(&node)
+		if err != nil {
+			logger.Log(1, "error getting peer update for node "+node.ID+" "+err.Error())
+			continue
 		}
-		peerUpdate.Network = node.Network
-		peerUpdate.Peers = peers
 		data, err := json.Marshal(&peerUpdate)
 		if err != nil {
-			logger.Log(0, "error marshaling peer update "+err.Error())
+			logger.Log(2, "error marshaling peer update "+err.Error())
 			return err
 		}
-		if token := client.Publish("/update/peers/"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
-			logger.Log(0, "error sending peer updatte to no")
+		if token := client.Publish("/update/peers"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
+			logger.Log(2, "error publishing peer update to peer "+node.ID+" "+token.Error().Error())
 			return err
 		}
 	}
 	return nil
 }
 
-var LocalAddressUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	logger.Log(0, "LocalAddressUpdate Handler")
-	go func() {
-		logger.Log(0, "LocalAddressUpdate handler")
-		id, err := GetID(msg.Topic())
-		if err != nil {
-			logger.Log(0, "error getting node.ID "+msg.Topic())
-			return
-		}
-		node, err := logic.GetNodeByID(id)
-		if err != nil {
-			logger.Log(0, "error get node "+msg.Topic())
-			return
-		}
-		node.LocalAddress = string(msg.Payload())
-		node.SetLastCheckIn()
-		if err := logic.UpdateNode(&node, &node); err != nil {
-			logger.Log(0, "error updating node "+err.Error())
-		}
-		if err := UpdatePeers(client, node); err != nil {
-			logger.Log(0, "error updating peers "+err.Error())
-		}
-	}()
-}
-
+// GetID -- decodes a message queue topic and returns the embedded node.ID
 func GetID(topic string) (string, error) {
 	parts := strings.Split(topic, "/")
 	count := len(parts)
@@ -268,6 +117,7 @@ func GetID(topic string) (string, error) {
 	return parts[count-1], nil
 }
 
+// NewPeer -- publishes a peer update to all the peers of a newNode
 func NewPeer(node models.Node) error {
 	opts := mqtt.NewClientOptions()
 	broker := servercfg.GetMessageQueueEndpoint()
@@ -277,8 +127,7 @@ func NewPeer(node models.Node) error {
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
-
-	if err := UpdatePeers(client, node); err != nil {
+	if err := PublishPeerUpdate(client, &node); err != nil {
 		return err
 	}
 	return nil

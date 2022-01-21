@@ -18,7 +18,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 
 	var err error
 	err = functions.JoinNetwork(cfg, privateKey)
-	if err != nil && !cfg.DebugJoin {
+	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			ncutils.PrintLog("error installing: "+err.Error(), 1)
 			err = functions.LeaveNetwork(cfg.Network)

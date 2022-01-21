@@ -29,7 +29,7 @@ type ClientConfig struct {
 	Network         string         `yaml:"network"`
 	Daemon          string         `yaml:"daemon"`
 	OperatingSystem string         `yaml:"operatingsystem"`
-	DebugJoin       bool           `yaml:"debugjoin"`
+	DebugOn         bool           `yaml:"debugon"`
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient

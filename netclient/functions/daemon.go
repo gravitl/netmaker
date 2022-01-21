@@ -38,7 +38,7 @@ func Daemon() error {
 }
 
 // SetupMQTT creates a connection to broker and return client
-func SetupMQTT(cfg config.ClientConfig) mqtt.Client {
+func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	ncutils.Log("setting broker to " + cfg.Server.CoreDNSAddr + ":1883")
 	opts.AddBroker(cfg.Server.CoreDNSAddr + ":1883")
@@ -53,13 +53,15 @@ func SetupMQTT(cfg config.ClientConfig) mqtt.Client {
 // MessageQueue sets up Message Queue and subsribes/publishes updates to/from server
 func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
-	var cfg config.ClientConfig
+	var cfg *config.ClientConfig
 	cfg.Network = network
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network:" + network)
 	client := SetupMQTT(cfg)
-	if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
+	if cfg.DebugOn {
+		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
+			log.Fatal(token.Error())
+		}
 	}
 	if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
@@ -67,12 +69,6 @@ func MessageQueue(ctx context.Context, network string) {
 	if token := client.Subscribe("/update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
-
-	//addroute doesn't seem to work consistently
-	//client.AddRoute("update/"+cfg.Node.ID, NodeUpdate)
-	//client.AddRoute("update/peers/"+cfg.Node.ID, UpdatePeers)
-	//handle key updates in node update
-	//client.AddRoute("update/keys/"+cfg.Node.ID, UpdateKeys)
 	defer client.Disconnect(250)
 	go Checkin(ctx, cfg, network)
 	<-ctx.Done()
@@ -135,8 +131,9 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			ncutils.Log("error updating wireguard config " + err.Error())
 			return
 		}
-		// path hardcoded for now... should be updated
-		err = wireguard.ApplyWGQuickConf("/etc/netclient/config/" + cfg.Node.Interface + ".conf")
+		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+		ncutils.Log("applyWGQuickConf to " + file)
+		err = wireguard.ApplyWGQuickConf(file)
 		if err != nil {
 			ncutils.Log("error restarting wg after node update " + err.Error())
 			return
@@ -199,7 +196,7 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) (*config.ClientCon
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
-func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
+func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -217,7 +214,8 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 				}
 				if cfg.Node.Endpoint != extIP && extIP != "" {
 					ncutils.PrintLog("endpoint has changed from "+cfg.Node.Endpoint+" to "+extIP, 1)
-					UpdateEndpoint(cfg, network, extIP)
+					cfg.Node.Endpoint = extIP
+					PublishNodeUpdate(cfg)
 				}
 				intIP, err := getPrivateAddr()
 				if err != nil {
@@ -225,7 +223,8 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 				}
 				if cfg.Node.LocalAddress != intIP && intIP != "" {
 					ncutils.PrintLog("local Address has changed from "+cfg.Node.LocalAddress+" to "+intIP, 1)
-					UpdateLocalAddress(cfg, network, intIP)
+					cfg.Node.LocalAddress = intIP
+					PublishNodeUpdate(cfg)
 				}
 			} else {
 				localIP, err := ncutils.GetLocalIP(cfg.Node.LocalRange)
@@ -234,7 +233,8 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 				}
 				if cfg.Node.Endpoint != localIP && localIP != "" {
 					ncutils.PrintLog("endpoint has changed from "+cfg.Node.Endpoint+" to "+localIP, 1)
-					UpdateEndpoint(cfg, network, localIP)
+					cfg.Node.Endpoint = localIP
+					PublishNodeUpdate(cfg)
 				}
 			}
 			Hello(cfg, network)
@@ -243,37 +243,24 @@ func Checkin(ctx context.Context, cfg config.ClientConfig, network string) {
 	}
 }
 
-// UpdateEndpoint -- publishes an endpoint update to broker
-func UpdateEndpoint(cfg config.ClientConfig, network, ip string) {
-	ncutils.Log("Updating endpoint")
+// PublishNodeUpdates -- saves node and pushes changes to broker
+func PublishNodeUpdate(cfg *config.ClientConfig) {
+	if err := config.Write(cfg, cfg.Network); err != nil {
+		ncutils.Log("error saving configuration" + err.Error())
+	}
 	client := SetupMQTT(cfg)
-	if token := client.Publish("update/ip/"+cfg.Node.ID, 0, false, ip); token.Wait() && token.Error() != nil {
+	data, err := json.Marshal(cfg.Node)
+	if err != nil {
+		ncutils.Log("error marshling node update " + err.Error())
+	}
+	if token := client.Publish("update/"+cfg.Node.ID, 0, false, data); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing endpoint update " + token.Error().Error())
-	}
-	cfg.Node.Endpoint = ip
-	if err := config.Write(&cfg, cfg.Network); err != nil {
-		ncutils.Log("error updating local config " + err.Error())
-	}
-	client.Disconnect(250)
-}
-
-// UpdateLocalAddress -- publishes a local address update to broker
-func UpdateLocalAddress(cfg config.ClientConfig, network, ip string) {
-	ncutils.Log("Updating local address")
-	client := SetupMQTT(cfg)
-	if token := client.Publish("update/localaddress/"+cfg.Node.ID, 0, false, ip); token.Wait() && token.Error() != nil {
-		ncutils.Log("error publishing local address update " + token.Error().Error())
-	}
-	cfg.Node.LocalAddress = ip
-	ncutils.Log("updating local address in local config to: " + cfg.Node.LocalAddress)
-	if err := config.Write(&cfg, cfg.Network); err != nil {
-		ncutils.Log("error updating local config " + err.Error())
 	}
 	client.Disconnect(250)
 }
 
 // Hello -- ping the broker to let server know node is alive and doing fine
-func Hello(cfg config.ClientConfig, network string) {
+func Hello(cfg *config.ClientConfig, network string) {
 	client := SetupMQTT(cfg)
 	ncutils.Log("sending ping " + cfg.Node.ID)
 	if token := client.Publish("ping/"+cfg.Node.ID, 2, false, "hello world!"); token.Wait() && token.Error() != nil {

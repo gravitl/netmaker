@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/auth"
@@ -118,16 +119,16 @@ func startControllers() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
-	//if servercfg.IsClientMode() == "on" {
-	//	var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
-	//	for { // best effort currently
-	//		var serverGroup sync.WaitGroup
-	//		serverGroup.Add(1)
-	//		go runClient(&serverGroup)
-	//		serverGroup.Wait()
-	//		time.Sleep(checkintime)
-	//	}
-	//}
+	if servercfg.IsClientMode() == "on" {
+		var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
+		for { // best effort currently
+			var serverGroup sync.WaitGroup
+			serverGroup.Add(1)
+			go runClient(&serverGroup)
+			serverGroup.Wait()
+			time.Sleep(checkintime)
+		}
+	}
 
 	waitnetwork.Wait()
 }
@@ -191,34 +192,25 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(servercfg.GetMessageQueueEndpoint())
 	logger.Log(0, "setting broker "+servercfg.GetMessageQueueEndpoint())
-	opts.SetDefaultPublishHandler(mq.DefaultHandler)
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		logger.Log(0, "unable to connect to message queue broker, closing down")
 		return
 	}
 	//Set up Subscriptions
-	if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
-		//should make constant for disconnect wait period
-		client.Disconnect(250)
-		logger.Log(0, "could not subscribe to message queue ...")
-		return
+	if servercfg.GetDebug() {
+		if token := client.Subscribe("#", 2, mq.DefaultHandler); token.Wait() && token.Error() != nil {
+			client.Disconnect(240)
+			logger.Log(0, "default subscription failed")
+		}
 	}
 	if token := client.Subscribe("ping/#", 2, mq.Ping); token.Wait() && token.Error() != nil {
 		client.Disconnect(240)
-		logger.Log(0, "ping sub failed")
+		logger.Log(0, "ping subscription failed")
 	}
-	if token := client.Subscribe("update/localaddress/#", 0, mq.LocalAddressUpdate); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe("update/#", 0, mq.UpdateNode); token.Wait() && token.Error() != nil {
 		client.Disconnect(240)
-		logger.Log(0, "metrics sub failed")
-	}
-	if token := client.Subscribe("update/ip/#", 0, mq.IPUpdate); token.Wait() && token.Error() != nil {
-		client.Disconnect(240)
-		logger.Log(0, "metrics sub failed")
-	}
-	if token := client.Subscribe("update/publickey/#", 0, mq.PublicKeyUpdate); token.Wait() && token.Error() != nil {
-		client.Disconnect(240)
-		logger.Log(0, "metrics sub failed")
+		logger.Log(0, "node update subscription failed")
 	}
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
