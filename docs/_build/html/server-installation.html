@@ -309,13 +309,15 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
+        <li class="md-nav__item"><a href="#database-setup-optional" class="md-nav__link">Database Setup (optional)</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
         <li class="md-nav__item"><a href="#ui-setup" class="md-nav__link">UI Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#coredns-setup" class="md-nav__link">CoreDNS Setup</a>
+        <li class="md-nav__item"><a href="#coredns-setup-optional" class="md-nav__link">CoreDNS Setup (optional)</a>
+        </li>
+        <li class="md-nav__item"><a href="#proxy-load-balancer" class="md-nav__link">Proxy / Load Balancer</a>
         </li></ul>
             </nav>
         </li>
@@ -351,7 +353,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">2. RQLite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
         </li>
@@ -541,13 +543,15 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
+        <li class="md-nav__item"><a href="#database-setup-optional" class="md-nav__link">Database Setup (optional)</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
         <li class="md-nav__item"><a href="#ui-setup" class="md-nav__link">UI Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#coredns-setup" class="md-nav__link">CoreDNS Setup</a>
+        <li class="md-nav__item"><a href="#coredns-setup-optional" class="md-nav__link">CoreDNS Setup (optional)</a>
+        </li>
+        <li class="md-nav__item"><a href="#proxy-load-balancer" class="md-nav__link">Proxy / Load Balancer</a>
         </li></ul>
             </nav>
         </li>
@@ -583,7 +587,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">2. RQLite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
         </li>
@@ -842,15 +846,16 @@ docker-compose up -d`
 
 
 <span id="nodocker"></span><h2 id="linux-install-without-docker">Linux Install without Docker<a class="headerlink" href="#linux-install-without-docker" title="Permalink to this headline">¶</a></h2>
-<p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional).</p>
-<p>To start, we recommend following the Nginx instructions in the <a class="reference internal" href="quick-start.html"><span class="doc">Quick Install</span></a> guide to enable SSL for your environment.</p>
+<p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you may want to optionally install a database (sqlite is embedded, rqlite or postgres are supported) and CoreDNS (also optional).</p>
 <p>Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.</p>
 
-<h3 id="rqlite-setup">rqlite Setup<a class="headerlink" href="#rqlite-setup" title="Permalink to this headline">¶</a></h3>
+<h3 id="database-setup-optional">Database Setup (optional)<a class="headerlink" href="#database-setup-optional" title="Permalink to this headline">¶</a></h3>
+<p>You can run the netmaker binary standalone and it will run an embedded sqlite server. Data goes in the data/ directory. Optionally, you can run PostgreSQL or rqlite. Instructions for rqlite are below.</p>
 <ol class="arabic simple">
 <li><p>Install rqlite on your server: <a class="reference external" href="https://github.com/rqlite/rqlite">https://github.com/rqlite/rqlite</a></p></li>
 <li><p>Run rqlite: rqlited -node-id 1 ~/node.1</p></li>
 </ol>
+<p>If using rqlite or postgres, you must change the DATABASE environment/config variable and enter connection details.</p>
 
 
 <h3 id="server-setup">Server Setup<a class="headerlink" href="#server-setup" title="Permalink to this headline">¶</a></h3>
@@ -883,7 +888,13 @@ docker-compose up -d`
 </div>
 
 
-<h3 id="coredns-setup">CoreDNS Setup<a class="headerlink" href="#coredns-setup" title="Permalink to this headline">¶</a></h3>
+<h3 id="coredns-setup-optional">CoreDNS Setup (optional)<a class="headerlink" href="#coredns-setup-optional" title="Permalink to this headline">¶</a></h3>
+<p>CoreDNS is only required if you want private DNS features. Once installed, you must set the CoreDNS variables in the env settings of the server.</p>
+<p>See <a class="reference external" href="https://coredns.io/manual/toc/#installation">https://coredns.io/manual/toc/#installation</a></p>
+
+
+<h3 id="proxy-load-balancer">Proxy / Load Balancer<a class="headerlink" href="#proxy-load-balancer" title="Permalink to this headline">¶</a></h3>
+<p>You will need to proxy connections to your UI and Server. By default the ports are 8081, 8082, and 50051 (grpc). This proxy should handle SSL certificates. We recommend Caddy or Nginx (you can follow the Nginx guide in these docs). The proxy must be able to handle gRPC connections.</p>
 
 
 
@@ -1091,7 +1102,7 @@ This install has some notable exceptions:
 <p>Your load balancer of choice will send requests to the Netmaker servers. Setup is similar to the various guides we have created for Nginx, Caddy, and Traefik. SSL certificates must also be configured and handled by the LB.</p>
 
 
-<h3 id="id1">2. RQLite Setup<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<h3 id="rqlite-setup">2. RQLite Setup<a class="headerlink" href="#rqlite-setup" title="Permalink to this headline">¶</a></h3>
 <p>RQLite is the included distributed datastore for an HA Netmaker installation. If you have a different corporate database you wish to integrate, Netmaker is easily extended to other DB’s. If this is a requirement, please contact us.</p>
 <p>Assuming you use Rqlite, you must run it on each Netmaker server VM, or alongside that VM as a container. Setup a config.json for database credentials (password supports BCRYPT HASHING) and mount in working directory of rqlite and specify with <cite>-auth config.json</cite> :</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[{</span>

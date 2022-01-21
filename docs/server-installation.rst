@@ -230,17 +230,20 @@ This template is equivalent but omits CoreDNS.
 Linux Install without Docker
 =============================
 
-Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional). 
-
-To start, we recommend following the Nginx instructions in the :doc:`Quick Install <./quick-start>` guide to enable SSL for your environment.
+Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you may want to optionally install a database (sqlite is embedded, rqlite or postgres are supported) and CoreDNS (also optional). 
 
 Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.
 
-rqlite Setup
-----------------
+Database Setup (optional)
+--------------------------
+
+You can run the netmaker binary standalone and it will run an embedded sqlite server. Data goes in the data/ directory. Optionally, you can run PostgreSQL or rqlite. Instructions for rqlite are below.
+
 1. Install rqlite on your server: https://github.com/rqlite/rqlite
 
 2. Run rqlite: rqlited -node-id 1 ~/node.1
+
+If using rqlite or postgres, you must change the DATABASE environment/config variable and enter connection details.
 
 Server Setup
 -------------
@@ -271,8 +274,18 @@ The following uses Nginx as an http server. You may alternatively use Apache or 
   sudo sh -c 'BACKEND_URL=http://<YOUR BACKEND API URL>:PORT /usr/share/nginx/html/generate_config_js.sh >/usr/share/nginx/html/config.js'
   sudo systemctl start nginx
 
-CoreDNS Setup
-----------------
+CoreDNS Setup (optional)
+----------------------------
+
+CoreDNS is only required if you want private DNS features. Once installed, you must set the CoreDNS variables in the env settings of the server.
+
+See https://coredns.io/manual/toc/#installation
+
+Proxy / Load Balancer
+------------------------
+
+You will need to proxy connections to your UI and Server. By default the ports are 8081, 8082, and 50051 (grpc). This proxy should handle SSL certificates. We recommend Caddy or Nginx (you can follow the Nginx guide in these docs). The proxy must be able to handle gRPC connections.
+
 
 .. _KubeInstall:
 
