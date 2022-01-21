@@ -165,7 +165,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	//	return err
 	//}
 	//if ncutils.IsWindows() {
-	confPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
+	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	//	err = os.WriteFile(wgConfPath, []byte(newConf), 0644)
 	//	if err != nil {
 	//		ncutils.PrintLog("error writing wg conf file to "+wgConfPath+": "+err.Error(), 1)
@@ -333,7 +333,7 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 	}
 	for i, peer := range peers {
 		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
-		if peer.PresharedKey.String() != "" {
+		if peer.PresharedKey != nil {
 			wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
 		}
 		if peer.AllowedIPs != nil {
@@ -350,6 +350,7 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 		if peer.Endpoint != nil {
 			wireguard.SectionWithIndex(section_peers, i).Key("Endpoint").SetValue(peer.Endpoint.String())
 		}
+
 		if peer.PersistentKeepaliveInterval != nil && peer.PersistentKeepaliveInterval.Seconds() > 0 {
 			wireguard.SectionWithIndex(section_peers, i).Key("PersistentKeepalive").SetValue(strconv.FormatInt((int64)(peer.PersistentKeepaliveInterval.Seconds()), 10))
 		}
