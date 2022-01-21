@@ -53,11 +53,11 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 // MessageQueue sets up Message Queue and subsribes/publishes updates to/from server
 func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
-	var cfg *config.ClientConfig
+	var cfg config.ClientConfig
 	cfg.Network = network
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network:" + network)
-	client := SetupMQTT(cfg)
+	client := SetupMQTT(&cfg)
 	if cfg.DebugOn {
 		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
 			log.Fatal(token.Error())
@@ -70,7 +70,7 @@ func MessageQueue(ctx context.Context, network string) {
 		log.Fatal(token.Error())
 	}
 	defer client.Disconnect(250)
-	go Checkin(ctx, cfg, network)
+	go Checkin(ctx, &cfg, network)
 	<-ctx.Done()
 	ncutils.Log("shutting down daemon")
 }
