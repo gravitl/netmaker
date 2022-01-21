@@ -6,12 +6,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"syscall"
-
-	"github.com/gravitl/netmaker/models"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 //go:embed windowsdaemon/winsw.exe
@@ -49,35 +45,35 @@ func RunCmdFormatted(command string, printerr bool) (string, error) {
 }
 
 // CreateWireGuardConf - creates a WireGuard conf string
-func CreateWireGuardConf(node *models.Node, privatekey string, listenPort string, peers []wgtypes.PeerConfig) (string, error) {
-	peersString, err := parsePeers(node.PersistentKeepalive, peers)
-	var listenPortString string
-	if node.MTU <= 0 {
-		node.MTU = 1280
-	}
-	if listenPort != "" {
-		listenPortString += "ListenPort = " + listenPort
-	}
-	if err != nil {
-		return "", err
-	}
-	config := fmt.Sprintf(`[Interface]
-Address = %s
-PrivateKey = %s
-MTU = %s
-%s
-
-%s
-
-`,
-		node.Address+"/32",
-		privatekey,
-		strconv.Itoa(int(node.MTU)),
-		listenPortString,
-		peersString)
-	return config, nil
-}
-
+//func CreateWireGuardConf(node *models.Node, privatekey string, listenPort string, peers []wgtypes.PeerConfig) (string, error) {
+//	peersString, err := parsePeers(node.PersistentKeepalive, peers)
+//	var listenPortString string
+//	if node.MTU <= 0 {
+//		node.MTU = 1280
+//	}
+//	if listenPort != "" {
+//		listenPortString += "ListenPort = " + listenPort
+//	}
+//	if err != nil {
+//		return "", err
+//	}
+//	config := fmt.Sprintf(`[Interface]
+//Address = %s
+//PrivateKey = %s
+//MTU = %s
+//%s
+//
+//%s
+//
+//`,
+//		node.Address+"/32",
+//		privatekey,
+//		strconv.Itoa(int(node.MTU)),
+//		listenPortString,
+//		peersString)
+//	return config, nil
+//}
+//
 // GetEmbedded - Gets the Windows daemon creator
 func GetEmbedded() error {
 	data, err := winswContent.ReadFile("windowsdaemon/winsw.exe")

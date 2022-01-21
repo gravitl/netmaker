@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -84,17 +85,22 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	if !ncutils.IsKernel() {
-		var newConf string
-		newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), peers)
-		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-		logger.Log(1, "writing wg conf file to:", confPath)
-		err = os.WriteFile(confPath, []byte(newConf), 0644)
-		if err != nil {
-			logger.Log(1, "error writing wg conf file to", confPath, ":", err.Error())
+		//var newConf string
+		//newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), peers)
+		//confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
+		//logger.Log(1, "writing wg conf file to:", confPath)
+		//err = os.WriteFile(confPath, []byte(newConf), 0644)
+		//if err != nil {
+		//logger.Log(1, "error writing wg conf file to", confPath, ":", err.Error())
+		//return err
+		//}
+		if err := wireguard.WriteWgConfig(node, key.String(), peers); err != nil {
+			logger.Log(1, "error writing wg conf file: ", err.Error())
 			return err
 		}
 		// spin up userspace + apply the conf file
 		var deviceiface = ifacename
+		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		d, _ := wgclient.Device(deviceiface)
 		for d != nil && d.Name == deviceiface {
 			_ = RemoveConf(ifacename, false) // remove interface first
