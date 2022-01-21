@@ -379,6 +379,9 @@ func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
 		if peer.Endpoint != nil {
 			wireguard.SectionWithIndex(section_peers, i).Key("Endpoint").SetValue(peer.Endpoint.String())
 		}
+		if peer.PersistentKeepaliveInterval != nil && peer.PersistentKeepaliveInterval.Seconds() != 0 {
+			wireguard.SectionWithIndex(section_peers, i).Key("PersistentKeepalive").SetValue(strconv.FormatInt((int64)(peer.PersistentKeepaliveInterval.Seconds()), 10))
+		}
 	}
 	if err := wireguard.SaveTo(file); err != nil {
 		return err
