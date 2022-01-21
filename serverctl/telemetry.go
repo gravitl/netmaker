@@ -28,9 +28,9 @@ func TelemetryCheckpoint() error {
 	if err != nil {
 		return err
 	}
-	// sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Hour * time.Duration(TELEMETRY_HOURS_BETWEEN_SEND))
+	sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Hour * time.Duration(TELEMETRY_HOURS_BETWEEN_SEND))
 	// can set to 2 minutes for testing
-	sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Minute * 2)
+	//sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Minute * 2)
 	enoughTimeElapsed := time.Now().After(sendtime)
 
 	// if more than 24 hours has elapsed, send telemetry to posthog

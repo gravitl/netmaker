@@ -194,7 +194,7 @@ func FetchRecords(tableName string) (map[string]string, error) {
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
 }
 
-// FetchRecords - fetches all records in given table
+// InitializeUUID - create a UUID record for server if none exists
 func InitializeUUID() error {
 	records, err := FetchRecords(SERVER_UUID_TABLE_NAME)
 	if err != nil {
