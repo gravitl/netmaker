@@ -113,7 +113,9 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 				return
 			}
 		case models.NODE_UPDATE_KEY:
-			UpdateKeys(&cfg, client)
+			if err := UpdateKeys(&cfg, client); err != nil {
+				ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
+			}
 		case models.NODE_NOOP:
 		default:
 		}
@@ -170,28 +172,24 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 }
 
 // UpdateKeys -- updates private key and returns new publickey
-func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) (*config.ClientConfig, error) {
+func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
 	ncutils.Log("received message to update keys")
 	//potentiall blocking i/o so do this in a go routine
 	key, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
 		ncutils.Log("error generating privatekey " + err.Error())
-		return cfg, err
+		return err
 	}
 	if err := wireguard.UpdatePrivateKey(cfg.Node.Interface, key.String()); err != nil {
 		ncutils.Log("error updating wireguard key " + err.Error())
-		return cfg, err
+		return err
 	}
-	publicKey := key.PublicKey()
-	if token := client.Publish("update/publickey/"+cfg.Node.ID, 0, false, publicKey.String()); token.Wait() && token.Error() != nil {
-		ncutils.Log("error publishing publickey update " + token.Error().Error())
-		client.Disconnect(250)
-		return cfg, err
-	}
+	cfg.Node.PublicKey = key.PublicKey().String()
+	PublishNodeUpdate(cfg)
 	if err := config.ModConfig(&cfg.Node); err != nil {
 		ncutils.Log("error updating local config " + err.Error())
 	}
-	return cfg, nil
+	return nil
 }
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes

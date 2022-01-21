@@ -98,7 +98,7 @@ func PublishPeerUpdate(client mqtt.Client, newNode *models.Node) error {
 			logger.Log(2, "error marshaling peer update "+err.Error())
 			return err
 		}
-		if token := client.Publish("/update/peers"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
+		if token := client.Publish("/update/peers/"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
 			logger.Log(2, "error publishing peer update to peer "+node.ID+" "+token.Error().Error())
 			return err
 		}
