@@ -58,11 +58,11 @@ func ApplyWGQuickConf(confPath string) error {
 		ncutils.Log(confPath + " does not exist " + err.Error())
 		return err
 	}
-	_, err = ncutils.RunCmd("wg-quick down "+confPath, false)
+	_, err = ncutils.RunCmd("wg-quick down "+confPath, true)
 	if err != nil {
 		ncutils.Log("err runing wg-quick down " + confPath + err.Error())
 	}
-	_, err = ncutils.RunCmd("wg-quick up "+confPath, false)
+	_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
 	if err != nil {
 		ncutils.Log("err runing wg-quick up " + confPath + err.Error())
 	}

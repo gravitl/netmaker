@@ -62,12 +62,19 @@ func MessageQueue(ctx context.Context, network string) {
 		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
 			log.Fatal(token.Error())
 		}
+		ncutils.Log("subscribed to all topics for debugging purposes")
 	}
 	if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
+	if cfg.DebugOn {
+		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
+	}
 	if token := client.Subscribe("/update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
+	}
+	if cfg.DebugOn {
+		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " /update/peers/" + cfg.Node.ID)
 	}
 	defer client.Disconnect(250)
 	go Checkin(ctx, &cfg, network)
@@ -89,13 +96,13 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 	go func() {
 		var newNode models.Node
 		var cfg config.ClientConfig
-		cfg.Network = newNode.Network
-		cfg.ReadConfig()
 		err := json.Unmarshal(msg.Payload(), &newNode)
 		if err != nil {
 			ncutils.Log("error unmarshalling node update data" + err.Error())
 			return
 		}
+		cfg.Network = newNode.Network
+		cfg.ReadConfig()
 		//check if interface name has changed if so delete.
 		if cfg.Node.Interface != newNode.Interface {
 			if err = wireguard.RemoveConf(cfg.Node.Interface, true); err != nil {
@@ -112,6 +119,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
 				return
 			}
+			return
 		case models.NODE_UPDATE_KEY:
 			if err := UpdateKeys(&cfg, client); err != nil {
 				ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
@@ -129,11 +137,11 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			ncutils.Log("error reading PrivateKey " + err.Error())
 			return
 		}
-		if err := wireguard.UpdateWgInterface(cfg.Node.Interface, privateKey, nameserver, newNode); err != nil {
+		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+		if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, newNode); err != nil {
 			ncutils.Log("error updating wireguard config " + err.Error())
 			return
 		}
-		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		ncutils.Log("applyWGQuickConf to " + file)
 		err = wireguard.ApplyWGQuickConf(file)
 		if err != nil {
@@ -156,12 +164,12 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
-		err = wireguard.UpdateWgPeers(cfg.Node.Interface, peerUpdate.Peers)
+		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 		if err != nil {
 			ncutils.Log("error updating wireguard peers" + err.Error())
 			return
 		}
-		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		ncutils.Log("applyWGQuickConf to " + file)
 		err = wireguard.ApplyWGQuickConf(file)
 		if err != nil {
@@ -180,7 +188,8 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
 		ncutils.Log("error generating privatekey " + err.Error())
 		return err
 	}
-	if err := wireguard.UpdatePrivateKey(cfg.Node.Interface, key.String()); err != nil {
+	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+	if err := wireguard.UpdatePrivateKey(file, key.String()); err != nil {
 		ncutils.Log("error updating wireguard key " + err.Error())
 		return err
 	}
@@ -260,7 +269,6 @@ func PublishNodeUpdate(cfg *config.ClientConfig) {
 // Hello -- ping the broker to let server know node is alive and doing fine
 func Hello(cfg *config.ClientConfig, network string) {
 	client := SetupMQTT(cfg)
-	ncutils.Log("sending ping " + cfg.Node.ID)
 	if token := client.Publish("ping/"+cfg.Node.ID, 2, false, "hello world!"); token.Wait() && token.Error() != nil {
 		ncutils.Log("error publishing ping " + token.Error().Error())
 	}

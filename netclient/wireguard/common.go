@@ -362,12 +362,11 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 }
 
 // UpdateWgPeers - updates the peers of a network
-func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
+func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) error {
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
 		AllowShadows:           true,
 	}
-	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
 	ncutils.Log("updating " + file)
 	wireguard, err := ini.LoadSources(options, file)
 	if err != nil {
@@ -377,9 +376,9 @@ func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
 	wireguard.DeleteSection(section_peers)
 	for i, peer := range peers {
 		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
-		//if peer.PresharedKey.String() != "" {
-		//wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
-		//}
+		if peer.PresharedKey != nil {
+			wireguard.SectionWithIndex(section_peers, i).Key("PreSharedKey").SetValue(peer.PresharedKey.String())
+		}
 		if peer.AllowedIPs != nil {
 			var allowedIPs string
 			for i, ip := range peer.AllowedIPs {
@@ -405,10 +404,12 @@ func UpdateWgPeers(wgInterface string, peers []wgtypes.PeerConfig) error {
 }
 
 // UpdateWgInterface - updates the interface section of a wireguard config file
-func UpdateWgInterface(wgInterface, privateKey, nameserver string, node models.Node) error {
-	//update to get path properly
-	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
-	wireguard, err := ini.ShadowLoad(file)
+func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) error {
+	options := ini.LoadOptions{
+		AllowNonUniqueSections: true,
+		AllowShadows:           true,
+	}
+	wireguard, err := ini.LoadSources(options, file)
 	if err != nil {
 		return err
 	}
@@ -436,10 +437,12 @@ func UpdateWgInterface(wgInterface, privateKey, nameserver string, node models.N
 }
 
 // UpdatePrivateKey - updates the private key of a wireguard config file
-func UpdatePrivateKey(wgInterface, privateKey string) error {
-	//update to get path properly
-	file := ncutils.GetNetclientPathSpecific() + wgInterface + ".conf"
-	wireguard, err := ini.ShadowLoad(file)
+func UpdatePrivateKey(file, privateKey string) error {
+	options := ini.LoadOptions{
+		AllowNonUniqueSections: true,
+		AllowShadows:           true,
+	}
+	wireguard, err := ini.LoadSources(options, file)
 	if err != nil {
 		return err
 	}
