@@ -575,7 +575,10 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
+	node.Action = models.NODE_DELETE
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node delete "+err.Error())
+	}
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 }
