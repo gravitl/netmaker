@@ -39,6 +39,33 @@ We believe the SSPL lets most people run the project the way they want, for both
 
 If you believe the SSPL will negatively impact your ability to use the project, please do not hesitate to reach out.
 
+Telemetry
+==============
+
+As of v0.10.0, Netmaker collects "opt-out" telemetry data. To opt out, simply set "TELEMETRY=off" in your docker-compose file.
+
+Please consider participating in telemetry, as it helps us focus on the features and bug fixes which are most useful to users. Netmaker is a broad platform, and without this data, it is difficult to know where the team should spend its limited resources.
+
+The following is the full list of telemetry data we collect. Besides "Server Version" all data is simply an integer count:
+
+- Randomized server ID
+- Count of nodes
+- Count of "non-server" nodes
+- Count of external clients
+- Count of networks
+- Count of users
+- Count of linux nodes
+- Count of freebsd nodes
+- Count of macos nodes
+- Count of windows nodes
+- Count of docker nodes
+- Count of k8s nodes
+- Server version
+
+We use  `PostHog <https://https://posthog.com/>`_, an open source and trusted framework for telemetry data.
+
+To look at exactly we collect telemetry, you can view the source code under serverctl/telemetry.go: https://github.com/gravitl/netmaker/blob/master/serverctl/telemetry.go
+
 Contact
 ===========
 If you need help, try the discord or open a GitHub ticket.

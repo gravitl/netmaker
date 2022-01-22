@@ -292,7 +292,15 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+        <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#running-the-install-script" class="md-nav__link">Running the install script</a>
+        </li>
+        <li class="md-nav__item"><a href="#running-netclient-commands" class="md-nav__link">Running netclient commands</a>
+        </li>
+        <li class="md-nav__item"><a href="#high-cpu-utilization" class="md-nav__link">High CPU Utilization</a>
+        </li></ul>
+            </nav>
         </li>
         <li class="md-nav__item"><a href="#notes-on-openwrt" class="md-nav__link">Notes on OpenWRT</a>
         </li>
@@ -474,7 +482,15 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
         </li>
-        <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a>
+        <li class="md-nav__item"><a href="#notes-on-windows" class="md-nav__link">Notes on Windows</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#running-the-install-script" class="md-nav__link">Running the install script</a>
+        </li>
+        <li class="md-nav__item"><a href="#running-netclient-commands" class="md-nav__link">Running netclient commands</a>
+        </li>
+        <li class="md-nav__item"><a href="#high-cpu-utilization" class="md-nav__link">High CPU Utilization</a>
+        </li></ul>
+            </nav>
         </li>
         <li class="md-nav__item"><a href="#notes-on-openwrt" class="md-nav__link">Notes on OpenWRT</a>
         </li>
@@ -541,6 +557,27 @@
 <p>Windows will by default have firewall rules that prevent inbound connections. If you wish to allow inbound connections from particular peers, use the following command:</p>
 <p><code class="docutils literal notranslate"><span class="pre">netsh</span> <span class="pre">advfirewall</span> <span class="pre">firewall</span> <span class="pre">add</span> <span class="pre">rule</span> <span class="pre">name="Allow</span> <span class="pre">from</span> <span class="pre">&lt;peer</span> <span class="pre">private</span> <span class="pre">addr&gt;"</span> <span class="pre">dir=in</span> <span class="pre">action=allow</span> <span class="pre">protocol=ANY</span> <span class="pre">remoteip=&lt;peer</span> <span class="pre">private</span> <span class="pre">addr&gt;</span></code></p>
 <p>If you want to allow all peers access, but do not want to configure firewall rules for all peers, you can configure access for one peer, and set it as a Relay Server.</p>
+
+<h3 id="running-the-install-script">Running the install script<a class="headerlink" href="#running-the-install-script" title="Permalink to this headline">¶</a></h3>
+<p>Some file locations have issues running the install script, such as running from the root C:/ folder. Users have noted the following locations work well for running the install powershell script:</p>
+<ul class="simple">
+<li><p><cite>C:/Program Files/wireguard</cite></p></li>
+<li><p><cite>C:/Windows/System32</cite></p></li>
+</ul>
+
+
+<h3 id="running-netclient-commands">Running netclient commands<a class="headerlink" href="#running-netclient-commands" title="Permalink to this headline">¶</a></h3>
+<p>If running the netclient manually (“netclient join”, “netclient checkin”, “netclient pull”) it should be run from outside of the installed directory, which will be either:</p>
+<ul class="simple">
+<li><p><cite>C:/Program Files/netclient</cite></p></li>
+<li><p><cite>C:/ProgramData/netclient</cite></p></li>
+</ul>
+<p>It is better to call it from a different directory.</p>
+
+
+<h3 id="high-cpu-utilization">High CPU Utilization<a class="headerlink" href="#high-cpu-utilization" title="Permalink to this headline">¶</a></h3>
+<p>With some versions of WireGuard on Windows, high CPU utilization has been found with the netclient. This is typically due to interaction with the WireGuard GUI component (app). If you’re experiencing high CPU utilization, close the WireGuard app. WireGuard will still be running, but the CPU usage should go back down to normal.</p>
+
 
 
 <h2 id="notes-on-openwrt">Notes on OpenWRT<a class="headerlink" href="#notes-on-openwrt" title="Permalink to this headline">¶</a></h2>
