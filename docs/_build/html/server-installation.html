@@ -292,6 +292,8 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
         <li class="md-nav__item"><a href="#compose-file-annotated" class="md-nav__link">Compose File - Annotated</a>
+        </li>
+        <li class="md-nav__item"><a href="#available-docker-compose-files" class="md-nav__link">Available docker-compose files</a>
         </li></ul>
             </nav>
         </li>
@@ -526,6 +528,8 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
         <li class="md-nav__item"><a href="#compose-file-annotated" class="md-nav__link">Compose File - Annotated</a>
+        </li>
+        <li class="md-nav__item"><a href="#available-docker-compose-files" class="md-nav__link">Available docker-compose files</a>
         </li></ul>
             </nav>
         </li>
@@ -696,6 +700,17 @@
 <dt>RCE:</dt><dd><p><strong>Default:</strong> “off”</p>
 <p><strong>Description:</strong> The server enables you to set PostUp and PostDown commands for nodes, which is standard for WireGuard with wg-quick, but is also <strong>Remote Code Execution</strong>, which is a critical vulnerability if the server is exploited. Because of this, it’s turned off by default, but if turned on, PostUp and PostDown become editable.</p>
 </dd>
+<dt>SERVER_GRPC_WIREGUARD</dt><dd><p><strong>Depreciated:</strong> no longer in use</p>
+</dd>
+<dt>DISPLAY_KEYS</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> If “on”, will allow you to always show the key values of “access keys”. This could be considered a vulnerability, so if turned “off”, will only display key values once, and it is up to the users to store the key values locally.</p>
+</dd>
+<dt>NODE_ID</dt><dd><p><strong>Default:</strong> &lt;system mac addres&gt;</p>
+<p><strong>Description:</strong> This setting is used for HA configurations of the server, to identify between different servers. Nodes are given ID’s like netmaker-1, netmaker-2, and netmaker-3. If the server is not HA, there is no reason to set this field.</p>
+</dd>
+<dt>TELEMETRY</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> If “on”, the server will send anonymous telemetry data once daily, which is used to improve the product. Data sent includes counts (integer values) for the number of nodes, types of nodes, users, and networks. It also sends the version of the server.</p>
+</dd>
 </dl>
 
 
@@ -762,6 +777,8 @@
       <span class="nt">SERVER_API_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT</span>
       <span class="nt">SERVER_GRPC_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT</span>
       <span class="nt">RCE</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.</span>
+      <span class="nt">NODE_ID</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Sets the name/id of the nodes that the server creates. Necessary for HA configurations to identify between servers (for instance, netmaker-1, netmaker-2, etc). For non-HA deployments, is not necessary.</span>
+      <span class="nt">TELEMETRY</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.</span>
   <span class="nt">netmaker-ui</span><span class="p">:</span> <span class="c1"># The Netmaker UI Component</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>
@@ -789,6 +806,20 @@
   <span class="nt">dnsconfig</span><span class="p">:</span> <span class="p p-Indicator">{}</span>
 </pre></div>
 </div>
+
+
+<h3 id="available-docker-compose-files">Available docker-compose files<a class="headerlink" href="#available-docker-compose-files" title="Permalink to this headline">¶</a></h3>
+<p>The default options for docker-compose can be found here: <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/compose">https://github.com/gravitl/netmaker/tree/master/compose</a></p>
+<p>The following is a brief description of each:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.contained.yml">docker-compose.contained.yml</a> - This is the default docker-compose, used in the quick start and deployment script in the README on GitHub. It deploys Netmaker with all options included (Caddy and CoreDNS) and has “self-contained” netclients, meaning they do not affect host networking.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.coredns.yml">docker-compose.coredns.yml</a> - This is a simple compose used to spin up a standalone CoreDNS server. Can be useful if, for instance, you are unning Netmaker on baremetal but need CoreDNS.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.hostnetwork.yml">docker-compose.hostnetwork.yml</a> - This is similar to the docker-compose.contained.yml but with a key difference: it has advanced permissions and mounts host volumes to control networking on the host level.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nocaddy.yml">docker-compose.nocaddy.yml</a> -= This is the same as docker-compose.contained.yml but without Caddy, in case you need to use a different proxy like Nginx, Traefik, or HAProxy.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nodns.yml">docker-compose.nodns.yml</a> - This is the same as docker-compose.contained.yml but without CoreDNS, in which case you will not have the Private DNS feature.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.reference.yml">docker-compose.reference.yml</a> - This is the same as docker-compose.contained.yml but with all variable options on display and annotated (it’s what we show right above this section). Use this to determine which variables you should add or change in your configuration.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.yml">docker-compose.yml</a> - This is a renamed docker-compose.contained.yml. It is meant only to act as a placeholder for what we consider the “primary” docker-compose that users should work with.</p></li>
+</ul>
 
 
 
