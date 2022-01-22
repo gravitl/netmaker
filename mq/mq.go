@@ -119,6 +119,7 @@ func GetID(topic string) (string, error) {
 
 // UpdateNode -- publishes a node update
 func NodeUpdate(node *models.Node) error {
+	logger.Log(3, "publishing node update to "+node.Name)
 	opts := mqtt.NewClientOptions()
 	broker := servercfg.GetMessageQueueEndpoint()
 	logger.Log(0, "broker: "+broker)
