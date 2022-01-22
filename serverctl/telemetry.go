@@ -32,7 +32,6 @@ func TelemetryCheckpoint() error {
 	// can set to 2 minutes for testing
 	//sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Minute * 2)
 	enoughTimeElapsed := time.Now().After(sendtime)
-
 	// if more than 24 hours has elapsed, send telemetry to posthog
 	if enoughTimeElapsed {
 		err = sendTelemetry(telRecord.UUID)
@@ -82,14 +81,12 @@ func sendTelemetry(serverUUID string) error {
 }
 
 // fetchTelemetry - fetches telemetry data: count of various object types in DB
-func fetchTelemetryData() (TelemetryData, error) {
-	var data TelemetryData
-	extData, _ := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
-	data.ExtClients = len(extData)
-	userData, _ := database.FetchRecords(database.USERS_TABLE_NAME)
-	data.Users = len(userData)
-	netData, _ := database.FetchRecords(database.NETWORKS_TABLE_NAME)
-	data.Networks = len(netData)
+func fetchTelemetryData() (telemetryData, error) {
+	var data telemetryData
+
+	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
+	data.Users = getDBLength(database.USERS_TABLE_NAME)
+	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
 	nodes, err := logic.GetAllNodes()
 	if err == nil {
@@ -115,8 +112,8 @@ func setTelemetryTimestamp(uuid string) error {
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions
-func getClientCount(nodes []models.Node) ClientCount {
-	var count ClientCount
+func getClientCount(nodes []models.Node) clientCount {
+	var count clientCount
 	for _, node := range nodes {
 		switch node.OS {
 		case "macos":
@@ -148,18 +145,27 @@ func fetchTelemetryRecord() (models.Telemetry, error) {
 	return telObj, err
 }
 
+// getDBLength - get length of DB to get count of objects
+func getDBLength(dbname string) int {
+	data, err := database.FetchRecords(dbname)
+	if err != nil {
+		return 0
+	}
+	return len(data)
+}
+
 // TelemetryData - What data to send to posthog
-type TelemetryData struct {
+type telemetryData struct {
 	Nodes      int
 	ExtClients int
 	Users      int
-	Count      ClientCount
+	Count      clientCount
 	Networks   int
 	Version    string
 }
 
 // ClientCount - What types of netclients we're tallying
-type ClientCount struct {
+type clientCount struct {
 	MacOS     int
 	Windows   int
 	Linux     int

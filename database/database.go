@@ -114,7 +114,8 @@ func InitializeDatabase() error {
 		time.Sleep(2 * time.Second)
 	}
 	createTables()
-	return nil
+	err := initializeUUID()
+	return err
 }
 
 func createTables() {
@@ -194,8 +195,8 @@ func FetchRecords(tableName string) (map[string]string, error) {
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
 }
 
-// InitializeUUID - create a UUID record for server if none exists
-func InitializeUUID() error {
+// initializeUUID - create a UUID record for server if none exists
+func initializeUUID() error {
 	records, err := FetchRecords(SERVER_UUID_TABLE_NAME)
 	if err != nil {
 		if !strings.Contains("could not find any records", err.Error()) {

@@ -41,9 +41,6 @@ func initialize() { // Client Mode Prereq Check
 	}
 	logger.Log(0, "database successfully connected")
 
-	if err = database.InitializeUUID(); err != nil {
-		logger.FatalLog("Failed to set UUID: ", err.Error())
-	}
 	err = serverctl.TelemetryCheckpoint()
 	if err != nil {
 		logger.Log(1, "Failed to send telemetry: ", err.Error())
