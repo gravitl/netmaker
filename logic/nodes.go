@@ -20,11 +20,12 @@ import (
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes, err = GetAllNodes()
+	var nodes []models.Node
+	allnodes, err := GetAllNodes()
 	if err != nil {
 		return []models.Node{}, err
 	}
-	for _, node := range nodes {
+	for _, node := range allnodes {
 		if node.Network == network {
 			nodes = append(nodes, node)
 		}
