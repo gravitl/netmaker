@@ -3,6 +3,7 @@ package mq
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"strings"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -120,14 +121,8 @@ func GetID(topic string) (string, error) {
 // UpdateNode -- publishes a node update
 func NodeUpdate(node *models.Node) error {
 	logger.Log(3, "publishing node update to "+node.Name)
-	opts := mqtt.NewClientOptions()
-	broker := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "broker: "+broker)
-	opts.AddBroker(broker)
-	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
+	client := SetupMQTT()
+	defer client.Disconnect(250)
 	data, err := json.Marshal(node)
 	if err != nil {
 		logger.Log(2, "error marshalling node update "+err.Error())
@@ -140,18 +135,24 @@ func NodeUpdate(node *models.Node) error {
 	return nil
 }
 
-// NewPeer -- publishes a peer update to all the peers of a newNode
-func NewPeer(node models.Node) error {
-	opts := mqtt.NewClientOptions()
-	broker := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "broker: "+broker)
-	opts.AddBroker(broker)
-	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
-	if err := PublishPeerUpdate(client, &node); err != nil {
+// UpdatePeers -- publishes a peer update to all the peers of a node
+func UpdatePeers(node *models.Node) error {
+	client := SetupMQTT()
+	defer client.Disconnect(250)
+	if err := PublishPeerUpdate(client, node); err != nil {
 		return err
 	}
 	return nil
+}
+
+// SetupMQTT creates a connection to broker and return client
+func SetupMQTT() mqtt.Client {
+	opts := mqtt.NewClientOptions()
+	broker := servercfg.GetMessageQueueEndpoint()
+	opts.AddBroker(broker)
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		log.Fatal(token.Error())
+	}
+	return client
 }

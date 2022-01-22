@@ -70,11 +70,11 @@ func MessageQueue(ctx context.Context, network string) {
 	if cfg.DebugOn {
 		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
 	}
-	if token := client.Subscribe("/update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
 	if cfg.DebugOn {
-		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " /update/peers/" + cfg.Node.ID)
+		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/peers/" + cfg.Node.ID)
 	}
 	defer client.Disconnect(250)
 	go Checkin(ctx, &cfg, network)
