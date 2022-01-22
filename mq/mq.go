@@ -133,7 +133,7 @@ func NodeUpdate(node *models.Node) error {
 		logger.Log(2, "error marshalling node update "+err.Error())
 		return err
 	}
-	if token := client.Publish("/update/"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
+	if token := client.Publish("update/"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
 		logger.Log(2, "error publishing peer update to peer "+node.ID+" "+token.Error().Error())
 		return err
 	}
