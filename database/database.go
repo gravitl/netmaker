@@ -210,8 +210,8 @@ func initializeUUID() error {
 	if err != nil {
 		return err
 	}
-	err = Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
-	return err
+
+	return Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
 }
 
 // CloseDB - closes a database gracefully

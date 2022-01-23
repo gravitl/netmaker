@@ -12,8 +12,13 @@ import (
 	"github.com/posthog/posthog-go"
 )
 
+// POSTHOG_PUB_KEY - Key for sending data to PostHog
 const POSTHOG_PUB_KEY = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
+
+// POSTHOG_ENDPOINT - Endpoint of PostHog server
 const POSTHOG_ENDPOINT = "https://app.posthog.com"
+
+// TELEMETRY_HOURS_BETWEEN_SEND - How long to wait before sending telemetry to server (24 hours)
 const TELEMETRY_HOURS_BETWEEN_SEND = 24
 
 // TelemetryCheckpoint - Checks if 24 hours has passed since telemetry was last sent. If so, sends telemetry data to posthog
@@ -154,7 +159,7 @@ func getDBLength(dbname string) int {
 	return len(data)
 }
 
-// TelemetryData - What data to send to posthog
+// telemetryData - What data to send to posthog
 type telemetryData struct {
 	Nodes      int
 	ExtClients int
@@ -164,7 +169,7 @@ type telemetryData struct {
 	Version    string
 }
 
-// ClientCount - What types of netclients we're tallying
+// clientCount - What types of netclients we're tallying
 type clientCount struct {
 	MacOS     int
 	Windows   int
