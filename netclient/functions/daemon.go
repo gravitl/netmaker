@@ -119,6 +119,9 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
 				return
 			}
+			if token := client.Unsubscribe("update/"+newNode.ID, "update/peers/"+newNode.ID); token.Wait() && token.Error() != nil {
+				ncutils.PrintLog("error unsubscribing during node deletion", 1)
+			}
 			return
 		case models.NODE_UPDATE_KEY:
 			if err := UpdateKeys(&cfg, client); err != nil {
