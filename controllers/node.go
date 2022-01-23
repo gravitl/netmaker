@@ -420,6 +420,13 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update"+err.Error())
+	}
+	if err := mq.UpdatePeers(&node); err != nil {
+		logger.Log(1, "error publishing peer update "+err.Error())
+		return
+	}
 	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
@@ -441,6 +448,13 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update"+err.Error())
+	}
+	if err := mq.UpdatePeers(&node); err != nil {
+		logger.Log(1, "error publishing peer update "+err.Error())
+		return
+	}
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -454,6 +468,13 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	node, err := logic.DeleteEgressGateway(netid, nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update"+err.Error())
+	}
+	if err := mq.UpdatePeers(&node); err != nil {
+		logger.Log(1, "error publishing peer update "+err.Error())
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
@@ -492,6 +513,13 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	node, err := logic.DeleteIngressGateway(params["network"], nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update"+err.Error())
+	}
+	if err := mq.UpdatePeers(&node); err != nil {
+		logger.Log(1, "error publishing peer update "+err.Error())
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)

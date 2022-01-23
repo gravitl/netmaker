@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 )
 
 func createRelay(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +27,13 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update"+err.Error())
+	}
+	if err := mq.UpdatePeers(&node); err != nil {
+		logger.Log(1, "error publishing peer update "+err.Error())
+		return
+	}
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -39,6 +47,13 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update"+err.Error())
+	}
+	if err := mq.UpdatePeers(&node); err != nil {
+		logger.Log(1, "error publishing peer update "+err.Error())
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
