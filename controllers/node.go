@@ -591,6 +591,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if err := mq.NodeUpdate(&newNode); err != nil {
 		logger.Log(1, "error publishing node update"+err.Error())
 	}
+	if logic.ShouldPeersUpdate(&node, &newNode) {
+		if err := mq.UpdatePeers(&newnode) {
+		logger.Log(1, "error publishing peer update after node update"+err.Error())
+		}
+	}
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
