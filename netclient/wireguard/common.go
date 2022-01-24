@@ -331,6 +331,9 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 	if node.PostDown != "" {
 		wireguard.Section(section_interface).Key("PostDown").SetValue(node.PostDown)
 	}
+	if node.MTU != 0 {
+		wireguard.Section(section_interface).Key("MTU").SetValue(strconv.FormatInt(int64(node.MTU), 10))
+	}
 	for i, peer := range peers {
 		wireguard.SectionWithIndex(section_peers, i).Key("PublicKey").SetValue(peer.PublicKey.String())
 		if peer.PresharedKey != nil {
@@ -429,6 +432,9 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	}
 	if node.PostDown != "" {
 		wireguard.Section(section_interface).Key("PostDown").SetValue(node.PostDown)
+	}
+	if node.MTU != 0 {
+		wireguard.Section(section_interface).Key("MTU").SetValue(strconv.FormatInt(int64(node.MTU), 10))
 	}
 	if err := wireguard.SaveTo(file); err != nil {
 		return err
