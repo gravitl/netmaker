@@ -424,9 +424,9 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	if node.Address6 != "" {
 		wireguard.Section(section_interface).Key("Address").SetValue(node.Address6)
 	}
-	if node.DNSOn == "yes" {
-		wireguard.Section(section_interface).Key("DNS").SetValue(nameserver)
-	}
+	//if node.DNSOn == "yes" {
+	//	wireguard.Section(section_interface).Key("DNS").SetValue(nameserver)
+	//}
 	if node.PostUp != "" {
 		wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostUp)
 	}

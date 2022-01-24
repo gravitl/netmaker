@@ -13,6 +13,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -150,6 +151,17 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 		if err != nil {
 			ncutils.Log("error restarting wg after node update " + err.Error())
 			return
+		}
+		//deal with DNS
+		if newNode.DNSOn == "on" {
+			if err = local.UpdateDNS(cfg.Node.Interface, cfg.Network, cfg.Server.CoreDNSAddr); err != nil {
+				ncutils.Log("error applying dns" + err.Error())
+			}
+		} else {
+			_, err := ncutils.RunCmd("resolvectrl revert "+cfg.Node.Interface, true)
+			if err != nil {
+				ncutils.Log("error applying dns" + err.Error())
+			}
 		}
 	}()
 }
