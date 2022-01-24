@@ -220,6 +220,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit
 	logger.Log(0, "Message Queue shutting down")
+	client.Disconnect(250)
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {
