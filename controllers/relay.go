@@ -56,7 +56,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 		logger.Log(1, "error publishing peer update "+err.Error())
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
+	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
