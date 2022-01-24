@@ -153,12 +153,14 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			return
 		}
 		//deal with DNS
-		if newNode.DNSOn == "on" {
+		if newNode.DNSOn == "yes" {
+			ncutils.Log("setting up DNS")
 			if err = local.UpdateDNS(cfg.Node.Interface, cfg.Network, cfg.Server.CoreDNSAddr); err != nil {
 				ncutils.Log("error applying dns" + err.Error())
 			}
 		} else {
-			_, err := ncutils.RunCmd("resolvectrl revert "+cfg.Node.Interface, true)
+			ncutils.Log("settng DNS off")
+			_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+cfg.Node.Interface, true)
 			if err != nil {
 				ncutils.Log("error applying dns" + err.Error())
 			}
