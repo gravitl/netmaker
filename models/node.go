@@ -54,6 +54,8 @@ type Node struct {
 	IsRelayed           string   `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
 	IsRelay             string   `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
+	IsDocker            string   `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
+	IsK8S               string   `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
 	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
 	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
 	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
@@ -119,6 +121,20 @@ func (node *Node) SetDefaultIsRelayed() {
 func (node *Node) SetDefaultIsRelay() {
 	if node.IsRelay == "" {
 		node.IsRelay = "no"
+	}
+}
+
+// Node.SetDefaultIsDocker - set default isdocker
+func (node *Node) SetDefaultIsDocker() {
+	if node.IsDocker == "" {
+		node.IsDocker = "no"
+	}
+}
+
+// Node.SetDefaultIsK8S - set default isk8s
+func (node *Node) SetDefaultIsK8S() {
+	if node.IsK8S == "" {
+		node.IsK8S = "no"
 	}
 }
 
@@ -380,6 +396,12 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.IsRelayed == "" {
 		newNode.IsRelayed = currentNode.IsRelayed
+	}
+	if newNode.IsDocker == "" {
+		newNode.IsDocker = currentNode.IsDocker
+	}
+	if newNode.IsK8S == "" {
+		newNode.IsK8S = currentNode.IsK8S
 	}
 	if newNode.Version == "" {
 		newNode.Version = currentNode.Version

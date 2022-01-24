@@ -70,6 +70,7 @@ type ServerConfig struct {
 	DisplayKeys           string `yaml:"displaykeys"`
 	AzureTenant           string `yaml:"azuretenant"`
 	RCE                   string `yaml:"rce"`
+	Telemetry             string `yaml:"telemetry"`
 }
 
 // SQLConfig - Generic SQL Config
