@@ -1,0 +1,12 @@
+- hosts: control-plane
+  become: yes
+  tasks:
+
+    - name: install Pod network
+      when: inventory_hostname in groups['primary-control']
+      become: yes
+      become_user: ubuntu
+      shell: kubectl apply -f /home/ubuntu/kube-flannel.yml >> pod_network_setup.txt
+      args:
+        chdir: $HOME
+        creates: pod_network_setup.txt

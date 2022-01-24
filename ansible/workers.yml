@@ -1,0 +1,22 @@
+---
+- hosts: control-plane
+  become: yes
+  gather_facts: false
+  tasks:
+    - name: get join command
+      shell: kubeadm token create --print-join-command
+      register: join_command_raw
+
+    - name: set join command
+      set_fact:
+        join_command: "{{ join_command_raw.stdout_lines[0] }}"
+
+
+- hosts: worker-plane
+  become: yes
+  tasks:
+    - name: join cluster
+      shell: "{{ hostvars['control1'].join_command }} >> node_joined.txt"
+      args:
+        chdir: $HOME
+        creates: node_joined.txt

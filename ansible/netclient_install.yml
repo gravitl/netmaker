@@ -1,0 +1,23 @@
+---
+
+- name: Netclient Install Playbook
+  gather_facts: false
+  hosts: worker-plane
+  tasks:
+
+  - name: Download Installer 
+    get_url:
+      url: https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh
+      dest: /tmp/netclient-install.sh
+      mode: 555
+
+  - name: Install Netclient
+    shell: ./netclient-install.sh
+    args:
+      chdir: /tmp/
+    environment:
+      VERSION: "{{ version }}"
+      KEY: "{{ access_key }}"
+
+  - name: Reboot Machine
+    reboot:

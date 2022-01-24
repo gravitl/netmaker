@@ -1,0 +1,19 @@
+---
+- hosts: control-plane
+  become: yes
+  tasks:
+
+    - name: copy flannel conf to master node kube config
+      when: inventory_hostname in groups['primary-control']
+      copy:
+        src: ./kube-flannel.yml
+        dest: /home/ubuntu/
+        owner: ubuntu
+
+    - name: install Pod network
+      become: yes
+      become_user: ubuntu
+      shell: kubectl apply -f /home/ubuntu/kube-flannel.yml >> pod_network_setup.txt
+      args:
+        chdir: $HOME
+        creates: pod_network_setup.txt
