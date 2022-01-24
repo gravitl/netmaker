@@ -245,6 +245,7 @@ func ShouldPeersUpdate(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.IsRelay != currentNode.IsRelay ||
 		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
 		newNode.IsPending != currentNode.IsPending ||
+		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
 		return true
