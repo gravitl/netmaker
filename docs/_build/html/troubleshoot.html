@@ -467,7 +467,11 @@ You can also sign-up for updates at our <a class="reference external" href="http
 
 
 <h2 id="server">Server<a class="headerlink" href="#server" title="Permalink to this headline">¶</a></h2>
-<dl class="simple">
+<dl>
+<dt><strong>How do I use a private address from the Netmaker Server? How do I contact nodes using their private addresses from the server?</strong></dt><dd><p>Default nodes appear in each network with the “netmaker” name. These nodes are created by, and attached to, the server. The server is contained in docker, meaning these clients are also contained in docker. Their networking stack is also contained in docker. The “netmaker” nodes are meant to function as network utilities. They assist with UDP Hole Punching and can run Relays, Egress, and Ingress. However, they are meant to stay contained in the server. They do not touch the host networking stack.</p>
+<p>If you want to give the physical server / VM a private IP in the netmaker network, you must deploy an <strong>additional</strong> node using the standard netclient. The only note here is that the server consumes ports 51821-51831, so you will need to give it a port outside this range, e.x. <cite>./netclient join &lt;token&gt; –port 51835</cite>.</p>
+<p>One a netclient is deployed to the underlying server/VM, you will be able to use the private address to reach other nodes from the host, or to reach the server over the private network.</p>
+</dd>
 <dt><strong>I upgraded from 0.7 to 0.8 and now I dont have any data in my server!</strong></dt><dd><p>In 0.8, sqlite becomes the default database. If you were running with rqlite, you must set the DATABASE environment variable to rqlite in order to continue using rqlite.</p>
 </dd>
 <dt><strong>Can I secure/encrypt all the traffic to my server and UI?</strong></dt><dd><p>This can fairly simple to achieve assuming you have access to a domain and are familiar with Nginx.

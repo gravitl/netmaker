@@ -73,6 +73,7 @@ type ServerConfig struct {
 	AzureTenant           string `yaml:"azuretenant"`
 	RCE                   string `yaml:"rce"`
 	Debug                 bool   `yaml:"debug"`
+	Telemetry             string `yaml:"telemetry"`
 }
 
 // SQLConfig - Generic SQL Config

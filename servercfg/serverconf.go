@@ -86,6 +86,7 @@ func GetServerConfig() config.ServerConfig {
 		cfg.RCE = "off"
 	}
 	cfg.Debug = GetDebug()
+	cfg.Telemetry = Telemetry()
 
 	return cfg
 }
@@ -354,6 +355,18 @@ func IsClientMode() string {
 		}
 	}
 	return isclient
+}
+
+// Telemetry - checks if telemetry data should be sent
+func Telemetry() string {
+	telemetry := "on"
+	if os.Getenv("TELEMETRY") == "off" {
+		telemetry = "off"
+	}
+	if config.Config.Server.Telemetry == "off" {
+		telemetry = "off"
+	}
+	return telemetry
 }
 
 // IsDNSMode - should it run with DNS
