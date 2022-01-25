@@ -32,11 +32,10 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(1, "error publishing peer update "+err.Error())
-			return
+			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
@@ -59,11 +58,10 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(1, "error publishing peer update "+err.Error())
-			return
+			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)

@@ -12,6 +12,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// GetPeerUpdate - gets a wireguard peer config for each peer of a node
 func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate
 	var peers []wgtypes.PeerConfig
@@ -60,6 +61,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	return peerUpdate, nil
 }
 
+// GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 	var allowedips []net.IPNet
 	var gateways []string

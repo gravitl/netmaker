@@ -431,11 +431,10 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(1, "error publishing peer update "+err.Error())
-			return
+			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
@@ -464,11 +463,10 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if err := mq.UpdatePeers(&node); err != nil {
 			logger.Log(1, "error publishing peer update "+err.Error())
-			return
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
@@ -491,11 +489,10 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(1, "error publishing peer update "+err.Error())
-			return
+			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
@@ -517,11 +514,10 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(1, "error publishing peer update "+err.Error())
-			return
+			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
@@ -540,11 +536,10 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(1, "error publishing peer update "+err.Error())
-			return
+			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
@@ -619,11 +614,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newNode)
 	go func() {
 		if err := mq.NodeUpdate(&newNode); err != nil {
-			logger.Log(1, "error publishing node update"+err.Error())
+			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if logic.ShouldPeersUpdate(&node, &newNode) {
 			if err := mq.UpdatePeers(&newNode); err != nil {
-				logger.Log(1, "error publishing peer update after node update"+err.Error())
+				logger.Log(1, "error publishing peer update after node update", err.Error())
 			}
 		}
 	}()
@@ -655,7 +650,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	node.Action = models.NODE_DELETE
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node delete "+err.Error())
+			logger.Log(1, "error publishing node delete ", err.Error())
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])

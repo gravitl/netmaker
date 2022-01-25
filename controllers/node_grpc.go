@@ -94,7 +94,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	// notify other nodes on network of new peer
 	go func() {
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(0, "failed to inform peers of new node "+err.Error())
+			logger.Log(0, "failed to inform peers of new node ", err.Error())
 		}
 	}()
 
@@ -161,7 +161,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	// notify other nodes on network of deleted peer
 	go func() {
 		if err := mq.UpdatePeers(&node); err != nil {
-			logger.Log(0, "failed to inform peers of deleted node "+err.Error())
+			logger.Log(0, "failed to inform peers of deleted node ", err.Error())
 		}
 	}()
 

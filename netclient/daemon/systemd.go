@@ -10,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+const EXEC_DIR = "/usr/sbin/"
+
 // SetupSystemDDaemon - sets system daemon for supported machines
 func SetupSystemDDaemon(interval string) error {
 
@@ -31,8 +33,8 @@ func SetupSystemDDaemon(interval string) error {
 	}
 	//install binary
 	//should check if the existing binary is the corect version -- for now only copy if file doesn't exist
-	if !ncutils.FileExists("/usr/sbin/netclient") {
-		err = ncutils.Copy(binarypath, "/usr/sbin/netclient")
+	if !ncutils.FileExists(EXEC_DIR + "netclient") {
+		err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
 		if err != nil {
 			log.Println(err)
 			return err
@@ -61,7 +63,7 @@ WantedBy=multi-user.target
 	}
 	_, _ = ncutils.RunCmd("systemctl enable netclient.service", true)
 	_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
-	_, _ = ncutils.RunCmd("systemctl start netclient.server", true)
+	_, _ = ncutils.RunCmd("systemctl start netclient.service", true)
 	return nil
 }
 
@@ -69,7 +71,7 @@ func CleanupLinux() {
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
 		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
 	}
-	if err := os.Remove("/usr/sbin/netclient"); err != nil {
+	if err := os.Remove(EXEC_DIR + "netclient"); err != nil {
 		ncutils.PrintLog("Removing netclient binary: "+err.Error(), 1)
 	}
 }
