@@ -11,6 +11,7 @@ import (
 
 const MAC_SERVICE_NAME = "com.gravitl.netclient"
 
+// SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
 func SetupMacDaemon(interval string) error {
 
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
@@ -39,6 +40,7 @@ func SetupMacDaemon(interval string) error {
 	return err
 }
 
+// CleanupMac - Removes the netclient checkin daemon from LaunchDaemons
 func CleanupMac() {
 	_, err := ncutils.RunCmd("launchctl unload /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
 	if ncutils.FileExists("/Library/LaunchDaemons/" + MAC_SERVICE_NAME + ".plist") {
@@ -52,6 +54,7 @@ func CleanupMac() {
 	os.Remove("/sbin/netclient")
 }
 
+// CreateMacService - Creates the mac service file for LaunchDaemons
 func CreateMacService(servicename string, interval string) error {
 	_, err := os.Stat("/Library/LaunchDaemons")
 	if os.IsNotExist(err) {
@@ -69,6 +72,7 @@ func CreateMacService(servicename string, interval string) error {
 	return err
 }
 
+// MacDaemonString - the file contents for the mac netclient daemon service (launchdaemon)
 func MacDaemonString(interval string) string {
 	return fmt.Sprintf(`<?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
@@ -95,6 +99,7 @@ func MacDaemonString(interval string) string {
 `, interval)
 }
 
+// MacTemplateData - struct to represent the mac service
 type MacTemplateData struct {
 	Label    string
 	Interval string

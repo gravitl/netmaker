@@ -151,29 +151,8 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		return err
 	}
 
-	//var newConf string
-	//if node.UDPHolePunch != "yes" {
-	//	newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), peers)
-	//} else {
-	//	newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), "", peers)
-	//}
-	//confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-	//ncutils.PrintLog("writing wg conf file to: "+confPath, 1)
-	//err = os.WriteFile(confPath, []byte(newConf), 0644)
-	//if err != nil {
-	//	ncutils.PrintLog("error writing wg conf file to "+confPath+": "+err.Error(), 1)
-	//	return err
-	//}
-	//if ncutils.IsWindows() {
-	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-	//	err = os.WriteFile(wgConfPath, []byte(newConf), 0644)
-	//	if err != nil {
-	//		ncutils.PrintLog("error writing wg conf file to "+wgConfPath+": "+err.Error(), 1)
-	//		return err
-	//	}
-	//	confPath = wgConfPath
-	//}
 	// spin up userspace / windows interface + apply the conf file
+	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	var deviceiface string
 	if ncutils.IsMac() {
 		deviceiface, err = local.GetMacIface(node.Address)

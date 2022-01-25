@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/auth"
@@ -123,23 +122,7 @@ func startControllers() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
-	if servercfg.IsClientMode() == "on" {
-		var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
-		for { // best effort currently
-			var serverGroup sync.WaitGroup
-			serverGroup.Add(1)
-			go runClient(&serverGroup)
-			serverGroup.Wait()
-			time.Sleep(checkintime)
-		}
-	}
-
 	waitnetwork.Wait()
-}
-
-func runClient(wg *sync.WaitGroup) {
-	defer wg.Done()
-	go serverctl.HandleContainedClient()
 }
 
 func runGRPC(wg *sync.WaitGroup) {

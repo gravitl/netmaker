@@ -405,6 +405,11 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
+	if err = runServerPeerUpdate(node.Network, true); err != nil {
+		logger.Log(1, "internal error when creating node:", node.ID)
+	}
+
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -415,10 +420,14 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	node, err := logic.UncordonNode(params["nodeid"])
+	var nodeid = params["nodeid"]
+	node, err := logic.UncordonNode(nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if err = runServerPeerUpdate(node.Network, false); err != nil {
+		logger.Log(1, "internal error when approving node:", nodeid)
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
@@ -450,6 +459,9 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	if err = runServerPeerUpdate(gateway.NetID, true); err != nil {
+		logger.Log(1, "internal error when setting peers after creating egress on node:", gateway.NodeID)
+	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
 			logger.Log(1, "error publishing node update"+err.Error())
@@ -473,6 +485,9 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	if err = runServerPeerUpdate(netid, true); err != nil {
+		logger.Log(1, "internal error when setting peers after removing egress on node:", nodeid)
 	}
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {
@@ -576,6 +591,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
+	var shouldPeersUpdate = logic.ShouldPeersUpdate(&node, &newNode)
+
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -591,6 +608,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsDNSMode() {
 		err = logic.SetDNS()
 	}
+
+	err = runServerPeerUpdate(node.Network, shouldPeersUpdate)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -623,6 +642,12 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = logic.DeleteNodeByID(&node, false)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	err = runServerPeerUpdate(node.Network, true)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

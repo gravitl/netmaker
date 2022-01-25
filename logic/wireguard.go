@@ -85,15 +85,6 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	if !ncutils.IsKernel() {
-		//var newConf string
-		//newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), peers)
-		//confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-		//logger.Log(1, "writing wg conf file to:", confPath)
-		//err = os.WriteFile(confPath, []byte(newConf), 0644)
-		//if err != nil {
-		//logger.Log(1, "error writing wg conf file to", confPath, ":", err.Error())
-		//return err
-		//}
 		if err := wireguard.WriteWgConfig(node, key.String(), peers); err != nil {
 			logger.Log(1, "error writing wg conf file: ", err.Error())
 			return err
