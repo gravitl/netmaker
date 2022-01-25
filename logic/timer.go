@@ -7,40 +7,21 @@ import (
 	"github.com/gravitl/netmaker/logger"
 )
 
-// timeHooks - functions to run once a day, functions must take no parameters
-var timeHooks = []interface{}{
-	loggerDump,
-	sendTelemetry,
-}
+// == Constants ==
 
-func loggerDump() {
-	logger.DumpFile(fmt.Sprintf("data/netmaker.log.%s", time.Now().Format(logger.TimeFormatDay)))
-}
+// How long to wait before sending telemetry to server (24 hours)
+const timer_hours_between_runs = 24
 
-// TIMER_HOURS_BETWEEN_RUN - How long to wait before sending telemetry to server (24 hours)
-const TIMER_HOURS_BETWEEN_RUN = 24
-
-// AddHook - adds a hook function to run every 24hrs
-func AddHook(ifaceToAdd interface{}) {
-	timeHooks = append(timeHooks, ifaceToAdd)
-}
-
-// runHooks - runs the functions currently in the timeHooks data structure
-func runHooks() {
-	for _, hook := range timeHooks {
-		hook.(func())()
-	}
-}
+// == Public ==
 
 // TimerCheckpoint - Checks if 24 hours has passed since telemetry was last sent. If so, sends telemetry data to posthog
 func TimerCheckpoint() error {
-
 	// get the telemetry record in the DB, which contains a timestamp
 	telRecord, err := fetchTelemetryRecord()
 	if err != nil {
 		return err
 	}
-	sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Hour * time.Duration(TIMER_HOURS_BETWEEN_RUN))
+	sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Hour * time.Duration(timer_hours_between_runs))
 	// can set to 2 minutes for testing
 	// sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Minute * 2)
 	enoughTimeElapsed := time.Now().After(sendtime)
@@ -51,4 +32,31 @@ func TimerCheckpoint() error {
 	}
 	// set telemetry timestamp for server, restarts 24 hour cycle
 	return setTelemetryTimestamp(telRecord.UUID)
+}
+
+// AddHook - adds a hook function to run every 24hrs
+func AddHook(ifaceToAdd interface{}) {
+	timeHooks = append(timeHooks, ifaceToAdd)
+}
+
+// == private ==
+
+// timeHooks - functions to run once a day, functions must take no parameters
+var timeHooks = []interface{}{
+	loggerDump,
+	sendTelemetry,
+}
+
+func loggerDump() error {
+	logger.DumpFile(fmt.Sprintf("data/netmaker.log.%s", time.Now().Format(logger.TimeFormatDay)))
+	return nil
+}
+
+// runHooks - runs the functions currently in the timeHooks data structure
+func runHooks() {
+	for _, hook := range timeHooks {
+		if err := hook.(func() error)(); err != nil {
+			logger.Log(1, "error occurred when running timer function:", err.Error())
+		}
+	}
 }

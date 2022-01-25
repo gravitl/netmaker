@@ -17,28 +17,28 @@ const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
 const posthog_endpoint = "https://app.posthog.com"
 
 // sendTelemetry - gathers telemetry data and sends to posthog
-func sendTelemetry() {
+func sendTelemetry() error {
 	if servercfg.Telemetry() == "off" {
-		return
+		return nil
 	}
 
 	var telRecord, err = fetchTelemetryRecord()
 	if err != nil {
-		return
+		return err
 	}
 	// get telemetry data
 	d, err := fetchTelemetryData()
 	if err != nil {
-		return
+		return err
 	}
 	client, err := posthog.NewWithConfig(posthog_pub_key, posthog.Config{Endpoint: posthog_endpoint})
 	if err != nil {
-		return
+		return err
 	}
 	defer client.Close()
 
 	// send to posthog
-	client.Enqueue(posthog.Capture{
+	return client.Enqueue(posthog.Capture{
 		DistinctId: telRecord.UUID,
 		Event:      "daily checkin",
 		Properties: posthog.NewProperties().
@@ -80,7 +80,7 @@ func setTelemetryTimestamp(uuid string) error {
 		UUID:     uuid,
 		LastSend: lastsend,
 	}
-	jsonObj, err := json.Marshal(serverTelData)
+	jsonObj, err := json.Marshal(&serverTelData)
 	if err != nil {
 		return err
 	}
