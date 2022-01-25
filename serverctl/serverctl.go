@@ -12,6 +12,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+const NETMAKER_BINARY_NAME = "netmaker"
+
 // InitServerNetclient - intializes the server netclient
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
