@@ -41,9 +41,9 @@ func initialize() { // Client Mode Prereq Check
 	}
 	logger.Log(0, "database successfully connected")
 
-	err = serverctl.TelemetryCheckpoint()
+	err = logic.TimerCheckpoint()
 	if err != nil {
-		logger.Log(1, "Failed to send telemetry: ", err.Error())
+		logger.Log(1, "Timer error occurred: ", err.Error())
 	}
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {
