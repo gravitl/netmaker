@@ -10,7 +10,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-const EXEC_DIR = "/usr/sbin/"
+const EXEC_DIR = "/sbin/"
 
 // SetupSystemDDaemon - sets system daemon for supported machines
 func SetupSystemDDaemon(interval string) error {

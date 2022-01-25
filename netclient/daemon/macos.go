@@ -10,7 +10,6 @@ import (
 )
 
 const MAC_SERVICE_NAME = "com.gravitl.netclient"
-const EXEC_DIR = "/sbin/"
 
 // SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
 func SetupMacDaemon(interval string) error {
