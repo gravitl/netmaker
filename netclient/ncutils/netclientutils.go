@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -533,10 +534,10 @@ func CheckWG() {
 	}
 }
 
-// StringSliceContains - sees if a string slice contains a string element
-func StringSliceContains(slice []string, item string) bool {
+// ServerAddrSliceContains - sees if a string slice contains a string element
+func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) bool {
 	for _, s := range slice {
-		if s == item {
+		if s.Address == item.Address && s.IsLeader == item.IsLeader {
 			return true
 		}
 	}
