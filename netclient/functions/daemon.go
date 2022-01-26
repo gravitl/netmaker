@@ -115,7 +115,6 @@ var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
 func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
-	ncutils.Log("received message to update node " + string(msg.Payload()))
 	//potentiall blocking i/o so do this in a go routine
 	go func() {
 		var newNode models.Node
@@ -125,6 +124,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			ncutils.Log("error unmarshalling node update data" + err.Error())
 			return
 		}
+		ncutils.Log("received message to update node " + newNode.Name)
 		// see if cache hit, if so skip
 		var currentMessage = read(newNode.Network, lastNodeUpdate)
 		if currentMessage == string(msg.Payload()) {
