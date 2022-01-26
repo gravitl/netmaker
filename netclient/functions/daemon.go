@@ -59,10 +59,11 @@ func Daemon() error {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	for i, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
+	for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
 		if server.Address != "" && server.IsLeader {
-			ncutils.Log(fmt.Sprintf("adding server (%d) to listen on network %s \n", (i + 1), cfg.Node.Network))
+			ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s \n", server.Address, cfg.Node.Network))
 			opts.AddBroker(server.Address + ":1883")
+			break
 		}
 	}
 	opts.SetDefaultPublishHandler(All)
