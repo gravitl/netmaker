@@ -58,6 +58,21 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 	return nodes, nil
 }
 
+// GetServerNodes - gets the server nodes of a network
+func GetServerNodes(network string) []models.Node {
+	var nodes, err = GetNetworkNodes(network)
+	var serverNodes = make([]models.Node, 0)
+	if err != nil {
+		return serverNodes
+	}
+	for _, node := range nodes {
+		if node.IsServer == "yes" {
+			serverNodes = append(serverNodes, node)
+		}
+	}
+	return serverNodes
+}
+
 // UncordonNode - approves a node to join a network
 func UncordonNode(nodeid string) (models.Node, error) {
 	node, err := GetNodeByID(nodeid)

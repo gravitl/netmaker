@@ -3,10 +3,12 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,6 +20,22 @@ import (
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+var messageCache = make(map[string]string, 20)
+
+const lastNodeUpdate = "lnu"
+const lastPeerUpdate = "lpu"
+
+func insert(network, which, cache string) {
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
+	messageCache[fmt.Sprintf("%s%s", network, which)] = cache
+}
+
+func read(network, which string) string {
+	return messageCache[fmt.Sprintf("%s%s", network, which)]
+}
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
@@ -41,8 +59,12 @@ func Daemon() error {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	ncutils.Log("setting broker to " + cfg.Server.CoreDNSAddr + ":1883")
-	opts.AddBroker(cfg.Server.CoreDNSAddr + ":1883")
+	for i, addr := range cfg.Node.NetworkSettings.DefaultServerAddrs {
+		if addr != "" {
+			ncutils.Log(fmt.Sprintf("adding server (%d) to listen on network %s \n", (i + 1), cfg.Node.Network))
+			opts.AddBroker(addr + ":1883")
+		}
+	}
 	opts.SetDefaultPublishHandler(All)
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
@@ -102,6 +124,12 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			ncutils.Log("error unmarshalling node update data" + err.Error())
 			return
 		}
+		// see if cache hit, if so skip
+		var currentMessage = read(newNode.Network, lastNodeUpdate)
+		if currentMessage == string(msg.Payload()) {
+			return
+		}
+		insert(newNode.Network, lastNodeUpdate, string(msg.Payload()))
 		cfg.Network = newNode.Network
 		cfg.ReadConfig()
 		//check if interface name has changed if so delete.
@@ -177,10 +205,24 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			ncutils.Log("error unmarshalling peer data")
 			return
 		}
+		// see if cache hit, if so skip
+		var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
+		if currentMessage == string(msg.Payload()) {
+			return
+		}
+		insert(peerUpdate.Network, lastPeerUpdate, string(msg.Payload()))
 		ncutils.Log("update peer handler")
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
+		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
+		if shouldReSub {
+			client.Disconnect(250) // kill client
+			// un sub, re sub.. how?
+			client.Unsubscribe("update/"+cfg.Node.ID, "update/peers/"+cfg.Node.ID)
+			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
+
+		}
 		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 		if err != nil {
@@ -194,6 +236,26 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			return
 		}
 	}()
+}
+
+// Resubscribe --- handles resubscribing if needed
+func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) {
+	if err := config.ModConfig(&cfg.Node); err == nil {
+		client.Disconnect(250)
+		client = SetupMQTT(cfg)
+		if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
+			log.Fatal(token.Error())
+		}
+		if cfg.DebugOn {
+			ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
+		}
+		if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+			log.Fatal(token.Error())
+		}
+		ncutils.Log("finished re subbing")
+	} else {
+		ncutils.Log("could not mod config when re-subbing")
+	}
 }
 
 // UpdateKeys -- updates private key and returns new publickey
@@ -290,4 +352,16 @@ func Hello(cfg *config.ClientConfig, network string) {
 		ncutils.Log("error publishing ping " + token.Error().Error())
 	}
 	client.Disconnect(250)
+}
+
+func shouldResub(currentServers, newServers []string) bool {
+	if len(currentServers) != len(newServers) {
+		return false
+	}
+	for _, srv := range currentServers {
+		if !ncutils.StringSliceContains(newServers, srv) {
+			return true
+		}
+	}
+	return false
 }
