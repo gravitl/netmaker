@@ -20,7 +20,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	if err != nil {
 		return models.PeerUpdate{}, err
 	}
-	var serverNodeAddresses = []string{}
+	var serverNodeAddresses = []models.ServerAddr{}
 	for _, peer := range networkNodes {
 		if peer.ID == node.ID {
 			//skip yourself
@@ -57,7 +57,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		}
 		peers = append(peers, peerData)
 		if peer.IsServer == "yes" {
-			serverNodeAddresses = append(serverNodeAddresses, peer.Address)
+			serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(&peer), Address: peer.Address})
 		}
 	}
 	peerUpdate.Network = node.Network
