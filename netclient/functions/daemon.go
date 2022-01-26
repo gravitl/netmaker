@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -59,7 +60,8 @@ func Daemon() error {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	for i, addr := range cfg.Node.NetworkSettings.DefaultServerAddrs {
+	serverAddrs := strings.Split(cfg.Node.NetworkSettings.DefaultServerAddrs, ",")
+	for i, addr := range serverAddrs {
 		if addr != "" {
 			ncutils.Log(fmt.Sprintf("adding server (%d) to listen on network %s \n", (i + 1), cfg.Node.Network))
 			opts.AddBroker(addr + ":1883")
@@ -215,13 +217,12 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
-		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
+		var shouldReSub = shouldResub(strings.Split(cfg.Node.NetworkSettings.DefaultServerAddrs, ","), peerUpdate.ServerAddrs)
 		if shouldReSub {
 			client.Disconnect(250) // kill client
 			// un sub, re sub.. how?
 			client.Unsubscribe("update/"+cfg.Node.ID, "update/peers/"+cfg.Node.ID)
-			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
-
+			cfg.Node.NetworkSettings.DefaultServerAddrs = strings.Join(peerUpdate.ServerAddrs, ",")
 		}
 		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)

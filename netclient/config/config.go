@@ -119,6 +119,7 @@ func ModConfig(node *models.Node) error {
 
 	modconfig.Node = (*node)
 	modconfig.NetworkSettings = node.NetworkSettings
+	log.Printf("%v \n", modconfig)
 	err = Write(&modconfig, network)
 	return err
 }
