@@ -14,11 +14,11 @@ import (
 // CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
 	node, err := GetNodeByID(gateway.NodeID)
-	if node.OS == "windows" || node.OS == "macos" { // add in darwin later
-		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
-	}
 	if err != nil {
 		return models.Node{}, err
+	}
+	if node.OS != "linux" { // add in darwin later
+		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
 	err = ValidateEgressGateway(gateway)
 	if err != nil {
@@ -113,7 +113,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 
 	node, err := GetNodeByID(nodeid)
-	if node.OS == "windows" || node.OS == "darwin" { // add in darwin later
+	if node.OS != "linux" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
 	}
 

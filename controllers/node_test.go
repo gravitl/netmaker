@@ -13,6 +13,7 @@ func TestCreateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
 	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
+	gateway.NetID = "skynet"
 	database.InitializeDatabase()
 	deleteAllNetworks()
 	createNet()
@@ -21,9 +22,17 @@ func TestCreateEgressGateway(t *testing.T) {
 		assert.Equal(t, models.Node{}, node)
 		assert.EqualError(t, err, "could not find any records")
 	})
+	t.Run("Non-linux node", func(t *testing.T) {
+		createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "freebsd"}
+		err := logic.CreateNode(&createnode)
+		assert.Nil(t, err)
+		gateway.NodeID = createnode.ID
+		node, err := logic.CreateEgressGateway(gateway)
+		assert.Equal(t, models.Node{}, node)
+		assert.EqualError(t, err, "freebsd is unsupported for egress gateways")
+	})
 	t.Run("Success", func(t *testing.T) {
 		testnode := createTestNode()
-		gateway.NetID = "skynet"
 		gateway.NodeID = testnode.ID
 
 		node, err := logic.CreateEgressGateway(gateway)
@@ -139,7 +148,7 @@ func deleteAllNodes() {
 }
 
 func createTestNode() *models.Node {
-	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet"}
+	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "linux"}
 	logic.CreateNode(&createnode)
 	return &createnode
 }

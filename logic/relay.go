@@ -16,9 +16,6 @@ func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	if node.OS == "macos" { // add in darwin later
-		return models.Node{}, errors.New(node.OS + " is unsupported for relay")
-	}
 
 	err = ValidateRelay(relay)
 	if err != nil {
