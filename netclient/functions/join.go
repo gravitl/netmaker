@@ -161,6 +161,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
 			return err
 		}
+		log.Printf("%v \n", nodeData)
 	}
 
 	// get free port based on returned default listen port
@@ -183,6 +184,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	if node.IsServer != "yes" { // == handle client side ==
+		cfg.Node = node
 		err = config.ModConfig(&node)
 		if err != nil {
 			return err

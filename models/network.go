@@ -38,6 +38,7 @@ type Network struct {
 	DefaultUDPHolePunch    string `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS    string `json:"defaultextclientdns" bson:"defaultextclientdns"`
 	DefaultMTU             int32  `json:"defaultmtu" bson:"defaultmtu"`
+	DefaultServerAddrs     string `json:"defaultserveraddrs" bson:"defaultserveraddrs" yaml:"defaultserveraddrs"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
