@@ -199,9 +199,13 @@ func runMessageQueue(wg *sync.WaitGroup) {
 		client.Disconnect(240)
 		logger.Log(0, "node update subscription failed")
 	}
+	//Set Up Keepalive message
+	ctx, cancel := context.WithCancel(context.Background())
+	go mq.Keepalive(ctx)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit
+	cancel()
 	logger.Log(0, "Message Queue shutting down")
 	client.Disconnect(250)
 }

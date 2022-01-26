@@ -1,10 +1,12 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
@@ -13,6 +15,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
+const MQ_DISCONNECT = 250
 
 // DefaultHandler default message queue handler - only called when GetDebug == true
 var DefaultHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -155,4 +160,27 @@ func SetupMQTT() mqtt.Client {
 		log.Fatal(token.Error())
 	}
 	return client
+}
+
+// Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
+func Keepalive(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+			nodes, err := logic.GetAllNodes()
+			if err != nil {
+				logger.Log(1, "error retrieving nodes for keepalive", err.Error())
+			}
+			client := SetupMQTT()
+			for _, node := range nodes {
+				if token := client.Publish("serverkeepalive/"+node.ID, 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
+					logger.Log(1, "error publishing server keepalive", token.Error().Error())
+				}
+				client.Disconnect(MQ_DISCONNECT)
+			}
+			logger.Log(2, "keepalive sent to all nodes")
+		}
+	}
 }

@@ -19,6 +19,9 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// ServerKeepalive  - stores time of last server keepalive message
+var KeepaliveReceived time.Time
+
 // Daemon runs netclient daemon from command line
 func Daemon() error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -58,6 +61,7 @@ func MessageQueue(ctx context.Context, network string) {
 	cfg.Network = network
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network:" + network)
+	KeepaliveReceived = time.Now()
 	client := SetupMQTT(&cfg)
 	if cfg.DebugOn {
 		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
@@ -76,6 +80,12 @@ func MessageQueue(ctx context.Context, network string) {
 	}
 	if cfg.DebugOn {
 		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/peers/" + cfg.Node.ID)
+	}
+	if token := client.Subscribe("serverkeepalive/"+cfg.Node.ID, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
+		log.Fatal(token.Error())
+	}
+	if cfg.DebugOn {
+		ncutils.Log("subscribed to server keepalives")
 	}
 	defer client.Disconnect(250)
 	go Checkin(ctx, &cfg, network)
@@ -194,6 +204,17 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			return
 		}
 	}()
+}
+
+// ServerKeepAlive -- handler to react to keepalive messages published by server
+func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
+	if time.Now().Sub(KeepaliveReceived) < time.Second*200 { // more than 3+ minutes
+
+		KeepaliveReceived = time.Now()
+		return
+	}
+	ncutils.Log("server keepalive not recieved in last 3 minutes")
+	///do other stuff
 }
 
 // UpdateKeys -- updates private key and returns new publickey
