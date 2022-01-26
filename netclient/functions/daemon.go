@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -62,11 +61,11 @@ func Daemon() error {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	serverAddrs := strings.Split(cfg.Node.NetworkSettings.DefaultServerAddrs, ",")
-	for i, addr := range serverAddrs {
-		if addr != "" {
-			ncutils.Log(fmt.Sprintf("adding server (%d) to listen on network %s \n", (i + 1), cfg.Node.Network))
-			opts.AddBroker(addr + ":1883")
+	for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
+		if server.Address != "" && server.IsLeader {
+			ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s \n", server.Address, cfg.Node.Network))
+			opts.AddBroker(server.Address + ":1883")
+			break
 		}
 	}
 	opts.SetDefaultPublishHandler(All)
@@ -92,13 +91,13 @@ func MessageQueue(ctx context.Context, network string) {
 		}
 		ncutils.Log("subscribed to all topics for debugging purposes")
 	}
-	if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe("update/"+cfg.Node.ID, 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
 	if cfg.DebugOn {
 		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
 	}
-	if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
 	if cfg.DebugOn {
@@ -124,8 +123,7 @@ var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 }
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
-var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	ncutils.Log("received message to update node " + string(msg.Payload()))
+func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//potentiall blocking i/o so do this in a go routine
 	go func() {
 		var newNode models.Node
@@ -135,6 +133,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			ncutils.Log("error unmarshalling node update data" + err.Error())
 			return
 		}
+		ncutils.Log("received message to update node " + newNode.Name)
 		// see if cache hit, if so skip
 		var currentMessage = read(newNode.Network, lastNodeUpdate)
 		if currentMessage == string(msg.Payload()) {
@@ -208,7 +207,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 }
 
 // UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
-var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	go func() {
 		var peerUpdate models.PeerUpdate
 		err := json.Unmarshal(msg.Payload(), &peerUpdate)
@@ -226,12 +225,10 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
-		var shouldReSub = shouldResub(strings.Split(cfg.Node.NetworkSettings.DefaultServerAddrs, ","), peerUpdate.ServerAddrs)
+		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
 		if shouldReSub {
-			client.Disconnect(250) // kill client
-			// un sub, re sub.. how?
-			client.Unsubscribe("update/"+cfg.Node.ID, "update/peers/"+cfg.Node.ID)
-			cfg.Node.NetworkSettings.DefaultServerAddrs = strings.Join(peerUpdate.ServerAddrs, ",")
+			Resubscribe(client, &cfg)
+			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
 		}
 		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
@@ -260,8 +257,9 @@ func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
 }
 
 // Resubscribe --- handles resubscribing if needed
-func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) {
+func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 	if err := config.ModConfig(&cfg.Node); err == nil {
+		ncutils.Log("resubbing on network " + cfg.Node.Network)
 		client.Disconnect(250)
 		client = SetupMQTT(cfg)
 		if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
@@ -274,8 +272,10 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) {
 			log.Fatal(token.Error())
 		}
 		ncutils.Log("finished re subbing")
+		return nil
 	} else {
 		ncutils.Log("could not mod config when re-subbing")
+		return err
 	}
 }
 
@@ -375,12 +375,12 @@ func Hello(cfg *config.ClientConfig, network string) {
 	client.Disconnect(250)
 }
 
-func shouldResub(currentServers, newServers []string) bool {
+func shouldResub(currentServers, newServers []models.ServerAddr) bool {
 	if len(currentServers) != len(newServers) {
-		return false
+		return true
 	}
 	for _, srv := range currentServers {
-		if !ncutils.StringSliceContains(newServers, srv) {
+		if !ncutils.ServerAddrSliceContains(newServers, srv) {
 			return true
 		}
 	}
