@@ -79,13 +79,12 @@ func TestGetNetworkNodes(t *testing.T) {
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("badnet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node{}, node)
-		//assert.Equal(t, "mongo: no documents in result", err.Error())
+		assert.Nil(t, node)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node{}, node)
+		assert.Nil(t, node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode()

@@ -182,8 +182,8 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-//Delete a network
-//Will stop you if  there's any nodes associated
+// Delete a network
+// Will stop you if  there's any nodes associated
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+// HttpHandlers - handler functions for REST interactions
 var HttpHandlers = []interface{}{
 	nodeHandlers,
 	userHandlers,
@@ -23,7 +24,6 @@ var HttpHandlers = []interface{}{
 	fileHandlers,
 	serverHandlers,
 	extClientHandlers,
-	loggerHandlers,
 }
 
 // HandleRESTRequests - handles the rest requests
@@ -64,7 +64,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 
 	// After receiving CTRL+C Properly stop the server
 	logger.Log(0, "Stopping the REST server...")
-	srv.Shutdown(context.TODO())
 	logger.Log(0, "REST Server closed.")
 	logger.DumpFile(fmt.Sprintf("data/netmaker.log.%s", time.Now().Format(logger.TimeFormatDay)))
+	srv.Shutdown(context.TODO())
 }

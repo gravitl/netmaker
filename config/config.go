@@ -43,12 +43,14 @@ type ServerConfig struct {
 	GRPCHost              string `yaml:"grpchost"`
 	GRPCPort              string `yaml:"grpcport"`
 	GRPCSecure            string `yaml:"grpcsecure"`
+	MQHOST                string `yaml:"mqhost"`
 	MasterKey             string `yaml:"masterkey"`
 	DNSKey                string `yaml:"dnskey"`
 	AllowedOrigin         string `yaml:"allowedorigin"`
 	NodeID                string `yaml:"nodeid"`
 	RestBackend           string `yaml:"restbackend"`
 	AgentBackend          string `yaml:"agentbackend"`
+	MessageQueueBackend   string `yaml:"messagequeuebackend"`
 	ClientMode            string `yaml:"clientmode"`
 	DNSMode               string `yaml:"dnsmode"`
 	SplitDNS              string `yaml:"splitdns"`
@@ -70,6 +72,7 @@ type ServerConfig struct {
 	DisplayKeys           string `yaml:"displaykeys"`
 	AzureTenant           string `yaml:"azuretenant"`
 	RCE                   string `yaml:"rce"`
+	Debug                 bool   `yaml:"debug"`
 	Telemetry             string `yaml:"telemetry"`
 	ManageIPTables        string `yaml:"manageiptables"`
 	PortForwardServices   string `yaml:"portforwardservices"`

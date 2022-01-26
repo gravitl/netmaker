@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -85,12 +86,17 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-
 	err = runServerPeerUpdate(node.Network, true)
 	if err != nil {
 		logger.Log(1, "internal error when setting peers after node,", node.ID, "was created (gRPC)")
 	}
 	logger.Log(0, "new node,", node.Name, ", added on network,"+node.Network)
+	// notify other nodes on network of new peer
+	go func() {
+		if err := mq.UpdatePeers(&node); err != nil {
+			logger.Log(0, "failed to inform peers of new node ", err.Error())
+		}
+	}()
 
 	return response, nil
 }
@@ -148,11 +154,16 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-
 	err = runServerPeerUpdate(node.Network, true)
 	if err != nil {
 		logger.Log(1, "internal error when setting peers after deleting node:", node.ID, "over gRPC")
 	}
+	// notify other nodes on network of deleted peer
+	go func() {
+		if err := mq.UpdatePeers(&node); err != nil {
+			logger.Log(0, "failed to inform peers of deleted node ", err.Error())
+		}
+	}()
 
 	return &nodepb.Object{
 		Data: "success",
