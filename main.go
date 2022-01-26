@@ -9,7 +9,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
+	"syscall"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/auth"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
@@ -18,6 +20,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
@@ -109,8 +112,14 @@ func startControllers() {
 		go controller.HandleRESTRequests(&waitnetwork)
 	}
 
-	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
-		logger.Log(0, "No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
+	//Run MessageQueue
+	if servercfg.IsMessageQueueBackend() {
+		waitnetwork.Add(1)
+		go runMessageQueue(&waitnetwork)
+	}
+
+	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
+		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
 	waitnetwork.Wait()
@@ -160,6 +169,41 @@ func runGRPC(wg *sync.WaitGroup) {
 	listener.Close()
 	logger.Log(0, "Agent server closed..")
 	logger.Log(0, "Closed DB connection.")
+}
+
+// Should we be using a context vice a waitgroup????????????
+func runMessageQueue(wg *sync.WaitGroup) {
+	defer wg.Done()
+	//refactor netclient.functions.SetupMQTT so can be called from here
+	//setupMQTT
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(servercfg.GetMessageQueueEndpoint())
+	logger.Log(0, "setting broker "+servercfg.GetMessageQueueEndpoint())
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		logger.Log(0, "unable to connect to message queue broker, closing down")
+		return
+	}
+	//Set up Subscriptions
+	if servercfg.GetDebug() {
+		if token := client.Subscribe("#", 2, mq.DefaultHandler); token.Wait() && token.Error() != nil {
+			client.Disconnect(240)
+			logger.Log(0, "default subscription failed")
+		}
+	}
+	if token := client.Subscribe("ping/#", 2, mq.Ping); token.Wait() && token.Error() != nil {
+		client.Disconnect(240)
+		logger.Log(0, "ping subscription failed")
+	}
+	if token := client.Subscribe("update/#", 0, mq.UpdateNode); token.Wait() && token.Error() != nil {
+		client.Disconnect(240)
+		logger.Log(0, "node update subscription failed")
+	}
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+	<-quit
+	logger.Log(0, "Message Queue shutting down")
+	client.Disconnect(250)
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {
