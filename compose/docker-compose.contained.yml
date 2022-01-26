@@ -3,15 +3,19 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.9.4
+    image: gravitl/netmaker:v0.10.0.12
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
     cap_add: 
       - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
     restart: always
-    privileged: true
     environment:
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
@@ -25,11 +29,14 @@ services:
       GRPC_PORT: "50051"
       CLIENT_MODE: "on"
       MASTER_KEY: "REPLACE_MASTER_KEY"
-      SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
+      HOST_NETWORK: "off"
+      MANAGE_IPTABLES: "on"
+      PORT_FORWARD_SERVICES: "dns"
+      VERBOSITY: "1"
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
@@ -53,9 +60,6 @@ services:
     command: -conf /root/dnsconfig/Corefile
     container_name: coredns
     restart: always
-    ports:
-      - "COREDNS_IP:53:53/udp"
-      - "COREDNS_IP:53:53/tcp"
     volumes:
       - dnsconfig:/root/dnsconfig
   caddy:

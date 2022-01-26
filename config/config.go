@@ -73,6 +73,7 @@ type ServerConfig struct {
 	Telemetry             string `yaml:"telemetry"`
 	ManageIPTables        string `yaml:"manageiptables"`
 	PortForwardServices   string `yaml:"portforwardservices"`
+	HostNetwork           string `yaml:"hostnetwork"`
 }
 
 // SQLConfig - Generic SQL Config

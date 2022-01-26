@@ -87,6 +87,8 @@ func GetServerConfig() config.ServerConfig {
 	}
 	cfg.Telemetry = Telemetry()
 	cfg.ManageIPTables = ManageIPTables()
+	services := strings.Join(GetPortForwardServiceList(), ",")
+	cfg.PortForwardServices = services
 
 	return cfg
 }
@@ -492,6 +494,17 @@ func IsSplitDNS() bool {
 		issplit = true
 	}
 	return issplit
+}
+
+// IsSplitDNS - checks if split dns is on
+func IsHostNetwork() bool {
+	ishost := false
+	if os.Getenv("HOST_NETWORK") == "on" {
+		ishost = true
+	} else if config.Config.Server.HostNetwork == "on" {
+		ishost = true
+	}
+	return ishost
 }
 
 // GetNodeID - gets the node id
