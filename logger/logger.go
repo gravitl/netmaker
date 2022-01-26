@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -36,6 +37,9 @@ func ResetLogs() {
 
 // Log - handles adding logs
 func Log(verbosity int, message ...string) {
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
 	var currentTime = time.Now()
 	var currentMessage = makeString(message...)
 	if int32(verbosity) <= getVerbose() && getVerbose() >= 0 {
