@@ -135,7 +135,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 	defer conn.Close()
 	wcclient = nodepb.NewNodeServiceClient(conn)
-	// log.Printf("%v \n", nodeData)
 
 	// get free port based on returned default listen port
 	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
