@@ -13,7 +13,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-const NETMAKER_PROCESS_NAME = "netmaker"
+const netmakerProcessName = "netmaker"
 
 // InitServerNetclient - intializes the server netclient
 func InitIPTables() error {
@@ -70,7 +70,7 @@ func isContainerized() bool {
 		return false
 	}
 	fileString := string(fileBytes)
-	return strings.Contains(fileString, NETMAKER_PROCESS_NAME)
+	return strings.Contains(fileString, netmakerProcessName)
 }
 
 // make sure host allows forwarding
