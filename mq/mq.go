@@ -83,6 +83,7 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 				return
 			}
 		}
+		logger.Log(1, "no need to update peers")
 	}()
 }
 
