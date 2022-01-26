@@ -67,6 +67,11 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		}
 	}
 
+	var serverNodes = logic.GetServerNodes(node.Network)
+	for _, server := range serverNodes {
+		node.NetworkSettings.DefaultServerAddrs = append(node.NetworkSettings.DefaultServerAddrs, server.Address)
+	}
+
 	err = logic.CreateNode(&node)
 	if err != nil {
 		return nil, err

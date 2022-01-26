@@ -20,6 +20,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	if err != nil {
 		return models.PeerUpdate{}, err
 	}
+	var serverNodeAddresses = []string{}
 	for _, peer := range networkNodes {
 		if peer.ID == node.ID {
 			//skip yourself
@@ -55,9 +56,13 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			PersistentKeepaliveInterval: &keepalive,
 		}
 		peers = append(peers, peerData)
+		if peer.IsServer == "yes" {
+			serverNodeAddresses = append(serverNodeAddresses, peer.Address)
+		}
 	}
 	peerUpdate.Network = node.Network
 	peerUpdate.Peers = peers
+	peerUpdate.ServerAddrs = serverNodeAddresses
 	return peerUpdate, nil
 }
 
