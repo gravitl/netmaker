@@ -118,5 +118,14 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				return err
 			},
 		},
+		{
+			Name:  "daemon",
+			Usage: "run netclient as daemon",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				err := command.Daemon()
+				return err
+			},
+		},
 	}
 }

@@ -164,7 +164,7 @@ func GetMacAddr() ([]string, error) {
 func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	peersString := ""
 	if keepalive <= 0 {
-		keepalive = 20
+		keepalive = 0
 	}
 
 	for _, peer := range peers {

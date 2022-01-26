@@ -1,68 +1,45 @@
-package serverctl
+package logic
 
 import (
 	"encoding/json"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/posthog/posthog-go"
 )
 
-// POSTHOG_PUB_KEY - Key for sending data to PostHog
-const POSTHOG_PUB_KEY = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
+// posthog_pub_key - Key for sending data to PostHog
+const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
 
-// POSTHOG_ENDPOINT - Endpoint of PostHog server
-const POSTHOG_ENDPOINT = "https://app.posthog.com"
+// posthog_endpoint - Endpoint of PostHog server
+const posthog_endpoint = "https://app.posthog.com"
 
-// TELEMETRY_HOURS_BETWEEN_SEND - How long to wait before sending telemetry to server (24 hours)
-const TELEMETRY_HOURS_BETWEEN_SEND = 24
-
-// TelemetryCheckpoint - Checks if 24 hours has passed since telemetry was last sent. If so, sends telemetry data to posthog
-func TelemetryCheckpoint() error {
-
-	// if telemetry is turned off, return without doing anything
+// sendTelemetry - gathers telemetry data and sends to posthog
+func sendTelemetry() error {
 	if servercfg.Telemetry() == "off" {
 		return nil
 	}
-	// get the telemetry record in the DB, which contains a timestamp
-	telRecord, err := fetchTelemetryRecord()
+
+	var telRecord, err = fetchTelemetryRecord()
 	if err != nil {
 		return err
 	}
-	sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Hour * time.Duration(TELEMETRY_HOURS_BETWEEN_SEND))
-	// can set to 2 minutes for testing
-	//sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Minute * 2)
-	enoughTimeElapsed := time.Now().After(sendtime)
-	// if more than 24 hours has elapsed, send telemetry to posthog
-	if enoughTimeElapsed {
-		err = sendTelemetry(telRecord.UUID)
-		if err != nil {
-			logger.Log(1, err.Error())
-		}
-	}
-	return nil
-}
-
-// sendTelemetry - gathers telemetry data and sends to posthog
-func sendTelemetry(serverUUID string) error {
 	// get telemetry data
 	d, err := fetchTelemetryData()
 	if err != nil {
 		return err
 	}
-	client, err := posthog.NewWithConfig(POSTHOG_PUB_KEY, posthog.Config{Endpoint: POSTHOG_ENDPOINT})
+	client, err := posthog.NewWithConfig(posthog_pub_key, posthog.Config{Endpoint: posthog_endpoint})
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
 	// send to posthog
-	err = client.Enqueue(posthog.Capture{
-		DistinctId: serverUUID,
+	return client.Enqueue(posthog.Capture{
+		DistinctId: telRecord.UUID,
 		Event:      "daily checkin",
 		Properties: posthog.NewProperties().
 			Set("nodes", d.Nodes).
@@ -78,11 +55,6 @@ func sendTelemetry(serverUUID string) error {
 			Set("k8s", d.Count.K8S).
 			Set("version", d.Version),
 	})
-	if err != nil {
-		return err
-	}
-	//set telemetry timestamp for server, restarts 24 hour cycle
-	return setTelemetryTimestamp(serverUUID)
 }
 
 // fetchTelemetry - fetches telemetry data: count of various object types in DB
@@ -93,7 +65,7 @@ func fetchTelemetryData() (telemetryData, error) {
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
-	nodes, err := logic.GetAllNodes()
+	nodes, err := GetAllNodes()
 	if err == nil {
 		data.Nodes = len(nodes)
 		data.Count = getClientCount(nodes)
@@ -108,7 +80,7 @@ func setTelemetryTimestamp(uuid string) error {
 		UUID:     uuid,
 		LastSend: lastsend,
 	}
-	jsonObj, err := json.Marshal(serverTelData)
+	jsonObj, err := json.Marshal(&serverTelData)
 	if err != nil {
 		return err
 	}

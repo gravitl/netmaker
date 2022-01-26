@@ -206,7 +206,7 @@ func initializeUUID() error {
 		return nil
 	}
 	telemetry := models.Telemetry{UUID: uuid.NewString()}
-	telJSON, err := json.Marshal(telemetry)
+	telJSON, err := json.Marshal(&telemetry)
 	if err != nil {
 		return err
 	}
