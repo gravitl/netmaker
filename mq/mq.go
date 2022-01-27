@@ -156,9 +156,17 @@ func SetupMQTT() mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	broker := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
-	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
+	tperiod := time.Now().Add(10 * time.Second)
+	for {
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			logger.Log(2, "unable to connect to broker, retrying ...")
+			if time.Now().Afer(tperiod) {
+				log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
+			}
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Second)
 	}
 	logger.Log(2, "connected to message queue", broker)
 	return client
