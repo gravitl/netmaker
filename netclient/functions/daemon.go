@@ -102,11 +102,21 @@ func MessageQueue(ctx context.Context, network string) {
 	if cfg.DebugOn {
 		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/peers/" + cfg.Node.ID)
 	}
-	if token := client.Subscribe("serverkeepalive/"+cfg.Node.ID, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
-	}
-	if cfg.DebugOn {
-		ncutils.Log("subscribed to server keepalives")
+	var id string
+	for _, server := range cfg.NetworkSettings.DefaultServerAddrs {
+		if server.IsLeader {
+			id = server.ID
+		}
+		if server.Address != "" {
+			if token := client.Subscribe("serverkeepalive/"+id, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
+				log.Fatal(token.Error())
+			}
+			if cfg.DebugOn {
+				ncutils.Log("subscribed to server keepalives")
+			}
+		} else {
+			ncutils.Log("leader not defined for network" + cfg.Network)
+		}
 	}
 	defer client.Disconnect(250)
 	go MonitorKeepalive(ctx, client, &cfg)
@@ -270,6 +280,7 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
 	serverid := string(msg.Payload())
 	keepalive <- serverid
+	ncutils.Log("keepalive from server")
 }
 
 // Resubscribe --- handles resubscribing if needed

@@ -71,6 +71,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	var serverAddrs = make([]models.ServerAddr, len(serverNodes))
 	for i, server := range serverNodes {
 		serverAddrs[i] = models.ServerAddr{
+			ID:       server.ID,
 			IsLeader: logic.IsLeader(&server),
 			Address:  server.Address,
 		}

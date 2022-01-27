@@ -160,6 +160,7 @@ func SetupMQTT() mqtt.Client {
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
+	logger.Log(2, "connected to message queue", broker)
 	return client
 }
 
@@ -170,18 +171,29 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			nodes, err := logic.GetAllNodes()
-			if err != nil {
-				logger.Log(1, "error retrieving nodes for keepalive", err.Error())
-			}
 			client := SetupMQTT()
-			for _, node := range nodes {
-				if token := client.Publish("serverkeepalive/"+node.ID, 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
-					logger.Log(1, "error publishing server keepalive", token.Error().Error())
+			networks, err := logic.GetNetworks()
+			if err != nil {
+				logger.Log(1, "error retrieving networks for keepalive", err.Error())
+			}
+			for _, network := range networks {
+				var id string
+				for _, servAddr := range network.DefaultServerAddrs {
+					if servAddr.IsLeader {
+						id = servAddr.ID
+					}
+				}
+				if id != "" {
+					logger.Log(0, "leader not defined for network", network.NetID)
+					continue
+				}
+				if token := client.Publish("serverkeepalive/"+id, 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
+					logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
+				} else {
+					logger.Log(2, "keepalive sent for network", network.NetID)
 				}
 				client.Disconnect(MQ_DISCONNECT)
 			}
-			logger.Log(2, "keepalive sent to all nodes")
 		}
 	}
 }
