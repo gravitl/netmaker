@@ -261,17 +261,34 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 
 // MonitorKeepalive - checks time last server keepalive received.  If more than 3+ minutes, notify and resubscribe
 func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.ClientConfig) {
+	var id string
 	lastUpdate := time.Now()
+	for _, servAddr := range cfg.NetworkSettings.DefaultServerAddrs {
+		if servAddr.IsLeader {
+			id = servAddr.ID
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * 150):
-			if time.Since(lastUpdate) < time.Second*200 { // more than 3+ minutes
+			if time.Since(lastUpdate) > time.Second*200 { // more than 3+ minutes
 				Resubscribe(client, cfg)
 			}
-		case <-keepalive:
-			lastUpdate = time.Now()
+		case serverID := <-keepalive:
+			if serverID != id {
+				// not my server, put back
+				if cfg.DebugOn {
+					ncutils.Log("Monitor keepalive received wrong message on channel, putting back")
+				}
+				keepalive <- serverID
+			} else {
+				lastUpdate = time.Now()
+				if cfg.DebugOn {
+					ncutils.Log("updating checking time for" + cfg.Network)
+				}
+			}
 		}
 	}
 }
