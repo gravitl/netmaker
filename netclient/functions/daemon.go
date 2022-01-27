@@ -75,7 +75,7 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	for {
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
 			logger.Log(2, "unable to connect to broker, retrying ...")
-			if time.Now().Afer(tperiod) {
+			if time.Now().After(tperiod) {
 				log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
 			}
 		} else {
