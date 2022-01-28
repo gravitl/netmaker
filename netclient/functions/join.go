@@ -48,12 +48,16 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if errGen != nil {
 		return errGen
 	}
-	auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
+	if err = auth.StoreSecret(cfg.Node.Password, cfg.Node.Network); err != nil {
+		return err
+	}
 	var keyData, errKeyData = json.Marshal(&rsaPrivKey)
 	if errKeyData != nil {
 		return errKeyData
 	}
-	auth.StoreTrafficKey(string(keyData), cfg.Node.Network)
+	if err = auth.StoreTrafficKey(string(keyData), cfg.Node.Network); err != nil {
+		return err
+	}
 
 	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
 		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)

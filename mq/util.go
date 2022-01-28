@@ -1,12 +1,14 @@
 package mq
 
 import (
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 func decryptMsg(nodeid string, msg []byte) ([]byte, error) {
-	trafficKey, trafficErr := logic.RetrieveTrafficKey(nodeid)
+	logger.Log(0, "found message for decryption: %s \n", string(msg))
+	trafficKey, trafficErr := logic.RetrieveTrafficKey()
 	if trafficErr != nil {
 		return nil, trafficErr
 	}

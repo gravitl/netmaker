@@ -2,10 +2,9 @@ package controller
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -13,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -80,19 +78,17 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	}
 	// TODO consolidate functionality around files
 	node.NetworkSettings.DefaultServerAddrs = serverAddrs
-	var rsaPrivKey, keyErr = rsa.GenerateKey(rand.Reader, ncutils.KEY_SIZE)
+	key, keyErr := logic.RetrieveTrafficKey()
 	if keyErr != nil {
 		return nil, keyErr
-	}
-	err = logic.StoreTrafficKey(node.ID, (*rsaPrivKey))
-	if err != nil {
-		return nil, err
 	}
 
 	node.TrafficKeys = models.TrafficKeys{
 		Mine:   node.TrafficKeys.Mine,
-		Server: rsaPrivKey.PublicKey,
+		Server: key.PublicKey,
 	}
+
+	fmt.Printf("finished created node: %v \n", node)
 
 	err = logic.CreateNode(&node)
 	if err != nil {
