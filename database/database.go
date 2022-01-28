@@ -139,7 +139,8 @@ func createTable(tableName string) error {
 // IsJSONString - checks if valid json
 func IsJSONString(value string) bool {
 	var jsonInt interface{}
-	return json.Unmarshal([]byte(value), &jsonInt) == nil
+	var nodeInt models.Node
+	return json.Unmarshal([]byte(value), &jsonInt) == nil || json.Unmarshal([]byte(value), &nodeInt) == nil
 }
 
 // Insert - inserts object into db
