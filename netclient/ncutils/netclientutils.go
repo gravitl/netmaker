@@ -555,7 +555,6 @@ func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
 	if pub == nil {
 		return nil, errors.New("invalid public key when decrypting")
 	}
-	log.Printf("pub key size: %d \n", pub.Size())
 	hash := sha512.New()
 	ciphertext, err := rsa.EncryptOAEP(hash, crand.Reader, pub, msg, nil)
 	if err != nil {
