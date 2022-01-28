@@ -87,7 +87,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 
 	node.TrafficKeys = models.TrafficKeys{
 		Mine:   node.TrafficKeys.Mine,
-		Server: key.PublicKey,
+		Server: key,
 	}
 
 	fmt.Printf("finished created node: %v \n", node)

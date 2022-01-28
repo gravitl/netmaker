@@ -1,11 +1,12 @@
 package database
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -216,11 +217,12 @@ func initializeUUID() error {
 	if keyErr != nil {
 		return keyErr
 	}
+	var rsaKey bytes.Buffer
+	if err = gob.NewEncoder(&rsaKey).Encode(rsaPrivKey); err != nil {
+		return err
+	}
 
-	fmt.Printf("key generated: %v \n", rsaPrivKey)
-	fmt.Printf("pub key generate: %v \n", rsaPrivKey.PublicKey)
-
-	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKey: *rsaPrivKey}
+	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKey: rsaKey}
 	telJSON, err := json.Marshal(&telemetry)
 	if err != nil {
 		return err

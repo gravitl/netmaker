@@ -1,6 +1,7 @@
 package models
 
 import (
+	"bytes"
 	"crypto/rsa"
 
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -170,9 +171,9 @@ type ServerUpdateData struct {
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
 type Telemetry struct {
-	UUID       string         `json:"uuid" bson:"uuid"`
-	LastSend   int64          `json:"lastsend" bson:"lastsend"`
-	TrafficKey rsa.PrivateKey `json:"traffickey" bson:"traffickey"`
+	UUID       string       `json:"uuid" bson:"uuid"`
+	LastSend   int64        `json:"lastsend" bson:"lastsend"`
+	TrafficKey bytes.Buffer `json:"traffickey" bson:"traffickey"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
