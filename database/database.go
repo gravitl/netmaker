@@ -206,7 +206,7 @@ func initializeUUID() error {
 	} else if len(records) > 0 {
 		return nil
 	}
-	var rsaPrivKey, keyErr = rsa.GenerateKey(rand.Reader, 32)
+	var rsaPrivKey, keyErr = rsa.GenerateKey(rand.Reader, 2048)
 	if keyErr != nil {
 		return keyErr
 	}

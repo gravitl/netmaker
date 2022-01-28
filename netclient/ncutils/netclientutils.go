@@ -55,7 +55,7 @@ const NETCLIENT_DEFAULT_PORT = 51821
 const DEFAULT_GC_PERCENT = 10
 
 // KEY_SIZE = ideal length for keys
-const KEY_SIZE = 64
+const KEY_SIZE = 2048
 
 // Log - logs a message
 func Log(message string) {
