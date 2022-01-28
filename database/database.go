@@ -7,6 +7,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -221,12 +222,14 @@ func initializeUUID() error {
 	if err = gob.NewEncoder(&rsaKey).Encode(rsaPrivKey); err != nil {
 		return err
 	}
+	fmt.Printf("adding key %v \n", rsaPrivKey)
 
 	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKey: rsaKey}
 	telJSON, err := json.Marshal(&telemetry)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("added key %v \n", rsaKey)
 
 	return Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
 }

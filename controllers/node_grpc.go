@@ -80,6 +80,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	node.NetworkSettings.DefaultServerAddrs = serverAddrs
 	key, keyErr := logic.RetrieveTrafficKey()
 	if keyErr != nil {
+		logger.Log(0, "error retrieving key: ", keyErr.Error())
 		return nil, keyErr
 	}
 
