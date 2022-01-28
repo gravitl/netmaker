@@ -71,6 +71,13 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
 		}
 	}
+	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
+	if servercfg.ManageIPTables() != "off" {
+		if err = serverctl.InitIPTables(); err != nil {
+			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
+
+		}
+	}
 
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
