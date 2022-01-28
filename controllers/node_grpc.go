@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -84,19 +83,16 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, keyErr
 	}
 
-	fmt.Printf("appending key to node: %v \n", key.PublicKey)
-
 	node.TrafficKeys = models.TrafficKeys{
 		Mine:   node.TrafficKeys.Mine,
 		Server: key.PublicKey,
 	}
 
-	fmt.Printf("finished created node: %v \n", node)
-
 	err = logic.CreateNode(&node)
 	if err != nil {
 		return nil, err
 	}
+	logger.Log(0, "made it to here")
 
 	nodeData, errN := json.Marshal(&node)
 	if errN != nil {

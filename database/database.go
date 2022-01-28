@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -210,10 +209,8 @@ func initializeUUID() error {
 	if keyErr != nil {
 		return keyErr
 	}
-	fmt.Printf("created key %v \n", rsaPrivKey)
 
 	data, _ := json.Marshal(rsaPrivKey)
-	fmt.Printf("priv key data: %s \n", string(data))
 
 	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKey: string(data)}
 	telJSON, err := json.Marshal(&telemetry)
