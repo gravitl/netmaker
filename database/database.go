@@ -1,14 +1,11 @@
 package database
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,9 +43,6 @@ const SERVERCONF_TABLE_NAME = "serverconf"
 
 // SERVER_UUID_TABLE_NAME - stores
 const SERVER_UUID_TABLE_NAME = "serveruuid"
-
-// TRAFFIC_TABLE_NAME - stores stuff to control traffic
-const TRAFFIC_TABLE_NAME = "traffic-table"
 
 // SERVER_UUID_RECORD_KEY - telemetry thing
 const SERVER_UUID_RECORD_KEY = "serveruuid"
@@ -122,8 +116,7 @@ func InitializeDatabase() error {
 		time.Sleep(2 * time.Second)
 	}
 	createTables()
-	err := initializeUUID()
-	return err
+	return initializeUUID()
 }
 
 func createTables() {
@@ -138,7 +131,6 @@ func createTables() {
 	createTable(SERVERCONF_TABLE_NAME)
 	createTable(SERVER_UUID_TABLE_NAME)
 	createTable(GENERATED_TABLE_NAME)
-	createTable(TRAFFIC_TABLE_NAME)
 }
 
 func createTable(tableName string) error {
@@ -208,7 +200,7 @@ func FetchRecords(tableName string) (map[string]string, error) {
 func initializeUUID() error {
 	records, err := FetchRecords(SERVER_UUID_TABLE_NAME)
 	if err != nil {
-		if !strings.Contains("could not find any records", err.Error()) {
+		if !IsEmptyRecord(err) {
 			return err
 		}
 	} else if len(records) > 0 {
@@ -218,18 +210,16 @@ func initializeUUID() error {
 	if keyErr != nil {
 		return keyErr
 	}
-	var rsaKey bytes.Buffer
-	if err = gob.NewEncoder(&rsaKey).Encode(rsaPrivKey); err != nil {
-		return err
-	}
-	fmt.Printf("adding key %v \n", rsaPrivKey)
+	fmt.Printf("created key %v \n", rsaPrivKey)
 
-	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKey: rsaKey}
+	data, _ := json.Marshal(rsaPrivKey)
+	fmt.Printf("priv key data: %s \n", string(data))
+
+	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKey: string(data)}
 	telJSON, err := json.Marshal(&telemetry)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("added key %v \n", rsaKey)
 
 	return Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
 }
