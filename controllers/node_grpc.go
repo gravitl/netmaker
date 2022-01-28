@@ -83,11 +83,11 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, keyErr
 	}
 
-	fmt.Printf("appending key to node: %v \n", key)
+	fmt.Printf("appending key to node: %v \n", key.PublicKey)
 
 	node.TrafficKeys = models.TrafficKeys{
 		Mine:   node.TrafficKeys.Mine,
-		Server: key,
+		Server: key.PublicKey,
 	}
 
 	fmt.Printf("finished created node: %v \n", node)
