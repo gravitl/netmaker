@@ -1,6 +1,10 @@
 package models
 
-import jwt "github.com/golang-jwt/jwt/v4"
+import (
+	"crypto/rsa"
+
+	jwt "github.com/golang-jwt/jwt/v4"
+)
 
 const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
 const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
@@ -174,4 +178,10 @@ type Telemetry struct {
 type ServerAddr struct {
 	IsLeader bool   `json:"isleader" bson:"isleader" yaml:"isleader"`
 	Address  string `json:"address" bson:"address" yaml:"address"`
+}
+
+// TrafficKeys - struct to hold public keys
+type TrafficKeys struct {
+	Mine   rsa.PublicKey `json:"mine" bson:"mine" yaml:"mine"`
+	Server rsa.PublicKey `json:"server" bson:"server" yaml:"server"`
 }

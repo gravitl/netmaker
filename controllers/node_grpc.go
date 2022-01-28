@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -75,7 +78,21 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 			Address:  server.Address,
 		}
 	}
+	// TODO consolidate functionality around files
 	node.NetworkSettings.DefaultServerAddrs = serverAddrs
+	var rsaPrivKey, keyErr = rsa.GenerateKey(rand.Reader, ncutils.KEY_SIZE)
+	if keyErr != nil {
+		return nil, keyErr
+	}
+	err = logic.StoreTrafficKey(node.ID, (*rsaPrivKey))
+	if err != nil {
+		return nil, err
+	}
+
+	node.TrafficKeys = models.TrafficKeys{
+		Mine:   node.TrafficKeys.Mine,
+		Server: rsaPrivKey.PublicKey,
+	}
 
 	err = logic.CreateNode(&node)
 	if err != nil {
@@ -103,7 +120,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	logger.Log(0, "new node,", node.Name, ", added on network,"+node.Network)
 	// notify other nodes on network of new peer
 	go func() {
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(0, "failed to inform peers of new node ", err.Error())
 		}
 	}()
@@ -170,7 +187,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	}
 	// notify other nodes on network of deleted peer
 	go func() {
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(0, "failed to inform peers of deleted node ", err.Error())
 		}
 	}()

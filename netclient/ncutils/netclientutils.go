@@ -1,6 +1,9 @@
 package ncutils
 
 import (
+	crand "crypto/rand"
+	"crypto/rsa"
+	"crypto/sha512"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -50,6 +53,9 @@ const NETCLIENT_DEFAULT_PORT = 51821
 
 // DEFAULT_GC_PERCENT - garbage collection percent
 const DEFAULT_GC_PERCENT = 10
+
+// KEY_SIZE = ideal length for keys
+const KEY_SIZE = 64
 
 // Log - logs a message
 func Log(message string) {
@@ -542,4 +548,28 @@ func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) 
 		}
 	}
 	return false
+}
+
+// EncryptWithPublicKey encrypts data with public key
+func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
+	if pub == nil {
+		return nil, errors.New("invalid public key when decrypting")
+	}
+	log.Printf("pub key size: %d \n", pub.Size())
+	hash := sha512.New()
+	ciphertext, err := rsa.EncryptOAEP(hash, crand.Reader, pub, msg, nil)
+	if err != nil {
+		return nil, err
+	}
+	return ciphertext, nil
+}
+
+// DecryptWithPrivateKey decrypts data with private key
+func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
+	hash := sha512.New()
+	plaintext, err := rsa.DecryptOAEP(hash, crand.Reader, priv, ciphertext, nil)
+	if err != nil {
+		return nil
+	}
+	return plaintext
 }

@@ -2,6 +2,8 @@ package functions
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,21 +32,28 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	var err error
-	if cfg.Node.IsServer != "yes" {
-		if local.HasNetwork(cfg.Network) {
-			err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
-			return err
-		}
-
-		err = config.Write(&cfg, cfg.Network)
-		if err != nil {
-			return err
-		}
-		if cfg.Node.Password == "" {
-			cfg.Node.Password = ncutils.GenPass()
-		}
-		auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
+	if local.HasNetwork(cfg.Network) {
+		err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
+		return err
 	}
+
+	err = config.Write(&cfg, cfg.Network)
+	if err != nil {
+		return err
+	}
+	if cfg.Node.Password == "" {
+		cfg.Node.Password = ncutils.GenPass()
+	}
+	var rsaPrivKey, errGen = rsa.GenerateKey(rand.Reader, ncutils.KEY_SIZE)
+	if errGen != nil {
+		return errGen
+	}
+	auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
+	var keyData, errKeyData = json.Marshal(&rsaPrivKey)
+	if errKeyData != nil {
+		return errKeyData
+	}
+	auth.StoreTrafficKey(string(keyData), cfg.Node.Network)
 
 	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
 		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
@@ -122,6 +131,10 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		Endpoint:            cfg.Node.Endpoint,
 		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
+		TrafficKeys: models.TrafficKeys{
+			Mine:   rsaPrivKey.PublicKey,
+			Server: rsa.PublicKey{},
+		},
 	}
 
 	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)

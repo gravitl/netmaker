@@ -36,13 +36,16 @@ const INT_CLIENTS_TABLE_NAME = "intclients"
 // PEERS_TABLE_NAME - peers table
 const PEERS_TABLE_NAME = "peers"
 
-// SERVERCONF_TABLE_NAME
+// SERVERCONF_TABLE_NAME - stores server conf
 const SERVERCONF_TABLE_NAME = "serverconf"
 
-// SERVER_UUID_TABLE_NAME
+// SERVER_UUID_TABLE_NAME - stores
 const SERVER_UUID_TABLE_NAME = "serveruuid"
 
-// SERVER_UUID_RECORD_KEY
+// TRAFFIC_TABLE_NAME - stores stuff to control traffic
+const TRAFFIC_TABLE_NAME = "traffic-table"
+
+// SERVER_UUID_RECORD_KEY - telemetry thing
 const SERVER_UUID_RECORD_KEY = "serveruuid"
 
 // DATABASE_FILENAME - database file name
@@ -130,6 +133,7 @@ func createTables() {
 	createTable(SERVERCONF_TABLE_NAME)
 	createTable(SERVER_UUID_TABLE_NAME)
 	createTable(GENERATED_TABLE_NAME)
+	createTable(TRAFFIC_TABLE_NAME)
 }
 
 func createTable(tableName string) error {

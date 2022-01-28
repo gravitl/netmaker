@@ -73,7 +73,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 		return err
 	}
 	tokenstring := []byte(res.Data)
-	err = os.WriteFile(home+"nettoken-"+network, tokenstring, 0644) // TODO: Proper permissions?
+	err = os.WriteFile(home+"nettoken-"+network, tokenstring, 0600) // TODO: Proper permissions?
 	if err != nil {
 		return err
 	}
@@ -83,13 +83,23 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 // StoreSecret - stores auth secret locally
 func StoreSecret(key string, network string) error {
 	d1 := []byte(key)
-	err := os.WriteFile(ncutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0644)
-	return err
+	return os.WriteFile(ncutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0600)
 }
 
 // RetrieveSecret - fetches secret locally
 func RetrieveSecret(network string) (string, error) {
 	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + network)
+	return string(dat), err
+}
+
+// StoreTrafficKey - stores traffic key
+func StoreTrafficKey(key string, network string) error {
+	return os.WriteFile(ncutils.GetNetclientPathSpecific()+"traffic-"+network, []byte(key), 0600)
+}
+
+// RetrieveTrafficKey - reads traffic file locally
+func RetrieveTrafficKey(network string) (string, error) {
+	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "traffic-" + network)
 	return string(dat), err
 }
 

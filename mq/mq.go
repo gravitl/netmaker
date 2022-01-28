@@ -3,6 +3,7 @@ package mq
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -40,6 +41,11 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, record)
 			return
 		}
+		_, decryptErr := decryptMsg(node.ID, msg.Payload())
+		if decryptErr != nil {
+			logger.Log(0, "error updating node ", node.ID, err.Error())
+			return
+		}
 		node.SetLastCheckIn()
 		if err := logic.UpdateNode(&node, &node); err != nil {
 			logger.Log(0, "error updating node ", err.Error())
@@ -58,22 +64,28 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			logger.Log(1, "error getting node.ID sent on ", msg.Topic(), err.Error())
 			return
 		}
+		currentNode, err := logic.GetNodeByID(id)
+		if err != nil {
+			logger.Log(1, "error getting node ", id, err.Error())
+			return
+		}
+		decrypted, decryptErr := decryptMsg(id, msg.Payload())
+		if decryptErr != nil {
+			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
+			return
+		}
 		logger.Log(1, "Update Node Handler", id)
 		var newNode models.Node
-		if err := json.Unmarshal(msg.Payload(), &newNode); err != nil {
+		if err := json.Unmarshal(decrypted, &newNode); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		currentNode, err := logic.GetNodeByID(newNode.ID)
-		if err != nil {
-			logger.Log(1, "error getting node ", newNode.ID, err.Error())
-			return
-		}
+
 		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
 		}
 		if logic.ShouldPeersUpdate(&currentNode, &newNode) {
-			if err := PublishPeerUpdate(client, &newNode); err != nil {
+			if err := PublishPeerUpdate(&newNode); err != nil {
 				logger.Log(1, "error publishing peer update ", err.Error())
 				return
 			}
@@ -82,7 +94,10 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 }
 
 // PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
-func PublishPeerUpdate(client mqtt.Client, newNode *models.Node) error {
+func PublishPeerUpdate(newNode *models.Node) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
 	networkNodes, err := logic.GetNetworkNodes(newNode.Network)
 	if err != nil {
 		logger.Log(1, "err getting Network Nodes", err.Error())
@@ -96,12 +111,11 @@ func PublishPeerUpdate(client mqtt.Client, newNode *models.Node) error {
 		}
 		data, err := json.Marshal(&peerUpdate)
 		if err != nil {
-			logger.Log(2, "error marshaling peer update ", err.Error())
-			return err
+			logger.Log(2, "error marshaling peer update for node", node.ID, err.Error())
+			continue
 		}
-		if token := client.Publish("update/peers/"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
-			logger.Log(2, "error publishing peer update to peer ", node.ID, token.Error().Error())
-			return err
+		if err = publish(node.ID, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
+			logger.Log(1, "failed to publish peer update for node", node.ID)
 		}
 	}
 	return nil
@@ -118,28 +132,19 @@ func GetID(topic string) (string, error) {
 	return parts[count-1], nil
 }
 
-// UpdateNode -- publishes a node update
+// NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
 	logger.Log(3, "publishing node update to "+node.Name)
-	client := SetupMQTT()
-	defer client.Disconnect(250)
 	data, err := json.Marshal(node)
 	if err != nil {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if token := client.Publish("update/"+node.ID, 0, false, data); token.Wait() && token.Error() != nil {
-		logger.Log(2, "error publishing peer update to peer ", node.ID, token.Error().Error())
-		return err
-	}
-	return nil
-}
-
-// UpdatePeers -- publishes a peer update to all the peers of a node
-func UpdatePeers(node *models.Node) error {
-	client := SetupMQTT()
-	defer client.Disconnect(250)
-	if err := PublishPeerUpdate(client, node); err != nil {
+	if err = publish(node.ID, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
+		logger.Log(2, "error publishing node update to peer ", node.ID, err.Error())
 		return err
 	}
 	return nil
