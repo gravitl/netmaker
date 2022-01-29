@@ -137,6 +137,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 		TrafficKeys: models.TrafficKeys{
 			Mine:   rsaPrivKey.PublicKey,
+			Mod:    *rsaPrivKey.PublicKey.N,
 			Server: rsa.PublicKey{},
 		},
 	}

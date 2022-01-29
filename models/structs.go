@@ -2,6 +2,7 @@ package models
 
 import (
 	"crypto/rsa"
+	"math/big"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 )
@@ -174,6 +175,7 @@ type Telemetry struct {
 	LastSend       int64          `json:"lastsend" bson:"lastsend"`
 	TrafficKeyPriv rsa.PrivateKey `json:"traffickeypriv" bson:"traffickeypriv"`
 	TrafficKeyPub  rsa.PublicKey  `json:"traffickeypub" bson:"traffickeypub"`
+	PubMod         big.Int        `json:"pubmod" bson:"pubmod"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
@@ -185,5 +187,6 @@ type ServerAddr struct {
 // TrafficKeys - struct to hold public keys
 type TrafficKeys struct {
 	Mine   rsa.PublicKey `json:"mine" bson:"mine" yaml:"mine"`
+	Mod    big.Int       `json:"mod" bson:"mod" yaml:"mod"`
 	Server rsa.PublicKey `json:"server" bson:"server" yaml:"server"`
 }

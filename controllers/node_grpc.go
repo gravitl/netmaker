@@ -77,14 +77,16 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	}
 	// TODO consolidate functionality around files
 	node.NetworkSettings.DefaultServerAddrs = serverAddrs
-	key, keyErr := logic.RetrievePublicTrafficKey()
+	key, mod, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key: ", keyErr.Error())
 		return nil, keyErr
 	}
+	key.N = &mod
 
 	node.TrafficKeys = models.TrafficKeys{
 		Mine:   node.TrafficKeys.Mine,
+		Mod:    node.TrafficKeys.Mod,
 		Server: key,
 	}
 

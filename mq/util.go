@@ -18,6 +18,7 @@ func decryptMsg(msg []byte) ([]byte, error) {
 
 func encrypt(node *models.Node, dest string, msg []byte) ([]byte, error) {
 	fmt.Printf("original length: %d \n", len(msg))
+	node.TrafficKeys.Mine.N = &node.TrafficKeys.Mod
 	encrypted := ncutils.BuildMessage(msg, &node.TrafficKeys.Mine)
 	if encrypted == "" {
 		return nil, fmt.Errorf("could not encrypt message")
