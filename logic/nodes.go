@@ -60,8 +60,8 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 
 // GetServerNodes - gets the server nodes of a network
 func GetServerNodes(network string) []models.Node {
-	var nodes, err = GetNetworkNodes(network)
 	var serverNodes = make([]models.Node, 0)
+	var nodes, err = GetNetworkNodes(network)
 	if err != nil {
 		return serverNodes
 	}

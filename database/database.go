@@ -41,7 +41,7 @@ const PEERS_TABLE_NAME = "peers"
 // SERVERCONF_TABLE_NAME - stores server conf
 const SERVERCONF_TABLE_NAME = "serverconf"
 
-// SERVER_UUID_TABLE_NAME - stores
+// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
 const SERVER_UUID_TABLE_NAME = "serveruuid"
 
 // SERVER_UUID_RECORD_KEY - telemetry thing

@@ -167,6 +167,7 @@ type ServerUpdateData struct {
 }
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
+// also contains assymetrical encryption pub/priv keys for any server traffic
 type Telemetry struct {
 	UUID           string `json:"uuid" bson:"uuid"`
 	LastSend       int64  `json:"lastsend" bson:"lastsend"`
