@@ -148,7 +148,6 @@ func Insert(key string, value string, tableName string) error {
 	if key != "" && value != "" && IsJSONString(value) {
 		return getCurrentDB()[INSERT].(func(string, string, string) error)(key, value, tableName)
 	} else {
-		logger.Log(0, "invalid json detected!!")
 		return errors.New("invalid insert " + key + " : " + value)
 	}
 }

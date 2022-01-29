@@ -552,7 +552,7 @@ func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) 
 
 // DestructMessage - reconstruct original message through chunks
 func DestructMessage(builtMsg string, priv *rsa.PrivateKey) []byte {
-	var chunks = strings.Split(builtMsg, ",")
+	var chunks = strings.Split(builtMsg, splitKey)
 	var totalMessage = make([]byte, len(builtMsg))
 	for _, chunk := range chunks {
 		var bytes = decryptWithPrivateKey([]byte(chunk), priv)
@@ -566,7 +566,7 @@ func DestructMessage(builtMsg string, priv *rsa.PrivateKey) []byte {
 
 // BuildMessage Build a message for publishing
 func BuildMessage(originalMessage []byte, pub *rsa.PublicKey) string {
-	chunks := getSliceChunks(originalMessage, 2048)
+	chunks := getSliceChunks(originalMessage, 1024)
 	var message = ""
 	for i := 0; i < len(chunks); i++ {
 		var encryptedText, encryptErr = encryptWithPublicKey(chunks[i], pub)
@@ -577,11 +577,13 @@ func BuildMessage(originalMessage []byte, pub *rsa.PublicKey) string {
 
 		message += string(encryptedText)
 		if i < len(chunks)-1 {
-			message += ","
+			message += splitKey
 		}
 	}
 	return message
 }
+
+var splitKey = "|o|"
 
 func getSliceChunks(slice []byte, chunkSize int) [][]byte {
 	var chunks [][]byte
