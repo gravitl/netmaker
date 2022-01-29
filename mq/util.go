@@ -5,10 +5,11 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-func decryptMsg(nodeid string, msg []byte) ([]byte, error) {
+func decryptMsg(msg []byte) ([]byte, error) {
 	logger.Log(0, "found message for decryption: %s \n", string(msg))
 	trafficKey, trafficErr := logic.RetrieveTrafficKey()
 	if trafficErr != nil {
@@ -17,11 +18,7 @@ func decryptMsg(nodeid string, msg []byte) ([]byte, error) {
 	return ncutils.DestructMessage(string(msg), &trafficKey), nil
 }
 
-func encrypt(nodeid string, dest string, msg []byte) ([]byte, error) {
-	var node, err = logic.GetNodeByID(nodeid)
-	if err != nil {
-		return nil, err
-	}
+func encrypt(node *models.Node, dest string, msg []byte) ([]byte, error) {
 	encrypted := ncutils.BuildMessage(msg, &node.TrafficKeys.Mine)
 	if encrypted == "" {
 		return nil, fmt.Errorf("could not encrypt message")
@@ -29,10 +26,10 @@ func encrypt(nodeid string, dest string, msg []byte) ([]byte, error) {
 	return []byte(encrypted), nil
 }
 
-func publish(nodeid string, dest string, msg []byte) error {
+func publish(node *models.Node, dest string, msg []byte) error {
 	client := SetupMQTT()
 	defer client.Disconnect(250)
-	encrypted, encryptErr := encrypt(nodeid, dest, msg)
+	encrypted, encryptErr := encrypt(node, dest, msg)
 	if encryptErr != nil {
 		return encryptErr
 	}

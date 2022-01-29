@@ -41,7 +41,7 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, record)
 			return
 		}
-		_, decryptErr := decryptMsg(node.ID, msg.Payload())
+		_, decryptErr := decryptMsg(msg.Payload())
 		if decryptErr != nil {
 			logger.Log(0, "error updating node ", node.ID, err.Error())
 			return
@@ -69,7 +69,7 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			logger.Log(1, "error getting node ", id, err.Error())
 			return
 		}
-		decrypted, decryptErr := decryptMsg(id, msg.Payload())
+		decrypted, decryptErr := decryptMsg(msg.Payload())
 		if decryptErr != nil {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return
@@ -114,7 +114,7 @@ func PublishPeerUpdate(newNode *models.Node) error {
 			logger.Log(2, "error marshaling peer update for node", node.ID, err.Error())
 			continue
 		}
-		if err = publish(node.ID, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
+		if err = publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 			logger.Log(1, "failed to publish peer update for node", node.ID)
 		}
 	}
@@ -143,7 +143,7 @@ func NodeUpdate(node *models.Node) error {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if err = publish(node.ID, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
+	if err = publish(node, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
 		logger.Log(2, "error publishing node update to peer ", node.ID, err.Error())
 		return err
 	}

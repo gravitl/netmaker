@@ -233,7 +233,6 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	logger.Log(0, "INSERTING: ", node.ID, fmt.Sprintf("pubkey? %v", node.TrafficKeys))
 	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
