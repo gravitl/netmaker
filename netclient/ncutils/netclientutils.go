@@ -566,7 +566,7 @@ func DestructMessage(builtMsg string, priv *rsa.PrivateKey) []byte {
 
 // BuildMessage Build a message for publishing
 func BuildMessage(originalMessage []byte, pub *rsa.PublicKey) string {
-	chunks := getSliceChunks(originalMessage, 245)
+	chunks := getSliceChunks(originalMessage, 240)
 	var message = ""
 	for i := 0; i < len(chunks); i++ {
 		var encryptedText, encryptErr = encryptWithPublicKey(chunks[i], pub)

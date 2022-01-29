@@ -77,9 +77,10 @@ func fetchTelemetryData() (telemetryData, error) {
 func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 	lastsend := time.Now().Unix()
 	var serverTelData = models.Telemetry{
-		UUID:       telRecord.UUID,
-		LastSend:   lastsend,
-		TrafficKey: telRecord.TrafficKey,
+		UUID:           telRecord.UUID,
+		LastSend:       lastsend,
+		TrafficKeyPriv: telRecord.TrafficKeyPriv,
+		TrafficKeyPub:  telRecord.TrafficKeyPub,
 	}
 	jsonObj, err := json.Marshal(&serverTelData)
 	if err != nil {

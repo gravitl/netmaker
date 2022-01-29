@@ -170,9 +170,10 @@ type ServerUpdateData struct {
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
 type Telemetry struct {
-	UUID       string         `json:"uuid" bson:"uuid"`
-	LastSend   int64          `json:"lastsend" bson:"lastsend"`
-	TrafficKey rsa.PrivateKey `json:"traffickey" bson:"traffickey"`
+	UUID           string         `json:"uuid" bson:"uuid"`
+	LastSend       int64          `json:"lastsend" bson:"lastsend"`
+	TrafficKeyPriv rsa.PrivateKey `json:"traffickeypriv" bson:"traffickeypriv"`
+	TrafficKeyPub  rsa.PublicKey  `json:"traffickeypub" bson:"traffickeypub"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not

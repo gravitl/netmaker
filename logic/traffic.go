@@ -5,13 +5,24 @@ import (
 	"fmt"
 )
 
-// RetrieveTrafficKey - retrieves public key based on node
-func RetrieveTrafficKey() (rsa.PrivateKey, error) {
+// RetrievePrivateTrafficKey - retrieves private key of server
+func RetrievePrivateTrafficKey() (rsa.PrivateKey, error) {
 	var telRecord, err = fetchTelemetryRecord()
 	if err != nil {
 		return rsa.PrivateKey{}, err
 	}
-	fmt.Printf("fetched key %v \n", telRecord.TrafficKey)
+	fmt.Printf("fetched priv key %v \n", telRecord.TrafficKeyPriv)
 
-	return telRecord.TrafficKey, nil
+	return telRecord.TrafficKeyPriv, nil
+}
+
+// RetrievePublicTrafficKey - retrieves public key of server
+func RetrievePublicTrafficKey() (rsa.PublicKey, error) {
+	var telRecord, err = fetchTelemetryRecord()
+	if err != nil {
+		return rsa.PublicKey{}, err
+	}
+	fmt.Printf("fetched pub key %v \n", telRecord.TrafficKeyPub)
+
+	return telRecord.TrafficKeyPub, nil
 }

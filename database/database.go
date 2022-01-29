@@ -210,8 +210,9 @@ func initializeUUID() error {
 	if keyErr != nil {
 		return keyErr
 	}
+	var rsaPublicKey = &rsaPrivKey.PublicKey
 
-	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKey: *rsaPrivKey}
+	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKeyPriv: *rsaPrivKey, TrafficKeyPub: *rsaPublicKey}
 	telJSON, err := json.Marshal(&telemetry)
 	if err != nil {
 		return err
