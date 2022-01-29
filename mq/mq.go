@@ -41,18 +41,16 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, record)
 			return
 		}
-		fmt.Printf("length before ping decrypt %d ", len(msg.Payload()))
-		decryptedMsg, decryptErr := decryptMsg(&node, msg.Payload())
+		_, decryptErr := decryptMsg(&node, msg.Payload())
 		if decryptErr != nil {
 			logger.Log(0, "error updating node ", node.ID, err.Error())
 			return
 		}
-		fmt.Printf("length after ping decrypt %d and msg: %s \n", len(decryptedMsg), string(decryptedMsg))
 		node.SetLastCheckIn()
 		if err := logic.UpdateNode(&node, &node); err != nil {
 			logger.Log(0, "error updating node ", err.Error())
 		}
-		logger.Log(0, "ping processed")
+		logger.Log(3, "ping processed for node", node.ID)
 		// --TODO --set client version once feature is implemented.
 		//node.SetClientVersion(msg.Payload())
 	}()

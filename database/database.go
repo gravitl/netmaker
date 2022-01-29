@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -223,7 +222,6 @@ func initializeUUID() error {
 		return err
 	}
 
-	fmt.Printf("Generated Keys: %v \n---\n %v \n", trafficPrivKey, trafficPubKey)
 	telemetry := models.Telemetry{
 		UUID:           uuid.NewString(),
 		TrafficKeyPriv: tPriv,
