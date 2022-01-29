@@ -41,11 +41,13 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, record)
 			return
 		}
-		_, decryptErr := decryptMsg(msg.Payload())
+		fmt.Printf("length before ping decrypt %d ", len(msg.Payload()))
+		decryptedMsg, decryptErr := decryptMsg(msg.Payload())
 		if decryptErr != nil {
 			logger.Log(0, "error updating node ", node.ID, err.Error())
 			return
 		}
+		fmt.Printf("length after ping decrypt %d and msg: %s \n", len(decryptedMsg), string(decryptedMsg))
 		node.SetLastCheckIn()
 		if err := logic.UpdateNode(&node, &node); err != nil {
 			logger.Log(0, "error updating node ", err.Error())
