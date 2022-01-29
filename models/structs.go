@@ -176,6 +176,7 @@ type Telemetry struct {
 	TrafficKeyPriv rsa.PrivateKey `json:"traffickeypriv" bson:"traffickeypriv"`
 	TrafficKeyPub  rsa.PublicKey  `json:"traffickeypub" bson:"traffickeypub"`
 	PubMod         big.Int        `json:"pubmod" bson:"pubmod"`
+	PubE           int            `json:"pube" bson:"pube"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
@@ -188,5 +189,6 @@ type ServerAddr struct {
 type TrafficKeys struct {
 	Mine   rsa.PublicKey `json:"mine" bson:"mine" yaml:"mine"`
 	Mod    big.Int       `json:"mod" bson:"mod" yaml:"mod"`
+	E      int           `json:"e" bson:"e" yaml:"e"`
 	Server rsa.PublicKey `json:"server" bson:"server" yaml:"server"`
 }

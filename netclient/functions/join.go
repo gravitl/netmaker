@@ -138,6 +138,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		TrafficKeys: models.TrafficKeys{
 			Mine:   rsaPrivKey.PublicKey,
 			Mod:    *rsaPrivKey.PublicKey.N,
+			E:      rsaPrivKey.PublicKey.E,
 			Server: rsa.PublicKey{},
 		},
 	}

@@ -212,9 +212,14 @@ func initializeUUID() error {
 		return keyErr
 	}
 	var rsaPublicKey = &rsaPrivKey.PublicKey
-	fmt.Printf("found modulus: %d \n", rsaPublicKey.N)
-
-	telemetry := models.Telemetry{UUID: uuid.NewString(), TrafficKeyPriv: *rsaPrivKey, TrafficKeyPub: *rsaPublicKey, PubMod: *rsaPublicKey.N}
+	fmt.Printf("E: %d \n", rsaPublicKey.E)
+	telemetry := models.Telemetry{
+		UUID:           uuid.NewString(),
+		TrafficKeyPriv: *rsaPrivKey,
+		TrafficKeyPub:  *rsaPublicKey,
+		PubMod:         *rsaPublicKey.N,
+		PubE:           rsaPublicKey.E,
+	}
 	telJSON, err := json.Marshal(&telemetry)
 	if err != nil {
 		return err

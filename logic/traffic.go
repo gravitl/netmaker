@@ -18,12 +18,12 @@ func RetrievePrivateTrafficKey() (rsa.PrivateKey, error) {
 }
 
 // RetrievePublicTrafficKey - retrieves public key of server
-func RetrievePublicTrafficKey() (rsa.PublicKey, big.Int, error) {
+func RetrievePublicTrafficKey() (rsa.PublicKey, big.Int, int, error) {
 	var telRecord, err = fetchTelemetryRecord()
 	if err != nil {
-		return rsa.PublicKey{}, big.Int{}, err
+		return rsa.PublicKey{}, big.Int{}, 0, err
 	}
 	fmt.Printf("fetched pub key %v \n", telRecord.TrafficKeyPub)
 
-	return telRecord.TrafficKeyPub, telRecord.PubMod, nil
+	return telRecord.TrafficKeyPub, telRecord.PubMod, telRecord.PubE, nil
 }
