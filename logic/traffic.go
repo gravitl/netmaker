@@ -2,7 +2,7 @@ package logic
 
 import (
 	"crypto/rsa"
-	"encoding/json"
+	"fmt"
 )
 
 // RetrieveTrafficKey - retrieves public key based on node
@@ -11,8 +11,7 @@ func RetrieveTrafficKey() (rsa.PrivateKey, error) {
 	if err != nil {
 		return rsa.PrivateKey{}, err
 	}
-	var key rsa.PrivateKey
-	json.Unmarshal([]byte(telRecord.TrafficKey), &key)
+	fmt.Printf("fetched key %v \n", telRecord.TrafficKey)
 
-	return key, nil
+	return telRecord.TrafficKey, nil
 }
