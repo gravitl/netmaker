@@ -1,6 +1,8 @@
 package mq
 
 import (
+	"fmt"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -12,7 +14,7 @@ func decryptMsg(nodeid string, msg []byte) ([]byte, error) {
 	if trafficErr != nil {
 		return nil, trafficErr
 	}
-	return ncutils.DecryptWithPrivateKey(msg, &trafficKey), nil
+	return ncutils.DestructMessage(string(msg), &trafficKey), nil
 }
 
 func encrypt(nodeid string, dest string, msg []byte) ([]byte, error) {
@@ -20,11 +22,11 @@ func encrypt(nodeid string, dest string, msg []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encrypted, encryptErr := ncutils.EncryptWithPublicKey(msg, &node.TrafficKeys.Mine)
-	if encryptErr != nil {
-		return nil, encryptErr
+	encrypted := ncutils.BuildMessage(msg, &node.TrafficKeys.Mine)
+	if encrypted == "" {
+		return nil, fmt.Errorf("could not encrypt message")
 	}
-	return encrypted, nil
+	return []byte(encrypted), nil
 }
 
 func publish(nodeid string, dest string, msg []byte) error {

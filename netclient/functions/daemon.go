@@ -371,9 +371,9 @@ func Hello(cfg *config.ClientConfig, network string) {
 func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 	client := SetupMQTT(cfg)
 	defer client.Disconnect(250)
-	encrypted, encryptErr := ncutils.EncryptWithPublicKey(msg, &cfg.Node.TrafficKeys.Server)
-	if encryptErr != nil {
-		return encryptErr
+	encrypted := ncutils.BuildMessage(msg, &cfg.Node.TrafficKeys.Server)
+	if encrypted == "" {
+		return fmt.Errorf("could not encrypt message")
 	}
 	if token := client.Publish(dest, 0, false, encrypted); token.Wait() && token.Error() != nil {
 		return token.Error()
@@ -394,7 +394,7 @@ func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	if err := json.Unmarshal([]byte(diskKey), &trafficKey); err != nil {
 		return nil, err
 	}
-	return ncutils.DecryptWithPrivateKey(msg, &trafficKey), nil
+	return ncutils.DestructMessage(string(msg), &trafficKey), nil
 }
 
 func shouldResub(currentServers, newServers []models.ServerAddr) bool {

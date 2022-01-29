@@ -550,23 +550,71 @@ func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) 
 	return false
 }
 
-// EncryptWithPublicKey encrypts data with public key
-func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
+// DestructMessage - reconstruct original message through chunks
+func DestructMessage(builtMsg string, priv *rsa.PrivateKey) []byte {
+	var chunks = strings.Split(builtMsg, ",")
+	var totalMessage = make([]byte, len(builtMsg))
+	for _, chunk := range chunks {
+		var bytes = decryptWithPrivateKey([]byte(chunk), priv)
+		if bytes == nil {
+			return nil
+		}
+		totalMessage = append(totalMessage, bytes...)
+	}
+	return totalMessage
+}
+
+// BuildMessage Build a message for publishing
+func BuildMessage(originalMessage []byte, pub *rsa.PublicKey) string {
+	chunks := getSliceChunks(originalMessage, 2048)
+	var message = ""
+	for i := 0; i < len(chunks); i++ {
+		var encryptedText, encryptErr = encryptWithPublicKey(chunks[i], pub)
+		if encryptErr != nil {
+			return ""
+		}
+
+		message += string(encryptedText)
+		if i < len(chunks)-1 {
+			message += ","
+		}
+	}
+	return message
+}
+
+func getSliceChunks(slice []byte, chunkSize int) [][]byte {
+	var chunks [][]byte
+	for i := 0; i < len(slice); i += chunkSize {
+		lastByte := i + chunkSize
+
+		if lastByte > len(slice) {
+			lastByte = len(slice)
+		}
+
+		chunks = append(chunks, slice[i:lastByte])
+	}
+
+	return chunks
+}
+
+// encryptWithPublicKey encrypts data with public key
+func encryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
 	if pub == nil {
 		return nil, errors.New("invalid public key when decrypting")
 	}
 	hash := sha512.New()
-	ciphertext, err := rsa.EncryptOAEP(hash, crand.Reader, pub, msg, nil)
+	ciphertext, err := rsa.EncryptOAEP(hash, crand.Reader, pub, msg, []byte(""))
 	if err != nil {
 		return nil, err
 	}
+
 	return ciphertext, nil
 }
 
-// DecryptWithPrivateKey decrypts data with private key
-func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
+// decryptWithPrivateKey decrypts data with private key
+func decryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
 	hash := sha512.New()
-	plaintext, err := rsa.DecryptOAEP(hash, crand.Reader, priv, ciphertext, nil)
+	plaintext, err := rsa.DecryptOAEP(hash, crand.Reader, priv, ciphertext, []byte(""))
 	if err != nil {
 		return nil
 	}
