@@ -571,6 +571,7 @@ func BuildMessage(originalMessage []byte, pub *rsa.PublicKey) string {
 	for i := 0; i < len(chunks); i++ {
 		var encryptedText, encryptErr = encryptWithPublicKey(chunks[i], pub)
 		if encryptErr != nil {
+			fmt.Printf("encrypt err: %v \n", encryptErr)
 			return ""
 		}
 
