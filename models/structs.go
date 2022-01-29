@@ -191,4 +191,6 @@ type TrafficKeys struct {
 	Mod    big.Int       `json:"mod" bson:"mod" yaml:"mod"`
 	E      int           `json:"e" bson:"e" yaml:"e"`
 	Server rsa.PublicKey `json:"server" bson:"server" yaml:"server"`
+	Smod   big.Int       `json:"smod" bson:"smod" yaml:"smod"`
+	SE     int           `json:"se" bson:"se" yaml:"se"`
 }

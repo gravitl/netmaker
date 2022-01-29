@@ -90,6 +90,8 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Mod:    node.TrafficKeys.Mod,
 		E:      node.TrafficKeys.E,
 		Server: key,
+		Smod:   *key.N,
+		SE:     key.E,
 	}
 
 	err = logic.CreateNode(&node)

@@ -371,6 +371,8 @@ func Hello(cfg *config.ClientConfig, network string) {
 func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 	client := SetupMQTT(cfg)
 	defer client.Disconnect(250)
+	cfg.Node.TrafficKeys.Server.E = cfg.Node.TrafficKeys.SE
+	cfg.Node.TrafficKeys.Server.N = &cfg.Node.TrafficKeys.Smod
 	encrypted := ncutils.BuildMessage(msg, &cfg.Node.TrafficKeys.Server)
 	if encrypted == "" {
 		return fmt.Errorf("could not encrypt message")
