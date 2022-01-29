@@ -169,3 +169,9 @@ type Telemetry struct {
 	UUID     string `json:"uuid" bson:"uuid"`
 	LastSend int64  `json:"lastsend" bson:"lastsend"`
 }
+
+// ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
+type ServerAddr struct {
+	IsLeader bool   `json:"isleader" bson:"isleader" yaml:"isleader"`
+	Address  string `json:"address" bson:"address" yaml:"address"`
+}

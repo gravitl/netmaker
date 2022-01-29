@@ -67,6 +67,16 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		}
 	}
 
+	var serverNodes = logic.GetServerNodes(node.Network)
+	var serverAddrs = make([]models.ServerAddr, len(serverNodes))
+	for i, server := range serverNodes {
+		serverAddrs[i] = models.ServerAddr{
+			IsLeader: logic.IsLeader(&server),
+			Address:  server.Address,
+		}
+	}
+	node.NetworkSettings.DefaultServerAddrs = serverAddrs
+
 	err = logic.CreateNode(&node)
 	if err != nil {
 		return nil, err

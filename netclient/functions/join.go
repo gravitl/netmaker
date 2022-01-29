@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"runtime"
 
 	"github.com/google/uuid"
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -101,8 +102,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	// make sure name is appropriate, if not, give blank name
 	cfg.Node.Name = formatName(cfg.Node)
 	// differentiate between client/server here
-	var node models.Node // fill this node with appropriate calls
-	postnode := &models.Node{
+	var node = models.Node{
 		Password:            cfg.Node.Password,
 		ID:                  cfg.Node.ID,
 		MacAddress:          cfg.Node.MacAddress,
@@ -124,44 +124,17 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 	}
 
-	if cfg.Node.IsServer != "yes" {
-		ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
-		var wcclient nodepb.NodeServiceClient
+	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+	var wcclient nodepb.NodeServiceClient
 
-		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
-		if err != nil {
-			log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
-		}
-		defer conn.Close()
-		wcclient = nodepb.NewNodeServiceClient(conn)
-
-		if err = config.ModConfig(postnode); err != nil {
-			return err
-		}
-		data, err := json.Marshal(postnode)
-		if err != nil {
-			return err
-		}
-		// Create node on server
-		res, err := wcclient.CreateNode(
-			context.TODO(),
-			&nodepb.Object{
-				Data: string(data),
-				Type: nodepb.NODE_TYPE,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		ncutils.PrintLog("node created on remote server...updating configs", 1)
-
-		nodeData := res.Data
-		if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
-			return err
-		}
+	if err != nil {
+		log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
 	}
+	defer conn.Close()
+	wcclient = nodepb.NewNodeServiceClient(conn)
 
 	// get free port based on returned default listen port
 	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
@@ -182,31 +155,47 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		cfg.Node.IsStatic = "yes"
 	}
 
-	if node.IsServer != "yes" { // == handle client side ==
-		err = config.ModConfig(&node)
-		if err != nil {
-			return err
+	err = wireguard.StorePrivKey(privateKey, cfg.Network)
+	if err != nil {
+		return err
+	}
+	if node.IsPending == "yes" {
+		ncutils.Log("Node is marked as PENDING.")
+		ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
+		if cfg.Daemon != "off" {
+			return daemon.InstallDaemon(cfg)
 		}
-		err = wireguard.StorePrivKey(privateKey, cfg.Network)
-		if err != nil {
-			return err
-		}
-		if node.IsPending == "yes" {
-			ncutils.Log("Node is marked as PENDING.")
-			ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
-			if cfg.Daemon != "off" {
-				return daemon.InstallDaemon(cfg)
-			}
-		}
-		// pushing any local changes to server before starting wireguard
-		err = Push(cfg.Network)
-		if err != nil {
-			return err
-		}
-		// attempt to make backup
-		if err = config.SaveBackup(node.Network); err != nil {
-			ncutils.Log("failed to make backup, node will not auto restore if config is corrupted")
-		}
+	}
+	data, err := json.Marshal(&node)
+	if err != nil {
+		return err
+	}
+	// Create node on server
+	res, err := wcclient.CreateNode(
+		context.TODO(),
+		&nodepb.Object{
+			Data: string(data),
+			Type: nodepb.NODE_TYPE,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	ncutils.PrintLog("node created on remote server...updating configs", 1)
+
+	nodeData := res.Data
+	if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
+		return err
+	}
+	node.OS = runtime.GOOS
+	cfg.Node = node
+	err = config.ModConfig(&node)
+	if err != nil {
+		return err
+	}
+	// attempt to make backup
+	if err = config.SaveBackup(node.Network); err != nil {
+		ncutils.Log("failed to make backup, node will not auto restore if config is corrupted")
 	}
 
 	ncutils.Log("retrieving peers")

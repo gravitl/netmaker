@@ -3,10 +3,12 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,6 +20,22 @@ import (
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+var messageCache = make(map[string]string, 20)
+
+const lastNodeUpdate = "lnu"
+const lastPeerUpdate = "lpu"
+
+func insert(network, which, cache string) {
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
+	messageCache[fmt.Sprintf("%s%s", network, which)] = cache
+}
+
+func read(network, which string) string {
+	return messageCache[fmt.Sprintf("%s%s", network, which)]
+}
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
@@ -41,8 +59,13 @@ func Daemon() error {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	ncutils.Log("setting broker to " + cfg.Server.CoreDNSAddr + ":1883")
-	opts.AddBroker(cfg.Server.CoreDNSAddr + ":1883")
+	for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
+		if server.Address != "" && server.IsLeader {
+			ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s \n", server.Address, cfg.Node.Network))
+			opts.AddBroker(server.Address + ":1883")
+			break
+		}
+	}
 	opts.SetDefaultPublishHandler(All)
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
@@ -65,13 +88,13 @@ func MessageQueue(ctx context.Context, network string) {
 		}
 		ncutils.Log("subscribed to all topics for debugging purposes")
 	}
-	if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe("update/"+cfg.Node.ID, 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
 	if cfg.DebugOn {
 		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
 	}
-	if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
 	if cfg.DebugOn {
@@ -91,8 +114,7 @@ var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 }
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
-var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	ncutils.Log("received message to update node " + string(msg.Payload()))
+func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//potentiall blocking i/o so do this in a go routine
 	go func() {
 		var newNode models.Node
@@ -102,6 +124,13 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			ncutils.Log("error unmarshalling node update data" + err.Error())
 			return
 		}
+		ncutils.Log("received message to update node " + newNode.Name)
+		// see if cache hit, if so skip
+		var currentMessage = read(newNode.Network, lastNodeUpdate)
+		if currentMessage == string(msg.Payload()) {
+			return
+		}
+		insert(newNode.Network, lastNodeUpdate, string(msg.Payload()))
 		cfg.Network = newNode.Network
 		cfg.ReadConfig()
 		//check if interface name has changed if so delete.
@@ -169,7 +198,7 @@ var NodeUpdate mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 }
 
 // UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
-var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	go func() {
 		var peerUpdate models.PeerUpdate
 		err := json.Unmarshal(msg.Payload(), &peerUpdate)
@@ -177,10 +206,21 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			ncutils.Log("error unmarshalling peer data")
 			return
 		}
+		// see if cache hit, if so skip
+		var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
+		if currentMessage == string(msg.Payload()) {
+			return
+		}
+		insert(peerUpdate.Network, lastPeerUpdate, string(msg.Payload()))
 		ncutils.Log("update peer handler")
 		var cfg config.ClientConfig
 		cfg.Network = peerUpdate.Network
 		cfg.ReadConfig()
+		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
+		if shouldReSub {
+			Resubscribe(client, &cfg)
+			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
+		}
 		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 		if err != nil {
@@ -194,6 +234,29 @@ var UpdatePeers mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message)
 			return
 		}
 	}()
+}
+
+// Resubscribe --- handles resubscribing if needed
+func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
+	if err := config.ModConfig(&cfg.Node); err == nil {
+		ncutils.Log("resubbing on network " + cfg.Node.Network)
+		client.Disconnect(250)
+		client = SetupMQTT(cfg)
+		if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
+			log.Fatal(token.Error())
+		}
+		if cfg.DebugOn {
+			ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
+		}
+		if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+			log.Fatal(token.Error())
+		}
+		ncutils.Log("finished re subbing")
+		return nil
+	} else {
+		ncutils.Log("could not mod config when re-subbing")
+		return err
+	}
 }
 
 // UpdateKeys -- updates private key and returns new publickey
@@ -290,4 +353,16 @@ func Hello(cfg *config.ClientConfig, network string) {
 		ncutils.Log("error publishing ping " + token.Error().Error())
 	}
 	client.Disconnect(250)
+}
+
+func shouldResub(currentServers, newServers []models.ServerAddr) bool {
+	if len(currentServers) != len(newServers) {
+		return true
+	}
+	for _, srv := range currentServers {
+		if !ncutils.ServerAddrSliceContains(newServers, srv) {
+			return true
+		}
+	}
+	return false
 }
