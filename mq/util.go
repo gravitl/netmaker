@@ -1,37 +1,52 @@
 package mq
 
 import (
-	"fmt"
-
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-func decryptMsg(msg []byte) ([]byte, error) {
+func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey() // get server private key
+	if trafficErr != nil {
+		return nil, trafficErr
+	}
+	serverPrivTKey, err := ncutils.ConvertBytesToKey(trafficKey)
+	if err != nil {
+		return nil, err
+	}
+	nodePubTKey, err := ncutils.ConvertBytesToKey(node.TrafficKeys.Mine)
+	if err != nil {
+		return nil, err
+	}
+
+	return ncutils.BoxDecrypt(msg, nodePubTKey, serverPrivTKey)
+}
+
+func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+	// fetch server public key to be certain hasn't changed in transit
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey()
 	if trafficErr != nil {
 		return nil, trafficErr
 	}
-	return ncutils.DestructMessage(string(msg), &trafficKey), nil
-}
 
-func encrypt(node *models.Node, dest string, msg []byte) ([]byte, error) {
-	fmt.Printf("original length: %d \n", len(msg))
-	node.TrafficKeys.Mine.N = &node.TrafficKeys.Mod
-	node.TrafficKeys.Mine.E = node.TrafficKeys.E
-	encrypted := ncutils.BuildMessage(msg, &node.TrafficKeys.Mine)
-	if encrypted == "" {
-		return nil, fmt.Errorf("could not encrypt message")
+	serverPrivKey, err := ncutils.ConvertBytesToKey(trafficKey)
+	if err != nil {
+		return nil, err
 	}
-	fmt.Printf("resulting length: %d \n", len(encrypted))
-	return []byte(encrypted), nil
+
+	nodePubKey, err := ncutils.ConvertBytesToKey(node.TrafficKeys.Mine)
+	if err != nil {
+		return nil, err
+	}
+
+	return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
 }
 
 func publish(node *models.Node, dest string, msg []byte) error {
 	client := SetupMQTT()
 	defer client.Disconnect(250)
-	encrypted, encryptErr := encrypt(node, dest, msg)
+	encrypted, encryptErr := encryptMsg(node, msg)
 	if encryptErr != nil {
 		return encryptErr
 	}

@@ -1,29 +1,27 @@
 package logic
 
 import (
-	"crypto/rsa"
 	"fmt"
-	"math/big"
 )
 
 // RetrievePrivateTrafficKey - retrieves private key of server
-func RetrievePrivateTrafficKey() (rsa.PrivateKey, error) {
+func RetrievePrivateTrafficKey() ([]byte, error) {
 	var telRecord, err = fetchTelemetryRecord()
 	if err != nil {
-		return rsa.PrivateKey{}, err
+		return nil, err
 	}
-	fmt.Printf("fetched priv key %v \n", telRecord.TrafficKeyPriv)
+	fmt.Printf("fetched priv key %v \n", string(telRecord.TrafficKeyPriv))
 
 	return telRecord.TrafficKeyPriv, nil
 }
 
 // RetrievePublicTrafficKey - retrieves public key of server
-func RetrievePublicTrafficKey() (rsa.PublicKey, big.Int, int, error) {
+func RetrievePublicTrafficKey() ([]byte, error) {
 	var telRecord, err = fetchTelemetryRecord()
 	if err != nil {
-		return rsa.PublicKey{}, big.Int{}, 0, err
+		return nil, err
 	}
-	fmt.Printf("fetched pub key %v \n", telRecord.TrafficKeyPub)
+	fmt.Printf("fetched pub key %v \n", string(telRecord.TrafficKeyPub))
 
-	return telRecord.TrafficKeyPub, telRecord.PubMod, telRecord.PubE, nil
+	return telRecord.TrafficKeyPub, nil
 }

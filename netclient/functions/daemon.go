@@ -2,7 +2,6 @@ package functions
 
 import (
 	"context"
-	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -130,7 +129,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		if dataErr != nil {
 			return
 		}
-		err := json.Unmarshal(data, &newNode)
+		err := json.Unmarshal([]byte(data), &newNode)
 		if err != nil {
 			ncutils.Log("error unmarshalling node update data" + err.Error())
 			return
@@ -220,7 +219,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		if dataErr != nil {
 			return
 		}
-		err := json.Unmarshal(data, &peerUpdate)
+		err := json.Unmarshal([]byte(data), &peerUpdate)
 		if err != nil {
 			ncutils.Log("error unmarshalling peer data")
 			return
@@ -369,14 +368,24 @@ func Hello(cfg *config.ClientConfig, network string) {
 }
 
 func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
+	// setup the keys
+	trafficPrivKey, err := auth.RetrieveTrafficKey(cfg.Node.Network)
+	if err != nil {
+		return err
+	}
+
+	serverPubKey, err := ncutils.ConvertBytesToKey(cfg.Node.TrafficKeys.Server)
+	if err != nil {
+		return err
+	}
+
 	client := SetupMQTT(cfg)
 	defer client.Disconnect(250)
-	cfg.Node.TrafficKeys.Server.E = cfg.Node.TrafficKeys.SE
-	cfg.Node.TrafficKeys.Server.N = &cfg.Node.TrafficKeys.Smod
-	encrypted := ncutils.BuildMessage(msg, &cfg.Node.TrafficKeys.Server)
-	if encrypted == "" {
-		return fmt.Errorf("could not encrypt message")
+	encrypted, err := ncutils.BoxEncrypt(msg, serverPubKey, trafficPrivKey)
+	if err != nil {
+		return err
 	}
+
 	if token := client.Publish(dest, 0, false, encrypted); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -388,15 +397,18 @@ func parseNetworkFromTopic(topic string) string {
 }
 
 func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
-	diskKey, trafficErr := auth.RetrieveTrafficKey(cfg.Node.Network)
-	if trafficErr != nil {
-		return nil, trafficErr
+	// setup the keys
+	diskKey, keyErr := auth.RetrieveTrafficKey(cfg.Node.Network)
+	if keyErr != nil {
+		return nil, keyErr
 	}
-	var trafficKey rsa.PrivateKey
-	if err := json.Unmarshal([]byte(diskKey), &trafficKey); err != nil {
+
+	serverPubKey, err := ncutils.ConvertBytesToKey(cfg.Node.TrafficKeys.Server)
+	if err != nil {
 		return nil, err
 	}
-	return ncutils.DestructMessage(string(msg), &trafficKey), nil
+
+	return ncutils.BoxDecrypt(msg, serverPubKey, diskKey)
 }
 
 func shouldResub(currentServers, newServers []models.ServerAddr) bool {

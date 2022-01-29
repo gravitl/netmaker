@@ -1,10 +1,10 @@
 package ncutils
 
 import (
+	"bytes"
 	crand "crypto/rand"
-	"crypto/rsa"
-	"crypto/sha512"
 	"crypto/tls"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/crypto/nacl/box"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -540,6 +541,28 @@ func CheckWG() {
 	}
 }
 
+// ConvertKeyToBytes - util to convert a key to bytes to use elsewhere
+func ConvertKeyToBytes(key *[32]byte) ([]byte, error) {
+	var buffer bytes.Buffer
+	var enc = gob.NewEncoder(&buffer)
+	if err := enc.Encode(key); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// ConvertBytesToKey - util to convert bytes to a key to use elsewhere
+func ConvertBytesToKey(data []byte) (*[32]byte, error) {
+	var buffer = bytes.NewBuffer(data)
+	var dec = gob.NewDecoder(buffer)
+	var result = new([32]byte)
+	var err = dec.Decode(result)
+	if err != nil {
+		return nil, err
+	}
+	return result, err
+}
+
 // ServerAddrSliceContains - sees if a string slice contains a string element
 func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) bool {
 	for _, s := range slice {
@@ -550,76 +573,98 @@ func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) 
 	return false
 }
 
-// DestructMessage - reconstruct original message through chunks
-func DestructMessage(builtMsg string, priv *rsa.PrivateKey) []byte {
-	var chunks = strings.Split(builtMsg, splitKey)
-	var totalMessage = make([]byte, len(builtMsg))
-	for _, chunk := range chunks {
-		var bytes = decryptWithPrivateKey([]byte(chunk), priv)
-		if bytes == nil {
-			return nil
-		}
-		totalMessage = append(totalMessage, bytes...)
-	}
-	return totalMessage
-}
-
-// BuildMessage Build a message for publishing
-func BuildMessage(originalMessage []byte, pub *rsa.PublicKey) string {
-	chunks := getSliceChunks(originalMessage, 228)
-	var message = ""
-	for i := 0; i < len(chunks); i++ {
-		var encryptedText, encryptErr = encryptWithPublicKey(chunks[i], pub)
-		if encryptErr != nil {
-			fmt.Printf("encrypt err: %v \n", encryptErr)
-			return ""
-		}
-
-		message += string(encryptedText)
-		if i < len(chunks)-1 {
-			message += splitKey
-		}
-	}
-	return message
-}
-
-var splitKey = "|o|"
-
-func getSliceChunks(slice []byte, chunkSize int) [][]byte {
-	var chunks [][]byte
-	for i := 0; i < len(slice); i += chunkSize {
-		lastByte := i + chunkSize
-
-		if lastByte > len(slice) {
-			lastByte = len(slice)
-		}
-
-		chunks = append(chunks, slice[i:lastByte])
-	}
-
-	return chunks
-}
-
-// encryptWithPublicKey encrypts data with public key
-func encryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
-	if pub == nil {
-		return nil, errors.New("invalid public key when decrypting")
-	}
-	hash := sha512.New()
-	ciphertext, err := rsa.EncryptOAEP(hash, crand.Reader, pub, msg, []byte(""))
-	if err != nil {
+// BoxEncrypt - encrypts traffic box
+func BoxEncrypt(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32]byte) ([]byte, error) {
+	var nonce [24]byte // 192 bits of randomization
+	if _, err := io.ReadFull(crand.Reader, nonce[:]); err != nil {
 		return nil, err
 	}
 
-	return ciphertext, nil
+	encrypted := box.Seal(nonce[:], message, &nonce, recipientPubKey, senderPrivateKey)
+	return encrypted, nil
 }
 
-// decryptWithPrivateKey decrypts data with private key
-func decryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
-	hash := sha512.New()
-	plaintext, err := rsa.DecryptOAEP(hash, crand.Reader, priv, ciphertext, []byte(""))
-	if err != nil {
-		return nil
+// BoxDecrypt - decrypts traffic box
+func BoxDecrypt(encrypted []byte, senderPublicKey *[32]byte, recipientPrivateKey *[32]byte) ([]byte, error) {
+	var decryptNonce [24]byte
+	copy(decryptNonce[:], encrypted[:24])
+	decrypted, ok := box.Open(nil, encrypted[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("could not decrypt message")
 	}
-	return plaintext
+	return decrypted, nil
 }
+
+// DestructMessage - reconstruct original message through chunks
+// func DestructMessage(builtMsg string, priv *rsa.PrivateKey) []byte {
+// 	var chunks = strings.Split(builtMsg, splitKey)
+// 	var totalMessage = make([]byte, len(builtMsg))
+// 	for _, chunk := range chunks {
+// 		var bytes = decryptWithPrivateKey([]byte(chunk), priv)
+// 		if bytes == nil {
+// 			return nil
+// 		}
+// 		totalMessage = append(totalMessage, bytes...)
+// 	}
+// 	return totalMessage
+// }
+
+// // BuildMessage Build a message for publishing
+// func BuildMessage(originalMessage []byte, pub *rsa.PublicKey) string {
+// 	chunks := getSliceChunks(originalMessage, 228)
+// 	var message = ""
+// 	for i := 0; i < len(chunks); i++ {
+// 		var encryptedText, encryptErr = encryptWithPublicKey(chunks[i], pub)
+// 		if encryptErr != nil {
+// 			fmt.Printf("encrypt err: %v \n", encryptErr)
+// 			return ""
+// 		}
+
+// 		message += string(encryptedText)
+// 		if i < len(chunks)-1 {
+// 			message += splitKey
+// 		}
+// 	}
+// 	return message
+// }
+
+// var splitKey = "|o|"
+
+// func getSliceChunks(slice []byte, chunkSize int) [][]byte {
+// 	var chunks [][]byte
+// 	for i := 0; i < len(slice); i += chunkSize {
+// 		lastByte := i + chunkSize
+
+// 		if lastByte > len(slice) {
+// 			lastByte = len(slice)
+// 		}
+
+// 		chunks = append(chunks, slice[i:lastByte])
+// 	}
+
+// 	return chunks
+// }
+
+// // encryptWithPublicKey encrypts data with public key
+// func encryptWithPublicKey(msg []byte, pub *rsa.PublicKey) ([]byte, error) {
+// 	if pub == nil {
+// 		return nil, errors.New("invalid public key when decrypting")
+// 	}
+// 	hash := sha512.New()
+// 	ciphertext, err := rsa.EncryptOAEP(hash, crand.Reader, pub, msg, []byte(""))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return ciphertext, nil
+// }
+
+// // decryptWithPrivateKey decrypts data with private key
+// func decryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
+// 	hash := sha512.New()
+// 	plaintext, err := rsa.DecryptOAEP(hash, crand.Reader, priv, ciphertext, []byte(""))
+// 	if err != nil {
+// 		return nil
+// 	}
+// 	return plaintext
+// }

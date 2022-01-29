@@ -42,7 +42,7 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		fmt.Printf("length before ping decrypt %d ", len(msg.Payload()))
-		decryptedMsg, decryptErr := decryptMsg(msg.Payload())
+		decryptedMsg, decryptErr := decryptMsg(&node, msg.Payload())
 		if decryptErr != nil {
 			logger.Log(0, "error updating node ", node.ID, err.Error())
 			return
@@ -71,7 +71,7 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			logger.Log(1, "error getting node ", id, err.Error())
 			return
 		}
-		decrypted, decryptErr := decryptMsg(msg.Payload())
+		decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
 		if decryptErr != nil {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return

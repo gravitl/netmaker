@@ -1,9 +1,6 @@
 package models
 
 import (
-	"crypto/rsa"
-	"math/big"
-
 	jwt "github.com/golang-jwt/jwt/v4"
 )
 
@@ -171,12 +168,10 @@ type ServerUpdateData struct {
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
 type Telemetry struct {
-	UUID           string         `json:"uuid" bson:"uuid"`
-	LastSend       int64          `json:"lastsend" bson:"lastsend"`
-	TrafficKeyPriv rsa.PrivateKey `json:"traffickeypriv" bson:"traffickeypriv"`
-	TrafficKeyPub  rsa.PublicKey  `json:"traffickeypub" bson:"traffickeypub"`
-	PubMod         big.Int        `json:"pubmod" bson:"pubmod"`
-	PubE           int            `json:"pube" bson:"pube"`
+	UUID           string `json:"uuid" bson:"uuid"`
+	LastSend       int64  `json:"lastsend" bson:"lastsend"`
+	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
+	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
@@ -187,10 +182,6 @@ type ServerAddr struct {
 
 // TrafficKeys - struct to hold public keys
 type TrafficKeys struct {
-	Mine   rsa.PublicKey `json:"mine" bson:"mine" yaml:"mine"`
-	Mod    big.Int       `json:"mod" bson:"mod" yaml:"mod"`
-	E      int           `json:"e" bson:"e" yaml:"e"`
-	Server rsa.PublicKey `json:"server" bson:"server" yaml:"server"`
-	Smod   big.Int       `json:"smod" bson:"smod" yaml:"smod"`
-	SE     int           `json:"se" bson:"se" yaml:"se"`
+	Mine   []byte `json:"mine" bson:"mine" yaml:"mine"`
+	Server []byte `json:"server" bson:"server" yaml:"server"`
 }

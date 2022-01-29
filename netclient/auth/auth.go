@@ -93,14 +93,21 @@ func RetrieveSecret(network string) (string, error) {
 }
 
 // StoreTrafficKey - stores traffic key
-func StoreTrafficKey(key string, network string) error {
-	return os.WriteFile(ncutils.GetNetclientPathSpecific()+"traffic-"+network, []byte(key), 0600)
+func StoreTrafficKey(key *[32]byte, network string) error {
+	var data, err = ncutils.ConvertKeyToBytes(key)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(ncutils.GetNetclientPathSpecific()+"traffic-"+network, data, 0600)
 }
 
 // RetrieveTrafficKey - reads traffic file locally
-func RetrieveTrafficKey(network string) (string, error) {
-	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "traffic-" + network)
-	return string(dat), err
+func RetrieveTrafficKey(network string) (*[32]byte, error) {
+	data, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "traffic-" + network)
+	if err != nil {
+		return nil, err
+	}
+	return ncutils.ConvertBytesToKey(data)
 }
 
 // Configuraion - struct for mac and pass

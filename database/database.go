@@ -2,7 +2,6 @@ package database
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/crypto/nacl/box"
 )
 
 // NETWORKS_TABLE_NAME - networks table
@@ -207,18 +208,26 @@ func initializeUUID() error {
 	} else if len(records) > 0 {
 		return nil
 	}
-	var rsaPrivKey, keyErr = rsa.GenerateKey(rand.Reader, 2048)
-	if keyErr != nil {
-		return keyErr
+	// setup encryption keys
+	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
+	if errT != nil {
+		return errT
 	}
-	var rsaPublicKey = &rsaPrivKey.PublicKey
-	fmt.Printf("E: %d \n", rsaPublicKey.E)
+	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
+	if err != nil {
+		return err
+	}
+
+	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Generated Keys: %v \n---\n %v \n", trafficPrivKey, trafficPubKey)
 	telemetry := models.Telemetry{
 		UUID:           uuid.NewString(),
-		TrafficKeyPriv: *rsaPrivKey,
-		TrafficKeyPub:  *rsaPublicKey,
-		PubMod:         *rsaPublicKey.N,
-		PubE:           rsaPublicKey.E,
+		TrafficKeyPriv: tPriv,
+		TrafficKeyPub:  tPub,
 	}
 	telJSON, err := json.Marshal(&telemetry)
 	if err != nil {
