@@ -67,18 +67,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 			return nil, errors.New("invalid key, and network does not allow no-key signups")
 		}
 	}
-
-	var serverNodes = logic.GetServerNodes(node.Network)
-	var serverAddrs = make([]models.ServerAddr, len(serverNodes))
-	for i, server := range serverNodes {
-		serverAddrs[i] = models.ServerAddr{
-			ID:       server.ID,
-			IsLeader: logic.IsLeader(&server),
-			Address:  server.Address,
-		}
-	}
-	// TODO consolidate functionality around files
-	node.NetworkSettings.DefaultServerAddrs = serverAddrs
+	getServerAddrs(&node)
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key: ", keyErr.Error())
@@ -147,7 +136,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		newnode.PostUp = node.PostUp
 	}
 	var shouldPeersUpdate = logic.ShouldPeersUpdate(&node, &newnode)
-
+	getServerAddrs(&node)
 	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {
 		return nil, err
@@ -168,6 +157,19 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
 	}, nil
+}
+
+func getServerAddrs(node *models.Node) {
+	var serverNodes = logic.GetServerNodes(node.Network)
+	var serverAddrs = make([]models.ServerAddr, len(serverNodes))
+	for i, server := range serverNodes {
+		serverAddrs[i] = models.ServerAddr{
+			IsLeader: logic.IsLeader(&server),
+			Address:  server.Address,
+		}
+	}
+	// TODO consolidate functionality around files
+	node.NetworkSettings.DefaultServerAddrs = serverAddrs
 }
 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
