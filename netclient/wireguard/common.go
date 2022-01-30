@@ -291,7 +291,7 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 	}
 	wireguard := ini.Empty(options)
 	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
-	if node.ListenPort > 0 {
+	if node.ListenPort > 0 && node.UDPHolePunch != "yes" {
 		wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))
 	}
 	if node.Address != "" {
