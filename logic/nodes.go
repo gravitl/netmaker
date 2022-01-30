@@ -91,7 +91,7 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	return node, err
 }
 
-// GetPeers - gets the peers of a given node
+// GetPeers - gets the peers of a given server node
 func GetPeers(node *models.Node) ([]models.Node, error) {
 	if IsLeader(node) {
 		setNetworkServerPeers(node)

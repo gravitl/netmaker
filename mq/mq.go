@@ -85,11 +85,11 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-
+		var shouldUpdatePeers = logic.ShouldPeersUpdate(&currentNode, &newNode)
 		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
 		}
-		if logic.ShouldPeersUpdate(&currentNode, &newNode) {
+		if shouldUpdatePeers {
 			if err := PublishPeerUpdate(&newNode); err != nil {
 				logger.Log(1, "error publishing peer update ", err.Error())
 				return
@@ -111,11 +111,14 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	}
 	for _, node := range networkNodes {
 		if node.IsServer == "yes" {
+			if err := logic.ServerUpdate(&node, true); err != nil {
+				logger.Log(1, "failed server peer update on server", node.ID)
+			}
 			continue
 		}
 		peerUpdate, err := logic.GetPeerUpdate(&node)
 		if err != nil {
-			logger.Log(1, "error getting peer update for node ", node.ID, err.Error())
+			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
 			continue
 		}
 		data, err := json.Marshal(&peerUpdate)

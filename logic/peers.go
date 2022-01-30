@@ -16,12 +16,12 @@ import (
 func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate
 	var peers []wgtypes.PeerConfig
-	networkNodes, err := GetNetworkNodes(node.Network)
+	var serverNodeAddresses = []models.ServerAddr{}
+	currentPeers, err := GetPeers(node)
 	if err != nil {
 		return models.PeerUpdate{}, err
 	}
-	var serverNodeAddresses = []models.ServerAddr{}
-	for _, peer := range networkNodes {
+	for _, peer := range currentPeers {
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
