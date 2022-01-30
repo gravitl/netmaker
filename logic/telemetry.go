@@ -74,11 +74,13 @@ func fetchTelemetryData() (telemetryData, error) {
 }
 
 // setTelemetryTimestamp - Give the entry in the DB a new timestamp
-func setTelemetryTimestamp(uuid string) error {
+func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 	lastsend := time.Now().Unix()
 	var serverTelData = models.Telemetry{
-		UUID:     uuid,
-		LastSend: lastsend,
+		UUID:           telRecord.UUID,
+		LastSend:       lastsend,
+		TrafficKeyPriv: telRecord.TrafficKeyPriv,
+		TrafficKeyPub:  telRecord.TrafficKeyPub,
 	}
 	jsonObj, err := json.Marshal(&serverTelData)
 	if err != nil {

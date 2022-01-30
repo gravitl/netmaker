@@ -253,6 +253,9 @@ func WipeLocal(network string) error {
 	if ncutils.FileExists(home + "secret-" + network) {
 		_ = os.Remove(home + "secret-" + network)
 	}
+	if ncutils.FileExists(home + "traffic-" + network) {
+		_ = os.Remove(home + "traffic-" + network)
+	}
 	if ncutils.FileExists(home + "wgkey-" + network) {
 		_ = os.Remove(home + "wgkey-" + network)
 	}

@@ -15,7 +15,7 @@ import (
 
 const netmakerProcessName = "netmaker"
 
-// InitServerNetclient - intializes the server netclient
+// InitIPTables - intializes the server iptables
 func InitIPTables() error {
 	_, err := exec.LookPath("iptables")
 	if err != nil {

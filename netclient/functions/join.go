@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/server"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"golang.org/x/crypto/nacl/box"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 )
@@ -30,21 +32,40 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	var err error
-	if cfg.Node.IsServer != "yes" {
-		if local.HasNetwork(cfg.Network) {
-			err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
-			return err
-		}
-
-		err = config.Write(&cfg, cfg.Network)
-		if err != nil {
-			return err
-		}
-		if cfg.Node.Password == "" {
-			cfg.Node.Password = ncutils.GenPass()
-		}
-		auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
+	if local.HasNetwork(cfg.Network) {
+		err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
+		return err
 	}
+
+	err = config.Write(&cfg, cfg.Network)
+	if err != nil {
+		return err
+	}
+	if cfg.Node.Password == "" {
+		cfg.Node.Password = ncutils.GenPass()
+	}
+	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
+	if errT != nil {
+		return errT
+	}
+
+	// == handle keys ==
+	if err = auth.StoreSecret(cfg.Node.Password, cfg.Node.Network); err != nil {
+		return err
+	}
+
+	if err = auth.StoreTrafficKey(trafficPrivKey, cfg.Node.Network); err != nil {
+		return err
+	}
+
+	trafficPubKeyBytes, err := ncutils.ConvertKeyToBytes(trafficPubKey)
+	if err != nil {
+		return err
+	}
+
+	cfg.Node.TrafficKeys.Mine = trafficPubKeyBytes
+	cfg.Node.TrafficKeys.Server = nil
+	// == end handle keys ==
 
 	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
 		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
@@ -122,6 +143,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		Endpoint:            cfg.Node.Endpoint,
 		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
+		TrafficKeys:         cfg.Node.TrafficKeys,
 	}
 
 	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)

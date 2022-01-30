@@ -31,7 +31,7 @@ func TimerCheckpoint() error {
 		runHooks()
 	}
 	// set telemetry timestamp for server, restarts 24 hour cycle
-	return setTelemetryTimestamp(telRecord.UUID)
+	return setTelemetryTimestamp(&telRecord)
 }
 
 // AddHook - adds a hook function to run every 24hrs
