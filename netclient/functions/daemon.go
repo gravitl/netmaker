@@ -25,7 +25,7 @@ import (
 )
 
 // ServerKeepalive  - stores time of last server keepalive message
-var keepalive chan string = make(chan string)
+var keepalive = make(map[string]time.Time, 3)
 var messageCache = make(map[string]string, 20)
 
 const lastNodeUpdate = "lnu"
@@ -263,8 +263,8 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 
 		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
 		if shouldReSub {
-				Resubscribe(client, &cfg)
-				cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
+			Resubscribe(client, &cfg)
+			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
 			file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 			err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 			if err != nil {
@@ -284,7 +284,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 // MonitorKeepalive - checks time last server keepalive received.  If more than 3+ minutes, notify and resubscribe
 func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.ClientConfig) {
 	var id string
-	lastUpdate := time.Now()
 	for _, servAddr := range cfg.NetworkSettings.DefaultServerAddrs {
 		if servAddr.IsLeader {
 			id = servAddr.ID
@@ -295,21 +294,8 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * 150):
-			if time.Since(lastUpdate) > time.Second*200 { // more than 3+ minutes
+			if time.Since(keepalive[id]) > time.Second*200 { // more than 3+ minutes
 				Resubscribe(client, cfg)
-			}
-		case serverID := <-keepalive:
-			if serverID != id {
-				// not my server, put back
-				if cfg.DebugOn {
-					ncutils.Log("Monitor keepalive received wrong message on channel, putting back")
-				}
-				keepalive <- serverID
-			} else {
-				lastUpdate = time.Now()
-				if cfg.DebugOn {
-					ncutils.Log("updating checking time for" + cfg.Network)
-				}
 			}
 		}
 	}
@@ -318,7 +304,7 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 // ServerKeepAlive -- handler to react to keepalive messages published by server
 func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
 	serverid := string(msg.Payload())
-	keepalive <- serverid
+	keepalive[serverid] = time.Now()
 	ncutils.Log("keepalive from server")
 }
 
