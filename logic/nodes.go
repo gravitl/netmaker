@@ -108,6 +108,13 @@ func GetPeers(node *models.Node) ([]models.Node, error) {
 	return peers, nil
 }
 
+// SetIfLeader - gets the peers of a given server node
+func SetPeersIfLeader(node *models.Node) {
+	if IsLeader(node) {
+		setNetworkServerPeers(node)
+	}
+}
+
 // IsLeader - determines if a given server node is a leader
 func IsLeader(node *models.Node) bool {
 	nodes, err := GetSortedNetworkServerNodes(node.Network)
