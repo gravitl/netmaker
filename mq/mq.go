@@ -200,7 +200,7 @@ func Keepalive(ctx context.Context) {
 						id = servAddr.ID
 					}
 				}
-				if id != "" {
+				if id == "" {
 					logger.Log(0, "leader not defined for network", network.NetID)
 					continue
 				}
