@@ -328,6 +328,22 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 		if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
 			log.Fatal(token.Error())
 		}
+		var id string
+		for _, server := range cfg.NetworkSettings.DefaultServerAddrs {
+			if server.IsLeader {
+				id = server.ID
+			}
+			if server.Address != "" {
+				if token := client.Subscribe("serverkeepalive/"+id, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
+					log.Fatal(token.Error())
+				}
+				if cfg.DebugOn {
+					ncutils.Log("subscribed to server keepalives for server " + id)
+				}
+			} else {
+				ncutils.Log("leader not defined for network" + cfg.Network)
+			}
+		}
 		ncutils.Log("finished re subbing")
 		return nil
 	} else {
