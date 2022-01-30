@@ -247,12 +247,8 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		cfg.ReadConfig()
 		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
 		if shouldReSub {
-			if err := config.ModConfig(&cfg.Node); err == nil {
 				Resubscribe(client, &cfg)
 				cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
-			} else {
-				ncutils.Log("resub required but mod config failed")
-			}
 			file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 			err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 			if err != nil {
@@ -312,20 +308,25 @@ func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
 
 // Resubscribe --- handles resubscribing if needed
 func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
-	ncutils.Log("resubbing on network " + cfg.Node.Network)
-	client.Disconnect(250)
-	client = SetupMQTT(cfg)
-	if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
+	if err := config.ModConfig(&cfg.Node); err == nil {
+		ncutils.Log("resubbing on network " + cfg.Node.Network)
+		client.Disconnect(250)
+		client = SetupMQTT(cfg)
+		if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
+			log.Fatal(token.Error())
+		}
+		if cfg.DebugOn {
+			ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
+		}
+		if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+			log.Fatal(token.Error())
+		}
+		ncutils.Log("finished re subbing")
+		return nil
+	} else {
+		ncutils.Log("could not mod config when re-subbing")
+		return err
 	}
-	if cfg.DebugOn {
-		ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
-	}
-	if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
-	}
-	ncutils.Log("finished re subbing")
-	return nil
 }
 
 // UpdateKeys -- updates private key and returns new publickey
