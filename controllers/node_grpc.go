@@ -75,7 +75,18 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 			Address:  server.Address,
 		}
 	}
+	// TODO consolidate functionality around files
 	node.NetworkSettings.DefaultServerAddrs = serverAddrs
+	key, keyErr := logic.RetrievePublicTrafficKey()
+	if keyErr != nil {
+		logger.Log(0, "error retrieving key: ", keyErr.Error())
+		return nil, keyErr
+	}
+
+	node.TrafficKeys = models.TrafficKeys{
+		Mine:   node.TrafficKeys.Mine,
+		Server: key,
+	}
 
 	err = logic.CreateNode(&node)
 	if err != nil {
@@ -103,7 +114,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	logger.Log(0, "new node,", node.Name, ", added on network,"+node.Network)
 	// notify other nodes on network of new peer
 	go func() {
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(0, "failed to inform peers of new node ", err.Error())
 		}
 	}()
@@ -170,7 +181,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	}
 	// notify other nodes on network of deleted peer
 	go func() {
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(0, "failed to inform peers of deleted node ", err.Error())
 		}
 	}()

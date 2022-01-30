@@ -37,9 +37,6 @@ func ResetLogs() {
 
 // Log - handles adding logs
 func Log(verbosity int, message ...string) {
-	var mu sync.Mutex
-	mu.Lock()
-	defer mu.Unlock()
 	var currentTime = time.Now()
 	var currentMessage = makeString(message...)
 	if int32(verbosity) <= getVerbose() && getVerbose() >= 0 {
@@ -55,6 +52,9 @@ func Dump() string {
 		Key   string
 		Value time.Time
 	}
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
 	var dumpLogs = make([]keyVal, 0, len(currentLogs))
 	for key, value := range currentLogs {
 		parsedTime, err := time.Parse(TimeFormat, value)

@@ -1,6 +1,8 @@
 package models
 
-import jwt "github.com/golang-jwt/jwt/v4"
+import (
+	jwt "github.com/golang-jwt/jwt/v4"
+)
 
 const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
 const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
@@ -165,13 +167,22 @@ type ServerUpdateData struct {
 }
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
+// also contains assymetrical encryption pub/priv keys for any server traffic
 type Telemetry struct {
-	UUID     string `json:"uuid" bson:"uuid"`
-	LastSend int64  `json:"lastsend" bson:"lastsend"`
+	UUID           string `json:"uuid" bson:"uuid"`
+	LastSend       int64  `json:"lastsend" bson:"lastsend"`
+	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
+	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
 type ServerAddr struct {
 	IsLeader bool   `json:"isleader" bson:"isleader" yaml:"isleader"`
 	Address  string `json:"address" bson:"address" yaml:"address"`
+}
+
+// TrafficKeys - struct to hold public keys
+type TrafficKeys struct {
+	Mine   []byte `json:"mine" bson:"mine" yaml:"mine"`
+	Server []byte `json:"server" bson:"server" yaml:"server"`
 }

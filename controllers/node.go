@@ -433,7 +433,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			logger.Log(1, "error publishing node update", err.Error())
 		}
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
@@ -465,7 +465,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			logger.Log(1, "error publishing node update", err.Error())
 		}
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(1, "error publishing peer update "+err.Error())
 		}
 	}()
@@ -491,7 +491,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			logger.Log(1, "error publishing node update", err.Error())
 		}
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
@@ -516,7 +516,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			logger.Log(1, "error publishing node update", err.Error())
 		}
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
@@ -538,7 +538,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			logger.Log(1, "error publishing node update", err.Error())
 		}
-		if err := mq.UpdatePeers(&node); err != nil {
+		if err := mq.PublishPeerUpdate(&node); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
@@ -617,7 +617,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "error publishing node update", err.Error())
 		}
 		if logic.ShouldPeersUpdate(&node, &newNode) {
-			if err := mq.UpdatePeers(&newNode); err != nil {
+			if err := mq.PublishPeerUpdate(&newNode); err != nil {
 				logger.Log(1, "error publishing peer update after node update", err.Error())
 			}
 		}
