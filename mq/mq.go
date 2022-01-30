@@ -116,6 +116,9 @@ func PublishPeerUpdate(newNode *models.Node) error {
 			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
 			continue
 		}
+		if node.IsServer == "yes" {
+			continue
+		}
 		data, err := json.Marshal(&peerUpdate)
 		if err != nil {
 			logger.Log(2, "error marshaling peer update for node", node.ID, err.Error())
