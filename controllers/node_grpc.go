@@ -158,6 +158,7 @@ func getServerAddrs(node *models.Node) {
 	if err := logic.SaveNetwork(&networkSettings); err != nil {
 		logger.Log(1, "unable to save network on serverAddr update", err.Error())
 	}
+	node.NetworkSettings.DefaultServerAddrs = networkSettings.DefaultServerAddrs
 }
 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
