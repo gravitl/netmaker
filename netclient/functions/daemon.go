@@ -229,15 +229,17 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				ncutils.Log("error resubscribing after interface change " + err.Error())
 				return
 			}
-		} else {
-			ncutils.Log("syncing conf to " + file)
-			err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
-			if err != nil {
-				ncutils.Log("error syncing wg after peer update " + err.Error())
-				return
-			}
 		}
-
+		/*
+			else {
+				ncutils.Log("syncing conf to " + file)
+				err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
+				if err != nil {
+					ncutils.Log("error syncing wg after peer update " + err.Error())
+					return
+				}
+			}
+		*/
 		//deal with DNS
 		if newNode.DNSOn == "yes" {
 			ncutils.Log("setting up DNS")
@@ -287,7 +289,8 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		ncutils.Log("syncing conf to " + file)
-		err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
+		//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
+		err = wireguard.SetPeers(cfg.Node.Interface, cfg.Node.PersistentKeepalive, peerUpdate.Peers)
 		if err != nil {
 			ncutils.Log("error syncing wg after peer update " + err.Error())
 			return
