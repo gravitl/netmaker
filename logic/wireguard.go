@@ -220,7 +220,6 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 					if err != nil {
 						logger.Log(0, "error removing peer", peer.Endpoint.String())
 					}
-					logger.Log(0, "removed peer:", peer.Endpoint.String())
 				}
 			}
 		}
@@ -249,7 +248,7 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 			for _, peer := range peers {
 				if len(peer.AllowedIPs) > 0 &&
 					(peer.PublicKey.String() == currentPeer.PublicKey.String() ||
-						peer.AllowedIPs[0].String() == currentPeer.PublicKey.String()) {
+						peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String()) {
 					shouldDelete = false
 				}
 			}

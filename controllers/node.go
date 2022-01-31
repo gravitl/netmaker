@@ -406,7 +406,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = runServerPeerUpdate(node.Network, isServer(&node)); err != nil {
+	if err = runServerPeerUpdate(node.Network, isServer(&node), "node create"); err != nil {
 		logger.Log(1, "internal error when creating node:", node.ID)
 	}
 
@@ -426,7 +426,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(node.Network, isServer(&node)); err != nil {
+	if err = runServerPeerUpdate(node.Network, isServer(&node), "node uncordon"); err != nil {
 		logger.Log(1, "internal error when approving node:", nodeid)
 	}
 	go func() {
@@ -458,7 +458,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(gateway.NetID, isServer(&node)); err != nil {
+	if err = runServerPeerUpdate(gateway.NetID, isServer(&node), "node egress create"); err != nil {
 		logger.Log(1, "internal error when setting peers after creating egress on node:", gateway.NodeID)
 	}
 	go func() {
@@ -484,7 +484,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(netid, isServer(&node)); err != nil {
+	if err = runServerPeerUpdate(netid, isServer(&node), "egress delete"); err != nil {
 		logger.Log(1, "internal error when setting peers after removing egress on node:", nodeid)
 	}
 	go func() {
@@ -604,7 +604,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		err = logic.SetDNS()
 	}
 
-	err = runServerPeerUpdate(node.Network, shouldPeersUpdate)
+	err = runServerPeerUpdate(node.Network, shouldPeersUpdate, "node update")
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -642,7 +642,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = runServerPeerUpdate(node.Network, isServer(&node))
+	err = runServerPeerUpdate(node.Network, isServer(&node), "node delete")
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

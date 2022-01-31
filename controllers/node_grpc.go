@@ -97,7 +97,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	err = runServerPeerUpdate(node.Network, isServer(&node))
+	err = runServerPeerUpdate(node.Network, isServer(&node), "node_grpc create")
 	if err != nil {
 		logger.Log(1, "internal error when setting peers after node,", node.ID, "was created (gRPC)")
 	}
@@ -143,7 +143,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if errN != nil {
 		return nil, err
 	}
-	err = runServerPeerUpdate(newnode.Network, shouldPeersUpdate)
+	err = runServerPeerUpdate(newnode.Network, shouldPeersUpdate, "node_grpc update")
 	if err != nil {
 		logger.Log(1, "could not update peers on gRPC after node,", newnode.ID, "updated (gRPC), \nerror:", err.Error())
 	}
@@ -178,7 +178,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	err = runServerPeerUpdate(node.Network, false)
+	err = runServerPeerUpdate(node.Network, false, "node_grpc delete")
 	if err != nil {
 		logger.Log(1, "internal error when setting peers after deleting node:", node.ID, "over gRPC")
 	}

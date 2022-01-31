@@ -27,7 +27,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(relay.NetID, isServer(&node)); err != nil {
+	if err = runServerPeerUpdate(relay.NetID, isServer(&node), "relay create"); err != nil {
 		logger.Log(1, "internal error when creating relay on node:", relay.NodeID)
 	}
 	go func() {
@@ -53,7 +53,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(netid, isServer(&node)); err != nil {
+	if err = runServerPeerUpdate(netid, isServer(&node), "relay delete"); err != nil {
 		logger.Log(1, "internal error when deleting relay on node:", nodeid)
 	}
 	go func() {
