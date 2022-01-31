@@ -177,6 +177,7 @@ type Telemetry struct {
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
 type ServerAddr struct {
+	ID       string `json:"id" bson:"id" yaml:"id"`
 	IsLeader bool   `json:"isleader" bson:"isleader" yaml:"isleader"`
 	Address  string `json:"address" bson:"address" yaml:"address"`
 }

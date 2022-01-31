@@ -598,6 +598,18 @@ func KeyUpdate(netname string) (models.Network, error) {
 	return models.Network{}, nil
 }
 
+//SaveNetwork - save network struct to database
+func SaveNetwork(network *models.Network) error {
+	data, err := json.Marshal(network)
+	if err != nil {
+		return err
+	}
+	if err := database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
+		return err
+	}
+	return nil
+}
+
 // == Private ==
 
 func networkNodesUpdateAction(networkName string, action string) error {

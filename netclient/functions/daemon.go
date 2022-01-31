@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -23,6 +25,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// ServerKeepalive  - stores time of last server keepalive message
+var keepalive = make(map[string]time.Time, 3)
 var messageCache = make(map[string]string, 20)
 
 const lastNodeUpdate = "lnu"
@@ -63,15 +67,24 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
 		if server.Address != "" && server.IsLeader {
-			ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s \n", server.Address, cfg.Node.Network))
+			ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s", server.Address, cfg.Node.Network))
 			opts.AddBroker(server.Address + ":1883")
 			break
 		}
 	}
 	opts.SetDefaultPublishHandler(All)
 	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
+	tperiod := time.Now().Add(10 * time.Second)
+	for {
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			logger.Log(2, "unable to connect to broker, retrying ...")
+			if time.Now().After(tperiod) {
+				log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
+			}
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Second)
 	}
 	return client
 }
@@ -94,15 +107,32 @@ func MessageQueue(ctx context.Context, network string) {
 		log.Fatal(token.Error())
 	}
 	if cfg.DebugOn {
-		ncutils.Log(fmt.Sprintf("subscribed to node updates for node %s update/%s/%s \n", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+		ncutils.Log(fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
 	}
 	if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
 	if cfg.DebugOn {
-		ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s \n", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+		ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+	}
+	var id string
+	for _, server := range cfg.NetworkSettings.DefaultServerAddrs {
+		if server.IsLeader {
+			id = server.ID
+		}
+		if server.Address != "" {
+			if token := client.Subscribe("serverkeepalive/"+id, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
+				log.Fatal(token.Error())
+			}
+			if cfg.DebugOn {
+				ncutils.Log("subscribed to server keepalives for server " + id)
+			}
+		} else {
+			ncutils.Log("leader not defined for network" + cfg.Network)
+		}
 	}
 	defer client.Disconnect(250)
+	go MonitorKeepalive(ctx, client, &cfg)
 	go Checkin(ctx, &cfg, network)
 	<-ctx.Done()
 	ncutils.Log("shutting down daemon")
@@ -236,20 +266,51 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		if shouldReSub {
 			Resubscribe(client, &cfg)
 			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
-		}
-		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
-		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
-		if err != nil {
-			ncutils.Log("error updating wireguard peers" + err.Error())
-			return
-		}
-		ncutils.Log("applyWGQuickConf to " + file)
-		err = wireguard.ApplyWGQuickConf(file)
-		if err != nil {
-			ncutils.Log("error restarting wg after peer update " + err.Error())
-			return
+			file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+			err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
+			if err != nil {
+				ncutils.Log("error updating wireguard peers" + err.Error())
+				return
+			}
+			ncutils.Log("applyWGQuickConf to " + file)
+			err = wireguard.ApplyWGQuickConf(file)
+			if err != nil {
+				ncutils.Log("error restarting wg after peer update " + err.Error())
+				return
+			}
 		}
 	}()
+}
+
+// MonitorKeepalive - checks time last server keepalive received.  If more than 3+ minutes, notify and resubscribe
+func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.ClientConfig) {
+	var id string
+	for _, servAddr := range cfg.NetworkSettings.DefaultServerAddrs {
+		if servAddr.IsLeader {
+			id = servAddr.ID
+		}
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second * 150):
+			if time.Since(keepalive[id]) > time.Second*200 { // more than 3+ minutes
+				ncutils.Log("server keepalive not recieved in more than minutes, resubscribe to message queue")
+				Resubscribe(client, cfg)
+			}
+		}
+	}
+}
+
+// ServerKeepAlive -- handler to react to keepalive messages published by server
+func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
+	serverid, err := getID(msg.Topic())
+	if err != nil {
+		ncutils.Log("invalid ID in serverkeepalive topic")
+	}
+	keepalive[serverid] = time.Now()
+	ncutils.Log("keepalive from server")
 }
 
 // Resubscribe --- handles resubscribing if needed
@@ -266,6 +327,22 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 		}
 		if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
 			log.Fatal(token.Error())
+		}
+		var id string
+		for _, server := range cfg.NetworkSettings.DefaultServerAddrs {
+			if server.IsLeader {
+				id = server.ID
+			}
+			if server.Address != "" {
+				if token := client.Subscribe("serverkeepalive/"+id, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
+					log.Fatal(token.Error())
+				}
+				if cfg.DebugOn {
+					ncutils.Log("subscribed to server keepalives for server " + id)
+				}
+			} else {
+				ncutils.Log("leader not defined for network" + cfg.Network)
+			}
 		}
 		ncutils.Log("finished re subbing")
 		return nil
@@ -356,14 +433,14 @@ func PublishNodeUpdate(cfg *config.ClientConfig) {
 		ncutils.Log("error marshling node update " + err.Error())
 	}
 	if err = publish(cfg, fmt.Sprintf("update/%s", cfg.Node.ID), data); err != nil {
-		ncutils.Log(fmt.Sprintf("error publishing endpoint update, %v \n", err))
+		ncutils.Log(fmt.Sprintf("error publishing endpoint update, %v", err))
 	}
 }
 
 // Hello -- ping the broker to let server know node is alive and doing fine
 func Hello(cfg *config.ClientConfig, network string) {
 	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte("hello world!")); err != nil {
-		ncutils.Log(fmt.Sprintf("error publishing ping, %v \n", err))
+		ncutils.Log(fmt.Sprintf("error publishing ping, %v", err))
 	}
 }
 
@@ -421,4 +498,14 @@ func shouldResub(currentServers, newServers []models.ServerAddr) bool {
 		}
 	}
 	return false
+}
+
+func getID(topic string) (string, error) {
+	parts := strings.Split(topic, "/")
+	count := len(parts)
+	if count == 1 {
+		return "", errors.New("invalid topic")
+	}
+	//the last part of the topic will be the network.ID
+	return parts[count-1], nil
 }

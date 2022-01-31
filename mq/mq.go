@@ -1,11 +1,13 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
@@ -14,6 +16,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
+const MQ_DISCONNECT = 250
 
 // DefaultHandler default message queue handler - only called when GetDebug == true
 var DefaultHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -90,6 +95,7 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 				return
 			}
 		}
+		logger.Log(1, "no need to update peers")
 	}()
 }
 
@@ -159,8 +165,52 @@ func SetupMQTT() mqtt.Client {
 	broker := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
 	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
+	tperiod := time.Now().Add(10 * time.Second)
+	for {
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			logger.Log(2, "unable to connect to broker, retrying ...")
+			if time.Now().After(tperiod) {
+				log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
+			}
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Second)
 	}
+	logger.Log(2, "connected to message queue", broker)
 	return client
+}
+
+// Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
+func Keepalive(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+			client := SetupMQTT()
+			networks, err := logic.GetNetworks()
+			if err != nil {
+				logger.Log(1, "error retrieving networks for keepalive", err.Error())
+			}
+			for _, network := range networks {
+				var id string
+				for _, servAddr := range network.DefaultServerAddrs {
+					if servAddr.IsLeader {
+						id = servAddr.ID
+					}
+				}
+				if id == "" {
+					logger.Log(0, "leader not defined for network", network.NetID)
+					continue
+				}
+				if token := client.Publish("serverkeepalive/"+id, 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
+					logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
+				} else {
+					logger.Log(2, "keepalive sent for network", network.NetID)
+				}
+				client.Disconnect(MQ_DISCONNECT)
+			}
+		}
+	}
 }

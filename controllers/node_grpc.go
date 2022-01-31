@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
@@ -71,6 +72,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	var serverAddrs = make([]models.ServerAddr, len(serverNodes))
 	for i, server := range serverNodes {
 		serverAddrs[i] = models.ServerAddr{
+			ID:       server.ID,
 			IsLeader: logic.IsLeader(&server),
 			Address:  server.Address,
 		}
@@ -103,8 +105,13 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
-	err = logic.SetNetworkNodesLastModified(node.Network)
+	network, err := logic.GetParentNetwork(node.Network)
 	if err != nil {
+		return nil, err
+	}
+	network.NodesLastModified = time.Now().Unix()
+	network.DefaultServerAddrs = serverAddrs
+	if err := logic.SaveNetwork(&network); err != nil {
 		return nil, err
 	}
 	err = runServerPeerUpdate(node.Network, true)
