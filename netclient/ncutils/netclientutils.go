@@ -450,19 +450,21 @@ func PrintLog(message string, loglevel int) {
 
 // GetSystemNetworks - get networks locally
 func GetSystemNetworks() ([]string, error) {
+	var networks []string
 	files, err := filepath.Glob(GetNetclientPathSpecific() + "netconfig-*")
 	if err != nil {
 		return nil, err
 	}
-	i := 0
 	for _, file := range files {
 		//don't want files such as *.bak, *.swp
-		if filepath.Ext(file) == "" {
-			files[i] = filepath.Base(file)
-			i++
+		if filepath.Ext(file) != "" {
+			continue
 		}
+		file := filepath.Base(file)
+		temp := strings.Split(file, "-")
+		networks = append(networks, temp[1])
 	}
-	return files[:i], nil
+	return networks, nil
 }
 
 func stringAfter(original string, substring string) string {
