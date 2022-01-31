@@ -181,6 +181,9 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		newNode.PullChanges = "no"
 		//ensure that OS never changes
 		newNode.OS = runtime.GOOS
+		// check if interface needs to delta
+		ifaceDelta := ncutils.IfaceDelta(&cfg.Node, &newNode)
+
 		cfg.Node = newNode
 		switch newNode.Action {
 		case models.NODE_DELETE:
@@ -214,12 +217,22 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			ncutils.Log("error updating wireguard config " + err.Error())
 			return
 		}
-		ncutils.Log("applyWGQuickConf to " + file)
-		err = wireguard.ApplyWGQuickConf(file)
-		if err != nil {
-			ncutils.Log("error restarting wg after node update " + err.Error())
-			return
+		if ifaceDelta {
+			ncutils.Log("applying WG conf to " + file)
+			err = wireguard.ApplyWGQuickConf(file)
+			if err != nil {
+				ncutils.Log("error restarting wg after node update " + err.Error())
+				return
+			}
+		} else {
+			ncutils.Log("syncing conf to " + file)
+			err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
+			if err != nil {
+				ncutils.Log("error syncing wg after peer update " + err.Error())
+				return
+			}
 		}
+
 		//deal with DNS
 		if newNode.DNSOn == "yes" {
 			ncutils.Log("setting up DNS")

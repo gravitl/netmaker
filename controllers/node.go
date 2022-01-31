@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -586,7 +587,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
-	var shouldPeersUpdate = logic.IfaceDelta(&node, &newNode)
+	var shouldPeersUpdate = ncutils.IfaceDelta(&node, &newNode)
 
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {

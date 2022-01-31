@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -129,7 +130,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		newnode.PostDown = node.PostDown
 		newnode.PostUp = node.PostUp
 	}
-	var shouldPeersUpdate = logic.IfaceDelta(&node, &newnode)
+	var shouldPeersUpdate = ncutils.IfaceDelta(&node, &newnode)
 	getServerAddrs(&node)
 	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {
