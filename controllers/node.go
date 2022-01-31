@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -406,7 +407,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = runServerPeerUpdate(node.Network, true); err != nil {
+	if err = runServerPeerUpdate(node.Network, isServer(&node), "node create"); err != nil {
 		logger.Log(1, "internal error when creating node:", node.ID)
 	}
 
@@ -426,7 +427,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(node.Network, false); err != nil {
+	if err = runServerPeerUpdate(node.Network, isServer(&node), "node uncordon"); err != nil {
 		logger.Log(1, "internal error when approving node:", nodeid)
 	}
 	go func() {
@@ -458,7 +459,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(gateway.NetID, true); err != nil {
+	if err = runServerPeerUpdate(gateway.NetID, isServer(&node), "node egress create"); err != nil {
 		logger.Log(1, "internal error when setting peers after creating egress on node:", gateway.NodeID)
 	}
 	go func() {
@@ -484,7 +485,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(netid, true); err != nil {
+	if err = runServerPeerUpdate(netid, isServer(&node), "egress delete"); err != nil {
 		logger.Log(1, "internal error when setting peers after removing egress on node:", nodeid)
 	}
 	go func() {
@@ -586,7 +587,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
-	var shouldPeersUpdate = logic.ShouldPeersUpdate(&node, &newNode)
+	var shouldPeersUpdate = ncutils.IfaceDelta(&node, &newNode)
 
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
@@ -604,7 +605,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		err = logic.SetDNS()
 	}
 
-	err = runServerPeerUpdate(node.Network, shouldPeersUpdate)
+	err = runServerPeerUpdate(node.Network, shouldPeersUpdate, "node update")
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -616,7 +617,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&newNode); err != nil {
 			logger.Log(1, "error publishing node update", err.Error())
 		}
-		if logic.ShouldPeersUpdate(&node, &newNode) {
+		if shouldPeersUpdate {
 			if err := mq.PublishPeerUpdate(&newNode); err != nil {
 				logger.Log(1, "error publishing peer update after node update", err.Error())
 			}
@@ -642,7 +643,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = runServerPeerUpdate(node.Network, true)
+	err = runServerPeerUpdate(node.Network, isServer(&node), "node delete")
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

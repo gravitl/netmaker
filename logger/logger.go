@@ -37,6 +37,9 @@ func ResetLogs() {
 
 // Log - handles adding logs
 func Log(verbosity int, message ...string) {
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
 	var currentTime = time.Now()
 	var currentMessage = makeString(message...)
 	if int32(verbosity) <= getVerbose() && getVerbose() >= 0 {
@@ -102,6 +105,9 @@ func Retrieve(filePath string) string {
 
 // FatalLog - exits os after logging
 func FatalLog(message ...string) {
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
 	fmt.Printf("[netmaker] Fatal: %s \n", makeString(message...))
 	os.Exit(2)
 }

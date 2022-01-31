@@ -143,7 +143,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.Address == "" {
 		log.Fatal("no address to configure")
 	}
-	if node.UDPHolePunch != "yes" {
+	if node.UDPHolePunch == "yes" {
 		node.ListenPort = 0
 	}
 	if err := WriteWgConfig(&modcfg.Node, key.String(), peers); err != nil {
@@ -291,7 +291,7 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 	}
 	wireguard := ini.Empty(options)
 	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
-	if node.ListenPort > 0 {
+	if node.ListenPort > 0 && node.UDPHolePunch != "yes" {
 		wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))
 	}
 	if node.Address != "" {
@@ -394,6 +394,9 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	wireguard, err := ini.LoadSources(options, file)
 	if err != nil {
 		return err
+	}
+	if node.UDPHolePunch == "yes" {
+		node.ListenPort = 0
 	}
 	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
 	wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))

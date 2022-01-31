@@ -85,15 +85,12 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-
 		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
 		}
-		if logic.ShouldPeersUpdate(&currentNode, &newNode) {
-			if err := PublishPeerUpdate(&newNode); err != nil {
-				logger.Log(1, "error publishing peer update ", err.Error())
-				return
-			}
+		if err := PublishPeerUpdate(&newNode); err != nil {
+			logger.Log(1, "error publishing peer update ", err.Error())
+			return
 		}
 		logger.Log(1, "no need to update peers")
 	}()
@@ -101,21 +98,20 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 
 // PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
 func PublishPeerUpdate(newNode *models.Node) error {
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
+
 	networkNodes, err := logic.GetNetworkNodes(newNode.Network)
 	if err != nil {
 		logger.Log(1, "err getting Network Nodes", err.Error())
 		return err
 	}
 	for _, node := range networkNodes {
+
 		if node.IsServer == "yes" {
 			continue
 		}
 		peerUpdate, err := logic.GetPeerUpdate(&node)
 		if err != nil {
-			logger.Log(1, "error getting peer update for node ", node.ID, err.Error())
+			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
 			continue
 		}
 		data, err := json.Marshal(&peerUpdate)
@@ -125,6 +121,8 @@ func PublishPeerUpdate(newNode *models.Node) error {
 		}
 		if err = publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 			logger.Log(1, "failed to publish peer update for node", node.ID)
+		} else {
+			logger.Log(1, fmt.Sprintf("sent peer update for network, %s and node, %s", node.Network, node.Name))
 		}
 	}
 	return nil
