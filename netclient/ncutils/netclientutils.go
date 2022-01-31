@@ -462,7 +462,7 @@ func GetSystemNetworks() ([]string, error) {
 		}
 		file := filepath.Base(file)
 		temp := strings.Split(file, "-")
-		networks = append(networks, temp[1])
+		networks = append(networks, strings.Join(temp[1:], "-"))
 	}
 	return networks, nil
 }
