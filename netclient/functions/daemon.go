@@ -191,7 +191,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
 				return
 			}
-			if token := client.Unsubscribe("update/"+newNode.ID, "update/peers/"+newNode.ID); token.Wait() && token.Error() != nil {
+			if token := client.Unsubscribe(fmt.Sprintf("update/%s/%s", newNode.Network, newNode.ID), fmt.Sprintf("peers/%s/%s", newNode.Network, newNode.ID)); token.Wait() && token.Error() != nil {
 				ncutils.PrintLog("error unsubscribing during node deletion", 1)
 			}
 			return
@@ -253,7 +253,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	}()
 }
 
-// UpdatePeers -- mqtt message handler for /update/peers/<NodeID> topic
+// UpdatePeers -- mqtt message handler for peers/<Network>/<NodeID> topic
 func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	go func() {
 		var peerUpdate models.PeerUpdate
@@ -336,13 +336,13 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 		ncutils.Log("resubbing on network " + cfg.Node.Network)
 		client.Disconnect(250)
 		client = SetupMQTT(cfg)
-		if token := client.Subscribe("update/"+cfg.Node.ID, 0, NodeUpdate); token.Wait() && token.Error() != nil {
+		if token := client.Subscribe(fmt.Sprintf("update/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, NodeUpdate); token.Wait() && token.Error() != nil {
 			log.Fatal(token.Error())
 		}
 		if cfg.DebugOn {
 			ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
 		}
-		if token := client.Subscribe("update/peers/"+cfg.Node.ID, 0, UpdatePeers); token.Wait() && token.Error() != nil {
+		if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, UpdatePeers); token.Wait() && token.Error() != nil {
 			log.Fatal(token.Error())
 		}
 		var id string
