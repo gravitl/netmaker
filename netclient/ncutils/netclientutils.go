@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -449,18 +450,19 @@ func PrintLog(message string, loglevel int) {
 
 // GetSystemNetworks - get networks locally
 func GetSystemNetworks() ([]string, error) {
-	var networks []string
-	files, err := os.ReadDir(GetNetclientPathSpecific())
+	files, err := filepath.Glob(GetNetclientPathSpecific() + "netconfig-*")
 	if err != nil {
-		return networks, err
+		return nil, err
 	}
-	for _, f := range files {
-		if strings.Contains(f.Name(), "netconfig-") && !strings.Contains(f.Name(), "backup") {
-			networkname := stringAfter(f.Name(), "netconfig-")
-			networks = append(networks, networkname)
+	i := 0
+	for _, file := range files {
+		//don't want files such as *.bak, *.swp
+		if filepath.Ext(file) == "" {
+			files[i] = filepath.Base(file)
+			i++
 		}
 	}
-	return networks, err
+	return files[:i], nil
 }
 
 func stringAfter(original string, substring string) string {
