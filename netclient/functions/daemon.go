@@ -165,6 +165,9 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 
+		log.Println("DELETE: new node addres: " + newNode.Address)
+		log.Println("DELETE: current node addres: " + cfg.Node.Address)
+
 		ncutils.Log("received message to update node " + newNode.Name)
 		// see if cache hit, if so skip
 		var currentMessage = read(newNode.Network, lastNodeUpdate)
@@ -182,6 +185,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//ensure that OS never changes
 		newNode.OS = runtime.GOOS
 		// check if interface needs to delta
+		log.Println("DELETE: running ifacedelta")
 		ifaceDelta := ncutils.IfaceDelta(&cfg.Node, &newNode)
 
 		cfg.Node = newNode

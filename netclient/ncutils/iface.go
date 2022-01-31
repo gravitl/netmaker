@@ -1,13 +1,14 @@
 package ncutils
 
-import "github.com/gravitl/netmaker/models"
+import (
+	"log"
+
+	"github.com/gravitl/netmaker/models"
+)
 
 func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	// single comparison statements
-	if currentNode.IsServer != "yes" {
-		return false
-	}
-
+	log.Println("DELETE: checking stuff")
 	if newNode.Endpoint != currentNode.Endpoint ||
 		newNode.LocalAddress != currentNode.LocalAddress ||
 		newNode.PublicKey != currentNode.PublicKey ||
@@ -57,7 +58,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 			return true
 		}
 	}
-
+	log.Println("DELETE: guess it's false")
 	return false
 }
 

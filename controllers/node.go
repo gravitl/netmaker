@@ -569,7 +569,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 
-	runUpdates(&node, true)
+	runUpdates(&newNode, true)
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
