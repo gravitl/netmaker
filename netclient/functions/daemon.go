@@ -285,10 +285,10 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 				ncutils.Log("error updating wireguard peers" + err.Error())
 				return
 			}
-			ncutils.Log("applyWGQuickConf to " + file)
-			err = wireguard.ApplyWGQuickConf(file)
+			ncutils.Log("syncing conf to " + file)
+			err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
 			if err != nil {
-				ncutils.Log("error restarting wg after peer update " + err.Error())
+				ncutils.Log("error syncing wg after peer update " + err.Error())
 				return
 			}
 		}
