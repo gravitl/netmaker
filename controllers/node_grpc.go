@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
@@ -98,12 +97,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	network.NodesLastModified = time.Now().Unix()
-	network.DefaultServerAddrs = serverAddrs
-	if err := logic.SaveNetwork(&network); err != nil {
-		return nil, err
-	}
-	err = runServerPeerUpdate(node.Network, true)
+	err = runServerPeerUpdate(node.Network, isServer(&node))
 	if err != nil {
 		logger.Log(1, "internal error when setting peers after node,", node.ID, "was created (gRPC)")
 	}
@@ -184,7 +178,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	err = runServerPeerUpdate(node.Network, true)
+	err = runServerPeerUpdate(node.Network, false)
 	if err != nil {
 		logger.Log(1, "internal error when setting peers after deleting node:", node.ID, "over gRPC")
 	}
@@ -285,4 +279,8 @@ func getNewOrLegacyNode(data string) (models.Node, error) {
 		}
 	}
 	return node, nil
+}
+
+func isServer(node *models.Node) bool {
+	return node.IsServer == "yes"
 }
