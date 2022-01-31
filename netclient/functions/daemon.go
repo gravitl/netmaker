@@ -275,22 +275,22 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		insert(peerUpdate.Network, lastPeerUpdate, string(data))
 		ncutils.Log("update peer handler")
 
+		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
 		if shouldReSub {
 			Resubscribe(client, &cfg)
 			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
-			file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
-			err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
-			if err != nil {
-				ncutils.Log("error updating wireguard peers" + err.Error())
-				return
-			}
-			ncutils.Log("syncing conf to " + file)
-			err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
-			if err != nil {
-				ncutils.Log("error syncing wg after peer update " + err.Error())
-				return
-			}
+		}
+		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
+		if err != nil {
+			ncutils.Log("error updating wireguard peers" + err.Error())
+			return
+		}
+		ncutils.Log("syncing conf to " + file)
+		err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
+		if err != nil {
+			ncutils.Log("error syncing wg after peer update " + err.Error())
+			return
 		}
 	}()
 }
