@@ -142,18 +142,20 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 func getServerAddrs(node *models.Node) {
-	var serverNodes = logic.GetServerNodes(node.Network)
-	var serverAddrs = make([]models.ServerAddr, len(serverNodes))
-	for i, server := range serverNodes {
-		serverAddrs[i] = models.ServerAddr{
-			IsLeader: logic.IsLeader(&server),
-			Address:  server.Address,
-		}
+	serverNode := logic.GetServerNodes(node.Network)[0]
+	pubIP, _ := servercfg.GetPublicIP()
+	var serverAddrs = []models.ServerAddr{
+		{
+			IsLeader: true,
+			Address:  pubIP,
+			ID:       serverNode.ID,
+		},
 	}
+	networkSettings, _ := logic.GetNetworkSettings(node.Network)
 	// TODO consolidate functionality around files
-	node.NetworkSettings.NodesLastModified = time.Now().Unix()
-	node.NetworkSettings.DefaultServerAddrs = serverAddrs
-	if err := logic.SaveNetwork(&node.NetworkSettings); err != nil {
+	networkSettings.NodesLastModified = time.Now().Unix()
+	networkSettings.DefaultServerAddrs = serverAddrs
+	if err := logic.SaveNetwork(&networkSettings); err != nil {
 		logger.Log(1, "unable to save network on serverAddr update", err.Error())
 	}
 }
