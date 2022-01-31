@@ -321,12 +321,15 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 
 // ServerKeepAlive -- handler to react to keepalive messages published by server
 func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
 	serverid, err := getID(msg.Topic())
 	if err != nil {
 		ncutils.Log("invalid ID in serverkeepalive topic")
 	}
 	keepalive[serverid] = time.Now()
-	ncutils.Log("keepalive from server")
+	// ncutils.Log("keepalive from server")
 }
 
 // Resubscribe --- handles resubscribing if needed
@@ -400,7 +403,7 @@ func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-time.After(time.Second * 60):
-			ncutils.Log("Checkin running")
+			// ncutils.Log("Checkin running")
 			//read latest config
 			cfg.ReadConfig()
 			if cfg.Node.Roaming == "yes" && cfg.Node.IsStatic != "yes" {
@@ -434,7 +437,7 @@ func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 				}
 			}
 			Hello(cfg, network)
-			ncutils.Log("Checkin complete")
+			// ncutils.Log("Checkin complete")
 		}
 	}
 }
