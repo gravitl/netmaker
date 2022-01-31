@@ -143,11 +143,11 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 
 func getServerAddrs(node *models.Node) {
 	serverNode := logic.GetServerNodes(node.Network)[0]
-	pubIP, _ := servercfg.GetPublicIP()
+	//pubIP, _ := servercfg.GetPublicIP()
 	var serverAddrs = []models.ServerAddr{
 		{
 			IsLeader: true,
-			Address:  pubIP,
+			Address:  serverNode.Address,
 			ID:       serverNode.ID,
 		},
 	}
