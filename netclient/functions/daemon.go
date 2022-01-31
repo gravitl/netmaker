@@ -165,9 +165,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 
-		log.Println("DELETE: new node addres: " + newNode.Address)
-		log.Println("DELETE: current node addres: " + cfg.Node.Address)
-
 		ncutils.Log("received message to update node " + newNode.Name)
 		// see if cache hit, if so skip
 		var currentMessage = read(newNode.Network, lastNodeUpdate)
@@ -185,7 +182,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//ensure that OS never changes
 		newNode.OS = runtime.GOOS
 		// check if interface needs to delta
-		log.Println("DELETE: running ifacedelta")
 		ifaceDelta := ncutils.IfaceDelta(&cfg.Node, &newNode)
 
 		cfg.Node = newNode
@@ -228,12 +224,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				ncutils.Log("error restarting wg after node update " + err.Error())
 				return
 			}
-			log.Println("DELETE: sleeepy time")
-			log.Println("DELETE: sleeepy time")
-			log.Println("DELETE: sleeepy time")
-			log.Println("DELETE: sleeepy time")
-
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second >> 1)
 			if err = Resubscribe(client, &cfg); err != nil {
 				ncutils.Log("error resubscribing after interface change " + err.Error())
 				return

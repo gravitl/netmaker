@@ -151,7 +151,7 @@ func getServerAddrs(node *models.Node) {
 			ID:       serverNode.ID,
 		},
 	}
-	networkSettings, _ := logic.GetNetworkSettings(node.Network)
+	networkSettings, _ := logic.GetParentNetwork(node.Network)
 	// TODO consolidate functionality around files
 	networkSettings.NodesLastModified = time.Now().Unix()
 	networkSettings.DefaultServerAddrs = serverAddrs
