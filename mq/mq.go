@@ -17,7 +17,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
+const KEEPALIVE_TIMEOUT = 10 //timeout in seconds
 const MQ_DISCONNECT = 250
 
 // DefaultHandler default message queue handler - only called when GetDebug == true
@@ -198,6 +198,13 @@ func Keepalive(ctx context.Context) {
 						id = servAddr.ID
 					}
 				}
+				serverNode, errN := logic.GetNodeByID(id)
+				if errN == nil && network.DefaultUDPHolePunch == "yes" && logic.ShouldPublishPeerPorts(&serverNode) {
+					err = PublishPeerUpdate(&serverNode)
+					if err != nil {
+						logger.Log(1, "error publishing udp port updates", err.Error())
+					}
+				}
 				if id == "" {
 					logger.Log(0, "leader not defined for network", network.NetID)
 					continue
@@ -207,8 +214,8 @@ func Keepalive(ctx context.Context) {
 				} else {
 					logger.Log(2, "keepalive sent for network", network.NetID)
 				}
-				client.Disconnect(MQ_DISCONNECT)
 			}
+			client.Disconnect(MQ_DISCONNECT)
 		}
 	}
 }
