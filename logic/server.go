@@ -139,8 +139,8 @@ func ServerJoin(networkSettings *models.Network) error {
 
 // ServerUpdate - updates the server
 // replaces legacy Checkin code
-func ServerUpdate(serverNode *models.Node, shouldPeerUpdate bool) error {
-	var err = serverPull(serverNode, shouldPeerUpdate)
+func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
+	var err = serverPull(serverNode, ifaceDelta)
 	if isDeleteError(err) {
 		return DeleteNodeByID(serverNode, true)
 	} else if err != nil {
@@ -365,7 +365,7 @@ func checkNodeActions(node *models.Node) string {
 
 // == Private ==
 
-func serverPull(serverNode *models.Node, onErr bool) error {
+func serverPull(serverNode *models.Node, ifaceDelta bool) error {
 
 	var err error
 	if serverNode.IPForwarding == "yes" {
@@ -375,7 +375,7 @@ func serverPull(serverNode *models.Node, onErr bool) error {
 	}
 	serverNode.OS = runtime.GOOS
 
-	if serverNode.PullChanges == "yes" || onErr {
+	if serverNode.PullChanges == "yes" || ifaceDelta {
 		// check for interface change
 		// checks if address is in use by another interface
 		var oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)

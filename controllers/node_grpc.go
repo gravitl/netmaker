@@ -135,7 +135,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		newnode.PostDown = node.PostDown
 		newnode.PostUp = node.PostUp
 	}
-	var shouldPeersUpdate = logic.ShouldPeersUpdate(&node, &newnode)
+	var shouldPeersUpdate = logic.IfaceDelta(&node, &newnode)
 	getServerAddrs(&node)
 	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {

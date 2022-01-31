@@ -254,10 +254,14 @@ func CreateNode(node *models.Node) error {
 	return err
 }
 
-// ShouldPeersUpdate - takes old node and sees if certain fields changing would trigger a peer update
-func ShouldPeersUpdate(currentNode *models.Node, newNode *models.Node) bool {
+// IfaceDelta - is there interface changes
+func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	SetNodeDefaults(newNode)
 	// single comparison statements
+	if currentNode.IsServer != "yes" {
+		return false
+	}
+
 	if newNode.Endpoint != currentNode.Endpoint ||
 		newNode.LocalAddress != currentNode.LocalAddress ||
 		newNode.PublicKey != currentNode.PublicKey ||

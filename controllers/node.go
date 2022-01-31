@@ -586,7 +586,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
-	var shouldPeersUpdate = logic.ShouldPeersUpdate(&node, &newNode)
+	var shouldPeersUpdate = logic.IfaceDelta(&node, &newNode)
 
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {

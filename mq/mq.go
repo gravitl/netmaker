@@ -85,7 +85,7 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		var shouldUpdatePeers = logic.ShouldPeersUpdate(&currentNode, &newNode)
+		var shouldUpdatePeers = logic.IfaceDelta(&currentNode, &newNode)
 		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
 		}

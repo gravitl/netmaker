@@ -6,7 +6,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-func runServerPeerUpdate(network string, shouldPeerUpdate bool) error {
+func runServerPeerUpdate(network string, ifaceDelta bool) error {
 	err := logic.TimerCheckpoint()
 	if err != nil {
 		logger.Log(3, "error occurred on timer,", err.Error())
@@ -22,7 +22,7 @@ func runServerPeerUpdate(network string, shouldPeerUpdate bool) error {
 	if currErr != nil {
 		return currErr
 	}
-	if err = logic.ServerUpdate(&currentServerNode, shouldPeerUpdate); err != nil {
+	if err = logic.ServerUpdate(&currentServerNode, ifaceDelta); err != nil {
 		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
 		return err
 	}
