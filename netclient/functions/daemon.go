@@ -224,6 +224,10 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				ncutils.Log("error restarting wg after node update " + err.Error())
 				return
 			}
+			if err = Resubscribe(client, &cfg); err != nil {
+				ncutils.Log("error resubscribing after interface change " + err.Error())
+				return
+			}
 		} else {
 			ncutils.Log("syncing conf to " + file)
 			err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)

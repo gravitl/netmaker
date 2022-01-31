@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -407,13 +406,11 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = runServerPeerUpdate(node.Network, isServer(&node), "node create"); err != nil {
-		logger.Log(1, "internal error when creating node:", node.ID)
-	}
-
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, false)
 }
 
 //Takes node out of pending state
@@ -427,20 +424,11 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(node.Network, isServer(&node), "node uncordon"); err != nil {
-		logger.Log(1, "internal error when approving node:", nodeid)
-	}
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-		}
-		if err := mq.PublishPeerUpdate(&node); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
-	}()
 	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
+
+	runUpdates(&node, true)
 }
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -459,20 +447,12 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(gateway.NetID, isServer(&node), "node egress create"); err != nil {
-		logger.Log(1, "internal error when setting peers after creating egress on node:", gateway.NodeID)
-	}
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-		}
-		if err := mq.PublishPeerUpdate(&node); err != nil {
-			logger.Log(1, "error publishing peer update "+err.Error())
-		}
-	}()
+
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -485,20 +465,12 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if err = runServerPeerUpdate(netid, isServer(&node), "egress delete"); err != nil {
-		logger.Log(1, "internal error when setting peers after removing egress on node:", nodeid)
-	}
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-		}
-		if err := mq.PublishPeerUpdate(&node); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
-	}()
+
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -513,17 +485,12 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-		}
-		if err := mq.PublishPeerUpdate(&node); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
-	}()
+
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
@@ -535,17 +502,12 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-		}
-		if err := mq.PublishPeerUpdate(&node); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
-	}()
+
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -587,8 +549,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
-	var shouldPeersUpdate = ncutils.IfaceDelta(&node, &newNode)
-
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -605,24 +565,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		err = logic.SetDNS()
 	}
 
-	err = runServerPeerUpdate(node.Network, shouldPeersUpdate, "node update")
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
 	logger.Log(1, r.Header.Get("user"), "updated node", node.MacAddress, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
-	go func() {
-		if err := mq.NodeUpdate(&newNode); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-		}
-		if shouldPeersUpdate {
-			if err := mq.PublishPeerUpdate(&newNode); err != nil {
-				logger.Log(1, "error publishing peer update after node update", err.Error())
-			}
-		}
-	}()
+
+	runUpdates(&node, true)
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
@@ -643,17 +590,29 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = runServerPeerUpdate(node.Network, isServer(&node), "node delete")
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	node.Action = models.NODE_DELETE
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "error publishing node delete ", err.Error())
-		}
-	}()
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	returnSuccessResponse(w, r, nodeid+" deleted.")
+
+	runUpdates(&node, true)
+}
+
+func runUpdates(node *models.Node, nodeUpdate bool) error {
+	if nodeUpdate {
+		if err := mq.NodeUpdate(node); err != nil {
+			logger.Log(1, "error publishing node update", err.Error())
+			return err
+		}
+	}
+
+	if err := runServerPeerUpdate(node, isServer(node)); err != nil {
+		logger.Log(1, "internal error when approving node:", node.ID)
+		return err
+	}
+
+	return nil
 }
