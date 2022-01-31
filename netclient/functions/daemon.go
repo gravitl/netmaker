@@ -228,6 +228,12 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				ncutils.Log("error restarting wg after node update " + err.Error())
 				return
 			}
+			log.Println("DELETE: sleeepy time")
+			log.Println("DELETE: sleeepy time")
+			log.Println("DELETE: sleeepy time")
+			log.Println("DELETE: sleeepy time")
+
+			time.Sleep(time.Second * 5)
 			if err = Resubscribe(client, &cfg); err != nil {
 				ncutils.Log("error resubscribing after interface change " + err.Error())
 				return
@@ -284,11 +290,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		ncutils.Log("update peer handler")
 
 		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
-		var shouldReSub = shouldResub(cfg.Node.NetworkSettings.DefaultServerAddrs, peerUpdate.ServerAddrs)
-		if shouldReSub {
-			Resubscribe(client, &cfg)
-			cfg.Node.NetworkSettings.DefaultServerAddrs = peerUpdate.ServerAddrs
-		}
 		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 		if err != nil {
 			ncutils.Log("error updating wireguard peers" + err.Error())
