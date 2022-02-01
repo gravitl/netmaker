@@ -622,7 +622,7 @@ func GetNetworkServerNodeID(network string) (string, error) {
 
 // validateServer - make sure servers dont change port or address
 func validateServer(currentNode, newNode *models.Node) bool {
-	return (newNode.Address != currentNode.Address ||
-		newNode.ListenPort != currentNode.ListenPort ||
-		newNode.IsServer != "yes")
+	return (newNode.Address == currentNode.Address &&
+		newNode.ListenPort == currentNode.ListenPort &&
+		newNode.IsServer == "yes")
 }
