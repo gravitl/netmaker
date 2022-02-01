@@ -115,11 +115,10 @@ func ServerJoin(networkSettings *models.Network) error {
 		node.Endpoint = node.LocalAddress
 	}
 
-	if err = StorePrivKey(node.ID, privateKey); err != nil {
+	if err = CreateNode(node); err != nil {
 		return err
 	}
-
-	if err = CreateNode(node); err != nil {
+	if err = StorePrivKey(node.ID, privateKey); err != nil {
 		return err
 	}
 
