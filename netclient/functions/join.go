@@ -125,6 +125,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	// differentiate between client/server here
 	var node = models.Node{
 		Password:            cfg.Node.Password,
+		Address:             cfg.Node.Address,
+		Address6:            cfg.Node.Address6,
 		ID:                  cfg.Node.ID,
 		MacAddress:          cfg.Node.MacAddress,
 		AccessKey:           cfg.Server.AccessKey,

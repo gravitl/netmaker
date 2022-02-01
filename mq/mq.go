@@ -108,8 +108,10 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	for _, node := range networkNodes {
 
 		if node.IsServer == "yes" || node.ID == newNode.ID {
+			log.Println("skipping update on " + node.Name + " : " + node.ID)
 			continue
 		}
+		log.Println("running update on " + node.Name + " : " + node.ID)
 		peerUpdate, err := logic.GetPeerUpdate(&node)
 		if err != nil {
 			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
