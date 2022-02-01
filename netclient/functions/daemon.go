@@ -110,12 +110,12 @@ func MessageQueue(ctx context.Context, network string) {
 	cfg.Network = network
 	ncutils.Log("pulling latest config for " + cfg.Network)
 	var startTime float64
-	startTime = 2
+	startTime = 100
 	for {
 		_, err := Pull(network, true)
 		if err != nil {
 			ncutils.Log(err.Error())
-			startTime = math.Log(startTime * startTime)
+			startTime = math.Log2(startTime * startTime)
 		} else {
 			break
 		}
