@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -377,6 +376,7 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 			return token.Error()
 		}
 		var id string
+		var found bool
 		for _, server := range cfg.NetworkSettings.DefaultServerAddrs {
 			if server.IsLeader {
 				id = server.ID
@@ -386,13 +386,14 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 					ncutils.Log("error resubscribing to serverkeepalive for " + cfg.Node.Network)
 					return token.Error()
 				}
+				found = true
 				if cfg.DebugOn {
 					ncutils.Log("subscribed to server keepalives for server " + id)
 				}
-			} else {
-				log.Println(cfg.NetworkSettings.DefaultServerAddrs)
-				ncutils.Log("leader not defined for network " + cfg.Network)
 			}
+		}
+		if !found {
+			ncutils.Log("leader not defined for network " + cfg.Network)
 		}
 		ncutils.Log("finished re subbing")
 		return nil
