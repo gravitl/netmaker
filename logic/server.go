@@ -26,10 +26,10 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
-func ServerJoin(networkSettings *models.Network) error {
-
+func ServerJoin(networkSettings *models.Network) (models.Node, error) {
+	var returnNode models.Node
 	if networkSettings == nil || networkSettings.NetID == "" {
-		return errors.New("no network provided")
+		return returnNode, errors.New("no network provided")
 	}
 
 	var err error
@@ -70,7 +70,7 @@ func ServerJoin(networkSettings *models.Network) error {
 		}
 		if err != nil || node.Endpoint == "" {
 			logger.Log(0, "Error setting server node Endpoint.")
-			return err
+			return returnNode, err
 		}
 	}
 
@@ -81,7 +81,7 @@ func ServerJoin(networkSettings *models.Network) error {
 		wgPrivatekey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
 			logger.Log(1, err.Error())
-			return err
+			return returnNode, err
 		}
 		privateKey = wgPrivatekey.String()
 		node.PublicKey = wgPrivatekey.PublicKey().String()
@@ -91,11 +91,11 @@ func ServerJoin(networkSettings *models.Network) error {
 
 	logger.Log(2, "adding a server instance on network", node.Network)
 	if err != nil {
-		return err
+		return returnNode, err
 	}
 	err = SetNetworkNodesLastModified(node.Network)
 	if err != nil {
-		return err
+		return returnNode, err
 	}
 
 	// get free port based on returned default listen port
@@ -110,30 +110,30 @@ func ServerJoin(networkSettings *models.Network) error {
 	if node.IsLocal == "yes" && node.LocalRange != "" {
 		node.LocalAddress, err = ncutils.GetLocalIP(node.LocalRange)
 		if err != nil {
-			return err
+			return returnNode, err
 		}
 		node.Endpoint = node.LocalAddress
 	}
 
 	if err = CreateNode(node); err != nil {
-		return err
+		return returnNode, err
 	}
 	if err = StorePrivKey(node.ID, privateKey); err != nil {
-		return err
+		return returnNode, err
 	}
 
 	peers, hasGateway, gateways, err := GetServerPeers(node)
 	if err != nil && !ncutils.IsEmptyRecord(err) {
 		logger.Log(1, "failed to retrieve peers")
-		return err
+		return returnNode, err
 	}
 
 	err = initWireguard(node, privateKey, peers[:], hasGateway, gateways[:])
 	if err != nil {
-		return err
+		return returnNode, err
 	}
 
-	return nil
+	return *node, nil
 }
 
 // ServerUpdate - updates the server

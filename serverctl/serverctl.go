@@ -52,7 +52,7 @@ func SyncServerNetwork(network string) error {
 		}
 		return logic.ServerUpdate(&serverNode, true)
 	} else if !ifaceExists {
-		err := logic.ServerJoin(&serverNetworkSettings)
+		_, err := logic.ServerJoin(&serverNetworkSettings)
 		if err != nil {
 			if err == nil {
 				err = errors.New("network add failed for " + serverNetworkSettings.NetID)
