@@ -203,6 +203,8 @@ func Keepalive(ctx context.Context) {
 				}
 				serverNode, errN := logic.GetNodeByID(id)
 				if errN == nil {
+					serverNode.SetLastCheckIn()
+					logic.UpdateNode(&serverNode, &serverNode)
 					if network.DefaultUDPHolePunch == "yes" {
 						logic.ShouldPublishPeerPorts(&serverNode)
 					}
