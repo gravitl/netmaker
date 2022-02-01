@@ -77,6 +77,7 @@ func (config *ClientConfig) ReadConfig() {
 	nofile := false
 	//home, err := homedir.Dir()
 	home := ncutils.GetNetclientPathSpecific()
+
 	file := fmt.Sprintf(home + "netconfig-" + config.Network)
 	//f, err := os.Open(file)
 	f, err := os.OpenFile(file, os.O_RDONLY, 0600)

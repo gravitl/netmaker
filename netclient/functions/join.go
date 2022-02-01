@@ -116,7 +116,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			cfg.Node.DNSOn = "no"
 		}
 	}
-
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
 	}

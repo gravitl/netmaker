@@ -214,18 +214,27 @@ func CreateNode(node *models.Node) error {
 			node.DNSOn = "no"
 		}
 	}
+
 	SetNodeDefaults(node)
+
 	if node.IsServer == "yes" {
-		node.Address, err = UniqueAddressServer(node.Network)
-	} else {
-		node.Address, err = UniqueAddress(node.Network)
+		if node.Address, err = UniqueAddressServer(node.Network); err != nil {
+			return err
+		}
+	} else if node.Address == "" {
+		if node.Address, err = UniqueAddress(node.Network); err != nil {
+			return err
+		}
+	} else if !IsIPUnique(node.Network, node.Address, database.NODES_TABLE_NAME, false) {
+		return fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
 	}
-	if err != nil {
-		return err
-	}
-	node.Address6, err = UniqueAddress6(node.Network)
-	if err != nil {
-		return err
+
+	if node.Address6 == "" {
+		if node.Address6, err = UniqueAddress6(node.Network); err != nil {
+			return err
+		}
+	} else if !IsIPUnique(node.Network, node.Address6, database.NODES_TABLE_NAME, true) {
+		return fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
 	}
 
 	// TODO: This covers legacy nodes, eventually want to remove legacy check

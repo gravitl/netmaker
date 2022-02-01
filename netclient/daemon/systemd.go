@@ -42,11 +42,17 @@ func SetupSystemDDaemon(interval string) error {
 	}
 
 	systemservice := `[Unit]
-Description=Netclient message queue
+Description=Netclient Daemon
+Documentation=https://docs.netmaker.org https://k8s.netmaker.org
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
 
 [Service]
+User=root
 Type=simple
-ExecStart=/usr/sbin/netclient daemon
+ExecStart=/sbin/netclient daemon
+Restart=on-failure
+RestartSec=15s
 
 [Install]
 WantedBy=multi-user.target
