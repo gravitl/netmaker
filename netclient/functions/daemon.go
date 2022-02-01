@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"os/signal"
 	"runtime"
@@ -109,21 +108,19 @@ func MessageQueue(ctx context.Context, network string) {
 	var cfg config.ClientConfig
 	cfg.Network = network
 	ncutils.Log("pulling latest config for " + cfg.Network)
-	var startTime float64
-	startTime = 100
+	sleepTime := 2
 	for {
 		_, err := Pull(network, true)
-		if err != nil {
-			ncutils.Log(err.Error())
-			startTime = math.Log2(startTime * startTime)
-		} else {
+		if err == nil {
 			break
 		}
-		sleepTime := int(startTime)
 		if sleepTime > 3600 {
 			sleepTime = 3600
 		}
+		ncutils.Log("failed to pull for network " + network)
+		ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
 		time.Sleep(time.Second * time.Duration(sleepTime))
+		sleepTime = sleepTime * 2
 	}
 	time.Sleep(time.Second << 1)
 	cfg.ReadConfig()
