@@ -33,6 +33,7 @@ services:
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
+      MQ_HOST: "mq"
       HOST_NETWORK: "off"
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
@@ -72,15 +73,16 @@ services:
       # - $PWD/site:/srv # you could also serve a static site in site folder
       - caddy_data:/data
       - caddy_conf:/config
-  mosquitto:
+  mq:
     image: eclipse-mosquitto:2.0.14
-    container_name: broker
+    container_name: mq
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "1883:1883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
-      - mosquitto_logs:/mosquitto/log 
+      - mosquitto_logs:/mosquitto/log
 volumes:
   caddy_data: {}
   caddy_conf: {}
