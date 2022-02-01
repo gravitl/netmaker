@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"runtime"
@@ -108,10 +109,21 @@ func MessageQueue(ctx context.Context, network string) {
 	var cfg config.ClientConfig
 	cfg.Network = network
 	ncutils.Log("pulling latest config for " + cfg.Network)
-	_, err := Pull(network, true)
-	if err != nil {
-		ncutils.Log(err.Error())
-		return
+	var startTime float64
+	startTime = 2
+	for {
+		_, err := Pull(network, true)
+		if err != nil {
+			ncutils.Log(err.Error())
+			startTime = math.Log(startTime * startTime)
+		} else {
+			break
+		}
+		sleepTime := int(startTime)
+		if sleepTime > 3600 {
+			sleepTime = 3600
+		}
+		time.Sleep(time.Second * time.Duration(sleepTime))
 	}
 	time.Sleep(time.Second << 1)
 	cfg.ReadConfig()
