@@ -15,7 +15,6 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -78,16 +77,17 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	for {
 		//if after 12 seconds, try a gRPC pull on the last try
 		if time.Now().After(tperiod) {
+			ncutils.Log("running pull for " + cfg.Node.Network)
 			_, err := Pull(cfg.Node.Network, true)
 			if err != nil {
-				log.Fatal(0, "could not connect to broker, exiting ...", err.Error())
+				log.Fatal("[netclient] could not run pull, exiting ...", err.Error())
 			}
 			time.Sleep(2 * time.Second)
 		}
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			logger.Log(1, "unable to connect to broker, retrying ...")
+			ncutils.Log("unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
-				log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
+				log.Fatal("[netclient] could not connect to broker, exiting ...", token.Error())
 			}
 		} else {
 			break
@@ -103,22 +103,28 @@ func MessageQueue(ctx context.Context, network string) {
 	var cfg config.ClientConfig
 	cfg.Network = network
 	cfg.ReadConfig()
-	ncutils.Log("daemon started for network:" + network)
+	ncutils.Log("pulling latest config for " + cfg.Network)
+	_, err := Pull(cfg.Network, true)
+	if err != nil {
+		log.Fatal("[netclient] ", err.Error())
+	}
+	time.Sleep(2 * time.Second)
+	ncutils.Log("daemon started for network: " + network)
 	client := SetupMQTT(&cfg)
 	if cfg.DebugOn {
 		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
-			log.Fatal(token.Error())
+			log.Fatal("[netclient] ", token.Error())
 		}
 		ncutils.Log("subscribed to all topics for debugging purposes")
 	}
 	if token := client.Subscribe(fmt.Sprintf("update/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
+		log.Fatal("[netclient] ", token.Error())
 	}
 	if cfg.DebugOn {
 		ncutils.Log(fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
 	}
 	if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
-		log.Fatal(token.Error())
+		log.Fatal("[netclient] ", token.Error())
 	}
 	if cfg.DebugOn {
 		ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
@@ -130,7 +136,7 @@ func MessageQueue(ctx context.Context, network string) {
 		}
 		if server.Address != "" {
 			if token := client.Subscribe("serverkeepalive/"+id, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
-				log.Fatal(token.Error())
+				log.Fatal("[netclient] ", token.Error())
 			}
 			if cfg.DebugOn {
 				ncutils.Log("subscribed to server keepalives for server " + id)
@@ -347,13 +353,13 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 		client.Disconnect(250)
 		client = SetupMQTT(cfg)
 		if token := client.Subscribe(fmt.Sprintf("update/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, NodeUpdate); token.Wait() && token.Error() != nil {
-			log.Fatal(token.Error())
+			log.Fatal("[netclient] ", token.Error())
 		}
 		if cfg.DebugOn {
 			ncutils.Log("subscribed to node updates for node " + cfg.Node.Name + " update/" + cfg.Node.ID)
 		}
 		if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, UpdatePeers); token.Wait() && token.Error() != nil {
-			log.Fatal(token.Error())
+			log.Fatal("[netclient] ", token.Error())
 		}
 		var id string
 		for _, server := range cfg.NetworkSettings.DefaultServerAddrs {
@@ -362,7 +368,7 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 			}
 			if server.Address != "" {
 				if token := client.Subscribe("serverkeepalive/"+id, 0, mqtt.MessageHandler(ServerKeepAlive)); token.Wait() && token.Error() != nil {
-					log.Fatal(token.Error())
+					log.Fatal("[netclient] ", token.Error())
 				}
 				if cfg.DebugOn {
 					ncutils.Log("subscribed to server keepalives for server " + id)

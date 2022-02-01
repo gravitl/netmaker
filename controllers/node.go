@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -582,6 +583,10 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	var node, err = logic.GetNodeByID(nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	if isServer(&node) {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot delete server node"), "badrequest"))
 		return
 	}
 	err = logic.DeleteNodeByID(&node, false)

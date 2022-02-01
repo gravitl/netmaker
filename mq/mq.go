@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 const KEEPALIVE_TIMEOUT = 10 //timeout in seconds
@@ -213,6 +214,10 @@ func Keepalive(ctx context.Context) {
 					logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
 				} else {
 					logger.Log(2, "keepalive sent for network", network.NetID)
+				}
+				err = serverctl.SyncServerNetwork(&serverNode)
+				if err != nil {
+					logger.Log(1, "error syncing server network", err.Error())
 				}
 			}
 			client.Disconnect(MQ_DISCONNECT)
