@@ -148,7 +148,7 @@ func getServerAddrs(node *models.Node) {
 	serverNodes := logic.GetServerNodes(node.Network)
 	//pubIP, _ := servercfg.GetPublicIP()
 	if len(serverNodes) == 0 {
-		if err := serverctl.SyncServerNetwork(node); err != nil {
+		if err := serverctl.SyncServerNetwork(node.Network); err != nil {
 			return
 		}
 	}

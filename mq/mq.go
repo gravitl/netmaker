@@ -215,7 +215,7 @@ func Keepalive(ctx context.Context) {
 				} else {
 					logger.Log(2, "keepalive sent for network", network.NetID)
 				}
-				err = serverctl.SyncServerNetwork(&serverNode)
+				err = serverctl.SyncServerNetwork(network.NetID)
 				if err != nil {
 					logger.Log(1, "error syncing server network", err.Error())
 				}
