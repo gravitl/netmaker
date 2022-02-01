@@ -52,20 +52,17 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 }
 
 // ApplyWGQuickConf - applies wg-quick commands if os supports
-func ApplyWGQuickConf(confPath string) error {
+func ApplyWGQuickConf(confPath string, ifacename string) error {
 	_, err := os.Stat(confPath)
 	if err != nil {
 		ncutils.Log(confPath + " does not exist " + err.Error())
 		return err
 	}
-	_, err = ncutils.RunCmd("wg-quick down "+confPath, true)
-	if err != nil {
-		ncutils.Log("err running wg-quick down " + confPath + ": " + err.Error())
+	if ncutils.IfaceExists(ifacename) {
+		ncutils.RunCmd("wg-quick down "+confPath, true)
 	}
 	_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
-	if err != nil {
-		ncutils.Log("err runinng wg-quick up " + confPath + ": " + err.Error())
-	}
+
 	return err
 }
 
@@ -90,7 +87,7 @@ func SyncWGQuickConf(iface string, confPath string) error {
 	}
 	regex := regexp.MustCompile(".*Warning.*\n")
 	conf := regex.ReplaceAllString(confRaw, "")
-	err = os.WriteFile(tmpConf, []byte(conf), 0644)
+	err = os.WriteFile(tmpConf, []byte(conf), 0600)
 	if err != nil {
 		return err
 	}
@@ -98,7 +95,7 @@ func SyncWGQuickConf(iface string, confPath string) error {
 	if err != nil {
 		log.Println(err.Error())
 		ncutils.Log("error syncing conf, resetting")
-		err = ApplyWGQuickConf(confPath)
+		err = ApplyWGQuickConf(confPath, iface)
 	}
 	errN := os.Remove(tmpConf)
 	if errN != nil {
@@ -117,7 +114,7 @@ func RemoveWGQuickConf(confPath string, printlog bool) error {
 func StorePrivKey(key string, network string) error {
 	var err error
 	d1 := []byte(key)
-	err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0644)
+	err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0600)
 	return err
 }
 

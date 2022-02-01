@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -103,14 +104,14 @@ func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
 	cfg.Network = network
-	cfg.ReadConfig()
 	ncutils.Log("pulling latest config for " + cfg.Network)
-	_, err := Pull(cfg.Network, true)
+	_, err := Pull(network, true)
 	if err != nil {
 		ncutils.Log(err.Error())
 		return
 	}
-	time.Sleep(2 * time.Second)
+	time.Sleep(time.Second << 1)
+	cfg.ReadConfig()
 	ncutils.Log("daemon started for network: " + network)
 	client := SetupMQTT(&cfg)
 	if cfg.DebugOn {
@@ -135,6 +136,7 @@ func MessageQueue(ctx context.Context, network string) {
 		ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
 	}
 	var id string
+	var found bool
 	for _, server := range cfg.NetworkSettings.DefaultServerAddrs {
 		if server.IsLeader {
 			id = server.ID
@@ -144,12 +146,14 @@ func MessageQueue(ctx context.Context, network string) {
 				ncutils.Log(token.Error().Error())
 				return
 			}
+			found = true
 			if cfg.DebugOn {
 				ncutils.Log("subscribed to server keepalives for server " + id)
 			}
-		} else {
-			ncutils.Log("leader not defined for network" + cfg.Network)
 		}
+	}
+	if !found {
+		ncutils.Log("leader not defined for network " + cfg.Network)
 	}
 	defer client.Disconnect(250)
 	go MonitorKeepalive(ctx, client, &cfg)
@@ -239,7 +243,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		}
 		if ifaceDelta {
 			ncutils.Log("applying WG conf to " + file)
-			err = wireguard.ApplyWGQuickConf(file)
+			err = wireguard.ApplyWGQuickConf(file, cfg.Node.Interface)
 			if err != nil {
 				ncutils.Log("error restarting wg after node update " + err.Error())
 				return
@@ -334,7 +338,9 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 			if time.Since(keepalive[id]) > time.Second*200 { // more than 3+ minutes
 				ncutils.Log("server keepalive not recieved in more than minutes, resubscribe to message queue")
 				err := Resubscribe(client, cfg)
-				ncutils.Log("closing " + err.Error())
+				if err != nil {
+					ncutils.Log("closing " + err.Error())
+				}
 			}
 		}
 	}
@@ -384,7 +390,8 @@ func Resubscribe(client mqtt.Client, cfg *config.ClientConfig) error {
 					ncutils.Log("subscribed to server keepalives for server " + id)
 				}
 			} else {
-				ncutils.Log("leader not defined for network" + cfg.Network)
+				log.Println(cfg.NetworkSettings.DefaultServerAddrs)
+				ncutils.Log("leader not defined for network " + cfg.Network)
 			}
 		}
 		ncutils.Log("finished re subbing")
@@ -469,11 +476,11 @@ func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 // PublishNodeUpdates -- saves node and pushes changes to broker
 func PublishNodeUpdate(cfg *config.ClientConfig) {
 	if err := config.Write(cfg, cfg.Network); err != nil {
-		ncutils.Log("error saving configuration" + err.Error())
+		ncutils.Log("error saving configuration: " + err.Error())
 	}
 	data, err := json.Marshal(cfg.Node)
 	if err != nil {
-		ncutils.Log("error marshling node update " + err.Error())
+		ncutils.Log("error marshling node update: " + err.Error())
 	}
 	if err = publish(cfg, fmt.Sprintf("update/%s", cfg.Node.ID), data); err != nil {
 		ncutils.Log(fmt.Sprintf("error publishing endpoint update, %v", err))

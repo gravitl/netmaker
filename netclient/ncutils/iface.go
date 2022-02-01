@@ -1,6 +1,8 @@
 package ncutils
 
 import (
+	"net"
+
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -62,6 +64,20 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 func StringSliceContains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// IfaceExists - return true if you can find the iface
+func IfaceExists(ifacename string) bool {
+	localnets, err := net.Interfaces()
+	if err != nil {
+		return false
+	}
+	for _, localnet := range localnets {
+		if ifacename == localnet.Name {
 			return true
 		}
 	}

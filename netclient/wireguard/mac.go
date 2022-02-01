@@ -99,7 +99,7 @@ func addInterface(iface string) (string, error) {
 	realIface, err := ncutils.GetNewIface("/var/run/wireguard/")
 	if iface != "" && err == nil {
 		ifacePath := "/var/run/wireguard/" + iface + ".name"
-		err = os.WriteFile(ifacePath, []byte(realIface), 0644)
+		err = os.WriteFile(ifacePath, []byte(realIface), 0600)
 	}
 	return realIface, err
 }
@@ -210,7 +210,7 @@ func addRoute(addr string, iface string) error {
 // setConfig - sets configuration of the wireguard interface from the config file
 func setConfig(realIface string, confPath string) error {
 	confString := getConfig(confPath)
-	err := os.WriteFile(confPath+".tmp", []byte(confString), 0644)
+	err := os.WriteFile(confPath+".tmp", []byte(confString), 0600)
 	if err != nil {
 		return err
 	}
