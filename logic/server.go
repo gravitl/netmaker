@@ -90,7 +90,6 @@ func ServerJoin(networkSettings *models.Network) error {
 	node.Network = networkSettings.NetID
 
 	logger.Log(2, "adding a server instance on network", node.Network)
-	err = CreateNode(node)
 	if err != nil {
 		return err
 	}
@@ -119,7 +118,8 @@ func ServerJoin(networkSettings *models.Network) error {
 	if err = StorePrivKey(node.ID, privateKey); err != nil {
 		return err
 	}
-	if err = serverPush(node); err != nil {
+
+	if err = CreateNode(node); err != nil {
 		return err
 	}
 
