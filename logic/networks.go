@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -203,6 +204,43 @@ func UniqueAddress(networkName string) (string, error) {
 	//TODO
 	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
+}
+
+// UniqueAddressServer - get unique address starting from last available
+func UniqueAddressServer(networkName string) (string, error) {
+
+	var network models.Network
+	network, err := GetParentNetwork(networkName)
+	if err != nil {
+		logger.Log(0, "UniqueAddressServer encountered  an error")
+		return "666", err
+	}
+
+	_, ipv4Net, err := net.ParseCIDR(network.AddressRange)
+	if err != nil {
+		logger.Log(0, "UniqueAddressServer encountered  an error")
+		return "666", err
+	}
+
+	// convert IPNet struct mask and address to uint32
+	// network is BigEndian
+	mask := binary.BigEndian.Uint32(ipv4Net.Mask)
+	start := binary.BigEndian.Uint32(ipv4Net.IP)
+
+	// find the final address
+	finish := (start & mask) | (mask ^ 0xffffffff)
+
+	// loop through addresses as uint32
+	for i := finish - 1; i > start; i-- {
+		// convert back to net.IP
+		ip := make(net.IP, 4)
+		binary.BigEndian.PutUint32(ip, i)
+		if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, false) && IsIPUnique(networkName, ip.String(), database.EXT_CLIENT_TABLE_NAME, false) {
+			return ip.String(), err
+		}
+	}
+
+	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", fmt.Errorf("no unique server addresses found")
 }
 
 // IsIPUnique - checks if an IP is unique

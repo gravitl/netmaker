@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
@@ -106,9 +107,11 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	}
 	for _, node := range networkNodes {
 
-		if node.IsServer == "yes" {
+		if node.IsServer == "yes" || node.ID == newNode.ID {
+			log.Println("skipping update on " + node.Name + " : " + node.ID)
 			continue
 		}
+		log.Println("running update on " + node.Name + " : " + node.ID)
 		peerUpdate, err := logic.GetPeerUpdate(&node)
 		if err != nil {
 			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
@@ -122,7 +125,7 @@ func PublishPeerUpdate(newNode *models.Node) error {
 		if err = publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 			logger.Log(1, "failed to publish peer update for node", node.ID)
 		} else {
-			logger.Log(1, fmt.Sprintf("sent peer update for network, %s and node, %s", node.Network, node.Name))
+			logger.Log(1, fmt.Sprintf("sent peer update for node %s on network: %s ", node.Name, node.Network))
 		}
 	}
 	return nil
@@ -198,6 +201,18 @@ func Keepalive(ctx context.Context) {
 						id = servAddr.ID
 					}
 				}
+				serverNode, errN := logic.GetNodeByID(id)
+				if errN == nil {
+					serverNode.SetLastCheckIn()
+					logic.UpdateNode(&serverNode, &serverNode)
+					if network.DefaultUDPHolePunch == "yes" {
+						logic.ShouldPublishPeerPorts(&serverNode)
+					}
+					err = PublishPeerUpdate(&serverNode)
+					if err != nil {
+						logger.Log(1, "error publishing udp port updates", err.Error())
+					}
+				}
 				if id == "" {
 					logger.Log(0, "leader not defined for network", network.NetID)
 					continue
@@ -207,8 +222,12 @@ func Keepalive(ctx context.Context) {
 				} else {
 					logger.Log(2, "keepalive sent for network", network.NetID)
 				}
-				client.Disconnect(MQ_DISCONNECT)
+				err = serverctl.SyncServerNetwork(network.NetID)
+				if err != nil {
+					logger.Log(1, "error syncing server network", err.Error())
+				}
 			}
+			client.Disconnect(MQ_DISCONNECT)
 		}
 	}
 }

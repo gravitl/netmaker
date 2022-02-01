@@ -225,7 +225,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsClientMode() != "off" {
-		err = logic.ServerJoin(&network)
+		var node models.Node
+		node, err = logic.ServerJoin(&network)
 		if err != nil {
 			logic.DeleteNetwork(network.NetID)
 			if err == nil {
@@ -234,6 +235,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
+		getServerAddrs(&node)
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)

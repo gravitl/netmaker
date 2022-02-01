@@ -8,7 +8,6 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -28,8 +27,8 @@ func InitServerNetclient() error {
 }
 
 // SyncServerNetwork - ensures a wg interface and node exists for server
-func SyncServerNetwork(serverNode *models.Node) error {
-	serverNetworkSettings, err := logic.GetNetwork(serverNode.Network)
+func SyncServerNetwork(network string) error {
+	serverNetworkSettings, err := logic.GetNetwork(network)
 	if err != nil {
 		return err
 	}
@@ -37,14 +36,23 @@ func SyncServerNetwork(serverNode *models.Node) error {
 	if err != nil {
 		return err
 	}
-	exists := false
+
+	ifaceExists := false
 	for _, localnet := range localnets {
 		if serverNetworkSettings.DefaultInterface == localnet.Name {
-			exists = true
+			ifaceExists = true
 		}
 	}
-	if !exists {
-		err := logic.ServerJoin(&serverNetworkSettings)
+
+	serverNodeID, err := logic.GetNetworkServerNodeID(network)
+	if !ifaceExists && (err == nil && serverNodeID != "") {
+		serverNode, err := logic.GetNodeByID(serverNodeID)
+		if err != nil {
+			return err
+		}
+		return logic.ServerUpdate(&serverNode, true)
+	} else if !ifaceExists {
+		_, err := logic.ServerJoin(&serverNetworkSettings)
 		if err != nil {
 			if err == nil {
 				err = errors.New("network add failed for " + serverNetworkSettings.NetID)
@@ -54,22 +62,26 @@ func SyncServerNetwork(serverNode *models.Node) error {
 			}
 		}
 	}
-	for _, localnet := range localnets {
-		if strings.Contains(localnet.Name, "nm-") {
-			var exists = ""
-			if serverNetworkSettings.DefaultInterface == localnet.Name {
-				exists = serverNetworkSettings.NetID
-			}
-			if exists == "" {
-				err := logic.DeleteNodeByID(serverNode, true)
-				if err != nil {
-					if err == nil {
-						err = errors.New("network delete failed for " + exists)
+
+	// remove networks locally that do not exist in database
+	/*
+		for _, localnet := range localnets {
+			if strings.Contains(localnet.Name, "nm-") {
+				var exists = ""
+				if serverNetworkSettings.DefaultInterface == localnet.Name {
+					exists = serverNetworkSettings.NetID
+				}
+				if exists == "" {
+					err := logic.DeleteNodeByID(serverNode, true)
+					if err != nil {
+						if err == nil {
+							err = errors.New("network delete failed for " + exists)
+						}
+						logger.Log(1, "error removing network", exists, "during sync", err.Error())
 					}
-					logger.Log(1, "error removing network", exists, "during sync", err.Error())
 				}
 			}
 		}
-	}
+	*/
 	return nil
 }

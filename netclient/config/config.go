@@ -51,7 +51,7 @@ func Write(config *ClientConfig, network string) error {
 	}
 	_, err := os.Stat(ncutils.GetNetclientPath() + "/config")
 	if os.IsNotExist(err) {
-		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0744)
+		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0700)
 	} else if err != nil {
 		return err
 	}
@@ -77,9 +77,10 @@ func (config *ClientConfig) ReadConfig() {
 	nofile := false
 	//home, err := homedir.Dir()
 	home := ncutils.GetNetclientPathSpecific()
+
 	file := fmt.Sprintf(home + "netconfig-" + config.Network)
 	//f, err := os.Open(file)
-	f, err := os.OpenFile(file, os.O_RDONLY, 0666)
+	f, err := os.OpenFile(file, os.O_RDONLY, 0600)
 	if err != nil {
 		fmt.Println("trouble opening file")
 		fmt.Println(err)
@@ -134,7 +135,7 @@ func SaveBackup(network string) error {
 			ncutils.Log("failed to read " + configPath + " to make a backup")
 			return err
 		}
-		if err = os.WriteFile(backupPath, input, 0644); err != nil {
+		if err = os.WriteFile(backupPath, input, 0600); err != nil {
 			ncutils.Log("failed to copy backup to " + backupPath)
 			return err
 		}
@@ -152,7 +153,7 @@ func ReplaceWithBackup(network string) error {
 			ncutils.Log("failed to read file " + backupPath + " to backup network: " + network)
 			return err
 		}
-		if err = os.WriteFile(configPath, input, 0644); err != nil {
+		if err = os.WriteFile(configPath, input, 0600); err != nil {
 			ncutils.Log("failed backup " + backupPath + " to " + configPath)
 			return err
 		}

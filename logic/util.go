@@ -371,3 +371,14 @@ func setNetworkServerPeers(serverNode *models.Node) {
 		logger.Log(1, "could not set peers on network", serverNode.Network, ":", err.Error())
 	}
 }
+
+// ShouldPublishPeerPorts - Gets ports from iface, sets, and returns true if they are different
+func ShouldPublishPeerPorts(serverNode *models.Node) bool {
+	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if database.SetPeers(currentPeersList, serverNode.Network) {
+			logger.Log(1, "set new peers on network", serverNode.Network)
+			return true
+		}
+	}
+	return false
+}

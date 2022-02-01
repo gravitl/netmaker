@@ -28,7 +28,7 @@ func InitWindows() {
 				log.Println("failed to find netclient.exe")
 				return
 			}
-			if err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"netclient.exe", input, 0644); err != nil {
+			if err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"netclient.exe", input, 0600); err != nil {
 				log.Println("failed to copy netclient.exe to", ncutils.GetNetclientPath())
 				return
 			}

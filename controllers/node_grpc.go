@@ -11,9 +11,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 // NodeServiceServer - represents the service server for gRPC
@@ -32,6 +31,8 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	if err != nil {
 		return nil, err
 	}
+	getServerAddrs(&node)
+
 	node.SetLastCheckIn()
 	// Cast to ReadNodeRes type
 	nodeData, errN := json.Marshal(&node)
@@ -68,7 +69,9 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 			return nil, errors.New("invalid key, and network does not allow no-key signups")
 		}
 	}
+
 	getServerAddrs(&node)
+
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key: ", keyErr.Error())
@@ -95,26 +98,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
-	network, err := logic.GetParentNetwork(node.Network)
-	if err != nil {
-		return nil, err
-	}
-	network.NodesLastModified = time.Now().Unix()
-	network.DefaultServerAddrs = node.NetworkSettings.DefaultServerAddrs
-	if err := logic.SaveNetwork(&network); err != nil {
-		return nil, err
-	}
-	err = runServerPeerUpdate(node.Network, isServer(&node), "node_grpc create")
-	if err != nil {
-		logger.Log(1, "internal error when setting peers after node,", node.ID, "was created (gRPC)")
-	}
-	logger.Log(0, "new node,", node.Name, ", added on network,"+node.Network)
-	// notify other nodes on network of new peer
-	go func() {
-		if err := mq.PublishPeerUpdate(&node); err != nil {
-			logger.Log(0, "failed to inform peers of new node ", err.Error())
-		}
-	}()
+	runUpdates(&node, false)
 
 	return response, nil
 }
@@ -136,8 +120,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		newnode.PostDown = node.PostDown
 		newnode.PostUp = node.PostUp
 	}
-	var shouldPeersUpdate = ncutils.IfaceDelta(&node, &newnode)
-	getServerAddrs(&node)
+
 	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {
 		return nil, err
@@ -146,14 +129,15 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
+	getServerAddrs(&newnode)
+
 	nodeData, errN := json.Marshal(&newnode)
 	if errN != nil {
 		return nil, err
 	}
-	err = runServerPeerUpdate(newnode.Network, shouldPeersUpdate, "node_grpc update")
-	if err != nil {
-		logger.Log(1, "could not update peers on gRPC after node,", newnode.ID, "updated (gRPC), \nerror:", err.Error())
-	}
+
+	runUpdates(&newnode, false)
+
 	return &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
@@ -161,16 +145,33 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 func getServerAddrs(node *models.Node) {
-	var serverNodes = logic.GetServerNodes(node.Network)
-	var serverAddrs = make([]models.ServerAddr, len(serverNodes))
-	for i, server := range serverNodes {
-		serverAddrs[i] = models.ServerAddr{
-			IsLeader: logic.IsLeader(&server),
-			Address:  server.Address,
+	serverNodes := logic.GetServerNodes(node.Network)
+	//pubIP, _ := servercfg.GetPublicIP()
+	if len(serverNodes) == 0 {
+		if err := serverctl.SyncServerNetwork(node.Network); err != nil {
+			return
 		}
 	}
+
+	var serverAddrs = make([]models.ServerAddr, 1)
+
+	for _, node := range serverNodes {
+
+		serverAddrs = append(serverAddrs, models.ServerAddr{
+			IsLeader: logic.IsLeader(&node),
+			Address:  node.Address,
+			ID:       node.ID,
+		})
+	}
+
+	networkSettings, _ := logic.GetParentNetwork(node.Network)
 	// TODO consolidate functionality around files
-	node.NetworkSettings.DefaultServerAddrs = serverAddrs
+	networkSettings.NodesLastModified = time.Now().Unix()
+	networkSettings.DefaultServerAddrs = serverAddrs
+	if err := logic.SaveNetwork(&networkSettings); err != nil {
+		logger.Log(1, "unable to save network on serverAddr update", err.Error())
+	}
+	node.NetworkSettings.DefaultServerAddrs = networkSettings.DefaultServerAddrs
 }
 
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
@@ -185,16 +186,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	err = runServerPeerUpdate(node.Network, false, "node_grpc delete")
-	if err != nil {
-		logger.Log(1, "internal error when setting peers after deleting node:", node.ID, "over gRPC")
-	}
-	// notify other nodes on network of deleted peer
-	go func() {
-		if err := mq.PublishPeerUpdate(&node); err != nil {
-			logger.Log(0, "failed to inform peers of deleted node ", err.Error())
-		}
-	}()
+	runServerPeerUpdate(&node, false)
 
 	return &nodepb.Object{
 		Data: "success",

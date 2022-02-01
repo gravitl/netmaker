@@ -277,7 +277,7 @@ func ApplyConf(node models.Node, ifacename string, confPath string) error {
 	case "darwin":
 		_ = ApplyMacOSConf(node, ifacename, confPath)
 	default:
-		err = ApplyWGQuickConf(confPath)
+		err = ApplyWGQuickConf(confPath, ifacename)
 	}
 	return err
 }

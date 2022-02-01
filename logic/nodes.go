@@ -142,6 +142,12 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 	}
 	newNode.Fill(currentNode)
+
+	if currentNode.IsServer == "yes" && !validateServer(currentNode, newNode) {
+		return fmt.Errorf("this operation is not supported on server nodes")
+	}
+
+	// check for un-settable server values
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
 	}
@@ -208,14 +214,27 @@ func CreateNode(node *models.Node) error {
 			node.DNSOn = "no"
 		}
 	}
+
 	SetNodeDefaults(node)
-	node.Address, err = UniqueAddress(node.Network)
-	if err != nil {
-		return err
+
+	if node.IsServer == "yes" {
+		if node.Address, err = UniqueAddressServer(node.Network); err != nil {
+			return err
+		}
+	} else if node.Address == "" {
+		if node.Address, err = UniqueAddress(node.Network); err != nil {
+			return err
+		}
+	} else if !IsIPUnique(node.Network, node.Address, database.NODES_TABLE_NAME, false) {
+		return fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
 	}
-	node.Address6, err = UniqueAddress6(node.Network)
-	if err != nil {
-		return err
+
+	if node.Address6 == "" {
+		if node.Address6, err = UniqueAddress6(node.Network); err != nil {
+			return err
+		}
+	} else if !IsIPUnique(node.Network, node.Address6, database.NODES_TABLE_NAME, true) {
+		return fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
 	}
 
 	// TODO: This covers legacy nodes, eventually want to remove legacy check
@@ -608,4 +627,11 @@ func GetNetworkServerNodeID(network string) (string, error) {
 		}
 	}
 	return "", errors.New("could not find server node")
+}
+
+// validateServer - make sure servers dont change port or address
+func validateServer(currentNode, newNode *models.Node) bool {
+	return (newNode.Address == currentNode.Address &&
+		newNode.ListenPort == currentNode.ListenPort &&
+		newNode.IsServer == "yes")
 }
