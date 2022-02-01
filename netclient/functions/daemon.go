@@ -65,7 +65,7 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
 		if server.Address != "" && server.IsLeader {
-			ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s", server.Address, cfg.Node.Network))
+			// ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s", server.Address, cfg.Node.Network))
 			opts.AddBroker(server.Address + ":1883")
 			break
 		}
@@ -335,7 +335,7 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 			return
 		case <-time.After(time.Second * 150):
 			if time.Since(keepalive[id]) > time.Second*200 { // more than 3+ minutes
-				ncutils.Log("server keepalive not recieved in more than minutes, resubscribe to message queue")
+				ncutils.Log("server keepalive not recieved recently, resubscribe to message queue")
 				err := Resubscribe(client, cfg)
 				if err != nil {
 					ncutils.Log("closing " + err.Error())

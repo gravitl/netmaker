@@ -18,7 +18,7 @@ import (
 	"github.com/gravitl/netmaker/serverctl"
 )
 
-const KEEPALIVE_TIMEOUT = 10 //timeout in seconds
+const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
 const MQ_DISCONNECT = 250
 
 // DefaultHandler default message queue handler - only called when GetDebug == true
@@ -125,7 +125,7 @@ func PublishPeerUpdate(newNode *models.Node) error {
 		if err = publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 			logger.Log(1, "failed to publish peer update for node", node.ID)
 		} else {
-			logger.Log(1, fmt.Sprintf("sent peer update for network, %s and node, %s", node.Network, node.Name))
+			logger.Log(1, fmt.Sprintf("sent peer update for node %s on network: %s ", node.Name, node.Network))
 		}
 	}
 	return nil
@@ -202,7 +202,10 @@ func Keepalive(ctx context.Context) {
 					}
 				}
 				serverNode, errN := logic.GetNodeByID(id)
-				if errN == nil && network.DefaultUDPHolePunch == "yes" && logic.ShouldPublishPeerPorts(&serverNode) {
+				if errN == nil {
+					if network.DefaultUDPHolePunch == "yes" {
+						logic.ShouldPublishPeerPorts(&serverNode)
+					}
 					err = PublishPeerUpdate(&serverNode)
 					if err != nil {
 						logger.Log(1, "error publishing udp port updates", err.Error())
