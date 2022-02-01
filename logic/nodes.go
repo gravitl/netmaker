@@ -142,6 +142,12 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 	}
 	newNode.Fill(currentNode)
+
+	if currentNode.IsServer == "yes" && !validateServer(currentNode, newNode) {
+		return fmt.Errorf("this operation is not supported on server nodes")
+	}
+
+	// check for un-settable server values
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
 	}
@@ -209,7 +215,11 @@ func CreateNode(node *models.Node) error {
 		}
 	}
 	SetNodeDefaults(node)
-	node.Address, err = UniqueAddress(node.Network)
+	if node.IsServer == "yes" {
+		node.Address, err = UniqueAddressServer(node.Network)
+	} else {
+		node.Address, err = UniqueAddress(node.Network)
+	}
 	if err != nil {
 		return err
 	}
@@ -608,4 +618,11 @@ func GetNetworkServerNodeID(network string) (string, error) {
 		}
 	}
 	return "", errors.New("could not find server node")
+}
+
+// validateServer - make sure servers dont change port or address
+func validateServer(currentNode, newNode *models.Node) bool {
+	return (newNode.Address != currentNode.Address ||
+		newNode.ListenPort != currentNode.ListenPort ||
+		newNode.IsServer != "yes")
 }
