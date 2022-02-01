@@ -36,14 +36,22 @@ func SyncServerNetwork(network string) error {
 	if err != nil {
 		return err
 	}
-	exists := false
+
+	ifaceExists := false
 	for _, localnet := range localnets {
 		if serverNetworkSettings.DefaultInterface == localnet.Name {
-			exists = true
+			ifaceExists = true
 		}
 	}
-	// add networks locally that exist in database
-	if !exists {
+
+	serverNodeID, err := logic.GetNetworkServerNodeID(network)
+	if !ifaceExists && (err == nil && serverNodeID != "") {
+		serverNode, err := logic.GetNodeByID(serverNodeID)
+		if err != nil {
+			return err
+		}
+		return logic.ServerUpdate(&serverNode, true)
+	} else if !ifaceExists {
 		err := logic.ServerJoin(&serverNetworkSettings)
 		if err != nil {
 			if err == nil {

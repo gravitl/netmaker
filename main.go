@@ -39,6 +39,10 @@ func main() {
 func initialize() { // Client Mode Prereq Check
 	var err error
 
+	if servercfg.GetNodeID() == "" {
+		logger.FatalLog("error: must set NODE_ID, currently blank")
+	}
+
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("Error connecting to database")
 	}
