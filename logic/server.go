@@ -142,8 +142,11 @@ func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
 	var err = serverPull(serverNode, ifaceDelta)
 	if isDeleteError(err) {
 		return DeleteNodeByID(serverNode, true)
-	} else if err != nil {
-		return err
+	} else if err != nil && !ifaceDelta {
+		err = serverPull(serverNode, true)
+		if err != nil {
+			return err
+		}
 	}
 
 	actionCompleted := checkNodeActions(serverNode)

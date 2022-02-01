@@ -615,7 +615,7 @@ func runUpdates(node *models.Node, nodeUpdate bool) error {
 	}
 
 	if err := runServerPeerUpdate(node, isServer(node)); err != nil {
-		logger.Log(1, "internal error when approving node:", node.ID)
+		logger.Log(1, "internal error when running peer node:", err.Error())
 		return err
 	}
 
