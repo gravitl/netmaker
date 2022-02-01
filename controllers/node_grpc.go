@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 // NodeServiceServer - represents the service server for gRPC
@@ -144,15 +145,25 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 func getServerAddrs(node *models.Node) {
-	serverNode := logic.GetServerNodes(node.Network)[0]
+	serverNodes := logic.GetServerNodes(node.Network)
 	//pubIP, _ := servercfg.GetPublicIP()
-	var serverAddrs = []models.ServerAddr{
-		{
-			IsLeader: true,
-			Address:  serverNode.Address,
-			ID:       serverNode.ID,
-		},
+	if len(serverNodes) == 0 {
+		if err := serverctl.SyncServerNetwork(node); err != nil {
+			return
+		}
 	}
+
+	var serverAddrs = make([]models.ServerAddr, 1)
+
+	for _, node := range serverNodes {
+
+		serverAddrs = append(serverAddrs, models.ServerAddr{
+			IsLeader: logic.IsLeader(&node),
+			Address:  node.Address,
+			ID:       node.ID,
+		})
+	}
+
 	networkSettings, _ := logic.GetParentNetwork(node.Network)
 	// TODO consolidate functionality around files
 	networkSettings.NodesLastModified = time.Now().Unix()
