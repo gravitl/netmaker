@@ -30,6 +30,8 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	if err != nil {
 		return nil, err
 	}
+	getServerAddrs(&node)
+
 	node.SetLastCheckIn()
 	// Cast to ReadNodeRes type
 	nodeData, errN := json.Marshal(&node)
@@ -118,8 +120,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		newnode.PostUp = node.PostUp
 	}
 
-	getServerAddrs(&node)
-
 	err = logic.UpdateNode(&node, &newnode)
 	if err != nil {
 		return nil, err
@@ -128,12 +128,14 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
+	getServerAddrs(&newnode)
+
 	nodeData, errN := json.Marshal(&newnode)
 	if errN != nil {
 		return nil, err
 	}
 
-	runUpdates(&node, false)
+	runUpdates(&newnode, false)
 
 	return &nodepb.Object{
 		Data: string(nodeData),

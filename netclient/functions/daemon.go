@@ -74,10 +74,18 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	}
 	opts.SetDefaultPublishHandler(All)
 	client := mqtt.NewClient(opts)
-	tperiod := time.Now().Add(10 * time.Second)
+	tperiod := time.Now().Add(12 * time.Second)
 	for {
+		//if after 12 seconds, try a gRPC pull on the last try
+		if time.Now().After(tperiod) {
+			_, err := Pull(cfg.Node.Network, true)
+			if err != nil {
+				log.Fatal(0, "could not connect to broker, exiting ...", err.Error())
+			}
+			time.Sleep(2 * time.Second)
+		}
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			logger.Log(2, "unable to connect to broker, retrying ...")
+			logger.Log(1, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
 			}
