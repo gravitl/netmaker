@@ -547,6 +547,7 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 }
 
 func parseNetworkFromTopic(topic string) string {
+	log.Println("DELETE ME: topic - " + topic)
 	return strings.Split(topic, "/")[1]
 }
 

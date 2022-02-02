@@ -106,7 +106,7 @@ func grpcAuthorize(ctx context.Context) error {
 // Login - node authenticates using its password and retrieves a JWT for authorization.
 func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var reqNode, err = getNewOrLegacyNode(req.Data)
+	var reqNode, err = getNodeFromRequestData(req.Data)
 	if err != nil {
 		return nil, err
 	}
