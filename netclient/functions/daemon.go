@@ -298,18 +298,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		}
 	}()
 }
-func setDNS(iface, network, address string) {
-	var reachable bool
-	for counter := 0; !reachable && counter < 5; counter++ {
-		reachable = local.IsDNSReachable(address)
-		time.Sleep(time.Second << 1)
-	}
-	if !reachable {
-		ncutils.Log("not setting dns, server unreachable: " + address)
-	} else if err := local.UpdateDNS(iface, network, address); err != nil {
-		ncutils.Log("error applying dns" + err.Error())
-	}
-}
 
 // UpdatePeers -- mqtt message handler for peers/<Network>/<NodeID> topic
 func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
@@ -580,4 +568,17 @@ func shouldResub(currentServers, newServers []models.ServerAddr) bool {
 		}
 	}
 	return false
+}
+
+func setDNS(iface, network, address string) {
+	var reachable bool
+	for counter := 0; !reachable && counter < 5; counter++ {
+		reachable = local.IsDNSReachable(address)
+		time.Sleep(time.Second << 1)
+	}
+	if !reachable {
+		ncutils.Log("not setting dns, server unreachable: " + address)
+	} else if err := local.UpdateDNS(iface, network, address); err != nil {
+		ncutils.Log("error applying dns" + err.Error())
+	}
 }
