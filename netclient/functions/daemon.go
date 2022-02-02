@@ -280,13 +280,16 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 			if newNode.DNSOn == "yes" {
 				ncutils.Log("setting up DNS")
-				if err = local.UpdateDNS(cfg.Node.Interface, cfg.Network, cfg.Server.CoreDNSAddr); err != nil {
-					ncutils.Log("error applying dns" + err.Error())
+				for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
+					if server.IsLeader {
+						go setDNS(cfg.Node.Interface, cfg.Network, server.Address)
+						break
+					}
 				}
 			}
 		}
 		//deal with DNS
-		if newNode.DNSOn != "yes" && shouldDNSChange {
+		if newNode.DNSOn != "yes" && shouldDNSChange && cfg.Node.Interface != "" {
 			ncutils.Log("settng DNS off")
 			_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+cfg.Node.Interface, true)
 			if err != nil {
@@ -294,6 +297,18 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 		}
 	}()
+}
+func setDNS(iface, network, address string) {
+	var reachable bool
+	for counter := 0; !reachable && counter < 5; counter++ {
+		reachable = local.IsDNSReachable(address)
+		time.Sleep(time.Second << 1)
+	}
+	if !reachable {
+		ncutils.Log("not setting dns, server unreachable: " + address)
+	} else if err := local.UpdateDNS(iface, network, address); err != nil {
+		ncutils.Log("error applying dns" + err.Error())
+	}
 }
 
 // UpdatePeers -- mqtt message handler for peers/<Network>/<NodeID> topic

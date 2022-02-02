@@ -1,8 +1,11 @@
 package local
 
 import (
+	"fmt"
+	"net"
 	"os"
 	"strings"
+	"time"
 
 	//"github.com/davecgh/go-spew/spew"
 	"log"
@@ -10,6 +13,8 @@ import (
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
+
+const DNS_UNREACHABLE_ERROR = "nameserver unreachable"
 
 // SetDNS - sets the DNS of a local machine
 func SetDNS(nameserver string) error {
@@ -35,8 +40,20 @@ func SetDNS(nameserver string) error {
 
 // UpdateDNS - updates local DNS of client
 func UpdateDNS(ifacename string, network string, nameserver string) error {
+	if ifacename == "" {
+		return fmt.Errorf("cannot set dns: interface name is blank")
+	}
+	if network == "" {
+		return fmt.Errorf("cannot set dns: network name is blank")
+	}
+	if nameserver == "" {
+		return fmt.Errorf("cannot set dns: nameserver is blank")
+	}
 	if ncutils.IsWindows() {
 		return nil
+	}
+	if !IsDNSReachable(nameserver) {
+		return fmt.Errorf(DNS_UNREACHABLE_ERROR + " : " + nameserver + ":53")
 	}
 	_, err := exec.LookPath("resolvectl")
 	if err != nil {
@@ -59,4 +76,22 @@ func UpdateDNS(ifacename string, network string, nameserver string) error {
 		}
 	}
 	return err
+}
+
+func IsDNSReachable(nameserver string) bool {
+	port := "53"
+	protocols := [2]string{"tcp", "udp"}
+	for _, proto := range protocols {
+		timeout := time.Second
+		conn, err := net.DialTimeout(proto, net.JoinHostPort(nameserver, port), timeout)
+		if err != nil {
+			return false
+		}
+		if conn != nil {
+			defer conn.Close()
+		} else {
+			return false
+		}
+	}
+	return true
 }
