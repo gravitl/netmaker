@@ -72,7 +72,7 @@ func grpcAuthorize(ctx context.Context) error {
 
 	authToken := authHeader[0]
 
-	nodeID, mac, network, err := logic.VerifyToken(authToken)
+	nodeID, _, network, err := logic.VerifyToken(authToken)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func grpcAuthorize(ctx context.Context) error {
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "Unauthorized. Network does not exist: "+network)
 	}
-	node, err := logic.GetNodeByIDorMacAddress(nodeID, mac, network)
+	node, err := logic.GetNodeByID(nodeID)
 	if database.IsEmptyRecord(err) {
 		// == DELETE replace logic after 2 major version updates ==
 		if node, err = logic.GetDeletedNodeByID(node.ID); err == nil {

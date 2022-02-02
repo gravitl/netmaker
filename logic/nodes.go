@@ -549,6 +549,7 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 }
 
 // GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
+/*
 func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (models.Node, error) {
 	var node models.Node
 	var err error
@@ -571,7 +572,7 @@ func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (mo
 	}
 	return node, err
 }
-
+*/
 // GetNodeByID - get node by uuid, should have been set by create
 func GetNodeByID(uuid string) (models.Node, error) {
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)

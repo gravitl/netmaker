@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -449,7 +450,9 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
 func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
+	log.Println("DELETE ME: starting checkin")
 	for {
+		log.Println("DELETE ME: running checkin")
 		select {
 		case <-ctx.Done():
 			ncutils.Log("Checkin cancelled")
@@ -489,6 +492,7 @@ func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 					PublishNodeUpdate(cfg)
 				}
 			}
+			log.Println("DELETE ME: run hell0")
 			Hello(cfg, network)
 			// ncutils.Log("Checkin complete")
 		}
@@ -514,6 +518,7 @@ func Hello(cfg *config.ClientConfig, network string) {
 	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte("hello world!")); err != nil {
 		ncutils.Log(fmt.Sprintf("error publishing ping, %v", err))
 	}
+	log.Println("DELETE ME: ran hello")
 }
 
 func publish(cfg *config.ClientConfig, dest string, msg []byte) error {

@@ -221,7 +221,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var extclient models.ExtClient
 	extclient.Network = networkName
 	extclient.IngressGatewayID = nodeid
-	node, err := logic.GetNodeByIDorMacAddress(nodeid, nodeid, networkName)
+	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return

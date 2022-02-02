@@ -111,7 +111,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
-	node, err := logic.GetNodeByIDorMacAddress(newnode.ID, newnode.MacAddress, newnode.Network)
+	node, err := logic.GetNodeByID(newnode.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -265,14 +265,14 @@ func getNewOrLegacyNode(data string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
 		oldID := strings.Split(data, "###") // handle legacy client IDs
 		if len(oldID) == 2 {
-			if node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, oldID[0], oldID[1]); err != nil {
+			if node, err = logic.GetNodeByID(reqNode.ID); err != nil {
 				return models.Node{}, err
 			}
 		} else {
 			return models.Node{}, err
 		}
 	} else {
-		node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
+		node, err = logic.GetNodeByID(reqNode.ID)
 		if err != nil {
 			return models.Node{}, err
 		}
