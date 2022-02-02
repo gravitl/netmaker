@@ -34,6 +34,7 @@ func SetupWindowsDaemon() error {
 	return nil
 }
 
+// RestartWindowsDaemon - restarts windows service
 func RestartWindowsDaemon() {
 	StopWindowsDaemon()
 	// start daemon, will not restart or start another
@@ -59,6 +60,7 @@ func writeServiceConfig() error {
 <name>Netclient</name>
 <description>Connects Windows nodes to one or more Netmaker networks.</description>
 <executable>%v</executable>
+<arguments>daemon</arguments>
 <log mode="roll"></log>
 </service>
 `, strings.Replace(ncutils.GetNetclientPathSpecific()+"netclient.exe", `\\`, `\`, -1))

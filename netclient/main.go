@@ -8,7 +8,6 @@ import (
 	"runtime/debug"
 
 	"github.com/gravitl/netmaker/netclient/cli_options"
-	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/ncwindows"
 	"github.com/urfave/cli/v2"
@@ -31,13 +30,10 @@ func main() {
 		ncutils.CheckUID()
 		ncutils.CheckWG()
 	}
-	if len(os.Args) == 1 && ncutils.IsWindows() {
-		command.RunUserspaceDaemon()
-	} else {
-		err := app.Run(os.Args)
-		if err != nil {
-			log.Fatal(err)
-		}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 

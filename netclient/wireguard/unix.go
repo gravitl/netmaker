@@ -53,17 +53,20 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 
 // ApplyWGQuickConf - applies wg-quick commands if os supports
 func ApplyWGQuickConf(confPath string, ifacename string) error {
-	_, err := os.Stat(confPath)
-	if err != nil {
-		ncutils.Log(confPath + " does not exist " + err.Error())
+	if ncutils.IsWindows() {
+		return ApplyWindowsConf(confPath)
+	} else {
+		_, err := os.Stat(confPath)
+		if err != nil {
+			ncutils.Log(confPath + " does not exist " + err.Error())
+			return err
+		}
+		if ncutils.IfaceExists(ifacename) {
+			ncutils.RunCmd("wg-quick down "+confPath, true)
+		}
+		_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
 		return err
 	}
-	if ncutils.IfaceExists(ifacename) {
-		ncutils.RunCmd("wg-quick down "+confPath, true)
-	}
-	_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
-
-	return err
 }
 
 // ApplyMacOSConf - applies system commands similar to wg-quick using golang for MacOS
