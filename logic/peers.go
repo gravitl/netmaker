@@ -73,7 +73,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		}
 		peers = append(peers, peerData)
 		if peer.IsServer == "yes" {
-			serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{ID: peer.ID, IsLeader: IsLeader(&peer), Address: peer.Address})
+			serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(&peer), Address: peer.Address})
 		}
 	}
 	if node.IsIngressGateway == "yes" {

@@ -102,12 +102,8 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 
 	go func(node *models.Node) {
 		if node.UDPHolePunch == "yes" {
-			var currentServerNodeID, getErr = logic.GetNetworkServerNodeID(node.Network)
+			var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
 			if getErr != nil {
-				return
-			}
-			var currentServerNode, currErr = logic.GetNodeByID(currentServerNodeID)
-			if currErr != nil {
 				return
 			}
 			for i := 0; i < 5; i++ {
@@ -185,7 +181,6 @@ func getServerAddrs(node *models.Node) {
 		serverAddrs = append(serverAddrs, models.ServerAddr{
 			IsLeader: logic.IsLeader(&node),
 			Address:  node.Address,
-			ID:       node.ID,
 		})
 	}
 

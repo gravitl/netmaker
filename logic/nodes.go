@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -237,7 +236,6 @@ func CreateNode(node *models.Node) error {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
 	}
 
-	// TODO: This covers legacy nodes, eventually want to remove legacy check
 	node.ID = uuid.NewString()
 
 	//Create a JWT for the node
@@ -268,67 +266,6 @@ func CreateNode(node *models.Node) error {
 	}
 	return err
 }
-
-// IfaceDelta - is there interface changes
-// func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
-// 	SetNodeDefaults(newNode)
-// 	// single comparison statements
-// 	if currentNode.IsServer != "yes" {
-// 		return false
-// 	}
-
-// 	if newNode.Endpoint != currentNode.Endpoint ||
-// 		newNode.LocalAddress != currentNode.LocalAddress ||
-// 		newNode.PublicKey != currentNode.PublicKey ||
-// 		newNode.Address != currentNode.Address ||
-// 		newNode.IsEgressGateway != currentNode.IsEgressGateway ||
-// 		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
-// 		newNode.IsRelay != currentNode.IsRelay ||
-// 		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
-// 		newNode.IsPending != currentNode.IsPending ||
-// 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
-// 		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
-// 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
-// 		return true
-// 	}
-
-// 	// multi-comparison statements
-// 	if newNode.IsDualStack == "yes" {
-// 		if newNode.Address6 != currentNode.Address6 {
-// 			return true
-// 		}
-// 	}
-
-// 	if newNode.IsEgressGateway == "yes" {
-// 		if len(currentNode.EgressGatewayRanges) != len(newNode.EgressGatewayRanges) {
-// 			return true
-// 		}
-// 		for _, address := range newNode.EgressGatewayRanges {
-// 			if !StringSliceContains(currentNode.EgressGatewayRanges, address) {
-// 				return true
-// 			}
-// 		}
-// 	}
-
-// 	if newNode.IsRelay == "yes" {
-// 		if len(currentNode.RelayAddrs) != len(newNode.RelayAddrs) {
-// 			return true
-// 		}
-// 		for _, address := range newNode.RelayAddrs {
-// 			if !StringSliceContains(currentNode.RelayAddrs, address) {
-// 				return true
-// 			}
-// 		}
-// 	}
-
-// 	for _, address := range newNode.AllowedIPs {
-// 		if !StringSliceContains(currentNode.AllowedIPs, address) {
-// 			return true
-// 		}
-// 	}
-
-// 	return false
-// }
 
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
@@ -602,28 +539,35 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 }
 
 // GetNetworkServerNodeID - get network server node ID if exists
-func GetNetworkServerNodeID(network string) (string, error) {
-	var nodes, err = GetNetworkNodes(network)
+func GetNetworkServerLeader(network string) (models.Node, error) {
+	nodes, err := GetSortedNetworkServerNodes(network)
 	if err != nil {
-		return "", err
+		return models.Node{}, err
 	}
 	for _, node := range nodes {
-		if node.IsServer == "yes" {
-			if servercfg.GetNodeID() != "" {
-				if servercfg.GetNodeID() == node.MacAddress {
-					if strings.Contains(node.ID, "###") {
-						DeleteNodeByMacAddress(&node, true)
-						logger.Log(1, "deleted legacy server node on network "+node.Network)
-						return "", errors.New("deleted legacy server node on network " + node.Network)
-					}
-					return node.ID, nil
-				}
-				continue
-			}
-			return node.ID, nil
+		if IsLeader(&node) {
+			return node, nil
 		}
 	}
-	return "", errors.New("could not find server node")
+	return models.Node{}, errors.New("could not find server leader")
+}
+
+// GetNetworkServerNodeID - get network server node ID if exists
+func GetNetworkServerLocal(network string) (models.Node, error) {
+	nodes, err := GetSortedNetworkServerNodes(network)
+	if err != nil {
+		return models.Node{}, err
+	}
+	mac := servercfg.GetNodeID()
+	if mac == "" {
+		return models.Node{}, fmt.Errorf("error retrieving local server node: server node ID is unset")
+	}
+	for _, node := range nodes {
+		if mac == node.MacAddress {
+			return node, nil
+		}
+	}
+	return models.Node{}, errors.New("could not find node for local server")
 }
 
 // validateServer - make sure servers dont change port or address
