@@ -136,9 +136,6 @@ echo "Setting Caddyfile..."
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
-echo "Setting Broker..."
-sed -i "s/SERVER_PBLIC_IP/$SERVER_PUBLIC_IP/g" /root/mosquitto.conf
-
 echo "Setting docker-compose..."
 
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml

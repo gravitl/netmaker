@@ -165,8 +165,12 @@ func Push(cfg config.ClientConfig) error {
 	} else {
 		err = functions.Push(cfg.Network)
 	}
-	ncutils.PrintLog("completed pushing network configs to remote server", 1)
-	ncutils.PrintLog("success", 1)
+	if err == nil {
+		ncutils.PrintLog("completed pushing network configs to remote server", 1)
+		ncutils.PrintLog("success", 1)
+	} else {
+		ncutils.PrintLog("error occurred pushing configs", 1)
+	}
 	return err
 }
 
@@ -193,7 +197,12 @@ func Pull(cfg config.ClientConfig) error {
 		_, err = functions.Pull(cfg.Network, true)
 	}
 	ncutils.PrintLog("reset network and peer configs", 1)
-	ncutils.PrintLog("success", 1)
+	if err == nil {
+		ncutils.PrintLog("reset network and peer configs", 1)
+		ncutils.PrintLog("success", 1)
+	} else {
+		ncutils.PrintLog("error occurred pulling configs from server", 1)
+	}
 	return err
 }
 

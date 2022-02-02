@@ -311,10 +311,12 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		// see if cache hit, if so skip
-		var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
-		if currentMessage == string(data) {
-			return
-		}
+		/*
+			var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
+			if currentMessage == string(data) {
+				return
+			}
+		*/
 		insert(peerUpdate.Network, lastPeerUpdate, string(data))
 		ncutils.Log("update peer handler")
 
@@ -355,7 +357,7 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 				ncutils.Log("unable to parse timestamp " + keepalivetime.String())
 				continue
 			}
-			if time.Since(keepalivetime) > time.Second*200 { // more than 3+ minutes
+			if time.Since(keepalivetime) > time.Second*120 { // more than 2+ minutes
 				ncutils.Log("server keepalive not recieved recently, resubscribe to message queue")
 				err := Resubscribe(client, cfg)
 				if err != nil {
@@ -513,6 +515,12 @@ func PublishNodeUpdate(cfg *config.ClientConfig) {
 func Hello(cfg *config.ClientConfig, network string) {
 	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte("hello world!")); err != nil {
 		ncutils.Log(fmt.Sprintf("error publishing ping, %v", err))
+		ncutils.Log("running pull on " + cfg.Node.Network + " to reconnect")
+		_, err := Pull(cfg.Node.Network, true)
+		if err != nil {
+			ncutils.Log("could not run pull on " + cfg.Node.Network + ", error: " + err.Error())
+		}
+
 	}
 }
 

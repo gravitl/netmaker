@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/google/uuid"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
@@ -70,6 +69,11 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
 		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
 		cfg.Node.LocalAddress = getLocalIP(cfg.Node)
+	} else if cfg.Node.LocalAddress == "" {
+		intIP, err := getPrivateAddr()
+		if err == nil {
+			cfg.Node.LocalAddress = intIP
+		}
 	}
 
 	// set endpoint if blank. set to local if local net, retrieve from function if not
@@ -102,10 +106,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		} else {
 			cfg.Node.MacAddress = macs[0]
 		}
-	}
-
-	if cfg.Node.ID == "" {
-		cfg.Node.ID = uuid.NewString()
 	}
 
 	if ncutils.IsLinux() {
@@ -238,6 +238,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 	if err != nil {
 		return err
+	} else {
+		daemon.Restart()
 	}
 
 	return err

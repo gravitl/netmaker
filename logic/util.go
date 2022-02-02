@@ -199,7 +199,7 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 				if len(endpointarr) == 2 {
 					port, err := strconv.Atoi(endpointarr[1])
 					if err == nil {
-						peer.Endpoint = endpointarr[0]
+						// peer.Endpoint = endpointarr[0]
 						peer.ListenPort = int32(port)
 					}
 				}
@@ -253,7 +253,7 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
 					if nodepeer.Address == peerNode.Address {
-						peerNode.Endpoint = nodepeer.Endpoint
+						// peerNode.Endpoint = nodepeer.Endpoint
 						peerNode.ListenPort = nodepeer.ListenPort
 					}
 				}

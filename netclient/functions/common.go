@@ -43,20 +43,21 @@ func getPrivateAddr() (string, error) {
 
 	var local string
 	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
+	if err == nil {
+		defer conn.Close()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	localIP := localAddr.IP
-	local = localIP.String()
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+		localIP := localAddr.IP
+		local = localIP.String()
+	}
 	if local == "" {
 		local, err = getPrivateAddrBackup()
 	}
+
 	if local == "" {
 		err = errors.New("could not find local ip")
 	}
+
 	return local, err
 }
 

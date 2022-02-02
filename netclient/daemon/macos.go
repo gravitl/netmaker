@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -52,6 +53,12 @@ func CleanupMac() {
 
 	os.RemoveAll(ncutils.GetNetclientPath())
 	os.Remove(EXEC_DIR + "netclient")
+}
+
+func RestartLaunchD() {
+	ncutils.RunCmd("launchctl unload /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
+	time.Sleep(time.Second >> 2)
+	ncutils.RunCmd("launchctl load /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
 }
 
 // CreateMacService - Creates the mac service file for LaunchDaemons

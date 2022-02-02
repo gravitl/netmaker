@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -71,6 +72,12 @@ WantedBy=multi-user.target
 	_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
 	_, _ = ncutils.RunCmd("systemctl start netclient.service", true)
 	return nil
+}
+
+func RestartSystemD() {
+	ncutils.PrintLog("restarting netclient.service", 1)
+	time.Sleep(time.Second)
+	_, _ = ncutils.RunCmd("systemctl restart netclient.service", true)
 }
 
 func CleanupLinux() {
