@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/google/uuid"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
@@ -102,10 +101,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		} else {
 			cfg.Node.MacAddress = macs[0]
 		}
-	}
-
-	if cfg.Node.ID == "" {
-		cfg.Node.ID = uuid.NewString()
 	}
 
 	if ncutils.IsLinux() {
