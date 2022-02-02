@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
@@ -103,6 +104,31 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	}
 
 	runUpdates(&node, false)
+
+	go func(node *models.Node) {
+		if node.UDPHolePunch == "yes" {
+			var currentServerNodeID, getErr = logic.GetNetworkServerNodeID(node.Network)
+			if getErr != nil {
+				return
+			}
+			var currentServerNode, currErr = logic.GetNodeByID(currentServerNodeID)
+			if currErr != nil {
+				return
+			}
+			for i := 0; i < 5; i++ {
+				if logic.HasPeerConnected(node) {
+					if logic.ShouldPublishPeerPorts(&currentServerNode) {
+						err = mq.PublishPeerUpdate(&currentServerNode)
+						if err != nil {
+							logger.Log(1, "error publishing port updates when node", node.Name, "joined")
+						}
+						break
+					}
+				}
+				time.Sleep(time.Second << 1) // allow time for client to startup
+			}
+		}
+	}(&node)
 
 	return response, nil
 }

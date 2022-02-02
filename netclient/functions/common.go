@@ -185,7 +185,7 @@ func LeaveNetwork(network string) error {
 			}
 		}
 	}
-	//extra network route setting required for freebsd and windows
+	// extra network route setting required for freebsd and windows, TODO mac??
 	if ncutils.IsWindows() {
 		ip, mask, err := ncutils.GetNetworkIPMask(node.NetworkSettings.AddressRange)
 		if err != nil {
@@ -197,7 +197,12 @@ func LeaveNetwork(network string) error {
 	} else if ncutils.IsLinux() {
 		_, _ = ncutils.RunCmd("ip -4 route del "+node.NetworkSettings.AddressRange+" dev "+node.Interface, false)
 	}
-	return RemoveLocalInstance(cfg, network)
+
+	currentNets, err := ncutils.GetSystemNetworks()
+	if err != nil || len(currentNets) <= 1 {
+		return RemoveLocalInstance(cfg, network)
+	}
+	return daemon.Restart()
 }
 
 // RemoveLocalInstance - remove all netclient files locally for a network
