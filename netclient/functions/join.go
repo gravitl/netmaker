@@ -69,6 +69,11 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
 		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
 		cfg.Node.LocalAddress = getLocalIP(cfg.Node)
+	} else if cfg.Node.LocalAddress == "" {
+		intIP, err := getPrivateAddr()
+		if err == nil {
+			cfg.Node.LocalAddress = intIP
+		}
 	}
 
 	// set endpoint if blank. set to local if local net, retrieve from function if not
@@ -233,6 +238,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 	if err != nil {
 		return err
+	} else {
+		daemon.Restart()
 	}
 
 	return err

@@ -357,7 +357,7 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 				ncutils.Log("unable to parse timestamp " + keepalivetime.String())
 				continue
 			}
-			if time.Since(keepalivetime) > time.Second*200 { // more than 3+ minutes
+			if time.Since(keepalivetime) > time.Second*120 { // more than 2+ minutes
 				ncutils.Log("server keepalive not recieved recently, resubscribe to message queue")
 				err := Resubscribe(client, cfg)
 				if err != nil {

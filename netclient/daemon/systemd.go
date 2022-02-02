@@ -73,6 +73,10 @@ WantedBy=multi-user.target
 	return nil
 }
 
+func RestartSystemD() {
+	_, _ = ncutils.RunCmd("systemctl start netclient.service", true)
+}
+
 func CleanupLinux() {
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
 		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
