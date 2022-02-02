@@ -30,17 +30,31 @@ var messageCache = new(sync.Map)
 const lastNodeUpdate = "lnu"
 const lastPeerUpdate = "lpu"
 
+type cachedMessage struct {
+	Message  string
+	LastSeen time.Time
+}
+
 func insert(network, which, cache string) {
-	// var mu sync.Mutex
-	// mu.Lock()
-	// defer mu.Unlock()
-	messageCache.Store(fmt.Sprintf("%s%s", network, which), cache)
+	var newMessage = cachedMessage{
+		Message:  cache,
+		LastSeen: time.Now(),
+	}
+	ncutils.Log("storing new message: " + cache)
+	messageCache.Store(fmt.Sprintf("%s%s", network, which), newMessage)
 }
 
 func read(network, which string) string {
 	val, isok := messageCache.Load(fmt.Sprintf("%s%s", network, which))
 	if isok {
-		return fmt.Sprintf("%v", val)
+		var readMessage = val.(cachedMessage)                        // fetch current cached message
+		if time.Now().After(readMessage.LastSeen.Add(time.Minute)) { // check if message has been there over a minute
+			messageCache.Delete(fmt.Sprintf("%s%s", network, which)) // remove old message if expired
+			ncutils.Log("cached message expired")
+			return ""
+		}
+		ncutils.Log("cache hit, skipping probably " + readMessage.Message)
+		return readMessage.Message // return current message if not expired
 	}
 	return ""
 }
@@ -219,6 +233,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		newNode.OS = runtime.GOOS
 		// check if interface needs to delta
 		ifaceDelta := ncutils.IfaceDelta(&cfg.Node, &newNode)
+		shouldDNSChange := cfg.Node.DNSOn != newNode.DNSOn
 
 		cfg.Node = newNode
 		switch newNode.Action {
@@ -265,24 +280,15 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				ncutils.Log("error resubscribing after interface change " + err.Error())
 				return
 			}
-		}
-		/*
-			else {
-				ncutils.Log("syncing conf to " + file)
-				err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
-				if err != nil {
-					ncutils.Log("error syncing wg after peer update " + err.Error())
-					return
+			if newNode.DNSOn == "yes" {
+				ncutils.Log("setting up DNS")
+				if err = local.UpdateDNS(cfg.Node.Interface, cfg.Network, cfg.Server.CoreDNSAddr); err != nil {
+					ncutils.Log("error applying dns" + err.Error())
 				}
 			}
-		*/
+		}
 		//deal with DNS
-		if newNode.DNSOn == "yes" {
-			ncutils.Log("setting up DNS")
-			if err = local.UpdateDNS(cfg.Node.Interface, cfg.Network, cfg.Server.CoreDNSAddr); err != nil {
-				ncutils.Log("error applying dns" + err.Error())
-			}
-		} else {
+		if newNode.DNSOn != "yes" && shouldDNSChange {
 			ncutils.Log("settng DNS off")
 			_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+cfg.Node.Interface, true)
 			if err != nil {
@@ -311,14 +317,12 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		// see if cache hit, if so skip
-		/*
-			var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
-			if currentMessage == string(data) {
-				return
-			}
-		*/
+		var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
+		if currentMessage == string(data) {
+			ncutils.Log("cache hit")
+			return
+		}
 		insert(peerUpdate.Network, lastPeerUpdate, string(data))
-		ncutils.Log("update peer handler")
 
 		file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 		err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
@@ -326,13 +330,13 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			ncutils.Log("error updating wireguard peers" + err.Error())
 			return
 		}
-		ncutils.Log("syncing conf to " + file)
 		//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
 		err = wireguard.SetPeers(cfg.Node.Interface, cfg.Node.PersistentKeepalive, peerUpdate.Peers)
 		if err != nil {
 			ncutils.Log("error syncing wg after peer update " + err.Error())
 			return
 		}
+		ncutils.Log(fmt.Sprintf("received peer update on network, %s", cfg.Network))
 	}()
 }
 
