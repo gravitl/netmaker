@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -312,10 +311,12 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		// see if cache hit, if so skip
-		var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
-		if currentMessage == string(data) {
-			return
-		}
+		/*
+			var currentMessage = read(peerUpdate.Network, lastPeerUpdate)
+			if currentMessage == string(data) {
+				return
+			}
+		*/
 		insert(peerUpdate.Network, lastPeerUpdate, string(data))
 		ncutils.Log("update peer handler")
 
@@ -450,9 +451,7 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
 func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
-	log.Println("DELETE ME: starting checkin")
 	for {
-		log.Println("DELETE ME: running checkin")
 		select {
 		case <-ctx.Done():
 			ncutils.Log("Checkin cancelled")
@@ -492,7 +491,6 @@ func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 					PublishNodeUpdate(cfg)
 				}
 			}
-			log.Println("DELETE ME: run hell0")
 			Hello(cfg, network)
 			// ncutils.Log("Checkin complete")
 		}
@@ -517,8 +515,13 @@ func PublishNodeUpdate(cfg *config.ClientConfig) {
 func Hello(cfg *config.ClientConfig, network string) {
 	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte("hello world!")); err != nil {
 		ncutils.Log(fmt.Sprintf("error publishing ping, %v", err))
+		ncutils.Log("running pull on " + cfg.Node.Network + " to reconnect")
+		_, err := Pull(cfg.Node.Network, true)
+		if err != nil {
+			ncutils.Log("could not run pull on " + cfg.Node.Network + ", error: " + err.Error())
+		}
+
 	}
-	log.Println("DELETE ME: ran hello")
 }
 
 func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
@@ -547,7 +550,6 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 }
 
 func parseNetworkFromTopic(topic string) string {
-	log.Println("DELETE ME: topic - " + topic)
 	return strings.Split(topic, "/")[1]
 }
 

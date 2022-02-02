@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"runtime"
 	"strings"
@@ -171,9 +170,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	var ctx context.Context
 
 	if cfg.Node.IsServer != "yes" {
-		log.Println("DELETE ME: server addr - " + cfg.Server.GRPCAddress)
-		log.Println("DELETE ME: server ssl - " + cfg.Server.GRPCSSL)
-
 		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 		if err != nil {
@@ -188,9 +184,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			ncutils.PrintLog("Failed to authenticate: "+err.Error(), 1)
 			return nil, err
 		}
-		log.Println("DELETE ME: node - " + node.Name)
-		log.Println("DELETE ME: node - " + node.Network)
-		log.Println("DELETE ME: node - " + node.Address)
 		data, err := json.Marshal(&node)
 		if err != nil {
 			ncutils.PrintLog("Failed to parse node config: "+err.Error(), 1)
@@ -202,14 +195,10 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			Type: nodepb.NODE_TYPE,
 		}
 
-		log.Println("DELETE ME: checkpoint 3")
-
 		readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
 		if err != nil {
 			return nil, err
 		}
-
-		log.Println("DELETE ME: checkpoint 3.5")
 
 		if err = json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
 			return nil, err
