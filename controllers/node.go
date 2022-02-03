@@ -589,6 +589,9 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot delete server node"), "badrequest"))
 		return
 	}
+	//send update to node to be deleted before deleting on server otherwise message cannot be sent
+	node.Action = models.NODE_DELETE
+	runUpdates(&node, true)
 	err = logic.DeleteNodeByID(&node, false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -599,11 +602,9 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	node.Action = models.NODE_DELETE
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
-	runUpdates(&node, true)
 }
 
 func runUpdates(node *models.Node, nodeUpdate bool) error {
