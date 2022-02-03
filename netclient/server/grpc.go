@@ -117,6 +117,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			log.Println("Failed to authenticate.")
 			return peers, hasGateway, gateways, err
 		}
+
 		var header metadata.MD
 
 		response, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))

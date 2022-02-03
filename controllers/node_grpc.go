@@ -94,16 +94,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
-	nodeData, errN := json.Marshal(&node)
-	if errN != nil {
-		return nil, err
-	}
-
-	response := &nodepb.Object{
-		Data: string(nodeData),
-		Type: nodepb.NODE_TYPE,
-	}
-
 	runUpdates(&node, false)
 
 	go func(node *models.Node) {
@@ -126,6 +116,18 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 			}
 		}
 	}(&node)
+
+	//  == send response ==
+
+	nodeData, errN := json.Marshal(&node)
+	if errN != nil {
+		return nil, err
+	}
+
+	response := &nodepb.Object{
+		Data: string(nodeData),
+		Type: nodepb.NODE_TYPE,
+	}
 
 	return response, nil
 }
