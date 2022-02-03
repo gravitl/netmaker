@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -125,6 +126,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	rangeupdate, localrangeupdate, holepunchupdate, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
+		logger.Log(1, err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -137,6 +139,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if rangeupdate {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
 		if err != nil {
+			logger.Log(1, err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -144,6 +147,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if localrangeupdate {
 		err = logic.UpdateNetworkLocalAddresses(network.NetID)
 		if err != nil {
+			logger.Log(1, err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -151,6 +155,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if holepunchupdate {
 		err = logic.UpdateNetworkHolePunching(network.NetID, newNetwork.DefaultUDPHolePunch)
 		if err != nil {
+			logger.Log(1, err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -162,7 +167,12 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, node := range nodes {
-			runUpdates(&node, true)
+			if node.IsServer != "yes" {
+				err = mq.NodeUpdate(&node)
+				if err != nil {
+					logger.Log(1, err.Error())
+				}
+			}
 		}
 	}
 

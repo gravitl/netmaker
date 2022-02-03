@@ -118,6 +118,7 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 // MessageQueue sets up Message Queue and subsribes/publishes updates to/from server
 func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
+	keepalive.Store(network, time.Now())
 	var cfg config.ClientConfig
 	cfg.Network = network
 	ncutils.Log("pulling latest config for " + cfg.Network)

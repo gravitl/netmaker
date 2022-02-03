@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -108,10 +109,8 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	for _, node := range networkNodes {
 
 		if node.IsServer == "yes" || node.ID == newNode.ID {
-			log.Println("skipping update on " + node.Name + " : " + node.ID)
 			continue
 		}
-		log.Println("running update on " + node.Name + " : " + node.ID)
 		peerUpdate, err := logic.GetPeerUpdate(&node)
 		if err != nil {
 			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
@@ -147,6 +146,10 @@ func NodeUpdate(node *models.Node) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
+	if node == nil {
+
+	}
+	spew.Dump(node)
 	logger.Log(3, "publishing node update to "+node.Name)
 	data, err := json.Marshal(node)
 	if err != nil {

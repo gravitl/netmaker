@@ -304,7 +304,20 @@ func ReadConfig(network string) (*ClientConfig, error) {
 		err = decoder.Decode(&cfg)
 		if err != nil {
 			fmt.Println("trouble decoding file")
-			return nil, err
+			if err = ReplaceWithBackup(network); err != nil {
+				return nil, err
+			}
+			f2, err := os.Open(file)
+			if err != nil {
+				return nil, err
+			}
+			defer f2.Close()
+			decoder2 := yaml.NewDecoder(f2)
+			err = decoder2.Decode(&cfg)
+			if err != nil {
+				fmt.Println("trouble decoding backup file")
+				return nil, err
+			}
 		}
 	}
 	return &cfg, err
