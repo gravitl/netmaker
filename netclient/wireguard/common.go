@@ -25,7 +25,8 @@ const (
 
 // SetPeers - sets peers on a given WireGuard interface
 func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
-
+	var oldIPList []string
+	var newIPList []string
 	var devicePeers []wgtypes.Peer
 	var err error
 	if ncutils.IsFreeBSD() {
@@ -58,6 +59,12 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
 				if err != nil {
 					log.Println("error removing peer", peer.Endpoint.String())
+				} else {
+					for _, address := range currentPeer.AllowedIPs {
+						if err = local.DeleteRoute(iface, address.String()); err != nil {
+							ncutils.PrintLog(err.Error(), 1)
+						}
+					}
 				}
 			}
 		}
@@ -84,6 +91,8 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		}
 		if err != nil {
 			log.Println("error setting peer", peer.PublicKey.String())
+		} else {
+
 		}
 	}
 
@@ -104,6 +113,8 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 	if ncutils.IsMac() {
 		err = SetMacPeerRoutes(iface)
 		return err
+	} else if ncutils.IsLinux() {
+		err = local.SetLinuxPeerRoutes(devicePeers, peers)
 	}
 
 	return nil

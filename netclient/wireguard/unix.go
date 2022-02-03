@@ -8,6 +8,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -65,6 +66,12 @@ func ApplyWGQuickConf(confPath string, ifacename string) error {
 			ncutils.RunCmd("wg-quick down "+confPath, true)
 		}
 		_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
+		if err != nil {
+			return err
+		}
+		if ncutils.IsLinux() {
+			err = local.ApplyRoutesFromConf(confPath)
+		}
 		return err
 	}
 }
