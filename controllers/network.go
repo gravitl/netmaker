@@ -123,7 +123,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		newNetwork.DefaultPostUp = network.DefaultPostUp
 	}
 
-	rangeupdate, localrangeupdate, err := logic.UpdateNetwork(&network, &newNetwork)
+	rangeupdate, localrangeupdate, holepunchupdate, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -148,6 +148,24 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if holepunchupdate {
+		err = logic.UpdateNetworkHolePunching(network.NetID, newNetwork.DefaultUDPHolePunch)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+	}
+	if rangeupdate || localrangeupdate || holepunchupdate {
+		nodes, err := logic.GetNetworkNodes(network.NetID)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+		for _, node := range nodes {
+			runUpdates(&node, true)
+		}
+	}
+
 	logger.Log(1, r.Header.Get("user"), "updated network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetwork)

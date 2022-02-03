@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
@@ -104,6 +105,27 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 
 	runUpdates(&node, false)
 
+	go func(node *models.Node) {
+		if node.UDPHolePunch == "yes" {
+			var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
+			if getErr != nil {
+				return
+			}
+			for i := 0; i < 5; i++ {
+				if logic.HasPeerConnected(node) {
+					if logic.ShouldPublishPeerPorts(&currentServerNode) {
+						err = mq.PublishPeerUpdate(&currentServerNode)
+						if err != nil {
+							logger.Log(1, "error publishing port updates when node", node.Name, "joined")
+						}
+						break
+					}
+				}
+				time.Sleep(time.Second << 1) // allow time for client to startup
+			}
+		}
+	}(&node)
+
 	return response, nil
 }
 
@@ -164,7 +186,6 @@ func getServerAddrs(node *models.Node) {
 		serverAddrs = append(serverAddrs, models.ServerAddr{
 			IsLeader: logic.IsLeader(&node),
 			Address:  node.Address,
-			ID:       node.ID,
 		})
 	}
 
@@ -261,29 +282,7 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 }
 
 // == private methods ==
-/*
-func getNewOrLegacyNode(data string) (models.Node, error) {
-	var reqNode, node models.Node
-	var err error
 
-	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
-		oldID := strings.Split(data, "###") // handle legacy client IDs
-		if len(oldID) == 2 {
-			if node, err = logic.GetNodeByID(reqNode.ID); err != nil {
-				return models.Node{}, err
-			}
-		} else {
-			return models.Node{}, err
-		}
-	} else {
-		node, err = logic.GetNodeByID(reqNode.ID)
-		if err != nil {
-			return models.Node{}, err
-		}
-	}
-	return node, nil
-}
-*/
 func getNodeFromRequestData(data string) (models.Node, error) {
 	var reqNode models.Node
 	var err error

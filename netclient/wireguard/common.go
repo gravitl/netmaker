@@ -3,6 +3,7 @@ package wireguard
 import (
 	"errors"
 	"log"
+	"net"
 	"runtime"
 	"strconv"
 	"strings"
@@ -25,8 +26,8 @@ const (
 
 // SetPeers - sets peers on a given WireGuard interface
 func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
-
 	var devicePeers []wgtypes.Peer
+	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
 	var err error
 	if ncutils.IsFreeBSD() {
 		if devicePeers, err = ncutils.GetPeers(iface); err != nil {
@@ -100,10 +101,13 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 				log.Println(output, "error removing peer", currentPeer.PublicKey.String())
 			}
 		}
+		oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
 	}
 	if ncutils.IsMac() {
 		err = SetMacPeerRoutes(iface)
 		return err
+	} else if ncutils.IsLinux() {
+		local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
 	}
 
 	return nil

@@ -195,13 +195,7 @@ func Keepalive(ctx context.Context) {
 				logger.Log(1, "error retrieving networks for keepalive", err.Error())
 			}
 			for _, network := range networks {
-				var id string
-				for _, servAddr := range network.DefaultServerAddrs {
-					if servAddr.IsLeader {
-						id = servAddr.ID
-					}
-				}
-				serverNode, errN := logic.GetNodeByID(id)
+				serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
 				if errN == nil {
 					serverNode.SetLastCheckIn()
 					logic.UpdateNode(&serverNode, &serverNode)
@@ -210,14 +204,19 @@ func Keepalive(ctx context.Context) {
 					}
 					err = PublishPeerUpdate(&serverNode)
 					if err != nil {
-						logger.Log(1, "error publishing udp port updates", err.Error())
+						logger.Log(1, "error publishing udp port updates for network", network.NetID)
+						logger.Log(1, errN.Error())
 					}
-				}
-				if id == "" {
-					logger.Log(0, "leader not defined for network", network.NetID)
+				} else {
+					logger.Log(1, "unable to retrieve leader for network ", network.NetID)
+					logger.Log(1, errN.Error())
 					continue
 				}
-				if token := client.Publish("serverkeepalive/"+id, 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
+				if serverNode.Address == "" {
+					logger.Log(1, "leader not defined for network ", network.NetID)
+					continue
+				}
+				if token := client.Publish("serverkeepalive/"+network.NetID, 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
 					logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
 				} else {
 					logger.Log(2, "keepalive sent for network", network.NetID)

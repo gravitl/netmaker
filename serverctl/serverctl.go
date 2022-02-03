@@ -44,12 +44,8 @@ func SyncServerNetwork(network string) error {
 		}
 	}
 
-	serverNodeID, err := logic.GetNetworkServerNodeID(network)
-	if !ifaceExists && (err == nil && serverNodeID != "") {
-		serverNode, err := logic.GetNodeByID(serverNodeID)
-		if err != nil {
-			return err
-		}
+	serverNode, err := logic.GetNetworkServerLocal(network)
+	if !ifaceExists && (err == nil && serverNode.ID != "") {
 		return logic.ServerUpdate(&serverNode, true)
 	} else if !ifaceExists {
 		_, err := logic.ServerJoin(&serverNetworkSettings)

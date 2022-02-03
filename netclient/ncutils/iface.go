@@ -18,6 +18,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
 		newNode.IsPending != currentNode.IsPending ||
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
+		newNode.DNSOn != currentNode.DNSOn ||
 		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
 		return true
@@ -64,6 +65,16 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 func StringSliceContains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// IPNetSliceContains - sees if a string slice contains a string element
+func IPNetSliceContains(slice []net.IPNet, item net.IPNet) bool {
+	for _, s := range slice {
+		if s.String() == item.String() {
 			return true
 		}
 	}

@@ -23,13 +23,9 @@ func runServerPeerUpdate(node *models.Node, ifaceDelta bool) error {
 	if servercfg.IsClientMode() != "on" {
 		return nil
 	}
-	var currentServerNodeID, getErr = logic.GetNetworkServerNodeID(node.Network)
+	var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
 	if err != nil {
 		return getErr
-	}
-	var currentServerNode, currErr = logic.GetNodeByID(currentServerNodeID)
-	if currErr != nil {
-		return currErr
 	}
 	if err = logic.ServerUpdate(&currentServerNode, ifaceDelta); err != nil {
 		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
