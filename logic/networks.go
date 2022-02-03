@@ -389,13 +389,35 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 			node.Address = ipaddr
 			newNodeData, err := json.Marshal(&node)
 			if err != nil {
-				fmt.Println("error in node  address assignment!")
+				logger.Log(1, "error in node  address assignment!")
 				return err
 			}
 			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
 		}
 	}
 
+	return nil
+}
+
+// UpdateNetworkLocalAddresses - updates network localaddresses
+func UpdateNetworkHolePunching(networkName string, holepunch string) error {
+
+	nodes, err := GetNetworkNodes(networkName)
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		if node.IsServer != "yes" {
+			node.UDPHolePunch = holepunch
+			newNodeData, err := json.Marshal(&node)
+			if err != nil {
+				logger.Log(1, "error in node hole punch assignment")
+				return err
+			}
+			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
+		}
+	}
 	return nil
 }
 
@@ -509,23 +531,24 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, error) {
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, err
+		return false, false, false, err
 	}
 	if newNetwork.NetID == currentNetwork.NetID {
 		hasrangeupdate := newNetwork.AddressRange != currentNetwork.AddressRange
 		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
+		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
-			return false, false, err
+			return false, false, false, err
 		}
 		newNetwork.SetNetworkLastModified()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		return hasrangeupdate, localrangeupdate, err
+		return hasrangeupdate, localrangeupdate, hasholepunchupdate, err
 	}
 	// copy values
-	return false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
 // Inc - increments an IP
