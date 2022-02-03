@@ -121,7 +121,7 @@ func MessageQueue(ctx context.Context, network string) {
 	var cfg config.ClientConfig
 	cfg.Network = network
 	ncutils.Log("pulling latest config for " + cfg.Network)
-	var configPath = fmt.Sprintf("%sconfig/netconfig-%s", ncutils.GetNetclientPathSpecific(), network)
+	var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
 	fileInfo, err := os.Stat(configPath)
 	if err != nil {
 		ncutils.Log("could not stat config file: " + configPath)
