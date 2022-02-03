@@ -120,7 +120,6 @@ func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
 	cfg.Network = network
-	ncutils.Log("pulling latest config for " + cfg.Network)
 	var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
 	fileInfo, err := os.Stat(configPath)
 	if err != nil {
@@ -129,10 +128,13 @@ func MessageQueue(ctx context.Context, network string) {
 	// speed up UDP rest
 	if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
 		sleepTime := 2
+		ncutils.Log("pulling latest config for " + cfg.Network)
 		for {
 			_, err := Pull(network, true)
 			if err == nil {
 				break
+			} else {
+				ncutils.PrintLog("error pulling config for "+network+": "+err.Error(), 1)
 			}
 			if sleepTime > 3600 {
 				sleepTime = 3600
@@ -511,7 +513,7 @@ func PublishNodeUpdate(cfg *config.ClientConfig) {
 
 // Hello -- ping the broker to let server know node is alive and doing fine
 func Hello(cfg *config.ClientConfig, network string) {
-	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte("hello world!")); err != nil {
+	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte(ncutils.Version)); err != nil {
 		ncutils.Log(fmt.Sprintf("error publishing ping, %v", err))
 		ncutils.Log("running pull on " + cfg.Node.Network + " to reconnect")
 		_, err := Pull(cfg.Node.Network, true)

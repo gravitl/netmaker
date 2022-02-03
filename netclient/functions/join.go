@@ -145,6 +145,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 		TrafficKeys:         cfg.Node.TrafficKeys,
+		OS:                  runtime.GOOS,
+		Version:             ncutils.Version,
 	}
 
 	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
@@ -210,7 +212,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
 		return err
 	}
-	node.OS = runtime.GOOS
+
 	cfg.Node = node
 	err = config.ModConfig(&node)
 	if err != nil {

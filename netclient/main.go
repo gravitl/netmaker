@@ -17,7 +17,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = "v0.10.0"
+	app.Version = ncutils.Version
 
 	cliFlags := cli_options.GetFlags(ncutils.GetHostname())
 	app.Commands = cli_options.GetCommands(cliFlags[:])

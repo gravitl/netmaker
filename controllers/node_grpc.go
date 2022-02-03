@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/gravitl/netmaker/functions"
@@ -62,7 +63,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-
+	log.Println("DELETE ME: Operating System = " + node.OS)
 	if !validKey {
 		if node.NetworkSettings.AllowManualSignUp == "yes" {
 			node.IsPending = "yes"

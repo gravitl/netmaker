@@ -12,6 +12,8 @@ import (
 	"github.com/gravitl/netmaker/config"
 )
 
+var Version = "dev"
+
 // SetHost - sets the host ip
 func SetHost() error {
 	remoteip, err := GetPublicIP()
@@ -118,11 +120,7 @@ func GetAPIConnString() string {
 
 // GetVersion - version of netmaker
 func GetVersion() string {
-	version := "0.10.0"
-	if config.Config.Server.Version != "" {
-		version = config.Config.Server.Version
-	}
-	return version
+	return Version
 }
 
 // GetDB - gets the database type
