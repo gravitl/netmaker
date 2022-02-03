@@ -85,8 +85,6 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		}
 		if err != nil {
 			log.Println("error setting peer", peer.PublicKey.String())
-		} else {
-
 		}
 	}
 

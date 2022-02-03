@@ -7,8 +7,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// SetPeerRoutes - sets/removes ip routes for each peer on a network
 func SetPeerRoutes(iface string, oldPeers map[string][]net.IPNet, newPeers []wgtypes.PeerConfig) {
-
 	// traverse through all recieved peers
 	for _, peer := range newPeers {
 		// if pubkey found in existing peers, check against existing peer
@@ -29,9 +29,9 @@ func SetPeerRoutes(iface string, oldPeers map[string][]net.IPNet, newPeers []wgt
 					}
 				}
 			}
-			delete(oldPeers, peer.PublicKey.String())
+			delete(oldPeers, peer.PublicKey.String()) // remove peer as it was found and processed
 		} else {
-			for _, allowedIP := range peer.AllowedIPs {
+			for _, allowedIP := range peer.AllowedIPs { // add all routes as peer doesn't exist
 				if err := setRoute(iface, &allowedIP); err != nil {
 					ncutils.PrintLog(err.Error(), 1)
 				}
@@ -39,7 +39,7 @@ func SetPeerRoutes(iface string, oldPeers map[string][]net.IPNet, newPeers []wgt
 		}
 	}
 
-	// traverse through all existing peers
+	// traverse through all remaining existing peers
 	for _, allowedIPs := range oldPeers {
 		for _, allowedIP := range allowedIPs {
 			deleteRoute(iface, &allowedIP)

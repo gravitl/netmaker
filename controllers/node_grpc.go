@@ -282,29 +282,7 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 }
 
 // == private methods ==
-/*
-func getNewOrLegacyNode(data string) (models.Node, error) {
-	var reqNode, node models.Node
-	var err error
 
-	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
-		oldID := strings.Split(data, "###") // handle legacy client IDs
-		if len(oldID) == 2 {
-			if node, err = logic.GetNodeByID(reqNode.ID); err != nil {
-				return models.Node{}, err
-			}
-		} else {
-			return models.Node{}, err
-		}
-	} else {
-		node, err = logic.GetNodeByID(reqNode.ID)
-		if err != nil {
-			return models.Node{}, err
-		}
-	}
-	return node, nil
-}
-*/
 func getNodeFromRequestData(data string) (models.Node, error) {
 	var reqNode models.Node
 	var err error
