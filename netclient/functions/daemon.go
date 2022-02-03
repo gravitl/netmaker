@@ -558,18 +558,6 @@ func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	return ncutils.BoxDecrypt(msg, serverPubKey, diskKey)
 }
 
-func shouldResub(currentServers, newServers []models.ServerAddr) bool {
-	if len(currentServers) != len(newServers) {
-		return true
-	}
-	for _, srv := range currentServers {
-		if !ncutils.ServerAddrSliceContains(newServers, srv) {
-			return true
-		}
-	}
-	return false
-}
-
 func setDNS(iface, network, address string) {
 	var reachable bool
 	for counter := 0; !reachable && counter < 5; counter++ {
