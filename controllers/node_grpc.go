@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -67,6 +68,10 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		} else {
 			return nil, errors.New("invalid key, and network does not allow no-key signups")
 		}
+	}
+	unique, _ := functions.IsMacAddressUnique(node.MacAddress, node.Network)
+	if !unique {
+		return nil, errors.New("macaddress is not unique")
 	}
 
 	getServerAddrs(&node)
