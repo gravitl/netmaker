@@ -1,7 +1,6 @@
 package command
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -156,7 +155,7 @@ func Push(cfg config.ClientConfig) error {
 		for _, network := range networks {
 			err = functions.Push(network)
 			if err != nil {
-				log.Printf("error pushing network configs for "+network+" network: ", err)
+				ncutils.PrintLog("error pushing network configs for network: "+network+"\n"+err.Error(), 1)
 			} else {
 				ncutils.PrintLog("pushed network config for "+network, 1)
 			}
@@ -187,7 +186,7 @@ func Pull(cfg config.ClientConfig) error {
 		for _, network := range networks {
 			_, err = functions.Pull(network, true)
 			if err != nil {
-				log.Printf("Error pulling network config for "+network+" network: ", err)
+				ncutils.PrintLog("Error pulling network config for network: "+network+"\n"+err.Error(), 1)
 			} else {
 				ncutils.PrintLog("pulled network config for "+network, 1)
 			}
