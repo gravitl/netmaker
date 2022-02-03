@@ -126,7 +126,7 @@ func MessageQueue(ctx context.Context, network string) {
 	if err != nil {
 		ncutils.Log("could not stat config file: " + configPath)
 	}
-	// speed up UDP
+	// speed up UDP rest
 	if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
 		sleepTime := 2
 		for {
