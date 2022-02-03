@@ -70,6 +70,16 @@ func StringSliceContains(slice []string, item string) bool {
 	return false
 }
 
+// IPNetSliceContains - sees if a string slice contains a string element
+func IPNetSliceContains(slice []net.IPNet, item net.IPNet) bool {
+	for _, s := range slice {
+		if s.String() == item.String() {
+			return true
+		}
+	}
+	return false
+}
+
 // IfaceExists - return true if you can find the iface
 func IfaceExists(ifacename string) bool {
 	localnets, err := net.Interfaces()
