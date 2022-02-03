@@ -121,19 +121,27 @@ func MessageQueue(ctx context.Context, network string) {
 	var cfg config.ClientConfig
 	cfg.Network = network
 	ncutils.Log("pulling latest config for " + cfg.Network)
-	sleepTime := 2
-	for {
-		_, err := Pull(network, true)
-		if err == nil {
-			break
+	var configPath = fmt.Sprintf("%sconfig/netconfig-%s", ncutils.GetNetclientPathSpecific(), network)
+	fileInfo, err := os.Stat(configPath)
+	if err != nil {
+		ncutils.Log("could not stat config file: " + configPath)
+	}
+	// speed up UDP rest
+	if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
+		sleepTime := 2
+		for {
+			_, err := Pull(network, true)
+			if err == nil {
+				break
+			}
+			if sleepTime > 3600 {
+				sleepTime = 3600
+			}
+			ncutils.Log("failed to pull for network " + network)
+			ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
+			time.Sleep(time.Second * time.Duration(sleepTime))
+			sleepTime = sleepTime * 2
 		}
-		if sleepTime > 3600 {
-			sleepTime = 3600
-		}
-		ncutils.Log("failed to pull for network " + network)
-		ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
-		time.Sleep(time.Second * time.Duration(sleepTime))
-		sleepTime = sleepTime * 2
 	}
 	time.Sleep(time.Second << 1)
 	cfg.ReadConfig()
