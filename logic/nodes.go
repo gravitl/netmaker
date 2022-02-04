@@ -175,8 +175,10 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 		if isUpdate {
 			return true
 		}
+		unique, _ := isMacAddressUnique(node.MacAddress, node.Network)
+
 		isFieldUnique, _ := IsNodeIDUnique(node)
-		return isFieldUnique
+		return isFieldUnique && unique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := GetNetworkByNode(node)
@@ -591,4 +593,24 @@ func validateServer(currentNode, newNode *models.Node) bool {
 	return (newNode.Address == currentNode.Address &&
 		newNode.ListenPort == currentNode.ListenPort &&
 		newNode.IsServer == "yes")
+}
+
+// isMacAddressUnique - checks if mac is unique
+func isMacAddressUnique(macaddress string, networkName string) (bool, error) {
+
+	isunique := true
+
+	nodes, err := GetNetworkNodes(networkName)
+	if err != nil {
+		return database.IsEmptyRecord(err), err
+	}
+
+	for _, node := range nodes {
+
+		if node.MacAddress == macaddress {
+			isunique = false
+		}
+	}
+
+	return isunique, nil
 }

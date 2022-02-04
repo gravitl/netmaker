@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/functions"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -63,7 +62,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-	log.Println("DELETE ME: Operating System = " + node.OS)
 	if !validKey {
 		if node.NetworkSettings.AllowManualSignUp == "yes" {
 			node.IsPending = "yes"
@@ -71,17 +69,21 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 			return nil, errors.New("invalid key, and network does not allow no-key signups")
 		}
 	}
-	unique, _ := functions.IsMacAddressUnique(node.MacAddress, node.Network)
-	if !unique {
-		return nil, errors.New("macaddress is not unique")
-	}
-
 	getServerAddrs(&node)
 
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key: ", keyErr.Error())
 		return nil, keyErr
+	}
+
+	if key == nil {
+		logger.Log(0, "error: server traffic key is nil")
+		return nil, fmt.Errorf("error: server traffic key is nil")
+	}
+	if node.TrafficKeys.Mine == nil {
+		logger.Log(0, "error: node traffic key is nil")
+		return nil, fmt.Errorf("error: node traffic key is nil")
 	}
 
 	node.TrafficKeys = models.TrafficKeys{
