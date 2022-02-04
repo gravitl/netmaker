@@ -198,6 +198,13 @@ func LeaveNetwork(network string) error {
 		_, _ = ncutils.RunCmd("ip -4 route del "+node.NetworkSettings.AddressRange+" dev "+node.Interface, false)
 	}
 
+	err = WipeLocal(node.Network)
+	if err != nil {
+		ncutils.PrintLog("unable to wipe local config", 1)
+	} else {
+		ncutils.PrintLog("removed "+node.Network+" network locally", 1)
+	}
+
 	currentNets, err := ncutils.GetSystemNetworks()
 	if err != nil || len(currentNets) <= 1 {
 		return RemoveLocalInstance(cfg, network)
@@ -207,22 +214,17 @@ func LeaveNetwork(network string) error {
 
 // RemoveLocalInstance - remove all netclient files locally for a network
 func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
-	err := WipeLocal(networkName)
-	if err != nil {
-		ncutils.PrintLog("unable to wipe local config", 1)
-	} else {
-		ncutils.PrintLog("removed "+networkName+" network locally", 1)
-	}
+
 	if cfg.Daemon != "off" {
 		if ncutils.IsWindows() {
 			// TODO: Remove job?
 		} else if ncutils.IsMac() {
 			//TODO: Delete mac daemon
 		} else {
-			err = daemon.RemoveSystemDServices()
+			daemon.RemoveSystemDServices()
 		}
 	}
-	return err
+	return nil
 }
 
 // DeleteInterface - delete an interface of a network
