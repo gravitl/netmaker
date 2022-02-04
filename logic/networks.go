@@ -25,6 +25,7 @@ func GetNetworks() ([]models.Network, error) {
 	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
 
 	if err != nil {
+		networks = make([]models.Network, 0)
 		return networks, err
 	}
 

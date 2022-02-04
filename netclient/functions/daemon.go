@@ -46,7 +46,10 @@ func insert(network, which, cache string) {
 func read(network, which string) string {
 	val, isok := messageCache.Load(fmt.Sprintf("%s%s", network, which))
 	if isok {
-		var readMessage = val.(cachedMessage)                        // fetch current cached message
+		var readMessage = val.(cachedMessage) // fetch current cached message
+		if readMessage.LastSeen.IsZero() {
+			return ""
+		}
 		if time.Now().After(readMessage.LastSeen.Add(time.Minute)) { // check if message has been there over a minute
 			messageCache.Delete(fmt.Sprintf("%s%s", network, which)) // remove old message if expired
 			ncutils.Log("cached message expired")
@@ -92,12 +95,14 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	tperiod := time.Now().Add(12 * time.Second)
 	for {
 		//if after 12 seconds, try a gRPC pull on the last try
+		var exitnow bool
 		if time.Now().After(tperiod) {
+			exitnow = true
 			ncutils.Log("running pull for " + cfg.Node.Network)
 			_, err := Pull(cfg.Node.Network, true)
 			if err != nil {
 				ncutils.Log("could not run pull, exiting " + cfg.Node.Network + " setup: " + err.Error())
-				return client
+				continue
 			}
 			time.Sleep(2 * time.Second)
 		}
@@ -105,9 +110,12 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 			ncutils.Log("unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				ncutils.Log("could not connect to broker, exiting " + cfg.Node.Network + " setup: " + token.Error().Error())
-				return client
+				continue
 			}
 		} else {
+			break
+		}
+		if exitnow {
 			break
 		}
 		time.Sleep(2 * time.Second)

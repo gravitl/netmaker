@@ -127,17 +127,6 @@ func IsNetworkDisplayNameUnique(name string) (bool, error) {
 	return isunique, nil
 }
 
-// IsMacAddressUnique - checks if mac is unique
-func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
-
-	_, err := database.FetchRecord(database.NODES_TABLE_NAME, macaddress+"###"+networkName)
-	if err != nil {
-		return database.IsEmptyRecord(err), err
-	}
-
-	return true, nil
-}
-
 // IsKeyValidGlobal - checks if a key is valid globally
 func IsKeyValidGlobal(keyvalue string) bool {
 

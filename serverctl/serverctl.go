@@ -2,6 +2,7 @@ package serverctl
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -22,6 +23,18 @@ func InitServerNetclient() error {
 	} else if err != nil {
 		logger.Log(1, "could not find or create", netclientDir)
 		return err
+	}
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		return err
+	}
+	for _, network := range networks {
+		node, err := logic.GetNetworkServerLocal(network.NetID)
+		if err == nil {
+			if err = logic.ServerPull(&node, true); err != nil {
+				logger.Log(1, fmt.Sprintf("error pulling server settings for network %s: %s", network.NetID, err.Error()))
+			}
+		}
 	}
 	return nil
 }

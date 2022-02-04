@@ -45,6 +45,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		IsLocal:      networkSettings.IsLocal,
 		LocalRange:   networkSettings.LocalRange,
 		OS:           runtime.GOOS,
+		Version:      servercfg.Version,
 	}
 
 	SetNodeDefaults(node)
@@ -140,11 +141,11 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 // ServerUpdate - updates the server
 // replaces legacy Checkin code
 func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
-	var err = serverPull(serverNode, ifaceDelta)
+	var err = ServerPull(serverNode, ifaceDelta)
 	if isDeleteError(err) {
 		return DeleteNodeByID(serverNode, true)
 	} else if err != nil && !ifaceDelta {
-		err = serverPull(serverNode, true)
+		err = ServerPull(serverNode, true)
 		if err != nil {
 			return err
 		}
@@ -366,9 +367,8 @@ func checkNodeActions(node *models.Node) string {
 	return ""
 }
 
-// == Private ==
-
-func serverPull(serverNode *models.Node, ifaceDelta bool) error {
+// ServerPull - pull latest from DB and apply
+func ServerPull(serverNode *models.Node, ifaceDelta bool) error {
 
 	var err error
 	if serverNode.IPForwarding == "yes" {
@@ -399,7 +399,7 @@ func serverPull(serverNode *models.Node, ifaceDelta bool) error {
 	} else {
 		if err = setWGConfig(serverNode, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return serverPull(serverNode, true)
+				return ServerPull(serverNode, true)
 			} else {
 				return err
 			}
@@ -408,6 +408,8 @@ func serverPull(serverNode *models.Node, ifaceDelta bool) error {
 
 	return nil
 }
+
+// private functions
 
 func getServerLocalIP(networkSettings *models.Network) (string, error) {
 

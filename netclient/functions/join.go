@@ -60,6 +60,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	trafficPubKeyBytes, err := ncutils.ConvertKeyToBytes(trafficPubKey)
 	if err != nil {
 		return err
+	} else if trafficPubKeyBytes == nil {
+		return fmt.Errorf("traffic key is nil")
 	}
 
 	cfg.Node.TrafficKeys.Mine = trafficPubKeyBytes

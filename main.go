@@ -82,7 +82,6 @@ func initialize() { // Client Mode Prereq Check
 
 		}
 	}
-
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
 		if err != nil {
