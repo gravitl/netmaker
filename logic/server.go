@@ -44,6 +44,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		UDPHolePunch: "no",
 		IsLocal:      networkSettings.IsLocal,
 		LocalRange:   networkSettings.LocalRange,
+		OS:           runtime.GOOS,
 	}
 
 	SetNodeDefaults(node)
