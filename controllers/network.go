@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -107,9 +107,16 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, node := range nodes {
 		fmt.Println("updating node ", node.Name, " for a key update")
-		runUpdates(&node, true)
-		time.Sleep(time.Second << 10)
+		if err := mq.NodeUpdate(&node); err != nil {
+			logger.Log(2, "failed key update ", node.Name)
+		}
 	}
+	node, err := logic.GetNetworkServerLeader(netname)
+	if err != nil {
+		logger.Log(2, "failed to get server node")
+		return
+	}
+	runUpdates(&node, false)
 }
 
 // Update a network
