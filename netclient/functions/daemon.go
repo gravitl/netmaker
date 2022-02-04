@@ -502,7 +502,7 @@ func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 				}
 			}
 			if err := pingServer(cfg); err != nil {
-				ncutils.PrintLog("could not ping server"+err.Error(), 0)
+				ncutils.PrintLog("could not ping server "+err.Error(), 0)
 			}
 			Hello(cfg, network)
 			// ncutils.Log("Checkin complete")
@@ -604,7 +604,7 @@ func pingServer(cfg *config.ClientConfig) error {
 	pinger.Timeout = 2 * time.Second
 	pinger.Run()
 	stats := pinger.Statistics()
-	if stats.PacketLoss != 100 {
+	if stats.PacketLoss == 100 {
 		ncutils.PrintLog(fmt.Sprintf("lost packets when pinging server: packets sent:%d packets recieved: %d", stats.PacketsSent, stats.PacketsRecv), 1)
 		return errors.New("ping error")
 	}
