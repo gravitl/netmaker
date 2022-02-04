@@ -249,22 +249,31 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		cfg.Node = newNode
 		switch newNode.Action {
 		case models.NODE_DELETE:
-			if err := RemoveLocalInstance(&cfg, cfg.Network); err != nil {
-				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
-				return
-			}
 			if token := client.Unsubscribe(fmt.Sprintf("update/%s/%s", newNode.Network, newNode.ID), fmt.Sprintf("peers/%s/%s", newNode.Network, newNode.ID)); token.Wait() && token.Error() != nil {
 				ncutils.PrintLog("error unsubscribing during node deletion", 1)
+			}
+			if err := WipeLocal(cfg.Network); err != nil {
+				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
+				ncutils.PrintLog("Please perform manual clean up", 1)
+			}
+			currNets, err := ncutils.GetSystemNetworks()
+			if err == nil && len(currNets) == 0 {
+				if err = RemoveLocalInstance(&cfg, cfg.Network); err != nil {
+					ncutils.PrintLog("Please perform manual clean up", 1)
+				}
+				os.Exit(0)
 			}
 			return
 		case models.NODE_UPDATE_KEY:
 			if err := UpdateKeys(&cfg, client); err != nil {
 				ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
 			}
+			ifaceDelta = true
 		case models.NODE_NOOP:
 		default:
 		}
 		//Save new config
+		cfg.Node.Action = models.NODE_NOOP
 		if err := config.Write(&cfg, cfg.Network); err != nil {
 			ncutils.PrintLog("error updating node configuration: "+err.Error(), 1)
 		}
