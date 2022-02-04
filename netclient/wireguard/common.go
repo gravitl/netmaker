@@ -25,7 +25,7 @@ const (
 )
 
 // SetPeers - sets peers on a given WireGuard interface
-func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
+func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.PeerConfig) error {
 	var devicePeers []wgtypes.Peer
 	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
 	var err error
@@ -107,7 +107,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		err = SetMacPeerRoutes(iface)
 		return err
 	} else if ncutils.IsLinux() {
-		local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
+		local.SetPeerRoutes(iface, currentNodeAddr, oldPeerAllowedIps, peers)
 	}
 
 	return nil
@@ -243,7 +243,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 				return err
 			}
 		}
-		err = SetPeers(iface, nodecfg.PersistentKeepalive, peers)
+		err = SetPeers(iface, nodecfg.Address, nodecfg.PersistentKeepalive, peers)
 	} else if peerupdate {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, true)
 	} else {
