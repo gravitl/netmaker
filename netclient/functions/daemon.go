@@ -46,7 +46,10 @@ func insert(network, which, cache string) {
 func read(network, which string) string {
 	val, isok := messageCache.Load(fmt.Sprintf("%s%s", network, which))
 	if isok {
-		var readMessage = val.(cachedMessage)                        // fetch current cached message
+		var readMessage = val.(cachedMessage) // fetch current cached message
+		if readMessage.LastSeen.IsZero() {
+			return ""
+		}
 		if time.Now().After(readMessage.LastSeen.Add(time.Minute)) { // check if message has been there over a minute
 			messageCache.Delete(fmt.Sprintf("%s%s", network, which)) // remove old message if expired
 			ncutils.Log("cached message expired")
