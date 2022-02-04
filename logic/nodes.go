@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
 	"golang.org/x/crypto/bcrypt"
@@ -427,6 +428,21 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	SetNodeDefaults(&node)
 
 	return node, nil
+}
+
+// GetNodesByAddress - gets a node by mac address
+func GetNodesByAddress(network string, addresses []string) ([]models.Node, error) {
+	var nodes []models.Node
+	allnodes, err := GetAllNodes()
+	if err != nil {
+		return []models.Node{}, err
+	}
+	for _, node := range allnodes {
+		if node.Network == network && ncutils.StringSliceContains(addresses, node.Address) {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes, nil
 }
 
 // GetDeletedNodeByMacAddress - get a deleted node

@@ -51,6 +51,10 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 	if err != nil {
 		return err
 	}
+	network, err := GetNetworkSettings(networkName)
+	if err != nil {
+		return err
+	}
 
 	for _, value := range collections {
 
@@ -63,6 +67,11 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
 					node.IsRelayed = yesOrno
+					if yesOrno == "yes" {
+						node.UDPHolePunch = "no"
+					} else {
+						node.UDPHolePunch = network.DefaultUDPHolePunch
+					}
 					data, err := json.Marshal(&node)
 					if err != nil {
 						return err
