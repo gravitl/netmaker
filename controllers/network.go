@@ -3,8 +3,10 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -104,7 +106,9 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range nodes {
+		fmt.Println("updating node ", node.Name, " for a key update")
 		runUpdates(&node, true)
+		time.Sleep(time.Second << 10)
 	}
 }
 
