@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -610,7 +611,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 func runUpdates(node *models.Node, nodeUpdate bool) error {
 	//don't publish to server node
 	if node.IsServer == "yes" {
-		return
+		return errors.New("attempt to publish to server node")
 	}
 	if nodeUpdate {
 		if err := mq.NodeUpdate(node); err != nil {
