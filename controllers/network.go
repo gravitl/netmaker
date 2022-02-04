@@ -98,6 +98,14 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated key on network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
+	nodes, err := logic.GetNetworkNodes(netname)
+	if err != nil {
+		logger.Log(2, "failed to retrieve network nodes for network", netname, err.Error())
+		return
+	}
+	for _, node := range nodes {
+		runUpdates(&node, true)
+	}
 }
 
 // Update a network
