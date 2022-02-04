@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -98,6 +100,23 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated key on network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
+	nodes, err := logic.GetNetworkNodes(netname)
+	if err != nil {
+		logger.Log(2, "failed to retrieve network nodes for network", netname, err.Error())
+		return
+	}
+	for _, node := range nodes {
+		fmt.Println("updating node ", node.Name, " for a key update")
+		if err := mq.NodeUpdate(&node); err != nil {
+			logger.Log(2, "failed key update ", node.Name)
+		}
+	}
+	node, err := logic.GetNetworkServerLeader(netname)
+	if err != nil {
+		logger.Log(2, "failed to get server node")
+		return
+	}
+	runUpdates(&node, false)
 }
 
 // Update a network
