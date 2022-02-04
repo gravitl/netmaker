@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -25,7 +26,7 @@ func InitServerNetclient() error {
 		return err
 	}
 	networks, err := logic.GetNetworks()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 	for _, network := range networks {
