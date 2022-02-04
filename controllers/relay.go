@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 )
 
 func createRelay(w http.ResponseWriter, r *http.Request) {
@@ -27,6 +28,13 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
+	relayedNodes, err := logic.GetNodesByAddress(relay.NetID, relay.RelayAddrs)
+	for _, node := range relayedNodes {
+		err = mq.NodeUpdate(&node)
+		if err != nil {
+			logger.Log(1, "error sending update to relayed node ", node.Address, "on network", relay.NetID, ": ", err.Error())
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 	runUpdates(&node, true)
