@@ -50,7 +50,7 @@ func publish(node *models.Node, dest string, msg []byte) error {
 	if encryptErr != nil {
 		return encryptErr
 	}
-	if token := client.Publish(dest, 0, false, encrypted); token.Wait() && token.Error() != nil {
+	if token := client.Publish(dest, 0, true, encrypted); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 	return nil
