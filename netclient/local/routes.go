@@ -58,7 +58,21 @@ func SetCurrentPeerRoutes(iface, currentAddr string, peers []wgtypes.Peer) {
 	}
 }
 
+// FlushPeerRoutes - removes all current peer routes
+func FlushPeerRoutes(iface, currentAddr string, peers []wgtypes.Peer) {
+	for _, peer := range peers {
+		for _, allowedIP := range peer.AllowedIPs {
+			deleteRoute(iface, &allowedIP, currentAddr)
+		}
+	}
+}
+
 // SetCIDRRoute - sets the CIDR route, used on join and restarts
 func SetCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
 	setCidr(iface, currentAddr, cidr)
+}
+
+// RemoveCIDRRoute - removes a static cidr route
+func RemoveCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
+	removeCidr(iface, cidr, currentAddr)
 }

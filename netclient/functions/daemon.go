@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -83,13 +85,9 @@ func Daemon() error {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
-		if server.Address != "" && server.IsLeader {
-			// ncutils.Log(fmt.Sprintf("adding server (%s) to listen on network %s", server.Address, cfg.Node.Network))
-			opts.AddBroker(server.Address + ":1883")
-			break
-		}
-	}
+	server := getServerAddress(cfg)
+	opts.AddBroker(server + ":1883")
+
 	opts.SetDefaultPublishHandler(All)
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(12 * time.Second)
@@ -123,32 +121,32 @@ func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
 	cfg.Network = network
-	var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
-	fileInfo, err := os.Stat(configPath)
-	if err != nil {
-		ncutils.Log("could not stat config file: " + configPath)
-	}
+	//var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
+	//fileInfo, err := os.Stat(configPath)
+	//if err != nil {
+	//	ncutils.Log("could not stat config file: " + configPath)
+	//}
 	// speed up UDP rest
-	if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
-		sleepTime := 2
-		ncutils.Log("pulling latest config for " + cfg.Network)
-		for {
-			_, err := Pull(network, true)
-			if err == nil {
-				break
-			} else {
-				ncutils.PrintLog("error pulling config for "+network+": "+err.Error(), 1)
-			}
-			if sleepTime > 3600 {
-				sleepTime = 3600
-			}
-			ncutils.Log("failed to pull for network " + network)
-			ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
-			time.Sleep(time.Second * time.Duration(sleepTime))
-			sleepTime = sleepTime * 2
-		}
-	}
-	time.Sleep(time.Second << 1)
+	//	if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
+	//		sleepTime := 2
+	//		ncutils.Log("pulling latest config for " + cfg.Network)
+	//		for {
+	//			_, err := Pull(network, true)
+	//			if err == nil {
+	//				break
+	//			} else {
+	//				ncutils.PrintLog("error pulling config for "+network+": "+err.Error(), 1)
+	//			}
+	//			if sleepTime > 3600 {
+	//				sleepTime = 3600
+	//			}
+	//			ncutils.Log("failed to pull for network " + network)
+	//			ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
+	//			time.Sleep(time.Second * time.Duration(sleepTime))
+	//			sleepTime = sleepTime * 2
+	//		}
+	//	}
+	//time.Sleep(time.Second << 1)
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network: " + network)
 	client := SetupMQTT(&cfg)
@@ -502,6 +500,9 @@ func Checkin(ctx context.Context, cfg *config.ClientConfig, network string) {
 					PublishNodeUpdate(cfg)
 				}
 			}
+			if err := pingServer(cfg); err != nil {
+				ncutils.PrintLog("could not ping server "+err.Error(), 0)
+			}
 			Hello(cfg, network)
 			// ncutils.Log("Checkin complete")
 		}
@@ -577,4 +578,31 @@ func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	}
 
 	return ncutils.BoxDecrypt(msg, serverPubKey, diskKey)
+}
+
+func pingServer(cfg *config.ClientConfig) error {
+	node := getServerAddress(cfg)
+	pinger, err := ping.NewPinger(node)
+	if err != nil {
+		ncutils.Log("error creating pinger " + err.Error())
+		return err
+	}
+	pinger.Timeout = 2 * time.Second
+	pinger.Run()
+	stats := pinger.Statistics()
+	if stats.PacketLoss == 100 {
+		ncutils.PrintLog(fmt.Sprintf("lost packets when pinging server: packets sent:%d packets recieved: %d", stats.PacketsSent, stats.PacketsRecv), 1)
+		return errors.New("ping error")
+	}
+	return nil
+}
+
+func getServerAddress(cfg *config.ClientConfig) string {
+	var server models.ServerAddr
+	for _, server = range cfg.Node.NetworkSettings.DefaultServerAddrs {
+		if server.Address != "" && server.IsLeader {
+			break
+		}
+	}
+	return server.Address
 }
