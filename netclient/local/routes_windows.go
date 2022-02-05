@@ -27,6 +27,6 @@ func setCidr(iface, address string, addr *net.IPNet) {
 	ncutils.RunCmd("route change "+addr.IP.String()+" mask "+addr.Mask.String()+" "+address, false)
 }
 
-func removeCidr(iface, address string, addr *net.IPNet) {
+func removeCidr(iface, addr *net.IPNet, address string) {
 	ncutils.RunCmd("route delete "+addr.IP.String()+" mask "+addr.Mask.String()+" "+address, false)
 }
