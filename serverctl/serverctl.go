@@ -2,10 +2,12 @@ package serverctl
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"strings"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -14,15 +16,32 @@ import (
 const NETMAKER_BINARY_NAME = "netmaker"
 
 // InitServerNetclient - intializes the server netclient
+// 1. Check if config directory exists, if not attempt to make
+// 2. Check current networks and run pull to get interface up to date in case of restart
 func InitServerNetclient() error {
 	netclientDir := ncutils.GetNetclientPath()
 	_, err := os.Stat(netclientDir + "/config")
 	if os.IsNotExist(err) {
-		os.MkdirAll(netclientDir+"/config", 0744)
+		os.MkdirAll(netclientDir+"/config", 0700)
 	} else if err != nil {
 		logger.Log(1, "could not find or create", netclientDir)
 		return err
 	}
+
+	var networks, netsErr = logic.GetNetworks()
+	if netsErr == nil || database.IsEmptyRecord(netsErr) {
+		for _, network := range networks {
+			var currentServerNode, nodeErr = logic.GetNetworkServerLocal(network.NetID)
+			if nodeErr == nil {
+				if err = logic.ServerPull(&currentServerNode, true); err != nil {
+					logger.Log(1, fmt.Sprintf("failed pull for network %s, on server node %s",
+						network.NetID,
+						currentServerNode.ID))
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
