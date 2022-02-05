@@ -14,10 +14,9 @@ func runServerPeerUpdate(node *models.Node, ifaceDelta bool) error {
 	if err != nil {
 		logger.Log(3, "error occurred on timer,", err.Error())
 	}
-	if servercfg.IsMessageQueueBackend() {
-		if err := mq.PublishPeerUpdate(node); err != nil {
-			logger.Log(0, "failed to inform peers of new node ", err.Error())
-		}
+
+	if err := mq.PublishPeerUpdate(node); err != nil {
+		logger.Log(0, "failed to inform peers of new node ", err.Error())
 	}
 
 	if servercfg.IsClientMode() != "on" {

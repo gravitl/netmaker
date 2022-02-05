@@ -99,7 +99,9 @@ var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) 
 
 // PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
 func PublishPeerUpdate(newNode *models.Node) error {
-
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
 	networkNodes, err := logic.GetNetworkNodes(newNode.Network)
 	if err != nil {
 		logger.Log(1, "err getting Network Nodes", err.Error())
