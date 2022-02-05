@@ -159,7 +159,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			return database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
-	return fmt.Errorf("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
+	return fmt.Errorf("failed to update node " + currentNode.ID + ", cannot change ID.")
 }
 
 // IsNodeIDUnique - checks if node id is unique
@@ -175,8 +175,10 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 		if isUpdate {
 			return true
 		}
-		unique, _ := isMacAddressUnique(node.MacAddress, node.Network)
-
+		var unique = true
+		if !(node.MacAddress == "") {
+			unique, _ = isMacAddressUnique(node.MacAddress, node.Network)
+		}
 		isFieldUnique, _ := IsNodeIDUnique(node)
 		return isFieldUnique && unique
 	})

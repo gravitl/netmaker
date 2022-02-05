@@ -563,10 +563,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsDNSMode() {
-		err = logic.SetDNS()
+		logic.SetDNS()
 	}
 
-	logger.Log(1, r.Header.Get("user"), "updated node", node.MacAddress, "on network", node.Network)
+	logger.Log(1, r.Header.Get("user"), "updated node", node.ID, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 

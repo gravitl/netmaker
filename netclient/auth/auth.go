@@ -21,7 +21,7 @@ import (
 // SetJWT func will used to create the JWT while signing in and signing out
 func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, error) {
 	home := ncutils.GetNetclientPathSpecific()
-	tokentext, err := ncutils.GetFileWithRetry(home+"nettoken-"+network, 1)
+	tokentext, err := os.ReadFile(home + "nettoken-" + network)
 	if err != nil {
 		err = AutoLogin(client, network)
 		if err != nil {
