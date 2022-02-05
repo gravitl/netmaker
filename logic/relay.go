@@ -12,11 +12,13 @@ import (
 
 // CreateRelay - creates a relay
 func CreateRelay(relay models.RelayRequest) (models.Node, error) {
-	node, err := GetNodeByID(relay.NodeID)
+	node, err := GetNodeByMacAddress(relay.NetID, relay.NodeID)
+	if node.OS == "macos" { // add in darwin later
+		return models.Node{}, errors.New(node.OS + " is unsupported for relay")
+	}
 	if err != nil {
 		return models.Node{}, err
 	}
-
 	err = ValidateRelay(relay)
 	if err != nil {
 		return models.Node{}, err
@@ -24,13 +26,17 @@ func CreateRelay(relay models.RelayRequest) (models.Node, error) {
 	node.IsRelay = "yes"
 	node.RelayAddrs = relay.RelayAddrs
 
+	key, err := GetRecordKey(relay.NodeID, relay.NetID)
+	if err != nil {
+		return node, err
+	}
 	node.SetLastModified()
 	node.PullChanges = "yes"
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
 	}
-	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
 	err = SetRelayedNodes("yes", node.Network, node.RelayAddrs)
@@ -51,10 +57,6 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 	if err != nil {
 		return err
 	}
-	network, err := GetNetworkSettings(networkName)
-	if err != nil {
-		return err
-	}
 
 	for _, value := range collections {
 
@@ -67,15 +69,11 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
 					node.IsRelayed = yesOrno
-					if yesOrno == "yes" {
-						node.UDPHolePunch = "no"
-					} else {
-						node.UDPHolePunch = network.DefaultUDPHolePunch
-					}
 					data, err := json.Marshal(&node)
 					if err != nil {
 						return err
 					}
+					node.SetID()
 					database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 				}
 			}
@@ -109,9 +107,9 @@ func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
 }
 
 // DeleteRelay - deletes a relay
-func DeleteRelay(network, nodeid string) (models.Node, error) {
+func DeleteRelay(network, macaddress string) (models.Node, error) {
 
-	node, err := GetNodeByID(nodeid)
+	node, err := GetNodeByMacAddress(network, macaddress)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -124,12 +122,15 @@ func DeleteRelay(network, nodeid string) (models.Node, error) {
 	node.RelayAddrs = []string{}
 	node.SetLastModified()
 	node.PullChanges = "yes"
-
+	key, err := GetRecordKey(node.MacAddress, node.Network)
+	if err != nil {
+		return models.Node{}, err
+	}
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	if err = database.Insert(nodeid, string(data), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(key, string(data), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
 	if err = NetworkNodesUpdatePullChanges(network); err != nil {

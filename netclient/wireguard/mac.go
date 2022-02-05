@@ -13,7 +13,7 @@ import (
 )
 
 // WgQuickDownMac - bring down mac interface, remove routes, and run post-down commands
-func WgQuickDownMac(node *models.Node, iface string) error {
+func WgQuickDownMac(node models.Node, iface string) error {
 	if err := RemoveConfMac(iface); err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func RemoveConfMac(iface string) error {
 }
 
 // WgQuickUpMac - bring up mac interface and set routes
-func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
+func WgQuickUpMac(node models.Node, iface string, confPath string) error {
 	var err error
 	var realIface string
 	realIface, err = getRealIface(iface)
@@ -99,7 +99,7 @@ func addInterface(iface string) (string, error) {
 	realIface, err := ncutils.GetNewIface("/var/run/wireguard/")
 	if iface != "" && err == nil {
 		ifacePath := "/var/run/wireguard/" + iface + ".name"
-		err = os.WriteFile(ifacePath, []byte(realIface), 0600)
+		err = os.WriteFile(ifacePath, []byte(realIface), 0644)
 	}
 	return realIface, err
 }
@@ -210,7 +210,7 @@ func addRoute(addr string, iface string) error {
 // setConfig - sets configuration of the wireguard interface from the config file
 func setConfig(realIface string, confPath string) error {
 	confString := getConfig(confPath)
-	err := os.WriteFile(confPath+".tmp", []byte(confString), 0600)
+	err := os.WriteFile(confPath+".tmp", []byte(confString), 0644)
 	if err != nil {
 		return err
 	}

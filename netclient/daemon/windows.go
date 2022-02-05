@@ -34,14 +34,6 @@ func SetupWindowsDaemon() error {
 	return nil
 }
 
-// RestartWindowsDaemon - restarts windows service
-func RestartWindowsDaemon() {
-	StopWindowsDaemon()
-	// start daemon, will not restart or start another
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
-	ncutils.Log(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
-}
-
 // CleanupWindows - cleans up windows files
 func CleanupWindows() {
 	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.xml") {
@@ -60,12 +52,11 @@ func writeServiceConfig() error {
 <name>Netclient</name>
 <description>Connects Windows nodes to one or more Netmaker networks.</description>
 <executable>%v</executable>
-<arguments>daemon</arguments>
 <log mode="roll"></log>
 </service>
 `, strings.Replace(ncutils.GetNetclientPathSpecific()+"netclient.exe", `\\`, `\`, -1))
 	if !ncutils.FileExists(serviceConfigPath) {
-		err := os.WriteFile(serviceConfigPath, []byte(scriptString), 0600)
+		err := os.WriteFile(serviceConfigPath, []byte(scriptString), 0644)
 		if err != nil {
 			return err
 		}

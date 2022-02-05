@@ -29,7 +29,7 @@ type ClientConfig struct {
 	Network         string         `yaml:"network"`
 	Daemon          string         `yaml:"daemon"`
 	OperatingSystem string         `yaml:"operatingsystem"`
-	DebugOn         bool           `yaml:"debugon"`
+	DebugJoin       bool           `yaml:"debugjoin"`
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient
@@ -51,7 +51,7 @@ func Write(config *ClientConfig, network string) error {
 	}
 	_, err := os.Stat(ncutils.GetNetclientPath() + "/config")
 	if os.IsNotExist(err) {
-		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0700)
+		os.MkdirAll(ncutils.GetNetclientPath()+"/config", 0744)
 	} else if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func Write(config *ClientConfig, network string) error {
 	if err != nil {
 		return err
 	}
-	return f.Sync()
+	return err
 }
 
 // ClientConfig.ReadConfig - used to read config from client disk into memory
@@ -77,10 +77,9 @@ func (config *ClientConfig) ReadConfig() {
 	nofile := false
 	//home, err := homedir.Dir()
 	home := ncutils.GetNetclientPathSpecific()
-
 	file := fmt.Sprintf(home + "netconfig-" + config.Network)
 	//f, err := os.Open(file)
-	f, err := os.OpenFile(file, os.O_RDONLY, 0600)
+	f, err := os.OpenFile(file, os.O_RDONLY, 0666)
 	if err != nil {
 		fmt.Println("trouble opening file")
 		fmt.Println(err)
@@ -98,6 +97,9 @@ func (config *ClientConfig) ReadConfig() {
 			fmt.Println("no config or invalid")
 			fmt.Println(err)
 			log.Fatal(err)
+		} else {
+			config.Node.SetID()
+			//config = cfg
 		}
 	}
 }
@@ -109,6 +111,7 @@ func ModConfig(node *models.Node) error {
 		return errors.New("no network provided")
 	}
 	var modconfig ClientConfig
+	var err error
 	if FileExists(ncutils.GetNetclientPathSpecific() + "netconfig-" + network) {
 		useconfig, err := ReadConfig(network)
 		if err != nil {
@@ -119,7 +122,8 @@ func ModConfig(node *models.Node) error {
 
 	modconfig.Node = (*node)
 	modconfig.NetworkSettings = node.NetworkSettings
-	return Write(&modconfig, network)
+	err = Write(&modconfig, network)
+	return err
 }
 
 // ModConfig - overwrites the node inside client config on disk
@@ -133,7 +137,7 @@ func SaveBackup(network string) error {
 			ncutils.Log("failed to read " + configPath + " to make a backup")
 			return err
 		}
-		if err = os.WriteFile(backupPath, input, 0600); err != nil {
+		if err = os.WriteFile(backupPath, input, 0644); err != nil {
 			ncutils.Log("failed to copy backup to " + backupPath)
 			return err
 		}
@@ -151,7 +155,7 @@ func ReplaceWithBackup(network string) error {
 			ncutils.Log("failed to read file " + backupPath + " to backup network: " + network)
 			return err
 		}
-		if err = os.WriteFile(configPath, input, 0600); err != nil {
+		if err = os.WriteFile(configPath, input, 0644); err != nil {
 			ncutils.Log("failed backup " + backupPath + " to " + configPath)
 			return err
 		}

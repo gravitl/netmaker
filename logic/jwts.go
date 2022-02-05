@@ -12,12 +12,11 @@ import (
 var jwtSecretKey = []byte("(BytesOverTheWire)")
 
 // CreateJWT func will used to create the JWT while signing in and signing out
-func CreateJWT(uuid string, macAddress string, network string) (response string, err error) {
+func CreateJWT(macaddress string, network string) (response string, err error) {
 	expirationTime := time.Now().Add(5 * time.Minute)
 	claims := &models.Claims{
-		ID:         uuid,
+		MacAddress: macaddress,
 		Network:    network,
-		MacAddress: macAddress,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 		},
@@ -74,13 +73,13 @@ func VerifyUserToken(tokenString string) (username string, networks []string, is
 }
 
 // VerifyToken - gRPC [nodes] Only
-func VerifyToken(tokenString string) (nodeID string, mac string, network string, err error) {
+func VerifyToken(tokenString string) (macaddress string, network string, err error) {
 	claims := &models.Claims{}
 
 	//this may be a stupid way of serving up a master key
 	//TODO: look into a different method. Encryption?
 	if tokenString == servercfg.GetMasterKey() {
-		return "mastermac", "", "", nil
+		return "mastermac", "", nil
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -88,7 +87,7 @@ func VerifyToken(tokenString string) (nodeID string, mac string, network string,
 	})
 
 	if token != nil {
-		return claims.ID, claims.MacAddress, claims.Network, nil
+		return claims.MacAddress, claims.Network, nil
 	}
-	return "", "", "", err
+	return "", "", err
 }

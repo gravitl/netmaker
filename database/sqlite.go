@@ -30,7 +30,7 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 func initSqliteDB() error {
 	// == create db file if not present ==
 	if _, err := os.Stat("data"); os.IsNotExist(err) {
-		os.Mkdir("data", 0700)
+		os.Mkdir("data", 0744)
 	}
 	dbFilePath := filepath.Join("data", dbFilename)
 	if _, err := os.Stat(dbFilePath); os.IsNotExist(err) {

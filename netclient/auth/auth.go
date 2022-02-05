@@ -27,7 +27,7 @@ func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, e
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong with Auto Login: %v", err))
 		}
-		tokentext, err = ncutils.GetFileWithRetry(home+"nettoken-"+network, 1)
+		tokentext, err = os.ReadFile(home + "nettoken-" + network)
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong: %v", err))
 		}
@@ -55,7 +55,6 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 	node := models.Node{
 		Password:   pass,
 		MacAddress: cfg.Node.MacAddress,
-		ID:         cfg.Node.ID,
 		Network:    network,
 	}
 	data, err := json.Marshal(&node)
@@ -65,7 +64,6 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 
 	login := &nodepb.Object{
 		Data: string(data),
-		Type: nodepb.NODE_TYPE,
 	}
 	// RPC call
 	res, err := client.Login(context.TODO(), login)
@@ -73,7 +71,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 		return err
 	}
 	tokenstring := []byte(res.Data)
-	err = os.WriteFile(home+"nettoken-"+network, tokenstring, 0600)
+	err = os.WriteFile(home+"nettoken-"+network, tokenstring, 0644)
 	if err != nil {
 		return err
 	}
@@ -83,31 +81,14 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 // StoreSecret - stores auth secret locally
 func StoreSecret(key string, network string) error {
 	d1 := []byte(key)
-	return os.WriteFile(ncutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0600)
+	err := os.WriteFile(ncutils.GetNetclientPathSpecific()+"secret-"+network, d1, 0644)
+	return err
 }
 
 // RetrieveSecret - fetches secret locally
 func RetrieveSecret(network string) (string, error) {
-	dat, err := ncutils.GetFileWithRetry(ncutils.GetNetclientPathSpecific()+"secret-"+network, 3)
+	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + network)
 	return string(dat), err
-}
-
-// StoreTrafficKey - stores traffic key
-func StoreTrafficKey(key *[32]byte, network string) error {
-	var data, err = ncutils.ConvertKeyToBytes(key)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(ncutils.GetNetclientPathSpecific()+"traffic-"+network, data, 0600)
-}
-
-// RetrieveTrafficKey - reads traffic file locally
-func RetrieveTrafficKey(network string) (*[32]byte, error) {
-	data, err := ncutils.GetFileWithRetry(ncutils.GetNetclientPathSpecific()+"traffic-"+network, 2)
-	if err != nil {
-		return nil, err
-	}
-	return ncutils.ConvertBytesToKey(data)
 }
 
 // Configuraion - struct for mac and pass

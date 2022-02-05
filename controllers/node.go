@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -21,16 +19,16 @@ func nodeHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes", authorize(false, "user", http.HandlerFunc(getAllNodes))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}", authorize(true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(true, "user", http.HandlerFunc(createRelay))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(true, "user", http.HandlerFunc(deleteRelay))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", authorize(true, "user", http.HandlerFunc(createEgressGateway))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", authorize(true, "user", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", securityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/createrelay", authorize(true, "user", http.HandlerFunc(createRelay))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleterelay", authorize(true, "user", http.HandlerFunc(deleteRelay))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/creategateway", authorize(true, "user", http.HandlerFunc(createEgressGateway))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deletegateway", authorize(true, "user", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/deleteingress", securityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{macaddress}/approve", authorize(true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
@@ -80,7 +78,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				if err := json.Unmarshal([]byte(value), &result); err != nil {
 					continue
 				}
-				if (result.ID == authRequest.ID || result.MacAddress == authRequest.MacAddress) && result.IsPending != "yes" && result.Network == networkname {
+				if result.MacAddress == authRequest.MacAddress && result.IsPending != "yes" && result.Network == networkname {
 					break
 				}
 			}
@@ -99,7 +97,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				returnErrorResponse(response, request, errorResponse)
 				return
 			} else {
-				tokenString, _ := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
+				tokenString, _ := logic.CreateJWT(authRequest.MacAddress, result.Network)
 
 				if tokenString == "" {
 					errorResponse.Code = http.StatusBadRequest
@@ -179,21 +177,21 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			}
 
 			var isAuthorized = false
-			var nodeID = ""
+			var macaddress = ""
 			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
 			isnetadmin := isadmin
 			if errN == nil && isadmin {
-				nodeID = "mastermac"
+				macaddress = "mastermac"
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
 			}
 			if !isadmin && params["network"] != "" {
-				if logic.StringSliceContains(networks, params["network"]) {
+				if functions.SliceContains(networks, params["network"]) {
 					isnetadmin = true
 				}
 			}
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
-			if nodeID == "mastermac" {
+			if macaddress == "mastermac" {
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
 				//for everyone else, there's poor man's RBAC. The "cases" are defined in the routes in the handlers
@@ -203,12 +201,12 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				case "all":
 					isAuthorized = true
 				case "nodes":
-					isAuthorized = (nodeID != "") || isnetadmin
+					isAuthorized = (macaddress != "") || isnetadmin
 				case "network":
 					if isnetadmin {
 						isAuthorized = true
 					} else {
-						node, err := logic.GetNodeByID(nodeID)
+						node, err := logic.GetNodeByMacAddress(params["network"], macaddress)
 						if err != nil {
 							errorResponse = models.ErrorResponse{
 								Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
@@ -222,7 +220,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 					if isnetadmin {
 						isAuthorized = true
 					} else {
-						isAuthorized = (nodeID == params["netid"])
+						isAuthorized = (macaddress == params["macaddress"])
 					}
 				case "user":
 					isAuthorized = true
@@ -317,12 +315,12 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 
-	node, err := logic.GetNodeByID(params["nodeid"])
+	node, err := logic.GetNode(params["macaddress"], params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
+	logger.Log(2, r.Header.Get("user"), "fetched node", params["macaddress"])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 }
@@ -406,12 +404,9 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-
-	runUpdates(&node, false)
 }
 
 //Takes node out of pending state
@@ -419,8 +414,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	var nodeid = params["nodeid"]
-	node, err := logic.UncordonNode(nodeid)
+	node, err := logic.UncordonNode(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -428,8 +422,6 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
-
-	runUpdates(&node, true)
 }
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -442,36 +434,30 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gateway.NetID = params["network"]
-	gateway.NodeID = params["nodeid"]
+	gateway.NodeID = params["macaddress"]
 	node, err := logic.CreateEgressGateway(gateway)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-
-	runUpdates(&node, true)
 }
 
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
+	nodeMac := params["macaddress"]
 	netid := params["network"]
-	node, err := logic.DeleteEgressGateway(netid, nodeid)
+	node, err := logic.DeleteEgressGateway(netid, nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
+	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeMac, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-
-	runUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -479,36 +465,30 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	nodeid := params["nodeid"]
+	nodeMac := params["macaddress"]
 	netid := params["network"]
-	node, err := logic.CreateIngressGateway(netid, nodeid)
+	node, err := logic.CreateIngressGateway(netid, nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
+	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeMac, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-
-	runUpdates(&node, true)
 }
 
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	node, err := logic.DeleteIngressGateway(params["network"], nodeid)
+	nodeMac := params["macaddress"]
+	node, err := logic.DeleteIngressGateway(params["network"], nodeMac)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
+	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeMac)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-
-	runUpdates(&node, true)
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -518,7 +498,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	var node models.Node
 	//start here
-	node, err := logic.GetNodeByID(params["nodeid"])
+	node, err := logic.GetNodeByMacAddress(params["network"], params["macaddress"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -563,14 +543,15 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsDNSMode() {
-		logic.SetDNS()
+		err = logic.SetDNS()
 	}
-
-	logger.Log(1, r.Header.Get("user"), "updated node", node.ID, "on network", node.Network)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	logger.Log(1, r.Header.Get("user"), "updated node", node.MacAddress, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
-
-	runUpdates(&newNode, true)
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
@@ -579,48 +560,17 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
-	var nodeid = params["nodeid"]
-	var node, err = logic.GetNodeByID(nodeid)
+	var node, err = logic.GetNode(params["macaddress"], params["network"])
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	if isServer(&node) {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot delete server node"), "badrequest"))
-		return
-	}
-	//send update to node to be deleted before deleting on server otherwise message cannot be sent
-	node.Action = models.NODE_DELETE
-	runUpdates(&node, true)
-	err = logic.DeleteNodeByID(&node, false)
+	err = logic.DeleteNode(&node, false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	returnSuccessResponse(w, r, nodeid+" deleted.")
-
-}
-
-func runUpdates(node *models.Node, nodeUpdate bool) error {
-	//don't publish to server node
-
-	if nodeUpdate && !isServer(node) {
-		if err := mq.NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-			return err
-		}
-	}
-
-	if err := runServerPeerUpdate(node, isServer(node)); err != nil {
-		logger.Log(1, "internal error when running peer node:", err.Error())
-		return err
-	}
-
-	return nil
+	logger.Log(1, r.Header.Get("user"), "Deleted node", params["macaddress"], "from network", params["network"])
+	returnSuccessResponse(w, r, params["macaddress"]+" deleted.")
 }

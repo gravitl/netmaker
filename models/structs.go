@@ -1,8 +1,6 @@
 package models
 
-import (
-	jwt "github.com/golang-jwt/jwt/v4"
-)
+import jwt "github.com/golang-jwt/jwt/v4"
 
 const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
 const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
@@ -10,7 +8,6 @@ const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 // AuthParams - struct for auth params
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`
-	ID         string `json:"id"`
 	Password   string `json:"password"`
 }
 
@@ -52,9 +49,8 @@ type SuccessfulUserLoginResponse struct {
 // Claims is  a struct that will be encoded to a JWT.
 // jwt.StandardClaims is an embedded type to provide expiry time
 type Claims struct {
-	ID         string
-	MacAddress string
 	Network    string
+	MacAddress string
 	jwt.StandardClaims
 }
 
@@ -74,8 +70,7 @@ type ErrorResponse struct {
 type NodeAuth struct {
 	Network    string
 	Password   string
-	MacAddress string // Depricated
-	ID         string
+	MacAddress string
 }
 
 // SuccessResponse is struct for sending error message with code.
@@ -157,32 +152,4 @@ type RelayRequest struct {
 	NodeID     string   `json:"nodeid" bson:"nodeid"`
 	NetID      string   `json:"netid" bson:"netid"`
 	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
-}
-
-// ServerUpdateData - contains data to configure server
-// and if it should set peers
-type ServerUpdateData struct {
-	UpdatePeers bool `json:"updatepeers" bson:"updatepeers"`
-	Node        Node `json:"servernode" bson:"servernode"`
-}
-
-// Telemetry - contains UUID of the server and timestamp of last send to posthog
-// also contains assymetrical encryption pub/priv keys for any server traffic
-type Telemetry struct {
-	UUID           string `json:"uuid" bson:"uuid"`
-	LastSend       int64  `json:"lastsend" bson:"lastsend"`
-	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
-	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
-}
-
-// ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
-type ServerAddr struct {
-	IsLeader bool   `json:"isleader" bson:"isleader" yaml:"isleader"`
-	Address  string `json:"address" bson:"address" yaml:"address"`
-}
-
-// TrafficKeys - struct to hold public keys
-type TrafficKeys struct {
-	Mine   []byte `json:"mine" bson:"mine" yaml:"mine"`
-	Server []byte `json:"server" bson:"server" yaml:"server"`
 }

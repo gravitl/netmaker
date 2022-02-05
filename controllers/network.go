@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -12,8 +11,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 const ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
@@ -100,23 +99,6 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated key on network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
-	nodes, err := logic.GetNetworkNodes(netname)
-	if err != nil {
-		logger.Log(2, "failed to retrieve network nodes for network", netname, err.Error())
-		return
-	}
-	for _, node := range nodes {
-		fmt.Println("updating node ", node.Name, " for a key update")
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(2, "failed key update ", node.Name)
-		}
-	}
-	node, err := logic.GetNetworkServerLeader(netname)
-	if err != nil {
-		logger.Log(2, "failed to get server node")
-		return
-	}
-	runUpdates(&node, false)
 }
 
 // Update a network
@@ -142,7 +124,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		newNetwork.DefaultPostUp = network.DefaultPostUp
 	}
 
-	rangeupdate, localrangeupdate, holepunchupdate, err := logic.UpdateNetwork(&network, &newNetwork)
+	rangeupdate, localrangeupdate, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -167,24 +149,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if holepunchupdate {
-		err = logic.UpdateNetworkHolePunching(network.NetID, newNetwork.DefaultUDPHolePunch)
-		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
-	}
-	if rangeupdate || localrangeupdate || holepunchupdate {
-		nodes, err := logic.GetNetworkNodes(network.NetID)
-		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
-			return
-		}
-		for _, node := range nodes {
-			runUpdates(&node, true)
-		}
-	}
-
 	logger.Log(1, r.Header.Get("user"), "updated network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetwork)
@@ -219,8 +183,8 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// Delete a network
-// Will stop you if  there's any nodes associated
+//Delete a network
+//Will stop you if  there's any nodes associated
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -262,9 +226,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsClientMode() != "off" {
-		var node models.Node
-		node, err = logic.ServerJoin(&network)
-		if err != nil {
+		var success bool
+		success, err = serverctl.AddNetwork(&network)
+		if err != nil || !success {
 			logic.DeleteNetwork(network.NetID)
 			if err == nil {
 				err = errors.New("Failed to add server to network " + network.DisplayName)
@@ -272,7 +236,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
-		getServerAddrs(&node)
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)

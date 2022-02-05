@@ -72,7 +72,7 @@ func grpcAuthorize(ctx context.Context) error {
 
 	authToken := authHeader[0]
 
-	nodeID, _, network, err := logic.VerifyToken(authToken)
+	mac, network, err := logic.VerifyToken(authToken)
 	if err != nil {
 		return err
 	}
@@ -82,10 +82,10 @@ func grpcAuthorize(ctx context.Context) error {
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "Unauthorized. Network does not exist: "+network)
 	}
-	node, err := logic.GetNodeByID(nodeID)
+	emptynode := models.Node{}
+	node, err := logic.GetNodeByMacAddress(network, mac)
 	if database.IsEmptyRecord(err) {
-		// == DELETE replace logic after 2 major version updates ==
-		if node, err = logic.GetDeletedNodeByID(node.ID); err == nil {
+		if node, err = logic.GetDeletedNodeByMacAddress(network, mac); err == nil {
 			if functions.RemoveDeletedNode(node.ID) {
 				return status.Errorf(codes.Unauthenticated, models.NODE_DELETE)
 			}
@@ -93,7 +93,7 @@ func grpcAuthorize(ctx context.Context) error {
 		}
 		return status.Errorf(codes.Unauthenticated, "Empty record")
 	}
-	if err != nil || node.ID == "" {
+	if err != nil || node.MacAddress == emptynode.MacAddress {
 		return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 	}
 
@@ -106,27 +106,29 @@ func grpcAuthorize(ctx context.Context) error {
 // Login - node authenticates using its password and retrieves a JWT for authorization.
 func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var reqNode, err = getNodeFromRequestData(req.Data)
-	if err != nil {
+	//out := new(LoginResponse)
+	var reqNode models.Node
+	if err := json.Unmarshal([]byte(req.Data), &reqNode); err != nil {
 		return nil, err
 	}
 
-	nodeID := reqNode.ID
+	macaddress := reqNode.MacAddress
 	network := reqNode.Network
 	password := reqNode.Password
-	macaddress := reqNode.MacAddress
 
 	var result models.NodeAuth
+	var err error
+	// err := errors.New("generic server error")
 
-	if nodeID == "" {
+	if macaddress == "" {
 		//TODO: Set Error  response
-		err = errors.New("missing node ID")
+		err = errors.New("missing mac address")
 		return nil, err
 	} else if password == "" {
 		err = errors.New("missing password")
 		return nil, err
 	} else {
-		//Search DB for node with ID. Ignore pending nodes (they should not be able to authenticate with API until approved).
+		//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
 		collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 		if err != nil {
 			return nil, err
@@ -135,7 +137,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 			if err = json.Unmarshal([]byte(value), &result); err != nil {
 				continue // finish going through nodes
 			}
-			if result.ID == nodeID && result.Network == network {
+			if result.MacAddress == macaddress && result.Network == network {
 				break
 			}
 		}
@@ -148,7 +150,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 			return nil, err
 		} else {
 			//Create a new JWT for the node
-			tokenString, err := logic.CreateJWT(result.ID, macaddress, result.Network)
+			tokenString, err := logic.CreateJWT(macaddress, result.Network)
 
 			if err != nil {
 				return nil, err
