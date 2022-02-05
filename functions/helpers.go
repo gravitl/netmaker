@@ -31,20 +31,6 @@ func ParseIntClient(value string) (models.IntClient, error) {
 	return intClient, err
 }
 
-//Takes in an arbitrary field and value for field and checks to see if any other
-//node has that value for the same field within the network
-
-// SliceContains - sees if a slice contains something
-func SliceContains(slice []string, item string) bool {
-	set := make(map[string]struct{}, len(slice))
-	for _, s := range slice {
-		set[s] = struct{}{}
-	}
-
-	_, ok := set[item]
-	return ok
-}
-
 // GetPeersList - gets peers for given network
 func GetPeersList(networkName string) ([]models.PeersResponse, error) {
 
@@ -139,17 +125,6 @@ func IsNetworkDisplayNameUnique(name string) (bool, error) {
 	}
 
 	return isunique, nil
-}
-
-// IsMacAddressUnique - checks if mac is unique
-func IsMacAddressUnique(macaddress string, networkName string) (bool, error) {
-
-	_, err := database.FetchRecord(database.NODES_TABLE_NAME, macaddress+"###"+networkName)
-	if err != nil {
-		return database.IsEmptyRecord(err), err
-	}
-
-	return true, nil
 }
 
 // IsKeyValidGlobal - checks if a key is valid globally

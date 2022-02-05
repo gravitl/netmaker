@@ -265,7 +265,7 @@
     <li class="md-nav__item">
     
     
-      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
       
     
     </li>
@@ -292,6 +292,8 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
         <li class="md-nav__item"><a href="#compose-file-annotated" class="md-nav__link">Compose File - Annotated</a>
+        </li>
+        <li class="md-nav__item"><a href="#available-docker-compose-files" class="md-nav__link">Available docker-compose files</a>
         </li></ul>
             </nav>
         </li>
@@ -309,13 +311,15 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
+        <li class="md-nav__item"><a href="#database-setup-optional" class="md-nav__link">Database Setup (optional)</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
         <li class="md-nav__item"><a href="#ui-setup" class="md-nav__link">UI Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#coredns-setup" class="md-nav__link">CoreDNS Setup</a>
+        <li class="md-nav__item"><a href="#coredns-setup-optional" class="md-nav__link">CoreDNS Setup (optional)</a>
+        </li>
+        <li class="md-nav__item"><a href="#proxy-load-balancer" class="md-nav__link">Proxy / Load Balancer</a>
         </li></ul>
             </nav>
         </li>
@@ -351,7 +355,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">2. RQLite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
         </li>
@@ -524,6 +528,8 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
         <li class="md-nav__item"><a href="#compose-file-annotated" class="md-nav__link">Compose File - Annotated</a>
+        </li>
+        <li class="md-nav__item"><a href="#available-docker-compose-files" class="md-nav__link">Available docker-compose files</a>
         </li></ul>
             </nav>
         </li>
@@ -541,13 +547,15 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
+        <li class="md-nav__item"><a href="#database-setup-optional" class="md-nav__link">Database Setup (optional)</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
         <li class="md-nav__item"><a href="#ui-setup" class="md-nav__link">UI Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#coredns-setup" class="md-nav__link">CoreDNS Setup</a>
+        <li class="md-nav__item"><a href="#coredns-setup-optional" class="md-nav__link">CoreDNS Setup (optional)</a>
+        </li>
+        <li class="md-nav__item"><a href="#proxy-load-balancer" class="md-nav__link">Proxy / Load Balancer</a>
         </li></ul>
             </nav>
         </li>
@@ -583,7 +591,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">2. RQLite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
         </li>
@@ -689,6 +697,20 @@
 <dt>CLIENT_MODE:</dt><dd><p><strong>Default:</strong> “on”</p>
 <p><strong>Description:</strong> Specifies if server should deploy itself as a node (client) in each network. May be turned to “off” for more restricted servers.</p>
 </dd>
+<dt>RCE:</dt><dd><p><strong>Default:</strong> “off”</p>
+<p><strong>Description:</strong> The server enables you to set PostUp and PostDown commands for nodes, which is standard for WireGuard with wg-quick, but is also <strong>Remote Code Execution</strong>, which is a critical vulnerability if the server is exploited. Because of this, it’s turned off by default, but if turned on, PostUp and PostDown become editable.</p>
+</dd>
+<dt>SERVER_GRPC_WIREGUARD</dt><dd><p><strong>Depreciated:</strong> no longer in use</p>
+</dd>
+<dt>DISPLAY_KEYS</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> If “on”, will allow you to always show the key values of “access keys”. This could be considered a vulnerability, so if turned “off”, will only display key values once, and it is up to the users to store the key values locally.</p>
+</dd>
+<dt>NODE_ID</dt><dd><p><strong>Default:</strong> &lt;system mac addres&gt;</p>
+<p><strong>Description:</strong> This setting is used for HA configurations of the server, to identify between different servers. Nodes are given ID’s like netmaker-1, netmaker-2, and netmaker-3. If the server is not HA, there is no reason to set this field.</p>
+</dd>
+<dt>TELEMETRY</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> If “on”, the server will send anonymous telemetry data once daily, which is used to improve the product. Data sent includes counts (integer values) for the number of nodes, types of nodes, users, and networks. It also sends the version of the server.</p>
+</dd>
 </dl>
 
 
@@ -708,6 +730,7 @@
   <span class="nt">sqlconn</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "http://" or SQL_CONN (if set)</span>
   <span class="nt">disableremoteipcheck</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)</span>
   <span class="nt">version</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># version of server</span>
+  <span class="nt">rce</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "off"</span>
 </pre></div>
 </div>
 
@@ -753,6 +776,9 @@
       <span class="nt">DISPLAY_KEYS</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Show keys permanently in UI (until deleted) as opposed to 1-time display.</span>
       <span class="nt">SERVER_API_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT</span>
       <span class="nt">SERVER_GRPC_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT</span>
+      <span class="nt">RCE</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.</span>
+      <span class="nt">NODE_ID</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Sets the name/id of the nodes that the server creates. Necessary for HA configurations to identify between servers (for instance, netmaker-1, netmaker-2, etc). For non-HA deployments, is not necessary.</span>
+      <span class="nt">TELEMETRY</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.</span>
   <span class="nt">netmaker-ui</span><span class="p">:</span> <span class="c1"># The Netmaker UI Component</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>
@@ -780,6 +806,20 @@
   <span class="nt">dnsconfig</span><span class="p">:</span> <span class="p p-Indicator">{}</span>
 </pre></div>
 </div>
+
+
+<h3 id="available-docker-compose-files">Available docker-compose files<a class="headerlink" href="#available-docker-compose-files" title="Permalink to this headline">¶</a></h3>
+<p>The default options for docker-compose can be found here: <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/compose">https://github.com/gravitl/netmaker/tree/master/compose</a></p>
+<p>The following is a brief description of each:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.contained.yml">docker-compose.contained.yml</a> - This is the default docker-compose, used in the quick start and deployment script in the README on GitHub. It deploys Netmaker with all options included (Caddy and CoreDNS) and has “self-contained” netclients, meaning they do not affect host networking.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.coredns.yml">docker-compose.coredns.yml</a> - This is a simple compose used to spin up a standalone CoreDNS server. Can be useful if, for instance, you are unning Netmaker on baremetal but need CoreDNS.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.hostnetwork.yml">docker-compose.hostnetwork.yml</a> - This is similar to the docker-compose.contained.yml but with a key difference: it has advanced permissions and mounts host volumes to control networking on the host level.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nocaddy.yml">docker-compose.nocaddy.yml</a> -= This is the same as docker-compose.contained.yml but without Caddy, in case you need to use a different proxy like Nginx, Traefik, or HAProxy.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nodns.yml">docker-compose.nodns.yml</a> - This is the same as docker-compose.contained.yml but without CoreDNS, in which case you will not have the Private DNS feature.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.reference.yml">docker-compose.reference.yml</a> - This is the same as docker-compose.contained.yml but with all variable options on display and annotated (it’s what we show right above this section). Use this to determine which variables you should add or change in your configuration.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.yml">docker-compose.yml</a> - This is a renamed docker-compose.contained.yml. It is meant only to act as a placeholder for what we consider the “primary” docker-compose that users should work with.</p></li>
+</ul>
 
 
 
@@ -837,15 +877,16 @@ docker-compose up -d`
 
 
 <span id="nodocker"></span><h2 id="linux-install-without-docker">Linux Install without Docker<a class="headerlink" href="#linux-install-without-docker" title="Permalink to this headline">¶</a></h2>
-<p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional).</p>
-<p>To start, we recommend following the Nginx instructions in the <a class="reference internal" href="quick-start.html"><span class="doc">Quick Install</span></a> guide to enable SSL for your environment.</p>
+<p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you may want to optionally install a database (sqlite is embedded, rqlite or postgres are supported) and CoreDNS (also optional).</p>
 <p>Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.</p>
 
-<h3 id="rqlite-setup">rqlite Setup<a class="headerlink" href="#rqlite-setup" title="Permalink to this headline">¶</a></h3>
+<h3 id="database-setup-optional">Database Setup (optional)<a class="headerlink" href="#database-setup-optional" title="Permalink to this headline">¶</a></h3>
+<p>You can run the netmaker binary standalone and it will run an embedded sqlite server. Data goes in the data/ directory. Optionally, you can run PostgreSQL or rqlite. Instructions for rqlite are below.</p>
 <ol class="arabic simple">
 <li><p>Install rqlite on your server: <a class="reference external" href="https://github.com/rqlite/rqlite">https://github.com/rqlite/rqlite</a></p></li>
 <li><p>Run rqlite: rqlited -node-id 1 ~/node.1</p></li>
 </ol>
+<p>If using rqlite or postgres, you must change the DATABASE environment/config variable and enter connection details.</p>
 
 
 <h3 id="server-setup">Server Setup<a class="headerlink" href="#server-setup" title="Permalink to this headline">¶</a></h3>
@@ -878,7 +919,13 @@ docker-compose up -d`
 </div>
 
 
-<h3 id="coredns-setup">CoreDNS Setup<a class="headerlink" href="#coredns-setup" title="Permalink to this headline">¶</a></h3>
+<h3 id="coredns-setup-optional">CoreDNS Setup (optional)<a class="headerlink" href="#coredns-setup-optional" title="Permalink to this headline">¶</a></h3>
+<p>CoreDNS is only required if you want private DNS features. Once installed, you must set the CoreDNS variables in the env settings of the server.</p>
+<p>See <a class="reference external" href="https://coredns.io/manual/toc/#installation">https://coredns.io/manual/toc/#installation</a></p>
+
+
+<h3 id="proxy-load-balancer">Proxy / Load Balancer<a class="headerlink" href="#proxy-load-balancer" title="Permalink to this headline">¶</a></h3>
+<p>You will need to proxy connections to your UI and Server. By default the ports are 8081, 8082, and 50051 (grpc). This proxy should handle SSL certificates. We recommend Caddy or Nginx (you can follow the Nginx guide in these docs). The proxy must be able to handle gRPC connections.</p>
 
 
 
@@ -1086,7 +1133,7 @@ This install has some notable exceptions:
 <p>Your load balancer of choice will send requests to the Netmaker servers. Setup is similar to the various guides we have created for Nginx, Caddy, and Traefik. SSL certificates must also be configured and handled by the LB.</p>
 
 
-<h3 id="id1">2. RQLite Setup<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<h3 id="rqlite-setup">2. RQLite Setup<a class="headerlink" href="#rqlite-setup" title="Permalink to this headline">¶</a></h3>
 <p>RQLite is the included distributed datastore for an HA Netmaker installation. If you have a different corporate database you wish to integrate, Netmaker is easily extended to other DB’s. If this is a requirement, please contact us.</p>
 <p>Assuming you use Rqlite, you must run it on each Netmaker server VM, or alongside that VM as a container. Setup a config.json for database credentials (password supports BCRYPT HASHING) and mount in working directory of rqlite and specify with <cite>-auth config.json</cite> :</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[{</span>

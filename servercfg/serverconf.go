@@ -12,6 +12,8 @@ import (
 	"github.com/gravitl/netmaker/config"
 )
 
+var Version = "dev"
+
 // SetHost - sets the host ip
 func SetHost() error {
 	remoteip, err := GetPublicIP()
@@ -85,6 +87,11 @@ func GetServerConfig() config.ServerConfig {
 	} else {
 		cfg.RCE = "off"
 	}
+	cfg.Debug = GetDebug()
+	cfg.Telemetry = Telemetry()
+	cfg.ManageIPTables = ManageIPTables()
+	services := strings.Join(GetPortForwardServiceList(), ",")
+	cfg.PortForwardServices = services
 
 	return cfg
 }
@@ -113,11 +120,7 @@ func GetAPIConnString() string {
 
 // GetVersion - version of netmaker
 func GetVersion() string {
-	version := "0.9.4"
-	if config.Config.Server.Version != "" {
-		version = config.Config.Server.Version
-	}
-	return version
+	return Version
 }
 
 // GetDB - gets the database type
@@ -244,6 +247,18 @@ func GetGRPCPort() string {
 	return grpcport
 }
 
+// GetMessageQueueEndpoint - gets the message queue endpoint
+func GetMessageQueueEndpoint() string {
+	host, _ := GetPublicIP()
+	if os.Getenv("MQ_HOST") != "" {
+		host = os.Getenv("MQ_HOST")
+	} else if config.Config.Server.MQHOST != "" {
+		host = config.Config.Server.MQHOST
+	}
+	//Do we want MQ port configurable???
+	return host + ":1883"
+}
+
 // GetMasterKey - gets the configured master key of server
 func GetMasterKey() string {
 	key := "secretkey"
@@ -307,25 +322,55 @@ func IsAgentBackend() bool {
 	return isagent
 }
 
+// IsMessageQueueBackend - checks if message queue is on or off
+func IsMessageQueueBackend() bool {
+	ismessagequeue := true
+	if os.Getenv("MESSAGEQUEUE_BACKEND") != "" {
+		if os.Getenv("MESSAGEQUEUE_BACKEND") == "off" {
+			ismessagequeue = false
+		}
+	} else if config.Config.Server.MessageQueueBackend != "" {
+		if config.Config.Server.MessageQueueBackend == "off" {
+			ismessagequeue = false
+		}
+	}
+	return ismessagequeue
+}
+
 // IsClientMode - checks if it should run in client mode
 func IsClientMode() string {
 	isclient := "on"
-	if os.Getenv("CLIENT_MODE") != "" {
-		if os.Getenv("CLIENT_MODE") == "off" {
-			isclient = "off"
-		}
-		if os.Getenv("CLIENT_MODE") == "contained" {
-			isclient = "contained"
-		}
-	} else if config.Config.Server.ClientMode != "" {
-		if config.Config.Server.ClientMode == "off" {
-			isclient = "off"
-		}
-		if config.Config.Server.ClientMode == "contained" {
-			isclient = "contained"
-		}
+	if os.Getenv("CLIENT_MODE") == "off" {
+		isclient = "off"
+	}
+	if config.Config.Server.ClientMode == "off" {
+		isclient = "off"
 	}
 	return isclient
+}
+
+// Telemetry - checks if telemetry data should be sent
+func Telemetry() string {
+	telemetry := "on"
+	if os.Getenv("TELEMETRY") == "off" {
+		telemetry = "off"
+	}
+	if config.Config.Server.Telemetry == "off" {
+		telemetry = "off"
+	}
+	return telemetry
+}
+
+// ManageIPTables - checks if iptables should be manipulated on host
+func ManageIPTables() string {
+	manage := "on"
+	if os.Getenv("MANAGE_IPTABLES") == "off" {
+		manage = "off"
+	}
+	if config.Config.Server.ManageIPTables == "off" {
+		manage = "off"
+	}
+	return manage
 }
 
 // IsDNSMode - should it run with DNS
@@ -442,6 +487,19 @@ func GetPlatform() string {
 	return platform
 }
 
+// GetIPForwardServiceList - get the list of services that the server should be forwarding
+func GetPortForwardServiceList() []string {
+	//services := "mq,dns,ssh"
+	services := ""
+	if os.Getenv("PORT_FORWARD_SERVICES") != "" {
+		services = os.Getenv("PORT_FORWARD_SERVICES")
+	} else if config.Config.Server.PortForwardServices != "" {
+		services = config.Config.Server.PortForwardServices
+	}
+	serviceSlice := strings.Split(services, ",")
+	return serviceSlice
+}
+
 // GetSQLConn - get the sql connection string
 func GetSQLConn() string {
 	sqlconn := "http://"
@@ -464,10 +522,21 @@ func IsSplitDNS() bool {
 	return issplit
 }
 
+// IsSplitDNS - checks if split dns is on
+func IsHostNetwork() bool {
+	ishost := false
+	if os.Getenv("HOST_NETWORK") == "on" {
+		ishost = true
+	} else if config.Config.Server.HostNetwork == "on" {
+		ishost = true
+	}
+	return ishost
+}
+
 // GetNodeID - gets the node id
 func GetNodeID() string {
 	var id string
-	id = getMacAddr()
+	// id = getMacAddr()
 	if os.Getenv("NODE_ID") != "" {
 		id = os.Getenv("NODE_ID")
 	} else if config.Config.Server.NodeID != "" {
@@ -537,4 +606,9 @@ func getMacAddr() string {
 // GetRce - sees if Rce is enabled, off by default
 func GetRce() bool {
 	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
+}
+
+// GetDebug -- checks if debugging is enabled, off by default
+func GetDebug() bool {
+	return os.Getenv("DEBUG") == "on" || config.Config.Server.Debug == true
 }

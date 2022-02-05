@@ -47,7 +47,7 @@ Netmaker
 
 Netmaker is a platform built off of WireGuard which enables users to create mesh networks between their devices. Netmaker can create both full and partial mesh networks depending on the use case.
 
-When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver.
+When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver. There is also almost always a proxy server / LB, which is typically Caddy.
 
 From an end user perspective, they typically interact with the Netmaker UI, or even just run the install script for the netclient on their devices. The other components run in the background invisibly. 
 
@@ -85,6 +85,7 @@ These modes include client mode and dns mode. Either of these can be disabled bu
 
 The Netmaker server interacts with either sqlite (default), postgres, or rqlite, a distributed version of sqlite, as its database. This DB holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
 
+The components of the server are usually proxied via Caddy, or an alternative like Nginx and Traefik. The proxy handles SSL certificates to secure traffic, and routes to the UI, API, and gRPC server.
 
 Netclient
 ----------------
@@ -123,6 +124,15 @@ CoreDNS
 --------
 
 Netmaker allows users to provide and manage Private DNS for their nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.
+
+Caddy
+-------
+
+Caddy is the default proxy for Netmaker if you set it up via Quick Start. Caddy is an extremely simple and docker-friendly proxy, which can be compared to Nginx, Traefik, or HAProxy. We use Caddy by default because of the ease of management, and integration with gRPC. A typical setup for Nginx might take dozens of lines of code, and we need to request and manage SSL certificates separately.
+
+Caddy handles all these things automatically in very few lines of code. You can see our default "Caddyfile" here, which is fed to the container and has all the configuration necessary to configure the proxy for our app:
+
+https://github.com/gravitl/netmaker/blob/master/docker/Caddyfile
 
 External Client
 ----------------
@@ -182,7 +192,7 @@ The following systems should be operable natively with Netclient in daemon mode:
         - Raspian.
         - Arch
         - CentOS
-        - CoreOS
+        - Fedora CoreOS
 
 To manage DNS (optional), the node must have systemd-resolved. Systems that have this enabled include:
         - Arch

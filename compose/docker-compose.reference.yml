@@ -37,6 +37,9 @@ services:
       DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
       SERVER_API_CONN_STRING: "" # Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT
       SERVER_GRPC_CONN_STRING: "" # Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT
+      RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.
+      NODE_ID: "" # Sets the name/id of the nodes that the server creates. Necessary for HA configurations to identify between servers (for instance, netmaker-1, netmaker-2, etc). For non-HA deployments, is not necessary.
+      TELEMETRY: "on" # Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.
   netmaker-ui: # The Netmaker UI Component
     container_name: netmaker-ui
     depends_on:

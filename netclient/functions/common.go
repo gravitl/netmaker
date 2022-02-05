@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -42,20 +44,21 @@ func getPrivateAddr() (string, error) {
 
 	var local string
 	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
+	if err == nil {
+		defer conn.Close()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	localIP := localAddr.IP
-	local = localIP.String()
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+		localIP := localAddr.IP
+		local = localIP.String()
+	}
 	if local == "" {
 		local, err = getPrivateAddrBackup()
 	}
+
 	if local == "" {
 		err = errors.New("could not find local ip")
 	}
+
 	return local, err
 }
 
@@ -101,26 +104,6 @@ func getPrivateAddrBackup() (string, error) {
 	}
 	return local, err
 }
-
-// DEPRECATED
-// func needInterfaceUpdate(ctx context.Context, mac string, network string, iface string) (bool, string, error) {
-// 	var header metadata.MD
-// 	req := &nodepb.Object{
-// 		Data: mac + "###" + network,
-// 		Type: nodepb.STRING_TYPE,
-// 	}
-// 	readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
-// 	if err != nil {
-// 		return false, "", err
-// 	}
-// 	var resNode models.Node
-// 	if err := json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
-// 		return false, iface, err
-// 	}
-// 	oldiface := resNode.Interface
-
-// 	return iface != oldiface, oldiface, err
-// }
 
 // GetNode - gets node locally
 func GetNode(network string) models.Node {
@@ -184,56 +167,67 @@ func LeaveNetwork(network string) error {
 		if err != nil {
 			log.Printf("Failed to authenticate: %v", err)
 		} else { // handle client side
-			node.SetID()
 			var header metadata.MD
-			_, err = wcclient.DeleteNode(
-				ctx,
-				&nodepb.Object{
-					Data: node.ID,
-					Type: nodepb.STRING_TYPE,
-				},
-				grpc.Header(&header),
-			)
-			if err != nil {
-				ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
-			} else {
-				ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
+			nodeData, err := json.Marshal(&node)
+			if err == nil {
+				_, err = wcclient.DeleteNode(
+					ctx,
+					&nodepb.Object{
+						Data: string(nodeData),
+						Type: nodepb.NODE_TYPE,
+					},
+					grpc.Header(&header),
+				)
+				if err != nil {
+					ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
+				} else {
+					ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
+				}
 			}
 		}
 	}
-	//extra network route setting required for freebsd and windows
-	if ncutils.IsWindows() {
-		ip, mask, err := ncutils.GetNetworkIPMask(node.NetworkSettings.AddressRange)
-		if err != nil {
-			ncutils.PrintLog(err.Error(), 1)
+
+	wgClient, wgErr := wgctrl.New()
+	if wgErr == nil {
+		dev, devErr := wgClient.Device(cfg.Node.Interface)
+		if devErr == nil {
+			local.FlushPeerRoutes(cfg.Node.Interface, cfg.Node.Address, dev.Peers[:])
+			_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
+			if cidrErr == nil {
+				local.RemoveCIDRRoute(cfg.Node.Interface, cfg.Node.Address, cidr)
+			}
+		} else {
+			ncutils.PrintLog("could not flush peer routes when leaving network, "+cfg.Node.Network, 1)
 		}
-		_, _ = ncutils.RunCmd("route delete "+ip+" mask "+mask+" "+node.Address, true)
-	} else if ncutils.IsFreeBSD() {
-		_, _ = ncutils.RunCmd("route del -net "+node.NetworkSettings.AddressRange+" -interface "+node.Interface, true)
-	} else if ncutils.IsLinux() {
-		_, _ = ncutils.RunCmd("ip -4 route del "+node.NetworkSettings.AddressRange+" dev "+node.Interface, false)
 	}
-	return RemoveLocalInstance(cfg, network)
+
+	err = WipeLocal(node.Network)
+	if err != nil {
+		ncutils.PrintLog("unable to wipe local config", 1)
+	} else {
+		ncutils.PrintLog("removed "+node.Network+" network locally", 1)
+	}
+
+	currentNets, err := ncutils.GetSystemNetworks()
+	if err != nil || len(currentNets) <= 1 {
+		return RemoveLocalInstance(cfg, network)
+	}
+	return daemon.Restart()
 }
 
 // RemoveLocalInstance - remove all netclient files locally for a network
 func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
-	err := WipeLocal(networkName)
-	if err != nil {
-		ncutils.PrintLog("unable to wipe local config", 1)
-	} else {
-		ncutils.PrintLog("removed "+networkName+" network locally", 1)
-	}
+
 	if cfg.Daemon != "off" {
 		if ncutils.IsWindows() {
 			// TODO: Remove job?
 		} else if ncutils.IsMac() {
 			//TODO: Delete mac daemon
 		} else {
-			err = daemon.RemoveSystemDServices()
+			daemon.RemoveSystemDServices()
 		}
 	}
-	return err
+	return nil
 }
 
 // DeleteInterface - delete an interface of a network
@@ -269,6 +263,9 @@ func WipeLocal(network string) error {
 	}
 	if ncutils.FileExists(home + "secret-" + network) {
 		_ = os.Remove(home + "secret-" + network)
+	}
+	if ncutils.FileExists(home + "traffic-" + network) {
+		_ = os.Remove(home + "traffic-" + network)
 	}
 	if ncutils.FileExists(home + "wgkey-" + network) {
 		_ = os.Remove(home + "wgkey-" + network)

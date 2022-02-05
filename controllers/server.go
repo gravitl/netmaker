@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 func serverHandlers(r *mux.Router) {
@@ -70,9 +69,8 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	success, err := serverctl.RemoveNetwork(params["network"])
-
-	if err != nil || !success {
+	err := logic.DeleteNetwork(params["network"])
+	if err != nil {
 		json.NewEncoder(w).Encode("Could not remove server from network " + params["network"])
 		return
 	}

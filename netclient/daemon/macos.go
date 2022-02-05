@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -13,21 +15,22 @@ const MAC_SERVICE_NAME = "com.gravitl.netclient"
 // SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
 func SetupMacDaemon(interval string) error {
 
-	if !ncutils.FileExists("/etc/netclient/netclient") {
-		binarypath, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		ncutils.PrintLog("installing binary from "+binarypath, 0)
-		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		return err
+	}
+	binarypath := dir + "/netclient"
+
+	if !ncutils.FileExists(EXEC_DIR + "netclient") {
+		err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
 		if err != nil {
 			log.Println(err)
 			return err
 		}
 	}
 
-	_, err := os.Stat("~/Library/LaunchAgents")
-	if os.IsNotExist(err) {
+	_, errN := os.Stat("~/Library/LaunchAgents")
+	if os.IsNotExist(errN) {
 		os.Mkdir("~/Library/LaunchAgents", 0755)
 	}
 	err = CreateMacService(MAC_SERVICE_NAME, interval)
@@ -49,6 +52,13 @@ func CleanupMac() {
 	}
 
 	os.RemoveAll(ncutils.GetNetclientPath())
+	os.Remove(EXEC_DIR + "netclient")
+}
+
+func RestartLaunchD() {
+	ncutils.RunCmd("launchctl unload /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
+	time.Sleep(time.Second >> 2)
+	ncutils.RunCmd("launchctl load /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
 }
 
 // CreateMacService - Creates the mac service file for LaunchDaemons
@@ -78,10 +88,8 @@ func MacDaemonString(interval string) string {
 	<key>Label</key><string>com.gravitl.netclient</string>
 	<key>ProgramArguments</key>
 		<array>
-			<string>/etc/netclient/netclient</string>
-			<string>checkin</string>
-			<string>-n</string>
-			<string>all</string>
+			<string>/sbin/netclient</string>
+			<string>daemon</string>
 		</array>
 	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
 	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
