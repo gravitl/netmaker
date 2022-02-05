@@ -604,7 +604,10 @@ func isMacAddressUnique(macaddress string, networkName string) (bool, error) {
 
 	nodes, err := GetNetworkNodes(networkName)
 	if err != nil {
-		return database.IsEmptyRecord(err), err
+		if database.IsEmptyRecord(err) {
+			return true, nil
+		}
+		return false, err
 	}
 
 	for _, node := range nodes {

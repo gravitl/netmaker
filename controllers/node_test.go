@@ -32,10 +32,12 @@ func TestCreateEgressGateway(t *testing.T) {
 		assert.EqualError(t, err, "freebsd is unsupported for egress gateways")
 	})
 	t.Run("Success", func(t *testing.T) {
+		deleteAllNodes()
 		testnode := createTestNode()
 		gateway.NodeID = testnode.ID
 
 		node, err := logic.CreateEgressGateway(gateway)
+		t.Log(node)
 		assert.Nil(t, err)
 		assert.Equal(t, "yes", node.IsEgressGateway)
 		assert.Equal(t, gateway.Ranges, node.EgressGatewayRanges)
@@ -47,7 +49,6 @@ func TestDeleteEgressGateway(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllNetworks()
 	createNet()
-	createTestNode()
 	testnode := createTestNode()
 	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
