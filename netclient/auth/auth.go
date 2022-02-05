@@ -27,7 +27,7 @@ func SetJWT(client nodepb.NodeServiceClient, network string) (context.Context, e
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong with Auto Login: %v", err))
 		}
-		tokentext, err = os.ReadFile(home + "nettoken-" + network)
+		tokentext, err = ncutils.GetFileWithRetry(home+"nettoken-"+network, 1)
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("Something went wrong: %v", err))
 		}
@@ -88,7 +88,7 @@ func StoreSecret(key string, network string) error {
 
 // RetrieveSecret - fetches secret locally
 func RetrieveSecret(network string) (string, error) {
-	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + network)
+	dat, err := ncutils.GetFileWithRetry(ncutils.GetNetclientPathSpecific()+"secret-"+network, 3)
 	return string(dat), err
 }
 
@@ -103,7 +103,7 @@ func StoreTrafficKey(key *[32]byte, network string) error {
 
 // RetrieveTrafficKey - reads traffic file locally
 func RetrieveTrafficKey(network string) (*[32]byte, error) {
-	data, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "traffic-" + network)
+	data, err := ncutils.GetFileWithRetry(ncutils.GetNetclientPathSpecific()+"traffic-"+network, 2)
 	if err != nil {
 		return nil, err
 	}

@@ -182,14 +182,15 @@ func getServerAddrs(node *models.Node) {
 		}
 	}
 
-	var serverAddrs = make([]models.ServerAddr, 1)
+	var serverAddrs = make([]models.ServerAddr, 0)
 
 	for _, node := range serverNodes {
-
-		serverAddrs = append(serverAddrs, models.ServerAddr{
-			IsLeader: logic.IsLeader(&node),
-			Address:  node.Address,
-		})
+		if node.Address != "" {
+			serverAddrs = append(serverAddrs, models.ServerAddr{
+				IsLeader: logic.IsLeader(&node),
+				Address:  node.Address,
+			})
+		}
 	}
 
 	networkSettings, _ := logic.GetParentNetwork(node.Network)

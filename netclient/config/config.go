@@ -68,7 +68,7 @@ func Write(config *ClientConfig, network string) error {
 	if err != nil {
 		return err
 	}
-	return err
+	return f.Sync()
 }
 
 // ClientConfig.ReadConfig - used to read config from client disk into memory
@@ -109,7 +109,6 @@ func ModConfig(node *models.Node) error {
 		return errors.New("no network provided")
 	}
 	var modconfig ClientConfig
-	var err error
 	if FileExists(ncutils.GetNetclientPathSpecific() + "netconfig-" + network) {
 		useconfig, err := ReadConfig(network)
 		if err != nil {
@@ -120,8 +119,7 @@ func ModConfig(node *models.Node) error {
 
 	modconfig.Node = (*node)
 	modconfig.NetworkSettings = node.NetworkSettings
-	err = Write(&modconfig, network)
-	return err
+	return Write(&modconfig, network)
 }
 
 // ModConfig - overwrites the node inside client config on disk

@@ -5,19 +5,25 @@ import (
 
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 func setRoute(iface string, addr *net.IPNet, address string) error {
-	var err error
-	_, err = ncutils.RunCmd(fmt.Sprintf("ip route add %s dev %s", addr.String(), iface), false)
+	out, err := ncutils.RunCmd(fmt.Sprintf("ip route get %s", addr.IP.String()), false)
+	if err != nil || !strings.Contains(out, iface) {
+		_, err = ncutils.RunCmd(fmt.Sprintf("ip route add %s dev %s", addr.String(), iface), false)
+	}
 	return err
 }
 
 func deleteRoute(iface string, addr *net.IPNet, address string) error {
 	var err error
-	_, err = ncutils.RunCmd(fmt.Sprintf("ip route del %s dev %s", addr.String(), iface), false)
+	out, _ := ncutils.RunCmd(fmt.Sprintf("ip route get %s", addr.IP.String()), false)
+	if strings.Contains(out, iface) {
+		_, err = ncutils.RunCmd(fmt.Sprintf("ip route del %s dev %s", addr.String(), iface), false)
+	}
 	return err
 }
 
