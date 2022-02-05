@@ -13,7 +13,7 @@ import (
 func setRoute(iface string, addr *net.IPNet, address string) error {
 	out, err := ncutils.RunCmd(fmt.Sprintf("ip route get %s", addr.IP.String()), false)
 	if err != nil || !strings.Contains(out, iface) {
-		_, err = ncutils.RunCmd(fmt.Sprintf("ip route add %s dev %s", addr.String(), iface), true)
+		_, err = ncutils.RunCmd(fmt.Sprintf("ip route add %s dev %s", addr.String(), iface), false)
 	}
 	return err
 }
