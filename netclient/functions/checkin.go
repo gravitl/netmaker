@@ -155,6 +155,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	node := cfg.Node
 	//servercfg := cfg.Server
 
@@ -184,22 +185,16 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			ncutils.PrintLog("Failed to authenticate: "+err.Error(), 1)
 			return nil, err
 		}
-		data, err := json.Marshal(&node)
-		if err != nil {
-			ncutils.PrintLog("Failed to parse node config: "+err.Error(), 1)
-			return nil, err
-		}
 
 		req := &nodepb.Object{
-			Data: string(data),
-			Type: nodepb.NODE_TYPE,
+			Data: node.MacAddress + "###" + node.Network,
+			Type: nodepb.STRING_TYPE,
 		}
 
 		readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
 		if err != nil {
 			return nil, err
 		}
-
 		if err = json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
 			return nil, err
 		}
@@ -224,7 +219,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		if err != nil {
 			return &resNode, err
 		}
-
 		if resNode.IsServer != "yes" {
 			if wcclient == nil || ctx == nil {
 				return &cfg.Node, errors.New("issue initializing gRPC client")

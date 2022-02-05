@@ -23,7 +23,7 @@ Netmaker is a platform for creating and managing fast, secure, and dynamic virtu
 
 This documentation covers Netmaker's :doc:`installation <./server-installation>`, :doc:`usage <./usage>`, :doc:`troubleshooting <./support>`, and customization, as well as reference documents for the :doc:`API <./api>`, UI and Agent configuration. All of the `source code <https://github.com/gravitl/netmaker>`_ for Netmaker is on GitHub.
 
-**For Kubernetes-specific guidance, please see the** `Netmaker Kubernetes Documentation. <https://k8s.netmaker.org>`_
+**For Kubernetes-specific guidance, please see the** `Netmaker Kubernetes Documentation. <https://nm-k8s.readthedocs.io>`_
 
 About
 --------
@@ -81,9 +81,9 @@ Kubernetes Documentation
 
 .. toctree::
 
-   Kubernetes <https://k8s.netmaker.org>
+   Kubernetes <https://nm-k8s.readthedocs.io>
    
-`Netmaker Kubernetes Documentation <https://k8s.netmaker.org>`_
+`Netmaker Kubernetes Documentation <https://nm-k8s.readthedocs.io>`_
 
 
 Advanced Server Installation

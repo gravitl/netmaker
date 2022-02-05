@@ -115,12 +115,10 @@ func SetCorefile(domains string) error {
 	if err != nil {
 		return err
 	}
-
 	_, err = os.Stat(dir + "/config/dnsconfig")
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(dir+"/config/dnsconfig", 744)
-	}
-	if err != nil {
+		os.Mkdir(dir+"/config/dnsconfig", 744)
+	} else if err != nil {
 		logger.Log(0, "couldnt find or create /config/dnsconfig")
 		return err
 	}

@@ -3,7 +3,6 @@ package daemon
 import (
 	"errors"
 	"runtime"
-	"time"
 
 	"github.com/gravitl/netmaker/netclient/config"
 )
@@ -25,25 +24,6 @@ func InstallDaemon(cfg config.ClientConfig) error {
 		err = SetupMacDaemon(interval)
 	case "linux":
 		err = SetupSystemDDaemon(interval)
-	default:
-		err = errors.New("this os is not yet supported for daemon mode. Run join cmd with flag '--daemon off'")
-	}
-	return err
-}
-
-func Restart() error {
-	os := runtime.GOOS
-	var err error
-
-	time.Sleep(time.Second)
-
-	switch os {
-	case "windows":
-		RestartWindowsDaemon()
-	case "darwin":
-		RestartLaunchD()
-	case "linux":
-		RestartSystemD()
 	default:
 		err = errors.New("this os is not yet supported for daemon mode. Run join cmd with flag '--daemon off'")
 	}

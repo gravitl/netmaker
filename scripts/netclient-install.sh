@@ -224,7 +224,7 @@ if [ "${OS}" = "FreeBSD" ]; then
 name="netclient"
 rcvar=netclient_enable
 pidfile="/var/run/${name}.pid"
-command="/sbin/daemon"
+command="/usr/sbin/daemon"
 command_args="-c -f -P ${pidfile} -R 10 -t "Netclient" -u root -o /etc/netclient/netclient.log /etc/netclient/netclient checkin -n all"
 
 load_rc_config $name

@@ -29,13 +29,6 @@ Common Issues
 Server
 -------
 
-**How do I use a private address from the Netmaker Server? How do I contact nodes using their private addresses from the server?**
-  Default nodes appear in each network with the "netmaker" name. These nodes are created by, and attached to, the server. The server is contained in docker, meaning these clients are also contained in docker. Their networking stack is also contained in docker. The "netmaker" nodes are meant to function as network utilities. They assist with UDP Hole Punching and can run Relays, Egress, and Ingress. However, they are meant to stay contained in the server. They do not touch the host networking stack.
-
-  If you want to give the physical server / VM a private IP in the netmaker network, you must deploy an **additional** node using the standard netclient. The only note here is that the server consumes ports 51821-51831, so you will need to give it a port outside this range, e.x. `./netclient join <token> --port 51835`.
-
-  One a netclient is deployed to the underlying server/VM, you will be able to use the private address to reach other nodes from the host, or to reach the server over the private network.
-
 **I upgraded from 0.7 to 0.8 and now I dont have any data in my server!**
   In 0.8, sqlite becomes the default database. If you were running with rqlite, you must set the DATABASE environment variable to rqlite in order to continue using rqlite.
 
@@ -111,23 +104,6 @@ Netclient
 
 **I have a hard to reach machine behind a firewall or a corporate NAT, what can I do?**
   In this situation you can use the Relay Server functionality introduced in Netmaker v0.8 to designate a node as a relay to your "stuck" machine. Simply click the button to make a node into a relay and tell it to relay traffic to this hard-to-reach peer. 
-
-**I am unable to run the netclient on my OpenWRT machine, what's wrong?**
-  Deploying on OpenWRT depends a lot on the version of OpenWRT and the hardware being used. If the primary installer does not work, there are two things you can try:
-
-  1. This community-run package for OpenWRT: https://github.com/sbilly/netmaker-openwrt
-
-  2. Manual installation:
-
-  - download (wget) the netclient package for your hardware from the netclient releases: https://github.com/gravitl/netmaker/releases
-  - rename to "netclient"
-  - Run as root from a bash shell on OpenWRT
-
-  3. You may experience an issue with the length of the token, which has limits on some OpenWRT shells. If you run into this problem, you can use the following script to convert your token into a "netclient join" command:
-
-  - `wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/token-convert.sh`
-  - ./token-convert <token value>
-  - Run the output on your OpenWRT machine
 
 
 CoreDNS

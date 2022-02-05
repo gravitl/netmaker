@@ -2,13 +2,11 @@ package functions
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os/exec"
-	"runtime"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/models"
@@ -19,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/server"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"golang.org/x/crypto/nacl/box"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 )
@@ -31,50 +28,25 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	}
 
 	var err error
-	if local.HasNetwork(cfg.Network) {
-		err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
-		return err
-	}
-
-	err = config.Write(&cfg, cfg.Network)
-	if err != nil {
-		return err
-	}
-	if cfg.Node.Password == "" {
-		cfg.Node.Password = ncutils.GenPass()
-	}
-	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
-	if errT != nil {
-		return errT
-	}
-
-	// == handle keys ==
-	if err = auth.StoreSecret(cfg.Node.Password, cfg.Node.Network); err != nil {
-		return err
-	}
-
-	if err = auth.StoreTrafficKey(trafficPrivKey, cfg.Node.Network); err != nil {
-		return err
-	}
-
-	trafficPubKeyBytes, err := ncutils.ConvertKeyToBytes(trafficPubKey)
-	if err != nil {
-		return err
-	} else if trafficPubKeyBytes == nil {
-		return fmt.Errorf("traffic key is nil")
-	}
-
-	cfg.Node.TrafficKeys.Mine = trafficPubKeyBytes
-	cfg.Node.TrafficKeys.Server = nil
-	// == end handle keys ==
-
-	if cfg.Node.LocalAddress == "" {
-		intIP, err := getPrivateAddr()
-		if err == nil {
-			cfg.Node.LocalAddress = intIP
-		} else {
-			ncutils.PrintLog("error retrieving private address: "+err.Error(), 1)
+	if cfg.Node.IsServer != "yes" {
+		if local.HasNetwork(cfg.Network) {
+			err := errors.New("ALREADY_INSTALLED. Netclient appears to already be installed for " + cfg.Network + ". To re-install, please remove by executing 'sudo netclient leave -n " + cfg.Network + "'. Then re-run the install command.")
+			return err
 		}
+
+		err = config.Write(&cfg, cfg.Network)
+		if err != nil {
+			return err
+		}
+		if cfg.Node.Password == "" {
+			cfg.Node.Password = ncutils.GenPass()
+		}
+		auth.StoreSecret(cfg.Node.Password, cfg.Node.Network)
+	}
+
+	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
+		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
+		cfg.Node.LocalAddress = getLocalIP(cfg.Node)
 	}
 
 	// set endpoint if blank. set to local if local net, retrieve from function if not
@@ -104,30 +76,30 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		macs, err := ncutils.GetMacAddr()
 		if err != nil {
 			return err
+		} else if len(macs) == 0 {
+			log.Fatal("could not retrieve mac address")
 		} else {
 			cfg.Node.MacAddress = macs[0]
 		}
 	}
-
 	if ncutils.IsLinux() {
-		_, err := exec.LookPath("resolvectl")
+		_, err := exec.LookPath("resolvconf")
 		if err != nil {
-			ncutils.PrintLog("resolvectl not present", 2)
+			ncutils.PrintLog("resolvconf not present", 2)
 			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
 			cfg.Node.DNSOn = "no"
 		}
 	}
+
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
 	}
 	// make sure name is appropriate, if not, give blank name
 	cfg.Node.Name = formatName(cfg.Node)
 	// differentiate between client/server here
-	var node = models.Node{
+	var node models.Node // fill this node with appropriate calls
+	postnode := &models.Node{
 		Password:            cfg.Node.Password,
-		Address:             cfg.Node.Address,
-		Address6:            cfg.Node.Address6,
-		ID:                  cfg.Node.ID,
 		MacAddress:          cfg.Node.MacAddress,
 		AccessKey:           cfg.Server.AccessKey,
 		IsStatic:            cfg.Node.IsStatic,
@@ -145,22 +117,46 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		Endpoint:            cfg.Node.Endpoint,
 		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
-		TrafficKeys:         cfg.Node.TrafficKeys,
-		OS:                  runtime.GOOS,
-		Version:             ncutils.Version,
 	}
 
-	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
-	var wcclient nodepb.NodeServiceClient
+	if cfg.Node.IsServer != "yes" {
+		ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+		var wcclient nodepb.NodeServiceClient
 
-	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-		ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
+			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 
-	if err != nil {
-		log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
+		if err != nil {
+			log.Fatalf("Unable to establish client connection to "+cfg.Server.GRPCAddress+": %v", err)
+		}
+		defer conn.Close()
+		wcclient = nodepb.NewNodeServiceClient(conn)
+
+		if err = config.ModConfig(postnode); err != nil {
+			return err
+		}
+		data, err := json.Marshal(postnode)
+		if err != nil {
+			return err
+		}
+		// Create node on server
+		res, err := wcclient.CreateNode(
+			context.TODO(),
+			&nodepb.Object{
+				Data: string(data),
+				Type: nodepb.NODE_TYPE,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		ncutils.PrintLog("node created on remote server...updating configs", 1)
+
+		nodeData := res.Data
+		if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
+			return err
+		}
 	}
-	defer conn.Close()
-	wcclient = nodepb.NewNodeServiceClient(conn)
 
 	// get free port based on returned default listen port
 	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
@@ -181,47 +177,31 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		cfg.Node.IsStatic = "yes"
 	}
 
-	err = wireguard.StorePrivKey(privateKey, cfg.Network)
-	if err != nil {
-		return err
-	}
-	if node.IsPending == "yes" {
-		ncutils.Log("Node is marked as PENDING.")
-		ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
-		if cfg.Daemon != "off" {
-			return daemon.InstallDaemon(cfg)
+	if node.IsServer != "yes" { // == handle client side ==
+		err = config.ModConfig(&node)
+		if err != nil {
+			return err
 		}
-	}
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-	// Create node on server
-	res, err := wcclient.CreateNode(
-		context.TODO(),
-		&nodepb.Object{
-			Data: string(data),
-			Type: nodepb.NODE_TYPE,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	ncutils.PrintLog("node created on remote server...updating configs", 1)
-
-	nodeData := res.Data
-	if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
-		return err
-	}
-
-	cfg.Node = node
-	err = config.ModConfig(&node)
-	if err != nil {
-		return err
-	}
-	// attempt to make backup
-	if err = config.SaveBackup(node.Network); err != nil {
-		ncutils.Log("failed to make backup, node will not auto restore if config is corrupted")
+		err = wireguard.StorePrivKey(privateKey, cfg.Network)
+		if err != nil {
+			return err
+		}
+		if node.IsPending == "yes" {
+			ncutils.Log("Node is marked as PENDING.")
+			ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
+			if cfg.Daemon != "off" {
+				return daemon.InstallDaemon(cfg)
+			}
+		}
+		// pushing any local changes to server before starting wireguard
+		err = Push(cfg.Network)
+		if err != nil {
+			return err
+		}
+		// attempt to make backup
+		if err = config.SaveBackup(node.Network); err != nil {
+			ncutils.Log("failed to make backup, node will not auto restore if config is corrupted")
+		}
 	}
 
 	ncutils.Log("retrieving peers")
@@ -236,21 +216,11 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
-	if node.DNSOn == "yes" {
-		for _, server := range node.NetworkSettings.DefaultServerAddrs {
-			if server.IsLeader {
-				go local.SetDNSWithRetry(node.Interface, node.Network, server.Address)
-				break
-			}
-		}
-	}
 	if cfg.Daemon != "off" {
 		err = daemon.InstallDaemon(cfg)
 	}
 	if err != nil {
 		return err
-	} else {
-		daemon.Restart()
 	}
 
 	return err

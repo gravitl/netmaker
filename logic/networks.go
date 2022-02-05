@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,7 +47,7 @@ func DeleteNetwork(network string) error {
 		servers, err := GetSortedNetworkServerNodes(network)
 		if err == nil {
 			for _, s := range servers {
-				if err = DeleteNodeByID(&s, true); err != nil {
+				if err = DeleteNode(&s, true); err != nil {
 					logger.Log(2, "could not removed server", s.Name, "before deleting network", network)
 				} else {
 					logger.Log(2, "removed server", s.Name, "before deleting network", network)
@@ -111,6 +110,7 @@ func NetworkNodesUpdatePullChanges(networkName string) error {
 			if err != nil {
 				return err
 			}
+			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -204,43 +204,6 @@ func UniqueAddress(networkName string) (string, error) {
 	//TODO
 	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
-}
-
-// UniqueAddressServer - get unique address starting from last available
-func UniqueAddressServer(networkName string) (string, error) {
-
-	var network models.Network
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
-		return "666", err
-	}
-
-	_, ipv4Net, err := net.ParseCIDR(network.AddressRange)
-	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
-		return "666", err
-	}
-
-	// convert IPNet struct mask and address to uint32
-	// network is BigEndian
-	mask := binary.BigEndian.Uint32(ipv4Net.Mask)
-	start := binary.BigEndian.Uint32(ipv4Net.IP)
-
-	// find the final address
-	finish := (start & mask) | (mask ^ 0xffffffff)
-
-	// loop through addresses as uint32
-	for i := finish - 1; i > start; i-- {
-		// convert back to net.IP
-		ip := make(net.IP, 4)
-		binary.BigEndian.PutUint32(ip, i)
-		if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, false) && IsIPUnique(networkName, ip.String(), database.EXT_CLIENT_TABLE_NAME, false) {
-			return ip.String(), err
-		}
-	}
-
-	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", fmt.Errorf("no unique server addresses found")
 }
 
 // IsIPUnique - checks if an IP is unique
@@ -389,35 +352,14 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 			node.Address = ipaddr
 			newNodeData, err := json.Marshal(&node)
 			if err != nil {
-				logger.Log(1, "error in node  address assignment!")
+				fmt.Println("error in node  address assignment!")
 				return err
 			}
+			node.SetID()
 			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
 		}
 	}
 
-	return nil
-}
-
-// UpdateNetworkLocalAddresses - updates network localaddresses
-func UpdateNetworkHolePunching(networkName string, holepunch string) error {
-
-	nodes, err := GetNetworkNodes(networkName)
-	if err != nil {
-		return err
-	}
-
-	for _, node := range nodes {
-		if node.IsServer != "yes" {
-			node.UDPHolePunch = holepunch
-			newNodeData, err := json.Marshal(&node)
-			if err != nil {
-				logger.Log(1, "error in node hole punch assignment")
-				return err
-			}
-			database.Insert(node.ID, string(newNodeData), database.NODES_TABLE_NAME)
-		}
-	}
 	return nil
 }
 
@@ -445,6 +387,7 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 			if err != nil {
 				return err
 			}
+			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -481,6 +424,7 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			if err != nil {
 				return err
 			}
+			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -531,24 +475,23 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, error) {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, err
+		return false, false, err
 	}
 	if newNetwork.NetID == currentNetwork.NetID {
 		hasrangeupdate := newNetwork.AddressRange != currentNetwork.AddressRange
 		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
-		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
-			return false, false, false, err
+			return false, false, err
 		}
 		newNetwork.SetNetworkLastModified()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		return hasrangeupdate, localrangeupdate, hasholepunchupdate, err
+		return hasrangeupdate, localrangeupdate, err
 	}
 	// copy values
-	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	return false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
 // Inc - increments an IP
@@ -659,18 +602,6 @@ func KeyUpdate(netname string) (models.Network, error) {
 	return models.Network{}, nil
 }
 
-//SaveNetwork - save network struct to database
-func SaveNetwork(network *models.Network) error {
-	data, err := json.Marshal(network)
-	if err != nil {
-		return err
-	}
-	if err := database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
-		return err
-	}
-	return nil
-}
-
 // == Private ==
 
 func networkNodesUpdateAction(networkName string, action string) error {
@@ -699,6 +630,7 @@ func networkNodesUpdateAction(networkName string, action string) error {
 			if err != nil {
 				return err
 			}
+			node.SetID()
 			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -752,7 +684,7 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 		}
 		for _, addr := range currAddrs {
 			if strings.Contains(addr.String(), address) && currIface.Name != iface {
-				// logger.Log(2, "found iface", addr.String(), currIface.Name)
+				logger.Log(2, "found iface", addr.String(), currIface.Name)
 				interfaces = nil
 				currAddrs = nil
 				return currIface.Name, false
@@ -761,6 +693,6 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 		currAddrs = nil
 	}
 	interfaces = nil
-	// logger.Log(2, "failed to find iface", iface)
+	logger.Log(2, "failed to find iface", iface)
 	return "", true
 }

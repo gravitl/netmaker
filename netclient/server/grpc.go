@@ -101,15 +101,9 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		// Instantiate the BlogServiceClient with our client connection to the server
 		wcclient = nodepb.NewNodeServiceClient(conn)
 
-		nodeData, err := json.Marshal(&nodecfg)
-		if err != nil {
-			ncutils.PrintLog("could not parse node data from config during peer fetch for network "+network, 1)
-			return peers, hasGateway, gateways, err
-		}
-
 		req := &nodepb.Object{
-			Data: string(nodeData),
-			Type: nodepb.NODE_TYPE,
+			Data: macaddress + "###" + network,
+			Type: nodepb.STRING_TYPE,
 		}
 
 		ctx, err := auth.SetJWT(wcclient, network)
@@ -280,15 +274,9 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 		// Instantiate the BlogServiceClient with our client connection to the server
 		wcclient = nodepb.NewNodeServiceClient(conn)
 
-		nodeData, err := json.Marshal(&nodecfg)
-		if err != nil {
-			ncutils.PrintLog("could not parse node data from config during peer fetch for network "+network, 1)
-			return peers, err
-		}
-
 		req := &nodepb.Object{
-			Data: string(nodeData),
-			Type: nodepb.NODE_TYPE,
+			Data: macaddress + "###" + network,
+			Type: nodepb.STRING_TYPE,
 		}
 
 		ctx, err := auth.SetJWT(wcclient, network)
