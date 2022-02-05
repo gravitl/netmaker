@@ -68,13 +68,12 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	cfg.Node.TrafficKeys.Server = nil
 	// == end handle keys ==
 
-	if cfg.Node.LocalRange != "" && cfg.Node.LocalAddress == "" {
-		log.Println("local vpn, getting local address from range: " + cfg.Node.LocalRange)
-		cfg.Node.LocalAddress = getLocalIP(cfg.Node)
-	} else if cfg.Node.LocalAddress == "" {
+	if cfg.Node.LocalAddress == "" {
 		intIP, err := getPrivateAddr()
 		if err == nil {
 			cfg.Node.LocalAddress = intIP
+		} else {
+			ncutils.PrintLog("error retrieving private address: "+err.Error(), 1)
 		}
 	}
 
@@ -236,6 +235,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways, false)
 	if err != nil {
 		return err
+	}
+	if node.DNSOn == "yes" {
+		for _, server := range node.NetworkSettings.DefaultServerAddrs {
+			if server.IsLeader {
+				go local.SetDNSWithRetry(node.Interface, node.Network, server.Address)
+				break
+			}
+		}
 	}
 	if cfg.Daemon != "off" {
 		err = daemon.InstallDaemon(cfg)

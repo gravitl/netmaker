@@ -16,6 +16,19 @@ import (
 
 const DNS_UNREACHABLE_ERROR = "nameserver unreachable"
 
+func SetDNSWithRetry(iface, network, address string) {
+	var reachable bool
+	for counter := 0; !reachable && counter < 5; counter++ {
+		reachable = IsDNSReachable(address)
+		time.Sleep(time.Second << 1)
+	}
+	if !reachable {
+		ncutils.Log("not setting dns, server unreachable: " + address)
+	} else if err := UpdateDNS(iface, network, address); err != nil {
+		ncutils.Log("error applying dns" + err.Error())
+	}
+}
+
 // SetDNS - sets the DNS of a local machine
 func SetDNS(nameserver string) error {
 	bytes, err := os.ReadFile("/etc/resolv.conf")

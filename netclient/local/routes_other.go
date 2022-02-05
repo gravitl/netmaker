@@ -21,13 +21,18 @@ These functions are not used. These should only be called by Linux (see routes_l
 */
 
 func setRoute(iface string, addr *net.IPNet) error {
-	var err error
-	_, err = ncutils.RunCmd(fmt.Sprintf("ip route add %s dev %s", addr.String(), iface), true)
+	out, err := ncutils.RunCmd(fmt.Sprintf("ip route get %s", addr.IP.String()), false)
+	if err != nil || !strings.Contains(out, iface) {
+		_, err = ncutils.RunCmd(fmt.Sprintf("ip route add %s dev %s", addr.String(), iface), true)
+	}
 	return err
 }
 
 func deleteRoute(iface string, addr *net.IPNet) error {
 	var err error
-	_, err = ncutils.RunCmd(fmt.Sprintf("ip route del %s dev %s", addr.String(), iface), true)
+	out, _ := ncutils.RunCmd(fmt.Sprintf("ip route get %s", addr.IP.String()), false)
+	if strings.Contains(out, iface) {
+		_, err = ncutils.RunCmd(fmt.Sprintf("ip route del %s dev %s", addr.String(), iface), true)
+	}
 	return err
 }
