@@ -320,6 +320,22 @@ func GetNetclientPath() string {
 	}
 }
 
+// GetFileWithRetry - retry getting file X number of times before failing
+func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
+	var data []byte
+	var err error
+	for count := 0; count < retryCount; count++ {
+		data, err = os.ReadFile(path)
+		if err == nil {
+			return data, err
+		} else {
+			PrintLog("failed to retrieve file "+path+", retrying...", 1)
+			time.Sleep(time.Second >> 2)
+		}
+	}
+	return data, err
+}
+
 // GetNetclientPathSpecific - gets specific netclient config path
 func GetNetclientPathSpecific() string {
 	if IsWindows() {
@@ -411,6 +427,7 @@ func Copy(src, dst string) error {
 		return err
 	}
 	err = os.Chmod(dst, 0755)
+
 	return err
 }
 

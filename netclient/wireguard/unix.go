@@ -126,6 +126,6 @@ func StorePrivKey(key string, network string) error {
 
 // RetrievePrivKey - reads wg priv key from local disk
 func RetrievePrivKey(network string) (string, error) {
-	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "wgkey-" + network)
+	dat, err := ncutils.GetFileWithRetry(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, 2)
 	return string(dat), err
 }

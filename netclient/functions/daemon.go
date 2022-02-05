@@ -299,10 +299,9 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 			if newNode.DNSOn == "yes" {
-				ncutils.Log("setting up DNS")
-				for _, server := range cfg.Node.NetworkSettings.DefaultServerAddrs {
+				for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
 					if server.IsLeader {
-						go setDNS(cfg.Node.Interface, cfg.Network, server.Address)
+						go local.SetDNSWithRetry(newNode.Interface, newNode.Network, server.Address)
 						break
 					}
 				}
@@ -579,19 +578,6 @@ func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	}
 
 	return ncutils.BoxDecrypt(msg, serverPubKey, diskKey)
-}
-
-func setDNS(iface, network, address string) {
-	var reachable bool
-	for counter := 0; !reachable && counter < 5; counter++ {
-		reachable = local.IsDNSReachable(address)
-		time.Sleep(time.Second << 1)
-	}
-	if !reachable {
-		ncutils.Log("not setting dns, server unreachable: " + address)
-	} else if err := local.UpdateDNS(iface, network, address); err != nil {
-		ncutils.Log("error applying dns" + err.Error())
-	}
 }
 
 func pingServer(cfg *config.ClientConfig) error {
