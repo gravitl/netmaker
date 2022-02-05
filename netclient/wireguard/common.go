@@ -1,7 +1,7 @@
 package wireguard
 
 import (
-	"errors"
+	"fmt"
 	"log"
 	"net"
 	"runtime"
@@ -25,7 +25,7 @@ const (
 )
 
 // SetPeers - sets peers on a given WireGuard interface
-func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
+func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.PeerConfig) error {
 	var devicePeers []wgtypes.Peer
 	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
 	var err error
@@ -107,7 +107,7 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 		err = SetMacPeerRoutes(iface)
 		return err
 	} else if ncutils.IsLinux() {
-		local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
+		local.SetPeerRoutes(iface, currentNodeAddr, oldPeerAllowedIps, peers)
 	}
 
 	return nil
@@ -157,60 +157,52 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	// spin up userspace / windows interface + apply the conf file
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-	var deviceiface string
-	if ncutils.IsMac() {
+	var deviceiface = ifacename
+	if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
 		deviceiface, err = local.GetMacIface(node.Address)
 		if err != nil || deviceiface == "" {
 			deviceiface = ifacename
 		}
 	}
-	if syncconf {
-		err = SyncWGQuickConf(ifacename, confPath)
-	} else {
-		if !ncutils.IsMac() {
-			d, _ := wgclient.Device(deviceiface)
-			for d != nil && d.Name == deviceiface {
-				RemoveConf(ifacename, false) // remove interface first
-				time.Sleep(time.Second >> 2)
-				d, _ = wgclient.Device(deviceiface)
-			}
-		}
-		if !ncutils.IsWindows() {
-			err = ApplyConf(*node, ifacename, confPath)
-			if err != nil {
-				ncutils.PrintLog("failed to create wireguard interface", 1)
-				return err
-			}
-		} else {
-			var output string
-			starttime := time.Now()
-			RemoveConf(ifacename, false)
-			time.Sleep(time.Second >> 2)
-			ncutils.PrintLog("waiting for interface...", 1)
-			for !strings.Contains(output, ifacename) && !(time.Now().After(starttime.Add(time.Duration(10) * time.Second))) {
-				output, _ = ncutils.RunCmd("wg", false)
-				err = ApplyConf(*node, ifacename, confPath)
-				time.Sleep(time.Second)
-			}
-			if !strings.Contains(output, ifacename) {
-				return errors.New("could not create wg interface for " + ifacename)
-			}
-			ip, mask, err := ncutils.GetNetworkIPMask(nodecfg.NetworkSettings.AddressRange)
-			if err != nil {
-				log.Println(err.Error())
-				return err
-			}
-			ncutils.RunCmd("route add "+ip+" mask "+mask+" "+node.Address, true)
-			time.Sleep(time.Second >> 2)
-			ncutils.RunCmd("route change "+ip+" mask "+mask+" "+node.Address, true)
-		}
+	// ensure you clear any existing interface first
+	d, _ := wgclient.Device(deviceiface)
+	for d != nil && d.Name == deviceiface {
+		RemoveConf(ifacename, false) // remove interface first
+		time.Sleep(time.Second >> 2)
+		d, _ = wgclient.Device(deviceiface)
 	}
 
-	//extra network route setting
-	if ncutils.IsFreeBSD() {
-		_, _ = ncutils.RunCmd("route add -net "+nodecfg.NetworkSettings.AddressRange+" -interface "+ifacename, true)
-	} else if ncutils.IsLinux() {
-		_, _ = ncutils.RunCmd("ip -4 route add "+nodecfg.NetworkSettings.AddressRange+" dev "+ifacename, false)
+	ApplyConf(node, deviceiface, confPath) // Apply initially
+
+	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
+	output, _ := ncutils.RunCmd("wg", false)
+	starttime := time.Now()
+	ifaceReady := false
+	for !strings.Contains(output, ifacename) && !(time.Now().After(starttime.Add(time.Second << 4))) {
+		output, _ = ncutils.RunCmd("wg", false)
+		err = ApplyConf(node, ifacename, confPath)
+		time.Sleep(time.Second)
+		ifaceReady = !strings.Contains(output, ifacename)
+	}
+	newDevice, devErr := wgclient.Device(deviceiface)
+	if !ifaceReady || devErr != nil {
+		return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
+	}
+	ncutils.PrintLog("interface ready - netclient engage", 1)
+
+	if syncconf { // should never be called really.
+		err = SyncWGQuickConf(ifacename, confPath)
+	}
+	currentPeers := newDevice.Peers
+	if len(currentPeers) == 0 { // if no peers currently, apply cidr
+		_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
+		if cidrErr == nil {
+			local.SetCIDRRoute(ifacename, node.Address, cidr)
+		} else {
+			ncutils.PrintLog("could not set cidr route properly: "+cidrErr.Error(), 1)
+		}
+	} else { // if peers, apply each
+		local.SetCurrentPeerRoutes(ifacename, node.Address, currentPeers[:])
 	}
 
 	return err
@@ -243,7 +235,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 				return err
 			}
 		}
-		err = SetPeers(iface, nodecfg.PersistentKeepalive, peers)
+		err = SetPeers(iface, nodecfg.Address, nodecfg.PersistentKeepalive, peers)
 	} else if peerupdate {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, true)
 	} else {
@@ -272,7 +264,7 @@ func RemoveConf(iface string, printlog bool) error {
 }
 
 // ApplyConf - applys a conf on disk to WireGuard interface
-func ApplyConf(node models.Node, ifacename string, confPath string) error {
+func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	os := runtime.GOOS
 	var err error
 	switch os {

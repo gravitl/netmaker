@@ -65,15 +65,12 @@ func ApplyWGQuickConf(confPath string, ifacename string) error {
 			ncutils.RunCmd("wg-quick down "+confPath, true)
 		}
 		_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
-		// if err != nil {
-		// 	return err
-		// }
 		return err
 	}
 }
 
 // ApplyMacOSConf - applies system commands similar to wg-quick using golang for MacOS
-func ApplyMacOSConf(node models.Node, ifacename string, confPath string) error {
+func ApplyMacOSConf(node *models.Node, ifacename string, confPath string) error {
 	var err error
 	_ = WgQuickDownMac(node, ifacename)
 	err = WgQuickUpMac(node, ifacename, confPath)

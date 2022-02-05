@@ -13,7 +13,7 @@ import (
 )
 
 // WgQuickDownMac - bring down mac interface, remove routes, and run post-down commands
-func WgQuickDownMac(node models.Node, iface string) error {
+func WgQuickDownMac(node *models.Node, iface string) error {
 	if err := RemoveConfMac(iface); err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func RemoveConfMac(iface string) error {
 }
 
 // WgQuickUpMac - bring up mac interface and set routes
-func WgQuickUpMac(node models.Node, iface string, confPath string) error {
+func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 	var err error
 	var realIface string
 	realIface, err = getRealIface(iface)
