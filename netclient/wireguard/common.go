@@ -177,12 +177,12 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
-	ifaceReady := !strings.Contains(output, ifacename)
+	ifaceReady := strings.Contains(output, ifacename)
 	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
 		output, _ = ncutils.RunCmd("wg", false)
 		err = ApplyConf(node, ifacename, confPath)
 		time.Sleep(time.Second)
-		ifaceReady = !strings.Contains(output, ifacename)
+		ifaceReady = strings.Contains(output, ifacename)
 	}
 	newDevice, devErr := wgclient.Device(deviceiface)
 	if !ifaceReady || devErr != nil {
