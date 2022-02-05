@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -185,17 +186,19 @@ func LeaveNetwork(network string) error {
 			}
 		}
 	}
-	// extra network route setting required for freebsd and windows, TODO mac??
-	if ncutils.IsWindows() {
-		ip, mask, err := ncutils.GetNetworkIPMask(node.NetworkSettings.AddressRange)
-		if err != nil {
-			ncutils.PrintLog(err.Error(), 1)
+
+	wgClient, wgErr := wgctrl.New()
+	if wgErr == nil {
+		dev, devErr := wgClient.Device(cfg.Node.Interface)
+		if devErr == nil {
+			local.FlushPeerRoutes(cfg.Node.Interface, cfg.Node.Address, dev.Peers[:])
+			_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
+			if cidrErr == nil {
+				local.RemoveCIDRRoute(cfg.Node.Interface, cfg.Node.Address, cidr)
+			}
+		} else {
+			ncutils.PrintLog("could not flush peer routes when leaving network, "+cfg.Node.Network, 1)
 		}
-		_, _ = ncutils.RunCmd("route delete "+ip+" mask "+mask+" "+node.Address, true)
-	} else if ncutils.IsFreeBSD() {
-		_, _ = ncutils.RunCmd("route del -net "+node.NetworkSettings.AddressRange+" -interface "+node.Interface, true)
-	} else if ncutils.IsLinux() {
-		_, _ = ncutils.RunCmd("ip -4 route del "+node.NetworkSettings.AddressRange+" dev "+node.Interface, false)
 	}
 
 	err = WipeLocal(node.Network)
