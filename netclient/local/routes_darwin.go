@@ -2,6 +2,7 @@ package local
 
 import (
 	"net"
+	"strings"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -29,4 +30,8 @@ func deleteRoute(iface string, addr *net.IPNet, address string) error {
 	var err error
 	_, err = ncutils.RunCmd("route -q -n delete "+addr.String(), true)
 	return err
+}
+
+func setCidr(iface, address string, addr *net.IPNet) {
+	ncutils.RunCmd("route -q -n add -net "+addr.String()+" "+address, true)
 }

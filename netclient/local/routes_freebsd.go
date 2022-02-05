@@ -17,3 +17,7 @@ func deleteRoute(iface string, addr *net.IPNet, address string) error {
 	_, err = ncutils.RunCmd("route delete -net "+addr.String()+" -interface "+iface, true)
 	return err
 }
+
+func setCidr(iface, address string, addr *net.IPNet) {
+	ncutils.RunCmd("route add -net "+addr.String()+" -interface "+iface, true)
+}

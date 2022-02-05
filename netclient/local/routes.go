@@ -7,6 +7,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// TODO handle ipv6 in future
+
 // SetPeerRoutes - sets/removes ip routes for each peer on a network
 func SetPeerRoutes(iface, currentNodeAddr string, oldPeers map[string][]net.IPNet, newPeers []wgtypes.PeerConfig) {
 	// traverse through all recieved peers
@@ -54,4 +56,9 @@ func SetCurrentPeerRoutes(iface, currentAddr string, peers []wgtypes.Peer) {
 			setRoute(iface, &allowedIP, currentAddr)
 		}
 	}
+}
+
+// SetCIDRRoute - sets the CIDR route, used on join and restarts
+func SetCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
+	setCidr(iface, currentAddr, cidr)
 }
