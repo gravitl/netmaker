@@ -31,7 +31,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
 
-require github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
+require (
+	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
+	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
+)
 
 require (
 	cloud.google.com/go v0.34.0 // indirect
@@ -50,5 +53,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	google.golang.org/appengine v1.4.0 // indirect
 )
