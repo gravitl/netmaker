@@ -610,7 +610,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 func runUpdates(node *models.Node, nodeUpdate bool) error {
 	//don't publish to server node
 
-	if nodeUpdate && !isServer(node) && servercfg.IsMessageQueueBackend() {
+	if nodeUpdate && !isServer(node) {
 		if err := mq.NodeUpdate(node); err != nil {
 			logger.Log(1, "error publishing node update", err.Error())
 			return err
