@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -238,7 +239,14 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 	}
 	peers, err := logic.GetPeersList(node.Network, excludeIsRelayed, relayedNode)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), logic.RELAY_NODE_ERR) {
+			peers, err = logic.PeerListUnRelay(node.ID, node.Network)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	peersData, err := json.Marshal(&peers)
