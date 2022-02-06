@@ -108,3 +108,17 @@ func IsDNSReachable(nameserver string) bool {
 	}
 	return true
 }
+
+func IsDNSWorking(network string, nameserver string) bool {
+	var isworking bool
+	servers, err := net.LookupNS("netmaker" + "." + "network")
+	if err != nil {
+		return isworking
+	}
+	for _, ns := range servers {
+		if strings.Contains(ns.Host, nameserver) {
+			isworking = true
+		}
+	}
+	return isworking
+}

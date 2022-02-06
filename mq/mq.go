@@ -134,10 +134,10 @@ func PublishPeerUpdate(newNode *models.Node) error {
 }
 
 // PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
-func PublishExtPeerUpdate(nodeid string) error {
-	node, err := logic.GetNodeByID(nodeid)
-	if logic.IsLocalServer(&node) {
-		if err = logic.ServerUpdate(&node, false); err != nil {
+func PublishExtPeerUpdate(node *models.Node) error {
+	var err error
+	if logic.IsLocalServer(node) {
+		if err = logic.ServerUpdate(node, false); err != nil {
 			logger.Log(1, "server node:", node.ID, "failed to update peers with ext clients")
 			return err
 		} else {
@@ -147,7 +147,7 @@ func PublishExtPeerUpdate(nodeid string) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	peerUpdate, err := logic.GetPeerUpdate(&node)
+	peerUpdate, err := logic.GetPeerUpdate(node)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func PublishExtPeerUpdate(nodeid string) error {
 	if err != nil {
 		return err
 	}
-	return publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data)
+	return publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data)
 }
 
 // GetID -- decodes a message queue topic and returns the embedded node.ID
