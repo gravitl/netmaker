@@ -1,12 +1,18 @@
 package mq
 
 import (
+	"fmt"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+	if len(msg) <= 24 { // make sure message is of appropriate length
+		return nil, fmt.Errorf("recieved invalid message from broker %s", string(msg))
+	}
+
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey() // get server private key
 	if trafficErr != nil {
 		return nil, trafficErr
