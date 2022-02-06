@@ -84,6 +84,7 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 	return nil
 }
 
+// SetNodeIsRelayed - Sets IsRelayed to on or off for relay
 func SetNodeIsRelayed(yesOrno string, id string) error {
 	node, err := GetNodeByID(id)
 	if err != nil {
@@ -106,6 +107,7 @@ func SetNodeIsRelayed(yesOrno string, id string) error {
 	return database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 }
 
+// PeerListUnRelay - call this function if a relayed node fails to get its relay: unrelays node and gets new peer list
 func PeerListUnRelay(id string, network string) ([]models.Node, error) {
 	err := SetNodeIsRelayed("no", id)
 	if err != nil {

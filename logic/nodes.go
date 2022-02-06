@@ -19,7 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const RELAY_NODE_ERR = "could not find relay for node "
+// RELAY_NODE_ERR - error to return if relay node is unfound
+const RELAY_NODE_ERR = "could not find relay for node"
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
@@ -508,7 +509,7 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 			}
 		}
 	}
-	return relay, errors.New(RELAY_NODE_ERR + relayedNodeAddr)
+	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
 }
 
 // GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
