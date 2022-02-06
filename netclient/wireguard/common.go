@@ -194,16 +194,13 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		err = SyncWGQuickConf(ifacename, confPath)
 	}
 	currentPeers := newDevice.Peers
-	if len(currentPeers) == 0 { // if no peers currently, apply cidr
-		_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
-		if cidrErr == nil {
-			local.SetCIDRRoute(ifacename, node.Address, cidr)
-		} else {
-			ncutils.PrintLog("could not set cidr route properly: "+cidrErr.Error(), 1)
-		}
-	} else { // if peers, apply each
-		local.SetCurrentPeerRoutes(ifacename, node.Address, currentPeers[:])
+	_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
+	if cidrErr == nil {
+		local.SetCIDRRoute(ifacename, node.Address, cidr)
+	} else {
+		ncutils.PrintLog("could not set cidr route properly: "+cidrErr.Error(), 1)
 	}
+	local.SetCurrentPeerRoutes(ifacename, node.Address, currentPeers[:])
 
 	return err
 }

@@ -388,7 +388,9 @@ func MonitorKeepalive(ctx context.Context, client mqtt.Client, cfg *config.Clien
 
 // ServerKeepAlive -- handler to react to keepalive messages published by server
 func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
-	keepalive.Store(parseNetworkFromTopic(msg.Topic()), time.Now())
+	var currentTime = time.Now()
+	keepalive.Store(parseNetworkFromTopic(msg.Topic()), currentTime)
+	ncutils.PrintLog("setting time: "+currentTime.String(), 1)
 }
 
 // Resubscribe --- handles resubscribing if needed

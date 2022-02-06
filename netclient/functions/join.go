@@ -244,6 +244,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 			}
 		}
 	}
+
 	if cfg.Daemon != "off" {
 		err = daemon.InstallDaemon(cfg)
 	}
