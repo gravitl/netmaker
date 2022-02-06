@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -238,6 +239,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+	err = mq.PublishExtPeerUpdate(&node)
+	if err != nil {
+		logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+	}
 }
 
 func updateExtClient(w http.ResponseWriter, r *http.Request) {
@@ -282,12 +287,29 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	err := logic.DeleteExtClient(params["network"], params["clientid"])
+	extclient, err := logic.GetExtClient(params["clientid"], params["network"])
+	if err != nil {
+		err = errors.New("Could not delete extclient " + params["clientid"])
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	ingressnode, err := logic.GetNodeByID(extclient.IngressGatewayID)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	err = logic.DeleteExtClient(params["network"], params["clientid"])
 
 	if err != nil {
 		err = errors.New("Could not delete extclient " + params["clientid"])
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+
+	err = mq.PublishExtPeerUpdate(&ingressnode)
+	if err != nil {
+		logger.Log(1, "error setting ext peers on "+ingressnode.ID+": "+err.Error())
 	}
 	logger.Log(1, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])

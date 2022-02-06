@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -17,6 +18,9 @@ import (
 	"github.com/gravitl/netmaker/validation"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// RELAY_NODE_ERR - error to return if relay node is unfound
+const RELAY_NODE_ERR = "could not find relay for node"
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
@@ -103,7 +107,14 @@ func GetPeers(node *models.Node) ([]models.Node, error) {
 	}
 	peers, err := GetPeersList(node.Network, excludeIsRelayed, relayedNode)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), RELAY_NODE_ERR) {
+			peers, err = PeerListUnRelay(node.ID, node.Network)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	return peers, nil
 }
@@ -498,7 +509,7 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 			}
 		}
 	}
-	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
+	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
 }
 
 // GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
@@ -588,6 +599,16 @@ func GetNetworkServerLocal(network string) (models.Node, error) {
 		}
 	}
 	return models.Node{}, errors.New("could not find node for local server")
+}
+
+// IsLocalServer - get network server node ID if exists
+func IsLocalServer(node *models.Node) bool {
+	var islocal bool
+	local, err := GetNetworkServerLocal(node.Network)
+	if err != nil {
+		return islocal
+	}
+	return node.ID != "" && local.ID == node.ID
 }
 
 // validateServer - make sure servers dont change port or address

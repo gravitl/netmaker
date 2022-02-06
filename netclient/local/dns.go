@@ -91,6 +91,7 @@ func UpdateDNS(ifacename string, network string, nameserver string) error {
 	return err
 }
 
+// IsDNSReachable - checks if nameserver is reachable
 func IsDNSReachable(nameserver string) bool {
 	port := "53"
 	protocols := [2]string{"tcp", "udp"}
@@ -107,4 +108,19 @@ func IsDNSReachable(nameserver string) bool {
 		}
 	}
 	return true
+}
+
+// IsDNSWorking - checks if record is returned by correct nameserver
+func IsDNSWorking(network string, nameserver string) bool {
+	var isworking bool
+	servers, err := net.LookupNS("netmaker" + "." + "network")
+	if err != nil {
+		return isworking
+	}
+	for _, ns := range servers {
+		if strings.Contains(ns.Host, nameserver) {
+			isworking = true
+		}
+	}
+	return isworking
 }

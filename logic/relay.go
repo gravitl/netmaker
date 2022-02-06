@@ -63,7 +63,7 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 		if err != nil {
 			return err
 		}
-		if node.Network == networkName {
+		if node.Network == networkName && !(node.IsServer == "yes") {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
 					node.IsRelayed = yesOrno
@@ -82,6 +82,38 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 		}
 	}
 	return nil
+}
+
+// SetNodeIsRelayed - Sets IsRelayed to on or off for relay
+func SetNodeIsRelayed(yesOrno string, id string) error {
+	node, err := GetNodeByID(id)
+	if err != nil {
+		return err
+	}
+	network, err := GetNetworkByNode(&node)
+	if err != nil {
+		return err
+	}
+	node.IsRelayed = yesOrno
+	if yesOrno == "yes" {
+		node.UDPHolePunch = "no"
+	} else {
+		node.UDPHolePunch = network.DefaultUDPHolePunch
+	}
+	data, err := json.Marshal(&node)
+	if err != nil {
+		return err
+	}
+	return database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+}
+
+// PeerListUnRelay - call this function if a relayed node fails to get its relay: unrelays node and gets new peer list
+func PeerListUnRelay(id string, network string) ([]models.Node, error) {
+	err := SetNodeIsRelayed("no", id)
+	if err != nil {
+		return nil, err
+	}
+	return GetPeersList(network, true, "")
 }
 
 // ValidateRelay - checks if relay is valid
