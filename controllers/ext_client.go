@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -238,6 +239,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+	err = mq.PublishExtPeerUpdate(nodeid)
+	if err != nil {
+		logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+	}
 }
 
 func updateExtClient(w http.ResponseWriter, r *http.Request) {
@@ -289,6 +294,13 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	/*
+		// we dont currently have logic to get the nodeid when we delete ext clients, apparently
+		err = mq.PublishExtPeerUpdate(nodeid)
+		if err != nil {
+			logger.Log("error setting ext peers on " + nodeid + ": " + err.Error())
+		}
+	*/
 	logger.Log(1, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])
 	returnSuccessResponse(w, r, params["clientid"]+" deleted.")

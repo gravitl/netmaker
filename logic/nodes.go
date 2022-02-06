@@ -601,6 +601,16 @@ func GetNetworkServerLocal(network string) (models.Node, error) {
 	return models.Node{}, errors.New("could not find node for local server")
 }
 
+// IsLocalServer - get network server node ID if exists
+func IsLocalServer(node *models.Node) bool {
+	var islocal bool
+	local, err := GetNetworkServerLocal(node.Network)
+	if err != nil {
+		return islocal
+	}
+	return node.ID != "" && local.ID == node.ID
+}
+
 // validateServer - make sure servers dont change port or address
 func validateServer(currentNode, newNode *models.Node) bool {
 	return (newNode.Address == currentNode.Address &&
