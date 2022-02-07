@@ -51,62 +51,80 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 		ncutils.PrintLog("no peers pulled", 1)
 		return err
 	}
+	found := false
+	//if a current peer is not in the list of new peers (based on PublicKey) delete it
+	for _, currentPeer := range devicePeers {
+		oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
+		for _, peer := range peers {
+			if peer.PublicKey == currentPeer.PublicKey {
+				found = true
+			}
+		}
+		if !found {
+			_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+			if err != nil {
+				log.Println("error removing peer", currentPeer.Endpoint.String())
+			}
+		}
+	}
+	//if a new peer is not in the list of existing peers, add it
+	found = false
+	replace := false
 	for _, peer := range peers {
-
 		for _, currentPeer := range devicePeers {
-			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
-				currentPeer.PublicKey.String() != peer.PublicKey.String() {
-				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+			if peer.PublicKey == currentPeer.PublicKey {
+				found = true
+			}
+			if found {
+				//check all fields are still the same
+				replace = false
+				if peer.Endpoint != currentPeer.Endpoint || peer.PersistentKeepaliveInterval != &currentPeer.PersistentKeepaliveInterval {
+					replace = true
+				}
+				for _, endpoint := range peer.AllowedIPs {
+					if ncutils.IPNetSliceContains(currentPeer.AllowedIPs, endpoint) {
+						replace = true
+					}
+				}
+
+			}
+
+			if !found || replace {
+				udpendpoint := peer.Endpoint.String()
+				var allowedips string
+				var iparr []string
+				for _, ipaddr := range peer.AllowedIPs {
+					iparr = append(iparr, ipaddr.String())
+				}
+				allowedips = strings.Join(iparr, ",")
+				keepAliveString := strconv.Itoa(int(keepalive))
+				if peer.Endpoint != nil && keepalive > 0 {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" endpoint "+udpendpoint+
+						" persistent-keepalive "+keepAliveString+
+						" allowed-ips "+allowedips, true)
+				} else if peer.Endpoint != nil && keepalive == 0 {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" endpoint "+udpendpoint+
+						" allowed-ips "+allowedips, true)
+				} else if peer.Endpoint == nil && keepalive != 0 {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" persistent-keepalive "+keepAliveString+
+						" allowed-ips "+allowedips, true)
+				} else {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" allowed-ips "+allowedips, true)
+				}
 				if err != nil {
-					log.Println("error removing peer", peer.Endpoint.String())
+					log.Println("error setting peer", peer.PublicKey.String())
 				}
 			}
 		}
-		udpendpoint := peer.Endpoint.String()
-		var allowedips string
-		var iparr []string
-		for _, ipaddr := range peer.AllowedIPs {
-			iparr = append(iparr, ipaddr.String())
-		}
-		allowedips = strings.Join(iparr, ",")
-		keepAliveString := strconv.Itoa(int(keepalive))
-		if keepAliveString == "0" {
-			keepAliveString = "15"
-		}
-		if peer.Endpoint != nil {
-			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-				" endpoint "+udpendpoint+
-				" persistent-keepalive "+keepAliveString+
-				" allowed-ips "+allowedips, true)
-		} else {
-			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-				" persistent-keepalive "+keepAliveString+
-				" allowed-ips "+allowedips, true)
-		}
-		if err != nil {
-			log.Println("error setting peer", peer.PublicKey.String())
-		}
-	}
-
-	for _, currentPeer := range devicePeers {
-		shouldDelete := true
-		for _, peer := range peers {
-			if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
-				shouldDelete = false
-			}
-		}
-		if shouldDelete {
-			output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
-			if err != nil {
-				log.Println(output, "error removing peer", currentPeer.PublicKey.String())
-			}
-		}
-		oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
 	}
 	if ncutils.IsMac() {
 		err = SetMacPeerRoutes(iface)
 		return err
-	} else if ncutils.IsLinux() {
+	} else {
 		local.SetPeerRoutes(iface, currentNodeAddr, oldPeerAllowedIps, peers)
 	}
 
@@ -172,8 +190,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		d, _ = wgclient.Device(deviceiface)
 	}
 
-	ApplyConf(node, deviceiface, confPath) // Apply initially
-
+	ApplyConf(node, deviceiface, confPath)          // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
@@ -184,23 +201,29 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		time.Sleep(time.Second)
 		ifaceReady = strings.Contains(output, ifacename)
 	}
-	newDevice, devErr := wgclient.Device(deviceiface)
-	if !ifaceReady || devErr != nil {
-		return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
+	//wgclient does not work well on freebsd
+	if node.OS == "freebsd" {
+		if !ifaceReady {
+			return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
+		}
+	} else {
+		_, devErr := wgclient.Device(deviceiface)
+		if !ifaceReady || devErr != nil {
+			return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
+		}
 	}
 	ncutils.PrintLog("interface ready - netclient engage", 1)
-
 	if syncconf { // should never be called really.
 		err = SyncWGQuickConf(ifacename, confPath)
 	}
-	currentPeers := newDevice.Peers
+
 	_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
 	if cidrErr == nil {
 		local.SetCIDRRoute(ifacename, node.Address, cidr)
 	} else {
 		ncutils.PrintLog("could not set cidr route properly: "+cidrErr.Error(), 1)
 	}
-	local.SetCurrentPeerRoutes(ifacename, node.Address, currentPeers[:])
+	local.SetCurrentPeerRoutes(ifacename, node.Address, peers)
 
 	return err
 }
