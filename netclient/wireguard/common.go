@@ -63,7 +63,7 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 		if !found {
 			_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
 			if err != nil {
-				log.Println("error removing peer", currentPeer.Endpoint.String())
+				ncutils.PrintLog("error removing peer: "+currentPeer.Endpoint.String(), 1)
 			}
 		}
 	}
@@ -116,7 +116,7 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 						" allowed-ips "+allowedips, true)
 				}
 				if err != nil {
-					log.Println("error setting peer", peer.PublicKey.String())
+					ncutils.PrintLog("error setting peer: "+peer.PublicKey.String(), 1)
 				}
 			}
 		}
@@ -153,17 +153,16 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		log.Fatalf("failed to open client: %v", err)
 	}
-	log.Println("-2")
 	var ifacename string
 	if nodecfg.Interface != "" {
 		ifacename = nodecfg.Interface
 	} else if node.Interface != "" {
 		ifacename = node.Interface
 	} else {
-		log.Fatal("no interface to configure")
+		return fmt.Errorf("no interface to configure")
 	}
 	if node.Address == "" {
-		log.Fatal("no address to configure")
+		return fmt.Errorf("no address to configure")
 	}
 	if node.UDPHolePunch == "yes" {
 		node.ListenPort = 0
@@ -172,7 +171,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		ncutils.PrintLog("error writing wg conf file: "+err.Error(), 1)
 		return err
 	}
-	log.Println("-1")
 	// spin up userspace / windows interface + apply the conf file
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	var deviceiface = ifacename
@@ -182,12 +180,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			deviceiface = ifacename
 		}
 	}
-	log.Println("0")
 	// ensure you clear any existing interface first
 	d, _ := wgclient.Device(deviceiface)
 	for d != nil && d.Name == deviceiface {
-		log.Println("d==", d.Name)
-		log.Println("deviceiface==", deviceiface)
 		err = RemoveConf(deviceiface, false) // remove interface first
 		if strings.Contains(err.Error(), "does not exist") {
 			err = nil
@@ -196,14 +191,12 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		time.Sleep(time.Second >> 2)
 		d, _ = wgclient.Device(deviceiface)
 	}
-	log.Println("1")
 	ApplyConf(node, deviceiface, confPath)          // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
 	ifaceReady := strings.Contains(output, deviceiface)
 	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
-		log.Println("2")
 		if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
 			deviceiface, err = local.GetMacIface(node.Address)
 			if err != nil || deviceiface == "" {
@@ -215,7 +208,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		time.Sleep(time.Second)
 		ifaceReady = strings.Contains(output, deviceiface)
 	}
-	log.Println("3")
 	//wgclient does not work well on freebsd
 	if node.OS == "freebsd" {
 		if !ifaceReady {

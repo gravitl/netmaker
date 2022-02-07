@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -18,7 +19,9 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
-
+	if node.OS != "linux" {
+		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
+	}
 	err = ValidateRelay(relay)
 	if err != nil {
 		return returnnodes, models.Node{}, err

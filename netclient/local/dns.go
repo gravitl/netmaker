@@ -20,6 +20,9 @@ const DNS_UNREACHABLE_ERROR = "nameserver unreachable"
 // SetDNSWithRetry - Attempt setting dns, if it fails return true (to reset dns)
 func SetDNSWithRetry(node models.Node, address string) bool {
 	var reachable bool
+	if !hasPrereqs() {
+		return true
+	}
 	for counter := 0; !reachable && counter < 5; counter++ {
 		reachable = IsDNSReachable(address)
 		time.Sleep(time.Second << 1)
@@ -29,11 +32,15 @@ func SetDNSWithRetry(node models.Node, address string) bool {
 		return true
 	} else if err := UpdateDNS(node.Interface, node.Network, address); err != nil {
 		ncutils.Log("error applying dns" + err.Error())
-		return false
 	} else if IsDNSWorking(node.Network, address) {
 		return true
 	}
+	resetDNS()
 	return false
+}
+
+func resetDNS() {
+	ncutils.RunCmd("systemctl restart systemd-resolved", true)
 }
 
 // SetDNS - sets the DNS of a local machine
@@ -56,6 +63,14 @@ func SetDNS(nameserver string) error {
 	_, err = resolv.WriteString("nameserver " + nameserver + "\n")
 
 	return err
+}
+
+func hasPrereqs() bool {
+	if !ncutils.IsLinux() {
+		return false
+	}
+	_, err := exec.LookPath("resolvectl")
+	return err == nil
 }
 
 // UpdateDNS - updates local DNS of client
