@@ -254,6 +254,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		cfg.Node = newNode
 		switch newNode.Action {
 		case models.NODE_DELETE:
+			ncutils.Log("delete recieved")
 			if token := client.Unsubscribe(fmt.Sprintf("update/%s/%s", newNode.Network, newNode.ID), fmt.Sprintf("peers/%s/%s", newNode.Network, newNode.ID)); token.Wait() && token.Error() != nil {
 				ncutils.PrintLog("error unsubscribing during node deletion", 1)
 			}
@@ -270,11 +271,13 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 			return
 		case models.NODE_UPDATE_KEY:
+			ncutils.Log("delete recieved")
 			if err := UpdateKeys(&cfg, client); err != nil {
 				ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
 			}
 			ifaceDelta = true
 		case models.NODE_NOOP:
+			ncutils.Log("noop recieved")
 		default:
 		}
 		//Save new config
