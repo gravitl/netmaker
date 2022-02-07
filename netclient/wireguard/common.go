@@ -172,8 +172,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		d, _ = wgclient.Device(deviceiface)
 	}
 
-	ApplyConf(node, deviceiface, confPath) // Apply initially
-
+	ApplyConf(node, deviceiface, confPath)          // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
@@ -184,23 +183,29 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		time.Sleep(time.Second)
 		ifaceReady = strings.Contains(output, ifacename)
 	}
-	newDevice, devErr := wgclient.Device(deviceiface)
-	if !ifaceReady || devErr != nil {
-		return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
+	//wgclient does not work well on freebsd
+	if node.OS == "freebsd" {
+		if !ifaceReady {
+			return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
+		}
+	} else {
+		_, devErr := wgclient.Device(deviceiface)
+		if !ifaceReady || devErr != nil {
+			return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
+		}
 	}
 	ncutils.PrintLog("interface ready - netclient engage", 1)
-
 	if syncconf { // should never be called really.
 		err = SyncWGQuickConf(ifacename, confPath)
 	}
-	currentPeers := newDevice.Peers
+
 	_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
 	if cidrErr == nil {
 		local.SetCIDRRoute(ifacename, node.Address, cidr)
 	} else {
 		ncutils.PrintLog("could not set cidr route properly: "+cidrErr.Error(), 1)
 	}
-	local.SetCurrentPeerRoutes(ifacename, node.Address, currentPeers[:])
+	local.SetCurrentPeerRoutes(ifacename, node.Address, peers)
 
 	return err
 }
