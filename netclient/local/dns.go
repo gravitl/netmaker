@@ -29,11 +29,15 @@ func SetDNSWithRetry(node models.Node, address string) bool {
 		return true
 	} else if err := UpdateDNS(node.Interface, node.Network, address); err != nil {
 		ncutils.Log("error applying dns" + err.Error())
-		return false
 	} else if IsDNSWorking(node.Network, address) {
 		return true
 	}
+	resetDNS()
 	return false
+}
+
+func resetDNS() {
+	ncutils.RunCmd("systemctl restart systemd-resolved", true)
 }
 
 // SetDNS - sets the DNS of a local machine
