@@ -110,7 +110,14 @@ func CheckIn(cfg config.ClientConfig) error {
 			}
 			err = functions.CheckConfig(*currConf)
 			if err != nil {
-				ncutils.PrintLog("error checking in for "+network+" network: "+err.Error(), 1)
+				if strings.Contains(err.Error(), "could not find iface") {
+					err = Pull(cfg)
+					if err != nil {
+						ncutils.PrintLog(err.Error(), 1)
+					}
+				} else {
+					ncutils.PrintLog("error checking in for "+network+" network: "+err.Error(), 1)
+				}
 			} else {
 				ncutils.PrintLog("checked in successfully for "+network, 1)
 			}

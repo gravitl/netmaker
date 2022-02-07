@@ -51,20 +51,40 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 		ncutils.PrintLog("no peers pulled", 1)
 		return err
 	}
-	found := false
-	//if a current peer is not in the list of new peers (based on PublicKey) delete it
-	for _, currentPeer := range devicePeers {
-		oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
-		for _, peer := range peers {
-			if peer.PublicKey == currentPeer.PublicKey {
-				found = true
+	for _, peer := range peers {
+
+		for _, currentPeer := range devicePeers {
+			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
+				currentPeer.PublicKey.String() != peer.PublicKey.String() {
+				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+				if err != nil {
+					ncutils.PrintLog("error removing peer "+peer.Endpoint.String(), 1)
+				}
 			}
 		}
-		if !found {
-			_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
-			if err != nil {
-				log.Println("error removing peer", currentPeer.Endpoint.String())
-			}
+		udpendpoint := peer.Endpoint.String()
+		var allowedips string
+		var iparr []string
+		for _, ipaddr := range peer.AllowedIPs {
+			iparr = append(iparr, ipaddr.String())
+		}
+		allowedips = strings.Join(iparr, ",")
+		keepAliveString := strconv.Itoa(int(keepalive))
+		if keepAliveString == "0" {
+			keepAliveString = "15"
+		}
+		if peer.Endpoint != nil {
+			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+				" endpoint "+udpendpoint+
+				" persistent-keepalive "+keepAliveString+
+				" allowed-ips "+allowedips, true)
+		} else {
+			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+				" persistent-keepalive "+keepAliveString+
+				" allowed-ips "+allowedips, true)
+		}
+		if err != nil {
+			ncutils.PrintLog("error setting peer"+peer.PublicKey.String(), 1)
 		}
 	}
 	//if a new peer is not in the list of existing peers, add it
@@ -88,36 +108,12 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 				}
 
 			}
+		}
+		if shouldDelete {
+			output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+			if err != nil {
 
-			if !found || replace {
-				udpendpoint := peer.Endpoint.String()
-				var allowedips string
-				var iparr []string
-				for _, ipaddr := range peer.AllowedIPs {
-					iparr = append(iparr, ipaddr.String())
-				}
-				allowedips = strings.Join(iparr, ",")
-				keepAliveString := strconv.Itoa(int(keepalive))
-				if peer.Endpoint != nil && keepalive > 0 {
-					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-						" endpoint "+udpendpoint+
-						" persistent-keepalive "+keepAliveString+
-						" allowed-ips "+allowedips, true)
-				} else if peer.Endpoint != nil && keepalive == 0 {
-					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-						" endpoint "+udpendpoint+
-						" allowed-ips "+allowedips, true)
-				} else if peer.Endpoint == nil && keepalive != 0 {
-					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-						" persistent-keepalive "+keepAliveString+
-						" allowed-ips "+allowedips, true)
-				} else {
-					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-						" allowed-ips "+allowedips, true)
-				}
-				if err != nil {
-					log.Println("error setting peer", peer.PublicKey.String())
-				}
+				ncutils.PrintLog(output+" - error removing peer "+currentPeer.PublicKey.String(), 1)
 			}
 		}
 	}
@@ -153,7 +149,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		log.Fatalf("failed to open client: %v", err)
 	}
-
+	log.Println("-2")
 	var ifacename string
 	if nodecfg.Interface != "" {
 		ifacename = nodecfg.Interface
@@ -172,7 +168,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		ncutils.PrintLog("error writing wg conf file: "+err.Error(), 1)
 		return err
 	}
-
+	log.Println("-1")
 	// spin up userspace / windows interface + apply the conf file
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	var deviceiface = ifacename
@@ -182,25 +178,40 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			deviceiface = ifacename
 		}
 	}
+	log.Println("0")
 	// ensure you clear any existing interface first
 	d, _ := wgclient.Device(deviceiface)
 	for d != nil && d.Name == deviceiface {
-		RemoveConf(ifacename, false) // remove interface first
+		log.Println("d==", d.Name)
+		log.Println("deviceiface==", deviceiface)
+		err = RemoveConf(deviceiface, false) // remove interface first
+		if strings.Contains(err.Error(), "does not exist") {
+			err = nil
+			break
+		}
 		time.Sleep(time.Second >> 2)
 		d, _ = wgclient.Device(deviceiface)
 	}
-
+	log.Println("1")
 	ApplyConf(node, deviceiface, confPath)          // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
-	ifaceReady := strings.Contains(output, ifacename)
+	ifaceReady := strings.Contains(output, deviceiface)
 	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
+		log.Println("2")
+		if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
+			deviceiface, err = local.GetMacIface(node.Address)
+			if err != nil || deviceiface == "" {
+				deviceiface = ifacename
+			}
+		}
 		output, _ = ncutils.RunCmd("wg", false)
-		err = ApplyConf(node, ifacename, confPath)
+		err = ApplyConf(node, deviceiface, confPath)
 		time.Sleep(time.Second)
-		ifaceReady = strings.Contains(output, ifacename)
+		ifaceReady = strings.Contains(output, deviceiface)
 	}
+	log.Println("3")
 	//wgclient does not work well on freebsd
 	if node.OS == "freebsd" {
 		if !ifaceReady {

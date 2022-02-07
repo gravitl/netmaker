@@ -11,22 +11,29 @@ import (
 	"log"
 	"os/exec"
 
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 const DNS_UNREACHABLE_ERROR = "nameserver unreachable"
 
-func SetDNSWithRetry(iface, network, address string) {
+// SetDNSWithRetry - Attempt setting dns, if it fails return true (to reset dns)
+func SetDNSWithRetry(node models.Node, address string) bool {
 	var reachable bool
 	for counter := 0; !reachable && counter < 5; counter++ {
 		reachable = IsDNSReachable(address)
 		time.Sleep(time.Second << 1)
 	}
 	if !reachable {
-		ncutils.Log("not setting dns, server unreachable: " + address)
-	} else if err := UpdateDNS(iface, network, address); err != nil {
+		ncutils.Log("not setting dns (server unreachable), will try again later: " + address)
+		return true
+	} else if err := UpdateDNS(node.Interface, node.Network, address); err != nil {
 		ncutils.Log("error applying dns" + err.Error())
+		return false
+	} else if IsDNSWorking(node.Network, address) {
+		return true
 	}
+	return false
 }
 
 // SetDNS - sets the DNS of a local machine
@@ -53,6 +60,9 @@ func SetDNS(nameserver string) error {
 
 // UpdateDNS - updates local DNS of client
 func UpdateDNS(ifacename string, network string, nameserver string) error {
+	if !ncutils.IsLinux() {
+		return nil
+	}
 	if ifacename == "" {
 		return fmt.Errorf("cannot set dns: interface name is blank")
 	}
@@ -61,9 +71,6 @@ func UpdateDNS(ifacename string, network string, nameserver string) error {
 	}
 	if nameserver == "" {
 		return fmt.Errorf("cannot set dns: nameserver is blank")
-	}
-	if ncutils.IsWindows() {
-		return nil
 	}
 	if !IsDNSReachable(nameserver) {
 		return fmt.Errorf(DNS_UNREACHABLE_ERROR + " : " + nameserver + ":53")
@@ -113,7 +120,7 @@ func IsDNSReachable(nameserver string) bool {
 // IsDNSWorking - checks if record is returned by correct nameserver
 func IsDNSWorking(network string, nameserver string) bool {
 	var isworking bool
-	servers, err := net.LookupNS("netmaker" + "." + "network")
+	servers, err := net.LookupNS("netmaker" + "." + network)
 	if err != nil {
 		return isworking
 	}

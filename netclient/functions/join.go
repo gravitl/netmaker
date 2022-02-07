@@ -239,7 +239,12 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if node.DNSOn == "yes" {
 		for _, server := range node.NetworkSettings.DefaultServerAddrs {
 			if server.IsLeader {
-				go local.SetDNSWithRetry(node.Interface, node.Network, server.Address)
+				go func() {
+					if !local.SetDNSWithRetry(node, server.Address) {
+						cfg.Node.DNSOn = "no"
+						PublishNodeUpdate(&cfg)
+					}
+				}()
 				break
 			}
 		}

@@ -556,9 +556,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
+		updatenodes := logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
 		if err = logic.NetworkNodesUpdatePullChanges(node.Network); err != nil {
 			logger.Log(1, "error setting relay updates:", err.Error())
+		}
+		if len(updatenodes) > 0 {
+			for _, relayedNode := range updatenodes {
+				err = mq.NodeUpdate(&relayedNode)
+				if err != nil {
+					logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", node.Network, ": ", err.Error())
+				}
+			}
 		}
 	}
 
