@@ -51,40 +51,20 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 		ncutils.PrintLog("no peers pulled", 1)
 		return err
 	}
-	for _, peer := range peers {
-
-		for _, currentPeer := range devicePeers {
-			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
-				currentPeer.PublicKey.String() != peer.PublicKey.String() {
-				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
-				if err != nil {
-					ncutils.PrintLog("error removing peer "+peer.Endpoint.String(), 1)
-				}
+	found := false
+	//if a current peer is not in the list of new peers (based on PublicKey) delete it
+	for _, currentPeer := range devicePeers {
+		oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
+		for _, peer := range peers {
+			if peer.PublicKey == currentPeer.PublicKey {
+				found = true
 			}
 		}
-		udpendpoint := peer.Endpoint.String()
-		var allowedips string
-		var iparr []string
-		for _, ipaddr := range peer.AllowedIPs {
-			iparr = append(iparr, ipaddr.String())
-		}
-		allowedips = strings.Join(iparr, ",")
-		keepAliveString := strconv.Itoa(int(keepalive))
-		if keepAliveString == "0" {
-			keepAliveString = "15"
-		}
-		if peer.Endpoint != nil {
-			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-				" endpoint "+udpendpoint+
-				" persistent-keepalive "+keepAliveString+
-				" allowed-ips "+allowedips, true)
-		} else {
-			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-				" persistent-keepalive "+keepAliveString+
-				" allowed-ips "+allowedips, true)
-		}
-		if err != nil {
-			ncutils.PrintLog("error setting peer"+peer.PublicKey.String(), 1)
+		if !found {
+			_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+			if err != nil {
+				log.Println("error removing peer", currentPeer.Endpoint.String())
+			}
 		}
 	}
 	//if a new peer is not in the list of existing peers, add it
@@ -108,12 +88,36 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 				}
 
 			}
-		}
-		if shouldDelete {
-			output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
-			if err != nil {
 
-				ncutils.PrintLog(output+" - error removing peer "+currentPeer.PublicKey.String(), 1)
+			if !found || replace {
+				udpendpoint := peer.Endpoint.String()
+				var allowedips string
+				var iparr []string
+				for _, ipaddr := range peer.AllowedIPs {
+					iparr = append(iparr, ipaddr.String())
+				}
+				allowedips = strings.Join(iparr, ",")
+				keepAliveString := strconv.Itoa(int(keepalive))
+				if peer.Endpoint != nil && keepalive > 0 {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" endpoint "+udpendpoint+
+						" persistent-keepalive "+keepAliveString+
+						" allowed-ips "+allowedips, true)
+				} else if peer.Endpoint != nil && keepalive == 0 {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" endpoint "+udpendpoint+
+						" allowed-ips "+allowedips, true)
+				} else if peer.Endpoint == nil && keepalive != 0 {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" persistent-keepalive "+keepAliveString+
+						" allowed-ips "+allowedips, true)
+				} else {
+					_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+						" allowed-ips "+allowedips, true)
+				}
+				if err != nil {
+					log.Println("error setting peer", peer.PublicKey.String())
+				}
 			}
 		}
 	}
