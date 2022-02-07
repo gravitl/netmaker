@@ -308,7 +308,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			if newNode.DNSOn == "yes" {
 				for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
 					if server.IsLeader {
-						go local.SetDNSWithRetry(newNode.Interface, newNode.Network, server.Address)
+						go local.SetDNSWithRetry(newNode, server.Address)
 						break
 					}
 				}

@@ -11,6 +11,7 @@ import (
 )
 
 const MAC_SERVICE_NAME = "com.gravitl.netclient"
+const MAC_EXEC_DIR = "/usr/local/bin/"
 
 // SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
 func SetupMacDaemon(interval string) error {
@@ -21,8 +22,8 @@ func SetupMacDaemon(interval string) error {
 	}
 	binarypath := dir + "/netclient"
 
-	if !ncutils.FileExists(EXEC_DIR + "netclient") {
-		err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
+	if !ncutils.FileExists(MAC_EXEC_DIR + "netclient") {
+		err = ncutils.Copy(binarypath, MAC_EXEC_DIR+"netclient")
 		if err != nil {
 			log.Println(err)
 			return err
@@ -52,7 +53,7 @@ func CleanupMac() {
 	}
 
 	os.RemoveAll(ncutils.GetNetclientPath())
-	os.Remove(EXEC_DIR + "netclient")
+	os.Remove(MAC_EXEC_DIR + "netclient")
 }
 
 func RestartLaunchD() {

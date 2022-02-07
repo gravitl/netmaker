@@ -153,7 +153,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if err != nil {
 		log.Fatalf("failed to open client: %v", err)
 	}
-
+	log.Println("-2")
 	var ifacename string
 	if nodecfg.Interface != "" {
 		ifacename = nodecfg.Interface
@@ -172,7 +172,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		ncutils.PrintLog("error writing wg conf file: "+err.Error(), 1)
 		return err
 	}
-
+	log.Println("-1")
 	// spin up userspace / windows interface + apply the conf file
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	var deviceiface = ifacename
@@ -182,25 +182,40 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			deviceiface = ifacename
 		}
 	}
+	log.Println("0")
 	// ensure you clear any existing interface first
 	d, _ := wgclient.Device(deviceiface)
 	for d != nil && d.Name == deviceiface {
-		RemoveConf(ifacename, false) // remove interface first
+		log.Println("d==", d.Name)
+		log.Println("deviceiface==", deviceiface)
+		err = RemoveConf(deviceiface, false) // remove interface first
+		if strings.Contains(err.Error(), "does not exist") {
+			err = nil
+			break
+		}
 		time.Sleep(time.Second >> 2)
 		d, _ = wgclient.Device(deviceiface)
 	}
-
+	log.Println("1")
 	ApplyConf(node, deviceiface, confPath)          // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
-	ifaceReady := strings.Contains(output, ifacename)
+	ifaceReady := strings.Contains(output, deviceiface)
 	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
+		log.Println("2")
+		if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
+			deviceiface, err = local.GetMacIface(node.Address)
+			if err != nil || deviceiface == "" {
+				deviceiface = ifacename
+			}
+		}
 		output, _ = ncutils.RunCmd("wg", false)
-		err = ApplyConf(node, ifacename, confPath)
+		err = ApplyConf(node, deviceiface, confPath)
 		time.Sleep(time.Second)
-		ifaceReady = strings.Contains(output, ifacename)
+		ifaceReady = strings.Contains(output, deviceiface)
 	}
+	log.Println("3")
 	//wgclient does not work well on freebsd
 	if node.OS == "freebsd" {
 		if !ifaceReady {

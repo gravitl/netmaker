@@ -3,6 +3,7 @@ package wireguard
 import (
 	"bufio"
 	"errors"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ func WgQuickDownMac(node *models.Node, iface string) error {
 // RemoveConfMac - bring down mac interface and remove routes
 func RemoveConfMac(iface string) error {
 	realIface, err := getRealIface(iface)
+	log.Println("DELETE ME: attempting to remove " + realIface)
 	if realIface != "" {
 		err = deleteInterface(iface, realIface)
 	}
