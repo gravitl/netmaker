@@ -303,8 +303,8 @@ func WipeLocal(network string) error {
 			log.Println(err.Error())
 		}
 	}
-	if ncutils.FileExists(home + "nm-" + network + ".conf") {
-		err = os.Remove(home + "nm-" + network + ".conf")
+	if ncutils.FileExists(home + ifacename + ".conf") {
+		err = os.Remove(home + ifacename + ".conf")
 		if err != nil {
 			log.Println("error removing .conf:")
 			log.Println(err.Error())
