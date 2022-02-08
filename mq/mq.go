@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
@@ -192,6 +193,8 @@ func SetupMQTT() mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	broker := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
+	id := ncutils.MakeRandomString(23)
+	opts.ClientID = id
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {

@@ -93,6 +93,8 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	server := getServerAddress(cfg)
 	opts.AddBroker(server + ":1883")
+	id := ncutils.MakeRandomString(23)
+	opts.ClientID = id
 	opts.SetDefaultPublishHandler(All)
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(12 * time.Second)

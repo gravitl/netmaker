@@ -32,6 +32,9 @@ import (
 // Version - version of the netclient
 var Version = "dev"
 
+// src - for random strings
+var src = rand.NewSource(time.Now().UnixNano())
+
 // MAX_NAME_LENGTH - maximum node name length
 const MAX_NAME_LENGTH = 62
 
@@ -61,6 +64,14 @@ const DEFAULT_GC_PERCENT = 10
 
 // KEY_SIZE = ideal length for keys
 const KEY_SIZE = 2048
+
+// constants for random strings
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
 
 // Log - logs a message
 func Log(message string) {
@@ -617,4 +628,24 @@ func BoxDecrypt(encrypted []byte, senderPublicKey *[32]byte, recipientPrivateKey
 		return nil, fmt.Errorf("could not decrypt message")
 	}
 	return decrypted, nil
+}
+
+// MakeRandomString - generates a random string of len n
+func MakeRandomString(n int) string {
+	sb := strings.Builder{}
+	sb.Grow(n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			sb.WriteByte(letterBytes[idx])
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return sb.String()
 }
