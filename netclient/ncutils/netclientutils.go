@@ -62,6 +62,11 @@ const DEFAULT_GC_PERCENT = 10
 // KEY_SIZE = ideal length for keys
 const KEY_SIZE = 2048
 
+// SetVersion -- set netclient version for use by other packages
+func SetVersion(ver string) {
+	Version = ver
+}
+
 // Log - logs a message
 func Log(message string) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
