@@ -243,17 +243,27 @@ func Keepalive(ctx context.Context) {
 					logger.Log(1, "leader not defined for network ", network.NetID)
 					continue
 				}
-				if token := client.Publish("serverkeepalive/"+network.NetID, 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
-					logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
-				} else {
-					logger.Log(2, "keepalive sent for network", network.NetID)
-				}
+				publishServerKeepalive(client, &network)
 				err = serverctl.SyncServerNetwork(network.NetID)
 				if err != nil {
 					logger.Log(1, "error syncing server network", err.Error())
 				}
 			}
 			client.Disconnect(MQ_DISCONNECT)
+		}
+	}
+}
+
+func publishServerKeepalive(client mqtt.Client, network *models.Network) {
+	nodes, err := logic.GetNetworkNodes(network.NetID)
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if token := client.Publish(fmt.Sprintf("serverkeepalive/%s/%s", network.NetID, node.ID), 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
+			logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
+		} else {
+			logger.Log(2, "keepalive sent for network/node", network.NetID, node.ID)
 		}
 	}
 }
