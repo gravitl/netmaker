@@ -277,12 +277,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 			ncutils.PrintLog(fmt.Sprintf("%s was removed", cfg.Node.Name), 1)
 			return
-		case models.NODE_UPDATE_KEY:
-			if err := UpdateKeys(&cfg, client); err != nil {
-				ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
-			}
-		case models.NODE_NOOP:
-		default:
 		}
 		ncutils.PrintLog(fmt.Sprintf("%s was removed", cfg.Node.Name), 1)
 		return
@@ -290,7 +284,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		if err := UpdateKeys(&cfg, client); err != nil {
 			ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
 		}
-		ifaceDelta = true
 	case models.NODE_NOOP:
 	default:
 	}
