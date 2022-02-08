@@ -275,6 +275,14 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			if !strings.Contains("rpc error", err.Error()) {
 				ncutils.PrintLog(fmt.Sprintf("failed to leave, please check that local files for network %s were removed", cfg.Node.Network), 1)
 			}
+			ncutils.PrintLog(fmt.Sprintf("%s was removed", cfg.Node.Name), 1)
+			return
+		case models.NODE_UPDATE_KEY:
+			if err := UpdateKeys(&cfg, client); err != nil {
+				ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
+			}
+		case models.NODE_NOOP:
+		default:
 		}
 		ncutils.PrintLog(fmt.Sprintf("%s was removed", cfg.Node.Name), 1)
 		return
@@ -462,9 +470,13 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
 		return err
 	}
 	cfg.Node.PublicKey = key.PublicKey().String()
-	PublishNodeUpdate(cfg)
 	if err := config.ModConfig(&cfg.Node); err != nil {
 		ncutils.Log("error updating local config " + err.Error())
+	}
+	PublishNodeUpdate(cfg)
+	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file); err != nil {
+		ncutils.Log("error applying new config " + err.Error())
+		return err
 	}
 	return nil
 }
