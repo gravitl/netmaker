@@ -262,25 +262,53 @@ func WipeLocal(network string) error {
 
 	home := ncutils.GetNetclientPathSpecific()
 	if ncutils.FileExists(home + "netconfig-" + network) {
-		_ = os.Remove(home + "netconfig-" + network)
+		err = os.Remove(home + "netconfig-" + network)
+		if err != nil {
+			log.Println("error removing netconfig:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "backup.netconfig-" + network) {
-		_ = os.Remove(home + "backup.netconfig-" + network)
+		err = os.Remove(home + "backup.netconfig-" + network)
+		if err != nil {
+			log.Println("error removing backup netconfig:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "nettoken-" + network) {
-		_ = os.Remove(home + "nettoken-" + network)
+		err = os.Remove(home + "nettoken-" + network)
+		if err != nil {
+			log.Println("error removing nettoken:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "secret-" + network) {
-		_ = os.Remove(home + "secret-" + network)
+		err = os.Remove(home + "secret-" + network)
+		if err != nil {
+			log.Println("error removing secret:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "traffic-" + network) {
-		_ = os.Remove(home + "traffic-" + network)
+		err = os.Remove(home + "traffic-" + network)
+		if err != nil {
+			log.Println("error removing traffic key:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "wgkey-" + network) {
-		_ = os.Remove(home + "wgkey-" + network)
+		err = os.Remove(home + "wgkey-" + network)
+		if err != nil {
+			log.Println("error removing wgkey:")
+			log.Println(err.Error())
+		}
 	}
-	if ncutils.FileExists(home + "nm-" + network + ".conf") {
-		_ = os.Remove(home + "nm-" + network + ".conf")
+	if ncutils.FileExists(home + ifacename + ".conf") {
+		err = os.Remove(home + ifacename + ".conf")
+		if err != nil {
+			log.Println("error removing .conf:")
+			log.Println(err.Error())
+		}
 	}
 	return err
 }
