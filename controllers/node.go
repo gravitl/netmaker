@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -610,14 +611,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	returnSuccessResponse(w, r, nodeid+" deleted.")
 
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
+	time.Sleep(time.Second << 1)
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)
-	returnSuccessResponse(w, r, nodeid+" deleted.")
 }
 
 func runUpdates(node *models.Node, nodeUpdate bool) error {

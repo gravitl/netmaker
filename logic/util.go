@@ -64,39 +64,6 @@ func IsAddressInCIDR(address, cidr string) bool {
 	return currentCIDR.Contains(ip)
 }
 
-// DeleteNodeByMacAddress - deletes a node from database or moves into delete nodes table
-func DeleteNodeByMacAddress(node *models.Node, exterminate bool) error {
-	var err error
-	var key = node.ID
-	if !exterminate {
-		args := strings.Split(key, "###")
-		node, err := GetNodeByMacAddress(args[0], args[1])
-		if err != nil {
-			return err
-		}
-		node.Action = models.NODE_DELETE
-		nodedata, err := json.Marshal(&node)
-		if err != nil {
-			return err
-		}
-		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
-		if err != nil {
-			return err
-		}
-	} else {
-		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			logger.Log(2, err.Error())
-		}
-	}
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
-	}
-	if servercfg.IsDNSMode() {
-		SetDNS()
-	}
-	return removeLocalServer(node)
-}
-
 // SetNetworkNodesLastModified - sets the network nodes last modified
 func SetNetworkNodesLastModified(networkName string) error {
 

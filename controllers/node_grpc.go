@@ -216,6 +216,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
+
 	runServerPeerUpdate(&node, false)
 
 	return &nodepb.Object{
