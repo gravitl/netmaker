@@ -248,9 +248,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			}
 		}
 	}
-	//if ncutils.IsLinux() {
-	//	setDNS(&resNode, servercfg, &cfg.Node)
-	//}
 	var bkupErr = config.SaveBackup(network)
 	if bkupErr != nil {
 		ncutils.Log("unable to update backup file")

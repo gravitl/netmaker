@@ -219,6 +219,7 @@ func LeaveNetwork(network string) error {
 
 	currentNets, err := ncutils.GetSystemNetworks()
 	if err != nil || len(currentNets) <= 1 {
+		daemon.Stop() // stop system daemon if last network
 		return RemoveLocalInstance(cfg, network)
 	}
 	return daemon.Restart()
