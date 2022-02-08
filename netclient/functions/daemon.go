@@ -105,17 +105,16 @@ func SetupMQTT(cfg *config.ClientConfig) mqtt.Client {
 				ncutils.Log("could not run pull, exiting " + cfg.Node.Network + " setup: " + err.Error())
 				return client
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(time.Second)
 		}
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
 			ncutils.Log("unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				ncutils.Log("could not connect to broker, exiting " + cfg.Node.Network + " setup: " + token.Error().Error())
-				if strings.Contains(token.Error().Error(), "connectex") {
-					ncutils.PrintLog("connection issue detected.. restarting daemon", 0)
+				if strings.Contains(token.Error().Error(), "connectex") || strings.Contains(token.Error().Error(), "i/o timeout") {
+					ncutils.PrintLog("connection issue detected.. pulling and restarting daemon", 0)
 					Pull(cfg.Node.Network, true)
 					daemon.Restart()
-					os.Exit(2)
 				}
 				return client
 			}
@@ -273,30 +272,23 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			} else {
 				ncutils.Log("failed to kill go routines for network " + newNode.Network)
 			}
-			ncutils.Log("deleting configuration files")
-			if err := WipeLocal(cfg.Network); err != nil {
-				ncutils.PrintLog("error deleting local instance: "+err.Error(), 1)
-				ncutils.PrintLog("Please perform manual clean up", 1)
-			}
-			currNets, err := ncutils.GetSystemNetworks()
-			if err == nil && len(currNets) == 0 {
-				if err = RemoveLocalInstance(&cfg, cfg.Network); err != nil {
-					ncutils.PrintLog("Please perform manual clean up", 1)
+			ncutils.PrintLog(fmt.Sprintf("received delete request for %s", cfg.Node.Name), 1)
+			if err = LeaveNetwork(cfg.Node.Network); err != nil {
+				if !strings.Contains("rpc error", err.Error()) {
+					ncutils.PrintLog(fmt.Sprintf("failed to leave, please check that local files for network %s were removed", cfg.Node.Network), 1)
 				}
-				os.Exit(0)
 			}
+			ncutils.PrintLog(fmt.Sprintf("%s was removed", cfg.Node.Name), 1)
 			return
 		case models.NODE_UPDATE_KEY:
-			ncutils.Log("delete recieved")
 			if err := UpdateKeys(&cfg, client); err != nil {
 				ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
 			}
 			ifaceDelta = true
 		case models.NODE_NOOP:
-			ncutils.Log("noop recieved")
 		default:
 		}
-		//Save new config
+		// Save new config
 		cfg.Node.Action = models.NODE_NOOP
 		if err := config.Write(&cfg, cfg.Network); err != nil {
 			ncutils.PrintLog("error updating node configuration: "+err.Error(), 1)

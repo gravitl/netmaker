@@ -72,7 +72,7 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	}
 	empty = gateway.Interface == ""
 	if empty {
-		err = errors.New("Interface cannot be empty")
+		err = errors.New("interface cannot be empty")
 	}
 	return err
 }

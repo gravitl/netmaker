@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -599,20 +600,22 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent
 	node.Action = models.NODE_DELETE
-	runUpdates(&node, true)
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update", err.Error())
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
 	err = logic.DeleteNodeByID(&node, false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
+	time.Sleep(time.Second << 1)
+	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
+	runUpdates(&node, false)
 }
 
 func runUpdates(node *models.Node, nodeUpdate bool) error {

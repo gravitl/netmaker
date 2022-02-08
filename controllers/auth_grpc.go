@@ -131,12 +131,26 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 		if err != nil {
 			return nil, err
 		}
+		var found = false
 		for _, value := range collection {
 			if err = json.Unmarshal([]byte(value), &result); err != nil {
 				continue // finish going through nodes
 			}
 			if result.ID == nodeID && result.Network == network {
+				found = true
 				break
+			}
+		}
+
+		if !found {
+			deletedNode, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, nodeID)
+			if err != nil {
+				err = errors.New("node not found")
+				return nil, err
+			}
+			if err = json.Unmarshal([]byte(deletedNode), &result); err != nil {
+				err = errors.New("node data corrupted")
+				return nil, err
 			}
 		}
 

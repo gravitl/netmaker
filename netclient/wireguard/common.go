@@ -165,10 +165,11 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	// ensure you clear any existing interface first
 	d, _ := wgclient.Device(deviceiface)
 	for d != nil && d.Name == deviceiface {
-		err = RemoveConf(deviceiface, false) // remove interface first
-		if strings.Contains(err.Error(), "does not exist") {
-			err = nil
-			break
+		if err = RemoveConf(deviceiface, false); err != nil { // remove interface first
+			if strings.Contains(err.Error(), "does not exist") {
+				err = nil
+				break
+			}
 		}
 		time.Sleep(time.Second >> 2)
 		d, _ = wgclient.Device(deviceiface)
@@ -201,7 +202,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
 		}
 	}
-	ncutils.PrintLog("interface ready - netclient engage", 1)
+	ncutils.PrintLog("interface ready - netclient.. ENGAGE", 1)
 	if syncconf { // should never be called really.
 		err = SyncWGQuickConf(ifacename, confPath)
 	}

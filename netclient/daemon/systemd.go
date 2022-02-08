@@ -74,12 +74,14 @@ WantedBy=multi-user.target
 	return nil
 }
 
+// RestartSystemD - restarts systemd service
 func RestartSystemD() {
 	ncutils.PrintLog("restarting netclient.service", 1)
 	time.Sleep(time.Second)
 	_, _ = ncutils.RunCmd("systemctl restart netclient.service", true)
 }
 
+// CleanupLinux - cleans up neclient configs
 func CleanupLinux() {
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
 		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
@@ -87,6 +89,11 @@ func CleanupLinux() {
 	if err := os.Remove(EXEC_DIR + "netclient"); err != nil {
 		ncutils.PrintLog("Removing netclient binary: "+err.Error(), 1)
 	}
+}
+
+// StopSystemD - tells system to stop systemd
+func StopSystemD() {
+	ncutils.RunCmd("systemctl stop netclient.service", false)
 }
 
 // RemoveSystemDServices - removes the systemd services on a machine

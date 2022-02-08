@@ -133,7 +133,7 @@ func TestValidateEgressGateway(t *testing.T) {
 		gateway.Interface = ""
 		err := logic.ValidateEgressGateway(gateway)
 		assert.NotNil(t, err)
-		assert.Equal(t, "Interface cannot be empty", err.Error())
+		assert.Equal(t, "interface cannot be empty", err.Error())
 	})
 	t.Run("Success", func(t *testing.T) {
 		gateway.Interface = "eth0"

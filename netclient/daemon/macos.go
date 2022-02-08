@@ -56,10 +56,16 @@ func CleanupMac() {
 	os.Remove(MAC_EXEC_DIR + "netclient")
 }
 
+// RestartLaunchD - restart launch daemon
 func RestartLaunchD() {
 	ncutils.RunCmd("launchctl unload /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
 	time.Sleep(time.Second >> 2)
 	ncutils.RunCmd("launchctl load /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
+}
+
+// StopLaunchD - stop launch daemon
+func StopLaunchD() {
+	ncutils.RunCmd("launchctl unload  /System/Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
 }
 
 // CreateMacService - Creates the mac service file for LaunchDaemons
