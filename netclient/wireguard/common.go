@@ -174,7 +174,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		time.Sleep(time.Second >> 2)
 		d, _ = wgclient.Device(deviceiface)
 	}
-	ApplyConf(node, deviceiface, confPath)          // Apply initially
+	ApplyConf(node, ifacename, confPath)            // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
@@ -355,7 +355,6 @@ func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) error {
 		AllowNonUniqueSections: true,
 		AllowShadows:           true,
 	}
-	ncutils.Log("updating " + file)
 	wireguard, err := ini.LoadSources(options, file)
 	if err != nil {
 		return err

@@ -53,7 +53,7 @@ func read(network, which string) string {
 		if readMessage.LastSeen.IsZero() {
 			return ""
 		}
-		if time.Now().After(readMessage.LastSeen.Add(time.Minute)) { // check if message has been there over a minute
+		if time.Now().After(readMessage.LastSeen.Add(time.Minute * 10)) { // check if message has been there over a minute
 			messageCache.Delete(fmt.Sprintf("%s%s", network, which)) // remove old message if expired
 			return ""
 		}
@@ -132,8 +132,16 @@ func SetupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 		ncutils.Log("detected broker connection lost, running pull for " + cfg.Node.Network)
 		_, err := Pull(cfg.Node.Network, true)
 		if err != nil {
-			ncutils.Log("could not run pull, please restart daemon or examine network connectivity --- " + err.Error())
+			ncutils.Log("could not run pull, server unreachable: " + err.Error())
+			ncutils.Log("waiting to retry...")
+			/*
+				//Consider putting in logic to restart - daemon may take long time to refresh
+				time.Sleep(time.Minute * 5)
+					ncutils.Log("restarting netclient")
+					daemon.Restart()
+			*/
 		}
+		ncutils.Log("connection re-established with mqtt server")
 	})
 
 	client := mqtt.NewClient(opts)
@@ -173,32 +181,35 @@ func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
 	cfg.Network = network
-	var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
-	fileInfo, err := os.Stat(configPath)
-	if err != nil {
-		ncutils.Log("could not stat config file: " + configPath)
-	}
-	// speed up UDP rest
-	if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
-		sleepTime := 2
-		ncutils.Log("pulling latest config for " + cfg.Network)
-		for {
-			_, err := Pull(network, true)
-			if err == nil {
-				break
-			} else {
-				ncutils.PrintLog("error pulling config for "+network+": "+err.Error(), 1)
+	/*
+			var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
+			fileInfo, err := os.Stat(configPath)
+			if err != nil {
+				ncutils.Log("could not stat config file: " + configPath)
 			}
-			if sleepTime > 3600 {
-				sleepTime = 3600
-			}
-			ncutils.Log("failed to pull for network " + network)
-			ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
-			time.Sleep(time.Second * time.Duration(sleepTime))
-			sleepTime = sleepTime * 2
-		}
-	}
-	time.Sleep(time.Second << 1)
+			// speed up UDP rest
+				if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
+					sleepTime := 2
+					ncutils.Log("pulling latest config for " + cfg.Network)
+					for {
+						_, err := Pull(network, true)
+						if err == nil {
+							break
+						} else {
+							ncutils.PrintLog("error pulling config for "+network+": "+err.Error(), 1)
+						}
+						if sleepTime > 3600 {
+							sleepTime = 3600
+						}
+						ncutils.Log("failed to pull for network " + network)
+						ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
+						time.Sleep(time.Second * time.Duration(sleepTime))
+						sleepTime = sleepTime * 2
+					}
+				}
+
+		time.Sleep(time.Second << 1)
+	*/
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network: " + network)
 	client := SetupMQTT(&cfg, false)
@@ -365,12 +376,19 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
-	err = wireguard.SetPeers(cfg.Node.Interface, cfg.Node.Address, cfg.Node.PersistentKeepalive, peerUpdate.Peers)
+	var iface = cfg.Node.Interface
+	if ncutils.IsMac() {
+		iface, err = local.GetMacIface(cfg.Node.Address)
+		if err != nil {
+			ncutils.Log("error retrieving mac iface: " + err.Error())
+			return
+		}
+	}
+	err = wireguard.SetPeers(iface, cfg.Node.Address, cfg.Node.PersistentKeepalive, peerUpdate.Peers)
 	if err != nil {
-		ncutils.Log("error syncing wg after peer update " + err.Error())
+		ncutils.Log("error syncing wg after peer update: " + err.Error())
 		return
 	}
-	ncutils.Log(fmt.Sprintf("received peer update on network, %s", cfg.Network))
 }
 
 // MonitorKeepalive - checks time last server keepalive received.  If more than 3+ minutes, notify and resubscribe

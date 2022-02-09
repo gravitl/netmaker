@@ -23,6 +23,8 @@ const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
 // MQ_DISCONNECT - disconnects MQ
 const MQ_DISCONNECT = 250
 
+var peer_force_send = 0
+
 // DefaultHandler default message queue handler - only called when GetDebug == true
 func DefaultHandler(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "MQTT Message: Topic: ", string(msg.Topic()), " Message: ", string(msg.Payload()))
@@ -112,10 +114,8 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	for _, node := range networkNodes {
 
 		if node.IsServer == "yes" || node.ID == newNode.ID {
-			log.Println("skipping update on " + node.Name + " : " + node.ID)
 			continue
 		}
-		log.Println("running update on " + node.Name + " : " + node.ID)
 		peerUpdate, err := logic.GetPeerUpdate(&node)
 		if err != nil {
 			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
@@ -244,30 +244,44 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			networks, err := logic.GetNetworks()
-			if err != nil {
-				logger.Log(1, "error retrieving networks for keepalive", err.Error())
-			}
-			for _, network := range networks {
-				serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
-				if errN == nil {
-					serverNode.SetLastCheckIn()
-					logic.UpdateNode(&serverNode, &serverNode)
-					if network.DefaultUDPHolePunch == "yes" {
-						if logic.ShouldPublishPeerPorts(&serverNode) {
-							err = PublishPeerUpdate(&serverNode)
-							if err != nil {
-								logger.Log(1, "error publishing udp port updates for network", network.NetID)
-								logger.Log(1, errN.Error())
-							}
-						}
+			sendPeers()
+		}
+	}
+}
+
+// sendPeers - retrieve networks, send peer ports to all peers
+func sendPeers() {
+	var force bool
+	peer_force_send++
+	if peer_force_send == 5 {
+		force = true
+		peer_force_send = 0
+	}
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		logger.Log(1, "error retrieving networks for keepalive", err.Error())
+	}
+	for _, network := range networks {
+		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
+		if errN == nil {
+			serverNode.SetLastCheckIn()
+			logic.UpdateNode(&serverNode, &serverNode)
+			if network.DefaultUDPHolePunch == "yes" {
+				if logic.ShouldPublishPeerPorts(&serverNode) || force {
+					if force {
+						logger.Log(2, "sending scheduled peer update (5 min)")
 					}
-				} else {
-					logger.Log(1, "unable to retrieve leader for network ", network.NetID)
-					logger.Log(1, errN.Error())
-					continue
+					err = PublishPeerUpdate(&serverNode)
+					if err != nil {
+						logger.Log(1, "error publishing udp port updates for network", network.NetID)
+						logger.Log(1, errN.Error())
+					}
 				}
 			}
+		} else {
+			logger.Log(1, "unable to retrieve leader for network ", network.NetID)
+			logger.Log(1, errN.Error())
+			continue
 		}
 	}
 }
