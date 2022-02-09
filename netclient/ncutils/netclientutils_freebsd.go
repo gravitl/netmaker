@@ -38,14 +38,9 @@ func RunCmd(command string, printerr bool) (string, error) {
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	go func() {
-		select {
-		case <-ctx.Done():
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		case <-time.After(time.Second * 2):
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
+		<-ctx.Done()
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}()
-	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
 		log.Println("error running command:", command)

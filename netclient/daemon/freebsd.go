@@ -103,9 +103,7 @@ netclient_args="daemon"`
 }
 
 func FreebsdDaemon(command string) {
-	out, err := ncutils.RunCmdFormatted("service netclient "+command, true)
-	ncutils.Log("output from RunCmd " + out)
-	ncutils.Log("error from RunCmd " + err.Error())
+	_, _ = ncutils.RunCmdFormatted("service netclient "+command, true)
 }
 
 func CleanupFreebsd() {
