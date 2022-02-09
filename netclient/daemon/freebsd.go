@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -104,7 +103,7 @@ netclient_args="daemon"`
 }
 
 func FreebsdDaemon(command string) {
-	out, err := ncutils.RunCmd(fmt.Sprintf("service netclient %s", command), true)
+	out, err := ncutils.RunCmd("service netclient "+command, true)
 	ncutils.Log("output from RunCmd " + out)
 	ncutils.Log("error from RunCmd " + err.Error())
 }
