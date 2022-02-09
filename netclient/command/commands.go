@@ -34,11 +34,8 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 				if err != nil {
 					ncutils.PrintLog("error removing services: "+err.Error(), 1)
 				}
-				if ncutils.IsFreebsd() {
-					err = daemon.RemoveFreebsdDaemon()
-				}
-				if err != nil {
-					ncutils.PrintLog("error removing services: "+err.Error(), 1)
+				if ncutils.IsFreeBSD() {
+					daemon.RemoveFreebsdDaemon()
 				}
 			}
 		} else {

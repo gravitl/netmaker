@@ -137,7 +137,7 @@ func Uninstall() error {
 		daemon.CleanupMac()
 	} else if ncutils.IsLinux() {
 		daemon.CleanupLinux()
-	} else if ncutils.IsFreebsd() {
+	} else if ncutils.IsFreeBSD() {
 		daemon.CleanupFreebsd()
 	} else if !ncutils.IsKernel() {
 		ncutils.PrintLog("manual cleanup required", 1)
@@ -235,7 +235,7 @@ func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
 			// TODO: Remove job?
 		} else if ncutils.IsMac() {
 			//TODO: Delete mac daemon
-		} else if ncutils.IsFreebsd() {
+		} else if ncutils.IsFreeBSD() {
 			daemon.RemoveFreebsdDaemon()
 		} else {
 			daemon.RemoveSystemDServices()

@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"os"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
-
-const EXEC_DIR = "/sbin"
 
 // SetupFreebsdDaemon -- sets up daemon for freebsd
 func SetupFreebsdDaemon() error {
@@ -87,7 +86,7 @@ netclient_args="daemon"`
 
 	rcbytes := []byte(rcFile)
 	if !ncutils.FileExists("/etc/rc.d/netclient") {
-		err := os.Write("/etc/rc.d/netclient", rcbytes, 0744)
+		err := os.WriteFile("/etc/rc.d/netclient", rcbytes, 0744)
 		if err != nil {
 			return err
 		}
@@ -101,13 +100,14 @@ netclient_args="daemon"`
 			return nil
 		}
 	}
+	return nil
 }
 
 func FreebsdDaemon(command string) {
-	_, _ := ncutils.RunCmd(fmt.Sprintf("service netclient %s", command), true)
+	_, _ = ncutils.RunCmd(fmt.Sprintf("service netclient %s", command), true)
 }
 
-func CleanUpFreebsd() {
+func CleanupFreebsd() {
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
 		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
 	}
@@ -118,13 +118,13 @@ func CleanUpFreebsd() {
 
 func RemoveFreebsdDaemon() {
 	if ncutils.FileExists("/etc/rc.d/netclient") {
-		err = os.Remove("/etc/rc.d/netclient")
+		err := os.Remove("/etc/rc.d/netclient")
 		if err != nil {
 			ncutils.Log("Error removing /etc/rc.d/netclient. Please investigate.")
 		}
 	}
 	if ncutils.FileExists("/etc/rc.conf.d/netclient") {
-		err = os.Remove("/etc/rc.conf.d/netclient")
+		err := os.Remove("/etc/rc.conf.d/netclient")
 		if err != nil {
 			ncutils.Log("Error removing /etc/rc.conf.d/netclient. Please investigate.")
 		}
