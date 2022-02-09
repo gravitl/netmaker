@@ -137,7 +137,7 @@ sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
 echo "setting mosquitto.conf..."
 
-wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravil/netmaker/master/docker/mosquitto.conf
+wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
 
 echo "setting docker-compose..."
 
