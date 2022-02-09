@@ -7,7 +7,7 @@ COPY . .
 ENV GO111MODULE=auto
 
 # RUN GOOS=linux CGO_ENABLED=1 go build -tags debug -ldflags="-s -X 'main.version=$version'" -o netmaker main.go
-RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -X 'main.version=$version'" -o netmaker main.go
+RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -X 'github.com/gravitl/netmaker/servercfg/serverconf.Version=$VERSION'" -o netmaker main.go
 FROM alpine:3.14.3
 
 # add a c lib
