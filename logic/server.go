@@ -34,11 +34,17 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 
 	var err error
 
+	var currentServers = GetServerNodes(networkSettings.NetID)
+	var serverCount = 1
+	if currentServers != nil {
+		serverCount = len(currentServers) + 1
+	}
+
 	var node = &models.Node{
 		IsServer:     "yes",
 		DNSOn:        "no",
 		IsStatic:     "yes",
-		Name:         models.NODE_SERVER_NAME,
+		Name:         fmt.Sprintf("%s-%d", models.NODE_SERVER_NAME, serverCount),
 		MacAddress:   servercfg.GetNodeID(),
 		ID:           "", // will be set to new uuid
 		UDPHolePunch: "no",
