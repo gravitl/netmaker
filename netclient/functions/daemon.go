@@ -132,10 +132,14 @@ func SetupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 		ncutils.Log("detected broker connection lost, running pull for " + cfg.Node.Network)
 		_, err := Pull(cfg.Node.Network, true)
 		if err != nil {
-			ncutils.Log("could not run pull, server unreachable, restarting daemon in 5 minutes..." + err.Error())
-			time.Sleep(time.Minute * 5)
-			ncutils.Log("restarting netclient")
-			daemon.Restart()
+			ncutils.Log("could not run pull, server unreachable: " + err.Error())
+			ncutils.Log("waiting to retry...")
+			/*
+				//Consider putting in logic to restart - daemon may take long time to refresh
+				time.Sleep(time.Minute * 5)
+					ncutils.Log("restarting netclient")
+					daemon.Restart()
+			*/
 		}
 		ncutils.Log("connection re-established with mqtt server")
 	})
