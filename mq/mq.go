@@ -16,19 +16,20 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
+// KEEPALIVE_TIMEOUT - time in seconds for timeout
 const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
+// MQ_DISCONNECT - disconnects MQ
 const MQ_DISCONNECT = 250
 
 // DefaultHandler default message queue handler - only called when GetDebug == true
-var DefaultHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+func DefaultHandler(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "MQTT Message: Topic: ", string(msg.Topic()), " Message: ", string(msg.Payload()))
 }
 
 // Ping message Handler -- handles ping topic from client nodes
-var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+func Ping(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "Ping Handler: ", msg.Topic())
 	go func() {
 		id, err := GetID(msg.Topic())
@@ -64,7 +65,7 @@ var Ping mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 }
 
 // UpdateNode  message Handler -- handles updates from client nodes
-var UpdateNode mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 	go func() {
 		id, err := GetID(msg.Topic())
 		if err != nil {
@@ -189,12 +190,37 @@ func NodeUpdate(node *models.Node) error {
 }
 
 // SetupMQTT creates a connection to broker and return client
-func SetupMQTT() mqtt.Client {
+func SetupMQTT(publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	broker := servercfg.GetMessageQueueEndpoint()
-	opts.AddBroker(broker)
+	opts.AddBroker(servercfg.GetMessageQueueEndpoint())
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
+	opts.SetAutoReconnect(true)
+	opts.SetConnectRetry(true)
+	opts.SetConnectRetryInterval(time.Second << 2)
+	opts.SetKeepAlive(time.Minute)
+	opts.SetWriteTimeout(time.Minute)
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		if !publish {
+			if servercfg.GetDebug() {
+				if token := client.Subscribe("#", 2, mqtt.MessageHandler(DefaultHandler)); token.Wait() && token.Error() != nil {
+					client.Disconnect(240)
+					logger.Log(0, "default subscription failed")
+				}
+			}
+			if token := client.Subscribe("ping/#", 2, mqtt.MessageHandler(Ping)); token.Wait() && token.Error() != nil {
+				client.Disconnect(240)
+				logger.Log(0, "ping subscription failed")
+			}
+			if token := client.Subscribe("update/#", 0, mqtt.MessageHandler(UpdateNode)); token.Wait() && token.Error() != nil {
+				client.Disconnect(240)
+				logger.Log(0, "node update subscription failed")
+			}
+
+			opts.SetOrderMatters(true)
+			opts.SetResumeSubs(true)
+		}
+	})
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
@@ -208,7 +234,6 @@ func SetupMQTT() mqtt.Client {
 		}
 		time.Sleep(2 * time.Second)
 	}
-	logger.Log(2, "connected to message queue", broker)
 	return client
 }
 
@@ -219,7 +244,6 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			client := SetupMQTT()
 			networks, err := logic.GetNetworks()
 			if err != nil {
 				logger.Log(1, "error retrieving networks for keepalive", err.Error())
@@ -230,43 +254,34 @@ func Keepalive(ctx context.Context) {
 					serverNode.SetLastCheckIn()
 					logic.UpdateNode(&serverNode, &serverNode)
 					if network.DefaultUDPHolePunch == "yes" {
-						logic.ShouldPublishPeerPorts(&serverNode)
-					}
-					err = PublishPeerUpdate(&serverNode)
-					if err != nil {
-						logger.Log(1, "error publishing udp port updates for network", network.NetID)
-						logger.Log(1, errN.Error())
+						if logic.ShouldPublishPeerPorts(&serverNode) {
+							err = PublishPeerUpdate(&serverNode)
+							if err != nil {
+								logger.Log(1, "error publishing udp port updates for network", network.NetID)
+								logger.Log(1, errN.Error())
+							}
+						}
 					}
 				} else {
 					logger.Log(1, "unable to retrieve leader for network ", network.NetID)
 					logger.Log(1, errN.Error())
 					continue
 				}
-				if serverNode.Address == "" {
-					logger.Log(1, "leader not defined for network ", network.NetID)
-					continue
-				}
-				publishServerKeepalive(client, &network)
-				err = serverctl.SyncServerNetwork(network.NetID)
-				if err != nil {
-					logger.Log(1, "error syncing server network", err.Error())
-				}
 			}
-			client.Disconnect(MQ_DISCONNECT)
 		}
 	}
 }
 
-func publishServerKeepalive(client mqtt.Client, network *models.Network) {
-	nodes, err := logic.GetNetworkNodes(network.NetID)
-	if err != nil {
-		return
-	}
-	for _, node := range nodes {
-		if token := client.Publish(fmt.Sprintf("serverkeepalive/%s/%s", network.NetID, node.ID), 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
-			logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
-		} else {
-			logger.Log(2, "keepalive sent for network/node", network.NetID, node.ID)
-		}
-	}
-}
+// func publishServerKeepalive(client mqtt.Client, network *models.Network) {
+// 	nodes, err := logic.GetNetworkNodes(network.NetID)
+// 	if err != nil {
+// 		return
+// 	}
+// 	for _, node := range nodes {
+// 		if token := client.Publish(fmt.Sprintf("serverkeepalive/%s/%s", network.NetID, node.ID), 0, false, servercfg.GetVersion()); token.Wait() && token.Error() != nil {
+// 			logger.Log(1, "error publishing server keepalive for network", network.NetID, token.Error().Error())
+// 		} else {
+// 			logger.Log(2, "keepalive sent for network/node", network.NetID, node.ID)
+// 		}
+// 	}
+// }

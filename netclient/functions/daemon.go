@@ -26,7 +26,7 @@ import (
 )
 
 // == Message Caches ==
-var keepalive = new(sync.Map)
+// var keepalive = new(sync.Map)
 var messageCache = new(sync.Map)
 var networkcontext = new(sync.Map)
 
@@ -400,11 +400,11 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 // }
 
 // ServerKeepAlive -- handler to react to keepalive messages published by server
-func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
-	var currentTime = time.Now()
-	keepalive.Store(parseNetworkFromTopic(msg.Topic()), currentTime)
-	ncutils.PrintLog("received server keepalive at "+currentTime.String(), 2)
-}
+// func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
+// 	var currentTime = time.Now()
+// 	keepalive.Store(parseNetworkFromTopic(msg.Topic()), currentTime)
+// 	ncutils.PrintLog("received server keepalive at "+currentTime.String(), 2)
+// }
 
 // UpdateKeys -- updates private key and returns new publickey
 func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
