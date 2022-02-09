@@ -95,7 +95,7 @@ func MacDaemonString(interval string) string {
 	<key>Label</key><string>com.gravitl.netclient</string>
 	<key>ProgramArguments</key>
 		<array>
-			<string>/sbin/netclient</string>
+			<string>/usr/local/bin/netclient</string>
 			<string>daemon</string>
 		</array>
 	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>

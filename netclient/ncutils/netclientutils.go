@@ -570,9 +570,9 @@ func CheckWG() {
 			PrintLog(err.Error(), 0)
 			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
 		}
-		PrintLog("Running with userspace wireguard: "+uspace, 0)
+		PrintLog("running with userspace wireguard: "+uspace, 0)
 	} else if uspace != "wg" {
-		log.Println("running userspace WireGuard with " + uspace)
+		PrintLog("running userspace WireGuard with "+uspace, 0)
 	}
 }
 
