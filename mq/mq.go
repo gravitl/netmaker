@@ -23,6 +23,8 @@ const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
 // MQ_DISCONNECT - disconnects MQ
 const MQ_DISCONNECT = 250
 
+var peer_force_send = 0
+
 // DefaultHandler default message queue handler - only called when GetDebug == true
 func DefaultHandler(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "MQTT Message: Topic: ", string(msg.Topic()), " Message: ", string(msg.Payload()))
@@ -243,21 +245,17 @@ func Keepalive(ctx context.Context) {
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
 			sendPeers()
-			return
 		}
 	}
 }
 
-var counter = make(chan int, 0)
-
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
 	var force bool
-	var tmpcount = <-counter + 1
-	counter <- tmpcount
-	if tmpcount == 5 {
+	peer_force_send++
+	if peer_force_send == 5 {
 		force = true
-		counter <- 0
+		peer_force_send = 0
 	}
 	networks, err := logic.GetNetworks()
 	if err != nil {
