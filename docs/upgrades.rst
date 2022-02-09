@@ -5,10 +5,15 @@ Upgrades
 Introduction
 ===============
 
-As of 0.9.4, upgrading Netmaker is a manual process. This is expected to be automated in the future, but for now is still a relatively straightforward process. 
+As of 0.10.0, upgrading Netmaker is a manual process. This is expected to be automated in the future, but for now is still a relatively straightforward process. 
 
-Upgrade the Server (netmaker)
-==================================
+Critical Notes for 0.10.0
+=============================================
+
+At the time of this writing, an upgrade process has not been defined for 0.10.0. DO NOT follow this documentation to upgrade from a prior version to 0.10.0. An upgrade process will be defined shortly. For now, if you seek to upgrade to 0.10.0, you must clear your server entirely (docker-compose down --volumes), uninstall your netclients, and re-install netmaker + netclients.
+
+Upgrade the Server (prior to 0.10.0)
+======================================
 
 To upgrade the server, you only need to change the docker image versions:
 
@@ -19,8 +24,8 @@ To upgrade the server, you only need to change the docker image versions:
 5. Save and close the file
 6. `docker-compose up -d`
 
-Upgrade the Clients (netclient)
-==================================
+Upgrade the Clients (prior to 0.10.0)
+======================================
 
 To upgrade the client, you must get the new client binary and place it in /etc/netclient. Depending on the new vs. old version, there may be minor incompatibilities (discussed below).
 
