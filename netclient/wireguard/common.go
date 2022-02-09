@@ -187,7 +187,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			}
 		}
 		output, _ = ncutils.RunCmd("wg", false)
-		err = ApplyConf(node, deviceiface, confPath)
+		err = ApplyConf(node, node.Interface, confPath)
 		time.Sleep(time.Second)
 		ifaceReady = strings.Contains(output, deviceiface)
 	}
