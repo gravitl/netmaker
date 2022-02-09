@@ -3,8 +3,8 @@ package daemon
 import (
 	"fmt"
 	"log"
-	"path/filepath"
 	"os"
+	"path/filepath"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -104,7 +104,8 @@ netclient_args="daemon"`
 }
 
 func FreebsdDaemon(command string) {
-	_, _ = ncutils.RunCmd(fmt.Sprintf("service netclient %s", command), true)
+	_, err := ncutils.RunCmd(fmt.Sprintf("service netclient %s", command), true)
+	ncutils.Log("error from RunCmd " + err.Error())
 }
 
 func CleanupFreebsd() {
