@@ -185,8 +185,7 @@ func runGRPC(wg *sync.WaitGroup) {
 func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	logger.Log(0, fmt.Sprintf("connecting to mq broker at %s", servercfg.GetMessageQueueEndpoint()))
-	var client = mq.SetupMQTT(false)
-	// Set Up Keepalive message
+	var client = mq.SetupMQTT(false) // Set up the subscription listener
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
 	quit := make(chan os.Signal, 1)
