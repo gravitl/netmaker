@@ -46,7 +46,7 @@
   
   
   
-    <title>Advanced Client Installation &#8212; Netmaker 0.9.4 documentation</title>
+    <title>Advanced Client Installation &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.4 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -329,6 +329,8 @@
         <li class="md-nav__item"><a href="#managing-netclient" class="md-nav__link">Managing Netclient</a><nav class="md-nav">
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#viewing-logs" class="md-nav__link">Viewing Logs</a>
+        </li>
+        <li class="md-nav__item"><a href="#re-syncing-netclient-basic-troubleshooting" class="md-nav__link">Re-syncing netclient (basic troubleshooting)</a>
         </li>
         <li class="md-nav__item"><a href="#making-updates" class="md-nav__link">Making Updates</a>
         </li>
@@ -519,6 +521,8 @@
         <li class="md-nav__item"><a href="#managing-netclient" class="md-nav__link">Managing Netclient</a><nav class="md-nav">
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#viewing-logs" class="md-nav__link">Viewing Logs</a>
+        </li>
+        <li class="md-nav__item"><a href="#re-syncing-netclient-basic-troubleshooting" class="md-nav__link">Re-syncing netclient (basic troubleshooting)</a>
         </li>
         <li class="md-nav__item"><a href="#making-updates" class="md-nav__link">Making Updates</a>
         </li>
@@ -754,13 +758,19 @@
 <dl class="simple">
 <dt><strong>to view current networks</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">netclient</span> <span class="pre">list</span></code></p>
 </dd>
-<dt><strong>to tail logs</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span> <span class="pre">-f</span></code></p>
+<dt><strong>to tail logs</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">netclient</span></code></p>
 </dd>
-<dt><strong>to view all logs</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">journalctl</span> <span class="pre">-u</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span></code></p>
-</dd>
-<dt><strong>to get most recent log run</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">status</span> <span class="pre">netclient@&lt;net</span> <span class="pre">name&gt;</span></code></p>
+<dt><strong>to get most recent log run</strong></dt><dd><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">status</span> <span class="pre">netclient</span></code></p>
 </dd>
 </dl>
+
+
+<h3 id="re-syncing-netclient-basic-troubleshooting">Re-syncing netclient (basic troubleshooting)<a class="headerlink" href="#re-syncing-netclient-basic-troubleshooting" title="Permalink to this headline">¶</a></h3>
+<p>If the daemon is not running correctly run, try restarting the daemon, or pulling changes directly (don’t do both at once)</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">restart</span> <span class="pre">netclient</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">netclient</span> <span class="pre">pull</span></code></p>
+</div></blockquote>
 
 
 <h3 id="making-updates">Making Updates<a class="headerlink" href="#making-updates" title="Permalink to this headline">¶</a></h3>

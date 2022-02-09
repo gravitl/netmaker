@@ -46,7 +46,7 @@
   
   
   
-    <title>Advanced Server Installation &#8212; Netmaker 0.9.4 documentation</title>
+    <title>Advanced Server Installation &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.4 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -710,6 +710,18 @@
 </dd>
 <dt>TELEMETRY</dt><dd><p><strong>Default:</strong> “on”</p>
 <p><strong>Description:</strong> If “on”, the server will send anonymous telemetry data once daily, which is used to improve the product. Data sent includes counts (integer values) for the number of nodes, types of nodes, users, and networks. It also sends the version of the server.</p>
+</dd>
+<dt>MQ_HOST</dt><dd><p><strong>Default:</strong> (public IP of server)</p>
+<p><strong>Description:</strong> The address of the mq server. If running from docker compose it will be “mq”. If using “host networking”, it will find and detect the IP of the mq container. Otherwise, need to input address. If not set, it will use the public IP of the server. the port 1883 will be appended automatically. This is the expected reachable port for MQ and cannot be changed at this time.</p>
+</dd>
+<dt>HOST_NETWORK:</dt><dd><p><strong>Default:</strong> “off”</p>
+<p><strong>Description:</strong> Whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables and forwarding for MQ.</p>
+</dd>
+<dt>MANAGE_IPTABLES:</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> # Sets iptables on the machine being managed in order to forward properly from wireguard interface to MQ and other services listed in “port forward services.” It’s better to leave this on unless you know what you’re doing.</p>
+</dd>
+<dt>PORT_FORWARD_SERVICES:</dt><dd><p><strong>Default:</strong> “”</p>
+<p><strong>Description:</strong> Comma-separated list of services for which to configure port forwarding on the machine. Options include “mq,dns,ssh”. Typically best to leave mq and dns on. ssh can be removed.’ssh’ forwards port 22 over wireguard, enabling ssh to server over wireguard. dns enables private dns over wireguard. mq enables mq.</p>
 </dd>
 </dl>
 

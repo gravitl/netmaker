@@ -182,3 +182,22 @@ Create / Edit Users
 (3) **Confirm Password:** Confirm password.
 (4) **Make Admin:** Make into a server admin or "super admin", which has access to all networks and server-level settings.
 (5) **Networks:** If not made into an "admin", select the networks which this user has access to. The user will be a "network admin" of these networks, but other networks will be invisible/unaccessible.
+
+
+Node Graph
+=====================
+
+.. image:: images/node-graph-1.png
+   :width: 80%
+   :alt: dashboard
+   :align: center
+
+View all nodes in your network, zoom in, zoom out, and search for node names. A legend is on the side to identify each node status / configuration.
+
+.. image:: images/node-graph-2.png
+   :width: 80%
+   :alt: dashboard
+   :align: center
+
+(1) **hover:** Hover over a node to see its direct connections.
+(2) **Configuration Pane:** Manage the node in this pane just like you would in the Nodes pane. See the "Node List" and "Edit Node" sections for more details.
