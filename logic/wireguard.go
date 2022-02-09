@@ -94,7 +94,14 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	if ncutils.IsKernel() {
 		logger.Log(2, "setting kernel device", ifacename)
-		setKernelDevice(ifacename, node.Address)
+		network, err := GetNetwork(node.Network)
+		if err != nil {
+			logger.Log(0, "failed to get network"+err.Error())
+			return err
+		}
+		net := strings.Split(network.AddressRange, "/")
+		mask := net[len(net)-1]
+		setKernelDevice(ifacename, node.Address, mask)
 	}
 
 	nodeport := int(node.ListenPort)
@@ -184,7 +191,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	return err
 }
 
-func setKernelDevice(ifacename string, address string) error {
+func setKernelDevice(ifacename, address, mask string) error {
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {
 		return err
@@ -193,7 +200,7 @@ func setKernelDevice(ifacename string, address string) error {
 	// == best effort ==
 	ncutils.RunCmd("ip link delete dev "+ifacename, false)
 	ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
-	ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/24", true) // this is a bug waiting to happen
+	ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/"+mask, true) // this was a bug waiting to happen
 
 	return nil
 }
