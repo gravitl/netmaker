@@ -13,7 +13,7 @@ Upgrade the Server (netmaker)
 To upgrade the server, you only need to change the docker image versions:
 
 1. `ssh root@my-server-ip`
-2. `docker compose down`
+2. `docker-compose down`
 3. `vi docker-compose.yml`
 4. Change gravitl/netmaker:<version> and gravitl/netmaker-ui:<version> to the new version.
 5. Save and close the file
