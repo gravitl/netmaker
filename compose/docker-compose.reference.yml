@@ -1,24 +1,21 @@
 services:
-  rqlite:
-    container_name: rqlite
-    image: rqlite/rqlite
-    network_mode: host
-    restart: always
-    volumes:
-      - sqldata:/rqlite/file/data
   netmaker: # The Primary Server for running Netmaker
-    privileged: true # Necessary to run sudo/root level commands on host system. Take out if not running with CLIENT_MODE=on
+    privileged: true # Necessary to run sudo/root level commands on host system. Likely using this if running with host networking on.
     container_name: netmaker
-    depends_on:
-      - rqlite
-    image: gravitl/netmaker:v0.9.4
+    image: gravitl/netmaker:v0.10.0
     volumes: # Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
       - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
       - /usr/bin/wg:/usr/bin/wg
-    cap_add: # Necessary for CLIENT_MODE. Should be removed if turned off. 
+      - sqldata:/root/data
+    cap_add: # Necessary capabilities to set iptables when running in container
       - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
     restart: always
-    network_mode: host # Necessary for CLIENT_MODE. Should be removed if turned off, but then need to add port mappings
+    network_mode: host # Must configure with very particular settngs for host networking to work. Do not just set on!
     environment:
       SERVER_HOST: "" # All the Docker Compose files pre-populate this with HOST_IP, which you replace as part of the install instructions. This will set both HTTP and GRPC host.
       SERVER_HTTP_HOST: "127.0.0.1" # Overrides SERVER_HOST if set. Useful for making HTTP and GRPC available via different interfaces/networks.
@@ -40,28 +37,55 @@ services:
       RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.
       NODE_ID: "" # Sets the name/id of the nodes that the server creates. Necessary for HA configurations to identify between servers (for instance, netmaker-1, netmaker-2, etc). For non-HA deployments, is not necessary.
       TELEMETRY: "on" # Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.
+      MQ_HOST: "mq" # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
+      HOST_NETWORK: "off" # whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables.
+      MANAGE_IPTABLES: "on" # set iptables on the machine being managed in order to forward properly from wireguard interface to MQ and other services listed in "port forward services"
+      PORT_FORWARD_SERVICES: "mq,dns,ssh" #services for which to configure port forwarding on the machine. 'ssh' forwards port 22 over wireguard, enabling ssh to server over wireguard. dns enables private dns over wireguard. mq enables mq.
   netmaker-ui: # The Netmaker UI Component
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.9.3
+    image: gravitl/netmaker-ui:v0.10.0
     links:
       - "netmaker:api"
     ports:
       - "8082:80"
     environment:
       BACKEND_URL: "http://HOST_IP:8081" # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
+  restart: always
   coredns: # The DNS Server. Remove this section if DNS_MODE="off"
     depends_on:
       - netmaker 
     image: coredns/coredns
-    command: -conf /root/dnsconfig/Corefile # Config location for Corefile. This is the path of file which is also mounted to Netmaker for modification.
+    command: -conf /root/dnsconfig/Corefile
     container_name: coredns
     restart: always
-    ports:
-      - "53:53/udp" # Likely needs to run at port 53 for adequate nameserver usage.
     volumes:
       - dnsconfig:/root/dnsconfig
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    restart: unless-stopped
+    network_mode: host # Wants ports 80 and 443!
+    volumes:
+      - /root/Caddyfile:/etc/caddy/Caddyfile
+      # - $PWD/site:/srv # you could also serve a static site in site folder
+      - caddy_data:/data
+      - caddy_conf:/config  
+  mq: # the MQTT broker for netmaker
+    image: eclipse-mosquitto:2.0.14
+    container_name: mq
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf # need to pull conf file from github before running (under docker/mosquitto.conf)
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
 volumes:
-  sqldata: {}
-  dnsconfig: {}
+  caddy_data: {} # storage for caddy data
+  caddy_conf: {} # storage for caddy configuration file
+  sqldata: {} # storage for embedded sqlite
+  dnsconfig: {} # storage for coredns
+  mosquitto_data: {} # storage for mqtt data
+  mosquitto_logs: {} # storage for mqtt logs

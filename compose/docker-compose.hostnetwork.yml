@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.9.4
+    image: gravitl/netmaker:v0.10.0
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - /usr/bin/wg:/usr/bin/wg
@@ -41,7 +41,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.9.3
+    image: gravitl/netmaker-ui:0.10.0
     links:
       - "netmaker:api"
     ports:
@@ -71,8 +71,20 @@ services:
       # - $PWD/site:/srv # you could also serve a static site in site folder
       - caddy_data:/data
       - caddy_conf:/config
+  mq:
+    image: eclipse-mosquitto:2.0.14
+    container_name: mq
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
 volumes:
   caddy_data: {}
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
+  mosquitto_data: {}
+  mosquitto_logs: {}
