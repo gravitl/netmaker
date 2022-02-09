@@ -102,10 +102,12 @@ netclient_args="daemon"`
 	return nil
 }
 
+// FreebsdDaemon - accepts args to service netclient and applies
 func FreebsdDaemon(command string) {
 	_, _ = ncutils.RunCmdFormatted("service netclient "+command, true)
 }
 
+// CleanupFreebsd - removes config files and netclient binary
 func CleanupFreebsd() {
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
 		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
@@ -115,6 +117,7 @@ func CleanupFreebsd() {
 	}
 }
 
+// RemoveFreebsdDaemon - remove freebsd daemon
 func RemoveFreebsdDaemon() {
 	if ncutils.FileExists("/etc/rc.d/netclient") {
 		err := os.Remove("/etc/rc.d/netclient")
