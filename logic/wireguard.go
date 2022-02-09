@@ -94,8 +94,13 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	if ncutils.IsKernel() {
 		logger.Log(2, "setting kernel device", ifacename)
-		network := strings.Split(node.NetworkSettings.AddressRange, "/")
-		mask := network[len(network)-1]
+		network, err := GetNetwork(node.Network)
+		if err != nil {
+			logger.Log(0, "failed to get network"+err.Error())
+			return err
+		}
+		net := strings.Split(network.AddressRange, "/")
+		mask := net[len(net)-1]
 		setKernelDevice(ifacename, node.Address, mask)
 	}
 
