@@ -11,7 +11,6 @@ import (
 	"sync"
 	"syscall"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/auth"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
@@ -185,32 +184,8 @@ func runGRPC(wg *sync.WaitGroup) {
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
-	//refactor netclient.functions.SetupMQTT so can be called from here
-	//setupMQTT
-	opts := mqtt.NewClientOptions()
-	opts.AddBroker(servercfg.GetMessageQueueEndpoint())
-	logger.Log(0, "setting broker "+servercfg.GetMessageQueueEndpoint())
-	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		logger.Log(0, "unable to connect to message queue broker, closing down")
-		return
-	}
-	//Set up Subscriptions
-	if servercfg.GetDebug() {
-		if token := client.Subscribe("#", 2, mq.DefaultHandler); token.Wait() && token.Error() != nil {
-			client.Disconnect(240)
-			logger.Log(0, "default subscription failed")
-		}
-	}
-	if token := client.Subscribe("ping/#", 2, mq.Ping); token.Wait() && token.Error() != nil {
-		client.Disconnect(240)
-		logger.Log(0, "ping subscription failed")
-	}
-	if token := client.Subscribe("update/#", 0, mq.UpdateNode); token.Wait() && token.Error() != nil {
-		client.Disconnect(240)
-		logger.Log(0, "node update subscription failed")
-	}
-	//Set Up Keepalive message
+	logger.Log(0, fmt.Sprintf("connecting to mq broker at %s", servercfg.GetMessageQueueEndpoint()))
+	var client = mq.SetupMQTT(false) // Set up the subscription listener
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
 	quit := make(chan os.Signal, 1)

@@ -50,7 +50,7 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 }
 
 func publish(node *models.Node, dest string, msg []byte) error {
-	client := SetupMQTT()
+	client := SetupMQTT(true)
 	defer client.Disconnect(250)
 	encrypted, encryptErr := encryptMsg(node, msg)
 	if encryptErr != nil {
