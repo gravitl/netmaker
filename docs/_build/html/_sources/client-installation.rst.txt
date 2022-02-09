@@ -167,13 +167,20 @@ Viewing Logs
   ``netclient list``
 
 **to tail logs**
-  ``journalctl -u netclient@<net name> -f``
-
-**to view all logs**
-  ``journalctl -u netclient@<net name>``
+  ``journalctl -u netclient``
 
 **to get most recent log run**
-  ``systemctl status netclient@<net name>``
+  ``systemctl status netclient``
+
+Re-syncing netclient (basic troubleshooting)
+-----------------------------------------------
+
+If the daemon is not running correctly run, try restarting the daemon, or pulling changes directly (don't do both at once)
+
+  ``systemctl restart netclient``
+
+  ``sudo netclient pull``
+
 
 Making Updates
 ----------------

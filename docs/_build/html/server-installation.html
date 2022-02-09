@@ -711,6 +711,18 @@
 <dt>TELEMETRY</dt><dd><p><strong>Default:</strong> “on”</p>
 <p><strong>Description:</strong> If “on”, the server will send anonymous telemetry data once daily, which is used to improve the product. Data sent includes counts (integer values) for the number of nodes, types of nodes, users, and networks. It also sends the version of the server.</p>
 </dd>
+<dt>MQ_HOST</dt><dd><p><strong>Default:</strong> (public IP of server)</p>
+<p><strong>Description:</strong> The address of the mq server. If running from docker compose it will be “mq”. If using “host networking”, it will find and detect the IP of the mq container. Otherwise, need to input address. If not set, it will use the public IP of the server. the port 1883 will be appended automatically. This is the expected reachable port for MQ and cannot be changed at this time.</p>
+</dd>
+<dt>HOST_NETWORK:</dt><dd><p><strong>Default:</strong> “off”</p>
+<p><strong>Description:</strong> Whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables and forwarding for MQ.</p>
+</dd>
+<dt>MANAGE_IPTABLES:</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> # Sets iptables on the machine being managed in order to forward properly from wireguard interface to MQ and other services listed in “port forward services.” It’s better to leave this on unless you know what you’re doing.</p>
+</dd>
+<dt>PORT_FORWARD_SERVICES:</dt><dd><p><strong>Default:</strong> “”</p>
+<p><strong>Description:</strong> Comma-separated list of services for which to configure port forwarding on the machine. Options include “mq,dns,ssh”. Typically best to leave mq and dns on. ssh can be removed.’ssh’ forwards port 22 over wireguard, enabling ssh to server over wireguard. dns enables private dns over wireguard. mq enables mq.</p>
+</dd>
 </dl>
 
 

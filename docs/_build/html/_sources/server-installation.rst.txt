@@ -161,6 +161,26 @@ TELEMETRY
 
     **Description:** If "on", the server will send anonymous telemetry data once daily, which is used to improve the product. Data sent includes counts (integer values) for the number of nodes, types of nodes, users, and networks. It also sends the version of the server.
 
+MQ_HOST 
+    **Default:** (public IP of server)
+
+    **Description:** The address of the mq server. If running from docker compose it will be "mq". If using "host networking", it will find and detect the IP of the mq container. Otherwise, need to input address. If not set, it will use the public IP of the server. the port 1883 will be appended automatically. This is the expected reachable port for MQ and cannot be changed at this time.
+
+HOST_NETWORK: 
+    **Default:** "off"
+
+    **Description:** Whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables and forwarding for MQ.
+
+MANAGE_IPTABLES: 
+    **Default:** "on"
+
+    **Description:** # Sets iptables on the machine being managed in order to forward properly from wireguard interface to MQ and other services listed in "port forward services." It's better to leave this on unless you know what you're doing.
+
+PORT_FORWARD_SERVICES: 
+    **Default:** ""
+
+    **Description:** Comma-separated list of services for which to configure port forwarding on the machine. Options include "mq,dns,ssh". Typically best to leave mq and dns on. ssh can be removed.'ssh' forwards port 22 over wireguard, enabling ssh to server over wireguard. dns enables private dns over wireguard. mq enables mq.
+
 Config File Reference
 -----------------------
 A config file may be placed under config/environments/<env-name>.yml. To read this file at runtime, provide the environment variable NETMAKER_ENV at runtime. For instance, dev.yml paired with ENV=dev. Netmaker will load the specified Config file. This allows you to store and manage configurations for different environments. Below is a reference Config File you may use.

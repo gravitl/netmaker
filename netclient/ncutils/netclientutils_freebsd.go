@@ -37,5 +37,3 @@ func RunCmd(command string, printerr bool) (string, error) {
 	}
 	return string(out), err
 }
-
-
