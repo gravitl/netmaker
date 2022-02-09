@@ -12,12 +12,44 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// GetSystemPeers - gets the server peers
-func GetSystemPeers(node *models.Node) (map[string]string, error) {
+// RemoveConf - removes a configuration for a given WireGuard interface
+func RemoveConf(iface string, printlog bool) error {
+	var err error
+	confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
+	err = removeWGQuickConf(confPath, printlog)
+	return err
+}
+
+// HasPeerConnected - checks if a client node has connected over WG
+func HasPeerConnected(node *models.Node) bool {
+	client, err := wgctrl.New()
+	if err != nil {
+		return false
+	}
+	defer client.Close()
+	device, err := client.Device(node.Interface)
+	if err != nil {
+		return false
+	}
+	for _, peer := range device.Peers {
+		if peer.PublicKey.String() == node.PublicKey {
+			if peer.Endpoint != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// == Private Functions ==
+
+// gets the server peers locally
+func getSystemPeers(node *models.Node) (map[string]string, error) {
 	peers := make(map[string]string)
 
 	client, err := wgctrl.New()
@@ -36,16 +68,6 @@ func GetSystemPeers(node *models.Node) (map[string]string, error) {
 	}
 	return peers, nil
 }
-
-// RemoveConf - removes a configuration for a given WireGuard interface
-func RemoveConf(iface string, printlog bool) error {
-	var err error
-	confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
-	err = removeWGQuickConf(confPath, printlog)
-	return err
-}
-
-// == Private Functions ==
 
 func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
 
@@ -84,27 +106,13 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 
 	if !ncutils.IsKernel() {
-		var newConf string
-		newConf, _ = ncutils.CreateWireGuardConf(node, key.String(), strconv.FormatInt(int64(node.ListenPort), 10), peers)
-		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-		logger.Log(1, "writing wg conf file to:", confPath)
-		err = os.WriteFile(confPath, []byte(newConf), 0644)
-		if err != nil {
-			logger.Log(1, "error writing wg conf file to", confPath, ":", err.Error())
+		if err := wireguard.WriteWgConfig(node, key.String(), peers); err != nil {
+			logger.Log(1, "error writing wg conf file: ", err.Error())
 			return err
-		}
-		if ncutils.IsWindows() {
-			wgConfPath := ncutils.GetWGPathSpecific() + ifacename + ".conf"
-			logger.Log(1, "writing wg conf file to:", confPath)
-			err = os.WriteFile(wgConfPath, []byte(newConf), 0644)
-			if err != nil {
-				logger.Log(1, "error writing wg conf file to", wgConfPath, ":", err.Error())
-				return err
-			}
-			confPath = wgConfPath
 		}
 		// spin up userspace + apply the conf file
 		var deviceiface = ifacename
+		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		d, _ := wgclient.Device(deviceiface)
 		for d != nil && d.Name == deviceiface {
 			_ = RemoveConf(ifacename, false) // remove interface first
@@ -182,9 +190,10 @@ func setKernelDevice(ifacename string, address string) error {
 		return err
 	}
 
-	_, _ = ncutils.RunCmd("ip link delete dev "+ifacename, false)
-	_, _ = ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
-	_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/24", true) // this is a bug waiting to happen
+	// == best effort ==
+	ncutils.RunCmd("ip link delete dev "+ifacename, false)
+	ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
+	ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/24", true) // this is a bug waiting to happen
 
 	return nil
 }
@@ -235,7 +244,6 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 				}
 			}
 		}
-		udpendpoint := peer.Endpoint.String()
 		var allowedips string
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
@@ -246,16 +254,10 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 		if keepAliveString == "0" {
 			keepAliveString = "5"
 		}
-		if peer.Endpoint != nil {
-			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-				" endpoint "+udpendpoint+
-				" persistent-keepalive "+keepAliveString+
-				" allowed-ips "+allowedips, true)
-		} else {
-			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-				" persistent-keepalive "+keepAliveString+
-				" allowed-ips "+allowedips, true)
-		}
+
+		_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+			" persistent-keepalive "+keepAliveString+
+			" allowed-ips "+allowedips, true)
 		if err != nil {
 			logger.Log(2, "error setting peer", peer.PublicKey.String())
 		}
@@ -265,7 +267,9 @@ func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) e
 		if len(currentPeer.AllowedIPs) > 0 {
 			shouldDelete := true
 			for _, peer := range peers {
-				if len(peer.AllowedIPs) > 0 && peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
+				if len(peer.AllowedIPs) > 0 &&
+					(peer.PublicKey.String() == currentPeer.PublicKey.String() ||
+						peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String()) {
 					shouldDelete = false
 				}
 			}

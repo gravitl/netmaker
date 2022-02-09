@@ -4,18 +4,19 @@ package logic
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math/rand"
+	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -31,114 +32,36 @@ func CheckEndpoint(endpoint string) bool {
 	return len(endpointarr) == 2
 }
 
-// SetNetworkServerPeers - sets the network server peers of a given node
-func SetNetworkServerPeers(node *models.Node) {
-	if currentPeersList, err := GetSystemPeers(node); err == nil {
-		if database.SetPeers(currentPeersList, node.Network) {
-			logger.Log(1, "set new peers on network", node.Network)
-		}
-	} else {
-		logger.Log(1, "could not set peers on network", node.Network, ":", err.Error())
+// FileExists - checks if local file exists
+func FileExists(f string) bool {
+	info, err := os.Stat(f)
+	if os.IsNotExist(err) {
+		return false
 	}
+	return !info.IsDir()
 }
 
-// DeleteNodeByMacAddress - deletes a node from database or moves into delete nodes table
-func DeleteNodeByMacAddress(node *models.Node, exterminate bool) error {
-	var err error
-	var key = node.ID
-	if !exterminate {
-		args := strings.Split(key, "###")
-		node, err := GetNodeByMacAddress(args[0], args[1])
-		if err != nil {
-			return err
-		}
-		node.Action = models.NODE_DELETE
-		nodedata, err := json.Marshal(&node)
-		if err != nil {
-			return err
-		}
-		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
-		if err != nil {
-			return err
-		}
+// IsAddressInCIDR - util to see if an address is in a cidr or not
+func IsAddressInCIDR(address, cidr string) bool {
+	var _, currentCIDR, cidrErr = net.ParseCIDR(cidr)
+	if cidrErr != nil {
+		return false
+	}
+	var addrParts = strings.Split(address, ".")
+	var addrPartLength = len(addrParts)
+	if addrPartLength != 4 {
+		return false
 	} else {
-		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			logger.Log(2, err.Error())
+		if addrParts[addrPartLength-1] == "0" ||
+			addrParts[addrPartLength-1] == "255" {
+			return false
 		}
 	}
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
-	}
-	if servercfg.IsDNSMode() {
-		SetDNS()
-	}
-	return removeLocalServer(node)
-}
-
-// CreateNode - creates a node in database
-func CreateNode(node *models.Node) error {
-
-	//encrypt that password so we never see it
-	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
+	ip, _, err := net.ParseCIDR(fmt.Sprintf("%s/32", address))
 	if err != nil {
-		return err
+		return false
 	}
-	//set password to encrypted password
-	node.Password = string(hash)
-	if node.Name == models.NODE_SERVER_NAME {
-		node.IsServer = "yes"
-	}
-	if node.DNSOn == "" {
-		if servercfg.IsDNSMode() {
-			node.DNSOn = "yes"
-		} else {
-			node.DNSOn = "no"
-		}
-	}
-	SetNodeDefaults(node)
-	node.Address, err = UniqueAddress(node.Network)
-	if err != nil {
-		return err
-	}
-	node.Address6, err = UniqueAddress6(node.Network)
-	if err != nil {
-		return err
-	}
-
-	// TODO: This covers legacy nodes, eventually want to remove legacy check
-	if node.IsServer == "yes" {
-		node.ID = uuid.NewString()
-	} else if node.IsServer != "yes" || (node.ID == "" || strings.Contains(node.ID, "###")) {
-		node.ID = uuid.NewString()
-	}
-
-	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
-	if tokenString == "" {
-		//returnErrorResponse(w, r, errorResponse)
-		return err
-	}
-	err = ValidateNode(node, false)
-	if err != nil {
-		return err
-	}
-
-	nodebytes, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if node.IsPending != "yes" {
-		DecrimentKey(node.Network, node.AccessKey)
-	}
-	SetNetworkNodesLastModified(node.Network)
-	if servercfg.IsDNSMode() {
-		err = SetDNS()
-	}
-	return err
+	return currentCIDR.Contains(ip)
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
@@ -243,7 +166,7 @@ func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error
 				if len(endpointarr) == 2 {
 					port, err := strconv.Atoi(endpointarr[1])
 					if err == nil {
-						peer.Endpoint = endpointarr[0]
+						// peer.Endpoint = endpointarr[0]
 						peer.ListenPort = int32(port)
 					}
 				}
@@ -297,7 +220,7 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
 					if nodepeer.Address == peerNode.Address {
-						peerNode.Endpoint = nodepeer.Endpoint
+						// peerNode.Endpoint = nodepeer.Endpoint
 						peerNode.ListenPort = nodepeer.ListenPort
 					}
 				}
@@ -397,6 +320,30 @@ func setIPForwardingLinux() error {
 func StringSliceContains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// == private ==
+
+// sets the network server peers of a given node
+func setNetworkServerPeers(serverNode *models.Node) {
+	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if database.SetPeers(currentPeersList, serverNode.Network) {
+			logger.Log(1, "set new peers on network", serverNode.Network)
+		}
+	} else {
+		logger.Log(1, "could not set peers on network", serverNode.Network, ":", err.Error())
+	}
+}
+
+// ShouldPublishPeerPorts - Gets ports from iface, sets, and returns true if they are different
+func ShouldPublishPeerPorts(serverNode *models.Node) bool {
+	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if database.SetPeers(currentPeersList, serverNode.Network) {
+			logger.Log(1, "set new peers on network", serverNode.Network)
 			return true
 		}
 	}

@@ -46,7 +46,7 @@
   
   
   
-    <title>Support &#8212; Netmaker 0.9.4 documentation</title>
+    <title>Support &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.4 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -351,6 +351,8 @@
         </li></ul>
             </nav>
         </li>
+        <li class="md-nav__item"><a href="#telemetry" class="md-nav__link">Telemetry</a>
+        </li>
         <li class="md-nav__item"><a href="#contact" class="md-nav__link">Contact</a>
         </li></ul>
             </nav>
@@ -362,6 +364,13 @@
     
     
       <a href="#faq" class="md-nav__link">FAQ</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#telemetry" class="md-nav__link">Telemetry</a>
       
     
     </li>
@@ -416,6 +425,8 @@
         </li></ul>
             </nav>
         </li>
+        <li class="md-nav__item"><a href="#telemetry" class="md-nav__link">Telemetry</a>
+        </li>
         <li class="md-nav__item"><a href="#contact" class="md-nav__link">Contact</a>
         </li></ul>
             </nav>
@@ -457,6 +468,29 @@
 <p>We believe the SSPL lets most people run the project the way they want, for both for private use and business use, while giving us a path to maintain viability. We are working to make sure the guidelines clear, and do not want the license to impact the community’s ability to use and modify the project.</p>
 <p>If you believe the SSPL will negatively impact your ability to use the project, please do not hesitate to reach out.</p>
 
+
+
+<h2 id="telemetry">Telemetry<a class="headerlink" href="#telemetry" title="Permalink to this headline">¶</a></h2>
+<p>As of v0.10.0, Netmaker collects “opt-out” telemetry data. To opt out, simply set “TELEMETRY=off” in your docker-compose file.</p>
+<p>Please consider participating in telemetry, as it helps us focus on the features and bug fixes which are most useful to users. Netmaker is a broad platform, and without this data, it is difficult to know where the team should spend its limited resources.</p>
+<p>The following is the full list of telemetry data we collect. Besides “Server Version” all data is simply an integer count:</p>
+<ul class="simple">
+<li><p>Randomized server ID</p></li>
+<li><p>Count of nodes</p></li>
+<li><p>Count of “non-server” nodes</p></li>
+<li><p>Count of external clients</p></li>
+<li><p>Count of networks</p></li>
+<li><p>Count of users</p></li>
+<li><p>Count of linux nodes</p></li>
+<li><p>Count of freebsd nodes</p></li>
+<li><p>Count of macos nodes</p></li>
+<li><p>Count of windows nodes</p></li>
+<li><p>Count of docker nodes</p></li>
+<li><p>Count of k8s nodes</p></li>
+<li><p>Server version</p></li>
+</ul>
+<p>We use  <a class="reference external" href="https://https://posthog.com/">PostHog</a>, an open source and trusted framework for telemetry data.</p>
+<p>To look at exactly we collect telemetry, you can view the source code under serverctl/telemetry.go: <a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/serverctl/telemetry.go">https://github.com/gravitl/netmaker/blob/master/serverctl/telemetry.go</a></p>
 
 
 <h2 id="contact">Contact<a class="headerlink" href="#contact" title="Permalink to this headline">¶</a></h2>

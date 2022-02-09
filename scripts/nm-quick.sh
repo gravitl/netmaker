@@ -50,7 +50,7 @@ elif [ -f /etc/fedora-release ]; then
 	dnf update
 fi
 
-dependencies=("docker.io" "docker-compose" "wireguard" "jq" "resolvconf")
+dependencies=("docker.io" "docker-compose" "wireguard" "jq" "resolvectl")
 
 
 
@@ -135,6 +135,9 @@ wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/ma
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 
+echo "setting mosquitto.conf..."
+
+wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravil/netmaker/master/docker/mosquitto.conf
 
 echo "setting docker-compose..."
 

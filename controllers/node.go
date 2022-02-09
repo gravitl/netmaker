@@ -2,8 +2,10 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -11,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -186,7 +189,7 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				r.Header.Set("ismasterkey", "yes")
 			}
 			if !isadmin && params["network"] != "" {
-				if functions.SliceContains(networks, params["network"]) {
+				if logic.StringSliceContains(networks, params["network"]) {
 					isnetadmin = true
 				}
 			}
@@ -404,9 +407,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, false)
 }
 
 //Takes node out of pending state
@@ -414,7 +420,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	node, err := logic.UncordonNode(params["nodeid"])
+	var nodeid = params["nodeid"]
+	node, err := logic.UncordonNode(nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
@@ -422,6 +429,8 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
+
+	runUpdates(&node, true)
 }
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -440,9 +449,12 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -455,9 +467,12 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -472,9 +487,12 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
@@ -486,9 +504,12 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+
+	runUpdates(&node, true)
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -536,22 +557,29 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
+		updatenodes := logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
 		if err = logic.NetworkNodesUpdatePullChanges(node.Network); err != nil {
 			logger.Log(1, "error setting relay updates:", err.Error())
+		}
+		if len(updatenodes) > 0 {
+			for _, relayedNode := range updatenodes {
+				err = mq.NodeUpdate(&relayedNode)
+				if err != nil {
+					logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", node.Network, ": ", err.Error())
+				}
+			}
 		}
 	}
 
 	if servercfg.IsDNSMode() {
-		err = logic.SetDNS()
+		logic.SetDNS()
 	}
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-	logger.Log(1, r.Header.Get("user"), "updated node", node.MacAddress, "on network", node.Network)
+
+	logger.Log(1, r.Header.Get("user"), "updated node", node.ID, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
+
+	runUpdates(&newNode, true)
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
@@ -566,12 +594,44 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	if isServer(&node) {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot delete server node"), "badrequest"))
+		return
+	}
+	//send update to node to be deleted before deleting on server otherwise message cannot be sent
+	node.Action = models.NODE_DELETE
+	if err := mq.NodeUpdate(&node); err != nil {
+		logger.Log(1, "error publishing node update", err.Error())
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
 	err = logic.DeleteNodeByID(&node, false)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	returnSuccessResponse(w, r, nodeid+" deleted.")
+
+	time.Sleep(time.Second << 1)
+	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
+	runUpdates(&node, false)
+}
+
+func runUpdates(node *models.Node, nodeUpdate bool) error {
+	//don't publish to server node
+
+	if nodeUpdate && !isServer(node) {
+		if err := mq.NodeUpdate(node); err != nil {
+			logger.Log(1, "error publishing node update", err.Error())
+			return err
+		}
+	}
+
+	if err := runServerPeerUpdate(node, isServer(node)); err != nil {
+		logger.Log(1, "internal error when running peer node:", err.Error())
+		return err
+	}
+
+	return nil
 }

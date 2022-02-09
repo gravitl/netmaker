@@ -46,7 +46,7 @@
   
   
   
-    <title>API Reference &#8212; Netmaker 0.9.4 documentation</title>
+    <title>API Reference &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.4 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -489,7 +489,10 @@
 
 
 <h2 id="format-of-calls-for-curl">Format of Calls for Curl<a class="headerlink" href="#format-of-calls-for-curl" title="Permalink to this headline">¶</a></h2>
-<p>Requests take the format of <cite>curl -H “Authorization: Bearer &lt;YOUR_SECRET_KEY&gt;” -H ‘Content-Type: application/json’ localhost:8081/api/path/to/endpoint</cite></p>
+<p>Requests take the format of</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer &lt;YOUR_SECRET_KEY&gt;"</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">endpoint</span>
+</pre></div>
+</div>
 
 
 <h2 id="api-documentation">API Documentation<a class="headerlink" href="#api-documentation" title="Permalink to this headline">¶</a></h2>
@@ -504,12 +507,19 @@
 
 
 <h3 id="networks-api-call-examples">Networks API Call Examples<a class="headerlink" href="#networks-api-call-examples" title="Permalink to this headline">¶</a></h3>
-<p><strong>Get All Networks:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks | jq</cite></p>
-<p><strong>Create Network:</strong> <cite>curl -d ‘{“addressrange”:”10.70.0.0/16”,”netid”:”skynet”}’ -H “Authorization: Bearer YOUR_SECRET_KEY” -H ‘Content-Type: application/json’ localhost:8081/api/networks</cite></p>
-<p><strong>Get Network:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet | jq</cite></p>
-<p><strong>Update Network:</strong> <cite>curl -X PUT -d ‘{“displayname”:”my-house”}’ -H “Authorization: Bearer YOUR_SECRET_KEY” -H ‘Content-Type: application/json’ localhost:8081/api/networks/skynet</cite></p>
-<p><strong>Delete Network:</strong> <cite>curl -X DELETE -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet</cite></p>
-<p><strong>Cycle PublicKeys on all Nodes:</strong> <cite>curl -X POST -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet/keyupdate</cite></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Get</span> <span class="n">All</span> <span class="n">Networks</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span> <span class="o">|</span> <span class="n">jq</span>
+
+<span class="n">Create</span> <span class="n">Network</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">d</span> <span class="s1">'{"addressrange":"10.70.0.0/16","netid":"skynet"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span>
+
+<span class="n">Get</span> <span class="n">Network</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span><span class="o">/</span><span class="n">skynet</span> <span class="o">|</span> <span class="n">jq</span>
+
+<span class="n">Update</span> <span class="n">Network</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">PUT</span> <span class="o">-</span><span class="n">d</span> <span class="s1">'{"displayname":"my-house"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span><span class="o">/</span><span class="n">skynet</span>
+
+<span class="n">Delete</span> <span class="n">Network</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">DELETE</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span><span class="o">/</span><span class="n">skynet</span>
+
+<span class="n">Cycle</span> <span class="n">PublicKeys</span> <span class="n">on</span> <span class="nb">all</span> <span class="n">Nodes</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">POST</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">keyupdate</span>
+</pre></div>
+</div>
 
 
 <h3 id="access-keys-api">Access Keys API<a class="headerlink" href="#access-keys-api" title="Permalink to this headline">¶</a></h3>
@@ -519,9 +529,13 @@
 
 
 <h3 id="access-keys-api-call-examples">Access Keys API Call Examples<a class="headerlink" href="#access-keys-api-call-examples" title="Permalink to this headline">¶</a></h3>
-<p><strong>Get All Keys:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet/keys | jq</cite></p>
-<p><strong>Create Key:</strong> <cite>curl -d ‘{“uses”:10,”name”:”mykey”}’ -H “Authorization: Bearer YOUR_SECRET_KEY” -H ‘Content-Type: application/json’ localhost:8081/api/networks/skynet/keys</cite></p>
-<p><strong>Delete Key:</strong> <cite>curl -X DELETE -H “Authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/networks/skynet/keys/mykey</cite></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Get</span> <span class="n">All</span> <span class="n">Keys</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">keys</span> <span class="o">|</span> <span class="n">jq</span>
+
+<span class="n">Create</span> <span class="n">Key</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">d</span> <span class="s1">'{"uses":10,"name":"mykey"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">keys</span>
+
+<span class="n">Delete</span> <span class="n">Key</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">DELETE</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">networks</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">keys</span><span class="o">/</span><span class="n">mykey</span>
+</pre></div>
+</div>
 
 
 <h3 id="nodes-api">Nodes API<a class="headerlink" href="#nodes-api" title="Permalink to this headline">¶</a></h3>
@@ -540,17 +554,29 @@
 
 
 <h3 id="nodes-api-call-examples">Nodes API Call Examples<a class="headerlink" href="#nodes-api-call-examples" title="Permalink to this headline">¶</a></h3>
-<p><strong>Get All Nodes:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/nodes | jq</cite></p>
-<p><strong>Get Network Nodes:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/nodes/skynet | jq</cite></p>
-<p><strong>Create Node:</strong> <cite>curl  -d  ‘{ “endpoint”: 100.200.100.200, “publickey”: aorijqalrik3ajflaqrdajhkr,”macaddress”: “8c:90:b5:06:f1:d9”,”password”: “reallysecret”,”localaddress”: “172.16.16.1”,”accesskey”: “aA3bVG0rnItIRXDx”,”listenport”: 6400}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/nodes/skynet</cite></p>
-<p><strong>Get Node:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/nodes/skynet/{macaddress} | jq</cite></p>
-<p><strong>Update Node:</strong> <cite>curl -X PUT -d ‘{“name”:”laptop1”}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9</cite></p>
-<p><strong>Delete Node:</strong> <cite>curl -X DELETE -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9</cite></p>
-<p><strong>Create a Gateway:</strong> <cite>curl  -d  ‘{ “rangestring”: “172.31.0.0/16”, “interface”: “eth0”}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/creategateway</cite></p>
-<p><strong>Delete a Gateway:</strong> <cite>curl -X DELETE -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/deletegateway</cite></p>
-<p><strong>Approve a Pending Node:</strong> <cite>curl -X POST -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/approve</cite></p>
-<p><strong>Get Last Modified Date (Last Modified Node in Network):</strong> <cite>curl -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/nodes/adm/skynet/lastmodified</cite></p>
-<p><strong>Authenticate:</strong> <cite>curl -d  ‘{“macaddress”: “8c:90:b5:06:f1:d9”, “password”: “YOUR_PASSWORD”}’ -H ‘Content-Type: application/json’ localhost:8081/api/nodes/adm/skynet/authenticate</cite></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Get</span> <span class="n">All</span> <span class="n">Nodes</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span> <span class="o">|</span> <span class="n">jq</span>
+
+<span class="n">Get</span> <span class="n">Network</span> <span class="n">Nodes</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">skynet</span> <span class="o">|</span> <span class="n">jq</span>
+
+<span class="n">Create</span> <span class="n">Node</span><span class="p">:</span> <span class="n">curl</span>  <span class="o">-</span><span class="n">d</span>  <span class="s1">'{ "endpoint": 100.200.100.200, "publickey": aorijqalrik3ajflaqrdajhkr,"macaddress": "8c:90:b5:06:f1:d9","password": "reallysecret","localaddress": "172.16.16.1","accesskey": "aA3bVG0rnItIRXDx","listenport": 6400}'</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">skynet</span>
+
+<span class="n">Get</span> <span class="n">Node</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="p">{</span><span class="n">macaddress</span><span class="p">}</span> <span class="o">|</span> <span class="n">jq</span>
+
+<span class="n">Update</span> <span class="n">Node</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">PUT</span> <span class="o">-</span><span class="n">d</span> <span class="s1">'{"name":"laptop1"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="mi">8</span><span class="n">c</span><span class="p">:</span><span class="mi">90</span><span class="p">:</span><span class="n">b5</span><span class="p">:</span><span class="mi">06</span><span class="p">:</span><span class="n">f1</span><span class="p">:</span><span class="n">d9</span>
+
+<span class="n">Delete</span> <span class="n">Node</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">DELETE</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="mi">8</span><span class="n">c</span><span class="p">:</span><span class="mi">90</span><span class="p">:</span><span class="n">b5</span><span class="p">:</span><span class="mi">06</span><span class="p">:</span><span class="n">f1</span><span class="p">:</span><span class="n">d9</span>
+
+<span class="n">Create</span> <span class="n">a</span> <span class="n">Gateway</span><span class="p">:</span> <span class="n">curl</span>  <span class="o">-</span><span class="n">d</span>  <span class="s1">'{ "rangestring": "172.31.0.0/16", "interface": "eth0"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="mi">8</span><span class="n">c</span><span class="p">:</span><span class="mi">90</span><span class="p">:</span><span class="n">b5</span><span class="p">:</span><span class="mi">06</span><span class="p">:</span><span class="n">f1</span><span class="p">:</span><span class="n">d9</span><span class="o">/</span><span class="n">creategateway</span>
+
+<span class="n">Delete</span> <span class="n">a</span> <span class="n">Gateway</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">DELETE</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="mi">8</span><span class="n">c</span><span class="p">:</span><span class="mi">90</span><span class="p">:</span><span class="n">b5</span><span class="p">:</span><span class="mi">06</span><span class="p">:</span><span class="n">f1</span><span class="p">:</span><span class="n">d9</span><span class="o">/</span><span class="n">deletegateway</span>
+
+<span class="n">Approve</span> <span class="n">a</span> <span class="n">Pending</span> <span class="n">Node</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">POST</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="mi">8</span><span class="n">c</span><span class="p">:</span><span class="mi">90</span><span class="p">:</span><span class="n">b5</span><span class="p">:</span><span class="mi">06</span><span class="p">:</span><span class="n">f1</span><span class="p">:</span><span class="n">d9</span><span class="o">/</span><span class="n">approve</span>
+
+<span class="n">Get</span> <span class="n">Last</span> <span class="n">Modified</span> <span class="n">Date</span> <span class="p">(</span><span class="n">Last</span> <span class="n">Modified</span> <span class="n">Node</span> <span class="ow">in</span> <span class="n">Network</span><span class="p">):</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">adm</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">lastmodified</span>
+
+<span class="n">Authenticate</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">d</span>  <span class="s1">'{"macaddress": "8c:90:b5:06:f1:d9", "password": "YOUR_PASSWORD"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">adm</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">authenticate</span>
+</pre></div>
+</div>
 
 
 <h3 id="users-api">Users API<a class="headerlink" href="#users-api" title="Permalink to this headline">¶</a></h3>
@@ -564,12 +590,19 @@
 
 
 <h3 id="users-api-calls-examples">Users API Calls Examples<a class="headerlink" href="#users-api-calls-examples" title="Permalink to this headline">¶</a></h3>
-<p><strong>Get User:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/users/{username} | jq</cite></p>
-<p><strong>Update User:</strong> <cite>curl -X PUT -d ‘{“password”:”noonewillguessthis”}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/users/{username}</cite></p>
-<p><strong>Delete User:</strong> <cite>curl -X DELETE -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/users/{username}</cite></p>
-<p><strong>Check for Admin User:</strong> <cite>curl -H “Authorization: Bearer YOUR_SECRET_KEY” http://localhost:8081/api/users/adm/hasadmin</cite></p>
-<p><strong>Create Admin User:</strong> <cite>curl -d ‘{ “username”: “smartguy”, “password”: “YOUR_PASS”}’ -H ‘Content-Type: application/json’ -H “authorization: Bearer YOUR_SECRET_KEY” localhost:8081/api/users/adm/createadmin</cite></p>
-<p><strong>Authenticate:</strong> <cite>curl -d  ‘{“username”: “smartguy”, “password”: “YOUR_PASS”}’ -H ‘Content-Type: application/json’ localhost:8081/api/nodes/adm/skynet/authenticate</cite></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Get</span> <span class="n">User</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">users</span><span class="o">/</span><span class="p">{</span><span class="n">username</span><span class="p">}</span> <span class="o">|</span> <span class="n">jq</span>
+
+<span class="n">Update</span> <span class="n">User</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">PUT</span> <span class="o">-</span><span class="n">d</span> <span class="s1">'{"password":"noonewillguessthis"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">users</span><span class="o">/</span><span class="p">{</span><span class="n">username</span><span class="p">}</span>
+
+<span class="n">Delete</span> <span class="n">User</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">X</span> <span class="n">DELETE</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">users</span><span class="o">/</span><span class="p">{</span><span class="n">username</span><span class="p">}</span>
+
+<span class="n">Check</span> <span class="k">for</span> <span class="n">Admin</span> <span class="n">User</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"Authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">users</span><span class="o">/</span><span class="n">adm</span><span class="o">/</span><span class="n">hasadmin</span>
+
+<span class="n">Create</span> <span class="n">Admin</span> <span class="n">User</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">d</span> <span class="s1">'{ "username": "smartguy", "password": "YOUR_PASS"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="o">-</span><span class="n">H</span> <span class="s2">"authorization: Bearer YOUR_SECRET_KEY"</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">users</span><span class="o">/</span><span class="n">adm</span><span class="o">/</span><span class="n">createadmin</span>
+
+<span class="n">Authenticate</span><span class="p">:</span> <span class="n">curl</span> <span class="o">-</span><span class="n">d</span>  <span class="s1">'{"username": "smartguy", "password": "YOUR_PASS"}'</span> <span class="o">-</span><span class="n">H</span> <span class="s1">'Content-Type: application/json'</span> <span class="n">localhost</span><span class="p">:</span><span class="mi">8081</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">nodes</span><span class="o">/</span><span class="n">adm</span><span class="o">/</span><span class="n">skynet</span><span class="o">/</span><span class="n">authenticate</span>
+</pre></div>
+</div>
 
 
 <h3 id="server-management-api">Server Management API<a class="headerlink" href="#server-management-api" title="Permalink to this headline">¶</a></h3>

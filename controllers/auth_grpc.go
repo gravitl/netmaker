@@ -72,7 +72,7 @@ func grpcAuthorize(ctx context.Context) error {
 
 	authToken := authHeader[0]
 
-	nodeID, mac, network, err := logic.VerifyToken(authToken)
+	nodeID, _, network, err := logic.VerifyToken(authToken)
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,7 @@ func grpcAuthorize(ctx context.Context) error {
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "Unauthorized. Network does not exist: "+network)
 	}
-	emptynode := models.Node{}
-	node, err := logic.GetNodeByIDorMacAddress(nodeID, mac, network)
+	node, err := logic.GetNodeByID(nodeID)
 	if database.IsEmptyRecord(err) {
 		// == DELETE replace logic after 2 major version updates ==
 		if node, err = logic.GetDeletedNodeByID(node.ID); err == nil {
@@ -94,7 +93,7 @@ func grpcAuthorize(ctx context.Context) error {
 		}
 		return status.Errorf(codes.Unauthenticated, "Empty record")
 	}
-	if err != nil || node.MacAddress == emptynode.MacAddress {
+	if err != nil || node.ID == "" {
 		return status.Errorf(codes.Unauthenticated, "Node does not exist.")
 	}
 
@@ -107,7 +106,7 @@ func grpcAuthorize(ctx context.Context) error {
 // Login - node authenticates using its password and retrieves a JWT for authorization.
 func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var reqNode, err = getNewOrLegacyNode(req.Data)
+	var reqNode, err = getNodeFromRequestData(req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -132,12 +131,26 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 		if err != nil {
 			return nil, err
 		}
+		var found = false
 		for _, value := range collection {
 			if err = json.Unmarshal([]byte(value), &result); err != nil {
 				continue // finish going through nodes
 			}
 			if result.ID == nodeID && result.Network == network {
+				found = true
 				break
+			}
+		}
+
+		if !found {
+			deletedNode, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, nodeID)
+			if err != nil {
+				err = errors.New("node not found")
+				return nil, err
+			}
+			if err = json.Unmarshal([]byte(deletedNode), &result); err != nil {
+				err = errors.New("node data corrupted")
+				return nil, err
 			}
 		}
 

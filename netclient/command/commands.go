@@ -1,7 +1,6 @@
 package command
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -18,7 +17,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 
 	var err error
 	err = functions.JoinNetwork(cfg, privateKey)
-	if err != nil && !cfg.DebugJoin {
+	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			ncutils.PrintLog("error installing: "+err.Error(), 1)
 			err = functions.LeaveNetwork(cfg.Network)
@@ -35,6 +34,9 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 				if err != nil {
 					ncutils.PrintLog("error removing services: "+err.Error(), 1)
 				}
+				if ncutils.IsFreeBSD() {
+					daemon.RemoveFreebsdDaemon()
+				}
 			}
 		} else {
 			ncutils.PrintLog("success", 0)
@@ -46,9 +48,6 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 	ncutils.PrintLog("joined "+cfg.Network, 1)
-	if cfg.Daemon != "off" {
-		err = daemon.InstallDaemon(cfg)
-	}
 	if ncutils.IsWindows() {
 		ncutils.PrintLog("setting up WireGuard app", 0)
 		time.Sleep(time.Second >> 1)
@@ -111,7 +110,14 @@ func CheckIn(cfg config.ClientConfig) error {
 			}
 			err = functions.CheckConfig(*currConf)
 			if err != nil {
-				ncutils.PrintLog("error checking in for "+network+" network: "+err.Error(), 1)
+				if strings.Contains(err.Error(), "could not find iface") {
+					err = Pull(cfg)
+					if err != nil {
+						ncutils.PrintLog(err.Error(), 1)
+					}
+				} else {
+					ncutils.PrintLog("error checking in for "+network+" network: "+err.Error(), 1)
+				}
 			} else {
 				ncutils.PrintLog("checked in successfully for "+network, 1)
 			}
@@ -156,7 +162,7 @@ func Push(cfg config.ClientConfig) error {
 		for _, network := range networks {
 			err = functions.Push(network)
 			if err != nil {
-				log.Printf("error pushing network configs for "+network+" network: ", err)
+				ncutils.PrintLog("error pushing network configs for network: "+network+"\n"+err.Error(), 1)
 			} else {
 				ncutils.PrintLog("pushed network config for "+network, 1)
 			}
@@ -165,8 +171,12 @@ func Push(cfg config.ClientConfig) error {
 	} else {
 		err = functions.Push(cfg.Network)
 	}
-	ncutils.PrintLog("completed pushing network configs to remote server", 1)
-	ncutils.PrintLog("success", 1)
+	if err == nil {
+		ncutils.PrintLog("completed pushing network configs to remote server", 1)
+		ncutils.PrintLog("success", 1)
+	} else {
+		ncutils.PrintLog("error occurred pushing configs", 1)
+	}
 	return err
 }
 
@@ -183,7 +193,7 @@ func Pull(cfg config.ClientConfig) error {
 		for _, network := range networks {
 			_, err = functions.Pull(network, true)
 			if err != nil {
-				log.Printf("Error pulling network config for "+network+" network: ", err)
+				ncutils.PrintLog("Error pulling network config for network: "+network+"\n"+err.Error(), 1)
 			} else {
 				ncutils.PrintLog("pulled network config for "+network, 1)
 			}
@@ -193,7 +203,12 @@ func Pull(cfg config.ClientConfig) error {
 		_, err = functions.Pull(cfg.Network, true)
 	}
 	ncutils.PrintLog("reset network and peer configs", 1)
-	ncutils.PrintLog("success", 1)
+	if err == nil {
+		ncutils.PrintLog("reset network and peer configs", 1)
+		ncutils.PrintLog("success", 1)
+	} else {
+		ncutils.PrintLog("error occurred pulling configs from server", 1)
+	}
 	return err
 }
 
@@ -208,5 +223,10 @@ func Uninstall() error {
 	ncutils.PrintLog("uninstalling netclient...", 0)
 	err := functions.Uninstall()
 	ncutils.PrintLog("uninstalled netclient", 0)
+	return err
+}
+
+func Daemon() error {
+	err := functions.Daemon()
 	return err
 }

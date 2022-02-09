@@ -1,7 +1,10 @@
 package ncutils
 
 import (
+	"bytes"
+	crand "crypto/rand"
 	"crypto/tls"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -11,17 +14,26 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/models"
+	"golang.org/x/crypto/nacl/box"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
+
+// Version - version of the netclient
+var Version = "dev"
+
+// src - for random strings
+var src = rand.NewSource(time.Now().UnixNano())
 
 // MAX_NAME_LENGTH - maximum node name length
 const MAX_NAME_LENGTH = 62
@@ -49,6 +61,17 @@ const NETCLIENT_DEFAULT_PORT = 51821
 
 // DEFAULT_GC_PERCENT - garbage collection percent
 const DEFAULT_GC_PERCENT = 10
+
+// KEY_SIZE = ideal length for keys
+const KEY_SIZE = 2048
+
+// constants for random strings
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
 
 // Log - logs a message
 func Log(message string) {
@@ -164,7 +187,7 @@ func GetMacAddr() ([]string, error) {
 func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
 	peersString := ""
 	if keepalive <= 0 {
-		keepalive = 20
+		keepalive = 0
 	}
 
 	for _, peer := range peers {
@@ -308,6 +331,22 @@ func GetNetclientPath() string {
 	}
 }
 
+// GetFileWithRetry - retry getting file X number of times before failing
+func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
+	var data []byte
+	var err error
+	for count := 0; count < retryCount; count++ {
+		data, err = os.ReadFile(path)
+		if err == nil {
+			return data, err
+		} else {
+			PrintLog("failed to retrieve file "+path+", retrying...", 1)
+			time.Sleep(time.Second >> 2)
+		}
+	}
+	return data, err
+}
+
 // GetNetclientPathSpecific - gets specific netclient config path
 func GetNetclientPathSpecific() string {
 	if IsWindows() {
@@ -399,6 +438,7 @@ func Copy(src, dst string) error {
 		return err
 	}
 	err = os.Chmod(dst, 0755)
+
 	return err
 }
 
@@ -442,17 +482,20 @@ func PrintLog(message string, loglevel int) {
 // GetSystemNetworks - get networks locally
 func GetSystemNetworks() ([]string, error) {
 	var networks []string
-	files, err := os.ReadDir(GetNetclientPathSpecific())
+	files, err := filepath.Glob(GetNetclientPathSpecific() + "netconfig-*")
 	if err != nil {
-		return networks, err
+		return nil, err
 	}
-	for _, f := range files {
-		if strings.Contains(f.Name(), "netconfig-") && !strings.Contains(f.Name(), "backup") {
-			networkname := stringAfter(f.Name(), "netconfig-")
-			networks = append(networks, networkname)
+	for _, file := range files {
+		//don't want files such as *.bak, *.swp
+		if filepath.Ext(file) != "" {
+			continue
 		}
+		file := filepath.Base(file)
+		temp := strings.Split(file, "-")
+		networks = append(networks, strings.Join(temp[1:], "-"))
 	}
-	return networks, err
+	return networks, nil
 }
 
 func stringAfter(original string, substring string) string {
@@ -527,8 +570,82 @@ func CheckWG() {
 			PrintLog(err.Error(), 0)
 			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
 		}
-		PrintLog("Running with userspace wireguard: "+uspace, 0)
+		PrintLog("running with userspace wireguard: "+uspace, 0)
 	} else if uspace != "wg" {
-		log.Println("running userspace WireGuard with " + uspace)
+		PrintLog("running userspace WireGuard with "+uspace, 0)
 	}
+}
+
+// ConvertKeyToBytes - util to convert a key to bytes to use elsewhere
+func ConvertKeyToBytes(key *[32]byte) ([]byte, error) {
+	var buffer bytes.Buffer
+	var enc = gob.NewEncoder(&buffer)
+	if err := enc.Encode(key); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// ConvertBytesToKey - util to convert bytes to a key to use elsewhere
+func ConvertBytesToKey(data []byte) (*[32]byte, error) {
+	var buffer = bytes.NewBuffer(data)
+	var dec = gob.NewDecoder(buffer)
+	var result = new([32]byte)
+	var err = dec.Decode(result)
+	if err != nil {
+		return nil, err
+	}
+	return result, err
+}
+
+// ServerAddrSliceContains - sees if a string slice contains a string element
+func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) bool {
+	for _, s := range slice {
+		if s.Address == item.Address && s.IsLeader == item.IsLeader {
+			return true
+		}
+	}
+	return false
+}
+
+// BoxEncrypt - encrypts traffic box
+func BoxEncrypt(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32]byte) ([]byte, error) {
+	var nonce [24]byte // 192 bits of randomization
+	if _, err := io.ReadFull(crand.Reader, nonce[:]); err != nil {
+		return nil, err
+	}
+
+	encrypted := box.Seal(nonce[:], message, &nonce, recipientPubKey, senderPrivateKey)
+	return encrypted, nil
+}
+
+// BoxDecrypt - decrypts traffic box
+func BoxDecrypt(encrypted []byte, senderPublicKey *[32]byte, recipientPrivateKey *[32]byte) ([]byte, error) {
+	var decryptNonce [24]byte
+	copy(decryptNonce[:], encrypted[:24])
+	decrypted, ok := box.Open(nil, encrypted[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("could not decrypt message")
+	}
+	return decrypted, nil
+}
+
+// MakeRandomString - generates a random string of len n
+func MakeRandomString(n int) string {
+	sb := strings.Builder{}
+	sb.Grow(n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			sb.WriteByte(letterBytes[idx])
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return sb.String()
 }

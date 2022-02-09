@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -43,20 +44,21 @@ func getPrivateAddr() (string, error) {
 
 	var local string
 	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
+	if err == nil {
+		defer conn.Close()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	localIP := localAddr.IP
-	local = localIP.String()
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+		localIP := localAddr.IP
+		local = localIP.String()
+	}
 	if local == "" {
 		local, err = getPrivateAddrBackup()
 	}
+
 	if local == "" {
 		err = errors.New("could not find local ip")
 	}
+
 	return local, err
 }
 
@@ -135,6 +137,8 @@ func Uninstall() error {
 		daemon.CleanupMac()
 	} else if ncutils.IsLinux() {
 		daemon.CleanupLinux()
+	} else if ncutils.IsFreeBSD() {
+		daemon.CleanupFreebsd()
 	} else if !ncutils.IsKernel() {
 		ncutils.PrintLog("manual cleanup required", 1)
 	}
@@ -184,39 +188,60 @@ func LeaveNetwork(network string) error {
 			}
 		}
 	}
-	//extra network route setting required for freebsd and windows
-	if ncutils.IsWindows() {
-		ip, mask, err := ncutils.GetNetworkIPMask(node.NetworkSettings.AddressRange)
-		if err != nil {
-			ncutils.PrintLog(err.Error(), 1)
+
+	wgClient, wgErr := wgctrl.New()
+	if wgErr == nil {
+		removeIface := cfg.Node.Interface
+		if ncutils.IsMac() {
+			var macIface string
+			macIface, wgErr = local.GetMacIface(cfg.Node.Address)
+			if wgErr == nil && removeIface != "" {
+				removeIface = macIface
+			}
+			wgErr = nil
 		}
-		_, _ = ncutils.RunCmd("route delete "+ip+" mask "+mask+" "+node.Address, true)
-	} else if ncutils.IsFreeBSD() {
-		_, _ = ncutils.RunCmd("route del -net "+node.NetworkSettings.AddressRange+" -interface "+node.Interface, true)
-	} else if ncutils.IsLinux() {
-		_, _ = ncutils.RunCmd("ip -4 route del "+node.NetworkSettings.AddressRange+" dev "+node.Interface, false)
+		dev, devErr := wgClient.Device(removeIface)
+		if devErr == nil {
+			local.FlushPeerRoutes(removeIface, cfg.Node.Address, dev.Peers[:])
+			_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
+			if cidrErr == nil {
+				local.RemoveCIDRRoute(removeIface, cfg.Node.Address, cidr)
+			}
+		} else {
+			ncutils.PrintLog("could not flush peer routes when leaving network, "+cfg.Node.Network, 1)
+		}
 	}
-	return RemoveLocalInstance(cfg, network)
+
+	err = WipeLocal(node.Network)
+	if err != nil {
+		ncutils.PrintLog("unable to wipe local config", 1)
+	} else {
+		ncutils.PrintLog("removed "+node.Network+" network locally", 1)
+	}
+
+	currentNets, err := ncutils.GetSystemNetworks()
+	if err != nil || len(currentNets) <= 1 {
+		daemon.Stop() // stop system daemon if last network
+		return RemoveLocalInstance(cfg, network)
+	}
+	return daemon.Restart()
 }
 
 // RemoveLocalInstance - remove all netclient files locally for a network
 func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
-	err := WipeLocal(networkName)
-	if err != nil {
-		ncutils.PrintLog("unable to wipe local config", 1)
-	} else {
-		ncutils.PrintLog("removed "+networkName+" network locally", 1)
-	}
+
 	if cfg.Daemon != "off" {
 		if ncutils.IsWindows() {
 			// TODO: Remove job?
 		} else if ncutils.IsMac() {
 			//TODO: Delete mac daemon
+		} else if ncutils.IsFreeBSD() {
+			daemon.RemoveFreebsdDaemon()
 		} else {
-			err = daemon.RemoveSystemDServices()
+			daemon.RemoveSystemDServices()
 		}
 	}
-	return err
+	return nil
 }
 
 // DeleteInterface - delete an interface of a network
@@ -242,22 +267,53 @@ func WipeLocal(network string) error {
 
 	home := ncutils.GetNetclientPathSpecific()
 	if ncutils.FileExists(home + "netconfig-" + network) {
-		_ = os.Remove(home + "netconfig-" + network)
+		err = os.Remove(home + "netconfig-" + network)
+		if err != nil {
+			log.Println("error removing netconfig:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "backup.netconfig-" + network) {
-		_ = os.Remove(home + "backup.netconfig-" + network)
+		err = os.Remove(home + "backup.netconfig-" + network)
+		if err != nil {
+			log.Println("error removing backup netconfig:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "nettoken-" + network) {
-		_ = os.Remove(home + "nettoken-" + network)
+		err = os.Remove(home + "nettoken-" + network)
+		if err != nil {
+			log.Println("error removing nettoken:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "secret-" + network) {
-		_ = os.Remove(home + "secret-" + network)
+		err = os.Remove(home + "secret-" + network)
+		if err != nil {
+			log.Println("error removing secret:")
+			log.Println(err.Error())
+		}
+	}
+	if ncutils.FileExists(home + "traffic-" + network) {
+		err = os.Remove(home + "traffic-" + network)
+		if err != nil {
+			log.Println("error removing traffic key:")
+			log.Println(err.Error())
+		}
 	}
 	if ncutils.FileExists(home + "wgkey-" + network) {
-		_ = os.Remove(home + "wgkey-" + network)
+		err = os.Remove(home + "wgkey-" + network)
+		if err != nil {
+			log.Println("error removing wgkey:")
+			log.Println(err.Error())
+		}
 	}
-	if ncutils.FileExists(home + "nm-" + network + ".conf") {
-		_ = os.Remove(home + "nm-" + network + ".conf")
+	if ncutils.FileExists(home + ifacename + ".conf") {
+		err = os.Remove(home + ifacename + ".conf")
+		if err != nil {
+			log.Println("error removing .conf:")
+			log.Println(err.Error())
+		}
 	}
 	return err
 }

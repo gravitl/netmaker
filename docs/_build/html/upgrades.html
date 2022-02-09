@@ -46,7 +46,7 @@
   
   
   
-    <title>Upgrades &#8212; Netmaker 0.9.4 documentation</title>
+    <title>Upgrades &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.4 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -327,9 +327,11 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#upgrade-the-server-netmaker" class="md-nav__link">Upgrade the Server (netmaker)</a>
+        <li class="md-nav__item"><a href="#critical-notes-for-0-10-0" class="md-nav__link">Critical Notes for 0.10.0</a>
         </li>
-        <li class="md-nav__item"><a href="#upgrade-the-clients-netclient" class="md-nav__link">Upgrade the Clients (netclient)</a>
+        <li class="md-nav__item"><a href="#upgrade-the-server-prior-to-0-10-0" class="md-nav__link">Upgrade the Server (prior to 0.10.0)</a>
+        </li>
+        <li class="md-nav__item"><a href="#upgrade-the-clients-prior-to-0-10-0" class="md-nav__link">Upgrade the Clients (prior to 0.10.0)</a>
         </li></ul>
             </nav>
         </li>
@@ -346,14 +348,21 @@
     <li class="md-nav__item">
     
     
-      <a href="#upgrade-the-server-netmaker" class="md-nav__link">Upgrade the Server (netmaker)</a>
+      <a href="#critical-notes-for-0-10-0" class="md-nav__link">Critical Notes for 0.10.0</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="#upgrade-the-clients-netclient" class="md-nav__link">Upgrade the Clients (netclient)</a>
+      <a href="#upgrade-the-server-prior-to-0-10-0" class="md-nav__link">Upgrade the Server (prior to 0.10.0)</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#upgrade-the-clients-prior-to-0-10-0" class="md-nav__link">Upgrade the Clients (prior to 0.10.0)</a>
       
     
     </li></ul>
@@ -405,9 +414,11 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
         </li>
-        <li class="md-nav__item"><a href="#upgrade-the-server-netmaker" class="md-nav__link">Upgrade the Server (netmaker)</a>
+        <li class="md-nav__item"><a href="#critical-notes-for-0-10-0" class="md-nav__link">Critical Notes for 0.10.0</a>
         </li>
-        <li class="md-nav__item"><a href="#upgrade-the-clients-netclient" class="md-nav__link">Upgrade the Clients (netclient)</a>
+        <li class="md-nav__item"><a href="#upgrade-the-server-prior-to-0-10-0" class="md-nav__link">Upgrade the Server (prior to 0.10.0)</a>
+        </li>
+        <li class="md-nav__item"><a href="#upgrade-the-clients-prior-to-0-10-0" class="md-nav__link">Upgrade the Clients (prior to 0.10.0)</a>
         </li></ul>
             </nav>
         </li>
@@ -424,14 +435,18 @@
 <h1 id="upgrades--page-root">Upgrades<a class="headerlink" href="#upgrades--page-root" title="Permalink to this headline">¶</a></h1>
 
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
-<p>As of 0.9.4, upgrading Netmaker is a manual process. This is expected to be automated in the future, but for now is still a relatively straightforward process.</p>
+<p>As of 0.10.0, upgrading Netmaker is a manual process. This is expected to be automated in the future, but for now is still a relatively straightforward process.</p>
 
 
-<h2 id="upgrade-the-server-netmaker">Upgrade the Server (netmaker)<a class="headerlink" href="#upgrade-the-server-netmaker" title="Permalink to this headline">¶</a></h2>
+<h2 id="critical-notes-for-0-10-0">Critical Notes for 0.10.0<a class="headerlink" href="#critical-notes-for-0-10-0" title="Permalink to this headline">¶</a></h2>
+<p>At the time of this writing, an upgrade process has not been defined for 0.10.0. DO NOT follow this documentation to upgrade from a prior version to 0.10.0. An upgrade process will be defined shortly. For now, if you seek to upgrade to 0.10.0, you must clear your server entirely (docker-compose down –volumes), uninstall your netclients, and re-install netmaker + netclients.</p>
+
+
+<h2 id="upgrade-the-server-prior-to-0-10-0">Upgrade the Server (prior to 0.10.0)<a class="headerlink" href="#upgrade-the-server-prior-to-0-10-0" title="Permalink to this headline">¶</a></h2>
 <p>To upgrade the server, you only need to change the docker image versions:</p>
 <ol class="arabic simple">
 <li><p><cite>ssh root@my-server-ip</cite></p></li>
-<li><p><cite>docker compose down</cite></p></li>
+<li><p><cite>docker-compose down</cite></p></li>
 <li><p><cite>vi docker-compose.yml</cite></p></li>
 <li><p>Change gravitl/netmaker:&lt;version&gt; and gravitl/netmaker-ui:&lt;version&gt; to the new version.</p></li>
 <li><p>Save and close the file</p></li>
@@ -439,7 +454,7 @@
 </ol>
 
 
-<h2 id="upgrade-the-clients-netclient">Upgrade the Clients (netclient)<a class="headerlink" href="#upgrade-the-clients-netclient" title="Permalink to this headline">¶</a></h2>
+<h2 id="upgrade-the-clients-prior-to-0-10-0">Upgrade the Clients (prior to 0.10.0)<a class="headerlink" href="#upgrade-the-clients-prior-to-0-10-0" title="Permalink to this headline">¶</a></h2>
 <p>To upgrade the client, you must get the new client binary and place it in /etc/netclient. Depending on the new vs. old version, there may be minor incompatibilities (discussed below).</p>
 <ol class="arabic simple">
 <li><p>Vists <a class="reference external" href="https://github.com/gravitl/netmaker/releases/">https://github.com/gravitl/netmaker/releases/</a></p></li>

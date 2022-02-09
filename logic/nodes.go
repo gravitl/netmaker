@@ -9,30 +9,27 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"golang.org/x/crypto/bcrypt"
 )
+
+// RELAY_NODE_ERR - error to return if relay node is unfound
+const RELAY_NODE_ERR = "could not find relay for node"
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes = []models.Node{}
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	var nodes []models.Node
+	allnodes, err := GetAllNodes()
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
-		}
-		return nodes, err
+		return []models.Node{}, err
 	}
-	for _, value := range collection {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			continue
-		}
+	for _, node := range allnodes {
 		if node.Network == network {
 			nodes = append(nodes, node)
 		}
@@ -65,6 +62,21 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 	return nodes, nil
 }
 
+// GetServerNodes - gets the server nodes of a network
+func GetServerNodes(network string) []models.Node {
+	var serverNodes = make([]models.Node, 0)
+	var nodes, err = GetNetworkNodes(network)
+	if err != nil {
+		return serverNodes
+	}
+	for _, node := range nodes {
+		if node.IsServer == "yes" {
+			serverNodes = append(serverNodes, node)
+		}
+	}
+	return serverNodes
+}
+
 // UncordonNode - approves a node to join a network
 func UncordonNode(nodeid string) (models.Node, error) {
 	node, err := GetNodeByID(nodeid)
@@ -83,10 +95,10 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	return node, err
 }
 
-// GetPeers - gets the peers of a given node
+// GetPeers - gets the peers of a given server node
 func GetPeers(node *models.Node) ([]models.Node, error) {
 	if IsLeader(node) {
-		SetNetworkServerPeers(node)
+		setNetworkServerPeers(node)
 	}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
@@ -95,9 +107,23 @@ func GetPeers(node *models.Node) ([]models.Node, error) {
 	}
 	peers, err := GetPeersList(node.Network, excludeIsRelayed, relayedNode)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), RELAY_NODE_ERR) {
+			peers, err = PeerListUnRelay(node.ID, node.Network)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	return peers, nil
+}
+
+// SetIfLeader - gets the peers of a given server node
+func SetPeersIfLeader(node *models.Node) {
+	if IsLeader(node) {
+		setNetworkServerPeers(node)
+	}
 }
 
 // IsLeader - determines if a given server node is a leader
@@ -119,7 +145,20 @@ func IsLeader(node *models.Node) bool {
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
+	if newNode.Address != currentNode.Address {
+		if network, err := GetParentNetwork(newNode.Network); err == nil {
+			if !IsAddressInCIDR(newNode.Address, network.AddressRange) {
+				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
+			}
+		}
+	}
 	newNode.Fill(currentNode)
+
+	if currentNode.IsServer == "yes" && !validateServer(currentNode, newNode) {
+		return fmt.Errorf("this operation is not supported on server nodes")
+	}
+
+	// check for un-settable server values
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
 	}
@@ -131,7 +170,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			return database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
-	return fmt.Errorf("failed to update node " + newNode.MacAddress + ", cannot change macaddress.")
+	return fmt.Errorf("failed to update node " + currentNode.ID + ", cannot change ID.")
 }
 
 // IsNodeIDUnique - checks if node id is unique
@@ -147,8 +186,12 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 		if isUpdate {
 			return true
 		}
+		var unique = true
+		if !(node.MacAddress == "") {
+			unique, _ = isMacAddressUnique(node.MacAddress, node.Network)
+		}
 		isFieldUnique, _ := IsNodeIDUnique(node)
-		return isFieldUnique
+		return isFieldUnique && unique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := GetNetworkByNode(node)
@@ -163,6 +206,80 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 	})
 	err := v.Struct(node)
 
+	return err
+}
+
+// CreateNode - creates a node in database
+func CreateNode(node *models.Node) error {
+
+	//encrypt that password so we never see it
+	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
+	if err != nil {
+		return err
+	}
+	//set password to encrypted password
+	node.Password = string(hash)
+	if node.Name == models.NODE_SERVER_NAME {
+		node.IsServer = "yes"
+	}
+	if node.DNSOn == "" {
+		if servercfg.IsDNSMode() {
+			node.DNSOn = "yes"
+		} else {
+			node.DNSOn = "no"
+		}
+	}
+
+	SetNodeDefaults(node)
+
+	if node.IsServer == "yes" {
+		if node.Address, err = UniqueAddressServer(node.Network); err != nil {
+			return err
+		}
+	} else if node.Address == "" {
+		if node.Address, err = UniqueAddress(node.Network); err != nil {
+			return err
+		}
+	} else if !IsIPUnique(node.Network, node.Address, database.NODES_TABLE_NAME, false) {
+		return fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
+	}
+
+	if node.Address6 == "" {
+		if node.Address6, err = UniqueAddress6(node.Network); err != nil {
+			return err
+		}
+	} else if !IsIPUnique(node.Network, node.Address6, database.NODES_TABLE_NAME, true) {
+		return fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
+	}
+
+	node.ID = uuid.NewString()
+
+	//Create a JWT for the node
+	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
+	if tokenString == "" {
+		//returnErrorResponse(w, r, errorResponse)
+		return err
+	}
+	err = ValidateNode(node, false)
+	if err != nil {
+		return err
+	}
+
+	nodebytes, err := json.Marshal(&node)
+	if err != nil {
+		return err
+	}
+	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	if node.IsPending != "yes" {
+		DecrimentKey(node.Network, node.AccessKey)
+	}
+	SetNetworkNodesLastModified(node.Network)
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
 	return err
 }
 
@@ -290,6 +407,8 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultMTU()
 	node.SetDefaultIsRelayed()
 	node.SetDefaultIsRelay()
+	node.SetDefaultIsDocker()
+	node.SetDefaultIsK8S()
 	node.KeyUpdateTimeStamp = time.Now().Unix()
 }
 
@@ -324,6 +443,21 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 	SetNodeDefaults(&node)
 
 	return node, nil
+}
+
+// GetNodesByAddress - gets a node by mac address
+func GetNodesByAddress(network string, addresses []string) ([]models.Node, error) {
+	var nodes []models.Node
+	allnodes, err := GetAllNodes()
+	if err != nil {
+		return []models.Node{}, err
+	}
+	for _, node := range allnodes {
+		if node.Network == network && ncutils.StringSliceContains(addresses, node.Address) {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes, nil
 }
 
 // GetDeletedNodeByMacAddress - get a deleted node
@@ -375,10 +509,11 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 			}
 		}
 	}
-	return relay, errors.New("could not find relay for node " + relayedNodeAddr)
+	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
 }
 
 // GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
+/*
 func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (models.Node, error) {
 	var node models.Node
 	var err error
@@ -401,7 +536,7 @@ func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (mo
 	}
 	return node, err
 }
-
+*/
 // GetNodeByID - get node by uuid, should have been set by create
 func GetNodeByID(uuid string) (models.Node, error) {
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
@@ -435,26 +570,73 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 }
 
 // GetNetworkServerNodeID - get network server node ID if exists
-func GetNetworkServerNodeID(network string) (string, error) {
-	var nodes, err = GetNetworkNodes(network)
+func GetNetworkServerLeader(network string) (models.Node, error) {
+	nodes, err := GetSortedNetworkServerNodes(network)
 	if err != nil {
-		return "", err
+		return models.Node{}, err
 	}
 	for _, node := range nodes {
-		if node.IsServer == "yes" {
-			if servercfg.GetNodeID() != "" {
-				if servercfg.GetNodeID() == node.MacAddress {
-					if strings.Contains(node.ID, "###") {
-						DeleteNodeByMacAddress(&node, true)
-						logger.Log(1, "deleted legacy server node on network "+node.Network)
-						return "", errors.New("deleted legacy server node on network " + node.Network)
-					}
-					return node.ID, nil
-				}
-				continue
-			}
-			return node.ID, nil
+		if IsLeader(&node) {
+			return node, nil
 		}
 	}
-	return "", errors.New("could not find server node")
+	return models.Node{}, errors.New("could not find server leader")
+}
+
+// GetNetworkServerNodeID - get network server node ID if exists
+func GetNetworkServerLocal(network string) (models.Node, error) {
+	nodes, err := GetSortedNetworkServerNodes(network)
+	if err != nil {
+		return models.Node{}, err
+	}
+	mac := servercfg.GetNodeID()
+	if mac == "" {
+		return models.Node{}, fmt.Errorf("error retrieving local server node: server node ID is unset")
+	}
+	for _, node := range nodes {
+		if mac == node.MacAddress {
+			return node, nil
+		}
+	}
+	return models.Node{}, errors.New("could not find node for local server")
+}
+
+// IsLocalServer - get network server node ID if exists
+func IsLocalServer(node *models.Node) bool {
+	var islocal bool
+	local, err := GetNetworkServerLocal(node.Network)
+	if err != nil {
+		return islocal
+	}
+	return node.ID != "" && local.ID == node.ID
+}
+
+// validateServer - make sure servers dont change port or address
+func validateServer(currentNode, newNode *models.Node) bool {
+	return (newNode.Address == currentNode.Address &&
+		newNode.ListenPort == currentNode.ListenPort &&
+		newNode.IsServer == "yes")
+}
+
+// isMacAddressUnique - checks if mac is unique
+func isMacAddressUnique(macaddress string, networkName string) (bool, error) {
+
+	isunique := true
+
+	nodes, err := GetNetworkNodes(networkName)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	for _, node := range nodes {
+
+		if node.MacAddress == macaddress {
+			isunique = false
+		}
+	}
+
+	return isunique, nil
 }

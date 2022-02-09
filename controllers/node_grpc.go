@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 // NodeServiceServer - represents the service server for gRPC
@@ -20,7 +24,7 @@ type NodeServiceServer struct {
 
 // NodeServiceServer.ReadNode - reads node and responds with gRPC
 func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
-	var node, err = getNewOrLegacyNode(req.Data)
+	var node, err = getNodeFromRequestData(req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +33,8 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	if err != nil {
 		return nil, err
 	}
+	getServerAddrs(&node)
+
 	node.SetLastCheckIn()
 	// Cast to ReadNodeRes type
 	nodeData, errN := json.Marshal(&node)
@@ -57,13 +63,33 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-
 	if !validKey {
 		if node.NetworkSettings.AllowManualSignUp == "yes" {
 			node.IsPending = "yes"
 		} else {
 			return nil, errors.New("invalid key, and network does not allow no-key signups")
 		}
+	}
+	getServerAddrs(&node)
+
+	key, keyErr := logic.RetrievePublicTrafficKey()
+	if keyErr != nil {
+		logger.Log(0, "error retrieving key: ", keyErr.Error())
+		return nil, keyErr
+	}
+
+	if key == nil {
+		logger.Log(0, "error: server traffic key is nil")
+		return nil, fmt.Errorf("error: server traffic key is nil")
+	}
+	if node.TrafficKeys.Mine == nil {
+		logger.Log(0, "error: node traffic key is nil")
+		return nil, fmt.Errorf("error: node traffic key is nil")
+	}
+
+	node.TrafficKeys = models.TrafficKeys{
+		Mine:   node.TrafficKeys.Mine,
+		Server: key,
 	}
 
 	err = logic.CreateNode(&node)
@@ -81,10 +107,28 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
-	err = logic.SetNetworkNodesLastModified(node.Network)
-	if err != nil {
-		return nil, err
-	}
+	runUpdates(&node, false)
+
+	go func(node *models.Node) {
+		if node.UDPHolePunch == "yes" {
+			var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
+			if getErr != nil {
+				return
+			}
+			for i := 0; i < 5; i++ {
+				if logic.HasPeerConnected(node) {
+					if logic.ShouldPublishPeerPorts(&currentServerNode) {
+						err = mq.PublishPeerUpdate(&currentServerNode)
+						if err != nil {
+							logger.Log(1, "error publishing port updates when node", node.Name, "joined")
+						}
+						break
+					}
+				}
+				time.Sleep(time.Second << 1) // allow time for client to startup
+			}
+		}
+	}(&node)
 
 	return response, nil
 }
@@ -97,7 +141,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
-	node, err := logic.GetNodeByIDorMacAddress(newnode.ID, newnode.MacAddress, newnode.Network)
+	node, err := logic.GetNodeByID(newnode.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -115,20 +159,55 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
+	getServerAddrs(&newnode)
+
 	nodeData, errN := json.Marshal(&newnode)
 	if errN != nil {
 		return nil, err
 	}
+
+	runUpdates(&newnode, false)
+
 	return &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
 	}, nil
 }
 
+func getServerAddrs(node *models.Node) {
+	serverNodes := logic.GetServerNodes(node.Network)
+	//pubIP, _ := servercfg.GetPublicIP()
+	if len(serverNodes) == 0 {
+		if err := serverctl.SyncServerNetwork(node.Network); err != nil {
+			return
+		}
+	}
+
+	var serverAddrs = make([]models.ServerAddr, 0)
+
+	for _, node := range serverNodes {
+		if node.Address != "" {
+			serverAddrs = append(serverAddrs, models.ServerAddr{
+				IsLeader: logic.IsLeader(&node),
+				Address:  node.Address,
+			})
+		}
+	}
+
+	networkSettings, _ := logic.GetParentNetwork(node.Network)
+	// TODO consolidate functionality around files
+	networkSettings.NodesLastModified = time.Now().Unix()
+	networkSettings.DefaultServerAddrs = serverAddrs
+	if err := logic.SaveNetwork(&networkSettings); err != nil {
+		logger.Log(1, "unable to save network on serverAddr update", err.Error())
+	}
+	node.NetworkSettings.DefaultServerAddrs = networkSettings.DefaultServerAddrs
+}
+
 // NodeServiceServer.DeleteNode - deletes a node and responds over gRPC
 func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var node, err = getNewOrLegacyNode(req.Data)
+	var node, err = getNodeFromRequestData(req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +216,8 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
+
+	runServerPeerUpdate(&node, false)
 
 	return &nodepb.Object{
 		Data: "success",
@@ -147,14 +228,11 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 // NodeServiceServer.GetPeers - fetches peers over gRPC
 func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var node, err = getNewOrLegacyNode(req.Data)
+	var node, err = getNodeFromRequestData(req.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	if node.IsServer == "yes" && logic.IsLeader(&node) {
-		logic.SetNetworkServerPeers(&node)
-	}
 	excludeIsRelayed := node.IsRelay != "yes"
 	var relayedNode string
 	if node.IsRelayed == "yes" {
@@ -162,7 +240,14 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 	}
 	peers, err := logic.GetPeersList(node.Network, excludeIsRelayed, relayedNode)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), logic.RELAY_NODE_ERR) {
+			peers, err = logic.PeerListUnRelay(node.ID, node.Network)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	peersData, err := json.Marshal(&peers)
@@ -176,7 +261,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 // NodeServiceServer.GetExtPeers - returns ext peers for a gateway node
 func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var node, err = getNewOrLegacyNode(req.Data)
+	var node, err = getNodeFromRequestData(req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -211,24 +296,16 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 
 // == private methods ==
 
-func getNewOrLegacyNode(data string) (models.Node, error) {
-	var reqNode, node models.Node
+func getNodeFromRequestData(data string) (models.Node, error) {
+	var reqNode models.Node
 	var err error
 
 	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
-		oldID := strings.Split(data, "###") // handle legacy client IDs
-		if len(oldID) == 2 {
-			if node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, oldID[0], oldID[1]); err != nil {
-				return models.Node{}, err
-			}
-		} else {
-			return models.Node{}, err
-		}
-	} else {
-		node, err = logic.GetNodeByIDorMacAddress(reqNode.ID, reqNode.MacAddress, reqNode.Network)
-		if err != nil {
-			return models.Node{}, err
-		}
+		return models.Node{}, err
 	}
-	return node, nil
+	return logic.GetNodeByID(reqNode.ID)
+}
+
+func isServer(node *models.Node) bool {
+	return node.IsServer == "yes"
 }

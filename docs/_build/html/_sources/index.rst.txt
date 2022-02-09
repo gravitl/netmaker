@@ -9,11 +9,6 @@
    :alt: Netmaker WireGuard
    :align: center
 
-.. role:: raw-html(raw)
-    :format: html
-
-:raw-html:`<br />`
-
 =======================================
 Welcome to the Netmaker Documentation
 =======================================

@@ -62,21 +62,21 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				return err
 			},
 		},
-		{
-			Name:  "push",
-			Usage: "Push configuration changes to server.",
-			Flags: cliFlags,
-			// the action, or code that will be executed when
-			// we execute our `ns` command
-			Action: func(c *cli.Context) error {
-				cfg, _, err := config.GetCLIConfig(c)
-				if err != nil {
-					return err
-				}
-				err = command.Push(cfg)
-				return err
-			},
-		},
+		// {
+		// 	Name:  "push",
+		// 	Usage: "Push configuration changes to server.",
+		// 	Flags: cliFlags,
+		// 	// the action, or code that will be executed when
+		// 	// we execute our `ns` command
+		// 	Action: func(c *cli.Context) error {
+		// 		cfg, _, err := config.GetCLIConfig(c)
+		// 		if err != nil {
+		// 			return err
+		// 		}
+		// 		err = command.Push(cfg)
+		// 		return err
+		// 	},
+		// },
 		{
 			Name:  "pull",
 			Usage: "Pull latest configuration and peers from server.",
@@ -115,6 +115,15 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 			// we execute our `ns` command
 			Action: func(c *cli.Context) error {
 				err := command.Uninstall()
+				return err
+			},
+		},
+		{
+			Name:  "daemon",
+			Usage: "run netclient as daemon",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				err := command.Daemon()
 				return err
 			},
 		},
