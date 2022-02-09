@@ -34,6 +34,9 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 				if err != nil {
 					ncutils.PrintLog("error removing services: "+err.Error(), 1)
 				}
+				if ncutils.IsFreeBSD() {
+					daemon.RemoveFreebsdDaemon()
+				}
 			}
 		} else {
 			ncutils.PrintLog("success", 0)
@@ -45,9 +48,6 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 	ncutils.PrintLog("joined "+cfg.Network, 1)
-	if cfg.Daemon != "off" {
-		err = daemon.InstallDaemon(cfg)
-	}
 	if ncutils.IsWindows() {
 		ncutils.PrintLog("setting up WireGuard app", 0)
 		time.Sleep(time.Second >> 1)

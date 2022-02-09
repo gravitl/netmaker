@@ -25,6 +25,8 @@ func InstallDaemon(cfg config.ClientConfig) error {
 		err = SetupMacDaemon(interval)
 	case "linux":
 		err = SetupSystemDDaemon(interval)
+	case "freebsd":
+		err = SetupFreebsdDaemon()
 	default:
 		err = errors.New("this os is not yet supported for daemon mode. Run join cmd with flag '--daemon off'")
 	}
@@ -45,6 +47,8 @@ func Restart() error {
 		RestartLaunchD()
 	case "linux":
 		RestartSystemD()
+	case "freebsd":
+		FreebsdDaemon("restart")
 	default:
 		err = errors.New("this os is not yet supported for daemon mode. Run join cmd with flag '--daemon off'")
 	}
@@ -65,6 +69,8 @@ func Stop() error {
 		StopLaunchD()
 	case "linux":
 		StopSystemD()
+	case "freebsd":
+		FreebsdDaemon("stop")
 	default:
 		err = errors.New("no OS daemon to stop")
 	}

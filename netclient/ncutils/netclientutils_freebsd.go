@@ -2,6 +2,7 @@ package ncutils
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os/exec"
 	"strings"
@@ -11,7 +12,17 @@ import (
 
 // RunCmdFormatted - run a command formatted for freebsd
 func RunCmdFormatted(command string, printerr bool) (string, error) {
-	return "", nil
+
+	args := strings.Fields(command)
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Start()
+	cmd.Wait()
+	out, err := cmd.CombinedOutput()
+	if err != nil && printerr {
+		Log(fmt.Sprintf("error running command: %s", command))
+		Log(strings.TrimSuffix(string(out), "\n"))
+	}
+	return string(out), err
 }
 
 // GetEmbedded - if files required for freebsd, put here
@@ -37,5 +48,3 @@ func RunCmd(command string, printerr bool) (string, error) {
 	}
 	return string(out), err
 }
-
-
