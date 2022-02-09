@@ -190,7 +190,7 @@ sleep 2
 echo "configuring netmaker server as ingress gateway"
 
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/default)
-SERVER_ID=$(jq -r '.[0].macaddress' <<< ${curlresponse})
+SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/default/$SERVER_ID/createingress
 
@@ -224,7 +224,7 @@ sleep 2
 echo "configuring netmaker server as vpn inlet..."
 
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn)
-SERVER_ID=$(jq -r '.[0].macaddress' <<< ${curlresponse})
+SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 curl -s -o /dev/null -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn/$SERVER_ID/createingress
 
@@ -240,7 +240,7 @@ echo "configuring netmaker server vpn gateway..."
 echo "gateway iface: $GATEWAY_IFACE"
 
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' localhost:8081/api/nodes/vpn)
-SERVER_ID=$(jq -r '.[0].macaddress' <<< ${curlresponse})
+SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 EGRESS_JSON=$( jq -n \
                   --arg gw "$GATEWAY_IFACE" \
