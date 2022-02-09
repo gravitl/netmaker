@@ -45,7 +45,7 @@
 
 `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash`
 
-<img src="./docs/images/visit-website.gif" width="40%" /><img src="./docs/images/graph-readme.gif" width="50%" />
+<img src="./docs/images/visit-website.gif" width="50%" /><img src="./docs/images/graph-readme.gif" width="40%" />
 
 Upon completion, the logs will display the instructions to connect various devices. These can also be retrieved from the UI under "Access Keys."
 
