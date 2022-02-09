@@ -30,6 +30,7 @@ func RunCmd(command string, printerr bool) (string, error) {
 		<-ctx.Done()
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}()
+	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
 		log.Println("error running command:", command)
@@ -37,5 +38,3 @@ func RunCmd(command string, printerr bool) (string, error) {
 	}
 	return string(out), err
 }
-
-
