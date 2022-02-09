@@ -242,30 +242,48 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			networks, err := logic.GetNetworks()
-			if err != nil {
-				logger.Log(1, "error retrieving networks for keepalive", err.Error())
-			}
-			for _, network := range networks {
-				serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
-				if errN == nil {
-					serverNode.SetLastCheckIn()
-					logic.UpdateNode(&serverNode, &serverNode)
-					if network.DefaultUDPHolePunch == "yes" {
-						if logic.ShouldPublishPeerPorts(&serverNode) {
-							err = PublishPeerUpdate(&serverNode)
-							if err != nil {
-								logger.Log(1, "error publishing udp port updates for network", network.NetID)
-								logger.Log(1, errN.Error())
-							}
-						}
+			sendPeers()
+			return
+		}
+	}
+}
+
+var counter = make(chan int, 0)
+
+// sendPeers - retrieve networks, send peer ports to all peers
+func sendPeers() {
+	var force bool
+	var tmpcount = <-counter + 1
+	counter <- tmpcount
+	if tmpcount == 5 {
+		force = true
+		counter <- 0
+	}
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		logger.Log(1, "error retrieving networks for keepalive", err.Error())
+	}
+	for _, network := range networks {
+		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
+		if errN == nil {
+			serverNode.SetLastCheckIn()
+			logic.UpdateNode(&serverNode, &serverNode)
+			if network.DefaultUDPHolePunch == "yes" {
+				if logic.ShouldPublishPeerPorts(&serverNode) || force {
+					if force {
+						logger.Log(2, "sending scheduled peer update (5 min)")
 					}
-				} else {
-					logger.Log(1, "unable to retrieve leader for network ", network.NetID)
-					logger.Log(1, errN.Error())
-					continue
+					err = PublishPeerUpdate(&serverNode)
+					if err != nil {
+						logger.Log(1, "error publishing udp port updates for network", network.NetID)
+						logger.Log(1, errN.Error())
+					}
 				}
 			}
+		} else {
+			logger.Log(1, "unable to retrieve leader for network ", network.NetID)
+			logger.Log(1, errN.Error())
+			continue
 		}
 	}
 }
