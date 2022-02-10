@@ -125,7 +125,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 
 	gwnode, err := logic.GetNodeByID(client.IngressGatewayID)
 	if err != nil {
-		logger.Log(1, fmt.Sprintf("%s %s %s", r.Header.Get("user"), "Could not retrieve Ingress Gateway Node", client.IngressGatewayID))
+		logger.Log(1, r.Header.Get("user"), "Could not retrieve Ingress Gateway Node", client.IngressGatewayID)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
