@@ -25,6 +25,10 @@ elif [ -f /etc/fedora-release ]; then
 	dependencies="wireguard"
 	update_cmd='dnf update'
 	install_cmd='dnf install -y'
+elif [ -f /etc/arch-releae ]; then
+    	dependecies="wireguard-tools"
+	update_cmd='pacman -Sy'
+	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
 	dependencies="wireguard"
 	update_cmd='pkg update'
