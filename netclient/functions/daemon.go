@@ -553,7 +553,7 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 
 	client := SetupMQTT(cfg, true)
 	defer client.Disconnect(250)
-	encrypted, err := ncutils.BoxEncrypt(msg, serverPubKey, trafficPrivKey)
+	encrypted, err := ncutils.BuildMessage(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
 		return err
 	}
@@ -584,7 +584,7 @@ func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return ncutils.BoxDecrypt(msg, serverPubKey, diskKey)
+	return ncutils.DestructMessage(string(msg), serverPubKey, diskKey)
 }
 
 func pingServer(cfg *config.ClientConfig) error {
