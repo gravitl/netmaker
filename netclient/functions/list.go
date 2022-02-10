@@ -18,7 +18,7 @@ type Peer struct {
 	Interface      string `json:"interface,omitempty"`
 	PrivateIPv4    string `json:"private_ipv4,omitempty"`
 	PrivateIPv6    string `json:"private_ipv6,omitempty"`
-	PublicEndpoint string `json:"public_endoint,omitempty"`
+	PublicEndpoint string `json:"public_endpoint,omitempty"`
 }
 
 type Network struct {
