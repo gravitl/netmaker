@@ -38,18 +38,51 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v2
+            - name: Setup Go
+              uses: actions/setup-go@v2
+              with:
+                go-version: 1.17
             - name: build client
               run: |
                 cd netclient
-                go build -ldflags="-X 'main.version=testing'" .
-                curl -H 'Authorization: Bearer ${{ secrets.NUSAK_MASTERKEY }}' \
-                -H 'Content-Type: multipart/form-data' --form upload='./netclient' \
-                -X POST https://dashboard.nusak.ca/api/file/netclient
-    #deploy:
-         #runs-on: ubuntu-latest
-         #steps:
-            #- name: Deploy Testing Server and Client(s)
-            #  run: |
-            #      curl -X POST https://api.github.com/mattkasun/terraform-test/dispatches \
-            #      -H 'Accept: application/vnd.github.everest-preview+json' \
-            #      -u ${{ secrets.ACCESS_TOKEN }} 
+                go build -ldflags="-X 'main.version=testing'" -o build/netclient
+            - name: deploy
+              uses: mdallasanta/ssh-scp-deploy@v1.1.0
+              with:
+                local: ./build/netmaker                                         # Local file path - REQUIRED false - DEFAULT ./
+                remote: /var/www/files/testing/                               # Remote file path - REQUIRED false - DEFAULT ~/
+                host: fileserver.clustercat.com                               # Remote server address - REQUIRED true
+                #port: ${{secrets.PORT}}                                      # Remote server port - REQUIRED false - DEFAULT 22
+                user: root                                                    # Remote server user - REQUIRED true
+                #password: ${{secrets.PASSWORD}}                              # User password - REQUIRED at least one of "password" or "key" 
+                key: ${{secrets.TESTING_SSH_KEY}}                             # Remote server private key - REQUIRED at least one of "password" or "key" 
+                #pre_upload: echo "This will be executed before the upload!"  # Command to run via ssh before scp upload - REQUIRED false
+                #post_upload: echo "This will be executed after the upload!"  # Command to run via ssh after scp upload - REQUIRED false
+                #ssh_options: -o StrictHostKeyChecking=no                     # A set of ssh_option separated by -o - REQUIRED false - DEFAULT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+                #scp_options: -v                                              # Flags to use during scp - REQUIRED false - DEFAULT ''
+    netmaker:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+            - name: Setup Go
+              uses: actions/setup-go@v2
+              with:
+                go-version: 1.17
+            - name: build server
+              run:
+                go build -ldflags="-X 'main.version=testing'" -o build/netmaker
+            - name: deploy
+              uses: mdallasanta/ssh-scp-deploy@v1.1.0
+              with:
+                local: ./build/netmaker                                         # Local file path - REQUIRED false - DEFAULT ./
+                remote: /var/www/files/testing/                               # Remote file path - REQUIRED false - DEFAULT ~/
+                host: fileserver.clustercat.com                               # Remote server address - REQUIRED true
+                #port: ${{secrets.PORT}}                                      # Remote server port - REQUIRED false - DEFAULT 22
+                user: root                                                    # Remote server user - REQUIRED true
+                #password: ${{secrets.PASSWORD}}                              # User password - REQUIRED at least one of "password" or "key" 
+                key: ${{secrets.TESTING_SSH_KEY}}                             # Remote server private key - REQUIRED at least one of "password" or "key" 
+                #pre_upload: echo "This will be executed before the upload!"  # Command to run via ssh before scp upload - REQUIRED false
+                #post_upload: echo "This will be executed after the upload!"  # Command to run via ssh after scp upload - REQUIRED false
+                #ssh_options: -o StrictHostKeyChecking=no                     # A set of ssh_option separated by -o - REQUIRED false - DEFAULT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+                #scp_options: -v                                              # Flags to use during scp - REQUIRED false - DEFAULT ''
