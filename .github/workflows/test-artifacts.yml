@@ -49,7 +49,7 @@ jobs:
             - name: deploy
               uses: mdallasanta/ssh-scp-deploy@v1.1.0
               with:
-                local: ./build/netmaker                                         # Local file path - REQUIRED false - DEFAULT ./
+                local: ./netclient/build/netclient                            # Local file path - REQUIRED false - DEFAULT ./
                 remote: /var/www/files/testing/                               # Remote file path - REQUIRED false - DEFAULT ~/
                 host: fileserver.clustercat.com                               # Remote server address - REQUIRED true
                 #port: ${{secrets.PORT}}                                      # Remote server port - REQUIRED false - DEFAULT 22
@@ -75,7 +75,7 @@ jobs:
             - name: deploy
               uses: mdallasanta/ssh-scp-deploy@v1.1.0
               with:
-                local: ./build/netmaker                                         # Local file path - REQUIRED false - DEFAULT ./
+                local: ./build/netmaker                                       # Local file path - REQUIRED false - DEFAULT ./
                 remote: /var/www/files/testing/                               # Remote file path - REQUIRED false - DEFAULT ~/
                 host: fileserver.clustercat.com                               # Remote server address - REQUIRED true
                 #port: ${{secrets.PORT}}                                      # Remote server port - REQUIRED false - DEFAULT 22
