@@ -185,7 +185,7 @@ If the daemon is not running correctly run, try restarting the daemon, or pullin
 Making Updates
 ----------------
 
-``vim /etc/netclient/netconfig-<network>``
+``vim /etc/netclient/config/netconfig-<network>``
 
 Change any of the variables in this file, and changes will be pushed to the server and processed locally on the next checkin.
 
