@@ -9,7 +9,7 @@ import (
 // MakeString - makes a string using golang string builder
 func MakeString(delimeter string, message ...string) string {
 	var builder strings.Builder
-	for i := 0; i < len(message); i++ {
+	for i := range message {
 		builder.WriteString(message[i])
 		if delimeter != "" && i != len(message)-1 {
 			builder.WriteString(delimeter)
