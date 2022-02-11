@@ -26,7 +26,7 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return ncutils.DestructMessage(string(msg), nodePubTKey, serverPrivTKey)
+	return ncutils.BoxDecrypt(msg, nodePubTKey, serverPrivTKey)
 }
 
 func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
@@ -46,8 +46,7 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	var encrypted, encErr = ncutils.BuildMessage(msg, nodePubKey, serverPrivKey)
-	return []byte(encrypted), encErr
+	return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
 }
 
 func publish(node *models.Node, dest string, msg []byte) error {
