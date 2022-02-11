@@ -110,13 +110,13 @@ func GetFlags(hostname string) []cli.Flag {
 			Name:    "apiserver",
 			EnvVars: []string{"NETCLIENT_API_SERVER"},
 			Value:   "",
-			Usage:   "Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server.",
+			Usage:   "Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server.",
 		},
 		&cli.StringFlag{
 			Name:    "grpcserver",
 			EnvVars: []string{"NETCLIENT_GRPC_SERVER"},
 			Value:   "",
-			Usage:   "Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server.",
+			Usage:   "Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server.",
 		},
 		&cli.StringFlag{
 			Name:    "grpcssl",
