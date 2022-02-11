@@ -118,6 +118,11 @@ func GetAPIConnString() string {
 	return conn
 }
 
+// SetVersion - set version of netmaker
+func SetVersion(v string) {
+	Version = v
+}
+
 // GetVersion - version of netmaker
 func GetVersion() string {
 	return Version
