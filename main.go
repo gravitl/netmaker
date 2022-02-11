@@ -26,8 +26,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+var version = "dev"
+
 // Start DB Connection and start API Request Handler
 func main() {
+	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and grpc server
 	setGarbageCollection()

@@ -1,12 +1,13 @@
 FROM gravitl/builder:latest as builder
 # add glib support daemon manager
 WORKDIR /app
+ARG version
 
 COPY . .
 
 ENV GO111MODULE=auto
 
-RUN GOOS=linux GOARCH=arm64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient-app netclient/main.go
+RUN GOOS=linux CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s -X 'main.version=${TAG}'" -o netclient-app netclient/main.go
 
 WORKDIR /root/
 

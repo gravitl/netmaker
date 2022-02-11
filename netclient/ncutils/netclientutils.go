@@ -73,6 +73,11 @@ const (
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
+// SetVersion -- set netclient version for use by other packages
+func SetVersion(ver string) {
+	Version = ver
+}
+
 // Log - logs a message
 func Log(message string) {
 	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
