@@ -67,7 +67,7 @@ func Dump() string {
 func DumpFile(filePath string) {
 	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		fmt.Println(MakeString("could not open log file", filePath))
+		fmt.Println(MakeString(" ", "could not open log file", filePath))
 		return
 	}
 
