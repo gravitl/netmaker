@@ -47,6 +47,7 @@ jobs:
           load: true
           platforms: linux/amd64
           tags: ${{ env.TAG }}
+          build-args: version=${{ env.TAG }}
       -
         name: Test x86
         run: |
@@ -61,6 +62,7 @@ jobs:
           load: true
           platforms: linux/arm64
           tags: ${{ env.TAG }}
+          build-args: version=${{ env.TAG }}
       -
         name: Test arm
         run: |
@@ -75,3 +77,4 @@ jobs:
           platforms: linux/amd64, linux/arm64
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}
+          build-args: version=${{ env.TAG }}
