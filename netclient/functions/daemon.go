@@ -181,35 +181,8 @@ func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
 	var cfg config.ClientConfig
 	cfg.Network = network
-	/*
-			var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
-			fileInfo, err := os.Stat(configPath)
-			if err != nil {
-				ncutils.Log("could not stat config file: " + configPath)
-			}
-			// speed up UDP rest
-				if time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
-					sleepTime := 2
-					ncutils.Log("pulling latest config for " + cfg.Network)
-					for {
-						_, err := Pull(network, true)
-						if err == nil {
-							break
-						} else {
-							ncutils.PrintLog("error pulling config for "+network+": "+err.Error(), 1)
-						}
-						if sleepTime > 3600 {
-							sleepTime = 3600
-						}
-						ncutils.Log("failed to pull for network " + network)
-						ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
-						time.Sleep(time.Second * time.Duration(sleepTime))
-						sleepTime = sleepTime * 2
-					}
-				}
+	initialPull(cfg.Network)
 
-		time.Sleep(time.Second << 1)
-	*/
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network: " + network)
 	client := SetupMQTT(&cfg, false)
@@ -537,6 +510,34 @@ func Hello(cfg *config.ClientConfig, network string) {
 }
 
 // == Private ==
+
+func initialPull(network string) {
+	ncutils.Log("pulling latest config for " + network)
+	var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
+	fileInfo, err := os.Stat(configPath)
+	if err != nil {
+		ncutils.Log("could not stat config file: " + configPath)
+		return
+	}
+	// speed up UDP rest
+	if !fileInfo.ModTime().IsZero() && time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
+		sleepTime := 2
+		for {
+			_, err := Pull(network, true)
+			if err == nil {
+				break
+			}
+			if sleepTime > 3600 {
+				sleepTime = 3600
+			}
+			ncutils.Log("failed to pull for network " + network)
+			ncutils.Log(fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
+			time.Sleep(time.Second * time.Duration(sleepTime))
+			sleepTime = sleepTime * 2
+		}
+		time.Sleep(time.Second << 1)
+	}
+}
 
 func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 	// setup the keys
