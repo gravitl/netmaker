@@ -5,7 +5,7 @@ Depending on complexity or severity, the Gravitl team may compensate (aka. bug b
 However, there is no official bug bounty program up yet for the Netmaker project.
 
 ## Supported Versions
-- We currently only are able to support work on the latest version(s)
+- We currently are only able to support work on the latest version(s)
 
 ## Reporting a Vulnerability
 
