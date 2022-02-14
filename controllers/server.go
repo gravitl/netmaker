@@ -49,17 +49,12 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
-		if adminonly && !isadmin && !authenticateMasterServer(authToken) {
+		if adminonly && !isadmin && !authenticateMaster(authToken) {
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
 		next.ServeHTTP(w, r)
 	}
-}
-
-//Consider a more secure way of setting master key
-func authenticateMasterServer(tokenString string) bool {
-	return tokenString == servercfg.GetMasterKey()
 }
 
 func removeNetwork(w http.ResponseWriter, r *http.Request) {

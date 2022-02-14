@@ -55,7 +55,7 @@ func CreateUserJWT(username string, networks []string, isadmin bool) (response s
 func VerifyUserToken(tokenString string) (username string, networks []string, isadmin bool, err error) {
 	claims := &models.UserClaims{}
 
-	if tokenString == servercfg.GetMasterKey() {
+	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
 		return "masteradministrator", nil, true, nil
 	}
 
@@ -79,7 +79,7 @@ func VerifyToken(tokenString string) (nodeID string, mac string, network string,
 
 	//this may be a stupid way of serving up a master key
 	//TODO: look into a different method. Encryption?
-	if tokenString == servercfg.GetMasterKey() {
+	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
 		return "mastermac", "", "", nil
 	}
 
