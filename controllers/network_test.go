@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -193,6 +194,7 @@ func TestSecurityCheck(t *testing.T) {
 	//these seem to work but not sure it the tests are really testing the functionality
 
 	database.InitializeDatabase()
+	os.Setenv("MASTER_KEY", "secretkey")
 	t.Run("NoNetwork", func(t *testing.T) {
 		err, networks, username := SecurityCheck(false, "", "Bearer secretkey")
 		assert.Nil(t, err)
