@@ -3,7 +3,6 @@ package servercfg
 import (
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -541,13 +540,23 @@ func IsHostNetwork() bool {
 // GetNodeID - gets the node id
 func GetNodeID() string {
 	var id string
+	var err error
 	// id = getMacAddr()
 	if os.Getenv("NODE_ID") != "" {
 		id = os.Getenv("NODE_ID")
 	} else if config.Config.Server.NodeID != "" {
 		id = config.Config.Server.NodeID
+	} else {
+		id, err = os.Hostname()
+		if err != nil {
+			return ""
+		}
 	}
 	return id
+}
+
+func SetNodeID(id string) {
+	config.Config.Server.NodeID = id
 }
 
 // GetServerCheckinInterval - gets the server check-in time
@@ -590,22 +599,6 @@ func GetAzureTenant() string {
 		azureTenant = config.Config.Server.AzureTenant
 	}
 	return azureTenant
-}
-
-// GetMacAddr - get's mac address
-func getMacAddr() string {
-	ifas, err := net.Interfaces()
-	if err != nil {
-		return ""
-	}
-	var as []string
-	for _, ifa := range ifas {
-		a := ifa.HardwareAddr.String()
-		if a != "" {
-			as = append(as, a)
-		}
-	}
-	return as[0]
 }
 
 // GetRce - sees if Rce is enabled, off by default
