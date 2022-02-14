@@ -27,7 +27,7 @@ require (
 	google.golang.org/genproto v0.0.0-20210201151548-94839c025ad4 // indirect
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
-	gopkg.in/ini.v1 v1.66.3
+	gopkg.in/ini.v1 v1.66.4
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
 
