@@ -540,11 +540,17 @@ func IsHostNetwork() bool {
 // GetNodeID - gets the node id
 func GetNodeID() string {
 	var id string
+	var err error
 	// id = getMacAddr()
 	if os.Getenv("NODE_ID") != "" {
 		id = os.Getenv("NODE_ID")
 	} else if config.Config.Server.NodeID != "" {
 		id = config.Config.Server.NodeID
+	} else {
+		id, err = os.Hostname()
+		if err != nil {
+			return ""
+		}
 	}
 	return id
 }
