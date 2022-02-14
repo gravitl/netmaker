@@ -46,7 +46,11 @@ func initialize() { // Client Mode Prereq Check
 	}
 
 	if servercfg.GetNodeID() == "" {
-		logger.FatalLog("error: must set NODE_ID, currently blank")
+		id, err := os.Hostname()
+		if err != nil {
+			id = ncutils.MakeRandomString(10)
+		}
+		servercfg.SetNodeID(id)
 	}
 
 	if err = database.InitializeDatabase(); err != nil {
