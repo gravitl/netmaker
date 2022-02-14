@@ -177,19 +177,19 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 
 		if accesstoken.ServerConfig.APIConnString != "" {
 			cfg.Server.APIAddress = accesstoken.ServerConfig.APIConnString
-		} else {
-			cfg.Server.APIAddress = accesstoken.ServerConfig.APIHost
-			if accesstoken.ServerConfig.APIPort != "" {
-				cfg.Server.APIAddress = cfg.Server.APIAddress + ":" + accesstoken.ServerConfig.APIPort
-			}
+			//} else {
+			//	cfg.Server.APIAddress = accesstoken.ServerConfig.APIHost
+			//	if accesstoken.ServerConfig.APIPort != "" {
+			//		cfg.Server.APIAddress = cfg.Server.APIAddress + ":" + accesstoken.ServerConfig.APIPort
+			//	}
 		}
 		if accesstoken.ServerConfig.GRPCConnString != "" {
 			cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCConnString
-		} else {
-			cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCHost
-			if accesstoken.ServerConfig.GRPCPort != "" {
-				cfg.Server.GRPCAddress = cfg.Server.GRPCAddress + ":" + accesstoken.ServerConfig.GRPCPort
-			}
+			//} else {
+			//	cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCHost
+			//	if accesstoken.ServerConfig.GRPCPort != "" {
+			//		cfg.Server.GRPCAddress = cfg.Server.GRPCAddress + ":" + accesstoken.ServerConfig.GRPCPort
+			//	}
 		}
 
 		cfg.Network = accesstoken.ClientConfig.Network
