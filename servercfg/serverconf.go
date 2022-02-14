@@ -266,7 +266,7 @@ func GetMessageQueueEndpoint() string {
 
 // GetMasterKey - gets the configured master key of server
 func GetMasterKey() string {
-	key := "secretkey"
+	key := ""
 	if os.Getenv("MASTER_KEY") != "" {
 		key = os.Getenv("MASTER_KEY")
 	} else if config.Config.Server.MasterKey != "" {

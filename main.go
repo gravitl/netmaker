@@ -41,6 +41,10 @@ func main() {
 func initialize() { // Client Mode Prereq Check
 	var err error
 
+	if servercfg.GetMasterKey() == "" {
+		logger.Log(0, "warning: MASTER_KEY not set, this could make account recovery difficult")
+	}
+
 	if servercfg.GetNodeID() == "" {
 		logger.FatalLog("error: must set NODE_ID, currently blank")
 	}
