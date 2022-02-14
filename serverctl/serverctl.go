@@ -2,7 +2,6 @@ package serverctl
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -34,9 +33,7 @@ func InitServerNetclient() error {
 			var currentServerNode, nodeErr = logic.GetNetworkServerLocal(network.NetID)
 			if nodeErr == nil {
 				if err = logic.ServerPull(&currentServerNode, true); err != nil {
-					logger.Log(1, fmt.Sprintf("failed pull for network %s, on server node %s",
-						network.NetID,
-						currentServerNode.ID))
+					logger.Log(1, "failed pull for network", network.NetID, ", on server node", currentServerNode.ID)
 				}
 			}
 		}
