@@ -2,7 +2,6 @@ package ncutils
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"crypto/tls"
 	"encoding/gob"
 	"errors"
@@ -22,7 +21,6 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/models"
-	"golang.org/x/crypto/nacl/box"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -611,28 +609,6 @@ func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) 
 		}
 	}
 	return false
-}
-
-// BoxEncrypt - encrypts traffic box
-func BoxEncrypt(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32]byte) ([]byte, error) {
-	var nonce [24]byte // 192 bits of randomization
-	if _, err := io.ReadFull(crand.Reader, nonce[:]); err != nil {
-		return nil, err
-	}
-
-	encrypted := box.Seal(nonce[:], message, &nonce, recipientPubKey, senderPrivateKey)
-	return encrypted, nil
-}
-
-// BoxDecrypt - decrypts traffic box
-func BoxDecrypt(encrypted []byte, senderPublicKey *[32]byte, recipientPrivateKey *[32]byte) ([]byte, error) {
-	var decryptNonce [24]byte
-	copy(decryptNonce[:], encrypted[:24])
-	decrypted, ok := box.Open(nil, encrypted[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("could not decrypt message")
-	}
-	return decrypted, nil
 }
 
 // MakeRandomString - generates a random string of len n

@@ -553,7 +553,7 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 
 	client := SetupMQTT(cfg, true)
 	defer client.Disconnect(250)
-	encrypted, err := ncutils.BoxEncrypt(msg, serverPubKey, trafficPrivKey)
+	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
 		return err
 	}
@@ -570,7 +570,7 @@ func parseNetworkFromTopic(topic string) string {
 
 func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	if len(msg) <= 24 { // make sure message is of appropriate length
-		return nil, fmt.Errorf("recieved invalid message from broker %s", string(msg))
+		return nil, fmt.Errorf("recieved invalid message from broker %v", msg)
 	}
 
 	// setup the keys
@@ -584,7 +584,7 @@ func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return ncutils.BoxDecrypt(msg, serverPubKey, diskKey)
+	return ncutils.DeChunk(msg, serverPubKey, diskKey)
 }
 
 func pingServer(cfg *config.ClientConfig) error {
