@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 var Version = "dev"
@@ -545,7 +546,11 @@ func GetNodeID() string {
 	if os.Getenv("NODE_ID") != "" {
 		id = os.Getenv("NODE_ID")
 	} else if config.Config.Server.NodeID != "" {
-		id = config.Config.Server.NodeID
+		id, err := os.Hostname()
+		if err != nil {
+			id = ncutils.MakeRandomString(10)
+		}
+		config.Config.Server.NodeID = id
 	}
 	return id
 }
