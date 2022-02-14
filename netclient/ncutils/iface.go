@@ -6,6 +6,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// IfaceDelta - checks if the new node causes an interface change
 func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	// single comparison statements
 	if newNode.Endpoint != currentNode.Endpoint ||

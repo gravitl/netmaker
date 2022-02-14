@@ -16,7 +16,10 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+// ALL_NETWORK_ACCESS - represents all networks
 const ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
+
+// NO_NETWORKS_PRESENT - represents no networks
 const NO_NETWORKS_PRESENT = "THIS_USER_HAS_NONE"
 
 func networkHandlers(r *mux.Router) {
@@ -116,7 +119,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 		logger.Log(2, "failed to get server node")
 		return
 	}
-	runUpdates(&node, false)
+	runUpdates(&node, false, false)
 }
 
 // Update a network
@@ -181,7 +184,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, node := range nodes {
-			runUpdates(&node, true)
+			runUpdates(&node, true, false)
 		}
 	}
 
