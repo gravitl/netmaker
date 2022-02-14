@@ -103,7 +103,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Node.MacAddress == "" {
 		macs, err := ncutils.GetMacAddr()
 		if err != nil {
-			return err
+			//if macaddress can't be found set to random string
+			cfg.Node.MacAddress = ncutils.MakeRandomString(18)
 		} else {
 			cfg.Node.MacAddress = macs[0]
 		}
