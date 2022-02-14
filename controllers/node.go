@@ -412,7 +412,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, false)
+	runUpdates(&node, false, false)
 }
 
 //Takes node out of pending state
@@ -430,7 +430,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
 
-	runUpdates(&node, true)
+	runUpdates(&node, true, false)
 }
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -454,7 +454,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true)
+	runUpdates(&node, true, false)
 }
 
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -472,7 +472,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true)
+	runUpdates(&node, true, false)
 }
 
 // == INGRESS ==
@@ -492,7 +492,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true)
+	runUpdates(&node, true, false)
 }
 
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
@@ -509,7 +509,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true)
+	runUpdates(&node, true, false)
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -551,6 +551,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
+	ifaceDelta := logic.IfaceDelta(&node, &newNode)
+
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -579,7 +581,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 
-	runUpdates(&newNode, true)
+	runUpdates(&newNode, true, ifaceDelta)
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
@@ -613,12 +615,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
-	time.Sleep(time.Second << 1)
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	runUpdates(&node, false)
+	runUpdates(&node, false, true)
 }
 
-func runUpdates(node *models.Node, nodeUpdate bool) error {
+func runUpdates(node *models.Node, nodeUpdate bool, requiresPause bool) error {
 	//don't publish to server node
 
 	if nodeUpdate && !isServer(node) {
@@ -626,6 +627,10 @@ func runUpdates(node *models.Node, nodeUpdate bool) error {
 			logger.Log(1, "error publishing node update", err.Error())
 			return err
 		}
+	}
+
+	if requiresPause { // TODO in future, detect when a node has finished iface update
+		time.Sleep(time.Second * 10)
 	}
 
 	if err := runServerPeerUpdate(node, isServer(node)); err != nil {

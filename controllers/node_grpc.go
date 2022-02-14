@@ -107,7 +107,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
-	runUpdates(&node, false)
+	runUpdates(&node, false, false)
 
 	go func(node *models.Node) {
 		if node.UDPHolePunch == "yes" {
@@ -146,6 +146,8 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
+	ifaceDelta := logic.IfaceDelta(&node, &newnode)
+
 	if !servercfg.GetRce() {
 		newnode.PostDown = node.PostDown
 		newnode.PostUp = node.PostUp
@@ -166,7 +168,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
-	runUpdates(&newnode, false)
+	runUpdates(&newnode, false, ifaceDelta)
 
 	return &nodepb.Object{
 		Data: string(nodeData),
