@@ -125,14 +125,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	cfg.Node.Name = formatName(cfg.Node)
 	// differentiate between client/server here
 	var node = models.Node{
-		Password:            cfg.Node.Password,
-		Address:             cfg.Node.Address,
-		Address6:            cfg.Node.Address6,
-		ID:                  cfg.Node.ID,
-		MacAddress:          cfg.Node.MacAddress,
-		AccessKey:           cfg.Server.AccessKey,
-		IsStatic:            cfg.Node.IsStatic,
-		Roaming:             cfg.Node.Roaming,
+		Password:   cfg.Node.Password,
+		Address:    cfg.Node.Address,
+		Address6:   cfg.Node.Address6,
+		ID:         cfg.Node.ID,
+		MacAddress: cfg.Node.MacAddress,
+		AccessKey:  cfg.Server.AccessKey,
+		IsStatic:   cfg.Node.IsStatic,
+		//Roaming:             cfg.Node.Roaming,
 		Network:             cfg.Network,
 		ListenPort:          cfg.Node.ListenPort,
 		PostUp:              cfg.Node.PostUp,
