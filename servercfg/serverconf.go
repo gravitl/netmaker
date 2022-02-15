@@ -208,7 +208,7 @@ func GetGRPCConnString() string {
 	} else if config.Config.Server.GRPCConnString != "" {
 		conn = config.Config.Server.GRPCConnString
 	} else {
-		conn = config.Config.Server.GRPCHost + ":" + config.Config.Server.GRPCPort
+		conn = GetGRPCHost() + ":" + GetGRPCPort()
 	}
 	return conn
 }
