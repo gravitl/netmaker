@@ -36,7 +36,6 @@ type ClientConfig struct {
 type ServerConfig struct {
 	CoreDNSAddr     string `yaml:"corednsaddr"`
 	GRPCAddress     string `yaml:"grpcaddress"`
-	APIAddress      string `yaml:"apiaddress"`
 	AccessKey       string `yaml:"accesskey"`
 	GRPCSSL         string `yaml:"grpcssl"`
 	GRPCWireGuard   string `yaml:"grpcwg"`
@@ -175,22 +174,8 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 			return cfg, "", err
 		}
 
-		//if accesstoken.ServerConfig.APIConnString != "" {
-		//	cfg.Server.APIAddress = accesstoken.ServerConfig.APIConnString
-		//} else {
-		//	cfg.Server.APIAddress = accesstoken.ServerConfig.APIHost
-		//	if accesstoken.ServerConfig.APIPort != "" {
-		//		cfg.Server.APIAddress = cfg.Server.APIAddress + ":" + accesstoken.ServerConfig.APIPort
-		//	}
-		//}
 		if accesstoken.ServerConfig.GRPCConnString != "" {
 			cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCConnString
-
-			//} else {
-			//	cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCHost
-			//	if accesstoken.ServerConfig.GRPCPort != "" {
-			//		cfg.Server.GRPCAddress = cfg.Server.GRPCAddress + ":" + accesstoken.ServerConfig.GRPCPort
-			//	}
 		}
 
 		cfg.Network = accesstoken.ClientConfig.Network
@@ -199,13 +184,9 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.CheckinInterval = accesstoken.ServerConfig.CheckinInterval
-		//cfg.Server.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
 		cfg.Server.CoreDNSAddr = accesstoken.ServerConfig.CoreDNSAddr
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
-		}
-		if c.String("apiserver") != "" {
-			cfg.Server.APIAddress = c.String("apiserver")
 		}
 		if c.String("key") != "" {
 			cfg.Server.AccessKey = c.String("key")
@@ -232,7 +213,6 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 
 	} else {
 		cfg.Server.GRPCAddress = c.String("grpcserver")
-		cfg.Server.APIAddress = c.String("apiserver")
 		cfg.Server.AccessKey = c.String("key")
 		cfg.Network = c.String("network")
 		cfg.Node.Network = c.String("network")
