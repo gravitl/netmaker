@@ -175,16 +175,17 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 			return cfg, "", err
 		}
 
-		if accesstoken.ServerConfig.APIConnString != "" {
-			cfg.Server.APIAddress = accesstoken.ServerConfig.APIConnString
-			//} else {
-			//	cfg.Server.APIAddress = accesstoken.ServerConfig.APIHost
-			//	if accesstoken.ServerConfig.APIPort != "" {
-			//		cfg.Server.APIAddress = cfg.Server.APIAddress + ":" + accesstoken.ServerConfig.APIPort
-			//	}
-		}
+		//if accesstoken.ServerConfig.APIConnString != "" {
+		//	cfg.Server.APIAddress = accesstoken.ServerConfig.APIConnString
+		//} else {
+		//	cfg.Server.APIAddress = accesstoken.ServerConfig.APIHost
+		//	if accesstoken.ServerConfig.APIPort != "" {
+		//		cfg.Server.APIAddress = cfg.Server.APIAddress + ":" + accesstoken.ServerConfig.APIPort
+		//	}
+		//}
 		if accesstoken.ServerConfig.GRPCConnString != "" {
 			cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCConnString
+
 			//} else {
 			//	cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCHost
 			//	if accesstoken.ServerConfig.GRPCPort != "" {
@@ -198,7 +199,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.CheckinInterval = accesstoken.ServerConfig.CheckinInterval
-		cfg.Server.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
+		//cfg.Server.GRPCWireGuard = accesstoken.WG.GRPCWireGuard
 		cfg.Server.CoreDNSAddr = accesstoken.ServerConfig.CoreDNSAddr
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")

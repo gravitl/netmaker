@@ -3,7 +3,7 @@ package models
 type AccessToken struct {
 	ServerConfig
 	ClientConfig
-	WG
+	//WG
 }
 
 type ClientConfig struct {
@@ -13,8 +13,8 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
-	CoreDNSAddr   string `json:"corednsaddr"`
-	APIConnString string `json:"apiconn"`
+	CoreDNSAddr string `json:"corednsaddr"`
+	//APIConnString string `json:"apiconn"`
 	//APIHost         string `json:"apihost"`
 	//APIPort         string `json:"apiport"`
 	GRPCConnString string `json:"grpcconn"`
