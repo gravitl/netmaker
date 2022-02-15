@@ -2,14 +2,29 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-var jwtSecretKey = []byte("(BytesOverTheWire)")
+var jwtSecretKey []byte
+
+// SetJWTSecret - sets the jwt secret on server startup
+func SetJWTSecret() {
+	currentSecret, jwtErr := FetchJWTSecret()
+	if jwtErr != nil {
+		jwtSecretKey = []byte(RandomString(64)) // 512 bit random password
+		if err := StoreJWTSecret(string(jwtSecretKey)); err != nil {
+			logger.FatalLog("something went wrong when configuring JWT authentication")
+		}
+	} else {
+		jwtSecretKey = []byte(currentSecret)
+	}
+}
 
 // CreateJWT func will used to create the JWT while signing in and signing out
 func CreateJWT(uuid string, macAddress string, network string) (response string, err error) {
@@ -19,6 +34,9 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 		Network:    network,
 		MacAddress: macAddress,
 		StandardClaims: jwt.StandardClaims{
+			Issuer:    "Netmaker",
+			Subject:   fmt.Sprintf("node|%s", uuid),
+			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: expirationTime.Unix(),
 		},
 	}
@@ -39,6 +57,9 @@ func CreateUserJWT(username string, networks []string, isadmin bool) (response s
 		Networks: networks,
 		IsAdmin:  isadmin,
 		StandardClaims: jwt.StandardClaims{
+			Issuer:    "Netmaker",
+			IssuedAt:  time.Now().Unix(),
+			Subject:   fmt.Sprintf("user|%s", username),
 			ExpiresAt: expirationTime.Unix(),
 		},
 	}
