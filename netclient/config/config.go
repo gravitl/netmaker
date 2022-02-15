@@ -184,7 +184,6 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.CheckinInterval = accesstoken.ServerConfig.CheckinInterval
-		cfg.Server.CoreDNSAddr = accesstoken.ServerConfig.CoreDNSAddr
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}

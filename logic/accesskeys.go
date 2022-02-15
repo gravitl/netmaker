@@ -52,7 +52,6 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
 	servervals := models.ServerConfig{
-		CoreDNSAddr:     s.CoreDNSAddr,
 		GRPCConnString:  s.GRPCConnString,
 		GRPCSSL:         s.GRPCSSL,
 		CheckinInterval: s.CheckinInterval,

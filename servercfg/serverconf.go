@@ -207,6 +207,8 @@ func GetGRPCConnString() string {
 		conn = os.Getenv("SERVER_GRPC_CONN_STRING")
 	} else if config.Config.Server.GRPCConnString != "" {
 		conn = config.Config.Server.GRPCConnString
+	} else {
+		conn = config.Config.Server.GRPCHost + ":" + config.Config.Server.GRPCPort
 	}
 	return conn
 }
@@ -414,8 +416,8 @@ func IsGRPCSSL() bool {
 		if os.Getenv("GRPC_SSL") == "on" {
 			isssl = true
 		}
-	} else if config.Config.Server.DNSMode != "" {
-		if config.Config.Server.DNSMode == "on" {
+	} else if config.Config.Server.GRPCSSL != "" {
+		if config.Config.Server.GRPCSSL == "on" {
 			isssl = true
 		}
 	}

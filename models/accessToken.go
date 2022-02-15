@@ -12,7 +12,6 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
-	CoreDNSAddr     string `json:"corednsaddr"`
 	GRPCConnString  string `json:"grpcconn"`
 	GRPCSSL         string `json:"grpcssl"`
 	CheckinInterval string `json:"checkininterval"`
