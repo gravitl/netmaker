@@ -44,7 +44,7 @@ func RemovePrivKey(serverID string) error {
 	return database.DeleteRecord(database.SERVERCONF_TABLE_NAME, serverID)
 }
 
-// FetchJWTSecret - fetches db string from db
+// FetchJWTSecret - fetches jwt secret from db
 func FetchJWTSecret() (string, error) {
 	var dbData string
 	var err error
@@ -60,7 +60,7 @@ func FetchJWTSecret() (string, error) {
 	return fetchedData.PrivateKey, nil
 }
 
-// StoreJWTSecret - stores server client WireGuard privatekey if needed
+// StoreJWTSecret - stores server jwt secret if needed
 func StoreJWTSecret(privateKey string) error {
 	var newData = serverData{}
 	var err error
