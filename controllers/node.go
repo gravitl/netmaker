@@ -182,6 +182,13 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			var isAuthorized = false
 			var nodeID = ""
 			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
+			if errN != nil {
+				errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: Unauthorized, Invalid Token Processed.",
+				}
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
 			isnetadmin := isadmin
 			if errN == nil && isadmin {
 				nodeID = "mastermac"
