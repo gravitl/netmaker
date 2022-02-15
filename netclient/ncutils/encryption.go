@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	chunkSize = 16000 // 16128 bytes max message size
+	chunkSize = 16000 // 16000 bytes max message size
 )
 
 // BoxEncrypt - encrypts traffic box
@@ -30,7 +30,7 @@ func BoxDecrypt(encrypted []byte, senderPublicKey *[32]byte, recipientPrivateKey
 	copy(decryptNonce[:], encrypted[:24])
 	decrypted, ok := box.Open(nil, encrypted[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
 	if !ok {
-		return nil, fmt.Errorf("could not decrypt message")
+		return nil, fmt.Errorf("could not decrypt message, %v", encrypted)
 	}
 	return decrypted, nil
 }
@@ -41,8 +41,6 @@ func Chunk(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32]byte
 	for i := 0; i < len(message); i += chunkSize {
 		end := i + chunkSize
 
-		// necessary check to avoid slicing beyond
-		// slice capacity
 		if end > len(message) {
 			end = len(message)
 		}
@@ -95,10 +93,7 @@ func convertMsgToBytes(msg []byte) ([][]byte, error) {
 // ConvertBytesToMsg - converts the chunked message into a MQ message
 // encode action
 func convertBytesToMsg(b [][]byte) ([]byte, error) {
-	// var totalSize = len(b) * len(splitKey)
-	// for _, buf := range b {
-	// 	totalSize += len(buf)
-	// }
+
 	var buffer []byte  // allocate a buffer with adequate sizing
 	for i := range b { // append bytes to it with key
 		buffer = append(buffer, b[i]...)
