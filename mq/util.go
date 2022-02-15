@@ -2,6 +2,7 @@ package mq
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -26,6 +27,10 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	if strings.Contains(node.Version, "0.10.0") {
+		return ncutils.BoxDecrypt(msg, nodePubTKey, serverPrivTKey)
+	}
+
 	return ncutils.DeChunk(msg, nodePubTKey, serverPrivTKey)
 }
 
@@ -44,6 +49,10 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	nodePubKey, err := ncutils.ConvertBytesToKey(node.TrafficKeys.Mine)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.Contains(node.Version, "0.10.0") {
+		return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
 	}
 
 	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
