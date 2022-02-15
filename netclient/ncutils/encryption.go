@@ -3,7 +3,6 @@ package ncutils
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/gob"
 	"fmt"
 	"io"
 
@@ -11,7 +10,7 @@ import (
 )
 
 const (
-	chunkSize = 16128 // 16128 bytes max message size
+	chunkSize = 16000 // 16128 bytes max message size
 )
 
 // BoxEncrypt - encrypts traffic box
@@ -66,7 +65,7 @@ func Chunk(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32]byte
 
 // DeChunk - "de" chunks and decrypts a message
 func DeChunk(chunkedMsg []byte, senderPublicKey *[32]byte, recipientPrivateKey *[32]byte) ([]byte, error) {
-	chunks, err := convertMsgToBytes(chunkedMsg)
+	chunks, err := convertMsgToBytes(chunkedMsg) // convert the message to it's original chunks form
 	if err != nil {
 		return nil, err
 	}
@@ -84,26 +83,28 @@ func DeChunk(chunkedMsg []byte, senderPublicKey *[32]byte, recipientPrivateKey *
 
 // == private ==
 
+var splitKey = []byte("|(,)(,)|")
+
 // ConvertMsgToBytes - converts a message (MQ) to it's chunked version
 // decode action
 func convertMsgToBytes(msg []byte) ([][]byte, error) {
-	var buffer = bytes.NewBuffer(msg)
-	var dec = gob.NewDecoder(buffer)
-	var result [][]byte
-	var err = dec.Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-	return result, err
+	splitMsg := bytes.Split(msg, splitKey)
+	return splitMsg, nil
 }
 
 // ConvertBytesToMsg - converts the chunked message into a MQ message
 // encode action
 func convertBytesToMsg(b [][]byte) ([]byte, error) {
-	var buffer bytes.Buffer
-	var enc = gob.NewEncoder(&buffer)
-	if err := enc.Encode(b); err != nil {
-		return nil, err
+	// var totalSize = len(b) * len(splitKey)
+	// for _, buf := range b {
+	// 	totalSize += len(buf)
+	// }
+	var buffer []byte  // allocate a buffer with adequate sizing
+	for i := range b { // append bytes to it with key
+		buffer = append(buffer, b[i]...)
+		if i != len(b)-1 {
+			buffer = append(buffer, splitKey...)
+		}
 	}
-	return buffer.Bytes(), nil
+	return buffer, nil
 }

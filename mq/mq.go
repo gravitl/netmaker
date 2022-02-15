@@ -53,12 +53,13 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 		}
 		_, decryptErr := decryptMsg(&node, msg.Payload())
 		if decryptErr != nil {
-			logger.Log(0, "error updating node ", node.ID, err.Error())
+			logger.Log(0, "error decrypting when updating node ", node.ID, decryptErr.Error())
 			return
 		}
 		node.SetLastCheckIn()
 		if err := logic.UpdateNode(&node, &node); err != nil {
-			logger.Log(0, "error updating node ", err.Error())
+			logger.Log(0, "error updating node", node.Name, node.ID, " on checkin", err.Error())
+			return
 		}
 		logger.Log(3, "ping processed for node", node.ID)
 		// --TODO --set client version once feature is implemented.
@@ -84,7 +85,6 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return
 		}
-		logger.Log(1, "Update Node Handler", id)
 		var newNode models.Node
 		if err := json.Unmarshal(decrypted, &newNode); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
@@ -92,12 +92,13 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		}
 		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
+			return
 		}
 		if err := PublishPeerUpdate(&newNode); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 			return
 		}
-		logger.Log(1, "no need to update peers")
+		logger.Log(1, "Updated node", id, newNode.Name)
 	}()
 }
 
