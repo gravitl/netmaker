@@ -2,9 +2,11 @@
 package logic
 
 import (
+	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"net"
 	"os"
@@ -85,29 +87,20 @@ func SetNetworkNodesLastModified(networkName string) error {
 	return nil
 }
 
-// // GetNode - fetches a node from database
-// func GetNode(macaddress string, network string) (models.Node, error) {
-// 	var node models.Node
+// GenerateCryptoString - generates random string of n length
+func GenerateCryptoString(n int) (string, error) {
+	const chars = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
+	ret := make([]byte, n)
+	for i := range ret {
+		num, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			return "", err
+		}
+		ret[i] = chars[num.Int64()]
+	}
 
-// 	key, err := GetRecordKey(macaddress, network)
-// 	if err != nil {
-// 		return node, err
-// 	}
-// 	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-// 	if err != nil {
-// 		if data == "" {
-// 			data, _ = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
-// 			err = json.Unmarshal([]byte(data), &node)
-// 		}
-// 		return node, err
-// 	}
-// 	if err = json.Unmarshal([]byte(data), &node); err != nil {
-// 		return node, err
-// 	}
-// 	SetNodeDefaults(&node)
-
-// 	return node, err
-// }
+	return string(ret), nil
+}
 
 // DeleteNodeByID - deletes a node from database or moves into delete nodes table
 func DeleteNodeByID(node *models.Node, exterminate bool) error {
