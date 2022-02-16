@@ -48,11 +48,13 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 		return err
 	}
 	ncutils.PrintLog("joined "+cfg.Network, 1)
-	if ncutils.IsWindows() {
-		ncutils.PrintLog("setting up WireGuard app", 0)
-		time.Sleep(time.Second >> 1)
-		functions.Pull(cfg.Network, true)
-	}
+	/*
+		if ncutils.IsWindows() {
+			ncutils.PrintLog("setting up WireGuard app", 0)
+			time.Sleep(time.Second >> 1)
+			functions.Pull(cfg.Network, true)
+		}
+	*/
 	return err
 }
 
