@@ -2,9 +2,11 @@
 package logic
 
 import (
+	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"log"
+	"math/big"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -286,6 +288,21 @@ func RandomString(length int) string {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+// GenerateRandString - generates random string of n length
+func GenerateRandString(n int) (string, error) {
+	const chars = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
+	ret := make([]byte, n)
+	for i := range ret {
+		num, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			return "", err
+		}
+		ret[i] = chars[num.Int64()]
+	}
+
+	return string(ret), nil
 }
 
 func setPeerInfo(node models.Node) models.Node {
