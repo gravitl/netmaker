@@ -88,94 +88,6 @@ func Daemon() error {
 
 }
 
-// SetupMQTT creates a connection to broker and return client
-func SetupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
-	opts := mqtt.NewClientOptions()
-	server := getServerAddress(cfg)
-	opts.AddBroker(server + ":1883")
-	id := ncutils.MakeRandomString(23)
-	opts.ClientID = id
-	opts.SetDefaultPublishHandler(All)
-	opts.SetAutoReconnect(true)
-	opts.SetConnectRetry(true)
-	opts.SetConnectRetryInterval(time.Second << 2)
-	opts.SetKeepAlive(time.Minute >> 1)
-	opts.SetWriteTimeout(time.Minute)
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		if !publish {
-			if cfg.DebugOn {
-				if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
-					ncutils.Log(token.Error().Error())
-					return
-				}
-				ncutils.Log("subscribed to all topics for debugging purposes")
-			}
-			if token := client.Subscribe(fmt.Sprintf("update/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
-				ncutils.Log(token.Error().Error())
-				return
-			}
-			if cfg.DebugOn {
-				ncutils.Log(fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
-			}
-			if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
-				ncutils.Log(token.Error().Error())
-				return
-			}
-			if cfg.DebugOn {
-				ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
-			}
-			opts.SetOrderMatters(true)
-			opts.SetResumeSubs(true)
-		}
-	})
-	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		ncutils.Log("detected broker connection lost, running pull for " + cfg.Node.Network)
-		_, err := Pull(cfg.Node.Network, true)
-		if err != nil {
-			ncutils.Log("could not run pull, server unreachable: " + err.Error())
-			ncutils.Log("waiting to retry...")
-			/*
-				//Consider putting in logic to restart - daemon may take long time to refresh
-				time.Sleep(time.Minute * 5)
-					ncutils.Log("restarting netclient")
-					daemon.Restart()
-			*/
-		}
-		ncutils.Log("connection re-established with mqtt server")
-	})
-
-	client := mqtt.NewClient(opts)
-	tperiod := time.Now().Add(12 * time.Second)
-	for {
-		//if after 12 seconds, try a gRPC pull on the last try
-		if time.Now().After(tperiod) {
-			ncutils.Log("running pull for " + cfg.Node.Network)
-			_, err := Pull(cfg.Node.Network, true)
-			if err != nil {
-				ncutils.Log("could not run pull, exiting " + cfg.Node.Network + " setup: " + err.Error())
-				return client
-			}
-			time.Sleep(time.Second)
-		}
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			ncutils.Log("unable to connect to broker, retrying ...")
-			if time.Now().After(tperiod) {
-				ncutils.Log("could not connect to broker, exiting " + cfg.Node.Network + " setup: " + token.Error().Error())
-				if strings.Contains(token.Error().Error(), "connectex") || strings.Contains(token.Error().Error(), "i/o timeout") {
-					ncutils.PrintLog("connection issue detected.. pulling and restarting daemon", 0)
-					Pull(cfg.Node.Network, true)
-					daemon.Restart()
-				}
-				return client
-			}
-		} else {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return client
-}
-
 // MessageQueue sets up Message Queue and subsribes/publishes updates to/from server
 func MessageQueue(ctx context.Context, network string) {
 	ncutils.Log("netclient go routine started for " + network)
@@ -185,7 +97,7 @@ func MessageQueue(ctx context.Context, network string) {
 
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network: " + network)
-	client := SetupMQTT(&cfg, false)
+	client := setupMQTT(&cfg, false)
 
 	defer client.Disconnect(250)
 	wg := &sync.WaitGroup{}
@@ -287,15 +199,15 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		ncutils.Log("error updating wireguard config " + err.Error())
 		return
 	}
-	if ifaceDelta {
+	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
 		ncutils.Log("applying WG conf to " + file)
 		err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file)
 		if err != nil {
 			ncutils.Log("error restarting wg after node update " + err.Error())
 			return
 		}
-		time.Sleep(time.Second >> 1)
 
+		time.Sleep(time.Second >> 1)
 		if newNode.DNSOn == "yes" {
 			for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
 				if server.IsLeader {
@@ -304,6 +216,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				}
 			}
 		}
+		publishClientPeers(&cfg)
 	}
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && cfg.Node.Interface != "" {
@@ -360,39 +273,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 }
-
-// MonitorKeepalive - checks time last server keepalive received.  If more than 3+ minutes, notify and resubscribe
-// func MonitorKeepalive(ctx context.Context, wg *sync.WaitGroup, client mqtt.Client, cfg *config.ClientConfig) {
-// 	defer wg.Done()
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			ncutils.Log("cancel recieved, monitor keepalive exiting")
-// 			return
-// 		case <-time.After(time.Second * 150):
-// 			var keepalivetime time.Time
-// 			keepaliveval, ok := keepalive.Load(cfg.Node.Network)
-// 			if ok {
-// 				keepalivetime = keepaliveval.(time.Time)
-// 				if !keepalivetime.IsZero() && time.Since(keepalivetime) > time.Second*120 { // more than 2+ minutes
-// 					// ncutils.Log("server keepalive not recieved recently, resubscribe to message queue")
-// 					// err := Resubscribe(client, cfg)
-// 					// if err != nil {
-// 					// 	ncutils.Log("closing " + err.Error())
-// 					// }
-// 					ncutils.Log("maybe wanna call something")
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
-// ServerKeepAlive -- handler to react to keepalive messages published by server
-// func ServerKeepAlive(client mqtt.Client, msg mqtt.Message) {
-// 	var currentTime = time.Now()
-// 	keepalive.Store(parseNetworkFromTopic(msg.Topic()), currentTime)
-// 	ncutils.PrintLog("received server keepalive at "+currentTime.String(), 2)
-// }
 
 // UpdateKeys -- updates private key and returns new publickey
 func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
@@ -508,6 +388,103 @@ func Hello(cfg *config.ClientConfig, network string) {
 
 // == Private ==
 
+// setupMQTT creates a connection to broker and return client
+func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
+	opts := mqtt.NewClientOptions()
+	server := getServerAddress(cfg)
+	opts.AddBroker(server + ":1883")
+	id := ncutils.MakeRandomString(23)
+	opts.ClientID = id
+	opts.SetDefaultPublishHandler(All)
+	opts.SetAutoReconnect(true)
+	opts.SetConnectRetry(true)
+	opts.SetConnectRetryInterval(time.Second << 2)
+	opts.SetKeepAlive(time.Minute >> 1)
+	opts.SetWriteTimeout(time.Minute)
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		if !publish {
+			if cfg.DebugOn {
+				if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
+					ncutils.Log(token.Error().Error())
+					return
+				}
+				ncutils.Log("subscribed to all topics for debugging purposes")
+			}
+			if token := client.Subscribe(fmt.Sprintf("update/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
+				ncutils.Log(token.Error().Error())
+				return
+			}
+			if cfg.DebugOn {
+				ncutils.Log(fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+			}
+			if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
+				ncutils.Log(token.Error().Error())
+				return
+			}
+			if cfg.DebugOn {
+				ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+			}
+			opts.SetOrderMatters(true)
+			opts.SetResumeSubs(true)
+		}
+	})
+	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
+		ncutils.Log("detected broker connection lost, running pull for " + cfg.Node.Network)
+		_, err := Pull(cfg.Node.Network, true)
+		if err != nil {
+			ncutils.Log("could not run pull, server unreachable: " + err.Error())
+			ncutils.Log("waiting to retry...")
+			/*
+				//Consider putting in logic to restart - daemon may take long time to refresh
+				time.Sleep(time.Minute * 5)
+					ncutils.Log("restarting netclient")
+					daemon.Restart()
+			*/
+		}
+		ncutils.Log("connection re-established with mqtt server")
+	})
+
+	client := mqtt.NewClient(opts)
+	tperiod := time.Now().Add(12 * time.Second)
+	for {
+		//if after 12 seconds, try a gRPC pull on the last try
+		if time.Now().After(tperiod) {
+			ncutils.Log("running pull for " + cfg.Node.Network)
+			_, err := Pull(cfg.Node.Network, true)
+			if err != nil {
+				ncutils.Log("could not run pull, exiting " + cfg.Node.Network + " setup: " + err.Error())
+				return client
+			}
+			time.Sleep(time.Second)
+		}
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			ncutils.Log("unable to connect to broker, retrying ...")
+			if time.Now().After(tperiod) {
+				ncutils.Log("could not connect to broker, exiting " + cfg.Node.Network + " setup: " + token.Error().Error())
+				if strings.Contains(token.Error().Error(), "connectex") || strings.Contains(token.Error().Error(), "i/o timeout") {
+					ncutils.PrintLog("connection issue detected.. pulling and restarting daemon", 0)
+					Pull(cfg.Node.Network, true)
+					daemon.Restart()
+				}
+				return client
+			}
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return client
+}
+
+// publishes a message to server to update peers on this peer's behalf
+func publishClientPeers(cfg *config.ClientConfig) error {
+	payload := []byte(ncutils.MakeRandomString(16)) // just random string for now to keep the bytes different
+	if err := publish(cfg, fmt.Sprintf("update/%s", cfg.Node.ID), payload); err != nil {
+		return err
+	}
+	return nil
+}
+
 func initialPull(network string) {
 	ncutils.Log("pulling latest config for " + network)
 	var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
@@ -548,7 +525,7 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 		return err
 	}
 
-	client := SetupMQTT(cfg, true)
+	client := setupMQTT(cfg, true)
 	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {

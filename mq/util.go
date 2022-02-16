@@ -70,3 +70,14 @@ func publish(node *models.Node, dest string, msg []byte) error {
 	}
 	return nil
 }
+
+//  decodes a message queue topic and returns the embedded node.ID
+func getID(topic string) (string, error) {
+	parts := strings.Split(topic, "/")
+	count := len(parts)
+	if count == 1 {
+		return "", fmt.Errorf("invalid topic")
+	}
+	//the last part of the topic will be the node.ID
+	return parts[count-1], nil
+}
