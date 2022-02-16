@@ -202,7 +202,7 @@ func UniqueAddress(networkName string) (string, error) {
 	}
 
 	//TODO
-	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
+	err1 := errors.New("ERROR: No unique addresses available. Check network subnet")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
@@ -301,7 +301,7 @@ func UniqueAddress6(networkName string) (string, error) {
 		}
 	}
 	//TODO
-	err1 := errors.New("ERROR: No unique addresses available. Check network subnet.")
+	err1 := errors.New("ERROR: No unique addresses available. Check network subnet")
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", err1
 }
 
@@ -380,7 +380,13 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 			return err
 		}
 		if node.Network == networkName {
-			ipaddr, iperr := UniqueAddress(networkName)
+			var ipaddr string
+			var iperr error
+			if node.IsServer == "yes" {
+				ipaddr, iperr = UniqueAddressServer(networkName)
+			} else {
+				ipaddr, iperr = UniqueAddress(networkName)
+			}
 			if iperr != nil {
 				fmt.Println("error in node  address assignment!")
 				return iperr
@@ -469,7 +475,13 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			return err
 		}
 		if node.Network == networkName {
-			ipaddr, iperr := UniqueAddress(networkName)
+			var ipaddr string
+			var iperr error
+			if node.IsServer == "yes" {
+				ipaddr, iperr = UniqueAddressServer(networkName)
+			} else {
+				ipaddr, iperr = UniqueAddress(networkName)
+			}
 			if iperr != nil {
 				fmt.Println("error in node  address assignment!")
 				return iperr
