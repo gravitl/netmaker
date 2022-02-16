@@ -293,7 +293,7 @@ func RandomString(length int) string {
 
 // GenerateRandomString - generates random string of n length
 func GenerateRandomString(n int) (string, error) {
-	const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
+	const chars = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
 	ret := make([]byte, n)
 	for i := range ret {
 		num, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
