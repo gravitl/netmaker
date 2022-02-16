@@ -48,35 +48,35 @@ type Node struct {
 	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"macaddress_unique"`
 	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
-	CheckInInterval     int32       `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
-	Password            string      `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
-	Network             string      `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
-	IsRelayed           string      `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	IsPending           string      `json:"ispending" bson:"ispending" yaml:"ispending"`
-	IsRelay             string      `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
-	IsDocker            string      `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
-	IsK8S               string      `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
-	IsEgressGateway     string      `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
-	IsIngressGateway    string      `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
-	EgressGatewayRanges []string    `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	RelayAddrs          []string    `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
-	IngressGatewayRange string      `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
-	IsStatic            string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
-	UDPHolePunch        string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
-	PullChanges         string      `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
-	DNSOn               string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
-	IsDualStack         string      `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
-	IsServer            string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Action              string      `json:"action" bson:"action" yaml:"action"`
-	IsLocal             string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange          string      `json:"localrange" bson:"localrange" yaml:"localrange"`
-	Roaming             string      `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
-	IPForwarding        string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
-	OS                  string      `json:"os" bson:"os" yaml:"os"`
-	MTU                 int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
-	Version             string      `json:"version" bson:"version" yaml:"version"`
-	ExcludedAddrs       []string    `json:"excludedaddrs" bson:"excludedaddrs" yaml:"excludedaddrs"`
-	TrafficKeys         TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
+	CheckInInterval     int32    `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
+	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
+	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
+	IsRelayed           string   `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
+	IsRelay             string   `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
+	IsDocker            string   `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
+	IsK8S               string   `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
+	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
+	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
+	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	RelayAddrs          []string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
+	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
+	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
+	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
+	PullChanges         string   `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
+	DNSOn               string   `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	IsDualStack         string   `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
+	IsServer            string   `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Action              string   `json:"action" bson:"action" yaml:"action"`
+	IsLocal             string   `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
+	LocalRange          string   `json:"localrange" bson:"localrange" yaml:"localrange"`
+	//Roaming             string      `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
+	IPForwarding  string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	OS            string      `json:"os" bson:"os" yaml:"os"`
+	MTU           int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
+	Version       string      `json:"version" bson:"version" yaml:"version"`
+	ExcludedAddrs []string    `json:"excludedaddrs" bson:"excludedaddrs" yaml:"excludedaddrs"`
+	TrafficKeys   TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
 }
 
 // NodesArray - used for node sorting
@@ -161,11 +161,11 @@ func (node *Node) SetDefaultAction() {
 }
 
 // Node.SetRoamingDefault - sets default roaming status
-func (node *Node) SetRoamingDefault() {
-	if node.Roaming == "" {
-		node.Roaming = "yes"
-	}
-}
+//func (node *Node) SetRoamingDefault() {
+//	if node.Roaming == "" {
+//		node.Roaming = "yes"
+//	}
+//}
 
 // Node.SetPullChangesDefault - sets default pull changes status
 func (node *Node) SetPullChangesDefault() {
@@ -371,9 +371,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.PullChanges == "" {
 		newNode.PullChanges = currentNode.PullChanges
 	}
-	if newNode.Roaming == "" {
-		newNode.Roaming = currentNode.Roaming
-	}
+	//if newNode.Roaming == "" {
+	//newNode.Roaming = currentNode.Roaming
+	//}
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
 	}

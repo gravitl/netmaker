@@ -436,10 +436,10 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientConfig, 
 			// ncutils.Log("Checkin running")
 			//read latest config
 			cfg.ReadConfig()
-			if cfg.Node.Roaming == "yes" && cfg.Node.IsStatic != "yes" {
+			if cfg.Node.IsStatic != "yes" {
 				extIP, err := ncutils.GetPublicIP()
 				if err != nil {
-					ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
+					ncutils.PrintLog("error encountered checking public ip addresses: "+err.Error(), 1)
 				}
 				if cfg.Node.Endpoint != extIP && extIP != "" {
 					ncutils.PrintLog("endpoint has changed from "+cfg.Node.Endpoint+" to "+extIP, 1)
@@ -450,7 +450,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientConfig, 
 				}
 				intIP, err := getPrivateAddr()
 				if err != nil {
-					ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
+					ncutils.PrintLog("error encountered checking private ip addresses: "+err.Error(), 1)
 				}
 				if cfg.Node.LocalAddress != intIP && intIP != "" {
 					ncutils.PrintLog("local Address has changed from "+cfg.Node.LocalAddress+" to "+intIP, 1)
@@ -459,10 +459,10 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientConfig, 
 						ncutils.Log("could not publish local address change")
 					}
 				}
-			} else {
+			} else if cfg.Node.IsLocal == "yes" && cfg.Node.LocalRange != "" {
 				localIP, err := ncutils.GetLocalIP(cfg.Node.LocalRange)
 				if err != nil {
-					ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
+					ncutils.PrintLog("error encountered checking local ip addresses: "+err.Error(), 1)
 				}
 				if cfg.Node.Endpoint != localIP && localIP != "" {
 					ncutils.PrintLog("endpoint has changed from "+cfg.Node.Endpoint+" to "+localIP, 1)

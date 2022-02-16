@@ -396,7 +396,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
-	node.SetRoamingDefault()
+	//node.SetRoamingDefault()
 	node.SetPullChangesDefault()
 	node.SetDefaultAction()
 	node.SetIsServerDefault()

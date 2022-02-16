@@ -28,11 +28,11 @@ func isDeleteError(err error) bool {
 func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.ClientConfig, network string) bool {
 	ipchange := false
 	var err error
-	if node.Roaming == "yes" && node.IsStatic != "yes" {
+	if node.IsStatic != "yes" {
 		if node.IsLocal == "no" {
 			extIP, err := ncutils.GetPublicIP()
 			if err != nil {
-				ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
+				ncutils.PrintLog("error encountered checking public ip addresses: "+err.Error(), 1)
 			}
 			if node.Endpoint != extIP && extIP != "" {
 				ncutils.PrintLog("endpoint has changed from "+
@@ -43,7 +43,7 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 			}
 			intIP, err := getPrivateAddr()
 			if err != nil {
-				ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
+				ncutils.PrintLog("error encountered checking private ip addresses: "+err.Error(), 1)
 			}
 			if node.LocalAddress != intIP && intIP != "" {
 				ncutils.PrintLog("local Address has changed from "+
@@ -52,10 +52,10 @@ func checkIP(node *models.Node, servercfg config.ServerConfig, cliconf config.Cl
 				node.LocalAddress = intIP
 				ipchange = true
 			}
-		} else {
+		} else if node.IsLocal == "yes" && node.LocalRange != "" {
 			localIP, err := ncutils.GetLocalIP(node.LocalRange)
 			if err != nil {
-				ncutils.PrintLog("error encountered checking ip addresses: "+err.Error(), 1)
+				ncutils.PrintLog("error encountered checking local ip addresses: "+err.Error(), 1)
 			}
 			if node.Endpoint != localIP && localIP != "" {
 				ncutils.PrintLog("endpoint has changed from "+
