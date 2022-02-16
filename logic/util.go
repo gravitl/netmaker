@@ -2,8 +2,10 @@
 package logic
 
 import (
+	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"math/big"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -278,7 +280,7 @@ func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr strin
 
 // RandomString - returns a random string in a charset
 func RandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"
 
 	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -287,6 +289,21 @@ func RandomString(length int) string {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+// GenerateRandomString - generates random string of n length
+func GenerateRandomString(n int) (string, error) {
+	const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
+	ret := make([]byte, n)
+	for i := range ret {
+		num, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			return "", err
+		}
+		ret[i] = chars[num.Int64()]
+	}
+
+	return string(ret), nil
 }
 
 // == Private Methods ==

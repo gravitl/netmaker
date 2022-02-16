@@ -5,11 +5,29 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-var jwtSecretKey = []byte("(BytesOverTheWire)")
+var jwtSecretKey []byte
+
+// SetJWTSecret - sets the jwt secret on server startup
+func SetJWTSecret() {
+	currentSecret, jwtErr := FetchJWTSecret()
+	if jwtErr != nil {
+		newString, err := GenerateRandomString(64)
+		if err != nil {
+			logger.FatalLog("something went wrong when generating the auth secret")
+		}
+		jwtSecretKey = []byte(newString) // 512 bit random password
+		if err := StoreJWTSecret(string(jwtSecretKey)); err != nil {
+			logger.FatalLog("something went wrong when configuring JWT authentication")
+		}
+	} else {
+		jwtSecretKey = []byte(currentSecret)
+	}
+}
 
 // CreateJWT func will used to create the JWT while signing in and signing out
 func CreateJWT(macaddress string, network string) (response string, err error) {
