@@ -41,6 +41,7 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database")
 	}
 	logger.Log(0, "database successfully connected")
+	logic.SetJWTSecret()
 
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {

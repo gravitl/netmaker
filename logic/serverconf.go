@@ -43,3 +43,32 @@ func FetchPrivKey(serverID string) (string, error) {
 func RemovePrivKey(serverID string) error {
 	return database.DeleteRecord(database.SERVERCONF_TABLE_NAME, serverID)
 }
+
+// FetchJWTSecret - fetches jwt secret from db
+func FetchJWTSecret() (string, error) {
+	var dbData string
+	var err error
+	var fetchedData = serverData{}
+	dbData, err = database.FetchRecord(database.SERVERCONF_TABLE_NAME, "nm-jwt-secret")
+	if err != nil {
+		return "", err
+	}
+	err = json.Unmarshal([]byte(dbData), &fetchedData)
+	if err != nil {
+		return "", err
+	}
+	return fetchedData.PrivateKey, nil
+}
+
+// StoreJWTSecret - stores server jwt secret if needed
+func StoreJWTSecret(privateKey string) error {
+	var newData = serverData{}
+	var err error
+	var data []byte
+	newData.PrivateKey = privateKey
+	data, err = json.Marshal(&newData)
+	if err != nil {
+		return err
+	}
+	return database.Insert("nm-jwt-secret", string(data), database.SERVERCONF_TABLE_NAME)
+}
