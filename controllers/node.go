@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -418,8 +417,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-
-	runUpdates(&node, false, false)
 }
 
 //Takes node out of pending state
@@ -437,7 +434,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
 
-	runUpdates(&node, true, false)
+	mq.NodeUpdate(&node)
 }
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -623,10 +620,10 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	runUpdates(&node, false, true)
+	runUpdates(&node, false)
 }
 
-func runUpdates(node *models.Node, nodeUpdate bool, requiresPause bool) error {
+func runUpdates(node *models.Node, nodeUpdate bool) error {
 	//don't publish to server node
 
 	if nodeUpdate && !isServer(node) {
@@ -636,11 +633,7 @@ func runUpdates(node *models.Node, nodeUpdate bool, requiresPause bool) error {
 		}
 	}
 
-	if requiresPause { // TODO in future, detect when a node has finished iface update
-		time.Sleep(time.Second * 10)
-	}
-
-	if err := runServerPeerUpdate(node, isServer(node)); err != nil {
+	if err := runServerUpdate(node, isServer(node)); err != nil {
 		logger.Log(1, "internal error when running peer node:", err.Error())
 		return err
 	}

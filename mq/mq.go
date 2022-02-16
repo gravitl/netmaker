@@ -45,7 +45,7 @@ func SetupMQTT(publish bool) mqtt.Client {
 				client.Disconnect(240)
 				logger.Log(0, "node update subscription failed")
 			}
-			if token := client.Subscribe("clients/#", 0, mqtt.MessageHandler(ClientPeerUpdate)); token.Wait() && token.Error() != nil {
+			if token := client.Subscribe("signal/#", 0, mqtt.MessageHandler(ClientPeerUpdate)); token.Wait() && token.Error() != nil {
 				client.Disconnect(240)
 				logger.Log(0, "node client subscription failed")
 			}

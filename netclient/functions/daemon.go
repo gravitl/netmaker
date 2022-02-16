@@ -26,7 +26,6 @@ import (
 )
 
 // == Message Caches ==
-// var keepalive = new(sync.Map)
 var messageCache = new(sync.Map)
 var networkcontext = new(sync.Map)
 
@@ -367,7 +366,7 @@ func PublishNodeUpdate(cfg *config.ClientConfig) error {
 	if err != nil {
 		return err
 	}
-	if err = publish(cfg, fmt.Sprintf("update/%s", cfg.Node.ID), data); err != nil {
+	if err = publish(cfg, fmt.Sprintf("update/%s", cfg.Node.ID), data, 1); err != nil {
 		return err
 	}
 	return nil
@@ -375,14 +374,13 @@ func PublishNodeUpdate(cfg *config.ClientConfig) error {
 
 // Hello -- ping the broker to let server know node is alive and doing fine
 func Hello(cfg *config.ClientConfig, network string) {
-	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte(ncutils.Version)); err != nil {
+	if err := publish(cfg, fmt.Sprintf("ping/%s", cfg.Node.ID), []byte(ncutils.Version), 0); err != nil {
 		ncutils.Log(fmt.Sprintf("error publishing ping, %v", err))
 		ncutils.Log("running pull on " + cfg.Node.Network + " to reconnect")
 		_, err := Pull(cfg.Node.Network, true)
 		if err != nil {
 			ncutils.Log("could not run pull on " + cfg.Node.Network + ", error: " + err.Error())
 		}
-
 	}
 }
 
@@ -479,7 +477,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 // publishes a message to server to update peers on this peer's behalf
 func publishClientPeers(cfg *config.ClientConfig) error {
 	payload := []byte(ncutils.MakeRandomString(16)) // just random string for now to keep the bytes different
-	if err := publish(cfg, fmt.Sprintf("update/%s", cfg.Node.ID), payload); err != nil {
+	if err := publish(cfg, fmt.Sprintf("signal/%s", cfg.Node.ID), payload, 1); err != nil {
 		return err
 	}
 	return nil
@@ -513,7 +511,7 @@ func initialPull(network string) {
 	}
 }
 
-func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
+func publish(cfg *config.ClientConfig, dest string, msg []byte, qos byte) error {
 	// setup the keys
 	trafficPrivKey, err := auth.RetrieveTrafficKey(cfg.Node.Network)
 	if err != nil {
@@ -532,7 +530,7 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte) error {
 		return err
 	}
 
-	if token := client.Publish(dest, 0, false, encrypted); token.Wait() && token.Error() != nil {
+	if token := client.Publish(dest, qos, false, encrypted); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 	return nil
