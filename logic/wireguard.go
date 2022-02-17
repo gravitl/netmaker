@@ -58,6 +58,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.IsRelay != currentNode.IsRelay ||
 		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
 		newNode.IsPending != currentNode.IsPending ||
+		newNode.MTU != currentNode.MTU ||
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		newNode.DNSOn != currentNode.DNSOn ||
 		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
