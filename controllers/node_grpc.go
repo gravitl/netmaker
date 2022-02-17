@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
 
@@ -107,7 +106,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
-	runUpdates(&node, false, false)
+	//runUpdates(&node, false, false)
 
 	go func(node *models.Node) {
 		if node.UDPHolePunch == "yes" {
@@ -134,47 +133,47 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 // NodeServiceServer.UpdateNode updates a node and responds over gRPC
-func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
+// func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
-	var newnode models.Node
-	if err := json.Unmarshal([]byte(req.GetData()), &newnode); err != nil {
-		return nil, err
-	}
+// 	var newnode models.Node
+// 	if err := json.Unmarshal([]byte(req.GetData()), &newnode); err != nil {
+// 		return nil, err
+// 	}
 
-	node, err := logic.GetNodeByID(newnode.ID)
-	if err != nil {
-		return nil, err
-	}
+// 	node, err := logic.GetNodeByID(newnode.ID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	ifaceDelta := logic.IfaceDelta(&node, &newnode)
+// 	ifaceDelta := logic.IfaceDelta(&node, &newnode)
 
-	if !servercfg.GetRce() {
-		newnode.PostDown = node.PostDown
-		newnode.PostUp = node.PostUp
-	}
+// 	if !servercfg.GetRce() {
+// 		newnode.PostDown = node.PostDown
+// 		newnode.PostUp = node.PostUp
+// 	}
 
-	err = logic.UpdateNode(&node, &newnode)
-	if err != nil {
-		return nil, err
-	}
-	newnode.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
-	if err != nil {
-		return nil, err
-	}
-	getServerAddrs(&newnode)
+// 	err = logic.UpdateNode(&node, &newnode)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	newnode.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	getServerAddrs(&newnode)
 
-	nodeData, errN := json.Marshal(&newnode)
-	if errN != nil {
-		return nil, err
-	}
+// 	nodeData, errN := json.Marshal(&newnode)
+// 	if errN != nil {
+// 		return nil, err
+// 	}
 
-	runUpdates(&newnode, false, ifaceDelta)
+// 	runUpdates(&newnode, false, ifaceDelta)
 
-	return &nodepb.Object{
-		Data: string(nodeData),
-		Type: nodepb.NODE_TYPE,
-	}, nil
-}
+// 	return &nodepb.Object{
+// 		Data: string(nodeData),
+// 		Type: nodepb.NODE_TYPE,
+// 	}, nil
+// }
 
 func getServerAddrs(node *models.Node) {
 	serverNodes := logic.GetServerNodes(node.Network)

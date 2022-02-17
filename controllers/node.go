@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -585,7 +586,18 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 
-	runUpdates(&newNode, true, ifaceDelta)
+	if isServer(&node) {
+		if ifaceDelta {
+			if err := mq.PublishPeerUpdate(&node); err != nil {
+				logger.Log(1, "failed to publish peer update "+err.Error())
+			}
+		}
+		if err := logic.UpdateNode(&node, &newNode); err != nil {
+			logger.Log(1, "error updating server node "+err.Error())
+		}
+	} else {
+		runUpdates(&newNode)
+	}
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
@@ -620,23 +632,18 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
+	//:w
 	runUpdates(&node, false)
 }
 
-func runUpdates(node *models.Node, nodeUpdate bool) error {
+func runUpdates(node *models.Node) error {
 	//don't publish to server node
-
-	if nodeUpdate && !isServer(node) {
-		if err := mq.NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-			return err
-		}
+	if isServer(node) {
+		return errors.New("update to server node not permited")
 	}
-
-	if err := runServerUpdate(node, isServer(node)); err != nil {
-		logger.Log(1, "internal error when running peer node:", err.Error())
+	if err := mq.NodeUpdate(node); err != nil {
+		logger.Log(1, "error publishing node update", err.Error())
 		return err
 	}
-
 	return nil
 }
