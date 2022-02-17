@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -396,8 +395,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	validKey := logic.IsKeyValid(networkName, node.AccessKey)
 
 	if !validKey {
-		//Check to see if network will allow manual sign up
-		//may want to switch this up with the valid key check and avoid a DB call that way.
+		// Check to see if network will allow manual sign up
+		// may want to switch this up with the valid key check and avoid a DB call that way.
 		if network.AllowManualSignUp == "yes" {
 			node.IsPending = "yes"
 		} else {
@@ -420,8 +419,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(node)
 }
 
-//Takes node out of pending state
-//TODO: May want to use cordon/uncordon terminology instead of "ispending".
+// Takes node out of pending state
+// TODO: May want to use cordon/uncordon terminology instead of "ispending".
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -437,6 +436,8 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 
 	mq.NodeUpdate(&node)
 }
+
+// == EGRESS ==
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
@@ -459,7 +460,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true, false)
+	runUpdates(&node, true)
 }
 
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -477,7 +478,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true, false)
+	runUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -497,7 +498,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true, false)
+	runUpdates(&node, true)
 }
 
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
@@ -514,7 +515,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
-	runUpdates(&node, true, false)
+	runUpdates(&node, true)
 }
 
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -570,10 +571,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(updatenodes) > 0 {
 			for _, relayedNode := range updatenodes {
-				err = mq.NodeUpdate(&relayedNode)
-				if err != nil {
-					logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", node.Network, ": ", err.Error())
-				}
+				runUpdates(&relayedNode, false)
 			}
 		}
 	}
@@ -586,18 +584,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 
-	if isServer(&node) {
-		if ifaceDelta {
-			if err := mq.PublishPeerUpdate(&node); err != nil {
-				logger.Log(1, "failed to publish peer update "+err.Error())
-			}
-		}
-		if err := logic.UpdateNode(&node, &newNode); err != nil {
-			logger.Log(1, "error updating server node "+err.Error())
-		}
-	} else {
-		runUpdates(&newNode)
-	}
+	runUpdates(&newNode, ifaceDelta)
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
@@ -632,17 +619,48 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	//:w
 	runUpdates(&node, false)
 }
 
-func runUpdates(node *models.Node) error {
-	//don't publish to server node
-	if isServer(node) {
-		return errors.New("update to server node not permited")
+func runUpdates(node *models.Node, ifaceDelta bool) {
+	go func() { // don't block http response
+		if isServer(node) { // don't publish to server node
+			if err := runServerUpdate(node, ifaceDelta); err != nil {
+				logger.Log(1, "error running server update", err.Error())
+			}
+		} else { // publish node update if not server
+			if err := mq.NodeUpdate(node); err != nil {
+				logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())
+			}
+		}
+	}()
+}
+
+// updates local peers for a server on a given node's network
+func runServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
+
+	err := logic.TimerCheckpoint()
+	if err != nil {
+		logger.Log(3, "error occurred on timer,", err.Error())
 	}
-	if err := mq.NodeUpdate(node); err != nil {
-		logger.Log(1, "error publishing node update", err.Error())
+
+	if servercfg.IsClientMode() != "on" {
+		return nil
+	}
+
+	if ifaceDelta {
+		if err := mq.PublishPeerUpdate(serverNode); err != nil {
+			logger.Log(1, "failed to publish peer update "+err.Error())
+		}
+	}
+
+	var currentServerNode, getErr = logic.GetNetworkServerLeader(serverNode.Network)
+	if err != nil {
+		return getErr
+	}
+
+	if err = logic.ServerUpdate(&currentServerNode, ifaceDelta); err != nil {
+		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
 		return err
 	}
 	return nil

@@ -36,7 +36,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-	runUpdates(&node, true, false)
+	runUpdates(&node, true)
 }
 
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
@@ -58,5 +58,5 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-	runUpdates(&node, true, false)
+	runUpdates(&node, true)
 }

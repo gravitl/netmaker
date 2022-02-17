@@ -71,7 +71,7 @@ func PublishExtPeerUpdate(node *models.Node) error {
 
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
-	if !servercfg.IsMessageQueueBackend() {
+	if !servercfg.IsMessageQueueBackend() || node.IsServer == "yes" {
 		return nil
 	}
 	logger.Log(3, "publishing node update to "+node.Name)
