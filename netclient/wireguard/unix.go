@@ -65,6 +65,7 @@ func ApplyWGQuickConf(confPath string, ifacename string) error {
 			ncutils.RunCmd("wg-quick down "+confPath, true)
 		}
 		_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
+
 		return err
 	}
 }
