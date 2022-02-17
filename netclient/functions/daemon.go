@@ -180,6 +180,10 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		if err := UpdateKeys(&cfg, client); err != nil {
 			ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
 		}
+	case models.NODE_RANGE_UPDATE:
+		if err := UpdateRange(&cfg, client); err != nil {
+			ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 1)
+		}
 	case models.NODE_NOOP:
 	default:
 	}
@@ -304,6 +308,19 @@ func UpdateKeys(cfg *config.ClientConfig, client mqtt.Client) error {
 		ncutils.Log("error updating local config " + err.Error())
 	}
 	PublishNodeUpdate(cfg)
+	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file); err != nil {
+		ncutils.Log("error applying new config " + err.Error())
+		return err
+	}
+	return nil
+}
+
+// UpdateRange -- updates node address, mods config
+func UpdateRange(cfg *config.ClientConfig, client mqtt.Client) error {
+	ncutils.Log("received message to update range")
+	if err := config.ModConfig(&cfg.Node); err != nil {
+		ncutils.Log("error updating local config " + err.Error())
+	}
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file); err != nil {
 		ncutils.Log("error applying new config " + err.Error())
 		return err

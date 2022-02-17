@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -13,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 // ALL_NETWORK_ACCESS - represents all networks
@@ -174,8 +176,17 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
+		var serverAddrs = make([]models.ServerAddr, 0)
+		if rangeupdate {
+			serverAddrs = preCalculateServerAddrs(network.NetID)
+		}
+
 		for _, node := range nodes {
 			if node.IsServer != "yes" {
+				if rangeupdate {
+					node.Action = models.NODE_RANGE_UPDATE
+					applyServerAddr(&node, serverAddrs, network)
+				}
 				if err := mq.NodeUpdate(&node); err != nil {
 					logger.Log(1, "could not update range when network", netname, "changed cidr for node", node.Name, node.ID, err.Error())
 				}
@@ -341,4 +352,38 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
 	w.WriteHeader(http.StatusOK)
+}
+
+// used for network address changes
+func applyServerAddr(node *models.Node, serverAddrs []models.ServerAddr, network models.Network) {
+	node.NetworkSettings = network
+	node.NetworkSettings.DefaultServerAddrs = serverAddrs
+}
+
+func preCalculateServerAddrs(netname string) []models.ServerAddr {
+	var serverAddrs = make([]models.ServerAddr, 0)
+	serverNodes := logic.GetServerNodes(netname)
+	if len(serverNodes) == 0 {
+		if err := serverctl.SyncServerNetwork(netname); err != nil {
+			return serverAddrs
+		}
+	}
+
+	address, err := logic.UniqueAddressServer(netname)
+	if err != nil {
+		return serverAddrs
+	}
+	for i := range serverNodes {
+		addrParts := strings.Split(address, ".")                      // get the numbers
+		lastNum, lastErr := strconv.Atoi(addrParts[len(addrParts)-1]) // get the last number as an int
+		if lastErr == nil {
+			lastNum = lastNum - i
+			addrParts[len(addrParts)-1] = strconv.Itoa(lastNum)
+			serverAddrs = append(serverAddrs, models.ServerAddr{
+				IsLeader: logic.IsLeader(&serverNodes[i]),
+				Address:  strings.Join(addrParts, "."),
+			})
+		}
+	}
+	return serverAddrs
 }

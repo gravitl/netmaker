@@ -14,11 +14,22 @@ const TEN_YEARS_IN_SECONDS = 300000000
 const MAX_NAME_LENGTH = 62
 
 // == ACTIONS == (can only be set by GRPC)
-const NODE_UPDATE_KEY = "updatekey"
-const NODE_SERVER_NAME = "netmaker"
-const NODE_DELETE = "delete"
-const NODE_IS_PENDING = "pending"
-const NODE_NOOP = "noop"
+const (
+	// NODE_UPDATE_KEY - updates key action
+	NODE_UPDATE_KEY = "updatekey"
+	// NODE_SERVER_NAME - initial server name
+	NODE_SERVER_NAME = "netmaker"
+	// NODE_DELETE - node delete action
+	NODE_DELETE = "delete"
+	// NODE_IS_PENDING - node pending action
+	NODE_IS_PENDING = "pending"
+	// NODE_NOOP - node is in no op state
+	NODE_NOOP = "noop"
+	// NODE_RANGE_UPDATE - network range update action
+	NODE_RANGE_UPDATE = "range"
+	// NODE_UDP_UPDATE - updates udp port action
+	NODE_UDP_UPDATE = "udp"
+)
 
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -659,4 +660,16 @@ func runServerUpdate(node *models.Node, ifaceDelta bool) error {
 		return err
 	}
 	return nil
+}
+
+func getServerAddrsWithoutNodes(node *models.Node, serverAddrs []models.ServerAddr) {
+
+	networkSettings, _ := logic.GetParentNetwork(node.Network)
+	// TODO consolidate functionality around files
+	networkSettings.NodesLastModified = time.Now().Unix()
+	networkSettings.DefaultServerAddrs = serverAddrs
+	if err := logic.SaveNetwork(&networkSettings); err != nil {
+		logger.Log(1, "unable to save network on serverAddr update", err.Error())
+	}
+	node.NetworkSettings.DefaultServerAddrs = networkSettings.DefaultServerAddrs
 }
