@@ -107,6 +107,8 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
+	runServerUpdate(&node, true)
+
 	go func(node *models.Node) {
 		if node.UDPHolePunch == "yes" {
 			var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)

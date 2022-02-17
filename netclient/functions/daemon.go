@@ -215,7 +215,12 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				}
 			}
 		}
-		publishClientPeers(&cfg)
+		pubErr := publishClientPeers(&cfg)
+		if pubErr != nil {
+			ncutils.Log("could not notify server to update peers after interface change")
+		} else {
+			ncutils.Log("signalled peer update to server")
+		}
 	}
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && cfg.Node.Interface != "" {
