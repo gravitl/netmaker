@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -175,7 +176,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, node := range nodes {
 			if node.IsServer != "yes" {
-				runUpdates(&node, true)
+				if err := mq.NodeUpdate(&node); err != nil {
+					logger.Log(1, "could not update range when network", netname, "changed cidr for node", node.Name, node.ID, err.Error())
+				}
 			}
 		}
 	}
@@ -183,6 +186,12 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetwork)
+	currentServerNode, err := logic.GetNetworkServerLocal(netname)
+	if err != nil {
+		logger.Log(1, "failed to update peers for server node address on network", netname)
+	} else {
+		runUpdates(&currentServerNode, true)
+	}
 }
 
 func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
