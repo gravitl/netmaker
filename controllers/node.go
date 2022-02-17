@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -434,7 +435,7 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
 
-	mq.NodeUpdate(&node)
+	runUpdates(&node, false)
 }
 
 // == EGRESS ==
@@ -624,42 +625,45 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
 	go func() { // don't block http response
-		if isServer(node) { // don't publish to server node
-			if err := runServerUpdate(node, ifaceDelta); err != nil {
-				logger.Log(1, "error running server update", err.Error())
-			}
-		} else { // publish node update if not server
-			if err := mq.NodeUpdate(node); err != nil {
-				logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())
-			}
+		err := logic.TimerCheckpoint()
+		if err != nil {
+			logger.Log(3, "error occurred on timer,", err.Error())
+		}
+		if err := runServerUpdate(node, ifaceDelta); err != nil {
+			logger.Log(1, "error running server update", err.Error())
+		}
+		// publish node update if not server
+		if err := mq.NodeUpdate(node); err != nil {
+			logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())
 		}
 	}()
 }
 
 // updates local peers for a server on a given node's network
-func runServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
-
-	err := logic.TimerCheckpoint()
-	if err != nil {
-		logger.Log(3, "error occurred on timer,", err.Error())
-	}
-
+func runServerUpdate(node *models.Node, ifaceDelta bool) error {
+	var mutex sync.Mutex
+	mutex.Lock()
+	defer mutex.Unlock()
 	if servercfg.IsClientMode() != "on" {
 		return nil
 	}
 
-	if ifaceDelta {
-		if err := mq.PublishPeerUpdate(serverNode); err != nil {
+	if !isServer(node) && ifaceDelta {
+		ifaceDelta = false
+	}
+
+	currentServerNode, err := logic.GetNetworkServerLocal(node.Network)
+	if err != nil {
+		return err
+	}
+
+	if ifaceDelta && logic.IsLeader(&currentServerNode) {
+		if err := mq.PublishPeerUpdate(&currentServerNode); err != nil {
 			logger.Log(1, "failed to publish peer update "+err.Error())
 		}
 	}
 
-	var currentServerNode, getErr = logic.GetNetworkServerLeader(serverNode.Network)
-	if err != nil {
-		return getErr
-	}
-
-	if err = logic.ServerUpdate(&currentServerNode, ifaceDelta); err != nil {
+	if err := logic.ServerUpdate(&currentServerNode, ifaceDelta); err != nil {
 		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
 		return err
 	}
