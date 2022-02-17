@@ -174,7 +174,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, node := range nodes {
-			runUpdates(&node, true)
+			if node.IsServer != "yes" {
+				runUpdates(&node, true)
+			}
 		}
 	}
 
