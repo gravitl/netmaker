@@ -95,6 +95,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 	return nil
 }
 
+// RemoveWithoutWGQuick - Function for running the equivalent of "wg-quick down" for linux if wg-quick is missing
 func RemoveWithoutWGQuick(ifacename string) error {
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {
