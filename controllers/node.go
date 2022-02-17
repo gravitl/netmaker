@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -642,14 +641,8 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 
 // updates local peers for a server on a given node's network
 func runServerUpdate(node *models.Node, ifaceDelta bool) error {
-	var mutex sync.Mutex
-	mutex.Lock()
-	defer mutex.Unlock()
-	if servercfg.IsClientMode() != "on" {
-		return nil
-	}
 
-	if !isServer(node) {
+	if servercfg.IsClientMode() != "on" || !isServer(node) {
 		return nil
 	}
 

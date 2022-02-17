@@ -199,11 +199,11 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
-		pubErr := publishClientPeers(&cfg)
-		if pubErr != nil {
-			ncutils.Log("could not notify server to update peers after interface change")
+		ackErr := publishSignal(&cfg, ncutils.ACK)
+		if ackErr != nil {
+			ncutils.Log("could not notify server that it received an interface update")
 		} else {
-			ncutils.Log("signalled peer update to server")
+			ncutils.Log("signalled acknowledgement of change to server")
 		}
 		ncutils.Log("applying WG conf to " + file)
 		err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file)
@@ -220,6 +220,12 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 					break
 				}
 			}
+		}
+		doneErr := publishSignal(&cfg, ncutils.DONE)
+		if doneErr != nil {
+			ncutils.Log("could not notify server to update peers after interface change")
+		} else {
+			ncutils.Log("signalled finshed interface update to server")
 		}
 	}
 	//deal with DNS
@@ -480,9 +486,8 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 }
 
 // publishes a message to server to update peers on this peer's behalf
-func publishClientPeers(cfg *config.ClientConfig) error {
-	payload := []byte(ncutils.MakeRandomString(16)) // just random string for now to keep the bytes different
-	if err := publish(cfg, fmt.Sprintf("signal/%s", cfg.Node.ID), payload, 1); err != nil {
+func publishSignal(cfg *config.ClientConfig, signal byte) error {
+	if err := publish(cfg, fmt.Sprintf("signal/%s", cfg.Node.ID), []byte{signal}, 1); err != nil {
 		return err
 	}
 	return nil

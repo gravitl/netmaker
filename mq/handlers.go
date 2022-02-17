@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // DefaultHandler default message queue handler - only called when GetDebug == true
@@ -96,10 +97,30 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error getting node ", id, err.Error())
 			return
 		}
-		if err := PublishPeerUpdate(&currentNode); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
+		decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
+		if decryptErr != nil {
+			logger.Log(1, "failed to decrypt message during client peer update for node ", id, decryptErr.Error())
 			return
 		}
+		switch decrypted[0] {
+		case ncutils.ACK:
+			currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
+			if err != nil {
+				return
+			}
+			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
+				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
+				return
+			}
+		case ncutils.DONE:
+			if err := PublishPeerUpdate(&currentNode); err != nil {
+				logger.Log(1, "error publishing peer update ", err.Error())
+				return
+			}
+		case ncutils.KEY:
+			logger.Log(0, "I should have broke")
+		}
+
 		logger.Log(1, "sent peer updates after signal received from", id, currentNode.Name)
 	}()
 }
