@@ -417,6 +417,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+	runForceServerUpdate(&node)
 }
 
 // Takes node out of pending state
@@ -605,11 +606,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent
 	node.Action = models.NODE_DELETE
-	if err := mq.NodeUpdate(&node); err != nil {
-		logger.Log(1, "error publishing node update", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
 
 	err = logic.DeleteNodeByID(&node, false)
 	if err != nil {
@@ -620,6 +616,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)
+	runForceServerUpdate(&node)
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
