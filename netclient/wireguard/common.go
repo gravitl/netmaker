@@ -94,6 +94,10 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 			if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
 				shouldDelete = false
 			}
+			// re-check this if logic is not working, added in case of allowedips not working
+			if peer.PublicKey.String() == currentPeer.PublicKey.String() {
+				shouldDelete = false
+			}
 		}
 		if shouldDelete {
 			output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
