@@ -629,12 +629,13 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 		if err != nil {
 			logger.Log(3, "error occurred on timer,", err.Error())
 		}
-		if err := runServerUpdate(node, ifaceDelta); err != nil {
-			logger.Log(1, "error running server update", err.Error())
-		}
 		// publish node update if not server
 		if err := mq.NodeUpdate(node); err != nil {
 			logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())
+		}
+
+		if err := runServerUpdate(node, ifaceDelta); err != nil {
+			logger.Log(1, "error running server update", err.Error())
 		}
 	}()
 }
@@ -648,8 +649,8 @@ func runServerUpdate(node *models.Node, ifaceDelta bool) error {
 		return nil
 	}
 
-	if !isServer(node) && ifaceDelta {
-		ifaceDelta = false
+	if !isServer(node) {
+		return nil
 	}
 
 	currentServerNode, err := logic.GetNetworkServerLocal(node.Network)

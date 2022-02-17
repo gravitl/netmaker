@@ -199,6 +199,12 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
+		pubErr := publishClientPeers(&cfg)
+		if pubErr != nil {
+			ncutils.Log("could not notify server to update peers after interface change")
+		} else {
+			ncutils.Log("signalled peer update to server")
+		}
 		ncutils.Log("applying WG conf to " + file)
 		err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file)
 		if err != nil {
@@ -214,12 +220,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 					break
 				}
 			}
-		}
-		pubErr := publishClientPeers(&cfg)
-		if pubErr != nil {
-			ncutils.Log("could not notify server to update peers after interface change")
-		} else {
-			ncutils.Log("signalled peer update to server")
 		}
 	}
 	//deal with DNS
