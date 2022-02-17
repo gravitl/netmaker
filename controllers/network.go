@@ -3,7 +3,9 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -11,7 +13,10 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // ALL_NETWORK_ACCESS - represents all networks
@@ -173,14 +178,61 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
+		var serverAddrs = make([]models.ServerAddr, 0)
+		if rangeupdate {
+			serverAddrs = preCalculateServerAddrs(network.NetID)
+		}
+		leaderServerNode, err := logic.GetNetworkServerLeader(netname)
+		if err != nil {
+			logger.Log(1, "failed to update peers for server node address on network", netname)
+		}
+
 		for _, node := range nodes {
-			runUpdates(&node, true)
+			if node.IsServer != "yes" {
+				if rangeupdate {
+					applyServerAddr(&node, serverAddrs, network)
+					var rangeUpdate models.RangeUpdate
+					rangeUpdate.Node = node
+					rangeUpdate.Peers.Network = node.Network
+					rangeUpdate.Peers.ServerAddrs = serverAddrs
+					var peer wgtypes.PeerConfig
+					peer.PublicKey, err = wgtypes.ParseKey(leaderServerNode.PublicKey)
+					if err != nil {
+						returnErrorResponse(w, r, formatError(err, "internal"))
+						return
+					}
+					peer.ReplaceAllowedIPs = true
+					for _, server := range serverAddrs {
+						if server.IsLeader {
+							_, address, err := net.ParseCIDR(server.Address + "/32")
+							if err != nil {
+								returnErrorResponse(w, r, formatError(err, "internal"))
+								return
+							}
+							peer.AllowedIPs = append(peer.AllowedIPs, *address)
+						}
+					}
+					rangeUpdate.Peers.Peers = append(rangeUpdate.Peers.Peers, peer)
+					if err := mq.PublishRangeUpdate(&rangeUpdate); err != nil {
+						returnErrorResponse(w, r, formatError(err, "internal"))
+						return
+					}
+					if err := mq.NodeUpdate(&node); err != nil {
+						logger.Log(1, "could not update range when network", netname, "changed cidr for node", node.Name, node.ID, err.Error())
+					}
+				}
+			}
 		}
 	}
-
 	logger.Log(1, r.Header.Get("user"), "updated network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetwork)
+	//currentServerNode, err := logic.GetNetworkServerLocal(netname)
+	//if err != nil {
+	//	logger.Log(1, "failed to update peers for server node address on network", netname)
+	//} else {
+	//	runUpdates(&currentServerNode, true)
+	//}
 }
 
 func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
@@ -330,4 +382,38 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
 	w.WriteHeader(http.StatusOK)
+}
+
+// used for network address changes
+func applyServerAddr(node *models.Node, serverAddrs []models.ServerAddr, network models.Network) {
+	node.NetworkSettings = network
+	node.NetworkSettings.DefaultServerAddrs = serverAddrs
+}
+
+func preCalculateServerAddrs(netname string) []models.ServerAddr {
+	var serverAddrs = make([]models.ServerAddr, 0)
+	serverNodes := logic.GetServerNodes(netname)
+	if len(serverNodes) == 0 {
+		if err := serverctl.SyncServerNetwork(netname); err != nil {
+			return serverAddrs
+		}
+	}
+
+	address, err := logic.UniqueAddressServer(netname)
+	if err != nil {
+		return serverAddrs
+	}
+	for i := range serverNodes {
+		addrParts := strings.Split(address, ".")                      // get the numbers
+		lastNum, lastErr := strconv.Atoi(addrParts[len(addrParts)-1]) // get the last number as an int
+		if lastErr == nil {
+			lastNum = lastNum - i
+			addrParts[len(addrParts)-1] = strconv.Itoa(lastNum)
+			serverAddrs = append(serverAddrs, models.ServerAddr{
+				IsLeader: logic.IsLeader(&serverNodes[i]),
+				Address:  strings.Join(addrParts, "."),
+			})
+		}
+	}
+	return serverAddrs
 }

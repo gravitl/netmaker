@@ -118,6 +118,74 @@ var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	//ncutils.Log("Message: " + string(msg.Payload()))
 }
 
+// RangeUpdate -- mqtt message handler for rangeupdate/<network>/<nodeid>
+func RangeUpdate(client mqtt.Client, msg mqtt.Message) {
+	var rangeUpdate models.RangeUpdate
+	var cfg config.ClientConfig
+	var network = parseNetworkFromTopic(msg.Topic())
+	cfg.Network = network
+	cfg.ReadConfig()
+	data, dataErr := decryptMsg(&cfg, msg.Payload())
+	if dataErr != nil {
+		return
+	}
+	err := json.Unmarshal([]byte(data), &rangeUpdate)
+	if err != nil {
+		ncutils.Log("error unmarshalling node update data" + err.Error())
+		return
+	}
+
+	ncutils.Log("received message to do range update " + network)
+	rangeUpdate.Node.PullChanges = "no"
+	//ensure that OS never changes
+	rangeUpdate.Node.OS = runtime.GOOS
+	// check if interface needs to delta
+	// Save new config
+	cfg.Node.Action = models.NODE_NOOP
+	if err := config.Write(&cfg, cfg.Network); err != nil {
+		ncutils.PrintLog("error updating node configuration: "+err.Error(), 1)
+	}
+	nameserver := cfg.Server.CoreDNSAddr
+	privateKey, err := wireguard.RetrievePrivKey(rangeUpdate.Node.Network)
+	if err != nil {
+		ncutils.Log("error reading PrivateKey " + err.Error())
+		return
+	}
+	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+	if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, rangeUpdate.Node); err != nil {
+		ncutils.Log("error updating wireguard config " + err.Error())
+		return
+	}
+	ncutils.Log("applying WG conf to " + file)
+	err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file)
+	if err != nil {
+		ncutils.Log("error restarting wg after node update " + err.Error())
+		return
+	}
+
+	spew.Dump(rangeUpdate.Peers)
+	err = wireguard.UpdateWgPeers(file, rangeUpdate.Peers.Peers)
+	if err != nil {
+		ncutils.Log("error updating wireguard peers" + err.Error())
+		return
+	}
+	//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
+	var iface = cfg.Node.Interface
+	if ncutils.IsMac() {
+		iface, err = local.GetMacIface(cfg.Node.Address)
+		if err != nil {
+			ncutils.Log("error retrieving mac iface: " + err.Error())
+			return
+		}
+	}
+	err = wireguard.SetPeers(iface, cfg.Node.Address, cfg.Node.PersistentKeepalive, rangeUpdate.Peers.Peers)
+	if err != nil {
+		ncutils.Log("error syncing wg after peer update: " + err.Error())
+		return
+	}
+
+}
+
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
 func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	var newNode models.Node
@@ -434,6 +502,10 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 			}
 			if cfg.DebugOn {
 				ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+			}
+			if token := client.Subscribe(fmt.Sprintf("rangeupdate/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(RangeUpdate)); token.Wait() && token.Error() != nil {
+				ncutils.Log(token.Error().Error())
+				return
 			}
 			opts.SetOrderMatters(true)
 			opts.SetResumeSubs(true)

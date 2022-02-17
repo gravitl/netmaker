@@ -87,6 +87,20 @@ func NodeUpdate(node *models.Node) error {
 	return nil
 }
 
+// PublishRangeUpdate - publishes a network range update
+func PublishRangeUpdate(update *models.RangeUpdate) error {
+	data, err := json.Marshal(update)
+	if err != nil {
+		logger.Log(2, "error marshalling range update ", err.Error())
+		return err
+	}
+	if err = publish(&update.Node, fmt.Sprintf("rangeupdate/%s/%s", update.Node.Network, update.Node.ID), data); err != nil {
+		logger.Log(2, "error publishing range update to peer ", update.Node.ID, err.Error())
+		return err
+	}
+	return nil
+}
+
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
 	var force bool

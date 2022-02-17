@@ -14,3 +14,9 @@ type KeyUpdate struct {
 	Network   string `json:"network" bson:"network"`
 	Interface string `json:"interface" bson:"interface"`
 }
+
+// RangeUpdate  - structure for network range updates
+type RangeUpdate struct {
+	Node  Node
+	Peers PeerUpdate
+}
