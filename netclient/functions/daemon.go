@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/models"
@@ -263,6 +264,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	insert(peerUpdate.Network, lastPeerUpdate, string(data))
 
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+	spew.Dump(peerUpdate.Peers)
 	err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 	if err != nil {
 		ncutils.Log("error updating wireguard peers" + err.Error())
