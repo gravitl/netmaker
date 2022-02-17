@@ -295,10 +295,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		time.Sleep(time.Second >> 1)
-		// if err = Resubscribe(client, &cfg); err != nil {
-		// 	ncutils.Log("error resubscribing after interface change " + err.Error())
-		// 	return
-		// }
+
 		if newNode.DNSOn == "yes" {
 			for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
 				if server.IsLeader {

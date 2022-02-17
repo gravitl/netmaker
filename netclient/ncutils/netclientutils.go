@@ -102,6 +102,12 @@ func IsFreeBSD() bool {
 	return runtime.GOOS == "freebsd"
 }
 
+// HasWGQuick - checks if WGQuick command is present
+func HasWgQuick() bool {
+	cmd, err := exec.LookPath("wg-quick")
+	return err == nil && cmd != ""
+}
+
 // GetWireGuard - checks if wg is installed
 func GetWireGuard() string {
 	userspace := os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION")

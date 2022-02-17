@@ -206,7 +206,13 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if syncconf { // should never be called really.
 		err = SyncWGQuickConf(ifacename, confPath)
 	}
-
+	if !ncutils.HasWgQuick() && ncutils.IsLinux() {
+		err = SetPeers(ifacename, node.Address, node.PersistentKeepalive, peers)
+		if err != nil {
+			ncutils.PrintLog("error setting peers: "+err.Error(), 1)
+		}
+		time.Sleep(time.Second)
+	}
 	_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
 	if cidrErr == nil {
 		local.SetCIDRRoute(ifacename, node.Address, cidr)
@@ -260,8 +266,13 @@ func SetWGConfig(network string, peerupdate bool) error {
 // RemoveConf - removes a configuration for a given WireGuard interface
 func RemoveConf(iface string, printlog bool) error {
 	os := runtime.GOOS
+	if !ncutils.HasWgQuick() {
+		os = "nowgquick"
+	}
 	var err error
 	switch os {
+	case "nowgquick":
+		err = RemoveWithoutWGQuick(iface)
 	case "windows":
 		err = RemoveWindowsConf(iface, printlog)
 	case "darwin":
@@ -276,8 +287,13 @@ func RemoveConf(iface string, printlog bool) error {
 // ApplyConf - applys a conf on disk to WireGuard interface
 func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	os := runtime.GOOS
+	if ncutils.IsLinux() && !ncutils.HasWgQuick() {
+		os = "nowgquick"
+	}
 	var err error
 	switch os {
+	case "nowgquick":
+		err = ApplyWithoutWGQuick(node, ifacename, confPath)
 	case "windows":
 		_ = ApplyWindowsConf(confPath)
 	case "darwin":
