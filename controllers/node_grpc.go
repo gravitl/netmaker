@@ -107,8 +107,6 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
-	runUpdates(&node, false, false)
-
 	go func(node *models.Node) {
 		if node.UDPHolePunch == "yes" {
 			var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
@@ -134,6 +132,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 // NodeServiceServer.UpdateNode updates a node and responds over gRPC
+// DELETE ONE DAY - DEPRECATED
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
 	var newnode models.Node
@@ -145,8 +144,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if err != nil {
 		return nil, err
 	}
-
-	ifaceDelta := logic.IfaceDelta(&node, &newnode)
 
 	if !servercfg.GetRce() {
 		newnode.PostDown = node.PostDown
@@ -167,8 +164,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	if errN != nil {
 		return nil, err
 	}
-
-	runUpdates(&newnode, false, ifaceDelta)
 
 	return &nodepb.Object{
 		Data: string(nodeData),
@@ -219,7 +214,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
-	runServerPeerUpdate(&node, false)
+	runUpdates(&node, false)
 
 	return &nodepb.Object{
 		Data: "success",
