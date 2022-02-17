@@ -131,10 +131,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		return err
 	}
 	nodecfg := modcfg.Node
-
-	if err != nil {
-		log.Fatalf("failed to open client: %v", err)
-	}
 	var ifacename string
 	if nodecfg.Interface != "" {
 		ifacename = nodecfg.Interface

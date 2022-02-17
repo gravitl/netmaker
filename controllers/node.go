@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -418,6 +417,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+	runForceServerUpdate(&node)
 }
 
 // Takes node out of pending state
@@ -606,11 +606,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent
 	node.Action = models.NODE_DELETE
-	if err := mq.NodeUpdate(&node); err != nil {
-		logger.Log(1, "error publishing node update", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
 
 	err = logic.DeleteNodeByID(&node, false)
 	if err != nil {
@@ -621,6 +616,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)
+	runForceServerUpdate(&node)
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
@@ -629,27 +625,22 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 		if err != nil {
 			logger.Log(3, "error occurred on timer,", err.Error())
 		}
-		if err := runServerUpdate(node, ifaceDelta); err != nil {
-			logger.Log(1, "error running server update", err.Error())
-		}
 		// publish node update if not server
 		if err := mq.NodeUpdate(node); err != nil {
 			logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())
+		}
+
+		if err := runServerUpdate(node, ifaceDelta); err != nil {
+			logger.Log(1, "error running server update", err.Error())
 		}
 	}()
 }
 
 // updates local peers for a server on a given node's network
 func runServerUpdate(node *models.Node, ifaceDelta bool) error {
-	var mutex sync.Mutex
-	mutex.Lock()
-	defer mutex.Unlock()
-	if servercfg.IsClientMode() != "on" {
-		return nil
-	}
 
-	if !isServer(node) && ifaceDelta {
-		ifaceDelta = false
+	if servercfg.IsClientMode() != "on" || !isServer(node) {
+		return nil
 	}
 
 	currentServerNode, err := logic.GetNetworkServerLocal(node.Network)

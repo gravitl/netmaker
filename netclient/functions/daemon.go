@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/models"
@@ -199,6 +200,12 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
+		ackErr := publishSignal(&cfg, ncutils.ACK)
+		if ackErr != nil {
+			ncutils.Log("could not notify server that it received an interface update")
+		} else {
+			ncutils.Log("signalled acknowledgement of change to server")
+		}
 		ncutils.Log("applying WG conf to " + file)
 		err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file)
 		if err != nil {
@@ -215,11 +222,11 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				}
 			}
 		}
-		pubErr := publishClientPeers(&cfg)
-		if pubErr != nil {
+		doneErr := publishSignal(&cfg, ncutils.DONE)
+		if doneErr != nil {
 			ncutils.Log("could not notify server to update peers after interface change")
 		} else {
-			ncutils.Log("signalled peer update to server")
+			ncutils.Log("signalled finshed interface update to server")
 		}
 	}
 	//deal with DNS
@@ -257,6 +264,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	insert(peerUpdate.Network, lastPeerUpdate, string(data))
 
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
+	spew.Dump(peerUpdate.Peers)
 	err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 	if err != nil {
 		ncutils.Log("error updating wireguard peers" + err.Error())
@@ -480,9 +488,8 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 }
 
 // publishes a message to server to update peers on this peer's behalf
-func publishClientPeers(cfg *config.ClientConfig) error {
-	payload := []byte(ncutils.MakeRandomString(16)) // just random string for now to keep the bytes different
-	if err := publish(cfg, fmt.Sprintf("signal/%s", cfg.Node.ID), payload, 1); err != nil {
+func publishSignal(cfg *config.ClientConfig, signal byte) error {
+	if err := publish(cfg, fmt.Sprintf("signal/%s", cfg.Node.ID), []byte{signal}, 1); err != nil {
 		return err
 	}
 	return nil
