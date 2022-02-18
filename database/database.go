@@ -32,9 +32,6 @@ const DNS_TABLE_NAME = "dns"
 // EXT_CLIENT_TABLE_NAME - ext client table
 const EXT_CLIENT_TABLE_NAME = "extclients"
 
-// INT_CLIENTS_TABLE_NAME - int client table
-const INT_CLIENTS_TABLE_NAME = "intclients"
-
 // PEERS_TABLE_NAME - peers table
 const PEERS_TABLE_NAME = "peers"
 
@@ -126,7 +123,6 @@ func createTables() {
 	createTable(USERS_TABLE_NAME)
 	createTable(DNS_TABLE_NAME)
 	createTable(EXT_CLIENT_TABLE_NAME)
-	createTable(INT_CLIENTS_TABLE_NAME)
 	createTable(PEERS_TABLE_NAME)
 	createTable(SERVERCONF_TABLE_NAME)
 	createTable(SERVER_UUID_TABLE_NAME)

@@ -2,99 +2,11 @@ package functions
 
 import (
 	"encoding/json"
-	"log"
 	"strings"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
-
-// ParseNode - parses a node into a model
-func ParseNode(value string) (models.Node, error) {
-	var node models.Node
-	err := json.Unmarshal([]byte(value), &node)
-	return node, err
-}
-
-// ParseExtClient - parses an extclient into a model
-func ParseExtClient(value string) (models.ExtClient, error) {
-	var extClient models.ExtClient
-	err := json.Unmarshal([]byte(value), &extClient)
-	return extClient, err
-}
-
-// ParseIntClient - parses int client
-func ParseIntClient(value string) (models.IntClient, error) {
-	var intClient models.IntClient
-	err := json.Unmarshal([]byte(value), &intClient)
-	return intClient, err
-}
-
-// GetPeersList - gets peers for given network
-func GetPeersList(networkName string) ([]models.PeersResponse, error) {
-
-	var peers []models.PeersResponse
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		return peers, err
-	}
-
-	for _, value := range collection {
-
-		var peer models.PeersResponse
-		err := json.Unmarshal([]byte(value), &peer)
-		if err != nil {
-			continue // try the rest
-		}
-		peers = append(peers, peer)
-	}
-
-	return peers, err
-}
-
-// GetIntPeersList - get int peers list
-func GetIntPeersList() ([]models.PeersResponse, error) {
-
-	var peers []models.PeersResponse
-	records, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
-
-	if err != nil {
-		return peers, err
-	}
-	// parse the peers
-
-	for _, value := range records {
-
-		var peer models.PeersResponse
-		err := json.Unmarshal([]byte(value), &peer)
-		if err != nil {
-			log.Fatal(err)
-		}
-		// add the node to our node array
-		//maybe better to just return this? But then that's just GetNodes...
-		peers = append(peers, peer)
-	}
-
-	return peers, err
-}
-
-// GetServerIntClient - get server int client
-func GetServerIntClient() (*models.IntClient, error) {
-
-	intClients, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
-	for _, value := range intClients {
-		var intClient models.IntClient
-		err = json.Unmarshal([]byte(value), &intClient)
-		if err != nil {
-			return nil, err
-		}
-		if intClient.IsServer == "yes" && intClient.Network == "comms" {
-			return &intClient, nil
-		}
-	}
-	return nil, err
-}
 
 // NetworkExists - check if network exists
 func NetworkExists(name string) (bool, error) {
@@ -105,34 +17,6 @@ func NetworkExists(name string) (bool, error) {
 		return false, err
 	}
 	return len(network) > 0, nil
-}
-
-// IsKeyValidGlobal - checks if a key is valid globally
-func IsKeyValidGlobal(keyvalue string) bool {
-
-	networks, _ := logic.GetNetworks()
-	var key models.AccessKey
-	foundkey := false
-	isvalid := false
-	for _, network := range networks {
-		for i := len(network.AccessKeys) - 1; i >= 0; i-- {
-			currentkey := network.AccessKeys[i]
-			if currentkey.Value == keyvalue {
-				key = currentkey
-				foundkey = true
-				break
-			}
-		}
-		if foundkey {
-			break
-		}
-	}
-	if foundkey {
-		if key.Uses > 0 {
-			isvalid = true
-		}
-	}
-	return isvalid
 }
 
 // NameInDNSCharSet - name in dns char set
@@ -164,37 +48,6 @@ func NameInNodeCharSet(name string) bool {
 // RemoveDeletedNode - remove deleted node
 func RemoveDeletedNode(nodeid string) bool {
 	return database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, nodeid) == nil
-}
-
-// DeleteAllIntClients - delete all int clients
-func DeleteAllIntClients() error {
-	err := database.DeleteAllRecords(database.INT_CLIENTS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetAllIntClients - get all int clients
-func GetAllIntClients() ([]models.IntClient, error) {
-	var clients []models.IntClient
-	collection, err := database.FetchRecords(database.INT_CLIENTS_TABLE_NAME)
-
-	if err != nil {
-		return clients, err
-	}
-
-	for _, value := range collection {
-		var client models.IntClient
-		err := json.Unmarshal([]byte(value), &client)
-		if err != nil {
-			return []models.IntClient{}, err
-		}
-		// add node to our array
-		clients = append(clients, client)
-	}
-
-	return clients, nil
 }
 
 // GetAllExtClients - get all ext clients

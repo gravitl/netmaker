@@ -22,6 +22,7 @@ const (
 	COMMS_NETID = "n37m8k3r"
 )
 
+// InitializeCommsNetwork - Check if comms network exists (for MQ, DNS, SSH traffic), if not, create
 func InitializeCommsNetwork() error {
 
 	_, err := logic.GetNetwork(COMMS_NETID)

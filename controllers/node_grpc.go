@@ -232,12 +232,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		return nil, err
 	}
 
-	excludeIsRelayed := node.IsRelay != "yes"
-	var relayedNode string
-	if node.IsRelayed == "yes" {
-		relayedNode = node.Address
-	}
-	peers, err := logic.GetPeersList(node.Network, excludeIsRelayed, relayedNode)
+	peers, err := logic.GetPeersList(&node)
 	if err != nil {
 		if strings.Contains(err.Error(), logic.RELAY_NODE_ERR) {
 			peers, err = logic.PeerListUnRelay(node.ID, node.Network)
