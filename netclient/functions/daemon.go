@@ -35,8 +35,14 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
-	client := setupMQTT(false)
-	defer client.Disconnect(250)
+	commsNetworks, err := getCommsNetworks()
+	if err != nil {
+		return errors.New("no comm networks exist")
+	}
+	for _, net := range commsNetworks {
+		client := setupMQTT(false)
+		defer client.Disconnect(250)
+	}
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	networks, _ := ncutils.GetSystemNetworks()
@@ -274,6 +280,20 @@ func getServerAddress(cfg *config.ClientConfig) string {
 		}
 	}
 	return server.Address
+}
+
+func getCommsNetworks() ([]string, error) {
+	var response []string
+	var cfg config.ClientConfig
+	networks, err := ncutils.GetSystemNetworks()
+	if err != nil {
+		return response, nil
+	}
+	for _, network := range networks {
+		cfg.Network = network
+		cfg.ReadConfig()
+		commNetwork := cfg.Node.CommID
+	}
 }
 
 // == Message Caches ==
