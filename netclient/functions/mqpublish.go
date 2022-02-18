@@ -121,7 +121,7 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte, qos byte) error 
 		return err
 	}
 
-	client := setupMQTT(true)
+	client := setupMQTT(true, cfg.Node.CommID)
 	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
