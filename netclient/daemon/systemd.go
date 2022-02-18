@@ -14,7 +14,7 @@ import (
 const EXEC_DIR = "/sbin/"
 
 // SetupSystemDDaemon - sets system daemon for supported machines
-func SetupSystemDDaemon(interval string) error {
+func SetupSystemDDaemon() error {
 
 	if ncutils.IsWindows() {
 		return nil

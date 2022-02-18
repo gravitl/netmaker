@@ -1,7 +1,6 @@
 package command
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/gravitl/netmaker/netclient/config"
@@ -54,23 +53,6 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 		}
 	*/
 	return err
-}
-
-func getWindowsInterval() int {
-	interval := 15
-	networks, err := ncutils.GetSystemNetworks()
-	if err != nil {
-		return interval
-	}
-	cfg, err := config.ReadConfig(networks[0])
-	if err != nil {
-		return interval
-	}
-	netint, err := strconv.Atoi(cfg.Server.CheckinInterval)
-	if err == nil && netint != 0 {
-		interval = netint
-	}
-	return interval
 }
 
 // Leave - runs the leave command from cli

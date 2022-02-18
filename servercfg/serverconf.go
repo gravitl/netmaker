@@ -31,7 +31,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
-	cfg.GRPCConnString = GetGRPCConnString()
+	cfg.APIPort = GetAPIPort()
+	cfg.MQPort = GetMQPort()
 	cfg.GRPCHost = GetGRPCHost()
 	cfg.GRPCPort = GetGRPCPort()
 	cfg.MasterKey = "(hidden)"
@@ -39,8 +40,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
-	cfg.CheckinInterval = GetCheckinInterval()
-	cfg.ServerCheckinInterval = GetServerCheckinInterval()
+	cfg.MQPort = GetMQPort()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -68,10 +68,6 @@ func GetServerConfig() config.ServerConfig {
 	if DisableRemoteIPCheck() {
 		cfg.DisableRemoteIPCheck = "on"
 	}
-	cfg.DisableDefaultNet = "off"
-	if DisableDefaultNet() {
-		cfg.DisableRemoteIPCheck = "on"
-	}
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
@@ -90,6 +86,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Debug = GetDebug()
 	cfg.Telemetry = Telemetry()
 	cfg.ManageIPTables = ManageIPTables()
+	cfg.CommsCIDR = GetCommsCIDR()
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
 
@@ -177,17 +174,6 @@ func GetAPIPort() string {
 	return apiport
 }
 
-// GetCheckinInterval - get check in interval for nodes
-func GetCheckinInterval() string {
-	seconds := "15"
-	if os.Getenv("CHECKIN_INTERVAL") != "" {
-		seconds = os.Getenv("CHECKIN_INTERVAL")
-	} else if config.Config.Server.CheckinInterval != "" {
-		seconds = config.Config.Server.CheckinInterval
-	}
-	return seconds
-}
-
 // GetDefaultNodeLimit - get node limit if one is set
 func GetDefaultNodeLimit() int32 {
 	var limit int32
@@ -252,6 +238,17 @@ func GetGRPCPort() string {
 		grpcport = config.Config.Server.GRPCPort
 	}
 	return grpcport
+}
+
+// GetMQPort - gets the mq port
+func GetMQPort() string {
+	mqport := "1883"
+	if os.Getenv("MQ_PORT") != "" {
+		mqport = os.Getenv("MQ_PORT")
+	} else if config.Config.Server.MQPort != "" {
+		mqport = config.Config.Server.MQPort
+	}
+	return mqport
 }
 
 // GetGRPCPort - gets the grpc port
@@ -455,21 +452,6 @@ func DisableRemoteIPCheck() bool {
 	return disabled
 }
 
-// DisableDefaultNet - disable default net
-func DisableDefaultNet() bool {
-	disabled := false
-	if os.Getenv("DISABLE_DEFAULT_NET") != "" {
-		if os.Getenv("DISABLE_DEFAULT_NET") == "on" {
-			disabled = true
-		}
-	} else if config.Config.Server.DisableDefaultNet != "" {
-		if config.Config.Server.DisableDefaultNet == "on" {
-			disabled = true
-		}
-	}
-	return disabled
-}
-
 // GetPublicIP - gets public ip
 func GetPublicIP() (string, error) {
 
@@ -533,18 +515,7 @@ func GetSQLConn() string {
 	return sqlconn
 }
 
-// IsSplitDNS - checks if split dns is on
-func IsSplitDNS() bool {
-	issplit := false
-	if os.Getenv("IS_SPLIT_DNS") == "yes" {
-		issplit = true
-	} else if config.Config.Server.SplitDNS == "yes" {
-		issplit = true
-	}
-	return issplit
-}
-
-// IsSplitDNS - checks if split dns is on
+// IsHostNetwork - checks if running on host network
 func IsHostNetwork() bool {
 	ishost := false
 	if os.Getenv("HOST_NETWORK") == "on" {

@@ -13,18 +13,13 @@ func InstallDaemon(cfg config.ClientConfig) error {
 	os := runtime.GOOS
 	var err error
 
-	interval := "15"
-	if cfg.Server.CheckinInterval != "" {
-		interval = cfg.Server.CheckinInterval
-	}
-
 	switch os {
 	case "windows":
 		err = SetupWindowsDaemon()
 	case "darwin":
-		err = SetupMacDaemon(interval)
+		err = SetupMacDaemon()
 	case "linux":
-		err = SetupSystemDDaemon(interval)
+		err = SetupSystemDDaemon()
 	case "freebsd":
 		err = SetupFreebsdDaemon()
 	default:
