@@ -8,3 +8,5 @@ const (
 	// KEY - key update completed signal for MQ
 	KEY = 3
 )
+
+const COMMS_NETWORK_NAME = "n37m8k3r"

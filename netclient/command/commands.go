@@ -11,6 +11,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// JoinCommsNetwork -- Join the message queue comms network
 func JoinCommsNetwork(cfg config.ClientConfig) error {
 	key, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
@@ -27,7 +28,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	var err error
 	//check if comms network exists
 	var commsCfg config.ClientConfig
-	commsCfg.Network = "n37m8k3r"
+	commsCfg.Network = ncutils.COMMS_NETWORK_NAME
 	commsCfg.ReadConfig()
 	if commsCfg.Node.Name == "" {
 		if err := JoinCommsNetwork(commsCfg); err != nil {
