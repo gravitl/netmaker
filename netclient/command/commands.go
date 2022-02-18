@@ -8,12 +8,46 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+// JoinCommsNetwork -- Join the message queue comms network
+func JoinCommsNetwork(cfg config.ClientConfig) error {
+	key, err := wgtypes.GeneratePrivateKey()
+	if err != nil {
+		return err
+	}
+	if err := functions.JoinNetwork(cfg, key.PublicKey().String()); err != nil {
+		return err
+	}
+	return nil
+}
 
 // Join - join command to run from cli
 func Join(cfg config.ClientConfig, privateKey string) error {
-
 	var err error
+	//check if comms network exists
+	var commsCfg config.ClientConfig
+	commsCfg.Network = ncutils.COMMS_NETWORK_NAME
+	commsCfg.ReadConfig()
+	if commsCfg.Node.Name == "" {
+		if err := JoinCommsNetwork(commsCfg); err != nil {
+			ncutils.Log("could not join comms network " + err.Error())
+			return err
+		}
+	}
+	//ensure comms network is reachable
+	if err := functions.PingServer(&commsCfg); err != nil {
+		if err := functions.LeaveNetwork(commsCfg.Network); err != nil {
+			ncutils.Log("could not leave comms network " + err.Error())
+			return err
+		}
+		if err := JoinCommsNetwork(commsCfg); err != nil {
+			ncutils.Log("could not join comms network " + err.Error())
+			return err
+		}
+	}
+	//join network
 	err = functions.JoinNetwork(cfg, privateKey)
 	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {

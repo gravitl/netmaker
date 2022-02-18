@@ -7,4 +7,6 @@ const (
 	DONE = 2
 	// KEY - key update completed signal for MQ
 	KEY = 3
+	// COMMS_NETWORK_NAME - name of signalling network
+	COMMS_NETWORK_NAME = "n37m8k3r"
 )
