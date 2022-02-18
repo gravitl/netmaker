@@ -35,50 +35,27 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
-	networks, err := ncutils.GetSystemNetworks()
-	if err != nil {
-		return err
-	}
-
+	client := setupMQTT(false)
+	defer client.Disconnect(250)
+	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
-	go func(context.Context) {
-		for _, network := range networks {
-			//skip comms network
-			if network == ncutils.COMMS_NETWORK_NAME {
-				continue
-			}
-			MessageQueue(ctx, network)
-		}
-	}(ctx)
+	networks, _ := ncutils.GetSystemNetworks()
+	for _, network := range networks {
+		var cfg config.ClientConfig
+		cfg.Network = network
+		cfg.ReadConfig()
+		initialPull(cfg.Network)
+	}
+	wg.Add(1)
+	go Checkin(ctx, wg)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit
 	cancel()
-	ncutils.Log("all done")
-	return nil
-}
-
-// MessageQueue sets up Message Queue and subsribes/publishes updates to/from server
-func MessageQueue(ctx context.Context, network string) {
-	ncutils.Log("netclient go routine started for " + network)
-	var cfg config.ClientConfig
-	cfg.Network = network
-	initialPull(cfg.Network)
-
-	cfg.ReadConfig()
-	ncutils.Log("daemon started for network: " + network)
-	client := setupMQTT(false)
-
-	defer client.Disconnect(250)
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	checkinctx, checkincancel := context.WithCancel(context.Background())
-	go Checkin(checkinctx, wg, &cfg, network)
-	<-ctx.Done()
-	checkincancel()
-	ncutils.Log("shutting down message queue for network " + network)
+	ncutils.Log("shutting down message queue ")
 	wg.Wait()
 	ncutils.Log("shutdown complete")
+	return nil
 }
 
 // UpdateKeys -- updates private key and returns new publickey
@@ -142,31 +119,11 @@ func setupMQTT(publish bool) mqtt.Client {
 	opts.SetWriteTimeout(time.Minute)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		if !publish {
-			if cfg.DebugOn {
-				if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
-					ncutils.Log(token.Error().Error())
-					return
-				}
-				ncutils.Log("subscribed to all topics for debugging purposes")
-			}
-			if token := client.Subscribe(fmt.Sprintf("update/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
-				ncutils.Log(token.Error().Error())
-				return
-			}
-			if cfg.DebugOn {
-				ncutils.Log(fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
-			}
-			if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
-				ncutils.Log(token.Error().Error())
-				return
-			}
-			if cfg.DebugOn {
-				ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
-			}
-			opts.SetOrderMatters(true)
-			opts.SetResumeSubs(true)
+			SetSubscriptions(client, cfg)
 		}
 	})
+	opts.SetOrderMatters(true)
+	opts.SetResumeSubs(true)
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		ncutils.Log("detected broker connection lost, running pull for " + cfg.Node.Network)
 		_, err := Pull(cfg.Node.Network, true)
@@ -213,6 +170,41 @@ func setupMQTT(publish bool) mqtt.Client {
 		time.Sleep(2 * time.Second)
 	}
 	return client
+}
+
+// SetSubscriptions - sets MQ subscriptions
+func SetSubscriptions(client mqtt.Client, cfg *config.ClientConfig) {
+	if cfg.DebugOn {
+		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
+			ncutils.Log(token.Error().Error())
+			return
+		}
+		ncutils.Log("subscribed to all topics for debugging purposes")
+	}
+	networks, err := ncutils.GetSystemNetworks()
+	if err != nil {
+		ncutils.Log("error retriving networks " + err.Error())
+	}
+	for _, network := range networks {
+		var cfg config.ClientConfig
+		cfg.Network = network
+		cfg.ReadConfig()
+
+		if token := client.Subscribe(fmt.Sprintf("update/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
+			ncutils.Log(token.Error().Error())
+			return
+		}
+		if cfg.DebugOn {
+			ncutils.Log(fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+		}
+		if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", cfg.Node.Network, cfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
+			ncutils.Log(token.Error().Error())
+			return
+		}
+		if cfg.DebugOn {
+			ncutils.Log(fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", cfg.Node.Name, cfg.Node.Network, cfg.Node.ID))
+		}
+	}
 }
 
 // publishes a message to server to update peers on this peer's behalf
