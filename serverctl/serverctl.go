@@ -32,6 +32,7 @@ func InitializeCommsNetwork() error {
 		network.NetID = COMMS_NETID
 		network.AddressRange = servercfg.GetCommsCIDR()
 		network.IsHubAndSpoke = "yes"
+		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
 		return logic.CreateNetwork(network)
 	} else {
