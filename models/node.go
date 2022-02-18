@@ -10,15 +10,23 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const TEN_YEARS_IN_SECONDS = 300000000
-const MAX_NAME_LENGTH = 62
-
-// == ACTIONS == (can only be set by GRPC)
-const NODE_UPDATE_KEY = "updatekey"
-const NODE_SERVER_NAME = "netmaker"
-const NODE_DELETE = "delete"
-const NODE_IS_PENDING = "pending"
-const NODE_NOOP = "noop"
+const (
+	// NODE_SERVER_NAME - the default server name
+	NODE_SERVER_NAME = "netmaker"
+	// TEN_YEARS_IN_SECONDS - ten years in seconds
+	TEN_YEARS_IN_SECONDS = 300000000
+	// MAX_NAME_LENGTH - max name length of node
+	MAX_NAME_LENGTH = 62
+	// == ACTIONS == (can only be set by GRPC)
+	// NODE_UPDATE_KEY - action to update key
+	NODE_UPDATE_KEY = "updatekey"
+	// NODE_DELETE - delete node action
+	NODE_DELETE = "delete"
+	// NODE_IS_PENDING - node pending status
+	NODE_IS_PENDING = "pending"
+	// NODE_NOOP - node no op action
+	NODE_NOOP = "noop"
+)
 
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
@@ -46,7 +54,6 @@ type Node struct {
 	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"macaddress_unique"`
-	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
 	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
 	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
 	IsRelayed           string   `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
@@ -72,6 +79,7 @@ type Node struct {
 	OS           string      `json:"os" bson:"os" yaml:"os"`
 	MTU          int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
 	Version      string      `json:"version" bson:"version" yaml:"version"`
+	CommID       string      `json:"commid" bson:"commid" yaml:"comid"`
 	TrafficKeys  TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
 }
 
