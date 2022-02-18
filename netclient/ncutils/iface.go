@@ -22,7 +22,6 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.IsPending != currentNode.IsPending ||
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		newNode.DNSOn != currentNode.DNSOn ||
-		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
 		return true
 	}

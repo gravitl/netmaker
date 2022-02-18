@@ -48,36 +48,6 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 			},
 		},
 		{
-			Name:  "checkin",
-			Usage: "Checks for local changes and then checks into the specified Netmaker network to ask about remote changes.",
-			Flags: cliFlags,
-			// the action, or code that will be executed when
-			// we execute our `ns` command
-			Action: func(c *cli.Context) error {
-				cfg, _, err := config.GetCLIConfig(c)
-				if err != nil {
-					return err
-				}
-				err = command.CheckIn(cfg)
-				return err
-			},
-		},
-		// {
-		// 	Name:  "push",
-		// 	Usage: "Push configuration changes to server.",
-		// 	Flags: cliFlags,
-		// 	// the action, or code that will be executed when
-		// 	// we execute our `ns` command
-		// 	Action: func(c *cli.Context) error {
-		// 		cfg, _, err := config.GetCLIConfig(c)
-		// 		if err != nil {
-		// 			return err
-		// 		}
-		// 		err = command.Push(cfg)
-		// 		return err
-		// 	},
-		// },
-		{
 			Name:  "pull",
 			Usage: "Pull latest configuration and peers from server.",
 			Flags: cliFlags,

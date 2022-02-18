@@ -104,7 +104,6 @@ func NetworkNodesUpdatePullChanges(networkName string) error {
 			return err
 		}
 		if node.Network == networkName {
-			node.PullChanges = "yes"
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err
@@ -444,7 +443,6 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 		if node.Network == networkName {
 			node.IsDualStack = "no"
 			node.Address6 = ""
-			node.PullChanges = "yes"
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err
@@ -486,7 +484,6 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			}
 
 			node.Address = ipaddr
-			node.PullChanges = "yes"
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err

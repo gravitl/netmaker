@@ -150,7 +150,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface+": "+err.Error(), 1)
 		}
 	}
-	newNode.PullChanges = "no"
 	//ensure that OS never changes
 	newNode.OS = runtime.GOOS
 	// check if interface needs to delta

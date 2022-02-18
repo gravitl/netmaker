@@ -1,10 +1,8 @@
 package command
 
 import (
-	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
@@ -75,71 +73,6 @@ func getWindowsInterval() int {
 	return interval
 }
 
-// RunUserspaceDaemon - runs continual checkins
-func RunUserspaceDaemon() {
-
-	cfg := config.ClientConfig{
-		Network: "all",
-	}
-	interval := getWindowsInterval()
-	dur := time.Duration(interval) * time.Second
-	for {
-		CheckIn(cfg)
-		time.Sleep(dur)
-	}
-}
-
-// CheckIn - runs checkin command from cli
-func CheckIn(cfg config.ClientConfig) error {
-	//log.Println("checkin --- diabled for now")
-	//return nil
-	var err error
-	var errN error
-	if cfg.Network == "" {
-		ncutils.PrintLog("required, '-n', exiting", 0)
-		os.Exit(1)
-	} else if cfg.Network == "all" {
-		ncutils.PrintLog("running checkin for all networks", 1)
-		networks, err := ncutils.GetSystemNetworks()
-		if err != nil {
-			ncutils.PrintLog("error retrieving networks, exiting", 1)
-			return err
-		}
-		for _, network := range networks {
-			currConf, err := config.ReadConfig(network)
-			if err != nil {
-				continue
-			}
-			err = functions.CheckConfig(*currConf)
-			if err != nil {
-				if strings.Contains(err.Error(), "could not find iface") {
-					err = Pull(cfg)
-					if err != nil {
-						ncutils.PrintLog(err.Error(), 1)
-					}
-				} else {
-					ncutils.PrintLog("error checking in for "+network+" network: "+err.Error(), 1)
-				}
-			} else {
-				ncutils.PrintLog("checked in successfully for "+network, 1)
-			}
-		}
-		if len(networks) == 0 {
-			if ncutils.IsWindows() { // Windows specific - there are no netclients, so stop daemon process
-				daemon.StopWindowsDaemon()
-			}
-		}
-		errN = err
-		err = nil
-	} else {
-		err = functions.CheckConfig(cfg)
-	}
-	if err == nil && errN != nil {
-		err = errN
-	}
-	return err
-}
-
 // Leave - runs the leave command from cli
 func Leave(cfg config.ClientConfig) error {
 	err := functions.LeaveNetwork(cfg.Network)
@@ -147,37 +80,6 @@ func Leave(cfg config.ClientConfig) error {
 		ncutils.PrintLog("error attempting to leave network "+cfg.Network, 1)
 	} else {
 		ncutils.PrintLog("success", 0)
-	}
-	return err
-}
-
-// Push - runs push command
-func Push(cfg config.ClientConfig) error {
-	var err error
-	if cfg.Network == "all" || ncutils.IsWindows() {
-		ncutils.PrintLog("pushing config to server for all networks.", 0)
-		networks, err := ncutils.GetSystemNetworks()
-		if err != nil {
-			ncutils.PrintLog("error retrieving networks, exiting.", 0)
-			return err
-		}
-		for _, network := range networks {
-			err = functions.Push(network)
-			if err != nil {
-				ncutils.PrintLog("error pushing network configs for network: "+network+"\n"+err.Error(), 1)
-			} else {
-				ncutils.PrintLog("pushed network config for "+network, 1)
-			}
-		}
-		err = nil
-	} else {
-		err = functions.Push(cfg.Network)
-	}
-	if err == nil {
-		ncutils.PrintLog("completed pushing network configs to remote server", 1)
-		ncutils.PrintLog("success", 1)
-	} else {
-		ncutils.PrintLog("error occurred pushing configs", 1)
 	}
 	return err
 }

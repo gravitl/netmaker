@@ -144,7 +144,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		DNSOn:               cfg.Node.DNSOn,
 		Name:                cfg.Node.Name,
 		Endpoint:            cfg.Node.Endpoint,
-		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 		TrafficKeys:         cfg.Node.TrafficKeys,
 		OS:                  runtime.GOOS,
