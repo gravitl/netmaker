@@ -12,7 +12,7 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
-	GRPCConnString  string `json:"grpcconn"`
-	GRPCSSL         string `json:"grpcssl"`
-	CheckinInterval string `json:"checkininterval"`
+	GRPCConnString string `json:"grpcconn"`
+	GRPCSSL        string `json:"grpcssl"`
+	CommsNetwork   string `json:"commsnetwork"`
 }

@@ -49,12 +49,17 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 
 	netID := network.NetID
 
+	commsNetID, err := FetchCommsNetID()
+	if err != nil {
+		return models.AccessKey{}, errors.New("could not retrieve comms netid")
+	}
+
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
 	servervals := models.ServerConfig{
-		GRPCConnString:  s.GRPCConnString,
-		GRPCSSL:         s.GRPCSSL,
-		CheckinInterval: s.CheckinInterval,
+		GRPCConnString: s.GRPCConnString,
+		GRPCSSL:        s.GRPCSSL,
+		CommsNetwork:   commsNetID,
 	}
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID

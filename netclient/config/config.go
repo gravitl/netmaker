@@ -15,12 +15,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// GlobalConfig - struct for handling IntClients currently
-type GlobalConfig struct {
-	GRPCWireGuard string `yaml:"grpcwg"`
-	Client        models.IntClient
-}
-
 // ClientConfig - struct for dealing with client configuration
 type ClientConfig struct {
 	Server          ServerConfig   `yaml:"server"`
@@ -34,12 +28,10 @@ type ClientConfig struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr     string `yaml:"corednsaddr"`
-	GRPCAddress     string `yaml:"grpcaddress"`
-	AccessKey       string `yaml:"accesskey"`
-	GRPCSSL         string `yaml:"grpcssl"`
-	GRPCWireGuard   string `yaml:"grpcwg"`
-	CheckinInterval string `yaml:"checkininterval"`
+	CoreDNSAddr string `yaml:"corednsaddr"`
+	GRPCAddress string `yaml:"grpcaddress"`
+	AccessKey   string `yaml:"accesskey"`
+	GRPCSSL     string `yaml:"grpcssl"`
 }
 
 // Write - writes the config of a client to disk
@@ -183,7 +175,6 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
-		cfg.Server.CheckinInterval = accesstoken.ServerConfig.CheckinInterval
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}
@@ -203,12 +194,6 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("corednsaddr") != "" {
 			cfg.Server.CoreDNSAddr = c.String("corednsaddr")
 		}
-		if c.String("grpcwg") != "" {
-			cfg.Server.GRPCWireGuard = c.String("grpcwg")
-		}
-		if c.String("checkininterval") != "" {
-			cfg.Server.CheckinInterval = c.String("checkininterval")
-		}
 
 	} else {
 		cfg.Server.GRPCAddress = c.String("grpcserver")
@@ -216,10 +201,8 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Network = c.String("network")
 		cfg.Node.Network = c.String("network")
 		cfg.Node.LocalRange = c.String("localrange")
-		cfg.Server.GRPCWireGuard = c.String("grpcwg")
 		cfg.Server.GRPCSSL = c.String("grpcssl")
 		cfg.Server.CoreDNSAddr = c.String("corednsaddr")
-		cfg.Server.CheckinInterval = c.String("checkininterval")
 	}
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")
@@ -245,10 +228,6 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	cfg.Daemon = c.String("daemon")
 	cfg.Node.UDPHolePunch = c.String("udpholepunch")
 	cfg.Node.MTU = int32(c.Int("mtu"))
-
-	if cfg.Server.CheckinInterval == "" {
-		cfg.Server.CheckinInterval = "15"
-	}
 
 	return cfg, privateKey, nil
 }

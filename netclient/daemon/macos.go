@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,7 +13,7 @@ const MAC_SERVICE_NAME = "com.gravitl.netclient"
 const MAC_EXEC_DIR = "/usr/local/bin/"
 
 // SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
-func SetupMacDaemon(interval string) error {
+func SetupMacDaemon() error {
 
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
@@ -34,7 +33,7 @@ func SetupMacDaemon(interval string) error {
 	if os.IsNotExist(errN) {
 		os.Mkdir("~/Library/LaunchAgents", 0755)
 	}
-	err = CreateMacService(MAC_SERVICE_NAME, interval)
+	err = CreateMacService(MAC_SERVICE_NAME)
 	if err != nil {
 		return err
 	}
@@ -69,7 +68,7 @@ func StopLaunchD() {
 }
 
 // CreateMacService - Creates the mac service file for LaunchDaemons
-func CreateMacService(servicename string, interval string) error {
+func CreateMacService(servicename string) error {
 	_, err := os.Stat("/Library/LaunchDaemons")
 	if os.IsNotExist(err) {
 		os.Mkdir("/Library/LaunchDaemons", 0755)
@@ -77,7 +76,7 @@ func CreateMacService(servicename string, interval string) error {
 		log.Println("couldnt find or create /Library/LaunchDaemons")
 		return err
 	}
-	daemonstring := MacDaemonString(interval)
+	daemonstring := MacDaemonString()
 	daemonbytes := []byte(daemonstring)
 
 	if !ncutils.FileExists("/Library/LaunchDaemons/com.gravitl.netclient.plist") {
@@ -87,8 +86,8 @@ func CreateMacService(servicename string, interval string) error {
 }
 
 // MacDaemonString - the file contents for the mac netclient daemon service (launchdaemon)
-func MacDaemonString(interval string) string {
-	return fmt.Sprintf(`<?xml version='1.0' encoding='UTF-8'?>
+func MacDaemonString() string {
+	return `<?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
 <plist version='1.0'>
 <dict>
@@ -101,8 +100,6 @@ func MacDaemonString(interval string) string {
 	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
 	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
 	<key>AbandonProcessGroup</key><true/>
-	<key>StartInterval</key>
-	    <integer>%s</integer>
 	<key>EnvironmentVariables</key>
 		<dict>
 			<key>PATH</key>
@@ -110,7 +107,7 @@ func MacDaemonString(interval string) string {
 		</dict>
 </dict>
 </plist>
-`, interval)
+`
 }
 
 // MacTemplateData - struct to represent the mac service
