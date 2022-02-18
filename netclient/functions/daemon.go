@@ -71,6 +71,10 @@ func Daemon() error {
 		return err
 	}
 	for _, network := range networks {
+		//skip comms network
+		if network == "n37m8k3r" {
+			continue
+		}
 		ctx, cancel := context.WithCancel(context.Background())
 		networkcontext.Store(network, cancel)
 		go MessageQueue(ctx, network)
@@ -97,7 +101,7 @@ func MessageQueue(ctx context.Context, network string) {
 
 	cfg.ReadConfig()
 	ncutils.Log("daemon started for network: " + network)
-	client := setupMQTT(&cfg, false)
+	client := setupMQTT(false)
 
 	defer client.Disconnect(250)
 	wg := &sync.WaitGroup{}
@@ -360,7 +364,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientConfig, 
 					}
 				}
 			}
-			if err := pingServer(cfg); err != nil {
+			if err := PingServer(cfg); err != nil {
 				ncutils.PrintLog("could not ping server "+err.Error(), 0)
 			}
 			Hello(cfg, network)
@@ -399,7 +403,10 @@ func Hello(cfg *config.ClientConfig, network string) {
 // == Private ==
 
 // setupMQTT creates a connection to broker and return client
-func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
+func setupMQTT(publish bool) mqtt.Client {
+	var cfg *config.ClientConfig
+	cfg.Network = "n37m8k3r"
+	cfg.ReadConfig()
 	opts := mqtt.NewClientOptions()
 	server := getServerAddress(cfg)
 	opts.AddBroker(server + ":1883")
@@ -534,7 +541,7 @@ func publish(cfg *config.ClientConfig, dest string, msg []byte, qos byte) error 
 		return err
 	}
 
-	client := setupMQTT(cfg, true)
+	client := setupMQTT(true)
 	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
@@ -570,7 +577,8 @@ func decryptMsg(cfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	return ncutils.DeChunk(msg, serverPubKey, diskKey)
 }
 
-func pingServer(cfg *config.ClientConfig) error {
+// PingServer -- checks if server is reachable
+func PingServer(cfg *config.ClientConfig) error {
 	node := getServerAddress(cfg)
 	pinger, err := ping.NewPinger(node)
 	if err != nil {
