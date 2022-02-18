@@ -174,10 +174,10 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 func getServerAddrs(node *models.Node) {
-	serverNodes := logic.GetServerNodes(node.Network)
+	serverNodes := logic.GetServerNodes(serverctl.COMMS_NETID)
 	//pubIP, _ := servercfg.GetPublicIP()
 	if len(serverNodes) == 0 {
-		if err := serverctl.SyncServerNetwork(node.Network); err != nil {
+		if err := serverctl.SyncServerNetwork(serverctl.COMMS_NETID); err != nil {
 			return
 		}
 	}

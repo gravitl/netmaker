@@ -9,10 +9,36 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
-const NETMAKER_BINARY_NAME = "netmaker"
+const (
+	// NETMAKER_BINARY_NAME - name of netmaker binary
+	NETMAKER_BINARY_NAME = "netmaker"
+
+	// COMMS_NETID - name of comms net
+	COMMS_NETID = "n37m8k3r"
+)
+
+func InitializeCommsNetwork() error {
+
+	_, err := logic.GetNetwork(COMMS_NETID)
+	if err != nil {
+		logger.Log(1, "comms net does not exist, creating")
+		var network models.Network
+		network.NetID = COMMS_NETID
+		network.AddressRange = servercfg.GetCommsCIDR()
+		network.IsHubAndSpoke = "yes"
+		network.IsComms = "yes"
+		return logic.CreateNetwork(network)
+	} else {
+		SyncServerNetwork(COMMS_NETID)
+	}
+	logger.Log(1, "comms network initialized")
+	return nil
+}
 
 // InitServerNetclient - intializes the server netclient
 // 1. Check if config directory exists, if not attempt to make

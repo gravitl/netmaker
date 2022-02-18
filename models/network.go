@@ -27,6 +27,7 @@ type Network struct {
 	IsIPv4              string      `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
 	IsHubAndSpoke       string      `json:"ishubandspoke" bson:"ishubandspoke" validate:"checkyesorno"`
+	IsComms             string      `json:"iscomms" bson:"iscomms" validate:"checkyesorno"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	DefaultUDPHolePunch string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS string      `json:"defaultextclientdns" bson:"defaultextclientdns"`
@@ -64,6 +65,9 @@ func (network *Network) SetDefaults() {
 	}
 	if network.IsHubAndSpoke == "" {
 		network.IsHubAndSpoke = "no"
+	}
+	if network.IsComms == "" {
+		network.IsComms = "no"
 	}
 	if network.DefaultInterface == "" {
 		if len(network.NetID) < 13 {

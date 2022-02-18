@@ -77,6 +77,7 @@ type ServerConfig struct {
 	ManageIPTables        string `yaml:"manageiptables"`
 	PortForwardServices   string `yaml:"portforwardservices"`
 	HostNetwork           string `yaml:"hostnetwork"`
+	CommsCIDR             string `yaml:"commscidr"`
 }
 
 // SQLConfig - Generic SQL Config

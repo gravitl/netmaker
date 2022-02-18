@@ -39,7 +39,10 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	if currentServers != nil {
 		serverCount = len(currentServers) + 1
 	}
-
+	var ishub = "no"
+	if serverCount == 1 && (networkSettings.IsHubAndSpoke == "yes" || networkSettings.IsComms == "yes") {
+		ishub = "yes"
+	}
 	var node = &models.Node{
 		IsServer:     "yes",
 		DNSOn:        "no",
@@ -52,6 +55,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		LocalRange:   networkSettings.LocalRange,
 		OS:           runtime.GOOS,
 		Version:      servercfg.Version,
+		IsHub:        ishub,
 	}
 
 	SetNodeDefaults(node)
