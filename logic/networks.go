@@ -187,14 +187,8 @@ func UniqueAddress(networkName string) (string, error) {
 			offset = false
 			continue
 		}
-		if networkName == "comms" {
-			if IsIPUnique(networkName, ip.String(), database.INT_CLIENTS_TABLE_NAME, false) {
-				return ip.String(), err
-			}
-		} else {
-			if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, false) && IsIPUnique(networkName, ip.String(), database.EXT_CLIENT_TABLE_NAME, false) {
-				return ip.String(), err
-			}
+		if IsIPUnique(networkName, ip.String(), database.NODES_TABLE_NAME, false) && IsIPUnique(networkName, ip.String(), database.EXT_CLIENT_TABLE_NAME, false) {
+			return ip.String(), err
 		}
 	}
 

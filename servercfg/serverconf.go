@@ -3,6 +3,7 @@ package servercfg
 import (
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -251,6 +252,21 @@ func GetGRPCPort() string {
 		grpcport = config.Config.Server.GRPCPort
 	}
 	return grpcport
+}
+
+// GetGRPCPort - gets the grpc port
+func GetCommsCIDR() string {
+	netrange := "172.242.0.0/16"
+	if os.Getenv("COMMS_CIDR") != "" {
+		netrange = os.Getenv("COMMS_CIDR")
+	} else if config.Config.Server.CommsCIDR != "" {
+		netrange = config.Config.Server.CommsCIDR
+	}
+	_, _, err := net.ParseCIDR(netrange)
+	if err == nil {
+		return netrange
+	}
+	return "172.242.0.0/16"
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint

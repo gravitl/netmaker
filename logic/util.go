@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -128,101 +127,6 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		SetDNS()
 	}
 	return removeLocalServer(node)
-}
-
-// GetNodePeers - fetches peers for a given node
-func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error) {
-	var peers []models.Node
-	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
-	if err != nil {
-		return peers, nil
-	}
-
-	udppeers, errN := database.GetPeers(networkName)
-	if errN != nil {
-		logger.Log(2, errN.Error())
-	}
-
-	for _, node := range networkNodes {
-		var peer = models.Node{}
-		if node.IsEgressGateway == "yes" { // handle egress stuff
-			peer.EgressGatewayRanges = node.EgressGatewayRanges
-			peer.IsEgressGateway = node.IsEgressGateway
-		}
-		allow := node.IsRelayed != "yes" || !excludeRelayed
-
-		if node.Network == networkName && node.IsPending != "yes" && allow {
-			peer = setPeerInfo(&node)
-			if node.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[node.PublicKey]) {
-				endpointstring := udppeers[node.PublicKey]
-				endpointarr := strings.Split(endpointstring, ":")
-				if len(endpointarr) == 2 {
-					port, err := strconv.Atoi(endpointarr[1])
-					if err == nil {
-						// peer.Endpoint = endpointarr[0]
-						peer.ListenPort = int32(port)
-					}
-				}
-			}
-			if node.IsRelay == "yes" {
-				network, err := GetNetwork(networkName)
-				if err == nil {
-					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
-				} else {
-					peer.AllowedIPs = append(peer.AllowedIPs, node.RelayAddrs...)
-				}
-				for _, egressNode := range egressNetworkNodes {
-					if egressNode.IsRelayed == "yes" && StringSliceContains(node.RelayAddrs, egressNode.Address) {
-						peer.AllowedIPs = append(peer.AllowedIPs, egressNode.EgressGatewayRanges...)
-					}
-				}
-			}
-			peers = append(peers, peer)
-		}
-	}
-
-	return peers, err
-}
-
-// GetPeersList - gets the peers of a given network
-func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
-	var peers []models.Node
-	var err error
-	if relayedNodeAddr == "" {
-		peers, err = GetNodePeers(networkName, excludeRelayed)
-	} else {
-		var relayNode models.Node
-		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
-		if relayNode.Address != "" {
-			var peerNode = setPeerInfo(&relayNode)
-			network, err := GetNetwork(networkName)
-			if err == nil {
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
-				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
-				if err == nil {
-					for _, egress := range egressNetworkNodes {
-						if egress.Address != relayedNodeAddr {
-							peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
-						}
-					}
-				}
-			} else {
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
-			}
-			nodepeers, err := GetNodePeers(networkName, false)
-			if err == nil && peerNode.UDPHolePunch == "yes" {
-				for _, nodepeer := range nodepeers {
-					if nodepeer.Address == peerNode.Address {
-						// peerNode.Endpoint = nodepeer.Endpoint
-						peerNode.ListenPort = nodepeer.ListenPort
-					}
-				}
-			}
-
-			peers = append(peers, peerNode)
-		}
-	}
-	return peers, err
 }
 
 // RandomString - returns a random string in a charset

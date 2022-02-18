@@ -99,12 +99,7 @@ func GetPeers(node *models.Node) ([]models.Node, error) {
 	if IsLeader(node) {
 		setNetworkServerPeers(node)
 	}
-	excludeIsRelayed := node.IsRelay != "yes"
-	var relayedNode string
-	if node.IsRelayed == "yes" {
-		relayedNode = node.Address
-	}
-	peers, err := GetPeersList(node.Network, excludeIsRelayed, relayedNode)
+	peers, err := GetPeersList(node)
 	if err != nil {
 		if strings.Contains(err.Error(), RELAY_NODE_ERR) {
 			peers, err = PeerListUnRelay(node.ID, node.Network)
