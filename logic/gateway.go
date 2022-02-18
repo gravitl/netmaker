@@ -48,7 +48,6 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
 	node.SetLastModified()
-	node.PullChanges = "yes"
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
@@ -94,7 +93,6 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 		node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 	}
 	node.SetLastModified()
-	node.PullChanges = "yes"
 
 	data, err := json.Marshal(&node)
 	if err != nil {
@@ -142,7 +140,6 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	node.SetLastModified()
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
-	node.PullChanges = "yes"
 	node.UDPHolePunch = "no"
 
 	data, err := json.Marshal(&node)
@@ -177,7 +174,6 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
 	node.IngressGatewayRange = ""
-	node.PullChanges = "yes"
 
 	data, err := json.Marshal(&node)
 	if err != nil {

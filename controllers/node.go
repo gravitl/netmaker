@@ -539,7 +539,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	newNode.PullChanges = "yes"
 	relayupdate := false
 	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
 		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {

@@ -30,7 +30,6 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	node.RelayAddrs = relay.RelayAddrs
 
 	node.SetLastModified()
-	node.PullChanges = "yes"
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
 		return returnnodes, node, err
@@ -162,7 +161,6 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	node.IsRelay = "no"
 	node.RelayAddrs = []string{}
 	node.SetLastModified()
-	node.PullChanges = "yes"
 
 	data, err := json.Marshal(&node)
 	if err != nil {

@@ -389,7 +389,7 @@ func ServerPull(serverNode *models.Node, ifaceDelta bool) error {
 	}
 	serverNode.OS = runtime.GOOS
 
-	if serverNode.PullChanges == "yes" || ifaceDelta {
+	if ifaceDelta {
 		// check for interface change
 		// checks if address is in use by another interface
 		var oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
@@ -399,7 +399,6 @@ func ServerPull(serverNode *models.Node, ifaceDelta bool) error {
 			}
 			logger.Log(1, "removed old interface", oldIfaceName)
 		}
-		serverNode.PullChanges = "no"
 		if err = setWGConfig(serverNode, false); err != nil {
 			return err
 		}

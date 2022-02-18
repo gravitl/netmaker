@@ -85,7 +85,6 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	}
 	node.SetLastModified()
 	node.IsPending = "no"
-	node.PullChanges = "yes"
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
@@ -350,13 +349,7 @@ func SetNodeDefaults(node *models.Node) {
 	if node.ListenPort == 0 {
 		node.ListenPort = parentNetwork.DefaultListenPort
 	}
-	if node.SaveConfig == "" {
-		if parentNetwork.DefaultSaveConfig != "" {
-			node.SaveConfig = parentNetwork.DefaultSaveConfig
-		} else {
-			node.SaveConfig = "yes"
-		}
-	}
+
 	if node.Interface == "" {
 		node.Interface = parentNetwork.DefaultInterface
 	}
@@ -396,8 +389,6 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
-	//node.SetRoamingDefault()
-	node.SetPullChangesDefault()
 	node.SetDefaultAction()
 	node.SetIsServerDefault()
 	node.SetIsStaticDefault()
@@ -409,7 +400,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIsRelay()
 	node.SetDefaultIsDocker()
 	node.SetDefaultIsK8S()
-	node.KeyUpdateTimeStamp = time.Now().Unix()
+	node.SetDefaultIsHub()
 }
 
 // GetRecordKey - get record key
@@ -512,32 +503,6 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
 }
 
-// GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
-/*
-func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (models.Node, error) {
-	var node models.Node
-	var err error
-	node, err = GetNodeByID(uuid)
-	if err != nil && macaddress != "" && network != "" {
-		node, err = GetNodeByMacAddress(network, macaddress)
-		if err != nil {
-			return models.Node{}, err
-		}
-		err = DeleteNodeByMacAddress(&node, true) // remove node
-		if err != nil {
-			return models.Node{}, err
-		}
-		err = CreateNode(&node)
-		if err != nil {
-			return models.Node{}, err
-		}
-		logger.Log(2, "rewriting legacy node data; node now has id,", node.ID)
-		node.PullChanges = "yes"
-	}
-	return node, err
-}
-*/
-// GetNodeByID - get node by uuid, should have been set by create
 func GetNodeByID(uuid string) (models.Node, error) {
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {

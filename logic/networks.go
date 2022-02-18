@@ -8,7 +8,6 @@ import (
 	"net"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -68,7 +67,6 @@ func CreateNetwork(network models.Network) error {
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
-	network.KeyUpdateTimeStamp = time.Now().Unix()
 
 	err := ValidateNetwork(&network, false)
 	if err != nil {
@@ -106,7 +104,6 @@ func NetworkNodesUpdatePullChanges(networkName string) error {
 			return err
 		}
 		if node.Network == networkName {
-			node.PullChanges = "yes"
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err
@@ -446,7 +443,6 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 		if node.Network == networkName {
 			node.IsDualStack = "no"
 			node.Address6 = ""
-			node.PullChanges = "yes"
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err
@@ -488,7 +484,6 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			}
 
 			node.Address = ipaddr
-			node.PullChanges = "yes"
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err
@@ -498,27 +493,6 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 	}
 
 	return nil
-}
-
-// IsNetworkDisplayNameUnique - checks if displayname is unique from other networks
-func IsNetworkDisplayNameUnique(network *models.Network) (bool, error) {
-
-	isunique := true
-
-	records, err := GetNetworks()
-
-	if err != nil && !database.IsEmptyRecord(err) {
-		return false, err
-	}
-
-	for i := 0; i < len(records); i++ {
-
-		if network.NetID == records[i].DisplayName {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
 }
 
 // IsNetworkNameUnique - checks to see if any other networks have the same name (id)
@@ -612,14 +586,6 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 		return isFieldUnique && inCharSet
 	})
 	//
-	_ = v.RegisterValidation("displayname_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique, _ := IsNetworkDisplayNameUnique(network)
-		inCharSet := network.DisplayNameInNetworkCharSet()
-		if isUpdate {
-			return inCharSet
-		}
-		return isFieldUnique && inCharSet
-	})
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
 	})
