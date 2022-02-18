@@ -193,10 +193,10 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		for _, node := range nodes {
 			if node.IsServer != "yes" {
 				if rangeupdate {
-					applyServerAddr(&node, serverAddrs, network)
-					for _, server := range node.NetworkSettings.DefaultServerAddrs {
-						logger.Log(2, "server address in node", server.Address)
-					}
+					//applyServerAddr(&node, serverAddrs, network)
+					//for i, server := range node.NetworkSettings.DefaultServerAddrs {
+					//logger.Log(2, "server address no ", string(i), "in node", server.Address)
+					//}
 					var rangeUpdate models.RangeUpdate
 					rangeUpdate.Node = node
 					rangeUpdate.Peers.Network = node.Network
