@@ -28,10 +28,11 @@ type ClientConfig struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
-	GRPCAddress string `yaml:"grpcaddress"`
-	AccessKey   string `yaml:"accesskey"`
-	GRPCSSL     string `yaml:"grpcssl"`
+	CoreDNSAddr  string `yaml:"corednsaddr"`
+	GRPCAddress  string `yaml:"grpcaddress"`
+	AccessKey    string `yaml:"accesskey"`
+	GRPCSSL      string `yaml:"grpcssl"`
+	CommsNetwork string `yaml:"commsnetwork"`
 }
 
 // Write - writes the config of a client to disk
@@ -175,6 +176,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
+		cfg.Server.CommsNetwork = accesstoken.ServerConfig.CommsNetwork
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}

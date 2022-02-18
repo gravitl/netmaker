@@ -27,7 +27,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	var err error
 	//check if comms network exists
 	var commsCfg config.ClientConfig
-	commsCfg.Network = ncutils.COMMS_NETWORK_NAME
+	commsCfg.Network = cfg.Server.CommsNetwork
 	commsCfg.ReadConfig()
 	if commsCfg.Node.Name == "" {
 		if err := JoinCommsNetwork(commsCfg); err != nil {

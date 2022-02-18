@@ -35,8 +35,15 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
-	client := setupMQTT(false)
-	defer client.Disconnect(250)
+	commsNetworks, err := getCommsNetworks()
+	if err != nil {
+		return errors.New("no comm networks exist")
+	}
+	for net := range commsNetworks {
+		ncutils.PrintLog("started comms network daemon, "+net, 1)
+		client := setupMQTT(false, net)
+		defer client.Disconnect(250)
+	}
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	networks, _ := ncutils.GetSystemNetworks()
@@ -102,13 +109,13 @@ func PingServer(cfg *config.ClientConfig) error {
 // == Private ==
 
 // setupMQTT creates a connection to broker and return client
-func setupMQTT(publish bool) mqtt.Client {
+func setupMQTT(publish bool, networkName string) mqtt.Client {
 	var cfg *config.ClientConfig
-	cfg.Network = ncutils.COMMS_NETWORK_NAME
+	cfg.Network = networkName
 	cfg.ReadConfig()
 	opts := mqtt.NewClientOptions()
 	server := getServerAddress(cfg)
-	opts.AddBroker(server + ":1883")
+	opts.AddBroker(server + ":1883") // TODO get the appropriate port of the comms mq server
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
 	opts.SetDefaultPublishHandler(All)
@@ -130,12 +137,6 @@ func setupMQTT(publish bool) mqtt.Client {
 		if err != nil {
 			ncutils.Log("could not run pull, server unreachable: " + err.Error())
 			ncutils.Log("waiting to retry...")
-			/*
-				//Consider putting in logic to restart - daemon may take long time to refresh
-				time.Sleep(time.Minute * 5)
-					ncutils.Log("restarting netclient")
-					daemon.Restart()
-			*/
 		}
 		ncutils.Log("connection re-established with mqtt server")
 	})
@@ -274,6 +275,21 @@ func getServerAddress(cfg *config.ClientConfig) string {
 		}
 	}
 	return server.Address
+}
+
+func getCommsNetworks() (map[string]bool, error) {
+	var cfg config.ClientConfig
+	networks, err := ncutils.GetSystemNetworks()
+	if err != nil {
+		return nil, err
+	}
+	var response = make(map[string]bool, 1)
+	for _, network := range networks {
+		cfg.Network = network
+		cfg.ReadConfig()
+		response[cfg.Node.CommID] = true
+	}
+	return response, nil
 }
 
 // == Message Caches ==
