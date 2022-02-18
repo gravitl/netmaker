@@ -8,7 +8,6 @@ import (
 	"net"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -68,7 +67,6 @@ func CreateNetwork(network models.Network) error {
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
-	network.KeyUpdateTimeStamp = time.Now().Unix()
 
 	err := ValidateNetwork(&network, false)
 	if err != nil {
@@ -500,27 +498,6 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 	return nil
 }
 
-// IsNetworkDisplayNameUnique - checks if displayname is unique from other networks
-func IsNetworkDisplayNameUnique(network *models.Network) (bool, error) {
-
-	isunique := true
-
-	records, err := GetNetworks()
-
-	if err != nil && !database.IsEmptyRecord(err) {
-		return false, err
-	}
-
-	for i := 0; i < len(records); i++ {
-
-		if network.NetID == records[i].DisplayName {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
-}
-
 // IsNetworkNameUnique - checks to see if any other networks have the same name (id)
 func IsNetworkNameUnique(network *models.Network) (bool, error) {
 
@@ -612,14 +589,6 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 		return isFieldUnique && inCharSet
 	})
 	//
-	_ = v.RegisterValidation("displayname_valid", func(fl validator.FieldLevel) bool {
-		isFieldUnique, _ := IsNetworkDisplayNameUnique(network)
-		inCharSet := network.DisplayNameInNetworkCharSet()
-		if isUpdate {
-			return inCharSet
-		}
-		return isFieldUnique && inCharSet
-	})
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
 	})

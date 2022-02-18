@@ -350,13 +350,9 @@ func SetNodeDefaults(node *models.Node) {
 	if node.ListenPort == 0 {
 		node.ListenPort = parentNetwork.DefaultListenPort
 	}
-	if node.SaveConfig == "" {
-		if parentNetwork.DefaultSaveConfig != "" {
-			node.SaveConfig = parentNetwork.DefaultSaveConfig
-		} else {
-			node.SaveConfig = "yes"
-		}
-	}
+	// SaveConfig is Depricated - remove this field
+	node.SaveConfig = "no"
+
 	if node.Interface == "" {
 		node.Interface = parentNetwork.DefaultInterface
 	}

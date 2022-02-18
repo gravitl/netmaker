@@ -3,7 +3,6 @@ package controller
 import (
 	"os"
 	"testing"
-	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
@@ -24,7 +23,8 @@ func TestCreateNetwork(t *testing.T) {
 	var network models.Network
 	network.NetID = "skynet"
 	network.AddressRange = "10.0.0.1/24"
-	network.DisplayName = "mynetwork"
+	// if tests break - check here (removed displayname)
+	//network.DisplayName = "mynetwork"
 
 	err := logic.CreateNetwork(network)
 	assert.Nil(t, err)
@@ -59,20 +59,6 @@ func TestDeleteNetwork(t *testing.T) {
 		err := logic.DeleteNetwork("skynet")
 		assert.Nil(t, err)
 	})
-}
-
-func TestKeyUpdate(t *testing.T) {
-	t.Skip() //test is failing on last assert  --- not sure why
-	database.InitializeDatabase()
-	createNet()
-	existing, err := logic.GetNetwork("skynet")
-	assert.Nil(t, err)
-	time.Sleep(time.Second * 1)
-	network, err := logic.KeyUpdate("skynet")
-	assert.Nil(t, err)
-	network, err = logic.GetNetwork("skynet")
-	assert.Nil(t, err)
-	assert.Greater(t, network.KeyUpdateTimeStamp, existing.KeyUpdateTimeStamp)
 }
 
 func TestCreateKey(t *testing.T) {
@@ -245,28 +231,6 @@ func TestValidateNetworkUpdate(t *testing.T) {
 			},
 			errMessage: "Field validation for 'AddressRange6' failed on the 'cidr' tag",
 		},
-
-		{
-			testname: "BadDisplayName",
-			network: models.Network{
-				DisplayName: "skynet*",
-			},
-			errMessage: "Field validation for 'DisplayName' failed on the 'alphanum' tag",
-		},
-		{
-			testname: "DisplayNameTooLong",
-			network: models.Network{
-				DisplayName: "Thisisareallylongdisplaynamethatistoolong",
-			},
-			errMessage: "Field validation for 'DisplayName' failed on the 'max' tag",
-		},
-		{
-			testname: "DisplayNameTooShort",
-			network: models.Network{
-				DisplayName: "1",
-			},
-			errMessage: "Field validation for 'DisplayName' failed on the 'min' tag",
-		},
 		{
 			testname: "InvalidNetID",
 			network: models.Network{
@@ -309,20 +273,6 @@ func TestValidateNetworkUpdate(t *testing.T) {
 			},
 			errMessage: "Field validation for 'LocalRange' failed on the 'cidr' tag",
 		},
-		{
-			testname: "CheckInIntervalTooBig",
-			network: models.Network{
-				DefaultCheckInInterval: 100001,
-			},
-			errMessage: "Field validation for 'DefaultCheckInInterval' failed on the 'max' tag",
-		},
-		{
-			testname: "CheckInIntervalTooSmall",
-			network: models.Network{
-				DefaultCheckInInterval: 1,
-			},
-			errMessage: "Field validation for 'DefaultCheckInInterval' failed on the 'min' tag",
-		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.testname, func(t *testing.T) {
@@ -346,7 +296,6 @@ func createNet() {
 	var network models.Network
 	network.NetID = "skynet"
 	network.AddressRange = "10.0.0.1/24"
-	network.DisplayName = "mynetwork"
 	_, err := logic.GetNetwork("skynet")
 	if err != nil {
 		logic.CreateNetwork(network)

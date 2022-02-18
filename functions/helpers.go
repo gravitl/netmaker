@@ -107,26 +107,6 @@ func NetworkExists(name string) (bool, error) {
 	return len(network) > 0, nil
 }
 
-// IsNetworkDisplayNameUnique - checks if network display name unique
-func IsNetworkDisplayNameUnique(name string) (bool, error) {
-
-	isunique := true
-
-	dbs, err := logic.GetNetworks()
-	if err != nil {
-		return database.IsEmptyRecord(err), err
-	}
-
-	for i := 0; i < len(dbs); i++ {
-
-		if name == dbs[i].DisplayName {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
-}
-
 // IsKeyValidGlobal - checks if a key is valid globally
 func IsKeyValidGlobal(keyvalue string) bool {
 

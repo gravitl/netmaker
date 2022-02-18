@@ -260,7 +260,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logic.DeleteNetwork(network.NetID)
 			if err == nil {
-				err = errors.New("Failed to add server to network " + network.DisplayName)
+				err = errors.New("Failed to add server to network " + network.NetID)
 			}
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
