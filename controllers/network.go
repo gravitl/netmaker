@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -173,6 +174,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if rangeupdate || localrangeupdate || holepunchupdate {
+		logger.Log(2, "Range Update")
 		nodes, err := logic.GetNetworkNodes(network.NetID)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
@@ -186,11 +188,15 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Log(1, "failed to update peers for server node address on network", netname)
 		}
+		logger.Log(2, "new server address", leaderServerNode.Address)
 
 		for _, node := range nodes {
 			if node.IsServer != "yes" {
 				if rangeupdate {
 					applyServerAddr(&node, serverAddrs, network)
+					for _, server := range node.NetworkSettings.DefaultServerAddrs {
+						logger.Log(2, "server address in node", server.Address)
+					}
 					var rangeUpdate models.RangeUpdate
 					rangeUpdate.Node = node
 					rangeUpdate.Peers.Network = node.Network
@@ -213,10 +219,13 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 					rangeUpdate.Peers.Peers = append(rangeUpdate.Peers.Peers, peer)
+					logger.Log(3, "publishing range update")
+					spew.Dump(rangeUpdate)
 					if err := mq.PublishRangeUpdate(&rangeUpdate); err != nil {
 						returnErrorResponse(w, r, formatError(err, "internal"))
 						return
 					}
+					logger.Log(3, "publishing node upate to node", node.Name)
 					if err := mq.NodeUpdate(&node); err != nil {
 						logger.Log(1, "could not update range when network", netname, "changed cidr for node", node.Name, node.ID, err.Error())
 					}
@@ -227,12 +236,15 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetwork)
-	//currentServerNode, err := logic.GetNetworkServerLocal(netname)
-	//if err != nil {
-	//	logger.Log(1, "failed to update peers for server node address on network", netname)
-	//} else {
-	//	runUpdates(&currentServerNode, true)
-	//}
+	currentServerNode, err := logic.GetNetworkServerLocal(netname)
+	if err != nil {
+		logger.Log(1, "failed to update peers for server node address on network", netname)
+	} else {
+		logger.Log(3, "updating server", currentServerNode.Name)
+		spew.Dump(currentServerNode)
+		logic.ServerUpdate(&currentServerNode, true)
+		//runUpdates(&currentServerNode, true)
+	}
 }
 
 func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
