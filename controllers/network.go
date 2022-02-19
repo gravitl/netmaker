@@ -57,9 +57,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 		for _, network := range networksSlice {
 			netObject, parentErr := logic.GetParentNetwork(network)
 			if parentErr == nil {
-				if netObject.IsComms != "yes" {
-					allnetworks = append(allnetworks, netObject)
-				}
+				allnetworks = append(allnetworks, netObject)
 			}
 		}
 	}
@@ -71,7 +69,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(allnetworks)
+	json.NewEncoder(w).Encode(filterCommsNetwork(allnetworks))
 }
 
 // Simple get network function
@@ -360,4 +358,14 @@ func isCommsEdit(w http.ResponseWriter, r *http.Request, netname string) bool {
 		return true
 	}
 	return false
+}
+
+func filterCommsNetwork(networks []models.Network) []models.Network {
+	var filterdNets []models.Network
+	for i := range networks {
+		if networks[i].IsComms != "yes" && networks[i].NetID != servercfg.GetCommsID() {
+			filterdNets = append(filterdNets, networks[i])
+		}
+	}
+	return filterdNets
 }
