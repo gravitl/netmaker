@@ -25,7 +25,7 @@ import (
 )
 
 // JoinNetwork - helps a client join a network
-func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
+func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error {
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -250,16 +250,18 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 
-	if cfg.Daemon != "off" {
-		err = daemon.InstallDaemon(cfg)
-	}
-	if err != nil {
-		return err
-	} else {
-		daemon.Restart()
+	if !iscomms {
+		if cfg.Daemon != "off" {
+			err = daemon.InstallDaemon(cfg)
+		}
+		if err != nil {
+			return err
+		} else {
+			daemon.Restart()
+		}
 	}
 
-	return err
+	return nil
 }
 
 // format name appropriately. Set to blank on failure

@@ -7,16 +7,11 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // JoinCommsNetwork -- Join the message queue comms network
 func JoinCommsNetwork(cfg config.ClientConfig) error {
-	key, err := wgtypes.GeneratePrivateKey()
-	if err != nil {
-		return err
-	}
-	if err := functions.JoinNetwork(cfg, key.PublicKey().String()); err != nil {
+	if err := functions.JoinNetwork(cfg, "", true); err != nil {
 		return err
 	}
 	return nil
@@ -28,26 +23,32 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	//check if comms network exists
 	var commsCfg config.ClientConfig
 	commsCfg.Network = cfg.Server.CommsNetwork
+	commsCfg.Node.Network = cfg.Server.CommsNetwork
+	commsCfg.Server.AccessKey = cfg.Server.AccessKey
+	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
+	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
+	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
 	commsCfg.ReadConfig()
 	if commsCfg.Node.Name == "" {
 		if err := JoinCommsNetwork(commsCfg); err != nil {
 			ncutils.Log("could not join comms network " + err.Error())
 			return err
 		}
-	}
-	//ensure comms network is reachable
-	if err := functions.PingServer(&commsCfg); err != nil {
-		if err := functions.LeaveNetwork(commsCfg.Network); err != nil {
-			ncutils.Log("could not leave comms network " + err.Error())
-			return err
+	} else { // check if comms is currently reachable
+		if err := functions.PingServer(&commsCfg); err != nil {
+			if err := functions.LeaveNetwork(commsCfg.Network); err != nil {
+				ncutils.Log("could not leave comms network " + err.Error())
+				return err
+			}
+			if err := JoinCommsNetwork(commsCfg); err != nil {
+				ncutils.Log("could not join comms network " + err.Error())
+				return err
+			}
 		}
-		if err := JoinCommsNetwork(commsCfg); err != nil {
-			ncutils.Log("could not join comms network " + err.Error())
-			return err
-		}
 	}
+
 	//join network
-	err = functions.JoinNetwork(cfg, privateKey)
+	err = functions.JoinNetwork(cfg, privateKey, false)
 	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			ncutils.PrintLog("error installing: "+err.Error(), 1)
