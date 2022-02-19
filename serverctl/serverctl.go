@@ -40,7 +40,6 @@ func InitializeCommsNetwork() error {
 	} else {
 		SyncServerNetwork(COMMS_NETID)
 	}
-	logger.Log(1, "comms network initialized")
 	return nil
 }
 
@@ -53,9 +52,11 @@ func setCommsID() {
 			logger.FatalLog("something went wrong when configuring comms id")
 		}
 		COMMS_NETID = commsid
+		os.Setenv("COMMS_ID", COMMS_NETID)
 		return
 	}
 	COMMS_NETID = currentid
+	os.Setenv("COMMS_ID", COMMS_NETID)
 }
 
 // InitServerNetclient - intializes the server netclient

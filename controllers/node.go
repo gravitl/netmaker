@@ -263,6 +263,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	var nodes []models.Node
 	var params = mux.Vars(r)
 	networkName := params["network"]
+
 	nodes, err := logic.GetNetworkNodes(networkName)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -299,9 +300,9 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//Return all the nodes in JSON format
-	logger.Log(2, r.Header.Get("user"), "fetched nodes")
+	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(nodes)
+	json.NewEncoder(w).Encode(filterCommsNodes(nodes))
 }
 
 func getUsersNodes(user models.User) ([]models.Node, error) {
@@ -326,6 +327,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 
 	node, err := logic.GetNodeByID(params["nodeid"])
 	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if logic.IsNodeInComms(&node) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -658,4 +663,14 @@ func runServerUpdate(node *models.Node, ifaceDelta bool) error {
 		return err
 	}
 	return nil
+}
+
+func filterCommsNodes(nodes []models.Node) []models.Node {
+	var filterdNodes []models.Node
+	for i := range nodes {
+		if !logic.IsNodeInComms(&nodes[i]) {
+			filterdNodes = append(filterdNodes, nodes[i])
+		}
+	}
+	return filterdNodes
 }

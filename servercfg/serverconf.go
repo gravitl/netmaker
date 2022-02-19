@@ -35,6 +35,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.MQPort = GetMQPort()
 	cfg.GRPCHost = GetGRPCHost()
 	cfg.GRPCPort = GetGRPCPort()
+	cfg.GRPCConnString = GetGRPCConnString()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
@@ -89,6 +90,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CommsCIDR = GetCommsCIDR()
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
+	cfg.CommsID = GetCommsCIDR()
 
 	return cfg
 }
@@ -264,6 +266,11 @@ func GetCommsCIDR() string {
 		return netrange
 	}
 	return "172.242.0.0/16"
+}
+
+// GetCommsID - gets the grpc port
+func GetCommsID() string {
+	return os.Getenv("COMMS_ID")
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint

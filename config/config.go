@@ -76,6 +76,7 @@ type ServerConfig struct {
 	HostNetwork           string `yaml:"hostnetwork"`
 	CommsCIDR             string `yaml:"commscidr"`
 	MQPort                string `yaml:"mqport"`
+	CommsID               string `yaml:"commsid"`
 }
 
 // SQLConfig - Generic SQL Config
