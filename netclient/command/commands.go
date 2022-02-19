@@ -9,18 +9,9 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-// JoinCommsNetwork -- Join the message queue comms network
-func JoinCommsNetwork(cfg config.ClientConfig) error {
-	if err := functions.JoinNetwork(cfg, "", true); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Join - join command to run from cli
-func Join(cfg config.ClientConfig, privateKey string) error {
-	var err error
-	//check if comms network exists
+// JoinComms -- Join the message queue comms network if it doesn't have it
+// tries to ping if already found locally, if fail ping pull for best effort for communication
+func JoinComms(cfg *config.ClientConfig) error {
 	var commsCfg config.ClientConfig
 	commsCfg.Network = cfg.Server.CommsNetwork
 	commsCfg.Node.Network = cfg.Server.CommsNetwork
@@ -30,21 +21,25 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
 	commsCfg.ReadConfig()
 	if commsCfg.Node.Name == "" {
-		if err := JoinCommsNetwork(commsCfg); err != nil {
-			ncutils.Log("could not join comms network " + err.Error())
+		if err := functions.JoinNetwork(commsCfg, "", true); err != nil {
 			return err
 		}
 	} else { // check if comms is currently reachable
 		if err := functions.PingServer(&commsCfg); err != nil {
-			if err := functions.LeaveNetwork(commsCfg.Network); err != nil {
-				ncutils.Log("could not leave comms network " + err.Error())
-				return err
-			}
-			if err := JoinCommsNetwork(commsCfg); err != nil {
-				ncutils.Log("could not join comms network " + err.Error())
+			if err = Pull(commsCfg); err != nil {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+// Join - join command to run from cli
+func Join(cfg config.ClientConfig, privateKey string) error {
+	var err error
+	//check if comms network exists
+	if err = JoinComms(&cfg); err != nil {
+		return err
 	}
 
 	//join network
@@ -147,6 +142,7 @@ func Uninstall() error {
 	return err
 }
 
+// Daemon - runs the daemon
 func Daemon() error {
 	err := functions.Daemon()
 	return err
