@@ -242,7 +242,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 				go func() {
 					if !local.SetDNSWithRetry(node, server.Address) {
 						cfg.Node.DNSOn = "no"
-						PublishNodeUpdate(&cfg)
+						var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
+						PublishNodeUpdate(&currentCommsCfg, &cfg)
 					}
 				}()
 				break
