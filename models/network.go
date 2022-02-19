@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // Network Struct - contains info for a given unique network
@@ -54,11 +52,7 @@ func (network *Network) SetNetworkLastModified() {
 // Network.SetDefaults - sets default values for a network struct
 func (network *Network) SetDefaults() {
 	if network.DefaultUDPHolePunch == "" {
-		if servercfg.IsClientMode() != "off" {
-			network.DefaultUDPHolePunch = "yes"
-		} else {
-			network.DefaultUDPHolePunch = "no"
-		}
+		network.DefaultUDPHolePunch = "no"
 	}
 	if network.IsLocal == "" {
 		network.IsLocal = "no"
