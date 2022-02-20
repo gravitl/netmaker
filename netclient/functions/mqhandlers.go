@@ -61,7 +61,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	case models.NODE_DELETE:
 		ncutils.PrintLog(fmt.Sprintf("received delete request for %s", nodeCfg.Node.Name), 0)
 		unsubscribeNode(client, &nodeCfg)
-		if err = LeaveNetwork(nodeCfg.Node.Network); err != nil {
+		if err = LeaveNetwork(nodeCfg.Node.Network, true); err != nil {
 			if !strings.Contains("rpc error", err.Error()) {
 				ncutils.PrintLog(fmt.Sprintf("failed to leave, please check that local files for network %s were removed", nodeCfg.Node.Network), 0)
 				return
