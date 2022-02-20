@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // All -- mqtt message hander for all ('#') topics
@@ -69,9 +70,19 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		ncutils.PrintLog(fmt.Sprintf("%s was removed", nodeCfg.Node.Name), 0)
 		return
 	case models.NODE_UPDATE_KEY:
-		if err := UpdateKeys(&nodeCfg, client); err != nil {
-			ncutils.PrintLog("err updating wireguard keys: "+err.Error(), 0)
+		// == get the current key for node ==
+		oldPrivateKey, retErr := wireguard.RetrievePrivKey(nodeCfg.Network)
+		if retErr != nil {
+			break
 		}
+		if err := UpdateKeys(&nodeCfg, client); err != nil {
+			ncutils.PrintLog("err updating wireguard keys, reusing last key\n"+err.Error(), 0)
+			if key, parseErr := wgtypes.ParseKey(oldPrivateKey); parseErr == nil {
+				wireguard.StorePrivKey(key.String(), nodeCfg.Network)
+				nodeCfg.Node.PublicKey = key.PublicKey().String()
+			}
+		}
+		ifaceDelta = true
 	case models.NODE_NOOP:
 	default:
 	}
@@ -93,12 +104,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
-		// ackErr := publishSignal(&commsCfg, &nodeCfg, ncutils.ACK)
-		// if ackErr != nil {
-		// 	ncutils.Log("could not notify server that it received an interface update")
-		// } else {
-		// 	ncutils.Log("signalled acknowledgement of change to server")
-		// }
 		ncutils.Log("applying WG conf to " + file)
 		err = wireguard.ApplyConf(&nodeCfg.Node, nodeCfg.Node.Interface, file)
 		if err != nil {
