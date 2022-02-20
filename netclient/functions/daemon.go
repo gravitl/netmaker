@@ -80,7 +80,7 @@ func Daemon() error {
 
 // UpdateKeys -- updates private key and returns new publickey
 func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
-	ncutils.Log("received message to update keys")
+	ncutils.Log("received message to update wireguard keys for network " + nodeCfg.Network)
 	key, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
 		ncutils.Log("error generating privatekey " + err.Error())

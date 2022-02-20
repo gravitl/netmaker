@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
@@ -118,7 +119,9 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, node := range nodes {
 		logger.Log(3, "updating node ", node.Name, " for a key update")
-		runUpdates(&node, true)
+		if node.IsServer != "yes" {
+			runUpdates(&node, false)
+		}
 	}
 }
 
@@ -188,7 +191,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, node := range nodes {
-			runUpdates(&node, true)
+			if err = mq.NodeUpdate(&node); err != nil {
+				logger.Log(1, "failed to send update to node during a network wide update", node.Name, node.ID, err.Error())
+			}
 		}
 	}
 
