@@ -52,11 +52,11 @@ func setCommsID() {
 			logger.FatalLog("something went wrong when configuring comms id")
 		}
 		COMMS_NETID = commsid
-		os.Setenv("COMMS_ID", COMMS_NETID)
+		servercfg.SetCommsID(COMMS_NETID)
 		return
 	}
 	COMMS_NETID = currentid
-	os.Setenv("COMMS_ID", COMMS_NETID)
+	servercfg.SetCommsID(COMMS_NETID)
 }
 
 // InitServerNetclient - intializes the server netclient

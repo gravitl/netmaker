@@ -12,7 +12,10 @@ import (
 	"github.com/gravitl/netmaker/config"
 )
 
-var Version = "dev"
+var (
+	Version = "dev"
+	commsID = ""
+)
 
 // SetHost - sets the host ip
 func SetHost() error {
@@ -270,7 +273,12 @@ func GetCommsCIDR() string {
 
 // GetCommsID - gets the grpc port
 func GetCommsID() string {
-	return os.Getenv("COMMS_ID")
+	return commsID
+}
+
+// SetCommsID - sets the commsID
+func SetCommsID(newCommsID string) {
+	commsID = newCommsID
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
