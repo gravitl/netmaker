@@ -63,6 +63,7 @@ func Write(config *ClientConfig, network string) error {
 	return f.Sync()
 }
 
+// ConfigFileExists - return true if config file exists
 func (config *ClientConfig) ConfigFileExists() bool {
 	home := ncutils.GetNetclientPathSpecific()
 
