@@ -64,7 +64,7 @@ func Daemon() error {
 	wg.Add(1)
 	go Checkin(ctx, &wg, commsNetworks)
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+	signal.Notify(quit, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-quit
 	for currCommsNet := range commsNetworks {
 		if cancel, ok := networkcontext.Load(currCommsNet); ok {
