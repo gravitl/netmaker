@@ -96,11 +96,11 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 		ncutils.Log("error updating local config " + err.Error())
 	}
 	var commsCfg = getCommsCfgByNode(&nodeCfg.Node)
-	PublishNodeUpdate(&commsCfg, nodeCfg)
 	if err = wireguard.ApplyConf(&nodeCfg.Node, nodeCfg.Node.Interface, file); err != nil {
 		ncutils.Log("error applying new config " + err.Error())
 		return err
 	}
+	PublishNodeUpdate(&commsCfg, nodeCfg)
 	return nil
 }
 
