@@ -93,12 +93,12 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
-		ackErr := publishSignal(&commsCfg, &nodeCfg, ncutils.ACK)
-		if ackErr != nil {
-			ncutils.Log("could not notify server that it received an interface update")
-		} else {
-			ncutils.Log("signalled acknowledgement of change to server")
-		}
+		// ackErr := publishSignal(&commsCfg, &nodeCfg, ncutils.ACK)
+		// if ackErr != nil {
+		// 	ncutils.Log("could not notify server that it received an interface update")
+		// } else {
+		// 	ncutils.Log("signalled acknowledgement of change to server")
+		// }
 		ncutils.Log("applying WG conf to " + file)
 		err = wireguard.ApplyConf(&nodeCfg.Node, nodeCfg.Node.Interface, file)
 		if err != nil {

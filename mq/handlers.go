@@ -113,12 +113,18 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		case ncutils.DONE:
+			currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
+			if err != nil {
+				return
+			}
+			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
+				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
+				return
+			}
 			if err := PublishPeerUpdate(&currentNode); err != nil {
 				logger.Log(1, "error publishing peer update ", err.Error())
 				return
 			}
-		case ncutils.KEY:
-			logger.Log(0, "I should have broke")
 		}
 
 		logger.Log(1, "sent peer updates after signal received from", id, currentNode.Name)
