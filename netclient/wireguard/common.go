@@ -293,14 +293,23 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	var err error
 	switch os {
 	case "nowgquick":
-		err = ApplyWithoutWGQuick(node, ifacename, confPath)
+		ApplyWithoutWGQuick(node, ifacename, confPath)
 	case "windows":
-		_ = ApplyWindowsConf(confPath)
+		ApplyWindowsConf(confPath)
 	case "darwin":
-		_ = ApplyMacOSConf(node, ifacename, confPath)
+		ApplyMacOSConf(node, ifacename, confPath)
 	default:
-		err = ApplyWGQuickConf(confPath, ifacename)
+		ApplyWGQuickConf(confPath, ifacename)
 	}
+
+	var nodeCfg config.ClientConfig
+	nodeCfg.Network = node.Network
+	nodeCfg.ReadConfig()
+	ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange)
+	if err == nil {
+		local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+	}
+
 	return err
 }
 
