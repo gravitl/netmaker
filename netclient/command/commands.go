@@ -19,7 +19,9 @@ func JoinComms(cfg *config.ClientConfig) error {
 	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
 	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
 	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
-	commsCfg.ReadConfig()
+	if commsCfg.ConfigFileExists() {
+		commsCfg.ReadConfig()
+	}
 	if commsCfg.Node.Name == "" {
 		if err := functions.JoinNetwork(commsCfg, "", true); err != nil {
 			return err

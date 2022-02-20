@@ -63,6 +63,17 @@ func Write(config *ClientConfig, network string) error {
 	return f.Sync()
 }
 
+func (config *ClientConfig) ConfigFileExists() bool {
+	home := ncutils.GetNetclientPathSpecific()
+
+	file := fmt.Sprintf(home + "netconfig-" + config.Network)
+	info, err := os.Stat(file)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
 // ClientConfig.ReadConfig - used to read config from client disk into memory
 func (config *ClientConfig) ReadConfig() {
 
@@ -74,8 +85,7 @@ func (config *ClientConfig) ReadConfig() {
 	//f, err := os.Open(file)
 	f, err := os.OpenFile(file, os.O_RDONLY, 0600)
 	if err != nil {
-		fmt.Println("trouble opening file")
-		fmt.Println(err)
+		ncutils.PrintLog("trouble opening file: "+err.Error(), 1)
 		nofile = true
 		//fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
 	}
