@@ -40,8 +40,22 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		serverCount = len(currentServers) + 1
 	}
 	var ishub = "no"
-	if serverCount == 1 && (networkSettings.IsHubAndSpoke == "yes" || networkSettings.IsComms == "yes") {
-		ishub = "yes"
+
+	if networkSettings.IsHubAndSpoke == "yes" || networkSettings.IsComms == "yes" {
+		nodes, err := GetNetworkNodes(networkSettings.NetID)
+		if err != nil || nodes == nil {
+			ishub = "yes"
+		} else {
+			sethub := true
+			for i := range nodes {
+				if nodes[i].IsHub == "yes" {
+					sethub = false
+				}
+			}
+			if sethub {
+				ishub = "yes"
+			}
+		}
 	}
 	var node = &models.Node{
 		IsServer:     "yes",

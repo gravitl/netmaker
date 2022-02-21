@@ -139,6 +139,13 @@ func IsLeader(node *models.Node) bool {
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
+	var err error
+	if newNode.IsHub == "yes" && currentNode.IsHub != "yes" {
+		if err = unsetHub(newNode.Network); err != nil {
+			return err
+		}
+	}
+
 	if newNode.Address != currentNode.Address {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
 			if !IsAddressInCIDR(newNode.Address, network.AddressRange) {
@@ -604,4 +611,26 @@ func isMacAddressUnique(macaddress string, networkName string) (bool, error) {
 	}
 
 	return isunique, nil
+}
+
+// unsetHub - unset hub on network nodes
+func unsetHub(networkName string) error {
+
+	nodes, err := GetNetworkNodes(networkName)
+	if err != nil {
+		return err
+	}
+
+	for i := range nodes {
+		if nodes[i].IsHub == "yes" {
+			nodes[i].IsHub = "no"
+			newNodeData, err := json.Marshal(&nodes[i])
+			if err != nil {
+				logger.Log(1, "error on node during hub update")
+				return err
+			}
+			database.Insert(nodes[i].ID, string(newNodeData), database.NODES_TABLE_NAME)
+		}
+	}
+	return nil
 }
