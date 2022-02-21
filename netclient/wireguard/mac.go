@@ -3,6 +3,7 @@ package wireguard
 import (
 	"bufio"
 	"errors"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -228,6 +229,7 @@ func getConfig(path string) string {
 
 // SetMacPeerRoutes - sets routes for interface from the peer list for all AllowedIps
 func SetMacPeerRoutes(realIface string) error {
+	log.Println("DELETE ME: setting mac peer routes")
 	var err error
 	peerIPs := getPeerIPs(realIface)
 	if len(peerIPs) == 0 {
@@ -235,6 +237,7 @@ func SetMacPeerRoutes(realIface string) error {
 	}
 	for _, i := range peerIPs {
 		if i != "" {
+			log.Println("DELETE ME: adding route " + i + " on iface " + realIface)
 			err = addRoute(i, realIface)
 			if err != nil {
 				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)
