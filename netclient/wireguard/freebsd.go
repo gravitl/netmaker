@@ -95,10 +95,8 @@ func addAddressFreeBSD(ifacename, inet6, inet string) {
 
 func setConfFreeBSD(iface string, confPath string) error {
 	var tmpConf = confPath + ".sync.tmp"
-	var confCmd = "wg-quick strip "
-	if ncutils.IsMac() {
-		confCmd = "grep -v -e Address -e MTU -e PostUp -e PostDown "
-	}
+	//var confCmd = "wg-quick strip "
+	confCmd := "grep -v -e Address -e MTU -e PostUp -e PostDown "
 	confRaw, err := ncutils.RunCmd(confCmd+confPath, false)
 	if err != nil {
 		return err
