@@ -38,7 +38,9 @@ func PublishPeerUpdate(newNode *models.Node) error {
 		if err = publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 			logger.Log(1, "failed to publish peer update for node", node.ID)
 		} else {
-			logger.Log(1, "sent peer update for node", node.Name, "on network:", node.Network)
+			if node.Network != servercfg.GetCommsID() {
+				logger.Log(1, "sent peer update for node", node.Name, "on network:", node.Network)
+			}
 		}
 	}
 	return nil
