@@ -91,6 +91,11 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 		ncutils.Log("error updating wireguard key " + err.Error())
 		return err
 	}
+	if storeErr := wireguard.StorePrivKey(key.String(), nodeCfg.Network); storeErr != nil {
+		ncutils.Log("failed to save private key" + storeErr.Error())
+		return storeErr
+	}
+
 	nodeCfg.Node.PublicKey = key.PublicKey().String()
 	var commsCfg = getCommsCfgByNode(&nodeCfg.Node)
 	PublishNodeUpdate(&commsCfg, nodeCfg)
