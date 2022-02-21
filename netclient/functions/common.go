@@ -124,7 +124,7 @@ func Uninstall() error {
 		ncutils.PrintLog("continuing uninstall without leaving networks", 1)
 	} else {
 		for _, network := range networks {
-			err = LeaveNetwork(network)
+			err = LeaveNetwork(network, true)
 			if err != nil {
 				ncutils.PrintLog("Encounter issue leaving network "+network+": "+err.Error(), 1)
 			}
@@ -147,13 +147,16 @@ func Uninstall() error {
 }
 
 // LeaveNetwork - client exits a network
-func LeaveNetwork(network string) error {
+func LeaveNetwork(network string, force bool) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err
 	}
 	servercfg := cfg.Server
 	node := cfg.Node
+	if node.NetworkSettings.IsComms == "yes" && !force {
+		return errors.New("COMMS_NET - You are trying to leave the comms network. This will break network updates. Unless you re-join. If you really want to leave, run with --force=yes.")
+	}
 
 	if node.IsServer != "yes" {
 		var wcclient nodepb.NodeServiceClient

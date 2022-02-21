@@ -19,7 +19,9 @@ func JoinComms(cfg *config.ClientConfig) error {
 	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
 	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
 	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
-	commsCfg.ReadConfig()
+	if commsCfg.ConfigFileExists() {
+		commsCfg.ReadConfig()
+	}
 	if commsCfg.Node.Name == "" {
 		if err := functions.JoinNetwork(commsCfg, "", true); err != nil {
 			return err
@@ -47,7 +49,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			ncutils.PrintLog("error installing: "+err.Error(), 1)
-			err = functions.LeaveNetwork(cfg.Network)
+			err = functions.LeaveNetwork(cfg.Network, true)
 			if err != nil {
 				err = functions.WipeLocal(cfg.Network)
 				if err != nil {
@@ -86,8 +88,8 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 }
 
 // Leave - runs the leave command from cli
-func Leave(cfg config.ClientConfig) error {
-	err := functions.LeaveNetwork(cfg.Network)
+func Leave(cfg config.ClientConfig, force bool) error {
+	err := functions.LeaveNetwork(cfg.Network, force)
 	if err != nil {
 		ncutils.PrintLog("error attempting to leave network "+cfg.Network, 1)
 	} else {
