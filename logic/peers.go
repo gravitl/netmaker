@@ -133,8 +133,9 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 					}
 				}
 			}
-
-			peers = append(peers, peerNode)
+			if !isP2S || peerNode.IsHub == "yes" {
+				peers = append(peers, peerNode)
+			}
 		}
 	}
 	return peers, err
