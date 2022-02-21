@@ -55,6 +55,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	// check if interface needs to delta
 	ifaceDelta := ncutils.IfaceDelta(&nodeCfg.Node, &newNode)
 	shouldDNSChange := nodeCfg.Node.DNSOn != newNode.DNSOn
+	hubChange := nodeCfg.Node.IsHub != newNode.IsHub
 
 	nodeCfg.Node = newNode
 	switch newNode.Action {
@@ -125,6 +126,13 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			ncutils.Log("could not notify server to update peers after interface change")
 		} else {
 			ncutils.Log("signalled finished interface update to server")
+		}
+	} else if hubChange {
+		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
+		if doneErr != nil {
+			ncutils.Log("could not notify server to update peers after hub change")
+		} else {
+			ncutils.Log("signalled finished hub update to server")
 		}
 	}
 	//deal with DNS
