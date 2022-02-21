@@ -187,6 +187,7 @@ func setPeerInfo(node *models.Node) models.Node {
 	peer.UDPHolePunch = node.UDPHolePunch
 	peer.Address = node.Address
 	peer.Address6 = node.Address6
+	peer.IsHub = node.IsHub
 	peer.EgressGatewayRanges = node.EgressGatewayRanges
 	peer.IsEgressGateway = node.IsEgressGateway
 	peer.IngressGatewayRange = node.IngressGatewayRange
