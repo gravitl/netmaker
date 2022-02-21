@@ -24,7 +24,7 @@ type Network struct {
 	IsDualStack         string      `json:"isdualstack" bson:"isdualstack" validate:"checkyesorno"`
 	IsIPv4              string      `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
-	IsHubAndSpoke       string      `json:"ishubandspoke" bson:"ishubandspoke" validate:"checkyesorno"`
+	IsPointToSite       string      `json:"ispointtosite" bson:"ispointtosite" validate:"checkyesorno"`
 	IsComms             string      `json:"iscomms" bson:"iscomms" validate:"checkyesorno"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	DefaultUDPHolePunch string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
@@ -57,8 +57,8 @@ func (network *Network) SetDefaults() {
 	if network.IsLocal == "" {
 		network.IsLocal = "no"
 	}
-	if network.IsHubAndSpoke == "" {
-		network.IsHubAndSpoke = "no"
+	if network.IsPointToSite == "" {
+		network.IsPointToSite = "no"
 	}
 	if network.IsComms == "" {
 		network.IsComms = "no"
