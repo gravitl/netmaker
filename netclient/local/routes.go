@@ -1,6 +1,7 @@
 package local
 
 import (
+	"log"
 	"net"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -51,6 +52,10 @@ func SetPeerRoutes(iface, currentNodeAddr string, oldPeers map[string][]net.IPNe
 
 // SetCurrentPeerRoutes - sets all the current peers
 func SetCurrentPeerRoutes(iface, currentAddr string, peers []wgtypes.PeerConfig) {
+	if ncutils.IsFreeBSD() {
+		log.Println("DELETE ME: save me from this madness")
+		return
+	}
 	for _, peer := range peers {
 		for _, allowedIP := range peer.AllowedIPs {
 			setRoute(iface, &allowedIP, currentAddr)

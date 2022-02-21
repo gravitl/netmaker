@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -236,11 +237,14 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		if hasGateway {
 			for _, gateway := range gateways {
+				log.Println("DELETE ME: running command " + ipExec + " -4 route add " + gateway + " dev " + ifacename)
 				_, _ = ncutils.RunCmd(ipExec+" -4 route add "+gateway+" dev "+ifacename, true)
 			}
 		}
 		if node.Address6 != "" && node.IsDualStack == "yes" {
 			logger.Log(1, "adding address:", node.Address6)
+
+			log.Println("DELETE ME: running command " + ipExec + " address add dev " + ifacename + " " + node.Address6 + "/64")
 			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
 		}
 	}

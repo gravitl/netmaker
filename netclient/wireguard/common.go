@@ -114,6 +114,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		err = SetMacPeerRoutes(iface)
 		return err
 	} else if ncutils.IsLinux() {
+		log.Println("running SetPeerRoutes: " + runtime.GOOS)
 		local.SetPeerRoutes(iface, currentNodeAddr, oldPeerAllowedIps, peers)
 	}
 
@@ -297,6 +298,8 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	switch os {
 	case "nowgquick":
 		ApplyWithoutWGQuick(node, ifacename, confPath)
+	case "freebsd":
+		ApplyWithoutWGQuickFreeBSD(node, ifacename, confPath)
 	case "windows":
 		ApplyWindowsConf(confPath)
 	case "darwin":
