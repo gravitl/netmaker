@@ -18,7 +18,6 @@ func DefaultHandler(client mqtt.Client, msg mqtt.Message) {
 
 // Ping message Handler -- handles ping topic from client nodes
 func Ping(client mqtt.Client, msg mqtt.Message) {
-	logger.Log(0, "Ping Handler: ", msg.Topic())
 	go func() {
 		id, err := getID(msg.Topic())
 		if err != nil {
