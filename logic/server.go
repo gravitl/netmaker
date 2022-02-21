@@ -41,7 +41,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	}
 	var ishub = "no"
 
-	if networkSettings.IsHubAndSpoke == "yes" || networkSettings.IsComms == "yes" {
+	if networkSettings.IsPointToSite == "yes" || networkSettings.IsComms == "yes" {
 		nodes, err := GetNetworkNodes(networkSettings.NetID)
 		if err != nil || nodes == nil {
 			ishub = "yes"

@@ -96,7 +96,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 	network, err := GetNetwork(networkName)
 	if err != nil {
 		return peers, err
-	} else if network.IsHubAndSpoke == "yes" && refnode.IsHub != "yes" {
+	} else if network.IsPointToSite == "yes" && refnode.IsHub != "yes" {
 		return GetHubPeer(networkName), nil
 	}
 	if relayedNodeAddr == "" {

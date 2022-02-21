@@ -184,7 +184,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	}
-	err = wireguard.SetPeers(iface, cfg.Node.Address, cfg.Node.PersistentKeepalive, peerUpdate.Peers)
+	err = wireguard.SetPeers(iface, &cfg.Node, peerUpdate.Peers)
 	if err != nil {
 		ncutils.Log("error syncing wg after peer update: " + err.Error())
 		return

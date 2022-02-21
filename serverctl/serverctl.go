@@ -33,7 +33,7 @@ func InitializeCommsNetwork() error {
 		var network models.Network
 		network.NetID = COMMS_NETID
 		network.AddressRange = servercfg.GetCommsCIDR()
-		network.IsHubAndSpoke = "yes"
+		network.IsPointToSite = "yes"
 		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
 		return logic.CreateNetwork(network)
