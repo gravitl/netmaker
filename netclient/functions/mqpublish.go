@@ -99,7 +99,7 @@ func PublishNodeUpdate(commsCfg, nodeCfg *config.ClientConfig) error {
 	if err = publish(commsCfg, nodeCfg, fmt.Sprintf("update/%s", nodeCfg.Node.ID), data, 1); err != nil {
 		return err
 	}
-	ncutils.PrintLog("sent a node update to server for node"+nodeCfg.Node.ID+", "+nodeCfg.Node.ID, 1)
+	ncutils.PrintLog("sent a node update to server for node"+nodeCfg.Node.Name+", "+nodeCfg.Node.ID, 1)
 	return nil
 }
 

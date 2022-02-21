@@ -30,7 +30,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(updateNetwork))).Methods("PUT")
 	r.HandleFunc("/api/networks/{networkname}/nodelimit", securityCheck(true, http.HandlerFunc(updateNetworkNodeLimit))).Methods("PUT")
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(true, http.HandlerFunc(deleteNetwork))).Methods("DELETE")
-	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(false, http.HandlerFunc(keyUpdate))).Methods("POST")
+	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(true, http.HandlerFunc(keyUpdate))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(createAccessKey))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(getAccessKeys))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(false, http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
@@ -119,9 +119,11 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range nodes {
-		logger.Log(3, "updating node ", node.Name, " for a key update")
+		logger.Log(2, "updating node ", node.Name, " for a key update")
 		if node.IsServer != "yes" {
-			runUpdates(&node, false)
+			if err = mq.NodeUpdate(&node); err != nil {
+				logger.Log(1, "failed to send update to node during a network wide key update", node.Name, node.ID, err.Error())
+			}
 		}
 	}
 }
