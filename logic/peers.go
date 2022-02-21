@@ -15,6 +15,7 @@ import (
 )
 
 // GetHubPeer - in HubAndSpoke networks, if not the hub, return the hub
+/*
 func GetHubPeer(networkName string) []models.Node {
 	var hubpeer = make([]models.Node, 0)
 	servernodes, err := GetNetworkNodes(networkName)
@@ -28,6 +29,7 @@ func GetHubPeer(networkName string) []models.Node {
 	}
 	return hubpeer
 }
+*/
 
 // GetNodePeers - fetches peers for a given node
 func GetNodePeers(networkName string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
