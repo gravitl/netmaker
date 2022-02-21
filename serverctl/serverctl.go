@@ -37,9 +37,9 @@ func InitializeCommsNetwork() error {
 		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
 		return logic.CreateNetwork(network)
-	} else {
-		SyncServerNetwork(COMMS_NETID)
 	}
+	SyncServerNetwork(COMMS_NETID)
+
 	return nil
 }
 
