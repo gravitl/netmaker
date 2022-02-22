@@ -162,12 +162,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 	defer conn.Close()
 	wcclient = nodepb.NewNodeServiceClient(conn)
 
-	// get free port based on returned default listen port
-	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
-	if err != nil {
-		fmt.Printf("Error retrieving port: %v", err)
-	}
-
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
 	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {
 		node.LocalAddress, err = ncutils.GetLocalIP(node.LocalRange)
@@ -209,12 +203,18 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 	}
 	ncutils.PrintLog("node created on remote server...updating configs", 1)
 
+	// keep track of the old listenport value
+	oldListenPort := node.ListenPort
+
 	nodeData := res.Data
 	if err = json.Unmarshal([]byte(nodeData), &node); err != nil {
 		return err
 	}
 
 	cfg.Node = node
+
+	setListenPort(oldListenPort, &cfg)
+
 	err = config.ModConfig(&node)
 	if err != nil {
 		return err
@@ -280,4 +280,26 @@ func formatName(node models.Node) string {
 		node.Name = ""
 	}
 	return node.Name
+}
+
+func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
+	// keep track of the returned listenport value
+	newListenPort := cfg.Node.ListenPort
+
+	if newListenPort != oldListenPort {
+		var errN error
+		// get free port based on returned default listen port
+		cfg.Node.ListenPort, errN = ncutils.GetFreePort(cfg.Node.ListenPort)
+		if errN != nil {
+			cfg.Node.ListenPort = newListenPort
+			ncutils.PrintLog("Error retrieving port: "+errN.Error(), 1)
+		}
+
+		// if newListenPort has been modified to find an available port, publish to server
+		if cfg.Node.ListenPort != newListenPort {
+			var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
+			log.Println("DELETE ME: publishing update of port: " + string(cfg.Node.ListenPort))
+			PublishNodeUpdate(&currentCommsCfg, cfg)
+		}
+	}
 }
