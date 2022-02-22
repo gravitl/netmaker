@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/models"
-	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -286,33 +285,20 @@ func GetNetworkIPMask(networkstring string) (string, string, error) {
 
 // GetFreePort - gets free port of machine
 func GetFreePort(rangestart int32) (int32, error) {
+	addr := net.UDPAddr{}
 	if rangestart == 0 {
 		rangestart = NETCLIENT_DEFAULT_PORT
 	}
-	wgclient, err := wgctrl.New()
-	if err != nil {
-		return 0, err
-	}
-	defer wgclient.Close()
-	devices, err := wgclient.Devices()
-	if err != nil {
-		return 0, err
-	}
-
 	for x := rangestart; x <= 65535; x++ {
-		conflict := false
-		for _, i := range devices {
-			if int32(i.ListenPort) == x {
-				conflict = true
-				break
-			}
-		}
-		if conflict {
+		addr.Port = int(x)
+		conn, err := net.ListenUDP("udp", &addr)
+		if err != nil {
 			continue
 		}
-		return int32(x), nil
+		defer conn.Close()
+		return x, nil
 	}
-	return rangestart, err
+	return rangestart, errors.New("no free ports")
 }
 
 // == OS PATH FUNCTIONS ==
