@@ -203,6 +203,7 @@ func addRoute(addr string, iface string) error {
 		return err
 	}
 	if !(strings.Contains(out, iface)) {
+		log.Println("DELETE ME: running command - route -q -n add -" + inetx + " " + addr + " -interface " + iface)
 		_, err = ncutils.RunCmd("route -q -n add -"+inetx+" "+addr+" -interface "+iface, true)
 	}
 	return err
