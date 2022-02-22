@@ -625,10 +625,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
 	go func() { // don't block http response
-		err := logic.TimerCheckpoint()
-		if err != nil {
-			logger.Log(3, "error occurred on timer,", err.Error())
-		}
 		// publish node update if not server
 		if err := mq.NodeUpdate(node); err != nil {
 			logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())

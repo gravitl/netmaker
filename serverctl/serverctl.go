@@ -29,13 +29,13 @@ func InitializeCommsNetwork() error {
 
 	_, err := logic.GetNetwork(COMMS_NETID)
 	if err != nil {
-		logger.Log(1, "comms net does not exist, creating")
 		var network models.Network
 		network.NetID = COMMS_NETID
 		network.AddressRange = servercfg.GetCommsCIDR()
 		network.IsPointToSite = "yes"
 		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
+		logger.Log(1, "comms net does not exist, creating with ID,", network.NetID, "and CIDR,", network.AddressRange)
 		return logic.CreateNetwork(network)
 	}
 	SyncServerNetwork(COMMS_NETID)
