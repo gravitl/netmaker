@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -29,15 +30,16 @@ func InitializeCommsNetwork() error {
 
 	_, err := logic.GetNetwork(COMMS_NETID)
 	if err != nil {
-		logger.Log(1, "comms net does not exist, creating")
 		var network models.Network
 		network.NetID = COMMS_NETID
 		network.AddressRange = servercfg.GetCommsCIDR()
 		network.IsPointToSite = "yes"
 		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
+		logger.Log(1, "comms net does not exist, creating with ID,", network.NetID, "and CIDR,", network.AddressRange)
 		return logic.CreateNetwork(network)
 	}
+	time.Sleep(time.Second << 1)
 	SyncServerNetwork(COMMS_NETID)
 
 	return nil
