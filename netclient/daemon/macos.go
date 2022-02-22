@@ -99,6 +99,10 @@ func MacDaemonString() string {
 		</array>
 	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
 	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
 	<key>AbandonProcessGroup</key><true/>
 	<key>EnvironmentVariables</key>
 		<dict>
