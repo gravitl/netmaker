@@ -97,7 +97,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CommsCIDR = GetCommsCIDR()
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
-	cfg.CommsID = GetCommsCIDR()
+	cfg.CommsID = GetCommsID()
 
 	return cfg
 }
