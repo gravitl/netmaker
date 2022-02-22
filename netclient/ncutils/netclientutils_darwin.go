@@ -10,6 +10,7 @@ import (
 func RunCmd(command string, printerr bool) (string, error) {
 	args := strings.Fields(command)
 	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Start()
 	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
@@ -28,5 +29,3 @@ func RunCmdFormatted(command string, printerr bool) (string, error) {
 func GetEmbedded() error {
 	return nil
 }
-
-
