@@ -232,6 +232,8 @@ func SetMacPeerRoutes(realIface string) error {
 	log.Println("DELETE ME: setting mac peer routes")
 	var err error
 	peerIPs := getPeerIPs(realIface)
+	log.Println("DELETE ME: peer ips:")
+	log.Println(peerIPs)
 	if len(peerIPs) == 0 {
 		return err
 	}
