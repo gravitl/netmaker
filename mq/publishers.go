@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
 // PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
@@ -91,16 +92,22 @@ func NodeUpdate(node *models.Node) error {
 
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
+
 	var force bool
 	peer_force_send++
 	if peer_force_send == 5 {
 		force = true
 		peer_force_send = 0
+		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
+		if err != nil {
+			logger.Log(3, "error occurred on timer,", err.Error())
+		}
 	}
 	networks, err := logic.GetNetworks()
 	if err != nil {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
+
 	for _, network := range networks {
 		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
 		if errN == nil {
@@ -120,6 +127,7 @@ func sendPeers() {
 			}
 		} else {
 			logger.Log(1, "unable to retrieve leader for network ", network.NetID)
+			serverctl.SyncServerNetwork(network.NetID)
 			logger.Log(1, errN.Error())
 			continue
 		}
