@@ -2,6 +2,7 @@ package mq
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -10,7 +11,7 @@ import (
 
 func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	if len(msg) <= 24 { // make sure message is of appropriate length
-		return nil, fmt.Errorf("recieved invalid message from broker %s", string(msg))
+		return nil, fmt.Errorf("recieved invalid message from broker %v", msg)
 	}
 
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey() // get server private key
@@ -26,7 +27,11 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return ncutils.BoxDecrypt(msg, nodePubTKey, serverPrivTKey)
+	if strings.Contains(node.Version, "0.10.0") {
+		return ncutils.BoxDecrypt(msg, nodePubTKey, serverPrivTKey)
+	}
+
+	return ncutils.DeChunk(msg, nodePubTKey, serverPrivTKey)
 }
 
 func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
@@ -46,7 +51,11 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
+	if strings.Contains(node.Version, "0.10.0") {
+		return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
+	}
+
+	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
 }
 
 func publish(node *models.Node, dest string, msg []byte) error {
@@ -60,4 +69,15 @@ func publish(node *models.Node, dest string, msg []byte) error {
 		return token.Error()
 	}
 	return nil
+}
+
+//  decodes a message queue topic and returns the embedded node.ID
+func getID(topic string) (string, error) {
+	parts := strings.Split(topic, "/")
+	count := len(parts)
+	if count == 1 {
+		return "", fmt.Errorf("invalid topic")
+	}
+	//the last part of the topic will be the node.ID
+	return parts[count-1], nil
 }

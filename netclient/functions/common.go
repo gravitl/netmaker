@@ -124,7 +124,7 @@ func Uninstall() error {
 		ncutils.PrintLog("continuing uninstall without leaving networks", 1)
 	} else {
 		for _, network := range networks {
-			err = LeaveNetwork(network)
+			err = LeaveNetwork(network, true)
 			if err != nil {
 				ncutils.PrintLog("Encounter issue leaving network "+network+": "+err.Error(), 1)
 			}
@@ -147,13 +147,16 @@ func Uninstall() error {
 }
 
 // LeaveNetwork - client exits a network
-func LeaveNetwork(network string) error {
+func LeaveNetwork(network string, force bool) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err
 	}
 	servercfg := cfg.Server
 	node := cfg.Node
+	if node.NetworkSettings.IsComms == "yes" && !force {
+		return errors.New("COMMS_NET - You are trying to leave the comms network. This will break network updates. Unless you re-join. If you really want to leave, run with --force=yes.")
+	}
 
 	if node.IsServer != "yes" {
 		var wcclient nodepb.NodeServiceClient
@@ -316,59 +319,4 @@ func WipeLocal(network string) error {
 		}
 	}
 	return err
-}
-
-func getLocalIP(node models.Node) string {
-
-	var local string
-
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return local
-	}
-	_, localrange, err := net.ParseCIDR(node.LocalRange)
-	if err != nil {
-		return local
-	}
-
-	found := false
-	for _, i := range ifaces {
-		if i.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if i.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		addrs, err := i.Addrs()
-		if err != nil {
-			return local
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					if node.IsLocal == "yes" {
-						found = localrange.Contains(ip)
-					} else {
-						found = true
-					}
-				}
-			case *net.IPAddr:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					if node.IsLocal == "yes" {
-						found = localrange.Contains(ip)
-
-					} else {
-						found = true
-					}
-				}
-			}
-		}
-	}
-	return local
 }

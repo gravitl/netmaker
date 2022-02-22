@@ -47,6 +47,7 @@ jobs:
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm7/netclient main.go
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm64/netclient main.go
           env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient main.go
+          env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
           
       - name: Upload netmaker x86 to Release
         uses: svenstaro/upload-release-action@v2
@@ -177,3 +178,13 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-darwin
+
+      - name: Upload darwin-arm64 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-darwin-arm64/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-darwin-arm64

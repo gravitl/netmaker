@@ -39,7 +39,24 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	if currentServers != nil {
 		serverCount = len(currentServers) + 1
 	}
+	var ishub = "no"
 
+	if networkSettings.IsPointToSite == "yes" || networkSettings.IsComms == "yes" {
+		nodes, err := GetNetworkNodes(networkSettings.NetID)
+		if err != nil || nodes == nil {
+			ishub = "yes"
+		} else {
+			sethub := true
+			for i := range nodes {
+				if nodes[i].IsHub == "yes" {
+					sethub = false
+				}
+			}
+			if sethub {
+				ishub = "yes"
+			}
+		}
+	}
 	var node = &models.Node{
 		IsServer:     "yes",
 		DNSOn:        "no",
@@ -52,6 +69,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		LocalRange:   networkSettings.LocalRange,
 		OS:           runtime.GOOS,
 		Version:      servercfg.Version,
+		IsHub:        ishub,
 	}
 
 	SetNodeDefaults(node)
@@ -389,7 +407,7 @@ func ServerPull(serverNode *models.Node, ifaceDelta bool) error {
 	}
 	serverNode.OS = runtime.GOOS
 
-	if serverNode.PullChanges == "yes" || ifaceDelta {
+	if ifaceDelta {
 		// check for interface change
 		// checks if address is in use by another interface
 		var oldIfaceName, isIfacePresent = isInterfacePresent(serverNode.Interface, serverNode.Address)
@@ -399,7 +417,6 @@ func ServerPull(serverNode *models.Node, ifaceDelta bool) error {
 			}
 			logger.Log(1, "removed old interface", oldIfaceName)
 		}
-		serverNode.PullChanges = "no"
 		if err = setWGConfig(serverNode, false); err != nil {
 			return err
 		}

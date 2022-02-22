@@ -14,9 +14,13 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 )
 
+// ALL_NETWORK_ACCESS - represents all networks
 const ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
+
+// NO_NETWORKS_PRESENT - represents no networks
 const NO_NETWORKS_PRESENT = "THIS_USER_HAS_NONE"
 
 func networkHandlers(r *mux.Router) {
@@ -26,7 +30,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(updateNetwork))).Methods("PUT")
 	r.HandleFunc("/api/networks/{networkname}/nodelimit", securityCheck(true, http.HandlerFunc(updateNetworkNodeLimit))).Methods("PUT")
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(true, http.HandlerFunc(deleteNetwork))).Methods("DELETE")
-	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(false, http.HandlerFunc(keyUpdate))).Methods("POST")
+	r.HandleFunc("/api/networks/{networkname}/keyupdate", securityCheck(true, http.HandlerFunc(keyUpdate))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(createAccessKey))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", securityCheck(false, http.HandlerFunc(getAccessKeys))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}/keys/{name}", securityCheck(false, http.HandlerFunc(deleteAccessKey))).Methods("DELETE")
@@ -43,7 +47,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	allnetworks := []models.Network{}
-	err := errors.New("Networks Error")
+	var err error
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
 		allnetworks, err = logic.GetNetworks()
 		if err != nil && !database.IsEmptyRecord(err) {
@@ -64,6 +68,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			allnetworks[i] = net
 		}
 	}
+
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(allnetworks)
@@ -75,6 +80,10 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
+	if isCommsEdit(w, r, netname) {
+		return
+	}
+
 	network, err := logic.GetNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -92,6 +101,10 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
+	if isCommsEdit(w, r, netname) {
+		return
+	}
+
 	network, err := logic.KeyUpdate(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -106,17 +119,13 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range nodes {
-		fmt.Println("updating node ", node.Name, " for a key update")
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(2, "failed key update ", node.Name)
+		logger.Log(2, "updating node ", node.Name, " for a key update")
+		if node.IsServer != "yes" {
+			if err = mq.NodeUpdate(&node); err != nil {
+				logger.Log(1, "failed to send update to node during a network wide key update", node.Name, node.ID, err.Error())
+			}
 		}
 	}
-	node, err := logic.GetNetworkServerLeader(netname)
-	if err != nil {
-		logger.Log(2, "failed to get server node")
-		return
-	}
-	runUpdates(&node, false)
 }
 
 // Update a network
@@ -125,6 +134,10 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var network models.Network
 	netname := params["networkname"]
+	if isCommsEdit(w, r, netname) {
+		return
+	}
+
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -181,7 +194,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, node := range nodes {
-			runUpdates(&node, true)
+			if err = mq.NodeUpdate(&node); err != nil {
+				logger.Log(1, "failed to send update to node during a network wide update", node.Name, node.ID, err.Error())
+			}
 		}
 	}
 
@@ -227,8 +242,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	err := logic.DeleteNetwork(network)
+	if isCommsEdit(w, r, network) {
+		return
+	}
 
+	err := logic.DeleteNetwork(network)
 	if err != nil {
 		errtype := "badrequest"
 		if strings.Contains(err.Error(), "Node check failed") {
@@ -267,7 +285,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logic.DeleteNetwork(network.NetID)
 			if err == nil {
-				err = errors.New("Failed to add server to network " + network.DisplayName)
+				err = errors.New("Failed to add server to network " + network.NetID)
 			}
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
@@ -286,6 +304,9 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	var accesskey models.AccessKey
 	//start here
 	netname := params["networkname"]
+	if isCommsEdit(w, r, netname) {
+		return
+	}
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -337,4 +358,22 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
 	w.WriteHeader(http.StatusOK)
+}
+
+func isCommsEdit(w http.ResponseWriter, r *http.Request, netname string) bool {
+	if netname == serverctl.COMMS_NETID {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot access comms network"), "internal"))
+		return true
+	}
+	return false
+}
+
+func filterCommsNetwork(networks []models.Network) []models.Network {
+	var filterdNets []models.Network
+	for i := range networks {
+		if networks[i].IsComms != "yes" && networks[i].NetID != servercfg.GetCommsID() {
+			filterdNets = append(filterdNets, networks[i])
+		}
+	}
+	return filterdNets
 }

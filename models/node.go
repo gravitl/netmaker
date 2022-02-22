@@ -10,15 +10,23 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const TEN_YEARS_IN_SECONDS = 300000000
-const MAX_NAME_LENGTH = 62
-
-// == ACTIONS == (can only be set by GRPC)
-const NODE_UPDATE_KEY = "updatekey"
-const NODE_SERVER_NAME = "netmaker"
-const NODE_DELETE = "delete"
-const NODE_IS_PENDING = "pending"
-const NODE_NOOP = "noop"
+const (
+	// NODE_SERVER_NAME - the default server name
+	NODE_SERVER_NAME = "netmaker"
+	// TEN_YEARS_IN_SECONDS - ten years in seconds
+	TEN_YEARS_IN_SECONDS = 300000000
+	// MAX_NAME_LENGTH - max name length of node
+	MAX_NAME_LENGTH = 62
+	// == ACTIONS == (can only be set by GRPC)
+	// NODE_UPDATE_KEY - action to update key
+	NODE_UPDATE_KEY = "updatekey"
+	// NODE_DELETE - delete node action
+	NODE_DELETE = "delete"
+	// NODE_IS_PENDING - node pending status
+	NODE_IS_PENDING = "pending"
+	// NODE_NOOP - node no op action
+	NODE_NOOP = "noop"
+)
 
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
@@ -38,45 +46,41 @@ type Node struct {
 	PostDown            string   `json:"postdown" bson:"postdown" yaml:"postdown"`
 	AllowedIPs          []string `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
 	PersistentKeepalive int32    `json:"persistentkeepalive" bson:"persistentkeepalive" yaml:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
-	SaveConfig          string   `json:"saveconfig" bson:"saveconfig" yaml:"saveconfig" validate:"checkyesorno"`
+	IsHub               string   `json:"ishub" bson:"ishub" yaml:"ishub" validate:"checkyesorno"`
 	AccessKey           string   `json:"accesskey" bson:"accesskey" yaml:"accesskey"`
 	Interface           string   `json:"interface" bson:"interface" yaml:"interface"`
 	LastModified        int64    `json:"lastmodified" bson:"lastmodified" yaml:"lastmodified"`
-	KeyUpdateTimeStamp  int64    `json:"keyupdatetimestamp" bson:"keyupdatetimestamp" yaml:"keyupdatetimestamp"`
 	ExpirationDateTime  int64    `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
 	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"macaddress_unique"`
-	// checkin interval is depreciated at the network level. Set on server with CHECKIN_INTERVAL
-	CheckInInterval     int32       `json:"checkininterval" bson:"checkininterval" yaml:"checkininterval"`
-	Password            string      `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
-	Network             string      `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
-	IsRelayed           string      `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	IsPending           string      `json:"ispending" bson:"ispending" yaml:"ispending"`
-	IsRelay             string      `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
-	IsDocker            string      `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
-	IsK8S               string      `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
-	IsEgressGateway     string      `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
-	IsIngressGateway    string      `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
-	EgressGatewayRanges []string    `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	RelayAddrs          []string    `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
-	IngressGatewayRange string      `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
-	IsStatic            string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
-	UDPHolePunch        string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
-	PullChanges         string      `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
-	DNSOn               string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
-	IsDualStack         string      `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
-	IsServer            string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Action              string      `json:"action" bson:"action" yaml:"action"`
-	IsLocal             string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange          string      `json:"localrange" bson:"localrange" yaml:"localrange"`
-	Roaming             string      `json:"roaming" bson:"roaming" yaml:"roaming" validate:"checkyesorno"`
-	IPForwarding        string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
-	OS                  string      `json:"os" bson:"os" yaml:"os"`
-	MTU                 int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
-	Version             string      `json:"version" bson:"version" yaml:"version"`
-	ExcludedAddrs       []string    `json:"excludedaddrs" bson:"excludedaddrs" yaml:"excludedaddrs"`
-	TrafficKeys         TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
+	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
+	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
+	IsRelayed           string   `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
+	IsRelay             string   `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
+	IsDocker            string   `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
+	IsK8S               string   `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
+	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
+	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
+	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	RelayAddrs          []string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
+	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
+	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
+	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
+	//PullChanges         string      `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
+	DNSOn        string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	IsDualStack  string      `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
+	IsServer     string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Action       string      `json:"action" bson:"action" yaml:"action"`
+	IsLocal      string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
+	LocalRange   string      `json:"localrange" bson:"localrange" yaml:"localrange"`
+	IPForwarding string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	OS           string      `json:"os" bson:"os" yaml:"os"`
+	MTU          int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
+	Version      string      `json:"version" bson:"version" yaml:"version"`
+	CommID       string      `json:"commid" bson:"commid" yaml:"comid"`
+	TrafficKeys  TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
 }
 
 // NodesArray - used for node sorting
@@ -115,6 +119,13 @@ func (node *Node) SetDefaulIsPending() {
 func (node *Node) SetDefaultIsRelayed() {
 	if node.IsRelayed == "" {
 		node.IsRelayed = "no"
+	}
+}
+
+// Node.SetDefaultIsRelayed - set default is relayed
+func (node *Node) SetDefaultIsHub() {
+	if node.IsHub == "" {
+		node.IsHub = "no"
 	}
 }
 
@@ -161,18 +172,11 @@ func (node *Node) SetDefaultAction() {
 }
 
 // Node.SetRoamingDefault - sets default roaming status
-func (node *Node) SetRoamingDefault() {
-	if node.Roaming == "" {
-		node.Roaming = "yes"
-	}
-}
-
-// Node.SetPullChangesDefault - sets default pull changes status
-func (node *Node) SetPullChangesDefault() {
-	if node.PullChanges == "" {
-		node.PullChanges = "no"
-	}
-}
+//func (node *Node) SetRoamingDefault() {
+//	if node.Roaming == "" {
+//		node.Roaming = "yes"
+//	}
+//}
 
 // Node.SetIPForwardingDefault - set ip forwarding default
 func (node *Node) SetIPForwardingDefault() {
@@ -245,13 +249,6 @@ func (node *Node) SetDefaultName() {
 	}
 }
 
-// Node.SetDefaultExcludedAddrs - sets ExcludedAddrs to empty array if nil
-func (node *Node) SetDefaultExcludedAddrs() {
-	if node.ExcludedAddrs == nil {
-		node.ExcludedAddrs = make([]string, 0)
-	}
-}
-
 // Node.Fill - fills other node data into calling node data if not set on calling node
 func (newNode *Node) Fill(currentNode *Node) {
 	newNode.ID = currentNode.ID
@@ -273,8 +270,6 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.PublicKey == "" && newNode.IsStatic != "yes" {
 		newNode.PublicKey = currentNode.PublicKey
-	} else {
-		newNode.KeyUpdateTimeStamp = time.Now().Unix()
 	}
 	if newNode.Endpoint == "" && newNode.IsStatic != "yes" {
 		newNode.Endpoint = currentNode.Endpoint
@@ -291,9 +286,6 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.PersistentKeepalive == 0 {
 		newNode.PersistentKeepalive = currentNode.PersistentKeepalive
 	}
-	if newNode.SaveConfig == "" {
-		newNode.SaveConfig = currentNode.SaveConfig
-	}
 	if newNode.AccessKey == "" {
 		newNode.AccessKey = currentNode.AccessKey
 	}
@@ -301,9 +293,6 @@ func (newNode *Node) Fill(currentNode *Node) {
 		newNode.Interface = currentNode.Interface
 	}
 	if newNode.LastModified == 0 {
-		newNode.LastModified = currentNode.LastModified
-	}
-	if newNode.KeyUpdateTimeStamp == 0 {
 		newNode.LastModified = currentNode.LastModified
 	}
 	if newNode.ExpirationDateTime == 0 {
@@ -317,9 +306,6 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.MacAddress == "" {
 		newNode.MacAddress = currentNode.MacAddress
-	}
-	if newNode.CheckInInterval == 0 {
-		newNode.CheckInInterval = currentNode.CheckInInterval
 	}
 	if newNode.Password != "" {
 		err := bcrypt.CompareHashAndPassword([]byte(newNode.Password), []byte(currentNode.Password))
@@ -354,7 +340,7 @@ func (newNode *Node) Fill(currentNode *Node) {
 		newNode.IsStatic = currentNode.IsStatic
 	}
 	if newNode.UDPHolePunch == "" {
-		newNode.UDPHolePunch = currentNode.SaveConfig
+		newNode.UDPHolePunch = currentNode.UDPHolePunch
 	}
 	if newNode.DNSOn == "" {
 		newNode.DNSOn = currentNode.DNSOn
@@ -368,12 +354,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.IPForwarding == "" {
 		newNode.IPForwarding = currentNode.IPForwarding
 	}
-	if newNode.PullChanges == "" {
-		newNode.PullChanges = currentNode.PullChanges
-	}
-	if newNode.Roaming == "" {
-		newNode.Roaming = currentNode.Roaming
-	}
+	//if newNode.Roaming == "" {
+	//newNode.Roaming = currentNode.Roaming
+	//}
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
 	}
@@ -406,9 +389,6 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.Version == "" {
 		newNode.Version = currentNode.Version
-	}
-	if newNode.ExcludedAddrs == nil || len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) {
-		newNode.ExcludedAddrs = currentNode.ExcludedAddrs
 	}
 }
 

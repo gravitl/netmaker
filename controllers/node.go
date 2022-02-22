@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -182,6 +181,13 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 			var isAuthorized = false
 			var nodeID = ""
 			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
+			if errN != nil {
+				errorResponse = models.ErrorResponse{
+					Code: http.StatusUnauthorized, Message: "W1R3: Unauthorized, Invalid Token Processed.",
+				}
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
 			isnetadmin := isadmin
 			if errN == nil && isadmin {
 				nodeID = "mastermac"
@@ -257,6 +263,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	var nodes []models.Node
 	var params = mux.Vars(r)
 	networkName := params["network"]
+
 	nodes, err := logic.GetNetworkNodes(networkName)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -293,9 +300,9 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//Return all the nodes in JSON format
-	logger.Log(2, r.Header.Get("user"), "fetched nodes")
+	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(nodes)
+	json.NewEncoder(w).Encode(filterCommsNodes(nodes))
 }
 
 func getUsersNodes(user models.User) ([]models.Node, error) {
@@ -320,6 +327,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 
 	node, err := logic.GetNodeByID(params["nodeid"])
 	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if logic.IsNodeInComms(&node) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -389,8 +400,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	validKey := logic.IsKeyValid(networkName, node.AccessKey)
 
 	if !validKey {
-		//Check to see if network will allow manual sign up
-		//may want to switch this up with the valid key check and avoid a DB call that way.
+		// Check to see if network will allow manual sign up
+		// may want to switch this up with the valid key check and avoid a DB call that way.
 		if network.AllowManualSignUp == "yes" {
 			node.IsPending = "yes"
 		} else {
@@ -411,12 +422,11 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-
-	runUpdates(&node, false)
+	runForceServerUpdate(&node)
 }
 
-//Takes node out of pending state
-//TODO: May want to use cordon/uncordon terminology instead of "ispending".
+// Takes node out of pending state
+// TODO: May want to use cordon/uncordon terminology instead of "ispending".
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -430,8 +440,10 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("SUCCESS")
 
-	runUpdates(&node, true)
+	runUpdates(&node, false)
 }
+
+// == EGRESS ==
 
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
@@ -532,7 +544,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	newNode.PullChanges = "yes"
 	relayupdate := false
 	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
 		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {
@@ -551,6 +562,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostUp = node.PostUp
 	}
 
+	ifaceDelta := logic.IfaceDelta(&node, &newNode)
+
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -563,10 +576,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(updatenodes) > 0 {
 			for _, relayedNode := range updatenodes {
-				err = mq.NodeUpdate(&relayedNode)
-				if err != nil {
-					logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", node.Network, ": ", err.Error())
-				}
+				runUpdates(&relayedNode, false)
 			}
 		}
 	}
@@ -579,7 +589,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 
-	runUpdates(&newNode, true)
+	runUpdates(&newNode, ifaceDelta)
 }
 
 func deleteNode(w http.ResponseWriter, r *http.Request) {
@@ -600,11 +610,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent
 	node.Action = models.NODE_DELETE
-	if err := mq.NodeUpdate(&node); err != nil {
-		logger.Log(1, "error publishing node update", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
 
 	err = logic.DeleteNodeByID(&node, false)
 	if err != nil {
@@ -613,25 +618,59 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
-	time.Sleep(time.Second << 1)
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)
+	runForceServerUpdate(&node)
 }
 
-func runUpdates(node *models.Node, nodeUpdate bool) error {
-	//don't publish to server node
-
-	if nodeUpdate && !isServer(node) {
-		if err := mq.NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update", err.Error())
-			return err
+func runUpdates(node *models.Node, ifaceDelta bool) {
+	go func() { // don't block http response
+		err := logic.TimerCheckpoint()
+		if err != nil {
+			logger.Log(3, "error occurred on timer,", err.Error())
 		}
+		// publish node update if not server
+		if err := mq.NodeUpdate(node); err != nil {
+			logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())
+		}
+
+		if err := runServerUpdate(node, ifaceDelta); err != nil {
+			logger.Log(1, "error running server update", err.Error())
+		}
+	}()
+}
+
+// updates local peers for a server on a given node's network
+func runServerUpdate(node *models.Node, ifaceDelta bool) error {
+
+	if servercfg.IsClientMode() != "on" || !isServer(node) {
+		return nil
 	}
 
-	if err := runServerPeerUpdate(node, isServer(node)); err != nil {
-		logger.Log(1, "internal error when running peer node:", err.Error())
+	currentServerNode, err := logic.GetNetworkServerLocal(node.Network)
+	if err != nil {
 		return err
 	}
 
+	if ifaceDelta && logic.IsLeader(&currentServerNode) {
+		if err := mq.PublishPeerUpdate(&currentServerNode); err != nil {
+			logger.Log(1, "failed to publish peer update "+err.Error())
+		}
+	}
+
+	if err := logic.ServerUpdate(&currentServerNode, ifaceDelta); err != nil {
+		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
+		return err
+	}
 	return nil
+}
+
+func filterCommsNodes(nodes []models.Node) []models.Node {
+	var filterdNodes []models.Node
+	for i := range nodes {
+		if !logic.IsNodeInComms(&nodes[i]) {
+			filterdNodes = append(filterdNodes, nodes[i])
+		}
+	}
+	return filterdNodes
 }

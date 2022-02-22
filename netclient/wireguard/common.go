@@ -25,8 +25,10 @@ const (
 )
 
 // SetPeers - sets peers on a given WireGuard interface
-func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.PeerConfig) error {
+func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error {
 	var devicePeers []wgtypes.Peer
+	var currentNodeAddr = node.Address
+	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
 	var err error
 	if ncutils.IsFreeBSD() {
@@ -73,13 +75,14 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 		if keepAliveString == "0" {
 			keepAliveString = "15"
 		}
-		if peer.Endpoint != nil {
+		if node.IsHub == "yes" || peer.Endpoint == nil {
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-				" endpoint "+udpendpoint+
 				" persistent-keepalive "+keepAliveString+
 				" allowed-ips "+allowedips, true)
+
 		} else {
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
+				" endpoint "+udpendpoint+
 				" persistent-keepalive "+keepAliveString+
 				" allowed-ips "+allowedips, true)
 		}
@@ -92,6 +95,10 @@ func SetPeers(iface, currentNodeAddr string, keepalive int32, peers []wgtypes.Pe
 		shouldDelete := true
 		for _, peer := range peers {
 			if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
+				shouldDelete = false
+			}
+			// re-check this if logic is not working, added in case of allowedips not working
+			if peer.PublicKey.String() == currentPeer.PublicKey.String() {
 				shouldDelete = false
 			}
 		}
@@ -131,10 +138,6 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		return err
 	}
 	nodecfg := modcfg.Node
-
-	if err != nil {
-		log.Fatalf("failed to open client: %v", err)
-	}
 	var ifacename string
 	if nodecfg.Interface != "" {
 		ifacename = nodecfg.Interface
@@ -206,7 +209,13 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if syncconf { // should never be called really.
 		err = SyncWGQuickConf(ifacename, confPath)
 	}
-
+	if !ncutils.HasWgQuick() && ncutils.IsLinux() {
+		err = SetPeers(ifacename, node, peers)
+		if err != nil {
+			ncutils.PrintLog("error setting peers: "+err.Error(), 1)
+		}
+		time.Sleep(time.Second)
+	}
 	_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
 	if cidrErr == nil {
 		local.SetCIDRRoute(ifacename, node.Address, cidr)
@@ -245,7 +254,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 				return err
 			}
 		}
-		err = SetPeers(iface, nodecfg.Address, nodecfg.PersistentKeepalive, peers)
+		err = SetPeers(iface, &nodecfg, peers)
 	} else if peerupdate {
 		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, true)
 	} else {
@@ -260,8 +269,13 @@ func SetWGConfig(network string, peerupdate bool) error {
 // RemoveConf - removes a configuration for a given WireGuard interface
 func RemoveConf(iface string, printlog bool) error {
 	os := runtime.GOOS
+	if !ncutils.HasWgQuick() {
+		os = "nowgquick"
+	}
 	var err error
 	switch os {
+	case "nowgquick":
+		err = RemoveWithoutWGQuick(iface)
 	case "windows":
 		err = RemoveWindowsConf(iface, printlog)
 	case "darwin":
@@ -276,15 +290,29 @@ func RemoveConf(iface string, printlog bool) error {
 // ApplyConf - applys a conf on disk to WireGuard interface
 func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	os := runtime.GOOS
+	if ncutils.IsLinux() && !ncutils.HasWgQuick() {
+		os = "nowgquick"
+	}
 	var err error
 	switch os {
+	case "nowgquick":
+		ApplyWithoutWGQuick(node, ifacename, confPath)
 	case "windows":
-		_ = ApplyWindowsConf(confPath)
+		ApplyWindowsConf(confPath)
 	case "darwin":
-		_ = ApplyMacOSConf(node, ifacename, confPath)
+		ApplyMacOSConf(node, ifacename, confPath)
 	default:
-		err = ApplyWGQuickConf(confPath, ifacename)
+		ApplyWGQuickConf(confPath, ifacename)
 	}
+
+	var nodeCfg config.ClientConfig
+	nodeCfg.Network = node.Network
+	nodeCfg.ReadConfig()
+	ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange)
+	if err == nil {
+		local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+	}
+
 	return err
 }
 

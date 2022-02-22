@@ -92,6 +92,12 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Server: key,
 	}
 
+	commID, err := logic.FetchCommsNetID()
+	if err != nil {
+		return nil, err
+	}
+	node.CommID = commID
+
 	err = logic.CreateNode(&node)
 	if err != nil {
 		return nil, err
@@ -107,7 +113,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 		Type: nodepb.NODE_TYPE,
 	}
 
-	runUpdates(&node, false)
+	runForceServerUpdate(&node)
 
 	go func(node *models.Node) {
 		if node.UDPHolePunch == "yes" {
@@ -134,6 +140,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 // NodeServiceServer.UpdateNode updates a node and responds over gRPC
+// DELETE ONE DAY - DEPRECATED
 func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) (*nodepb.Object, error) {
 
 	var newnode models.Node
@@ -166,8 +173,6 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
-	runUpdates(&newnode, false)
-
 	return &nodepb.Object{
 		Data: string(nodeData),
 		Type: nodepb.NODE_TYPE,
@@ -175,10 +180,10 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 }
 
 func getServerAddrs(node *models.Node) {
-	serverNodes := logic.GetServerNodes(node.Network)
+	serverNodes := logic.GetServerNodes(serverctl.COMMS_NETID)
 	//pubIP, _ := servercfg.GetPublicIP()
 	if len(serverNodes) == 0 {
-		if err := serverctl.SyncServerNetwork(node.Network); err != nil {
+		if err := serverctl.SyncServerNetwork(serverctl.COMMS_NETID); err != nil {
 			return
 		}
 	}
@@ -217,7 +222,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 		return nil, err
 	}
 
-	runServerPeerUpdate(&node, false)
+	runForceServerUpdate(&node)
 
 	return &nodepb.Object{
 		Data: "success",
@@ -233,12 +238,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 		return nil, err
 	}
 
-	excludeIsRelayed := node.IsRelay != "yes"
-	var relayedNode string
-	if node.IsRelayed == "yes" {
-		relayedNode = node.Address
-	}
-	peers, err := logic.GetPeersList(node.Network, excludeIsRelayed, relayedNode)
+	peers, err := logic.GetPeersList(&node)
 	if err != nil {
 		if strings.Contains(err.Error(), logic.RELAY_NODE_ERR) {
 			peers, err = logic.PeerListUnRelay(node.ID, node.Network)
@@ -308,4 +308,19 @@ func getNodeFromRequestData(data string) (models.Node, error) {
 
 func isServer(node *models.Node) bool {
 	return node.IsServer == "yes"
+}
+
+func runForceServerUpdate(node *models.Node) {
+	go func() {
+		if err := mq.PublishPeerUpdate(node); err != nil {
+			logger.Log(1, "failed a peer update after creation of node", node.Name)
+		}
+
+		var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
+		if getErr == nil {
+			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
+				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
+			}
+		}
+	}()
 }

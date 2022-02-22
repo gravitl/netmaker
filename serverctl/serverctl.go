@@ -2,7 +2,6 @@ package serverctl
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -10,10 +9,55 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
-const NETMAKER_BINARY_NAME = "netmaker"
+// COMMS_NETID - name of the comms network
+var COMMS_NETID string
+
+const (
+	// NETMAKER_BINARY_NAME - name of netmaker binary
+	NETMAKER_BINARY_NAME = "netmaker"
+)
+
+// InitializeCommsNetwork - Check if comms network exists (for MQ, DNS, SSH traffic), if not, create
+func InitializeCommsNetwork() error {
+
+	setCommsID()
+
+	_, err := logic.GetNetwork(COMMS_NETID)
+	if err != nil {
+		logger.Log(1, "comms net does not exist, creating")
+		var network models.Network
+		network.NetID = COMMS_NETID
+		network.AddressRange = servercfg.GetCommsCIDR()
+		network.IsPointToSite = "yes"
+		network.DefaultUDPHolePunch = "yes"
+		network.IsComms = "yes"
+		return logic.CreateNetwork(network)
+	}
+	SyncServerNetwork(COMMS_NETID)
+
+	return nil
+}
+
+// SetJWTSecret - sets the jwt secret on server startup
+func setCommsID() {
+	currentid, idErr := logic.FetchCommsNetID()
+	if idErr != nil {
+		commsid := logic.RandomString(8)
+		if err := logic.StoreCommsNetID(commsid); err != nil {
+			logger.FatalLog("something went wrong when configuring comms id")
+		}
+		COMMS_NETID = commsid
+		servercfg.SetCommsID(COMMS_NETID)
+		return
+	}
+	COMMS_NETID = currentid
+	servercfg.SetCommsID(COMMS_NETID)
+}
 
 // InitServerNetclient - intializes the server netclient
 // 1. Check if config directory exists, if not attempt to make
@@ -34,9 +78,7 @@ func InitServerNetclient() error {
 			var currentServerNode, nodeErr = logic.GetNetworkServerLocal(network.NetID)
 			if nodeErr == nil {
 				if err = logic.ServerPull(&currentServerNode, true); err != nil {
-					logger.Log(1, fmt.Sprintf("failed pull for network %s, on server node %s",
-						network.NetID,
-						currentServerNode.ID))
+					logger.Log(1, "failed pull for network", network.NetID, ", on server node", currentServerNode.ID)
 				}
 			}
 		}

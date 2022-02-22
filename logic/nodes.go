@@ -85,7 +85,6 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	}
 	node.SetLastModified()
 	node.IsPending = "no"
-	node.PullChanges = "yes"
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return node, err
@@ -100,12 +99,7 @@ func GetPeers(node *models.Node) ([]models.Node, error) {
 	if IsLeader(node) {
 		setNetworkServerPeers(node)
 	}
-	excludeIsRelayed := node.IsRelay != "yes"
-	var relayedNode string
-	if node.IsRelayed == "yes" {
-		relayedNode = node.Address
-	}
-	peers, err := GetPeersList(node.Network, excludeIsRelayed, relayedNode)
+	peers, err := GetPeersList(node)
 	if err != nil {
 		if strings.Contains(err.Error(), RELAY_NODE_ERR) {
 			peers, err = PeerListUnRelay(node.ID, node.Network)
@@ -145,6 +139,13 @@ func IsLeader(node *models.Node) bool {
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
+	var err error
+	if newNode.IsHub == "yes" && currentNode.IsHub != "yes" {
+		if err = unsetHub(newNode.Network); err != nil {
+			return err
+		}
+	}
+
 	if newNode.Address != currentNode.Address {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
 			if !IsAddressInCIDR(newNode.Address, network.AddressRange) {
@@ -350,13 +351,7 @@ func SetNodeDefaults(node *models.Node) {
 	if node.ListenPort == 0 {
 		node.ListenPort = parentNetwork.DefaultListenPort
 	}
-	if node.SaveConfig == "" {
-		if parentNetwork.DefaultSaveConfig != "" {
-			node.SaveConfig = parentNetwork.DefaultSaveConfig
-		} else {
-			node.SaveConfig = "yes"
-		}
-	}
+
 	if node.Interface == "" {
 		node.Interface = parentNetwork.DefaultInterface
 	}
@@ -396,8 +391,6 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultName()
 	node.SetLastCheckIn()
 	node.SetLastPeerUpdate()
-	node.SetRoamingDefault()
-	node.SetPullChangesDefault()
 	node.SetDefaultAction()
 	node.SetIsServerDefault()
 	node.SetIsStaticDefault()
@@ -409,7 +402,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIsRelay()
 	node.SetDefaultIsDocker()
 	node.SetDefaultIsK8S()
-	node.KeyUpdateTimeStamp = time.Now().Unix()
+	node.SetDefaultIsHub()
 }
 
 // GetRecordKey - get record key
@@ -512,32 +505,6 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
 }
 
-// GetNodeByIDorMacAddress - gets the node, if a mac address exists, but not id, then it should delete it and recreate in DB with new ID
-/*
-func GetNodeByIDorMacAddress(uuid string, macaddress string, network string) (models.Node, error) {
-	var node models.Node
-	var err error
-	node, err = GetNodeByID(uuid)
-	if err != nil && macaddress != "" && network != "" {
-		node, err = GetNodeByMacAddress(network, macaddress)
-		if err != nil {
-			return models.Node{}, err
-		}
-		err = DeleteNodeByMacAddress(&node, true) // remove node
-		if err != nil {
-			return models.Node{}, err
-		}
-		err = CreateNode(&node)
-		if err != nil {
-			return models.Node{}, err
-		}
-		logger.Log(2, "rewriting legacy node data; node now has id,", node.ID)
-		node.PullChanges = "yes"
-	}
-	return node, err
-}
-*/
-// GetNodeByID - get node by uuid, should have been set by create
 func GetNodeByID(uuid string) (models.Node, error) {
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {
@@ -611,6 +578,11 @@ func IsLocalServer(node *models.Node) bool {
 	return node.ID != "" && local.ID == node.ID
 }
 
+// IsNodeInComms returns if node is in comms network or not
+func IsNodeInComms(node *models.Node) bool {
+	return node.Network == servercfg.GetCommsID() && node.IsServer != "yes"
+}
+
 // validateServer - make sure servers dont change port or address
 func validateServer(currentNode, newNode *models.Node) bool {
 	return (newNode.Address == currentNode.Address &&
@@ -639,4 +611,26 @@ func isMacAddressUnique(macaddress string, networkName string) (bool, error) {
 	}
 
 	return isunique, nil
+}
+
+// unsetHub - unset hub on network nodes
+func unsetHub(networkName string) error {
+
+	nodes, err := GetNetworkNodes(networkName)
+	if err != nil {
+		return err
+	}
+
+	for i := range nodes {
+		if nodes[i].IsHub == "yes" {
+			nodes[i].IsHub = "no"
+			newNodeData, err := json.Marshal(&nodes[i])
+			if err != nil {
+				logger.Log(1, "error on node during hub update")
+				return err
+			}
+			database.Insert(nodes[i].ID, string(newNodeData), database.NODES_TABLE_NAME)
+		}
+	}
+	return nil
 }

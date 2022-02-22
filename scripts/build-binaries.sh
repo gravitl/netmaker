@@ -18,3 +18,4 @@ env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=6 go build -ldflags="-X 'main.ve
 env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=$VERSION'" -o build/netclient-freebsd-arm7 main.go
 env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm64 go build -ldflags="-X 'main.version=$VERSION'" -o build/netclient-freebsd-arm64 main.go
 env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=$VERSION'" -o build/netclient-darwin main.go
+env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'main.version=${VERSION}'" -o build/netclient-darwin-arm64 main.go

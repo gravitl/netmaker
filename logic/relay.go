@@ -30,7 +30,6 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	node.RelayAddrs = relay.RelayAddrs
 
 	node.SetLastModified()
-	node.PullChanges = "yes"
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
 		return returnnodes, node, err
@@ -90,14 +89,14 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) ([]mode
 }
 
 // SetNodeIsRelayed - Sets IsRelayed to on or off for relay
-func SetNodeIsRelayed(yesOrno string, id string) error {
+func SetNodeIsRelayed(yesOrno string, id string) (models.Node, error) {
 	node, err := GetNodeByID(id)
 	if err != nil {
-		return err
+		return node, err
 	}
 	network, err := GetNetworkByNode(&node)
 	if err != nil {
-		return err
+		return node, err
 	}
 	node.IsRelayed = yesOrno
 	if yesOrno == "yes" {
@@ -107,18 +106,18 @@ func SetNodeIsRelayed(yesOrno string, id string) error {
 	}
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return err
+		return node, err
 	}
-	return database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+	return node, database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 }
 
 // PeerListUnRelay - call this function if a relayed node fails to get its relay: unrelays node and gets new peer list
 func PeerListUnRelay(id string, network string) ([]models.Node, error) {
-	err := SetNodeIsRelayed("no", id)
+	node, err := SetNodeIsRelayed("no", id)
 	if err != nil {
 		return nil, err
 	}
-	return GetPeersList(network, true, "")
+	return GetPeersList(&node)
 }
 
 // ValidateRelay - checks if relay is valid
@@ -162,7 +161,6 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	node.IsRelay = "no"
 	node.RelayAddrs = []string{}
 	node.SetLastModified()
-	node.PullChanges = "yes"
 
 	data, err := json.Marshal(&node)
 	if err != nil {

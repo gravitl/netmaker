@@ -25,7 +25,7 @@ import (
 )
 
 // JoinNetwork - helps a client join a network
-func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
+func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error {
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -103,7 +103,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	if cfg.Node.MacAddress == "" {
 		macs, err := ncutils.GetMacAddr()
 		if err != nil {
-			return err
+			//if macaddress can't be found set to random string
+			cfg.Node.MacAddress = ncutils.MakeRandomString(18)
 		} else {
 			cfg.Node.MacAddress = macs[0]
 		}
@@ -124,14 +125,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 	cfg.Node.Name = formatName(cfg.Node)
 	// differentiate between client/server here
 	var node = models.Node{
-		Password:            cfg.Node.Password,
-		Address:             cfg.Node.Address,
-		Address6:            cfg.Node.Address6,
-		ID:                  cfg.Node.ID,
-		MacAddress:          cfg.Node.MacAddress,
-		AccessKey:           cfg.Server.AccessKey,
-		IsStatic:            cfg.Node.IsStatic,
-		Roaming:             cfg.Node.Roaming,
+		Password:   cfg.Node.Password,
+		Address:    cfg.Node.Address,
+		Address6:   cfg.Node.Address6,
+		ID:         cfg.Node.ID,
+		MacAddress: cfg.Node.MacAddress,
+		AccessKey:  cfg.Server.AccessKey,
+		IsStatic:   cfg.Node.IsStatic,
+		//Roaming:             cfg.Node.Roaming,
 		Network:             cfg.Network,
 		ListenPort:          cfg.Node.ListenPort,
 		PostUp:              cfg.Node.PostUp,
@@ -143,7 +144,6 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		DNSOn:               cfg.Node.DNSOn,
 		Name:                cfg.Node.Name,
 		Endpoint:            cfg.Node.Endpoint,
-		SaveConfig:          cfg.Node.SaveConfig,
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 		TrafficKeys:         cfg.Node.TrafficKeys,
 		OS:                  runtime.GOOS,
@@ -242,7 +242,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 				go func() {
 					if !local.SetDNSWithRetry(node, server.Address) {
 						cfg.Node.DNSOn = "no"
-						PublishNodeUpdate(&cfg)
+						var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
+						PublishNodeUpdate(&currentCommsCfg, &cfg)
 					}
 				}()
 				break
@@ -250,16 +251,18 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string) error {
 		}
 	}
 
-	if cfg.Daemon != "off" {
-		err = daemon.InstallDaemon(cfg)
-	}
-	if err != nil {
-		return err
-	} else {
-		daemon.Restart()
+	if !iscomms {
+		if cfg.Daemon != "off" {
+			err = daemon.InstallDaemon(cfg)
+		}
+		if err != nil {
+			return err
+		} else {
+			daemon.Restart()
+		}
 	}
 
-	return err
+	return nil
 }
 
 // format name appropriately. Set to blank on failure

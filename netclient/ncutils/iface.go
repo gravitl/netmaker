@@ -6,6 +6,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// IfaceDelta - checks if the new node causes an interface change
 func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	// single comparison statements
 	if newNode.Endpoint != currentNode.Endpoint ||
@@ -15,11 +16,12 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.IsEgressGateway != currentNode.IsEgressGateway ||
 		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
 		newNode.IsRelay != currentNode.IsRelay ||
+		newNode.ListenPort != currentNode.ListenPort ||
 		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
+		newNode.MTU != currentNode.MTU ||
 		newNode.IsPending != currentNode.IsPending ||
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		newNode.DNSOn != currentNode.DNSOn ||
-		len(newNode.ExcludedAddrs) != len(currentNode.ExcludedAddrs) ||
 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
 		return true
 	}
