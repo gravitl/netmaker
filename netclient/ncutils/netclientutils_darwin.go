@@ -28,5 +28,3 @@ func RunCmdFormatted(command string, printerr bool) (string, error) {
 func GetEmbedded() error {
 	return nil
 }
-
-
