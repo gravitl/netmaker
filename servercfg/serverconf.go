@@ -2,14 +2,18 @@ package servercfg
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/logger"
 )
 
 var (
@@ -258,17 +262,19 @@ func GetMQPort() string {
 
 // GetGRPCPort - gets the grpc port
 func GetCommsCIDR() string {
-	netrange := "172.242.0.0/16"
+	netrange := "172.16.0.0/16"
 	if os.Getenv("COMMS_CIDR") != "" {
 		netrange = os.Getenv("COMMS_CIDR")
 	} else if config.Config.Server.CommsCIDR != "" {
 		netrange = config.Config.Server.CommsCIDR
+	} else { // make a random one, which should only affect initialize first time, unless db is removed
+		netrange = genNewCommsCIDR()
 	}
 	_, _, err := net.ParseCIDR(netrange)
 	if err == nil {
 		return netrange
 	}
-	return "172.242.0.0/16"
+	return "172.16.0.0/16"
 }
 
 // GetCommsID - gets the grpc port
@@ -613,4 +619,35 @@ func GetRce() bool {
 // GetDebug -- checks if debugging is enabled, off by default
 func GetDebug() bool {
 	return os.Getenv("DEBUG") == "on" || config.Config.Server.Debug == true
+}
+
+func genNewCommsCIDR() string {
+	currIfaces, err := net.Interfaces()
+	netrange := fmt.Sprintf("172.%d.0.0/16", genCommsByte())
+	if err == nil { // make sure chosen CIDR doesn't overlap with any local iface CIDRs
+		iter := 0
+		for i := 0; i < len(currIfaces); i++ {
+			if currentAddrs, err := currIfaces[i].Addrs(); err == nil {
+				for j := range currentAddrs {
+					if strings.Contains(currentAddrs[j].String(), netrange[0:7]) {
+						if iter > 20 { // if this hits, then the cidr should be specified
+							logger.FatalLog("could not find a suitable comms network on this server, please manually enter one")
+						}
+						netrange = fmt.Sprintf("172.%d.0.0/16", genCommsByte())
+						i = -1 // reset to loop back through
+						iter++ // track how many times you've iterated and not found one
+						break
+					}
+				}
+			}
+		}
+	}
+	return netrange
+}
+
+func genCommsByte() int {
+	const min = 1 << 4 // 16
+	const max = 1 << 5 // 32
+	rand.Seed(time.Now().UnixNano())
+	return rand.Intn(max-min) + min
 }
