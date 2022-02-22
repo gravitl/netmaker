@@ -283,11 +283,6 @@ func formatName(node models.Node) string {
 }
 
 func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
-
-	log.Println("DELETE ME: set listenport")
-	log.Println("DELETE ME: oldport " + string(oldListenPort))
-	log.Println("DELETE ME: newport " + string(cfg.Node.ListenPort))
-
 	// keep track of the returned listenport value
 	newListenPort := cfg.Node.ListenPort
 
