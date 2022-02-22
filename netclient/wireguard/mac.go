@@ -203,7 +203,6 @@ func addRoute(addr string, iface string) error {
 		return err
 	}
 	if !(strings.Contains(out, iface)) {
-		log.Println("DELETE ME: running command - route -q -n add -" + inetx + " " + addr + " -interface " + iface)
 		_, err = ncutils.RunCmd("route -q -n add -"+inetx+" "+addr+" -interface "+iface, true)
 	}
 	return err
@@ -230,17 +229,14 @@ func getConfig(path string) string {
 
 // SetMacPeerRoutes - sets routes for interface from the peer list for all AllowedIps
 func SetMacPeerRoutes(realIface string) error {
-	log.Println("DELETE ME: setting mac peer routes")
 	var err error
 	peerIPs := getPeerIPs(realIface)
-	log.Println("DELETE ME: peer ips:")
 	log.Println(peerIPs)
 	if len(peerIPs) == 0 {
 		return err
 	}
 	for _, i := range peerIPs {
 		if i != "" {
-			log.Println("DELETE ME: adding route " + i + " on iface " + realIface)
 			err = addRoute(i, realIface)
 			if err != nil {
 				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)

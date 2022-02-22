@@ -3,7 +3,6 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"runtime"
 	"strings"
 	"time"
@@ -184,7 +183,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			ncutils.Log("error retrieving mac iface: " + err.Error())
 			return
 		}
-		log.Println("DELETE ME: got iface for mac:" + iface)
 	}
 	err = wireguard.SetPeers(iface, &cfg.Node, peerUpdate.Peers)
 	if err != nil {
