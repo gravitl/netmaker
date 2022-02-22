@@ -94,7 +94,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Debug = GetDebug()
 	cfg.Telemetry = Telemetry()
 	cfg.ManageIPTables = ManageIPTables()
-	cfg.CommsCIDR = GetCommsCIDR()
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
 	cfg.CommsID = GetCommsID()
