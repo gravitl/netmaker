@@ -3,7 +3,6 @@ package wireguard
 import (
 	"bufio"
 	"errors"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -231,7 +230,6 @@ func getConfig(path string) string {
 func SetMacPeerRoutes(realIface string) error {
 	var err error
 	peerIPs := getPeerIPs(realIface)
-	log.Println(peerIPs)
 	if len(peerIPs) == 0 {
 		return err
 	}

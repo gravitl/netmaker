@@ -88,29 +88,29 @@ func CreateMacService(servicename string) error {
 // MacDaemonString - the file contents for the mac netclient daemon service (launchdaemon)
 func MacDaemonString() string {
 	return `<?xml version='1.0' encoding='UTF-8'?>
-	<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
-	<plist version='1.0'>
-	<dict>
-		<key>Label</key><string>com.gravitl.netclient</string>
-		<key>ProgramArguments</key>
-			<array>
-				<string>/usr/local/bin/netclient</string>
-				<string>daemon</string>
-			</array>
-		<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
-		<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
-		<key>RunAtLoad</key>
-		<true/>
-		<key>KeepAlive</key>
-		<true/>
-		<key>AbandonProcessGroup</key><true/>
-		<key>EnvironmentVariables</key>
-			<dict>
-				<key>PATH</key>
-				<string>/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-			</dict>
-	</dict>
-	</plist>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
+<plist version='1.0'>
+<dict>
+	<key>Label</key><string>com.gravitl.netclient</string>
+	<key>ProgramArguments</key>
+		<array>
+			<string>/usr/local/bin/netclient</string>
+			<string>daemon</string>
+		</array>
+	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
+	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>AbandonProcessGroup</key><true/>
+	<key>EnvironmentVariables</key>
+		<dict>
+			<key>PATH</key>
+			<string>/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		</dict>
+</dict>
+</plist>
 `
 }
 
