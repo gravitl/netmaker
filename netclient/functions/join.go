@@ -215,7 +215,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 
 	setListenPort(oldListenPort, &cfg)
 
-	err = config.ModConfig(&node)
+	err = config.ModConfig(&cfg.Node)
 	if err != nil {
 		return err
 	}
@@ -298,7 +298,6 @@ func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
 		// if newListenPort has been modified to find an available port, publish to server
 		if cfg.Node.ListenPort != newListenPort {
 			var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
-			log.Println("DELETE ME: publishing update of port: " + string(cfg.Node.ListenPort))
 			PublishNodeUpdate(&currentCommsCfg, cfg)
 		}
 	}

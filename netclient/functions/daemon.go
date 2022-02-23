@@ -333,7 +333,7 @@ func getCommsNetworks(networks []string) (map[string]bool, error) {
 
 func getCommsCfgByNode(node *models.Node) config.ClientConfig {
 	var commsCfg config.ClientConfig
-	commsCfg.Network = node.Network
+	commsCfg.Network = node.CommID
 	commsCfg.ReadConfig()
 	return commsCfg
 }
