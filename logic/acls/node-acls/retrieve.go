@@ -5,20 +5,19 @@ import (
 	"fmt"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic/acls"
 )
 
 // AreNodesAllowed - checks if nodes are allowed to communicate in their network ACL
-func AreNodesAllowed(networkID acls.NetworkID, node1, node2 acls.NodeID) bool {
+func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
 	var currentNetworkACL, err = FetchCurrentACL(networkID)
 	if err != nil {
 		return false
 	}
-	return currentNetworkACL[node1][node2] == acls.Allowed && currentNetworkACL[node2][node1] == acls.Allowed
+	return currentNetworkACL[node1].IsNodeAllowed(node2) && currentNetworkACL[node2].IsNodeAllowed(node1)
 }
 
 // FetchNodeACL - fetches a specific node's ACL in a given network
-func FetchNodeACL(networkID acls.NetworkID, nodeID acls.NodeID) (acls.NodeACL, error) {
+func FetchNodeACL(networkID NetworkID, nodeID NodeID) (NodeACL, error) {
 	currentNetACL, err := FetchCurrentACL(networkID)
 	if err != nil {
 		return nil, err
@@ -30,7 +29,7 @@ func FetchNodeACL(networkID acls.NetworkID, nodeID acls.NodeID) (acls.NodeACL, e
 }
 
 // FetchNodeACLJson - fetches a node's acl in given network except returns the json string
-func FetchNodeACLJson(networkID acls.NetworkID, nodeID acls.NodeID) (acls.ACLJson, error) {
+func FetchNodeACLJson(networkID NetworkID, nodeID NodeID) (ACLJson, error) {
 	currentNodeACL, err := FetchNodeACL(networkID, nodeID)
 	if err != nil {
 		return "", err
@@ -39,16 +38,16 @@ func FetchNodeACLJson(networkID acls.NetworkID, nodeID acls.NodeID) (acls.ACLJso
 	if err != nil {
 		return "", err
 	}
-	return acls.ACLJson(jsonData), nil
+	return ACLJson(jsonData), nil
 }
 
 // FetchCurrentACL - fetches all current node rules in given network ACL
-func FetchCurrentACL(networkID acls.NetworkID) (acls.NetworkACL, error) {
-	aclJson, err := FetchCurrentACLJson(acls.NetworkID(networkID))
+func FetchCurrentACL(networkID NetworkID) (NetworkACL, error) {
+	aclJson, err := FetchCurrentACLJson(NetworkID(networkID))
 	if err != nil {
 		return nil, err
 	}
-	var currentNetworkACL acls.NetworkACL
+	var currentNetworkACL NetworkACL
 	if err := json.Unmarshal([]byte(aclJson), &currentNetworkACL); err != nil {
 		return nil, err
 	}
@@ -56,10 +55,10 @@ func FetchCurrentACL(networkID acls.NetworkID) (acls.NetworkACL, error) {
 }
 
 // FetchCurrentACLJson - fetch the current ACL of given network except in json string
-func FetchCurrentACLJson(networkID acls.NetworkID) (acls.ACLJson, error) {
+func FetchCurrentACLJson(networkID NetworkID) (ACLJson, error) {
 	currentACLs, err := database.FetchRecord(database.NODE_ACLS_TABLE_NAME, string(networkID))
 	if err != nil {
-		return acls.ACLJson(""), err
+		return ACLJson(""), err
 	}
-	return acls.ACLJson(currentACLs), nil
+	return ACLJson(currentACLs), nil
 }
