@@ -1,4 +1,4 @@
-package nodeacls
+package acls
 
 var (
 	// NotPresent - 0 - not present (default)
