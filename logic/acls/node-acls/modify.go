@@ -4,41 +4,24 @@ import (
 	"encoding/json"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic/acls"
 )
 
-// ChangeNodeACL - takes in two node IDs of a given network and changes them to specified allowed or not value
-// returns the total network's ACL and error
-func ChangeNodeACL(networkID acls.NetworkID, node1, node2 acls.NodeID, value byte) (acls.NetworkACL, error) {
-	if value != acls.NotAllowed && value != acls.Allowed { // if invalid option make not allowed
-		value = acls.NotAllowed
-	}
-	currentACL, err := FetchCurrentACL(networkID)
-	if err != nil {
-		return nil, err
-	}
-	// == make the access control change ==
-	currentACL[node1][node2] = value
-	currentACL[node2][node1] = value
-	return UpsertNetworkACL(networkID, currentACL)
-}
-
 // CreateNodeACL - inserts or updates a node ACL on given network
-func CreateNodeACL(networkID acls.NetworkID, nodeID acls.NodeID, defaultVal byte) (acls.NodeACL, error) {
-	if defaultVal != acls.NotAllowed && defaultVal != acls.Allowed {
-		defaultVal = acls.NotAllowed
+func CreateNodeACL(networkID NetworkID, nodeID NodeID, defaultVal byte) (NodeACL, error) {
+	if defaultVal != NotAllowed && defaultVal != Allowed {
+		defaultVal = NotAllowed
 	}
 	var currentNetworkACL, err = FetchCurrentACL(networkID)
 	if err != nil {
 		return nil, err
 	}
-	var newNodeACL = make(acls.NodeACL)
+	var newNodeACL = make(NodeACL)
 	for existingNodeID := range currentNetworkACL {
 		currentNetworkACL[existingNodeID][nodeID] = defaultVal // set the old nodes to default value for new node
 		newNodeACL[existingNodeID] = defaultVal                // set the old nodes in new node ACL to default value
 	}
 	currentNetworkACL[nodeID] = newNodeACL                               // append the new node's ACL
-	retNetworkACL, err := UpsertNetworkACL(networkID, currentNetworkACL) // insert into db, return result
+	retNetworkACL, err := upsertNetworkACL(networkID, currentNetworkACL) // insert into db, return result
 	if err != nil {
 		return nil, err
 	}
@@ -46,55 +29,105 @@ func CreateNodeACL(networkID acls.NetworkID, nodeID acls.NodeID, defaultVal byte
 }
 
 // CreateNetworkACL - creates an empty ACL list in a given network
-func CreateNetworkACL(networkID acls.NetworkID) (acls.NetworkACL, error) {
-	var networkACL = make(acls.NetworkACL)
-	return networkACL, database.Insert(string(networkID), string(convertNetworkACLtoACLJson(&networkACL)), database.NODE_ACLS_TABLE_NAME)
-}
-
-// UpsertNodeACL - applies a NodeACL to the db, overwrites or creates
-func UpsertNodeACL(networkID acls.NetworkID, nodeID acls.NodeID, nodeACL acls.NodeACL) (acls.NodeACL, error) {
-	currentNetACL, err := FetchCurrentACL(networkID)
-	if err != nil {
-		return nodeACL, err
-	}
-	currentNetACL[nodeID] = nodeACL
-	_, err = UpsertNetworkACL(networkID, currentNetACL)
-	return nodeACL, err
-}
-
-// UpsertNetworkACL - Inserts or updates a network ACL given the json string of the ACL and the network name
-// if nil, create it
-func UpsertNetworkACL(networkID acls.NetworkID, networkACL acls.NetworkACL) (acls.NetworkACL, error) {
-	if networkACL == nil {
-		networkACL = make(acls.NetworkACL)
-	}
+func CreateNetworkACL(networkID NetworkID) (NetworkACL, error) {
+	var networkACL = make(NetworkACL)
 	return networkACL, database.Insert(string(networkID), string(convertNetworkACLtoACLJson(&networkACL)), database.NODE_ACLS_TABLE_NAME)
 }
 
 // RemoveNodeACL - removes a specific Node's ACL, returns the NetworkACL and error
-func RemoveNodeACL(networkID acls.NetworkID, nodeID acls.NodeID) (acls.NetworkACL, error) {
+func RemoveNodeACL(networkID NetworkID, nodeID NodeID) (NetworkACL, error) {
 	var currentNeworkACL, err = FetchCurrentACL(networkID)
 	if err != nil {
 		return nil, err
 	}
 	for currentNodeID := range currentNeworkACL {
 		if currentNodeID != nodeID {
-			delete(currentNeworkACL[currentNodeID], nodeID)
+			currentNeworkACL[currentNodeID].RemoveNode(nodeID)
 		}
 	}
 	delete(currentNeworkACL, nodeID)
-	return UpsertNetworkACL(networkID, currentNeworkACL)
+	return currentNeworkACL.Save(networkID)
 }
 
 // RemoveNetworkACL - just delete the network ACL
-func RemoveNetworkACL(networkID acls.NetworkID) error {
+func RemoveNetworkACL(networkID NetworkID) error {
 	return database.DeleteRecord(database.NODE_ACLS_TABLE_NAME, string(networkID))
 }
 
-func convertNetworkACLtoACLJson(networkACL *acls.NetworkACL) acls.ACLJson {
+// NodeACL.AllowNode - allows a node by ID in memory
+func (nodeACL NodeACL) AllowNode(nodeID NodeID) {
+	nodeACL[nodeID] = Allowed
+}
+
+// NodeACL.DisallowNode - disallows a node access by ID in memory
+func (nodeACL NodeACL) DisallowNode(nodeID NodeID) {
+	nodeACL[nodeID] = NotAllowed
+}
+
+// NodeACL.RemoveNode - removes a node from a NodeACL
+func (nodeACL NodeACL) RemoveNode(nodeID NodeID) {
+	delete(nodeACL, nodeID)
+}
+
+// NodeACL.Update - updates a nodeACL in DB
+func (nodeACL NodeACL) Save(networkID NetworkID, nodeID NodeID) (NodeACL, error) {
+	return upsertNodeACL(networkID, nodeID, nodeACL)
+}
+
+// NodeACL.IsNodeAllowed - sees if nodeID is allowed in referring NodeACL
+func (nodeACL NodeACL) IsNodeAllowed(nodeID NodeID) bool {
+	return nodeACL[nodeID] == Allowed
+}
+
+// NetworkACL.UpdateNodeACL - saves the state of a NodeACL in the NetworkACL in memory
+func (networkACL NetworkACL) UpdateNodeACL(nodeID NodeID, nodeACL NodeACL) NetworkACL {
+	networkACL[nodeID] = nodeACL
+	return networkACL
+}
+
+// NetworkACL.RemoveNodeACL - removes the state of a NodeACL in the NetworkACL in memory
+func (networkACL NetworkACL) RemoveNodeACL(nodeID NodeID) NetworkACL {
+	delete(networkACL, nodeID)
+	return networkACL
+}
+
+// NetworkACL.ChangeNodesAccess - changes the relationship between two nodes in memory
+func (networkACL NetworkACL) ChangeNodesAccess(nodeID1, nodeID2 NodeID, value byte) {
+	networkACL[nodeID1][nodeID2] = value
+	networkACL[nodeID2][nodeID1] = value
+}
+
+// NetworkACL.Save - saves the state of a NetworkACL to the db
+func (networkACL NetworkACL) Save(networkID NetworkID) (NetworkACL, error) {
+	return upsertNetworkACL(networkID, networkACL)
+}
+
+// == private ==
+
+// upsertNodeACL - applies a NodeACL to the db, overwrites or creates
+func upsertNodeACL(networkID NetworkID, nodeID NodeID, nodeACL NodeACL) (NodeACL, error) {
+	currentNetACL, err := FetchCurrentACL(networkID)
+	if err != nil {
+		return nodeACL, err
+	}
+	currentNetACL[nodeID] = nodeACL
+	_, err = upsertNetworkACL(networkID, currentNetACL)
+	return nodeACL, err
+}
+
+// upsertNetworkACL - Inserts or updates a network ACL given the json string of the ACL and the network name
+// if nil, create it
+func upsertNetworkACL(networkID NetworkID, networkACL NetworkACL) (NetworkACL, error) {
+	if networkACL == nil {
+		networkACL = make(NetworkACL)
+	}
+	return networkACL, database.Insert(string(networkID), string(convertNetworkACLtoACLJson(&networkACL)), database.NODE_ACLS_TABLE_NAME)
+}
+
+func convertNetworkACLtoACLJson(networkACL *NetworkACL) ACLJson {
 	data, err := json.Marshal(networkACL)
 	if err != nil {
 		return ""
 	}
-	return acls.ACLJson(data)
+	return ACLJson(data)
 }
