@@ -34,14 +34,26 @@ func CreateNodeACL(networkID NetworkID, nodeID NodeID, defaultVal byte) (acls.AC
 	return retNetworkACL[acls.AclID(nodeID)], nil
 }
 
-// ChangeNodesAccess - changes relationship between two individual nodes in given network in memory
-func ChangeNodesAccess(networkID NetworkID, node1, node2 NodeID, value byte) (acls.ACLContainer, error) {
-	var currentNetworkACL, err = FetchAllACLs(networkID)
+// AllowNode - allow access between two nodes in memory
+func AllowNodes(networkID NetworkID, node1, node2 NodeID) (acls.ACLContainer, error) {
+	container, err := FetchAllACLs(networkID)
 	if err != nil {
 		return nil, err
 	}
-	currentNetworkACL.ChangeAccess(acls.AclID(node1), acls.AclID(node2), value)
-	return currentNetworkACL, nil
+	container[acls.AclID(node1)].Allow(acls.AclID(node2))
+	container[acls.AclID(node2)].Allow(acls.AclID(node1))
+	return container, nil
+}
+
+// DisallowNodes - deny access between two nodes
+func DisallowNodes(networkID NetworkID, node1, node2 NodeID) (acls.ACLContainer, error) {
+	container, err := FetchAllACLs(networkID)
+	if err != nil {
+		return nil, err
+	}
+	container[acls.AclID(node1)].Disallow(acls.AclID(node2))
+	container[acls.AclID(node2)].Disallow(acls.AclID(node1))
+	return container, nil
 }
 
 // UpdateNodeACL - updates a node's ACL in state
