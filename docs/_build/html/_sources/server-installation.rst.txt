@@ -185,7 +185,7 @@ Config File Reference
 -----------------------
 A config file may be placed under config/environments/<env-name>.yml. To read this file at runtime, provide the environment variable NETMAKER_ENV at runtime. For instance, dev.yml paired with ENV=dev. Netmaker will load the specified Config file. This allows you to store and manage configurations for different environments. Below is a reference Config File you may use.
 
-.. literalinclude:: ../config/environments/dev.yaml
+.. literalinclude:: ../src/config/environments/dev.yaml
   :language: YAML
 
 Compose File - Annotated
@@ -193,7 +193,7 @@ Compose File - Annotated
 
 All environment variables and options are enabled in this file. It is the equivalent to running the "full install" from the above section. However, all environment variables are included, and are set to the default values provided by Netmaker (if the environment variable was left unset, it would not change the installation). Comments are added to each option to show how you might use it to modify your installation.
 
-.. literalinclude:: ../compose/docker-compose.reference.yml
+.. literalinclude:: ../src/compose/docker-compose.reference.yml
   :language: YAML
 
 Available docker-compose files

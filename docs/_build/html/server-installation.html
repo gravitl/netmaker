@@ -750,26 +750,23 @@
 <h3 id="compose-file-annotated">Compose File - Annotated<a class="headerlink" href="#compose-file-annotated" title="Permalink to this headline">¶</a></h3>
 <p>All environment variables and options are enabled in this file. It is the equivalent to running the “full install” from the above section. However, all environment variables are included, and are set to the default values provided by Netmaker (if the environment variable was left unset, it would not change the installation). Comments are added to each option to show how you might use it to modify your installation.</p>
 <div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="nt">services</span><span class="p">:</span>
-  <span class="nt">rqlite</span><span class="p">:</span>
-    <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rqlite</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rqlite/rqlite</span>
-    <span class="nt">network_mode</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">host</span>
-    <span class="nt">restart</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">always</span>
-    <span class="nt">volumes</span><span class="p">:</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">sqldata:/rqlite/file/data</span>
   <span class="nt">netmaker</span><span class="p">:</span> <span class="c1"># The Primary Server for running Netmaker</span>
-    <span class="nt">privileged</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">true</span> <span class="c1"># Necessary to run sudo/root level commands on host system. Take out if not running with CLIENT_MODE=on</span>
+    <span class="nt">privileged</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">true</span> <span class="c1"># Necessary to run sudo/root level commands on host system. Likely using this if running with host networking on.</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
-    <span class="nt">depends_on</span><span class="p">:</span>
-      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">rqlite</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.9.4</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.11.0</span>
     <span class="nt">volumes</span><span class="p">:</span> <span class="c1"># Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">dnsconfig:/root/config/dnsconfig</span> <span class="c1"># Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/usr/bin/wg:/usr/bin/wg</span>
-    <span class="nt">cap_add</span><span class="p">:</span> <span class="c1"># Necessary for CLIENT_MODE. Should be removed if turned off. </span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">sqldata:/root/data</span>
+    <span class="nt">cap_add</span><span class="p">:</span> <span class="c1"># Necessary capabilities to set iptables when running in container</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">NET_ADMIN</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">NET_RAW</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">SYS_MODULE</span>
+    <span class="nt">sysctls</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">net.ipv4.ip_forward=1</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">net.ipv4.conf.all.src_valid_mark=1</span>
     <span class="nt">restart</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">always</span>
-    <span class="nt">network_mode</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">host</span> <span class="c1"># Necessary for CLIENT_MODE. Should be removed if turned off, but then need to add port mappings</span>
+    <span class="nt">network_mode</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">host</span> <span class="c1"># Must configure with very particular settngs for host networking to work. Do not just set on!</span>
     <span class="nt">environment</span><span class="p">:</span>
       <span class="nt">SERVER_HOST</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># All the Docker Compose files pre-populate this with HOST_IP, which you replace as part of the install instructions. This will set both HTTP and GRPC host.</span>
       <span class="nt">SERVER_HTTP_HOST</span><span class="p">:</span> <span class="s">"127.0.0.1"</span> <span class="c1"># Overrides SERVER_HOST if set. Useful for making HTTP and GRPC available via different interfaces/networks.</span>
@@ -791,31 +788,58 @@
       <span class="nt">RCE</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.</span>
       <span class="nt">NODE_ID</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Sets the name/id of the nodes that the server creates. Necessary for HA configurations to identify between servers (for instance, netmaker-1, netmaker-2, etc). For non-HA deployments, is not necessary.</span>
       <span class="nt">TELEMETRY</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.</span>
+      <span class="nt">MQ_HOST</span><span class="p">:</span> <span class="s">"mq"</span> <span class="c1"># the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.</span>
+      <span class="nt">HOST_NETWORK</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables.</span>
+      <span class="nt">MANAGE_IPTABLES</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># set iptables on the machine being managed in order to forward properly from wireguard interface to MQ and other services listed in "port forward services"</span>
+      <span class="nt">PORT_FORWARD_SERVICES</span><span class="p">:</span> <span class="s">"mq,dns,ssh"</span> <span class="c1">#services for which to configure port forwarding on the machine. 'ssh' forwards port 22 over wireguard, enabling ssh to server over wireguard. dns enables private dns over wireguard. mq enables mq.</span>
   <span class="nt">netmaker-ui</span><span class="p">:</span> <span class="c1"># The Netmaker UI Component</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker-ui:v0.9.3</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker-ui:v0.11.0</span>
     <span class="nt">links</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="s">"netmaker:api"</span>
     <span class="nt">ports</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="s">"8082:80"</span>
     <span class="nt">environment</span><span class="p">:</span>
       <span class="nt">BACKEND_URL</span><span class="p">:</span> <span class="s">"http://HOST_IP:8081"</span> <span class="c1"># URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT</span>
+  <span class="nt">restart</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">always</span>
   <span class="nt">coredns</span><span class="p">:</span> <span class="c1"># The DNS Server. Remove this section if DNS_MODE="off"</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span> 
     <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">coredns/coredns</span>
-    <span class="nt">command</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">-conf /root/dnsconfig/Corefile</span> <span class="c1"># Config location for Corefile. This is the path of file which is also mounted to Netmaker for modification.</span>
+    <span class="nt">command</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">-conf /root/dnsconfig/Corefile</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">coredns</span>
     <span class="nt">restart</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">always</span>
-    <span class="nt">ports</span><span class="p">:</span>
-      <span class="p p-Indicator">-</span> <span class="s">"53:53/udp"</span> <span class="c1"># Likely needs to run at port 53 for adequate nameserver usage.</span>
     <span class="nt">volumes</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">dnsconfig:/root/dnsconfig</span>
+  <span class="nt">caddy</span><span class="p">:</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">caddy:latest</span>
+    <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">caddy</span>
+    <span class="nt">restart</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">unless-stopped</span>
+    <span class="nt">network_mode</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">host</span> <span class="c1"># Wants ports 80 and 443!</span>
+    <span class="nt">volumes</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/root/Caddyfile:/etc/caddy/Caddyfile</span>
+      <span class="c1"># - $PWD/site:/srv # you could also serve a static site in site folder</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">caddy_data:/data</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">caddy_conf:/config</span>  
+  <span class="nt">mq</span><span class="p">:</span> <span class="c1"># the MQTT broker for netmaker</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">eclipse-mosquitto:2.0.14</span>
+    <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">mq</span>
+    <span class="nt">restart</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">unless-stopped</span>
+    <span class="nt">ports</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="s">"1883:1883"</span>
+    <span class="nt">volumes</span><span class="p">:</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/root/mosquitto.conf:/mosquitto/config/mosquitto.conf</span> <span class="c1"># need to pull conf file from github before running (under docker/mosquitto.conf)</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">mosquitto_data:/mosquitto/data</span>
+      <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">mosquitto_logs:/mosquitto/log</span>
 <span class="nt">volumes</span><span class="p">:</span>
-  <span class="nt">sqldata</span><span class="p">:</span> <span class="p p-Indicator">{}</span>
-  <span class="nt">dnsconfig</span><span class="p">:</span> <span class="p p-Indicator">{}</span>
+  <span class="nt">caddy_data</span><span class="p">:</span> <span class="p p-Indicator">{}</span> <span class="c1"># storage for caddy data</span>
+  <span class="nt">caddy_conf</span><span class="p">:</span> <span class="p p-Indicator">{}</span> <span class="c1"># storage for caddy configuration file</span>
+  <span class="nt">sqldata</span><span class="p">:</span> <span class="p p-Indicator">{}</span> <span class="c1"># storage for embedded sqlite</span>
+  <span class="nt">dnsconfig</span><span class="p">:</span> <span class="p p-Indicator">{}</span> <span class="c1"># storage for coredns</span>
+  <span class="nt">mosquitto_data</span><span class="p">:</span> <span class="p p-Indicator">{}</span> <span class="c1"># storage for mqtt data</span>
+  <span class="nt">mosquitto_logs</span><span class="p">:</span> <span class="p p-Indicator">{}</span> <span class="c1"># storage for mqtt logs</span>
 </pre></div>
 </div>
 
