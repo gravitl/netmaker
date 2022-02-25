@@ -5,6 +5,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/acls"
 	nodeacls "github.com/gravitl/netmaker/logic/acls/node-acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
@@ -153,49 +154,49 @@ func TestNodeACLs(t *testing.T) {
 	t.Run("acls not present", func(t *testing.T) {
 		currentACL, err := nodeacls.CreateNetworkACL(nodeacls.NetworkID(node1.Network))
 		assert.Nil(t, err)
-		assert.Nil(t, currentACL[nodeacls.NodeID(node1.ID)])
-		assert.Nil(t, currentACL[nodeacls.NodeID(node2.ID)])
-		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		assert.Nil(t, currentACL[acls.AclID(node1.ID)])
+		assert.Nil(t, currentACL[acls.AclID(node2.ID)])
+		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), acls.AclID(node1.ID))
 		assert.NotNil(t, err)
 		assert.Nil(t, node1ACL)
 		assert.EqualError(t, err, "no node ACL present for node "+node1.ID)
 	})
 	t.Run("node acls exists after creates", func(t *testing.T) {
-		node1ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID), nodeacls.Allowed)
+		node1ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), acls.AclID(node1.ID), acls.Allowed)
 		assert.Nil(t, err)
 		assert.NotNil(t, node1ACL)
-		assert.Equal(t, node1ACL[nodeacls.NodeID(node2.ID)], nodeacls.NotPresent)
-		node2ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node2.ID), nodeacls.Allowed)
+		assert.Equal(t, node1ACL[acls.AclID(node2.ID)], acls.NotPresent)
+		node2ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), acls.AclID(node2.ID), acls.Allowed)
 		assert.Nil(t, err)
 		assert.NotNil(t, node2ACL)
-		assert.Equal(t, nodeacls.Allowed, node2ACL[nodeacls.NodeID(node1.ID)])
+		assert.Equal(t, acls.Allowed, node2ACL[acls.AclID(node1.ID)])
 	})
 	t.Run("node acls correct after fetch", func(t *testing.T) {
-		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), acls.AclID(node1.ID))
 		assert.Nil(t, err)
-		assert.Equal(t, nodeacls.Allowed, node1ACL[nodeacls.NodeID(node2.ID)])
+		assert.Equal(t, acls.Allowed, node1ACL[acls.AclID(node2.ID)])
 	})
 	t.Run("node acls correct after modify", func(t *testing.T) {
 		currentACL, err := nodeacls.CreateNetworkACL(nodeacls.NetworkID(node1.Network))
 		assert.Nil(t, err)
 		assert.NotNil(t, currentACL)
-		node1ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID), nodeacls.Allowed)
+		node1ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), acls.AclID(node1.ID), acls.Allowed)
 		assert.Nil(t, err)
-		node2ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node2.ID), nodeacls.Allowed)
+		node2ACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node1.Network), acls.AclID(node2.ID), acls.Allowed)
 		assert.Nil(t, err)
 		assert.NotNil(t, node1ACL)
 		assert.NotNil(t, node2ACL)
 		currentACL, err = nodeacls.FetchCurrentACL(nodeacls.NetworkID(node1.Network))
 		assert.Nil(t, err)
-		currentACL.ChangeNodesAccess(nodeacls.NodeID(node1.ID), nodeacls.NodeID(node2.ID), nodeacls.NotAllowed)
-		assert.Equal(t, nodeacls.NotAllowed, currentACL[nodeacls.NodeID(node1.ID)][nodeacls.NodeID(node2.ID)])
-		assert.Equal(t, nodeacls.NotAllowed, currentACL[nodeacls.NodeID(node2.ID)][nodeacls.NodeID(node1.ID)])
+		currentACL.ChangeNodesAccess(acls.AclID(node1.ID), acls.AclID(node2.ID), acls.NotAllowed)
+		assert.Equal(t, acls.NotAllowed, currentACL[acls.AclID(node1.ID)][acls.AclID(node2.ID)])
+		assert.Equal(t, acls.NotAllowed, currentACL[acls.AclID(node2.ID)][acls.AclID(node1.ID)])
 	})
 	t.Run("node acls removed", func(t *testing.T) {
-		retNetworkACL, err := nodeacls.RemoveNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		retNetworkACL, err := nodeacls.RemoveNodeACL(nodeacls.NetworkID(node1.Network), acls.AclID(node1.ID))
 		assert.Nil(t, err)
 		assert.NotNil(t, retNetworkACL)
-		assert.Equal(t, nodeacls.NotPresent, retNetworkACL[nodeacls.NodeID(node2.ID)][nodeacls.NodeID(node1.ID)])
+		assert.Equal(t, acls.NotPresent, retNetworkACL[acls.AclID(node2.ID)][acls.AclID(node1.ID)])
 	})
 
 	deleteAllNodes()
