@@ -9,23 +9,23 @@ import (
 
 // AreNodesAllowed - checks if nodes are allowed to communicate in their network ACL
 func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
-	var currentNetworkACL, err = acls.FetchACLContainer(acls.ContainerID(networkID))
+	var currentNetworkACL, err = FetchAllACLs(networkID)
 	if err != nil {
 		return false
 	}
-	return currentNetworkACL[acls.AclID(node1)].IsNodeAllowed(acls.AclID(node2)) && currentNetworkACL[acls.AclID(node2)].IsNodeAllowed(acls.AclID(node1))
+	return currentNetworkACL[acls.AclID(node1)].IsAllowed(acls.AclID(node2)) && currentNetworkACL[acls.AclID(node2)].IsAllowed(acls.AclID(node1))
 }
 
 // FetchNodeACL - fetches a specific node's ACL in a given network
 func FetchNodeACL(networkID NetworkID, nodeID NodeID) (acls.ACL, error) {
-	currentNetACL, err := acls.FetchACLContainer(acls.ContainerID(networkID))
+	var currentNetworkACL, err = FetchAllACLs(networkID)
 	if err != nil {
 		return nil, err
 	}
-	if currentNetACL[acls.AclID(nodeID)] == nil {
+	if currentNetworkACL[acls.AclID(nodeID)] == nil {
 		return nil, fmt.Errorf("no node ACL present for node %s", nodeID)
 	}
-	return currentNetACL[acls.AclID(nodeID)], nil
+	return currentNetworkACL[acls.AclID(nodeID)], nil
 }
 
 // FetchNodeACLJson - fetches a node's acl in given network except returns the json string
@@ -39,4 +39,15 @@ func FetchNodeACLJson(networkID NetworkID, nodeID NodeID) (acls.ACLJson, error) 
 		return "", err
 	}
 	return acls.ACLJson(jsonData), nil
+}
+
+// FetchAllACLs - fetchs all node
+func FetchAllACLs(networkID NetworkID) (acls.ACLContainer, error) {
+	var err error
+	var currentNetworkACL acls.ACLContainer
+	currentNetworkACL, err = currentNetworkACL.Get(acls.ContainerID(networkID))
+	if err != nil {
+		return nil, err
+	}
+	return currentNetworkACL, nil
 }
