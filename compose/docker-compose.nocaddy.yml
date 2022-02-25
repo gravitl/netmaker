@@ -6,7 +6,6 @@ services:
     image: gravitl/netmaker:v0.11.0
     volumes:
       - dnsconfig:/root/config/dnsconfig
-      - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
     cap_add: 
       - NET_ADMIN
