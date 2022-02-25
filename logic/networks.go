@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	nodeacls "github.com/gravitl/netmaker/logic/acls/node-acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/validation"
@@ -41,6 +42,11 @@ func GetNetworks() ([]models.Network, error) {
 
 // DeleteNetwork - deletes a network
 func DeleteNetwork(network string) error {
+	// remove ACL for network
+	err := nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
+	if err != nil {
+		logger.Log(1, "failed to remove the node acls during network delete for network,", network)
+	}
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
 		// delete server nodes first then db records
