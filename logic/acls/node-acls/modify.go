@@ -5,14 +5,21 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 )
 
-// CreateNodeACL - inserts or updates a node ACL on given network
+// CreateNodeACL - inserts or updates a node ACL on given network and adds to state
 func CreateNodeACL(networkID NetworkID, nodeID NodeID, defaultVal byte) (acls.ACL, error) {
 	if defaultVal != acls.NotAllowed && defaultVal != acls.Allowed {
 		defaultVal = acls.NotAllowed
 	}
-	var currentNetworkACL, err = acls.FetchACLContainer(acls.ContainerID(networkID))
+	var currentNetworkACL, err = FetchAllACLs(networkID)
 	if err != nil {
-		return nil, err
+		if database.IsEmptyRecord(err) {
+			currentNetworkACL, err = currentNetworkACL.New(acls.ContainerID(networkID))
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	var newNodeACL = make(acls.ACL)
 	for existingNodeID := range currentNetworkACL {
@@ -27,22 +34,37 @@ func CreateNodeACL(networkID NetworkID, nodeID NodeID, defaultVal byte) (acls.AC
 	return retNetworkACL[acls.AclID(nodeID)], nil
 }
 
-// RemoveNodeACL - removes a specific Node's ACL, returns the NetworkACL and error
-func RemoveNodeACL(networkID NetworkID, nodeID NodeID) (acls.ACLContainer, error) {
-	var currentNeworkACL, err = acls.FetchACLContainer(acls.ContainerID(networkID))
+// ChangeNodesAccess - changes relationship between two individual nodes in given network in memory
+func ChangeNodesAccess(networkID NetworkID, node1, node2 NodeID, value byte) (acls.ACLContainer, error) {
+	var currentNetworkACL, err = FetchAllACLs(networkID)
 	if err != nil {
 		return nil, err
 	}
-	for currentNodeID := range currentNeworkACL {
-		if NodeID(currentNodeID) != nodeID {
-			currentNeworkACL[currentNodeID].Remove(acls.AclID(nodeID))
-		}
-	}
-	delete(currentNeworkACL, acls.AclID(nodeID))
-	return currentNeworkACL.Save(acls.ContainerID(networkID))
+	currentNetworkACL.ChangeAccess(acls.AclID(node1), acls.AclID(node2), value)
+	return currentNetworkACL, nil
 }
 
-// RemoveNetworkACL - just delete the network ACL
-func RemoveNetworkACL(networkID NetworkID) error {
-	return database.DeleteRecord(database.NODE_ACLS_TABLE_NAME, string(networkID))
+// UpdateNodeACL - updates a node's ACL in state
+func UpdateNodeACL(networkID NetworkID, nodeID NodeID, acl acls.ACL) (acls.ACL, error) {
+	var currentNetworkACL, err = FetchAllACLs(networkID)
+	if err != nil {
+		return nil, err
+	}
+	currentNetworkACL[acls.AclID(nodeID)] = acl
+	return currentNetworkACL[acls.AclID(nodeID)].Save(acls.ContainerID(networkID), acls.AclID(nodeID))
+}
+
+// RemoveNodeACL - removes a specific Node's ACL, returns the NetworkACL and error
+func RemoveNodeACL(networkID NetworkID, nodeID NodeID) (acls.ACLContainer, error) {
+	var currentNetworkACL, err = FetchAllACLs(networkID)
+	if err != nil {
+		return nil, err
+	}
+	for currentNodeID := range currentNetworkACL {
+		if NodeID(currentNodeID) != nodeID {
+			currentNetworkACL[currentNodeID].Remove(acls.AclID(nodeID))
+		}
+	}
+	delete(currentNetworkACL, acls.AclID(nodeID))
+	return currentNetworkACL.Save(acls.ContainerID(networkID))
 }
