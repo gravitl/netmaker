@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/acls"
+	nodeacls "github.com/gravitl/netmaker/logic/acls/node-acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -174,6 +176,41 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	return fmt.Errorf("failed to update node " + currentNode.ID + ", cannot change ID.")
 }
 
+// DeleteNodeByID - deletes a node from database or moves into delete nodes table
+func DeleteNodeByID(node *models.Node, exterminate bool) error {
+	var err error
+	var key = node.ID
+	if !exterminate {
+		node.Action = models.NODE_DELETE
+		nodedata, err := json.Marshal(&node)
+		if err != nil {
+			return err
+		}
+		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
+		if err != nil {
+			return err
+		}
+	} else {
+		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
+			logger.Log(2, err.Error())
+		}
+	}
+	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
+		return err
+	}
+	if servercfg.IsDNSMode() {
+		SetDNS()
+	}
+
+	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID))
+	if err != nil {
+		// ignoring for now, could hit a nil pointer if delete called twice
+		logger.Log(2, "attempted to remove node ACL for node", node.Name, node.ID)
+	}
+
+	return removeLocalServer(node)
+}
+
 // IsNodeIDUnique - checks if node id is unique
 func IsNodeIDUnique(node *models.Node) (bool, error) {
 	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
@@ -274,6 +311,12 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	// TODO get template logic to decide initial ACL value
+	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), acls.Allowed)
+	if err != nil {
+		return err
+	}
+
 	if node.IsPending != "yes" {
 		DecrimentKey(node.Network, node.AccessKey)
 	}
