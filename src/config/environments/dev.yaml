@@ -1,0 +1,15 @@
+server:
+  apihost: "" # defaults to 127.0.0.1 or remote ip (SERVER_HOST) if DisableRemoteIPCheck is not set to true. SERVER_API_HOST if set
+  apiport: "" # defaults to 8081 or HTTP_PORT (if set)
+  grpchost: "" # defaults to 127.0.0.1 or remote ip (SERVER_HOST) if DisableRemoteIPCheck is not set to true. SERVER_GRPC_HOST if set.
+  grpcport: "" # defaults to 50051 or GRPC_PORT (if set)
+  masterkey: "" # defaults to 'secretkey' or MASTER_KEY (if set)
+  allowedorigin: "" # defaults to '*' or CORS_ALLOWED_ORIGIN (if set)
+  restbackend: "" # defaults to "on" or REST_BACKEND (if set)
+  agentbackend: "" # defaults to "on" or AGENT_BACKEND (if set)
+  clientmode: "" # defaults to "on" or CLIENT_MODE (if set)
+  dnsmode: "" # defaults to "on" or DNS_MODE (if set)
+  sqlconn: "" # defaults to "http://" or SQL_CONN (if set)
+  disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
+  version: "" # version of server
+  rce: "" # defaults to "off"

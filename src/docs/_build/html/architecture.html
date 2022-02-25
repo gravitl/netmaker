@@ -1,0 +1,712 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="lang:clipboard.copy" content="Copy to clipboard">
+  <meta name="lang:clipboard.copied" content="Copied to clipboard">
+  <meta name="lang:search.language" content="en">
+  <meta name="lang:search.pipeline.stopwords" content="True">
+  <meta name="lang:search.pipeline.trimmer" content="True">
+  <meta name="lang:search.result.none" content="No matching documents">
+  <meta name="lang:search.result.one" content="1 matching document">
+  <meta name="lang:search.result.other" content="# matching documents">
+  <meta name="lang:search.tokenizer" content="[\s\-]+">
+
+  
+    <link href="https://fonts.gstatic.com/" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,700|Roboto:300,400,400i,700&display=fallback" rel="stylesheet">
+
+    <style>
+      body,
+      input {
+        font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: "Roboto Mono", "Courier New", Courier, monospace
+      }
+    </style>
+  
+
+  <link rel="stylesheet" href="_static/stylesheets/application.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-palette.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-fixes.css"/>
+  
+  <link rel="stylesheet" href="_static/fonts/material-icons.css"/>
+  
+  <meta name="theme-color" content="#3f51b5">
+  <script src="_static/javascripts/modernizr.js"></script>
+  
+  
+  
+    <title>Architecture &#8212; Netmaker 0.10.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Install" href="install.html" />
+    <link rel="prev" title="About" href="about.html" />
+  
+   
+
+  </head>
+  <body dir=ltr
+        data-md-color-primary=indigo data-md-color-accent=light-blue>
+  
+  <svg class="md-svg">
+    <defs data-children-count="0">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+      
+    </defs>
+  </svg>
+  
+  <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer">
+  <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search">
+  <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+  <a href="#architecture" tabindex="1" class="md-skip"> Skip to content </a>
+  <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex navheader">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
+           class="md-header-nav__button md-logo">
+          
+            <i class="md-icon">&#xe869</i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          <span class="md-header-nav__topic">Netmaker Docs</span>
+          <span class="md-header-nav__topic"> Architecture </span>
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+        
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" action="search.html" method="get" name="search">
+      <input type="text" class="md-search__input" name="q" placeholder="Search"
+             autocapitalize="off" autocomplete="off" spellcheck="false"
+             data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      </div>
+      
+        <div class="md-flex__cell md-flex__cell--shrink">
+          <div class="md-header-nav__source">
+            <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+          </div>
+        </div>
+      
+      
+  
+  <script src="_static/javascripts/version_dropdown.js"></script>
+  <script>
+    var json_loc = ""versions.json"",
+        target_loc = "../",
+        text = "Versions";
+    $( document ).ready( add_version_dropdown(json_loc, target_loc, text));
+  </script>
+  
+
+    </div>
+  </nav>
+</header>
+
+  
+  <div class="md-container">
+    
+    
+    
+  <nav class="md-tabs" data-md-component="tabs">
+    <div class="md-tabs__inner md-grid">
+      <ul class="md-tabs__list">
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
+      </ul>
+    </div>
+  </nav>
+    <main class="md-main">
+      <div class="md-main__inner md-grid" data-md-component="container">
+        
+          <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
+      
+        <i class="md-icon">&#xe869</i>
+      
+    </a>
+    <a href="index.html"
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
+  </label>
+    <div class="md-nav__source">
+      <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+    </div>
+  
+  
+
+  
+  <ul class="md-nav__list">
+    <li class="md-nav__item">
+    
+    
+      <a href="about.html" class="md-nav__link">About</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Architecture </label>
+    
+      <a href="#" class="md-nav__link md-nav__link--active">Architecture</a>
+      
+        
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#architecture--page-root" class="md-nav__link">Architecture</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#core-concepts" class="md-nav__link">Core Concepts</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#wireguard" class="md-nav__link">WireGuard</a>
+        </li>
+        <li class="md-nav__item"><a href="#mesh-network" class="md-nav__link">Mesh Network</a>
+        </li>
+        <li class="md-nav__item"><a href="#netmaker" class="md-nav__link">Netmaker</a>
+        </li>
+        <li class="md-nav__item"><a href="#node" class="md-nav__link">Node</a>
+        </li>
+        <li class="md-nav__item"><a href="#systemd" class="md-nav__link">SystemD</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#components" class="md-nav__link">Components</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#netmaker-server" class="md-nav__link">Netmaker Server</a>
+        </li>
+        <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#database-sqlite-rqlite-postgres" class="md-nav__link">Database (sqlite, rqlite, postgres)</a>
+        </li>
+        <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
+        </li>
+        <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#caddy" class="md-nav__link">Caddy</a>
+        </li>
+        <li class="md-nav__item"><a href="#mosquitto-broker-mqtt" class="md-nav__link">Mosquitto Broker (MQTT)</a>
+        </li>
+        <li class="md-nav__item"><a href="#external-client" class="md-nav__link">External Client</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#technical-process" class="md-nav__link">Technical Process</a>
+        </li>
+        <li class="md-nav__item"><a href="#compatible-systems-for-netclient" class="md-nav__link">Compatible Systems for Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#limitations" class="md-nav__link">Limitations</a>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#core-concepts" class="md-nav__link">Core Concepts</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#components" class="md-nav__link">Components</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#technical-process" class="md-nav__link">Technical Process</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#compatible-systems-for-netclient" class="md-nav__link">Compatible Systems for Netclient</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#limitations" class="md-nav__link">Limitations</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="install.html" class="md-nav__link">Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html" class="md-nav__link">Quick Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html" class="md-nav__link">Getting Started</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="egress-gateway.html" class="md-nav__link">Egress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="relay-server.html" class="md-nav__link">Relay Servers</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="ui-reference.html" class="md-nav__link">UI Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html" class="md-nav__link">API Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="upgrades.html" class="md-nav__link">Upgrades</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html" class="md-nav__link">Troubleshooting</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html" class="md-nav__link">Support</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html" class="md-nav__link">Code of Conduct</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="license.html" class="md-nav__link">License</a>
+      
+    
+    </li>
+  </ul>
+  
+
+</nav>
+              </div>
+            </div>
+          </div>
+          <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#architecture--page-root" class="md-nav__link">Architecture</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#core-concepts" class="md-nav__link">Core Concepts</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#wireguard" class="md-nav__link">WireGuard</a>
+        </li>
+        <li class="md-nav__item"><a href="#mesh-network" class="md-nav__link">Mesh Network</a>
+        </li>
+        <li class="md-nav__item"><a href="#netmaker" class="md-nav__link">Netmaker</a>
+        </li>
+        <li class="md-nav__item"><a href="#node" class="md-nav__link">Node</a>
+        </li>
+        <li class="md-nav__item"><a href="#systemd" class="md-nav__link">SystemD</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#components" class="md-nav__link">Components</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#netmaker-server" class="md-nav__link">Netmaker Server</a>
+        </li>
+        <li class="md-nav__item"><a href="#netclient" class="md-nav__link">Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#database-sqlite-rqlite-postgres" class="md-nav__link">Database (sqlite, rqlite, postgres)</a>
+        </li>
+        <li class="md-nav__item"><a href="#netmaker-ui" class="md-nav__link">Netmaker UI</a>
+        </li>
+        <li class="md-nav__item"><a href="#coredns" class="md-nav__link">CoreDNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#caddy" class="md-nav__link">Caddy</a>
+        </li>
+        <li class="md-nav__item"><a href="#mosquitto-broker-mqtt" class="md-nav__link">Mosquitto Broker (MQTT)</a>
+        </li>
+        <li class="md-nav__item"><a href="#external-client" class="md-nav__link">External Client</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#technical-process" class="md-nav__link">Technical Process</a>
+        </li>
+        <li class="md-nav__item"><a href="#compatible-systems-for-netclient" class="md-nav__link">Compatible Systems for Netclient</a>
+        </li>
+        <li class="md-nav__item"><a href="#limitations" class="md-nav__link">Limitations</a>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+              </div>
+            </div>
+          </div>
+        
+        <div class="md-content">
+          <article class="md-content__inner md-typeset" role="main">
+            
+  
+<h1 id="architecture--page-root">Architecture<a class="headerlink" href="#architecture--page-root" title="Permalink to this headline">¶</a></h1>
+<a class="reference internal image-reference" href="_images/nm-diagram-3.png"><img alt="Netmaker Architecture Diagram" class="align-center" src="_images/nm-diagram-3.png" style="width: 100%;"/></a>
+<p><em>Pictured Above: A detailed diagram of Netmaker’s Architecture.</em></p>
+
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permalink to this headline">¶</a></h2>
+<p>Familiarity with several core concepts will help when you encounter them later on in the documentation.</p>
+
+<h3 id="wireguard">WireGuard<a class="headerlink" href="#wireguard" title="Permalink to this headline">¶</a></h3>
+<p>WireGuard is a relatively new but very important technology which was recently added to the Linux kernel. WireGuard creates very fast but simple encrypted tunnels between devices. From the <a class="reference external" href="https://www.wireguard.com/">WireGuard</a> website, “it might be regarded as the most secure, easiest to use, and simplest VPN solution in the industry.”</p>
+<p>Previous solutions like OpenVPN and IPSec are considerably more heavy and complex, while being less performant. All existing VPN tunneling solutions will cause a significant increase in your network latency. WireGuard is the first to achieve near over-the-line network speeds, meaning you see no significant performance impact.  With the release of WireGuard, there is little reason to use any other existing tunnel encryption technology.</p>
+
+
+<h3 id="mesh-network">Mesh Network<a class="headerlink" href="#mesh-network" title="Permalink to this headline">¶</a></h3>
+<p>When we refer to a mesh network in these documents we are typically referring to a “full mesh.”</p>
+<a class="reference internal image-reference" href="_images/mesh.png"><img alt="Full Mesh Network Diagram" class="align-center" src="_images/mesh.png" style="width: 33%;"/></a>
+<p>A full <a class="reference external" href="https://www.bbc.co.uk/bitesize/guides/zr3yb82/revision/2">mesh network</a> exists where each machine is able to directly talk to every other machine on the network. For example, on your home network, behind your router, all the computers are likely given private addresses and can reach each other directly.</p>
+<p>This is in contrast to a hub-and-spoke network, where each machine must first pass its traffic through a relay server before it can reach other machines.</p>
+<p>In certain situations you may either want or need a <em>partial mesh</em> network, where only some devices can reach each other directly, and other devices must route their traffic through a relay/gateway. Netmaker can use this model in some use cases where it makes sense. In the diagram at the top of this page, the setup is a partial mesh, because the servers (nodes A-D) are meshed, but then external clients come in via a gateway, and are not meshed.</p>
+<p>Mesh networks are generally faster than other topologies, but are also more complicated to set up. WireGuard on its own gives you the means to create encrypted tunnels between devices, but it does not provide a method for setting up a full network. This is where Netmaker comes in.</p>
+
+
+<h3 id="netmaker">Netmaker<a class="headerlink" href="#netmaker" title="Permalink to this headline">¶</a></h3>
+<p>Netmaker is a platform built off of WireGuard which enables users to create mesh networks between their devices. Netmaker can create both full and partial mesh networks depending on the use case.</p>
+<p>When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver. There is also almost always a proxy server / LB, which is typically Caddy.</p>
+<p>From an end user perspective, they typically interact with the Netmaker UI, or even just run the install script for the netclient on their devices. The other components run in the background invisibly.</p>
+<p>Netmaker does a lot of work to set configurations for you, so that you don’t have to. This includes things like WireGuard ports, endpoints, public IPs, keys, and peers. Netmaker works to abstract away as much of the network management as possible, so that you can just click to create a network, and click to add a machine to a network. That said, every machine (node) is different, and may require special configuration. That is why, while Netmaker sets practical default settings, everything within Netmaker is fully configurable.</p>
+
+
+<h3 id="node">Node<a class="headerlink" href="#node" title="Permalink to this headline">¶</a></h3>
+<p>A machine in a Netmaker network, which is managed by the Netclient, is referred to as a Node, as you will see in the UI. A Node can be a VM, a bare metal server, a desktop computer, an IoT device, or any other number of internet-connected machines on which the netclient is installed. A node is simply an endpoint in the network, which can send traffic to all the other nodes, and receive traffic from all of the other nodes.</p>
+
+
+<h3 id="systemd">SystemD<a class="headerlink" href="#systemd" title="Permalink to this headline">¶</a></h3>
+<p>SystemD is a system service manager for a wide array of Linux operating systems. Not all Linux distributions have adopted systemd, but, for better or worse, it has become a fairly common standard in the Linux world. That said, any non-Linux operating system will not have systemd, and many Linux/Unix distributionshave alternative system service managers.</p>
+<p>Netmaker’s netclient, the agent which controls networking on all nodes, can be run as a CLI or as a system daemon. On Linux, it runs as a daemon by default, and this requires systemd. As Netmaker evolves, systemd will become just one of the possible service management options, allowing the netclient to be run on a wider array of devices. However, for the time being, the netclient should be run “unmanaged” (netclient join -daemon=off) on systems that do not run systemd, and some other method can be used like a cron job or custom script.</p>
+<p>As of 0.8, Mac and Windows are supported. On these operating systems, netclient launches the daemon using LaunchD and Windows Service, respectively, as opposed to SystemD.</p>
+
+
+
+<h2 id="components">Components<a class="headerlink" href="#components" title="Permalink to this headline">¶</a></h2>
+<p>Netmaker consists of several core components, which are explained in high-level technical detail below.</p>
+
+<h3 id="netmaker-server">Netmaker Server<a class="headerlink" href="#netmaker-server" title="Permalink to this headline">¶</a></h3>
+<p>The Netmaker server is, at its core, a golang binary. Source code can be found <a class="reference external" href="https://github.com/gravitl/netmaker">on GitHub</a>. The binary, by itself can be compiled for most systems. If you need to run the Netmaker server on a particular system, it likely can be made to work. In typical deployments, it is run as a Docker container. It can also be run as a systemd service as outlined in the non-docker install guide.</p>
+<p>The Netmaker server acts as an API to the front end, and as a GRPC server to the machines in the network. GRPC is much faster and more efficient than standard API calls, which increases the speed of transactions. For this reason, the Netmaker server exposes two ports: The default for the API is 8081, and the default for GRPC is 50051. Either the API or the GRPC server can be disabled on any given Netmaker instance, allowing you to deploy two different servers for managing the API (which is largely for the admin’s use) and GRPC (which is largely for the nodes’ use).</p>
+<p>Most server settings are configurable via a config file, or by environment variables (which take precedence). If the server finds neither of these, it sets sensible defaults, including things like the server’s reachable IP, ports, and which “modes” to run in.</p>
+<p>These modes include client mode and dns mode. Either of these can be disabled but are enabled by default. Client mode allows you to treat the Netmaker host machine (operating system) as a network Node, installing the netclient and controlling the host network. DNS mode has the server write config settings for CoreDNS, a separate component and nameserver, which picks up the config settings to manage node DNS.</p>
+<p>The Netmaker server interacts with either sqlite (default), postgres, or rqlite, a distributed version of sqlite, as its database. This DB holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.</p>
+<p>The components of the server are usually proxied via Caddy, or an alternative like Nginx and Traefik. The proxy handles SSL certificates to secure traffic, and routes to the UI, API, and gRPC server.</p>
+
+
+<h3 id="netclient">Netclient<a class="headerlink" href="#netclient" title="Permalink to this headline">¶</a></h3>
+<p>The netclient is, at its core, a golang binary. Source code can be found in the netclient folder of the Netmaker <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/netclient">GitHub Repository</a>. The binary, by itself, can be compiled for most systems. However, this binary is designed to manage a certain number of Operating Systems. As of version 0.8, the netclient can be run as a system daemon on linux distributions with systemd, or as an “unmanaged” client on distributions without systemd. The netclient for Windows and Mac will run as a Windows Service or LaunchDaemon, respectively.</p>
+<p>The netclient is installed via a simple bash script, which pulls the latest binary and runs ‘register’ and ‘join’ commands.</p>
+<p>The ‘register’ command adds a WireGuard tunnel directly to the netmaker server, for all subsequent communication.</p>
+<p>The ‘join’ command attempts to add the machine to the Netmaker network using sensible defaults, which can be overridden with a config file or environment variables. Assuming the netclient has a valid key (or the network allows manual node signup), it will be registered into the Netmaker network, and will be returned necessary configuration details for how to set up its local network.</p>
+<p>The netclient then sets up the system daemon (if running in daemon mode), and configures WireGuard. At this point it should be part of the network.</p>
+<p>If running in daemon mode, the node subscribes to the MQTT server running with Netmaker, which will send it periodic updates when the network changes. The node will also detect local changes and send them to the server. Any change in configuration will lead to a network update to keep everything in sync. If the node is not running with the in daemon on, it is up to the operator to keep the netclient up-to-date by running regular “pulls” (netclient pull).</p>
+<p>This pub-sub system allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.</p>
+
+
+<h3 id="database-sqlite-rqlite-postgres">Database (sqlite, rqlite, postgres)<a class="headerlink" href="#database-sqlite-rqlite-postgres" title="Permalink to this headline">¶</a></h3>
+<p>As of v0.8, Netmaker uses sqlite by default as a database. It can also use PostgreSQL, or rqlite, a distributed (RAFT consensus) database. Netmaker interacts with this database to store and retrieve information about nodes, networks, and users.</p>
+<p>Additional database support (besides sqlite and rqlite) is very easy to implement for special use cases. Netmaker uses simple key value lookups to run the networks, and the database was designed to be extensible, so support for key-value stores and other SQL-based databases can be achieved by changing a single file.</p>
+
+
+<h3 id="netmaker-ui">Netmaker UI<a class="headerlink" href="#netmaker-ui" title="Permalink to this headline">¶</a></h3>
+<p>The Netmaker UI is a ReactJS-based static website which can be run on top of standard webservers such as Apache and Nginx. Source code can be found <a class="reference external" href="https://github.com/gravitl/netmaker-ui">here</a>. In a typical configuration, the Netmaker UI is run on Nginx as a Docker container.</p>
+<p>Netmaker can be used in its entirety without the UI, but the UI makes things a lot easier for most users. It has a sensible flow and layout for managing Networks, Nodes, Access Keys, and DNS.</p>
+
+
+<h3 id="coredns">CoreDNS<a class="headerlink" href="#coredns" title="Permalink to this headline">¶</a></h3>
+<p>Netmaker allows users to provide and manage Private DNS for their nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.</p>
+
+
+<h3 id="caddy">Caddy<a class="headerlink" href="#caddy" title="Permalink to this headline">¶</a></h3>
+<p>Caddy is the default proxy for Netmaker if you set it up via Quick Start. Caddy is an extremely simple and docker-friendly proxy, which can be compared to Nginx, Traefik, or HAProxy. We use Caddy by default because of the ease of management, and integration with gRPC. A typical setup for Nginx might take dozens of lines of code, and we need to request and manage SSL certificates separately.</p>
+<p>Caddy handles all these things automatically in very few lines of code. You can see our default “Caddyfile” here, which is fed to the container and has all the configuration necessary to configure the proxy for our app:</p>
+<p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/docker/Caddyfile">https://github.com/gravitl/netmaker/blob/master/docker/Caddyfile</a></p>
+
+
+<h3 id="mosquitto-broker-mqtt">Mosquitto Broker (MQTT)<a class="headerlink" href="#mosquitto-broker-mqtt" title="Permalink to this headline">¶</a></h3>
+<p>The Moquitto broker is the default MQTT broker that ships with Netmaker, though technically, any MQTT broker should work so long as the correct configuration is applied. The broker enables the establishment of a pub-sub messaging system, whereby clients subscribe to recieve updates. When the server recieves a change (via API/UI/gRPC), it will publish that change to the broker that pushes out the change to the appropriate nodes. In Netmaker, the messages are double encrypted. Once by Golang, and again by sending all messages over a WireGuard tunnel.</p>
+
+
+<h3 id="external-client">External Client<a class="headerlink" href="#external-client" title="Permalink to this headline">¶</a></h3>
+<p>The external client is simply a manually configured WireGuard connection to your network, which Netmaker helps to manage.</p>
+<p>Most machines can run WireGuard. It is fairly simple to set up a WireGuard connection to a single endpoint. It is setting up mesh networks and other topologies like site-to-site which becomes complicated.</p>
+<p>Mac, Windows, and Linux are handled natively by the Netclient.</p>
+<p>Netmaker can issue “external clients” to handle any devices which are not currently compatible with the netclient, including iPhone, Android, and some Unix distributions. Over time, this list will be eliminated and there may not even be a need for the external client.</p>
+<p>External clients hook into a Netmaker network via an “Ingress Gateway,” which is configured for a given node and allows traffic to flow into the network.</p>
+
+
+
+<h2 id="technical-process">Technical Process<a class="headerlink" href="#technical-process" title="Permalink to this headline">¶</a></h2>
+<p>Below is a high level, step-by-step overview of the flow of communications within Netmaker (assuming Netmaker has already been installed):</p>
+<ol class="arabic simple">
+<li><p>Admin creates a new network with a subnet, for instance 10.10.10.0/24</p></li>
+<li><p>Admin creates an access key for signing up new nodes</p></li>
+<li><p>Both of the above requests are routed to the server via an API call from the front end</p></li>
+<li><p>Admin runs the netclient install script on any given node (machine).</p></li>
+<li><p>Netclient decodes key, which contains the server location</p></li>
+<li><p>Netclient gathers and sets appropriate information to configure itself as a node: it generates key pairs, gets public and local addresses, and sets a port.</p></li>
+<li><p>Netclient sends this information to the server, authenticating with its access key</p></li>
+<li><p>Netmaker server verifies information and creates the node, setting default values for any missing information, and returns a response.</p></li>
+<li><p>Upon successful registration, Netclient pulls the latest peers list from the server and set up a WireGuard interface</p></li>
+<li><p>Netclient configures itself as a daemon (if joining for the first time) and subscribes to MQ using the server’s WireGuard address.</p></li>
+<li><p>Netclient regularly retrieves local information, checking for changes in things like IP and keys. If there is a change, it pushes them to the server.</p></li>
+<li><p>If a change occurs in any other peer, or peers are added/removed, an update will be sent to the Netclient via MQ, and it will re-configure WireGuard.</p></li>
+</ol>
+
+
+<h2 id="compatible-systems-for-netclient">Compatible Systems for Netclient<a class="headerlink" href="#compatible-systems-for-netclient" title="Permalink to this headline">¶</a></h2>
+<p>To manage a node manually, the Netclient can be compiled and run for most linux distibutions, with a prerequisite of WireGuard with kernel headers. If the netclient from the release pages does not run natively on your system, you may need to compile the netclient binary directly on the machine from the source code. This may be true for some installations of SUSE, Fedora, and some Debian-based systems. However, if the dependencies are installed on the machine, the netclient should run correctly after being compiled.</p>
+<p>Simply clone the repo, cd to netmaker/netclient and run “go build” (Golang must be installed).</p>
+<dl class="simple">
+<dt>The following systems should be operable natively with Netclient in daemon mode:</dt><dd><ul class="simple">
+<li><p>Windows</p></li>
+<li><p>Mac</p></li>
+<li><p>FreeBSD</p></li>
+<li><p>OpenWRT</p></li>
+<li><p>Fedora</p></li>
+<li><p>Ubuntu</p></li>
+<li><p>Debian</p></li>
+<li><p>Mint</p></li>
+<li><p>SUSE</p></li>
+<li><p>RHEL</p></li>
+<li><p>Raspian.</p></li>
+<li><p>Arch</p></li>
+<li><p>CentOS</p></li>
+<li><p>Fedora CoreOS</p></li>
+</ul>
+</dd>
+<dt>To manage DNS (optional), the node must have systemd-resolved. Systems that have this enabled include:</dt><dd><ul class="simple">
+<li><p>Arch</p></li>
+<li><p>Debian</p></li>
+<li><p>Ubuntu</p></li>
+<li><p>SUSE</p></li>
+</ul>
+</dd>
+</dl>
+
+
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h2>
+<p>Install limitations mostly include platform-specific dependencies. A failed netclient install should display information about which command is failing, or which libraries are missing. This can often be solved via machine upgrade, installing missing dependencies, or setting kernel headers on the machine for WireGuard (e.x.: <a class="reference external" href="https://stackoverflow.com/questions/62356581/wireguard-vpn-how-to-fix-operation-not-supported-if-it-worked-before">Installing Kernel Headers on Debian</a>)</p>
+
+
+
+
+          </article>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="md-footer">
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+          
+            <a href="about.html" title="About"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> About </span>
+              </div>
+            </a>
+          
+          
+            <a href="install.html" title="Install"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> Install </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          
+        </a>
+        
+      </nav>
+    </div>
+    <div class="md-footer-meta md-typeset">
+      <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+          <div class="md-footer-copyright__highlight">
+              &#169; Copyright 2021, Alex Feiszli.
+              
+          </div>
+            Created using
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+             and
+            <a href="https://github.com/bashtage/sphinx-material/">Material for
+              Sphinx</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="_static/javascripts/application.js"></script>
+  <script>app.initialize({version: "1.0.4", url: {base: ".."}})</script>
+  </body>
+</html>

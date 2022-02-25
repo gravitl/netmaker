@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="netmaker.png" width="75%"><break/>
+  <img src="./docs/images/netmaker.png" width="75%"><break/>
 </p>
 <p align="center">
 <i>Create and control automated virtual networks.</i> 

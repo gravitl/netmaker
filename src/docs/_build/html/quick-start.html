@@ -1,0 +1,659 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="lang:clipboard.copy" content="Copy to clipboard">
+  <meta name="lang:clipboard.copied" content="Copied to clipboard">
+  <meta name="lang:search.language" content="en">
+  <meta name="lang:search.pipeline.stopwords" content="True">
+  <meta name="lang:search.pipeline.trimmer" content="True">
+  <meta name="lang:search.result.none" content="No matching documents">
+  <meta name="lang:search.result.one" content="1 matching document">
+  <meta name="lang:search.result.other" content="# matching documents">
+  <meta name="lang:search.tokenizer" content="[\s\-]+">
+
+  
+    <link href="https://fonts.gstatic.com/" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,700|Roboto:300,400,400i,700&display=fallback" rel="stylesheet">
+
+    <style>
+      body,
+      input {
+        font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: "Roboto Mono", "Courier New", Courier, monospace
+      }
+    </style>
+  
+
+  <link rel="stylesheet" href="_static/stylesheets/application.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-palette.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-fixes.css"/>
+  
+  <link rel="stylesheet" href="_static/fonts/material-icons.css"/>
+  
+  <meta name="theme-color" content="#3f51b5">
+  <script src="_static/javascripts/modernizr.js"></script>
+  
+  
+  
+    <title>Quick Install &#8212; Netmaker 0.10.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting Started" href="getting-started.html" />
+    <link rel="prev" title="Install" href="install.html" />
+  
+   
+
+  </head>
+  <body dir=ltr
+        data-md-color-primary=indigo data-md-color-accent=light-blue>
+  
+  <svg class="md-svg">
+    <defs data-children-count="0">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+      
+    </defs>
+  </svg>
+  
+  <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer">
+  <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search">
+  <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+  <a href="#quick-start" tabindex="1" class="md-skip"> Skip to content </a>
+  <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex navheader">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
+           class="md-header-nav__button md-logo">
+          
+            <i class="md-icon">&#xe869</i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          <span class="md-header-nav__topic">Netmaker Docs</span>
+          <span class="md-header-nav__topic"> Quick Install </span>
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+        
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" action="search.html" method="get" name="search">
+      <input type="text" class="md-search__input" name="q" placeholder="Search"
+             autocapitalize="off" autocomplete="off" spellcheck="false"
+             data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      </div>
+      
+        <div class="md-flex__cell md-flex__cell--shrink">
+          <div class="md-header-nav__source">
+            <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+          </div>
+        </div>
+      
+      
+  
+  <script src="_static/javascripts/version_dropdown.js"></script>
+  <script>
+    var json_loc = ""versions.json"",
+        target_loc = "../",
+        text = "Versions";
+    $( document ).ready( add_version_dropdown(json_loc, target_loc, text));
+  </script>
+  
+
+    </div>
+  </nav>
+</header>
+
+  
+  <div class="md-container">
+    
+    
+    
+  <nav class="md-tabs" data-md-component="tabs">
+    <div class="md-tabs__inner md-grid">
+      <ul class="md-tabs__list">
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
+      </ul>
+    </div>
+  </nav>
+    <main class="md-main">
+      <div class="md-main__inner md-grid" data-md-component="container">
+        
+          <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
+      
+        <i class="md-icon">&#xe869</i>
+      
+    </a>
+    <a href="index.html"
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
+  </label>
+    <div class="md-nav__source">
+      <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+    </div>
+  
+  
+
+  
+  <ul class="md-nav__list">
+    <li class="md-nav__item">
+    
+    
+      <a href="about.html" class="md-nav__link">About</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html" class="md-nav__link">Architecture</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="install.html" class="md-nav__link">Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Quick Install </label>
+    
+      <a href="#" class="md-nav__link md-nav__link--active">Quick Install</a>
+      
+        
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#quick-start--page-root" class="md-nav__link">Quick Install</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
+        </li>
+        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">0. Prerequisites</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-dns" class="md-nav__link">1. Prepare DNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+        </li>
+        <li class="md-nav__item"><a href="#open-firewall" class="md-nav__link">3. Open Firewall</a>
+        </li>
+        <li class="md-nav__item"><a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-docker-compose" class="md-nav__link">Prepare Docker Compose</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-caddy" class="md-nav__link">Prepare Caddy</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-mq" class="md-nav__link">Prepare MQ</a>
+        </li>
+        <li class="md-nav__item"><a href="#start-netmaker" class="md-nav__link">Start Netmaker</a>
+        </li></ul>
+            </nav>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#introduction" class="md-nav__link">Introduction</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#prerequisites" class="md-nav__link">0. Prerequisites</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#prepare-dns" class="md-nav__link">1. Prepare DNS</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#open-firewall" class="md-nav__link">3. Open Firewall</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html" class="md-nav__link">Getting Started</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="egress-gateway.html" class="md-nav__link">Egress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="relay-server.html" class="md-nav__link">Relay Servers</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="ui-reference.html" class="md-nav__link">UI Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html" class="md-nav__link">API Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="upgrades.html" class="md-nav__link">Upgrades</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html" class="md-nav__link">Troubleshooting</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html" class="md-nav__link">Support</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html" class="md-nav__link">Code of Conduct</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="license.html" class="md-nav__link">License</a>
+      
+    
+    </li>
+  </ul>
+  
+
+</nav>
+              </div>
+            </div>
+          </div>
+          <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#quick-start--page-root" class="md-nav__link">Quick Install</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#introduction" class="md-nav__link">Introduction</a>
+        </li>
+        <li class="md-nav__item"><a href="#prerequisites" class="md-nav__link">0. Prerequisites</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-dns" class="md-nav__link">1. Prepare DNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
+        </li>
+        <li class="md-nav__item"><a href="#open-firewall" class="md-nav__link">3. Open Firewall</a>
+        </li>
+        <li class="md-nav__item"><a href="#install-netmaker" class="md-nav__link">4. Install Netmaker</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#prepare-docker-compose" class="md-nav__link">Prepare Docker Compose</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-caddy" class="md-nav__link">Prepare Caddy</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-mq" class="md-nav__link">Prepare MQ</a>
+        </li>
+        <li class="md-nav__item"><a href="#start-netmaker" class="md-nav__link">Start Netmaker</a>
+        </li></ul>
+            </nav>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+              </div>
+            </div>
+          </div>
+        
+        <div class="md-content">
+          <article class="md-content__inner md-typeset" role="main">
+            
+  
+<h1 id="quick-start--page-root">Quick Install<a class="headerlink" href="#quick-start--page-root" title="Permalink to this headline">¶</a></h1>
+<p>This quick start guide is an <strong>opinionated</strong> guide for getting up and running with Netmaker as quickly as possible.</p>
+<p>If just trialing netmaker, you may also want to check out the 3-minute PoC install of Netmaker in the README on GitHub. The following is just a guided version of that script, plus a custom domain (instead of nip.io): <a class="reference external" href="https://github.com/gravitl/netmaker">https://github.com/gravitl/netmaker</a> .</p>
+
+<h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>We assume for this installation that you want all of the Netmaker features enabled, you want your server to be secure, and you want your server to be accessible from anywhere.</p>
+<p>This instance will not be HA. However, it should comfortably handle around one hundred concurrent clients and support the most common use cases.</p>
+<p>If you are deploying for a business or enterprise use case and this setup will not fit your needs, please contact <a class="reference external" href="mailto:info%40gravitl.com">info<span>@</span>gravitl<span>.</span>com</a>, or check out the business subscription plans at <a class="reference external" href="https://gravitl.com/plans/business">https://gravitl.com/plans/business</a>.</p>
+<p>By the end of this guide, you will have Netmaker installed on a public VM linked to your custom domain, secured behind a Caddy reverse proxy.</p>
+<p>For information about deploying more advanced configurations, see the <a class="reference internal" href="server-installation.html"><span class="doc">Advanced Installation</span></a> docs.</p>
+
+
+<h2 id="prerequisites">0. Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Virtual Machine</strong></p>
+<ul>
+<li><p>Preferably from a cloud provider (e.x: DigitalOcean, Linode, AWS, GCP, etc.)</p></li>
+<li><p>(We do not recommend Oracle Cloud, as VM’s here have been known to cause network interference.)</p></li>
+<li><p>Public, static IP</p></li>
+<li><p>Min 1GB RAM, 1 CPU (4GB RAM, 2CPU preferred for production installs)</p></li>
+<li><p>2GB+ of storage</p></li>
+<li><p>Ubuntu  20.04 Installed</p></li>
+</ul>
+</li>
+<li><p><strong>Domain</strong></p>
+<ul>
+<li><p>A publicly owned domain (e.x. example.com, mysite.biz)</p></li>
+<li><p>Permission and access to modify DNS records via DNS service (e.x: Route53)</p></li>
+</ul>
+</li>
+</ul>
+
+
+<h2 id="prepare-dns">1. Prepare DNS<a class="headerlink" href="#prepare-dns" title="Permalink to this headline">¶</a></h2>
+<p>Create a wildcard A record pointing to the public IP of your VM. As an example, *.netmaker.example.com.</p>
+<p>Caddy will create 3 subdomains with this wildcard, EX:</p>
+<ul class="simple">
+<li><p>dashboard.netmaker.example.com</p></li>
+<li><p>api.netmaker.example.com</p></li>
+<li><p>grpc.netmaker.example.com</p></li>
+</ul>
+
+
+<h2 id="install-dependencies">2. Install Dependencies<a class="headerlink" href="#install-dependencies" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ssh</span> <span class="n">root</span><span class="nd">@your</span><span class="o">-</span><span class="n">host</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">update</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">docker</span><span class="o">.</span><span class="n">io</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">wireguard</span>
+</pre></div>
+</div>
+<p>At this point you should have all the system dependencies you need.</p>
+
+
+<h2 id="open-firewall">3. Open Firewall<a class="headerlink" href="#open-firewall" title="Permalink to this headline">¶</a></h2>
+<p>Make sure firewall settings are set for Netmaker both on the VM and with your cloud security groups (AWS, GCP, etc).</p>
+<p>Make sure the following ports are open both on the VM and in the cloud security groups:</p>
+<ul class="simple">
+<li><p><strong>443 (tcp):</strong> for Dashboard, REST API, and gRPC</p></li>
+<li><p><strong>80 (tcp):</strong> for LetsEncrypt</p></li>
+<li><p><strong>53 (udp and tcp):</strong> for CoreDNS - This is no longer necessary as of 0.10.0, as by default DNS queries will run over WireGuard.</p></li>
+<li><p><strong>51821-518XX (udp):</strong> for WireGuard - Netmaker needs one port per network, starting with 51821, so open up a range depending on the number of networks you plan on having. For instance, 51821-51830.</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="n">proto</span> <span class="n">tcp</span> <span class="kn">from</span> <span class="nn">any</span> <span class="n">to</span> <span class="nb">any</span> <span class="n">port</span> <span class="mi">443</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">53</span><span class="o">/</span><span class="n">udp</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">53</span><span class="o">/</span><span class="n">tcp</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">51821</span><span class="p">:</span><span class="mi">51830</span><span class="o">/</span><span class="n">udp</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Again, based on your cloud provider, you may additionally need to set inbound security rules for your server (for instance, on AWS). This will be dependent on your cloud provider. Be sure to check before moving on:</strong></dt><dd><ul class="simple">
+<li><p>allow 443/tcp from all</p></li>
+<li><p>allow 80/tcp from all</p></li>
+<li><p>(optional) allow 53/udp and 53/tcp from all</p></li>
+<li><p>allow 51821-51830/udp from all</p></li>
+</ul>
+</dd>
+</dl>
+
+
+<h2 id="install-netmaker">4. Install Netmaker<a class="headerlink" href="#install-netmaker" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="prepare-docker-compose">Prepare Docker Compose<a class="headerlink" href="#prepare-docker-compose" title="Permalink to this headline">¶</a></h3>
+<p><strong>Note 1 on COREDNS_IP:</strong> As of 0.10.0, the default installation does not require COREDNS_IP to be set. Queries will run over WireGuard.
+<strong>Note 2 on COREDNS_IP:</strong> Depending on your cloud provider, the public IP may not be bound directly to the VM on which you are running. In such cases, CoreDNS cannot bind to this IP, and you should use the IP of the default interface on your machine in place of COREDNS_IP. This command will get you the correct IP for CoreDNS in many cases:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ip</span> <span class="n">route</span> <span class="n">get</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">sed</span> <span class="o">-</span><span class="n">n</span> <span class="s1">'s/^.*src \([0-9.]*\) .*$/</span><span class="se">\1</span><span class="s1">/p'</span>
+</pre></div>
+</div>
+<p>Now, insert the values for your base (wildcard) domain, public ip, and coredns ip.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">compose</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">contained</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/SERVER_PUBLIC_IP/&lt;your server ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/COREDNS_IP/&lt;default interface ip&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
+<p>Generate a unique master key and insert it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tr</span> <span class="o">-</span><span class="n">dc</span> <span class="n">A</span><span class="o">-</span><span class="n">Za</span><span class="o">-</span><span class="n">z0</span><span class="o">-</span><span class="mi">9</span> <span class="o">&lt;/</span><span class="n">dev</span><span class="o">/</span><span class="n">urandom</span> <span class="o">|</span> <span class="n">head</span> <span class="o">-</span><span class="n">c</span> <span class="mi">30</span> <span class="p">;</span> <span class="n">echo</span> <span class="s1">''</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/REPLACE_MASTER_KEY/&lt;your generated key&gt;/g'</span> <span class="n">docker</span><span class="o">-</span><span class="n">compose</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
+<p>You may want to save this key for future use with the API.</p>
+
+
+<h3 id="prepare-caddy">Prepare Caddy<a class="headerlink" href="#prepare-caddy" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">docker</span><span class="o">/</span><span class="n">Caddyfile</span>
+
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span>
+<span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/YOUR_EMAIL/&lt;your email&gt;/g'</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span>
+</pre></div>
+</div>
+
+
+<h3 id="prepare-mq">Prepare MQ<a class="headerlink" href="#prepare-mq" title="Permalink to this headline">¶</a></h3>
+<p>You must retrieve the MQ configuration file for Mosquitto.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">mosquitto</span><span class="o">.</span><span class="n">conf</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">docker</span><span class="o">/</span><span class="n">mosquitto</span><span class="o">.</span><span class="n">conf</span>
+</pre></div>
+</div>
+
+
+<h3 id="start-netmaker">Start Netmaker<a class="headerlink" href="#start-netmaker" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code></p>
+<p>navigate to dashboard.&lt;your base domain&gt; to begin using Netmaker.</p>
+<p>To troubleshoot issues, start with:</p>
+<p><code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">logs</span> <span class="pre">netmaker</span></code></p>
+<p>Or check out the <a class="reference internal" href="troubleshoot.html"><span class="doc">troubleshoooting docs</span></a>.</p>
+
+
+
+
+
+          </article>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="md-footer">
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+          
+            <a href="install.html" title="Install"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> Install </span>
+              </div>
+            </a>
+          
+          
+            <a href="getting-started.html" title="Getting Started"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> Getting Started </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          
+        </a>
+        
+      </nav>
+    </div>
+    <div class="md-footer-meta md-typeset">
+      <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+          <div class="md-footer-copyright__highlight">
+              &#169; Copyright 2021, Alex Feiszli.
+              
+          </div>
+            Created using
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+             and
+            <a href="https://github.com/bashtage/sphinx-material/">Material for
+              Sphinx</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="_static/javascripts/application.js"></script>
+  <script>app.initialize({version: "1.0.4", url: {base: ".."}})</script>
+  </body>
+</html>

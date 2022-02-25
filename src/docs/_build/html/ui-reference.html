@@ -1,0 +1,719 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="lang:clipboard.copy" content="Copy to clipboard">
+  <meta name="lang:clipboard.copied" content="Copied to clipboard">
+  <meta name="lang:search.language" content="en">
+  <meta name="lang:search.pipeline.stopwords" content="True">
+  <meta name="lang:search.pipeline.trimmer" content="True">
+  <meta name="lang:search.result.none" content="No matching documents">
+  <meta name="lang:search.result.one" content="1 matching document">
+  <meta name="lang:search.result.other" content="# matching documents">
+  <meta name="lang:search.tokenizer" content="[\s\-]+">
+
+  
+    <link href="https://fonts.gstatic.com/" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,700|Roboto:300,400,400i,700&display=fallback" rel="stylesheet">
+
+    <style>
+      body,
+      input {
+        font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: "Roboto Mono", "Courier New", Courier, monospace
+      }
+    </style>
+  
+
+  <link rel="stylesheet" href="_static/stylesheets/application.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-palette.css"/>
+  <link rel="stylesheet" href="_static/stylesheets/application-fixes.css"/>
+  
+  <link rel="stylesheet" href="_static/fonts/material-icons.css"/>
+  
+  <meta name="theme-color" content="#3f51b5">
+  <script src="_static/javascripts/modernizr.js"></script>
+  
+  
+  
+    <title>UI Reference &#8212; Netmaker 0.10.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/material.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="api.html" />
+    <link rel="prev" title="External Guides" href="usage.html" />
+  
+   
+
+  </head>
+  <body dir=ltr
+        data-md-color-primary=indigo data-md-color-accent=light-blue>
+  
+  <svg class="md-svg">
+    <defs data-children-count="0">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+      
+    </defs>
+  </svg>
+  
+  <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer">
+  <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search">
+  <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+  <a href="#ui-reference" tabindex="1" class="md-skip"> Skip to content </a>
+  <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex navheader">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
+           class="md-header-nav__button md-logo">
+          
+            <i class="md-icon">&#xe869</i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          <span class="md-header-nav__topic">Netmaker Docs</span>
+          <span class="md-header-nav__topic"> UI Reference </span>
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+        
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" action="search.html" method="get" name="search">
+      <input type="text" class="md-search__input" name="q" placeholder="Search"
+             autocapitalize="off" autocomplete="off" spellcheck="false"
+             data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      </div>
+      
+        <div class="md-flex__cell md-flex__cell--shrink">
+          <div class="md-header-nav__source">
+            <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+          </div>
+        </div>
+      
+      
+  
+  <script src="_static/javascripts/version_dropdown.js"></script>
+  <script>
+    var json_loc = ""versions.json"",
+        target_loc = "../",
+        text = "Versions";
+    $( document ).ready( add_version_dropdown(json_loc, target_loc, text));
+  </script>
+  
+
+    </div>
+  </nav>
+</header>
+
+  
+  <div class="md-container">
+    
+    
+    
+  <nav class="md-tabs" data-md-component="tabs">
+    <div class="md-tabs__inner md-grid">
+      <ul class="md-tabs__list">
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
+      </ul>
+    </div>
+  </nav>
+    <main class="md-main">
+      <div class="md-main__inner md-grid" data-md-component="container">
+        
+          <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
+      
+        <i class="md-icon">&#xe869</i>
+      
+    </a>
+    <a href="index.html"
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
+  </label>
+    <div class="md-nav__source">
+      <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    Netmaker
+  </div>
+</a>
+    </div>
+  
+  
+
+  
+  <ul class="md-nav__list">
+    <li class="md-nav__item">
+    
+    
+      <a href="about.html" class="md-nav__link">About</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="architecture.html" class="md-nav__link">Architecture</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="install.html" class="md-nav__link">Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="quick-start.html" class="md-nav__link">Quick Install</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="getting-started.html" class="md-nav__link">Getting Started</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="egress-gateway.html" class="md-nav__link">Egress Gateway</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="relay-server.html" class="md-nav__link">Relay Servers</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> UI Reference </label>
+    
+      <a href="#" class="md-nav__link md-nav__link--active">UI Reference</a>
+      
+        
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#ui-reference--page-root" class="md-nav__link">UI Reference</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#dashboard" class="md-nav__link">Dashboard</a>
+        </li>
+        <li class="md-nav__item"><a href="#networks" class="md-nav__link">Networks</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#create" class="md-nav__link">Create</a>
+        </li>
+        <li class="md-nav__item"><a href="#edit" class="md-nav__link">Edit</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#nodes" class="md-nav__link">Nodes</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#node-list" class="md-nav__link">Node List</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-egress" class="md-nav__link">Create Egress</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-relay" class="md-nav__link">Create Relay</a>
+        </li>
+        <li class="md-nav__item"><a href="#edit-node-node-details" class="md-nav__link">Edit Node / Node Details</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#ext-clients" class="md-nav__link">Ext Clients</a>
+        </li>
+        <li class="md-nav__item"><a href="#dns" class="md-nav__link">DNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-edit-users" class="md-nav__link">Create / Edit Users</a>
+        </li>
+        <li class="md-nav__item"><a href="#node-graph" class="md-nav__link">Node Graph</a>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+      <ul class="md-nav__list"> 
+    <li class="md-nav__item">
+    
+    
+      <a href="#dashboard" class="md-nav__link">Dashboard</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#networks" class="md-nav__link">Networks</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#nodes" class="md-nav__link">Nodes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#ext-clients" class="md-nav__link">Ext Clients</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#dns" class="md-nav__link">DNS</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#create-edit-users" class="md-nav__link">Create / Edit Users</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="#node-graph" class="md-nav__link">Node Graph</a>
+      
+    
+    </li></ul>
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="api.html" class="md-nav__link">API Reference</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="upgrades.html" class="md-nav__link">Upgrades</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="troubleshoot.html" class="md-nav__link">Troubleshooting</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="support.html" class="md-nav__link">Support</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="conduct.html" class="md-nav__link">Code of Conduct</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="license.html" class="md-nav__link">License</a>
+      
+    
+    </li>
+  </ul>
+  
+
+</nav>
+              </div>
+            </div>
+          </div>
+          <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+  <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#ui-reference--page-root" class="md-nav__link">UI Reference</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#dashboard" class="md-nav__link">Dashboard</a>
+        </li>
+        <li class="md-nav__item"><a href="#networks" class="md-nav__link">Networks</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#create" class="md-nav__link">Create</a>
+        </li>
+        <li class="md-nav__item"><a href="#edit" class="md-nav__link">Edit</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#nodes" class="md-nav__link">Nodes</a><nav class="md-nav">
+              <ul class="md-nav__list">
+        <li class="md-nav__item"><a href="#node-list" class="md-nav__link">Node List</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-egress" class="md-nav__link">Create Egress</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-relay" class="md-nav__link">Create Relay</a>
+        </li>
+        <li class="md-nav__item"><a href="#edit-node-node-details" class="md-nav__link">Edit Node / Node Details</a>
+        </li></ul>
+            </nav>
+        </li>
+        <li class="md-nav__item"><a href="#ext-clients" class="md-nav__link">Ext Clients</a>
+        </li>
+        <li class="md-nav__item"><a href="#dns" class="md-nav__link">DNS</a>
+        </li>
+        <li class="md-nav__item"><a href="#create-edit-users" class="md-nav__link">Create / Edit Users</a>
+        </li>
+        <li class="md-nav__item"><a href="#node-graph" class="md-nav__link">Node Graph</a>
+        </li></ul>
+            </nav>
+        </li>
+  </ul>
+</nav>
+              </div>
+            </div>
+          </div>
+        
+        <div class="md-content">
+          <article class="md-content__inner md-typeset" role="main">
+            
+  
+<h1 id="ui-reference--page-root">UI Reference<a class="headerlink" href="#ui-reference--page-root" title="Permalink to this headline">¶</a></h1>
+<p>This page contains annotated screenshots of most UI components, detailing the configuration options of each field across Nodes, Networks, DNS, Ext Clients, Users, and more.</p>
+
+<h2 id="dashboard">Dashboard<a class="headerlink" href="#dashboard" title="Permalink to this headline">¶</a></h2>
+<a class="reference internal image-reference" href="_images/ui-1.jpg"><img alt="dashboard" class="align-center" src="_images/ui-1.jpg" style="width: 80%;"/></a>
+
+
+<h2 id="networks">Networks<a class="headerlink" href="#networks" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="create">Create<a class="headerlink" href="#create" title="Permalink to this headline">¶</a></h3>
+<a class="reference internal image-reference" href="_images/ui-2.jpg"><img alt="create network" class="align-center" src="_images/ui-2.jpg" style="width: 80%;"/></a>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<ol class="arabic simple">
+<li><p><strong>Autofill:</strong> Provides sensible defaults for network details and makes up a name.</p></li>
+<li><p><strong>Network Name:</strong> The name of the network. Character limited, as this translates to the interface name on hosts (nm-&lt;network name&gt;)</p></li>
+<li><p><strong>Address Range:</strong> The CIDR of the network. Must be a valid IPv4 Subnet and should be a private address range.</p></li>
+<li><p><strong>Udp Hole Punching:</strong> Enables or disables “UDP Hole Punching” on the network. When on, clients will first reach out to the server. The server will keep track of public addresses / ports and send these to all other clients in the network. This increases NAT traversibility, but can also cause issues depending on the server environment (if server is in a private network, for example). Typically good to enable if clients will “roam” frequently or are user devices. Typically better to disable if most clients will be servers with well-defined endpoints / ports. If enabled, you can also disable UDP Hole Punching on any individual machine via the UI (see Node section) but it will be enabled by default.</p></li>
+<li><p><strong>Is Local Network:</strong> Turn on if all clients in the network will be in the same “local” network. This is a very rare situation and depends on the use case. Almost always leave this off. Turn on if you are in a large data center with a large private address space over which clients should communicate. Can also enable if using a VPC and are treating a single client as “egress” for the VPC. If enabled, fill out the address range of the local network which should determine endpoints.</p></li>
+<li><p><strong>Is Dual Stack:</strong> Turn on to add private ipv6 addresses to all clients in addition to their ipv4 addresses. Not typically necessary. If on, enter a private ipv6 address range to pull from.</p></li>
+</ol>
+
+
+<h3 id="edit">Edit<a class="headerlink" href="#edit" title="Permalink to this headline">¶</a></h3>
+<a class="reference internal image-reference" href="_images/ui-3.jpg"><img alt="edit network" class="align-center" src="_images/ui-3.jpg" style="width: 80%;"/></a>
+<p><strong>NOTE:</strong> With the exception of Address Ranges (1-2) any setting that affects nodes will not take effect on existing nodes. It will only set the settings on any <strong>new</strong> node, after the setting has been changed.</p>
+<ol class="arabic simple">
+<li><p><strong>Address Range (ipv4):</strong> The ipv4 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.**</p></li>
+<li><p><strong>Address Range (ipv6):</strong> The ipv6 private network CIDR. If edited, Netmaker will go through all nodes and update private addresses based on the new range.**</p></li>
+<li><p><strong>Local Range:</strong> Only relevant if “Is Local” was switched on during creation. Specifies the local range that nodes will base their Endpoint off of (note: if a node cannot find an enpoint within the range it will fallback to public ip).</p></li>
+<li><p><strong>Display Name:</strong> The display name of the network. Network Name cannot be changed (acts as a unique ID) but display name can be changed. Only effects appearance in UI.</p></li>
+<li><p><strong>Default Interface:</strong> The default network interface name configured on each node. This defaults to “nm-&lt;network name&gt;”.</p></li>
+<li><p><strong>Default Port:</strong> The default WireGuard port each node will attempt to use. Nodes will iterate up from this port until they find a free port.</p></li>
+<li><p><strong>Default PostUp:</strong> A default post-up command to run on each node (after interface has been configured). Disabled by default to prevent RCE vulnerabilities.</p></li>
+<li><p><strong>Default PostDown:</strong> A default post-down command to run on each node (after interface has been removed). Disabled by default to prevent RCE vulnerabilities.</p></li>
+<li><p><strong>Default Keepalive:</strong> How often nodes should send packets to keep connection alive with all peers (in seconds).</p></li>
+<li><p><strong>Default Ext Client DNS:</strong> If set, adds a “DNS=&lt;value&gt;” line to each ext client config. Set this to add DNS to clients. Typically will set this to the server’s public IP.</p></li>
+<li><p><strong>Default MTU:</strong> Default MTU for interfaces of all clients in network. Can be useful to set lower in certain difficult environments such as Kubernetes.</p></li>
+<li><p><strong>Allow Node Signup Without Keys:</strong> Allows nodes to join the network without a valid Access Key. Nodes will be put in “pending” status until approved via UI by an admin. Useful if an arbitrary number of people need to join the network and there is no easy way to distribute keys to users.</p></li>
+<li><p><strong>Is Dual Stack:</strong> Enable the Dual Stack feature of networks and add ipv6 addresses to nodes.</p></li>
+<li><p><strong>Default Saveconfig:</strong> Typically ignore this. Sets the SaveConfig field on wireguard config.</p></li>
+<li><p><strong>UDP Hole Punching:</strong> Whether or not UDP Hole Punching is turned on (see Network Create notes). Only effects new nodes. Enables or disables “UDP Hole Punching” on the network. When on, clients will first reach out to the server. The server will keep track of public addresses / ports and send these to all other clients in the network. This increases NAT traversibility, but can also cause issues depending on the server environment (if server is in a private network, for example). Typically good to enable if clients will “roam” frequently or are user devices. Typically better to disable if most clients will be servers with well-defined endpoints / ports. If enabled, you can also disable UDP Hole Punching on any individual machine via the UI (see Node section) but it will be enabled by default.</p></li>
+</ol>
+
+
+
+<h2 id="nodes">Nodes<a class="headerlink" href="#nodes" title="Permalink to this headline">¶</a></h2>
+
+<h3 id="node-list">Node List<a class="headerlink" href="#node-list" title="Permalink to this headline">¶</a></h3>
+<a class="reference internal image-reference" href="_images/ui-4.jpg"><img alt="dashboard" class="align-center" src="_images/ui-4.jpg" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>Search Nodes:</strong> Look up a node by name.</p></li>
+<li><p><strong>Select Network:</strong> Filter nodes by network.</p></li>
+<li><p><strong>Node Name:</strong> Name of node. By default set to hostname of machine.</p></li>
+<li><p><strong>IP Address:</strong> Private IP of node within network.</p></li>
+<li><p><strong>Network:</strong> Network the node is in.</p></li>
+<li><p><strong>Egress:</strong> Indicates if node is an egress gateway. Click to convert into egress gateway. Egress gateways route traffic from the network into a specific subnet or subnets. Egress gateways should be servers in a static location with a reliable IP.</p></li>
+<li><p><strong>Ingress:</strong> Indicates if the node is an ingress. Click to convert into ingress gateway. Ingress gateways route traffic into the network over the WireGuard interface using “ext clients,” which are static WireGuard config files. Ingress gateways should be servers in a static location with a reliable IP.</p></li>
+<li><p><strong>Relay:</strong> Indicates if the node is a relay. Click to convert into relay. Relays route traffic to specified nodes for the network (typically hard to reach / CGNAT’ted nodes.  Relays should be servers in a static location with a reliable IP.</p></li>
+<li><p><strong>Status:</strong> Indicates how recently the node checked into the server. Displays “Warning” after 5 minutes and “Error” after 30 minutes without a check in. Does <strong>not</strong> indicate the health of the node’s virtual network connections.</p></li>
+<li><p><strong>Delete:</strong> Delete the node.</p></li>
+</ol>
+
+
+<h3 id="create-egress">Create Egress<a class="headerlink" href="#create-egress" title="Permalink to this headline">¶</a></h3>
+<a class="reference internal image-reference" href="_images/ui-6.jpg"><img alt="dashboard" class="align-center" src="_images/ui-6.jpg" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>Egress Gateway Ranges:</strong> A comma-separated list of the subnets for which the gateway will route traffic. For instance, with Kubernetes this could be both the Service Network and Pod Network. For a standard VPN, Netmaker can use a list of the public CIDR’s (see the docs). Typically, this will be something like a data center network, VPC, or home network.</p></li>
+<li><p><strong>Interface:</strong> The interface on the machine used to access the provided egress gateway ranges. For instance, on a typical linux machine, the interface for public traffic would be “eth0”. Usually you will need to check on the machine first to find the right interface. For instance, on Linux, you can find the interface by running this: ip route get &lt;address in subnet&gt;.</p></li>
+</ol>
+
+
+<h3 id="create-relay">Create Relay<a class="headerlink" href="#create-relay" title="Permalink to this headline">¶</a></h3>
+<a class="reference internal image-reference" href="_images/ui-7.jpg"><img alt="dashboard" class="align-center" src="_images/ui-7.jpg" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>Relay Addresses:</strong> Specify which private addresses (of nodes) that this node should relay for.</p></li>
+<li><p><strong>Select Nodes:</strong> Rather than specify by IP, you can just select from a list of node names instead.</p></li>
+<li><p><strong>Select All:</strong> Rather than select a list, you can “select all”, which converts the network from “pure mesh” into “hub-and-spoke”, meaning there are no p2p connections, everything goes through this relay first.</p></li>
+</ol>
+
+
+<h3 id="edit-node-node-details">Edit Node / Node Details<a class="headerlink" href="#edit-node-node-details" title="Permalink to this headline">¶</a></h3>
+<a class="reference internal image-reference" href="_images/ui-5.jpg"><img alt="dashboard" class="align-center" src="_images/ui-5.jpg" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>IP Address:</strong> The primary private IP address of the node. Assigned automatically by Netmaker but can be changed to whatever you want within the Network CIDR.</p></li>
+<li><p><strong>IPv6 Address:</strong> (Only if running dual stack) the primary private IPv6 address of the node. Assigned automatically by Netmaker but can be changed to whatever you want within the Network CIDR.</p></li>
+<li><p><strong>Local Address:</strong> The “locally reachable” address of the node. Other nodes will take note of this to see if this node is on the same network. If so, they will use this address instead of the public “Endpoint.” If running a few nodes inside of a VPC, home network, or similar, make sure the local address is populated correctly for faster and more secure inter-node communication.</p></li>
+<li><p><strong>Node Name:</strong> The name of the node within the network. Hostname by default but can be anything (within the character limits).</p></li>
+<li><p><strong>Port:</strong> The port used by the node locally. <strong>This value is ignored if UDP Hole Punching is on,</strong> because port is set dynamically every time interface is created. If UDP Hole Punching is off, the port can be set to any reasonable (and available) value you’d like for the local machine. Typi</p></li>
+<li><p><strong>Public Key:</strong> (Uneditable) The public key of the node, distributed to other peers in the network.</p></li>
+<li><p><strong>Endpoint:</strong> The (typically public) IP of the machine, which peers will use to reach it, in combination with the port. If changing this value, make sure Roaming is turned off, since otherwise, the node will check to see if there is a change in the public IP regularly and update it.</p></li>
+<li><p><strong>PostUp:</strong> Uneditable by default to disable RCE. Commands to run after the interface is created. If an ingress or egress gateway are created, this field will populate automatically with appropriate iptables commands.</p></li>
+<li><p><strong>PostDown:</strong> Uneditable by default to disable RCE. Commands to run after the interface is brought down. If an ingress or egress gateway are created, this field will populate automatically with appropriate iptables commands.</p></li>
+<li><p><strong>Allowed IPs:</strong> Additional private addresses given to the node (in addition to the IPAddress and IPv6Address). Useful in some scenarios where there is a known address a server should have. Any IPs added here will be tacked onto the AllowedIPs of other peers, so this node will be shown to have multiple reachable private addresses.</p></li>
+<li><p><strong>Persistent Keepalive:</strong> How often packets are sent to keep connections open with other peers.</p></li>
+<li><p><strong>Relay Addresses:</strong> If “Relay” is enabled on this node, this field can be edited to add and remove nodes from the relay. So if you are currently relaying just one node but wish to relay an additional node, just add it’s private IP here.</p></li>
+<li><p><strong>Node Expiration Datetime:</strong> If a node should become invalid after a length of time, you can set it in this field, after which time, it will lose access to the network and will not populate to other nodes. Useful for scenarios where temporary access is granted to 3rd parties.</p></li>
+<li><p><strong>Last Checkin:</strong> Unix timestamp of the last time the node checked in with the server. Used to determine generic health of node.</p></li>
+<li><p><strong>Mac Address:</strong> The hardware mac address of the machine. Used to be used as the unique ID, but is being depreciated.</p></li>
+<li><p><strong>Network:</strong> The network this 1node belongs to.</p></li>
+<li><p><strong>Egress Gateway Ranges:</strong> If Egress is enabled, the gateway ranges that this machine routes to.</p></li>
+<li><p><strong>Local Range:</strong> If IsLocal has been enabled on the network, this is the local range in which the node will look for a private address from it’s local interfaces, to use as an endpoint.</p></li>
+<li><p><strong>Node Operating System:</strong> The OS of the machine.</p></li>
+<li><p><strong>MTU:</strong> The MTU that the node will use on the interface. If “wg show” displays a valid handshake but pings are not working, many times the issue is MTU. Making this value lower can solve this issue. Some typical values are 1024, 1280, and 1420.</p></li>
+<li><p><strong>Saveconfig:</strong> Usually best to ignore this. Sets the “SaveConfig” value on wireguard config files.</p></li>
+<li><p><strong>Is Static:</strong> Ports and Endpoints can be changed automatically by the netclient. Switching on “Is Static” means the port and endpoint will stay the same until you change it. This can be good to set if the machine is a server sitting in a location that is not expected to change. It is also good to have Is Static switched on for Ingress, Egress, and Relay Servers, since they should be in a reliable location.</p></li>
+<li><p><strong>UDP Hole Punching:</strong> If on, the node’s port will be randomized. The port and endpoint distributed to other nodes are no longer determined by the settings in this file. Instead, the node will “check in” with the server regularly. The server will track the IP and port used to open a connection, and store these values. These values then get distributed to nodes. This is helpful for getting around NAT’s which may obscure the node’s location.</p></li>
+<li><p><strong>Is DNS On:</strong> DNS is solely handled by resolvectl at the moment, which is on many Linux distributions. For anything else, this value should remain off. If you wish to configure DNS for non-compatible systems, you must do so manually.</p></li>
+<li><p><strong>Dualstack:</strong> Whether or not this machine should have both a private ipv4 address and ipv6 address.</p></li>
+<li><p><strong>Is Local:</strong> If on, will only communicate over the local address (Assumes IsLocal tuned to ‘yes’ on the network level.)</p></li>
+<li><p><strong>Roaming:</strong> If on, will check regularly for changes in the Endpoint and modify the Endpoint value appropriately. This allows a client to “roam” between wifi networks and maintain a connection. Good to keep on for machines where the public address may change.</p></li>
+<li><p><strong>IPforwarding:</strong> If on, ipforwarding is enabled on the machine. Should almost always be kept on.</p></li>
+</ol>
+
+
+
+<h2 id="ext-clients">Ext Clients<a class="headerlink" href="#ext-clients" title="Permalink to this headline">¶</a></h2>
+<a class="reference internal image-reference" href="_images/ui-8.jpg"><img alt="dashboard" class="align-center" src="_images/ui-8.jpg" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>Gateway Name / IP Address:</strong> Information about which Node is the Ingress Gateway.</p></li>
+<li><p><strong>Add External Client:</strong> Button to generate a new ext client.</p></li>
+<li><p><strong>Client ID:</strong> The randomly-generated name of the client. Click on the ID to change the name to something sensible.</p></li>
+<li><p><strong>IP Address:</strong> The private ip address of the ext client.</p></li>
+<li><p><strong>QR Code:</strong> If joining form iOS or Android, open the WireGuard app and scan the QR code to join the network.</p></li>
+<li><p><strong>Download Client Configuration:</strong> If joining from a laptop/desktop, download the config file and run “wg-quick up /path/to/config”</p></li>
+<li><p><strong>Delete:</strong> Delete the ext client and remove its network access.</p></li>
+</ol>
+
+
+<h2 id="dns">DNS<a class="headerlink" href="#dns" title="Permalink to this headline">¶</a></h2>
+<a class="reference internal image-reference" href="_images/ui-10.jpg"><img alt="dashboard" class="align-center" src="_images/ui-10.jpg" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>DNS Name:</strong> The private DNS entry. Must end in “.&lt;network name&gt;” (added automatically). This avoids conflicts between networks.</p></li>
+<li><p><strong>IP Address:</strong> The IP address of the entry. Can be anything (public addresses too!) but typically a node IP.</p></li>
+<li><p><strong>Select Node Address:</strong> Select a node name to populate its IP address automatically.</p></li>
+</ol>
+
+
+<h2 id="create-edit-users">Create / Edit Users<a class="headerlink" href="#create-edit-users" title="Permalink to this headline">¶</a></h2>
+<a class="reference internal image-reference" href="_images/ui-11.jpg"><img alt="dashboard" class="align-center" src="_images/ui-11.jpg" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>Username:</strong> Specify Username.</p></li>
+<li><p><strong>Password:</strong> Specify password.</p></li>
+<li><p><strong>Confirm Password:</strong> Confirm password.</p></li>
+<li><p><strong>Make Admin:</strong> Make into a server admin or “super admin”, which has access to all networks and server-level settings.</p></li>
+<li><p><strong>Networks:</strong> If not made into an “admin”, select the networks which this user has access to. The user will be a “network admin” of these networks, but other networks will be invisible/unaccessible.</p></li>
+</ol>
+
+
+<h2 id="node-graph">Node Graph<a class="headerlink" href="#node-graph" title="Permalink to this headline">¶</a></h2>
+<a class="reference internal image-reference" href="_images/node-graph-1.png"><img alt="dashboard" class="align-center" src="_images/node-graph-1.png" style="width: 80%;"/></a>
+<p>View all nodes in your network, zoom in, zoom out, and search for node names. A legend is on the side to identify each node status / configuration.</p>
+<a class="reference internal image-reference" href="_images/node-graph-2.png"><img alt="dashboard" class="align-center" src="_images/node-graph-2.png" style="width: 80%;"/></a>
+<ol class="arabic simple">
+<li><p><strong>hover:</strong> Hover over a node to see its direct connections.</p></li>
+<li><p><strong>Configuration Pane:</strong> Manage the node in this pane just like you would in the Nodes pane. See the “Node List” and “Edit Node” sections for more details.</p></li>
+</ol>
+
+
+
+
+          </article>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="md-footer">
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+          
+            <a href="usage.html" title="External Guides"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> External Guides </span>
+              </div>
+            </a>
+          
+          
+            <a href="api.html" title="API Reference"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> API Reference </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          
+        </a>
+        
+      </nav>
+    </div>
+    <div class="md-footer-meta md-typeset">
+      <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+          <div class="md-footer-copyright__highlight">
+              &#169; Copyright 2021, Alex Feiszli.
+              
+          </div>
+            Created using
+            <a href="http://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+             and
+            <a href="https://github.com/bashtage/sphinx-material/">Material for
+              Sphinx</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="_static/javascripts/application.js"></script>
+  <script>app.initialize({version: "1.0.4", url: {base: ".."}})</script>
+  </body>
+</html>
