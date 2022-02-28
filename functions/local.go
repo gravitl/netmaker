@@ -22,13 +22,16 @@ func SetDNSDir() error {
 	if err != nil {
 		return err
 	}
+
 	_, err = os.Stat(dir + "/config/dnsconfig")
 	if os.IsNotExist(err) {
-		os.Mkdir(dir+"/config/dnsconfig", 0744)
-	} else if err != nil {
+		err = os.MkdirAll(dir+"/config/dnsconfig", 0744)
+	}
+	if err != nil {
 		logger.Log(0, "couldnt find or create /config/dnsconfig")
 		return err
 	}
+
 	_, err = os.Stat(dir + "/config/dnsconfig/Corefile")
 	if os.IsNotExist(err) {
 		err = logic.SetCorefile(".")
@@ -36,6 +39,7 @@ func SetDNSDir() error {
 			logger.Log(0, err.Error())
 		}
 	}
+
 	_, err = os.Stat(dir + "/config/dnsconfig/netmaker.hosts")
 	if os.IsNotExist(err) {
 		_, err = os.Create(dir + "/config/dnsconfig/netmaker.hosts")

@@ -49,18 +49,17 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 
 	netID := network.NetID
 
+	commsNetID, err := FetchCommsNetID()
+	if err != nil {
+		return models.AccessKey{}, errors.New("could not retrieve comms netid")
+	}
+
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
 	servervals := models.ServerConfig{
-		CoreDNSAddr:     s.CoreDNSAddr,
-		APIConnString:   s.APIConnString,
-		APIHost:         s.APIHost,
-		APIPort:         s.APIPort,
-		GRPCConnString:  s.GRPCConnString,
-		GRPCHost:        s.GRPCHost,
-		GRPCPort:        s.GRPCPort,
-		GRPCSSL:         s.GRPCSSL,
-		CheckinInterval: s.CheckinInterval,
+		GRPCConnString: s.GRPCConnString,
+		GRPCSSL:        s.GRPCSSL,
+		CommsNetwork:   commsNetID,
 	}
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID
@@ -148,7 +147,7 @@ func DecrimentKey(networkName string, keyvalue string) {
 	var network models.Network
 
 	network, err := GetParentNetwork(networkName)
-	if err != nil {
+	if err != nil || network.IsComms == "yes" {
 		return
 	}
 
@@ -176,13 +175,21 @@ func DecrimentKey(networkName string, keyvalue string) {
 // IsKeyValid - check if key is valid
 func IsKeyValid(networkname string, keyvalue string) bool {
 
-	network, _ := GetParentNetwork(networkname)
+	network, err := GetParentNetwork(networkname)
+	if err != nil {
+		return false
+	}
+	accesskeys := network.AccessKeys
+	if network.IsComms == "yes" {
+		accesskeys = getAllAccessKeys()
+	}
+
 	var key models.AccessKey
 	foundkey := false
 	isvalid := false
 
-	for i := len(network.AccessKeys) - 1; i >= 0; i-- {
-		currentkey := network.AccessKeys[i]
+	for i := len(accesskeys) - 1; i >= 0; i-- {
+		currentkey := accesskeys[i]
 		if currentkey.Value == keyvalue {
 			key = currentkey
 			foundkey = true
@@ -235,4 +242,16 @@ func genKey() string {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+func getAllAccessKeys() []models.AccessKey {
+	var accesskeys = make([]models.AccessKey, 0)
+	networks, err := GetNetworks()
+	if err != nil {
+		return accesskeys
+	}
+	for i := range networks {
+		accesskeys = append(accesskeys, networks[i].AccessKeys...)
+	}
+	return accesskeys
 }

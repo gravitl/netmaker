@@ -3,21 +3,18 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.9.4
+    image: gravitl/netmaker:v0.11.0
     volumes:
-      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
-      - /run/systemd/system:/run/systemd/system
-      - /etc/systemd/system:/etc/systemd/system
-      - /sys/fs/cgroup:/sys/fs/cgroup
-      - /usr/bin/wg:/usr/bin/wg
       - dnsconfig:/root/config/dnsconfig
+      - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
-    cap_add: 
+      - /run/xtables.lock:/run/xtables.lock
+    cap_add:
       - NET_ADMIN
-      - SYS_ADMIN
-    restart: always
+      - NET_RAW
+      - SYS_MODULE
     network_mode: host
-    privileged: true
+    restart: always
     environment:
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
@@ -35,12 +32,16 @@ services:
       CORS_ALLOWED_ORIGIN: "*"
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
+      HOST_NETWORK: "on"
       NODE_ID: "netmaker-server-1"
+      MANAGE_IPTABLES: "on"
+      PORT_FORWARD_SERVICES: ""
+      VERBOSITY: "1"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.9.3
+    image: gravitl/netmaker-ui:0.11.0
     links:
       - "netmaker:api"
     ports:
@@ -56,8 +57,8 @@ services:
     container_name: coredns
     restart: always
     ports:
-      - "COREDNS_IP:53:53/udp"
-      - "COREDNS_IP:53:53/tcp"
+      - "53053:53/udp"
+      - "53053:53/tcp"
     volumes:
       - dnsconfig:/root/dnsconfig
   caddy:
@@ -70,8 +71,20 @@ services:
       # - $PWD/site:/srv # you could also serve a static site in site folder
       - caddy_data:/data
       - caddy_conf:/config
+  mq:
+    image: eclipse-mosquitto:2.0.14
+    container_name: mq
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
 volumes:
   caddy_data: {}
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
+  mosquitto_data: {}
+  mosquitto_logs: {}

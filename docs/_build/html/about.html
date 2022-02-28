@@ -46,7 +46,7 @@
   
   
   
-    <title>About &#8212; Netmaker 0.9.4 documentation</title>
+    <title>About &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.4 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -306,7 +306,7 @@
     <li class="md-nav__item">
     
     
-      <a href="https://nm-k8s.readthedocs.io" class="md-nav__link">Kubernetes</a>
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
       
     
     </li>
@@ -422,6 +422,7 @@
             
   
 <h1 id="about--page-root">About<a class="headerlink" href="#about--page-root" title="Permalink to this headline">¶</a></h1>
+<a class="reference internal image-reference" href="_images/netmaker-simple.png"><img alt="Netmaker Architecture Diagram" class="align-center" src="_images/netmaker-simple.png" style="width: 60%;"/></a>
 
 <h2 id="what-is-netmaker">What is Netmaker?<a class="headerlink" href="#what-is-netmaker" title="Permalink to this headline">¶</a></h2>
 <p>Netmaker is a tool for creating and managing virtual overlay networks. If you have at least two machines with internet access which you need to connect with a secure tunnel, Netmaker is for you. If you have thousands of servers spread across multiple locations, data centers, or clouds, Netmaker is also for you. Netmaker connects machines securely, wherever they are.</p>
@@ -437,8 +438,8 @@ If you’re familiar with AWS, it’s like a VPC but made up of arbitrary comput
 <li><p>the admin server, called Netmaker</p></li>
 <li><p>the agent, called Netclient</p></li>
 </ul>
-<p>As the network manager, you interact with the server to create and manage networks and devices. The server holds configurations for these networks and devices, which are retrieved by the netclients (agent).</p>
-<p>The netclient is installed on any machine you would like to add to a given network, whether that machine is a VM, Server, or IoT device. The netclient reaches out to the server, and the server tells it how it should configure the network. By doing this across many machines simultaneously, we create a dynamic, fully configurable virtual networks.</p>
+<p>As the network manager, you interact with the server to create and manage networks and devices. The server holds configurations for these networks and devices, which are retrieved by the netclients (agent). The server runs an MQTT (message queue) broker for client-server communication.</p>
+<p>The netclient is installed on any machine you would like to add to a given network, whether that machine is a VM, Server, or IoT device. The netclient subscribes to the server’s MQ broker, and the server tells it how it should configure WireGuard. The client will let the server know when any local changes should be pushed out to the other clients. By doing this across many machines simultaneously, we create a dynamic, fully configurable virtual networks.</p>
 <p>The Netmaker server does not typically route traffic. Otherwise, this would be a hub-and-spoke model, which is very slow. Instead, Netmaker just tells the machines on the network how they can reach each other directly. This is called a <em>full mesh</em> network and is much faster. Even if the server goes down, as long as none of the existing machines change substantially, your network will still run just fine.</p>
 
 

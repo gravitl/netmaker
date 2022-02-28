@@ -18,17 +18,22 @@ func InitWindows() {
 	if wdErr != nil {
 		log.Fatal("failed to get current directory..")
 	}
-	_, dataNetclientErr := os.Stat(ncutils.GetNetclientPathSpecific() + "netclient.exe")
-	_, currentNetclientErr := os.Stat(wdPath + "\\netclient.exe")
 
-	if os.IsNotExist(dataNetclientErr) { // check and see if netclient.exe is in appdata
+	dataPath := ncutils.GetNetclientPathSpecific() + "netclient.exe"
+	currentPath := wdPath + "\\netclient.exe"
+	_, dataNetclientErr := os.Stat(dataPath)
+	_, currentNetclientErr := os.Stat(currentPath)
+
+	if currentPath == dataPath && currentNetclientErr == nil {
+		ncutils.Log("netclient.exe is in proper location, " + currentPath)
+	} else if os.IsNotExist(dataNetclientErr) { // check and see if netclient.exe is in appdata
 		if currentNetclientErr == nil { // copy it if it exists locally
-			input, err := os.ReadFile(wdPath + "\\netclient.exe")
+			input, err := os.ReadFile(currentPath)
 			if err != nil {
 				log.Println("failed to find netclient.exe")
 				return
 			}
-			if err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"netclient.exe", input, 0644); err != nil {
+			if err = os.WriteFile(dataPath, input, 0700); err != nil {
 				log.Println("failed to copy netclient.exe to", ncutils.GetNetclientPath())
 				return
 			}

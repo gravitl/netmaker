@@ -46,7 +46,7 @@
   
   
   
-    <title>Quick Install &#8212; Netmaker 0.9.4 documentation</title>
+    <title>Quick Install &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.4 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.4 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.4 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.4 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -209,7 +209,7 @@
     <li class="md-nav__item">
     
     
-      <a href="about.html" class="md-nav__link">1. About</a>
+      <a href="about.html" class="md-nav__link">About</a>
       
     
     </li>
@@ -256,6 +256,8 @@
         <li class="md-nav__item"><a href="#prepare-docker-compose" class="md-nav__link">Prepare Docker Compose</a>
         </li>
         <li class="md-nav__item"><a href="#prepare-caddy" class="md-nav__link">Prepare Caddy</a>
+        </li>
+        <li class="md-nav__item"><a href="#prepare-mq" class="md-nav__link">Prepare MQ</a>
         </li>
         <li class="md-nav__item"><a href="#start-netmaker" class="md-nav__link">Start Netmaker</a>
         </li></ul>
@@ -320,28 +322,7 @@
     <li class="md-nav__item">
     
     
-      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html" class="md-nav__link">Ingress GW + External Clients</a>
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
     </li>
@@ -362,7 +343,35 @@
     <li class="md-nav__item">
     
     
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="server-installation.html" class="md-nav__link">Advanced Server Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
@@ -447,6 +456,8 @@
         </li>
         <li class="md-nav__item"><a href="#prepare-caddy" class="md-nav__link">Prepare Caddy</a>
         </li>
+        <li class="md-nav__item"><a href="#prepare-mq" class="md-nav__link">Prepare MQ</a>
+        </li>
         <li class="md-nav__item"><a href="#start-netmaker" class="md-nav__link">Start Netmaker</a>
         </li></ul>
             </nav>
@@ -497,7 +508,7 @@
 
 
 <h2 id="prepare-dns">1. Prepare DNS<a class="headerlink" href="#prepare-dns" title="Permalink to this headline">¶</a></h2>
-<p>Create a wildcard A record pointing to the public IP of your VM. As an example, <a href="#id1"><span class="problematic" id="id2">*</span></a>.netmaker.example.com.</p>
+<p>Create a wildcard A record pointing to the public IP of your VM. As an example, *.netmaker.example.com.</p>
 <p>Caddy will create 3 subdomains with this wildcard, EX:</p>
 <ul class="simple">
 <li><p>dashboard.netmaker.example.com</p></li>
@@ -520,7 +531,8 @@
 <p>Make sure the following ports are open both on the VM and in the cloud security groups:</p>
 <ul class="simple">
 <li><p><strong>443 (tcp):</strong> for Dashboard, REST API, and gRPC</p></li>
-<li><p><strong>53 (udp and tcp):</strong> for CoreDNS</p></li>
+<li><p><strong>80 (tcp):</strong> for LetsEncrypt</p></li>
+<li><p><strong>53 (udp and tcp):</strong> for CoreDNS - This is no longer necessary as of 0.10.0, as by default DNS queries will run over WireGuard.</p></li>
 <li><p><strong>51821-518XX (udp):</strong> for WireGuard - Netmaker needs one port per network, starting with 51821, so open up a range depending on the number of networks you plan on having. For instance, 51821-51830.</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="n">proto</span> <span class="n">tcp</span> <span class="kn">from</span> <span class="nn">any</span> <span class="n">to</span> <span class="nb">any</span> <span class="n">port</span> <span class="mi">443</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">53</span><span class="o">/</span><span class="n">udp</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">53</span><span class="o">/</span><span class="n">tcp</span> <span class="o">&amp;&amp;</span> <span class="n">sudo</span> <span class="n">ufw</span> <span class="n">allow</span> <span class="mi">51821</span><span class="p">:</span><span class="mi">51830</span><span class="o">/</span><span class="n">udp</span>
@@ -529,7 +541,8 @@
 <dl class="simple">
 <dt><strong>Again, based on your cloud provider, you may additionally need to set inbound security rules for your server (for instance, on AWS). This will be dependent on your cloud provider. Be sure to check before moving on:</strong></dt><dd><ul class="simple">
 <li><p>allow 443/tcp from all</p></li>
-<li><p>allow 53/udp and 53/tcp from all</p></li>
+<li><p>allow 80/tcp from all</p></li>
+<li><p>(optional) allow 53/udp and 53/tcp from all</p></li>
 <li><p>allow 51821-51830/udp from all</p></li>
 </ul>
 </dd>
@@ -539,7 +552,8 @@
 <h2 id="install-netmaker">4. Install Netmaker<a class="headerlink" href="#install-netmaker" title="Permalink to this headline">¶</a></h2>
 
 <h3 id="prepare-docker-compose">Prepare Docker Compose<a class="headerlink" href="#prepare-docker-compose" title="Permalink to this headline">¶</a></h3>
-<p><strong>Note on COREDNS_IP:</strong> Depending on your cloud provider, the public IP may not be bound directly to the VM on which you are running. In such cases, CoreDNS cannot bind to this IP, and you should use the IP of the default interface on your machine in place of COREDNS_IP. This command will get you the correct IP for CoreDNS in many cases:</p>
+<p><strong>Note 1 on COREDNS_IP:</strong> As of 0.10.0, the default installation does not require COREDNS_IP to be set. Queries will run over WireGuard.
+<strong>Note 2 on COREDNS_IP:</strong> Depending on your cloud provider, the public IP may not be bound directly to the VM on which you are running. In such cases, CoreDNS cannot bind to this IP, and you should use the IP of the default interface on your machine in place of COREDNS_IP. This command will get you the correct IP for CoreDNS in many cases:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ip</span> <span class="n">route</span> <span class="n">get</span> <span class="mi">1</span> <span class="o">|</span> <span class="n">sed</span> <span class="o">-</span><span class="n">n</span> <span class="s1">'s/^.*src \([0-9.]*\) .*$/</span><span class="se">\1</span><span class="s1">/p'</span>
 </pre></div>
 </div>
@@ -563,6 +577,13 @@
 
 <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/NETMAKER_BASE_DOMAIN/&lt;your base domain&gt;/g'</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span>
 <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s1">'s/YOUR_EMAIL/&lt;your email&gt;/g'</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">Caddyfile</span>
+</pre></div>
+</div>
+
+
+<h3 id="prepare-mq">Prepare MQ<a class="headerlink" href="#prepare-mq" title="Permalink to this headline">¶</a></h3>
+<p>You must retrieve the MQ configuration file for Mosquitto.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">wget</span> <span class="o">-</span><span class="n">O</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">mosquitto</span><span class="o">.</span><span class="n">conf</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">gravitl</span><span class="o">/</span><span class="n">netmaker</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">docker</span><span class="o">/</span><span class="n">mosquitto</span><span class="o">.</span><span class="n">conf</span>
 </pre></div>
 </div>
 

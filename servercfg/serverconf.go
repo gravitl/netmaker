@@ -2,14 +2,23 @@ package servercfg
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/logger"
+)
+
+var (
+	Version = "dev"
+	commsID = ""
 )
 
 // SetHost - sets the host ip
@@ -29,16 +38,17 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
-	cfg.GRPCConnString = GetGRPCConnString()
+	cfg.APIPort = GetAPIPort()
+	cfg.MQPort = GetMQPort()
 	cfg.GRPCHost = GetGRPCHost()
 	cfg.GRPCPort = GetGRPCPort()
+	cfg.GRPCConnString = GetGRPCConnString()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
-	cfg.CheckinInterval = GetCheckinInterval()
-	cfg.ServerCheckinInterval = GetServerCheckinInterval()
+	cfg.MQPort = GetMQPort()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -66,10 +76,6 @@ func GetServerConfig() config.ServerConfig {
 	if DisableRemoteIPCheck() {
 		cfg.DisableRemoteIPCheck = "on"
 	}
-	cfg.DisableDefaultNet = "off"
-	if DisableDefaultNet() {
-		cfg.DisableRemoteIPCheck = "on"
-	}
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
@@ -85,6 +91,12 @@ func GetServerConfig() config.ServerConfig {
 	} else {
 		cfg.RCE = "off"
 	}
+	cfg.Debug = GetDebug()
+	cfg.Telemetry = Telemetry()
+	cfg.ManageIPTables = ManageIPTables()
+	services := strings.Join(GetPortForwardServiceList(), ",")
+	cfg.PortForwardServices = services
+	cfg.CommsID = GetCommsID()
 
 	return cfg
 }
@@ -111,13 +123,14 @@ func GetAPIConnString() string {
 	return conn
 }
 
+// SetVersion - set version of netmaker
+func SetVersion(v string) {
+	Version = v
+}
+
 // GetVersion - version of netmaker
 func GetVersion() string {
-	version := "0.9.4"
-	if config.Config.Server.Version != "" {
-		version = config.Config.Server.Version
-	}
-	return version
+	return Version
 }
 
 // GetDB - gets the database type
@@ -169,17 +182,6 @@ func GetAPIPort() string {
 	return apiport
 }
 
-// GetCheckinInterval - get check in interval for nodes
-func GetCheckinInterval() string {
-	seconds := "15"
-	if os.Getenv("CHECKIN_INTERVAL") != "" {
-		seconds = os.Getenv("CHECKIN_INTERVAL")
-	} else if config.Config.Server.CheckinInterval != "" {
-		seconds = config.Config.Server.CheckinInterval
-	}
-	return seconds
-}
-
 // GetDefaultNodeLimit - get node limit if one is set
 func GetDefaultNodeLimit() int32 {
 	var limit int32
@@ -200,6 +202,8 @@ func GetGRPCConnString() string {
 		conn = os.Getenv("SERVER_GRPC_CONN_STRING")
 	} else if config.Config.Server.GRPCConnString != "" {
 		conn = config.Config.Server.GRPCConnString
+	} else {
+		conn = GetGRPCHost() + ":" + GetGRPCPort()
 	}
 	return conn
 }
@@ -244,9 +248,59 @@ func GetGRPCPort() string {
 	return grpcport
 }
 
+// GetMQPort - gets the mq port
+func GetMQPort() string {
+	mqport := "1883"
+	if os.Getenv("MQ_PORT") != "" {
+		mqport = os.Getenv("MQ_PORT")
+	} else if config.Config.Server.MQPort != "" {
+		mqport = config.Config.Server.MQPort
+	}
+	return mqport
+}
+
+// GetGRPCPort - gets the grpc port
+func GetCommsCIDR() string {
+	netrange := "172.16.0.0/16"
+	if os.Getenv("COMMS_CIDR") != "" {
+		netrange = os.Getenv("COMMS_CIDR")
+	} else if config.Config.Server.CommsCIDR != "" {
+		netrange = config.Config.Server.CommsCIDR
+	} else { // make a random one, which should only affect initialize first time, unless db is removed
+		netrange = genNewCommsCIDR()
+	}
+	_, _, err := net.ParseCIDR(netrange)
+	if err == nil {
+		return netrange
+	}
+	return "172.16.0.0/16"
+}
+
+// GetCommsID - gets the grpc port
+func GetCommsID() string {
+	return commsID
+}
+
+// SetCommsID - sets the commsID
+func SetCommsID(newCommsID string) {
+	commsID = newCommsID
+}
+
+// GetMessageQueueEndpoint - gets the message queue endpoint
+func GetMessageQueueEndpoint() string {
+	host, _ := GetPublicIP()
+	if os.Getenv("MQ_HOST") != "" {
+		host = os.Getenv("MQ_HOST")
+	} else if config.Config.Server.MQHOST != "" {
+		host = config.Config.Server.MQHOST
+	}
+	//Do we want MQ port configurable???
+	return host + ":1883"
+}
+
 // GetMasterKey - gets the configured master key of server
 func GetMasterKey() string {
-	key := "secretkey"
+	key := ""
 	if os.Getenv("MASTER_KEY") != "" {
 		key = os.Getenv("MASTER_KEY")
 	} else if config.Config.Server.MasterKey != "" {
@@ -307,25 +361,55 @@ func IsAgentBackend() bool {
 	return isagent
 }
 
+// IsMessageQueueBackend - checks if message queue is on or off
+func IsMessageQueueBackend() bool {
+	ismessagequeue := true
+	if os.Getenv("MESSAGEQUEUE_BACKEND") != "" {
+		if os.Getenv("MESSAGEQUEUE_BACKEND") == "off" {
+			ismessagequeue = false
+		}
+	} else if config.Config.Server.MessageQueueBackend != "" {
+		if config.Config.Server.MessageQueueBackend == "off" {
+			ismessagequeue = false
+		}
+	}
+	return ismessagequeue
+}
+
 // IsClientMode - checks if it should run in client mode
 func IsClientMode() string {
 	isclient := "on"
-	if os.Getenv("CLIENT_MODE") != "" {
-		if os.Getenv("CLIENT_MODE") == "off" {
-			isclient = "off"
-		}
-		if os.Getenv("CLIENT_MODE") == "contained" {
-			isclient = "contained"
-		}
-	} else if config.Config.Server.ClientMode != "" {
-		if config.Config.Server.ClientMode == "off" {
-			isclient = "off"
-		}
-		if config.Config.Server.ClientMode == "contained" {
-			isclient = "contained"
-		}
+	if os.Getenv("CLIENT_MODE") == "off" {
+		isclient = "off"
+	}
+	if config.Config.Server.ClientMode == "off" {
+		isclient = "off"
 	}
 	return isclient
+}
+
+// Telemetry - checks if telemetry data should be sent
+func Telemetry() string {
+	telemetry := "on"
+	if os.Getenv("TELEMETRY") == "off" {
+		telemetry = "off"
+	}
+	if config.Config.Server.Telemetry == "off" {
+		telemetry = "off"
+	}
+	return telemetry
+}
+
+// ManageIPTables - checks if iptables should be manipulated on host
+func ManageIPTables() string {
+	manage := "on"
+	if os.Getenv("MANAGE_IPTABLES") == "off" {
+		manage = "off"
+	}
+	if config.Config.Server.ManageIPTables == "off" {
+		manage = "off"
+	}
+	return manage
 }
 
 // IsDNSMode - should it run with DNS
@@ -365,8 +449,8 @@ func IsGRPCSSL() bool {
 		if os.Getenv("GRPC_SSL") == "on" {
 			isssl = true
 		}
-	} else if config.Config.Server.DNSMode != "" {
-		if config.Config.Server.DNSMode == "on" {
+	} else if config.Config.Server.GRPCSSL != "" {
+		if config.Config.Server.GRPCSSL == "on" {
 			isssl = true
 		}
 	}
@@ -382,21 +466,6 @@ func DisableRemoteIPCheck() bool {
 		}
 	} else if config.Config.Server.DisableRemoteIPCheck != "" {
 		if config.Config.Server.DisableRemoteIPCheck == "on" {
-			disabled = true
-		}
-	}
-	return disabled
-}
-
-// DisableDefaultNet - disable default net
-func DisableDefaultNet() bool {
-	disabled := false
-	if os.Getenv("DISABLE_DEFAULT_NET") != "" {
-		if os.Getenv("DISABLE_DEFAULT_NET") == "on" {
-			disabled = true
-		}
-	} else if config.Config.Server.DisableDefaultNet != "" {
-		if config.Config.Server.DisableDefaultNet == "on" {
 			disabled = true
 		}
 	}
@@ -442,6 +511,19 @@ func GetPlatform() string {
 	return platform
 }
 
+// GetIPForwardServiceList - get the list of services that the server should be forwarding
+func GetPortForwardServiceList() []string {
+	//services := "mq,dns,ssh"
+	services := ""
+	if os.Getenv("PORT_FORWARD_SERVICES") != "" {
+		services = os.Getenv("PORT_FORWARD_SERVICES")
+	} else if config.Config.Server.PortForwardServices != "" {
+		services = config.Config.Server.PortForwardServices
+	}
+	serviceSlice := strings.Split(services, ",")
+	return serviceSlice
+}
+
 // GetSQLConn - get the sql connection string
 func GetSQLConn() string {
 	sqlconn := "http://"
@@ -453,27 +535,37 @@ func GetSQLConn() string {
 	return sqlconn
 }
 
-// IsSplitDNS - checks if split dns is on
-func IsSplitDNS() bool {
-	issplit := false
-	if os.Getenv("IS_SPLIT_DNS") == "yes" {
-		issplit = true
-	} else if config.Config.Server.SplitDNS == "yes" {
-		issplit = true
+// IsHostNetwork - checks if running on host network
+func IsHostNetwork() bool {
+	ishost := false
+	if os.Getenv("HOST_NETWORK") == "on" {
+		ishost = true
+	} else if config.Config.Server.HostNetwork == "on" {
+		ishost = true
 	}
-	return issplit
+	return ishost
 }
 
 // GetNodeID - gets the node id
 func GetNodeID() string {
 	var id string
-	id = getMacAddr()
+	var err error
+	// id = getMacAddr()
 	if os.Getenv("NODE_ID") != "" {
 		id = os.Getenv("NODE_ID")
 	} else if config.Config.Server.NodeID != "" {
 		id = config.Config.Server.NodeID
+	} else {
+		id, err = os.Hostname()
+		if err != nil {
+			return ""
+		}
 	}
 	return id
+}
+
+func SetNodeID(id string) {
+	config.Config.Server.NodeID = id
 }
 
 // GetServerCheckinInterval - gets the server check-in time
@@ -518,23 +610,43 @@ func GetAzureTenant() string {
 	return azureTenant
 }
 
-// GetMacAddr - get's mac address
-func getMacAddr() string {
-	ifas, err := net.Interfaces()
-	if err != nil {
-		return ""
-	}
-	var as []string
-	for _, ifa := range ifas {
-		a := ifa.HardwareAddr.String()
-		if a != "" {
-			as = append(as, a)
-		}
-	}
-	return as[0]
-}
-
 // GetRce - sees if Rce is enabled, off by default
 func GetRce() bool {
 	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
+}
+
+// GetDebug -- checks if debugging is enabled, off by default
+func GetDebug() bool {
+	return os.Getenv("DEBUG") == "on" || config.Config.Server.Debug == true
+}
+
+func genNewCommsCIDR() string {
+	currIfaces, err := net.Interfaces()
+	netrange := fmt.Sprintf("172.%d.0.0/16", genCommsByte())
+	if err == nil { // make sure chosen CIDR doesn't overlap with any local iface CIDRs
+		iter := 0
+		for i := 0; i < len(currIfaces); i++ {
+			if currentAddrs, err := currIfaces[i].Addrs(); err == nil {
+				for j := range currentAddrs {
+					if strings.Contains(currentAddrs[j].String(), netrange[0:7]) {
+						if iter > 20 { // if this hits, then the cidr should be specified
+							logger.FatalLog("could not find a suitable comms network on this server, please manually enter one")
+						}
+						netrange = fmt.Sprintf("172.%d.0.0/16", genCommsByte())
+						i = -1 // reset to loop back through
+						iter++ // track how many times you've iterated and not found one
+						break
+					}
+				}
+			}
+		}
+	}
+	return netrange
+}
+
+func genCommsByte() int {
+	const min = 1 << 4 // 16
+	const max = 1 << 5 // 32
+	rand.Seed(time.Now().UnixNano())
+	return rand.Intn(max-min) + min
 }

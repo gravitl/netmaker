@@ -30,6 +30,48 @@ Windows will by default have firewall rules that prevent inbound connections. If
 
 If you want to allow all peers access, but do not want to configure firewall rules for all peers, you can configure access for one peer, and set it as a Relay Server.
 
+Running the install script
+----------------------------
+
+Some file locations have issues running the install script, such as running from the root C:/ folder. Users have noted the following locations work well for running the install powershell script:
+
+- `C:/Program Files/wireguard`
+- `C:/Windows/System32`
+
+Running netclient commands
+----------------------------
+
+If running the netclient manually ("netclient join", "netclient checkin", "netclient pull") it should be run from outside of the installed directory, which will be either:
+
+- `C:/Program Files/netclient`
+- `C:/ProgramData/netclient`
+
+It is better to call it from a different directory.
+
+High CPU Utilization
+--------------------------
+
+With some versions of WireGuard on Windows, high CPU utilization has been found with the netclient. This is typically due to interaction with the WireGuard GUI component (app). If you're experiencing high CPU utilization, close the WireGuard app. WireGuard will still be running, but the CPU usage should go back down to normal.
+
+Notes on OpenWRT
+===========================
+
+Deploying on OpenWRT depends a lot on the version of OpenWRT and the hardware being used. If the primary installer does not work, there are two things you can try:
+
+1. This community-run package for OpenWRT: https://github.com/sbilly/netmaker-openwrt
+
+2. Manual installation:
+
+- download (wget) the netclient package for your hardware from the netclient releases: https://github.com/gravitl/netmaker/releases
+- rename to "netclient"
+- Run as root from a bash shell on OpenWRT
+
+3. You may experience an issue with the length of the token, which has limits on some OpenWRT shells. If you run into this problem, you can use the following script to convert your token into a "netclient join" command:
+
+- `wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/token-convert.sh`
+- ./token-convert <token value>
+- Run the output on your OpenWRT machine
+
 Modes and System Compatibility
 ==================================
 
@@ -125,18 +167,25 @@ Viewing Logs
   ``netclient list``
 
 **to tail logs**
-  ``journalctl -u netclient@<net name> -f``
-
-**to view all logs**
-  ``journalctl -u netclient@<net name>``
+  ``journalctl -u netclient``
 
 **to get most recent log run**
-  ``systemctl status netclient@<net name>``
+  ``systemctl status netclient``
+
+Re-syncing netclient (basic troubleshooting)
+-----------------------------------------------
+
+If the daemon is not running correctly run, try restarting the daemon, or pulling changes directly (don't do both at once)
+
+  ``systemctl restart netclient``
+
+  ``sudo netclient pull``
+
 
 Making Updates
 ----------------
 
-``vim /etc/netclient/netconfig-<network>``
+``vim /etc/netclient/config/netconfig-<network>``
 
 Change any of the variables in this file, and changes will be pushed to the server and processed locally on the next checkin.
 

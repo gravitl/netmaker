@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 )
 
 func createRelay(w http.ResponseWriter, r *http.Request) {
@@ -20,28 +21,42 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	relay.NetID = params["network"]
-	relay.NodeID = params["macaddress"]
-	node, err := logic.CreateRelay(relay)
+	relay.NodeID = params["nodeid"]
+	updatenodes, node, err := logic.CreateRelay(relay)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
+	for _, relayedNode := range updatenodes {
+		err = mq.NodeUpdate(&relayedNode)
+		if err != nil {
+			logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", relay.NetID, ": ", err.Error())
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+	runUpdates(&node, true)
 }
 
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeMac := params["macaddress"]
+	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := logic.DeleteRelay(netid, nodeMac)
+	updatenodes, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeMac, "on network", netid)
+	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)
+	for _, relayedNode := range updatenodes {
+		err = mq.NodeUpdate(&relayedNode)
+		if err != nil {
+			logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", netid, ": ", err.Error())
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
+	runUpdates(&node, true)
 }

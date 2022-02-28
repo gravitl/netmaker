@@ -52,14 +52,26 @@ func SetWGKeyConfig(network string, serveraddr string) error {
 }
 
 // ApplyWGQuickConf - applies wg-quick commands if os supports
-func ApplyWGQuickConf(confPath string) error {
-	_, _ = ncutils.RunCmd("wg-quick down "+confPath, false)
-	_, err := ncutils.RunCmd("wg-quick up "+confPath, false)
-	return err
+func ApplyWGQuickConf(confPath string, ifacename string) error {
+	if ncutils.IsWindows() {
+		return ApplyWindowsConf(confPath)
+	} else {
+		_, err := os.Stat(confPath)
+		if err != nil {
+			ncutils.Log(confPath + " does not exist " + err.Error())
+			return err
+		}
+		if ncutils.IfaceExists(ifacename) {
+			ncutils.RunCmd("wg-quick down "+confPath, true)
+		}
+		_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
+
+		return err
+	}
 }
 
 // ApplyMacOSConf - applies system commands similar to wg-quick using golang for MacOS
-func ApplyMacOSConf(node models.Node, ifacename string, confPath string) error {
+func ApplyMacOSConf(node *models.Node, ifacename string, confPath string) error {
 	var err error
 	_ = WgQuickDownMac(node, ifacename)
 	err = WgQuickUpMac(node, ifacename, confPath)
@@ -79,7 +91,7 @@ func SyncWGQuickConf(iface string, confPath string) error {
 	}
 	regex := regexp.MustCompile(".*Warning.*\n")
 	conf := regex.ReplaceAllString(confRaw, "")
-	err = os.WriteFile(tmpConf, []byte(conf), 0644)
+	err = os.WriteFile(tmpConf, []byte(conf), 0600)
 	if err != nil {
 		return err
 	}
@@ -87,7 +99,7 @@ func SyncWGQuickConf(iface string, confPath string) error {
 	if err != nil {
 		log.Println(err.Error())
 		ncutils.Log("error syncing conf, resetting")
-		err = ApplyWGQuickConf(confPath)
+		err = ApplyWGQuickConf(confPath, iface)
 	}
 	errN := os.Remove(tmpConf)
 	if errN != nil {
@@ -106,12 +118,12 @@ func RemoveWGQuickConf(confPath string, printlog bool) error {
 func StorePrivKey(key string, network string) error {
 	var err error
 	d1 := []byte(key)
-	err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0644)
+	err = os.WriteFile(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, d1, 0600)
 	return err
 }
 
 // RetrievePrivKey - reads wg priv key from local disk
 func RetrievePrivKey(network string) (string, error) {
-	dat, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "wgkey-" + network)
+	dat, err := ncutils.GetFileWithRetry(ncutils.GetNetclientPathSpecific()+"wgkey-"+network, 2)
 	return string(dat), err
 }

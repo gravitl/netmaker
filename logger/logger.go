@@ -4,40 +4,26 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
-	"strings"
+	"sync"
 	"time"
 )
 
+// TimeFormatDay - format of the day for timestamps
 const TimeFormatDay = "2006-01-02"
+
+// TimeFormat - total time format
 const TimeFormat = "2006-01-02 15:04:05"
 
+// == fields ==
 var currentLogs = make(map[string]string)
-
-func makeString(message ...string) string {
-	return strings.Join(message, " ")
-}
-
-func getVerbose() int32 {
-	level, err := strconv.Atoi(os.Getenv("VERBOSITY"))
-	if err != nil || level < 0 {
-		level = 0
-	}
-	if level > 3 {
-		level = 3
-	}
-	return int32(level)
-}
-
-// ResetLogs - reallocates logs map
-func ResetLogs() {
-	currentLogs = make(map[string]string)
-}
+var mu sync.Mutex
 
 // Log - handles adding logs
 func Log(verbosity int, message ...string) {
+	mu.Lock()
+	defer mu.Unlock()
 	var currentTime = time.Now()
-	var currentMessage = makeString(message...)
+	var currentMessage = MakeString(" ", message...)
 	if int32(verbosity) <= getVerbose() && getVerbose() >= 0 {
 		fmt.Printf("[netmaker] %s %s \n", currentTime.Format(TimeFormat), currentMessage)
 	}
@@ -51,6 +37,9 @@ func Dump() string {
 		Key   string
 		Value time.Time
 	}
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
 	var dumpLogs = make([]keyVal, 0, len(currentLogs))
 	for key, value := range currentLogs {
 		parsedTime, err := time.Parse(TimeFormat, value)
@@ -67,9 +56,10 @@ func Dump() string {
 
 	for i := range dumpLogs {
 		var currLog = dumpLogs[i]
-		dumpString += fmt.Sprintf("[netmaker] %s %s \n", currLog.Value.Format(TimeFormat), currLog.Key)
+		dumpString += MakeString(" ", "[netmaker]", currLog.Value.Format(TimeFormat), currLog.Key, "\n")
 	}
 
+	resetLogs()
 	return dumpString
 }
 
@@ -77,13 +67,14 @@ func Dump() string {
 func DumpFile(filePath string) {
 	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		panic(err)
+		fmt.Println(MakeString(" ", "could not open log file", filePath))
+		return
 	}
 
 	defer f.Close()
 
 	if _, err = f.WriteString(Dump()); err != nil {
-		panic(err)
+		fmt.Println("could not dump logs")
 	}
 }
 
@@ -98,6 +89,16 @@ func Retrieve(filePath string) string {
 
 // FatalLog - exits os after logging
 func FatalLog(message ...string) {
-	fmt.Printf("[netmaker] Fatal: %s \n", makeString(message...))
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
+	fmt.Printf("[netmaker] Fatal: %s \n", MakeString(" ", message...))
 	os.Exit(2)
+}
+
+// == private ==
+
+// resetLogs - reallocates logs map
+func resetLogs() {
+	currentLogs = make(map[string]string)
 }

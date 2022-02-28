@@ -2,13 +2,13 @@
 Architecture
 ===============
 
-.. image:: images/nm-diagram-2.jpg
-   :width: 45%
+.. image:: images/nm-diagram-3.png
+   :width: 100%
    :alt: Netmaker Architecture Diagram
    :align: center
     
 
-*Pictured Above: A diagram of Netmaker's Architecture.*
+*Pictured Above: A detailed diagram of Netmaker's Architecture.*
 
 
 Core Concepts
@@ -47,7 +47,7 @@ Netmaker
 
 Netmaker is a platform built off of WireGuard which enables users to create mesh networks between their devices. Netmaker can create both full and partial mesh networks depending on the use case.
 
-When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver.
+When we refer to Netmaker in aggregate, we are typically referring to Netmaker and the netclient, as well as other supporting services such as CoreDNS, rqlite, and UI webserver. There is also almost always a proxy server / LB, which is typically Caddy.
 
 From an end user perspective, they typically interact with the Netmaker UI, or even just run the install script for the netclient on their devices. The other components run in the background invisibly. 
 
@@ -85,6 +85,7 @@ These modes include client mode and dns mode. Either of these can be disabled bu
 
 The Netmaker server interacts with either sqlite (default), postgres, or rqlite, a distributed version of sqlite, as its database. This DB holds information about nodes, networks, users, and other important data. This data is configuration data. For the most part, Netmaker serves configuration data to Nodes, telling them how they should configure themselves. The Netclient is the agent that actually does that configuration.
 
+The components of the server are usually proxied via Caddy, or an alternative like Nginx and Traefik. The proxy handles SSL certificates to secure traffic, and routes to the UI, API, and gRPC server.
 
 Netclient
 ----------------
@@ -99,9 +100,9 @@ The 'join' command attempts to add the machine to the Netmaker network using sen
 
 The netclient then sets up the system daemon (if running in daemon mode), and configures WireGuard. At this point it should be part of the network.
 
-If running in daemon mode, on a periodic basis (systemd timer), the netclient performs a "check in." It will authenticate with the server, and check to see if anything has changed in the network. It will also post changes about its own local configuration if there. If there has been a change, the server will return new configurations and the netclient will reconfigure the network. If not running in daemon mode, it is up to the operator to perform check ins (netclient checkin -n < network name >).
+If running in daemon mode, the node subscribes to the MQTT server running with Netmaker, which will send it periodic updates when the network changes. The node will also detect local changes and send them to the server. Any change in configuration will lead to a network update to keep everything in sync. If the node is not running with the in daemon on, it is up to the operator to keep the netclient up-to-date by running regular "pulls" (netclient pull).
 
-The check in process is what allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.
+This pub-sub system allows Netmaker to create dynamic mesh networks. As nodes are added to, removed from, and modified on the network, other nodes are notified, and make appropriate changes.
 
 
 Database (sqlite, rqlite, postgres)
@@ -123,6 +124,20 @@ CoreDNS
 --------
 
 Netmaker allows users to provide and manage Private DNS for their nodes. This requires a nameserver, and CoreDNS is the chosen nameserver. CoreDNS is lightweight and extensible. CoreDNS loads dns settings from a simple file, managed by Netmaker, and serves out DNS info for managed nodes. DNS can be tricky, and DNS management is currently only supported on a small set of devices, specifically those running systemd-resolved. However, the Netmaker CoreDNS instance can be added manually as a nameserver to other devices. DNS mode can also be turned off.
+
+Caddy
+-------
+
+Caddy is the default proxy for Netmaker if you set it up via Quick Start. Caddy is an extremely simple and docker-friendly proxy, which can be compared to Nginx, Traefik, or HAProxy. We use Caddy by default because of the ease of management, and integration with gRPC. A typical setup for Nginx might take dozens of lines of code, and we need to request and manage SSL certificates separately.
+
+Caddy handles all these things automatically in very few lines of code. You can see our default "Caddyfile" here, which is fed to the container and has all the configuration necessary to configure the proxy for our app:
+
+https://github.com/gravitl/netmaker/blob/master/docker/Caddyfile
+
+Mosquitto Broker (MQTT)
+-------------------------
+
+The Moquitto broker is the default MQTT broker that ships with Netmaker, though technically, any MQTT broker should work so long as the correct configuration is applied. The broker enables the establishment of a pub-sub messaging system, whereby clients subscribe to recieve updates. When the server recieves a change (via API/UI/gRPC), it will publish that change to the broker that pushes out the change to the appropriate nodes. In Netmaker, the messages are double encrypted. Once by Golang, and again by sending all messages over a WireGuard tunnel. 
 
 External Client
 ----------------
@@ -146,20 +161,14 @@ Below is a high level, step-by-step overview of the flow of communications withi
 2. Admin creates an access key for signing up new nodes
 3. Both of the above requests are routed to the server via an API call from the front end
 4. Admin runs the netclient install script on any given node (machine).
-5. Netclient decodes key, which contains the GRPC server location and port
-6. Netclient uses information to register and set up WireGuard tunnel to GRPC server
-7. Netclient retrieves/sets local information, including open ports for WireGuard, public IP, and generating key pairs for peers
-8. Netclient reaches out to GRPC server with this information, authenticating via access key.
-9. Netmaker server verifies information and creates the node, setting default values for any missing information. 
-10. Timestamp is set for the network (see #16). 
-11. Netmaker returns settings as response to netclient. Some settings may be added or modified based on the network.
-12. Netclient receives response. If successful, it takes any additional info returned from Netmaker and configures the local system/WireGuard
-13. Netclient sends another request to Netmaker's GRPC server, this time to retrieve the peers list (all other clients in the network).
-14. Netmaker sends back peers list, including current known configurations of all nodes in network.
-15. Netclient configures WireGuard with this information. At this point, the node is fully configured as a part of the network and should be able to reach the other nodes via private address.
-16. Netclient begins daemon (system timer) to run check in's with the server. It awaits changes, reporting local changes, and retrieving changes from any other nodes in the network.
-17. Other netclients on the network, upon checking in with the Netmaker server, will see that the timestamp has updated, and they will retrieve a new peers list, completing the update cycle.
-
+5. Netclient decodes key, which contains the server location
+6. Netclient gathers and sets appropriate information to configure itself as a node: it generates key pairs, gets public and local addresses, and sets a port.
+7. Netclient sends this information to the server, authenticating with its access key 
+8. Netmaker server verifies information and creates the node, setting default values for any missing information, and returns a response. 
+9. Upon successful registration, Netclient pulls the latest peers list from the server and set up a WireGuard interface
+10. Netclient configures itself as a daemon (if joining for the first time) and subscribes to MQ using the server's WireGuard address.
+11. Netclient regularly retrieves local information, checking for changes in things like IP and keys. If there is a change, it pushes them to the server.
+12. If a change occurs in any other peer, or peers are added/removed, an update will be sent to the Netclient via MQ, and it will re-configure WireGuard.
 
 Compatible Systems for Netclient
 ==================================
@@ -182,7 +191,7 @@ The following systems should be operable natively with Netclient in daemon mode:
         - Raspian.
         - Arch
         - CentOS
-        - CoreOS
+        - Fedora CoreOS
 
 To manage DNS (optional), the node must have systemd-resolved. Systems that have this enabled include:
         - Arch

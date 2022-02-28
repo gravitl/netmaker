@@ -138,8 +138,51 @@ CLIENT_MODE:
 
     **Description:** Specifies if server should deploy itself as a node (client) in each network. May be turned to "off" for more restricted servers.
 
+RCE:  
+    **Default:** "off"
+
+    **Description:** The server enables you to set PostUp and PostDown commands for nodes, which is standard for WireGuard with wg-quick, but is also **Remote Code Execution**, which is a critical vulnerability if the server is exploited. Because of this, it's turned off by default, but if turned on, PostUp and PostDown become editable.
+
+SERVER_GRPC_WIREGUARD
+    **Depreciated:** no longer in use
+
+DISPLAY_KEYS
+    **Default:** "on"
+
+    **Description:** If "on", will allow you to always show the key values of "access keys". This could be considered a vulnerability, so if turned "off", will only display key values once, and it is up to the users to store the key values locally.
+
+NODE_ID
+    **Default:** <system mac addres>
+
+    **Description:** This setting is used for HA configurations of the server, to identify between different servers. Nodes are given ID's like netmaker-1, netmaker-2, and netmaker-3. If the server is not HA, there is no reason to set this field.
+
+TELEMETRY
+    **Default:** "on"
+
+    **Description:** If "on", the server will send anonymous telemetry data once daily, which is used to improve the product. Data sent includes counts (integer values) for the number of nodes, types of nodes, users, and networks. It also sends the version of the server.
+
+MQ_HOST 
+    **Default:** (public IP of server)
+
+    **Description:** The address of the mq server. If running from docker compose it will be "mq". If using "host networking", it will find and detect the IP of the mq container. Otherwise, need to input address. If not set, it will use the public IP of the server. the port 1883 will be appended automatically. This is the expected reachable port for MQ and cannot be changed at this time.
+
+HOST_NETWORK: 
+    **Default:** "off"
+
+    **Description:** Whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables and forwarding for MQ.
+
+MANAGE_IPTABLES: 
+    **Default:** "on"
+
+    **Description:** # Sets iptables on the machine being managed in order to forward properly from wireguard interface to MQ and other services listed in "port forward services." It's better to leave this on unless you know what you're doing.
+
+PORT_FORWARD_SERVICES: 
+    **Default:** ""
+
+    **Description:** Comma-separated list of services for which to configure port forwarding on the machine. Options include "mq,dns,ssh". Typically best to leave mq and dns on. ssh can be removed.'ssh' forwards port 22 over wireguard, enabling ssh to server over wireguard. dns enables private dns over wireguard. mq enables mq.
+
 Config File Reference
-----------------------
+-----------------------
 A config file may be placed under config/environments/<env-name>.yml. To read this file at runtime, provide the environment variable NETMAKER_ENV at runtime. For instance, dev.yml paired with ENV=dev. Netmaker will load the specified Config file. This allows you to store and manage configurations for different environments. Below is a reference Config File you may use.
 
 .. literalinclude:: ../config/environments/dev.yaml
@@ -153,6 +196,20 @@ All environment variables and options are enabled in this file. It is the equiva
 .. literalinclude:: ../compose/docker-compose.reference.yml
   :language: YAML
 
+Available docker-compose files
+---------------------------------
+
+The default options for docker-compose can be found here: https://github.com/gravitl/netmaker/tree/master/compose
+
+The following is a brief description of each:
+
+- `docker-compose.contained.yml <https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.contained.yml>`_ - This is the default docker-compose, used in the quick start and deployment script in the README on GitHub. It deploys Netmaker with all options included (Caddy and CoreDNS) and has "self-contained" netclients, meaning they do not affect host networking.
+- `docker-compose.coredns.yml <https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.coredns.yml>`_ - This is a simple compose used to spin up a standalone CoreDNS server. Can be useful if, for instance, you are unning Netmaker on baremetal but need CoreDNS.
+- `docker-compose.hostnetwork.yml <https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.hostnetwork.yml>`_ - This is similar to the docker-compose.contained.yml but with a key difference: it has advanced permissions and mounts host volumes to control networking on the host level.
+- `docker-compose.nocaddy.yml <https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nocaddy.yml>`_ -= This is the same as docker-compose.contained.yml but without Caddy, in case you need to use a different proxy like Nginx, Traefik, or HAProxy.
+- `docker-compose.nodns.yml <https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nodns.yml>`_ - This is the same as docker-compose.contained.yml but without CoreDNS, in which case you will not have the Private DNS feature.
+- `docker-compose.reference.yml <https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.reference.yml>`_ - This is the same as docker-compose.contained.yml but with all variable options on display and annotated (it's what we show right above this section). Use this to determine which variables you should add or change in your configuration.
+- `docker-compose.yml <https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.yml>`_ - This is a renamed docker-compose.contained.yml. It is meant only to act as a placeholder for what we consider the "primary" docker-compose that users should work with.
 
 DNS Mode Setup
 ====================================
@@ -224,17 +281,20 @@ This template is equivalent but omits CoreDNS.
 Linux Install without Docker
 =============================
 
-Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional). 
-
-To start, we recommend following the Nginx instructions in the :doc:`Quick Install <./quick-start>` guide to enable SSL for your environment.
+Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you may want to optionally install a database (sqlite is embedded, rqlite or postgres are supported) and CoreDNS (also optional). 
 
 Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.
 
-rqlite Setup
-----------------
+Database Setup (optional)
+--------------------------
+
+You can run the netmaker binary standalone and it will run an embedded sqlite server. Data goes in the data/ directory. Optionally, you can run PostgreSQL or rqlite. Instructions for rqlite are below.
+
 1. Install rqlite on your server: https://github.com/rqlite/rqlite
 
 2. Run rqlite: rqlited -node-id 1 ~/node.1
+
+If using rqlite or postgres, you must change the DATABASE environment/config variable and enter connection details.
 
 Server Setup
 -------------
@@ -265,8 +325,18 @@ The following uses Nginx as an http server. You may alternatively use Apache or 
   sudo sh -c 'BACKEND_URL=http://<YOUR BACKEND API URL>:PORT /usr/share/nginx/html/generate_config_js.sh >/usr/share/nginx/html/config.js'
   sudo systemctl start nginx
 
-CoreDNS Setup
-----------------
+CoreDNS Setup (optional)
+----------------------------
+
+CoreDNS is only required if you want private DNS features. Once installed, you must set the CoreDNS variables in the env settings of the server.
+
+See https://coredns.io/manual/toc/#installation
+
+Proxy / Load Balancer
+------------------------
+
+You will need to proxy connections to your UI and Server. By default the ports are 8081, 8082, and 50051 (grpc). This proxy should handle SSL certificates. We recommend Caddy or Nginx (you can follow the Nginx guide in these docs). The proxy must be able to handle gRPC connections.
+
 
 .. _KubeInstall:
 

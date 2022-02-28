@@ -7,6 +7,8 @@
 https://dashboard.NETMAKER_BASE_DOMAIN {
         # Apply basic security headers
         header {
+                # Enable cross origin access to *.NETMAKER_BASE_DOMAIN
+                Access-Control-Allow-Origin *.NETMAKER_BASE_DOMAIN
                 # Enable HTTP Strict Transport Security (HSTS)
                 Strict-Transport-Security "max-age=31536000;"
                 # Enable cross-site filter (XSS) and tell browser to block detected attacks

@@ -110,13 +110,19 @@ func GetFlags(hostname string) []cli.Flag {
 			Name:    "apiserver",
 			EnvVars: []string{"NETCLIENT_API_SERVER"},
 			Value:   "",
-			Usage:   "Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server.",
+			Usage:   "Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server.",
 		},
 		&cli.StringFlag{
 			Name:    "grpcserver",
 			EnvVars: []string{"NETCLIENT_GRPC_SERVER"},
 			Value:   "",
-			Usage:   "Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server.",
+			Usage:   "Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server.",
+		},
+		&cli.StringFlag{
+			Name:    "grpcssl",
+			EnvVars: []string{"NETCLIENT_GRPCSSL"},
+			Value:   "",
+			Usage:   "Tells clients to use SSL to connect to GRPC if 'on'. Disable if 'off'. Off by default.",
 		},
 		&cli.StringFlag{
 			Name:    "key",
@@ -191,6 +197,12 @@ func GetFlags(hostname string) []cli.Flag {
 			EnvVars: []string{"NETCLIENT_ROAMING"},
 			Value:   "yes",
 			Usage:   "Checks for IP changes if 'yes'. Ignores if 'no'. Yes by default.",
+		},
+		&cli.StringFlag{
+			Name:    "force",
+			EnvVars: []string{"NETCLIENT_FORCE"},
+			Value:   "no",
+			Usage:   "Allows to run the command with force, if otherwise prevented.",
 		},
 	}
 }
