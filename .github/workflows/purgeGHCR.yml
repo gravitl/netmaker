@@ -1,0 +1,27 @@
+Name: Purge untagged images from GHCR
+
+on: 
+    workflow_dispatch
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        user: actions/checkout@v2
+      - name: Prune Netmaker
+        uses: vlaurin/action-ghcr-prune@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          organization: gravitl
+          container: netmaker
+          dry-run: true # Dry-run first, then change to `false`
+          untagged: true
+      - name: Prune Netclient
+        uses: vlaurin/action-ghcr-prune@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          organization: gravitl
+          container: netclient
+          dry-run: true # Dry-run first, then change to `false`
+          untagged: true
