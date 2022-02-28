@@ -1,4 +1,4 @@
-Name: Purge untagged images from GHCR
+name: Purge untagged images from GHCR
 
 on: 
     workflow_dispatch
@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        user: actions/checkout@v2
+        uses: actions/checkout@v2
       - name: Prune Netmaker
         uses: vlaurin/action-ghcr-prune@main
         with:
@@ -25,3 +25,4 @@ jobs:
           container: netclient
           dry-run: true # Dry-run first, then change to `false`
           untagged: true
+          
