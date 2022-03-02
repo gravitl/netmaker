@@ -403,6 +403,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIsDocker()
 	node.SetDefaultIsK8S()
 	node.SetDefaultIsHub()
+	node.SetDefaultIsHub()
 }
 
 // GetRecordKey - get record key
