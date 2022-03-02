@@ -3,16 +3,21 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/guumaster/hostctl/pkg/file"
+	"github.com/guumaster/hostctl/pkg/parser"
+	"github.com/guumaster/hostctl/pkg/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -189,4 +194,42 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		ncutils.Log("error syncing wg after peer update: " + err.Error())
 		return
 	}
+	logger.Log(0, "DNS updating /etc/hosts")
+	windows := false
+	if ncutils.IsWindows() {
+		windows = true
+	}
+	if err := setHostDNS(peerUpdate.DNS, windows); err != nil {
+		ncutils.Log("error updating /etc/hosts " + err.Error())
+		return
+	}
+}
+
+func setHostDNS(dns []byte, windows bool) error {
+	etchosts := "/etc/hosts"
+	if windows {
+		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
+	}
+	if err := os.WriteFile("/tmp/dnsdata", dns, 0600); err != nil {
+		return err
+	}
+	dnsdata, err := os.Open("/tmp/dnsdata")
+	if err != nil {
+		return err
+	}
+	profile, err := parser.ParseProfile(dnsdata)
+	if err != nil {
+		return err
+	}
+	hosts, err := file.NewFile(etchosts)
+	if err != nil {
+		return err
+	}
+	profile.Name = "netmaker"
+	profile.Status = types.Enabled
+	if err := hosts.ReplaceProfile(profile); err != nil {
+		return err
+	}
+	hosts.Flush()
+	return nil
 }
