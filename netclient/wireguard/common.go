@@ -23,24 +23,20 @@ func SetPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
 
 	var devicePeers []wgtypes.Peer
 	var err error
-	if ncutils.IsFreeBSD() {
-		if devicePeers, err = ncutils.GetPeers(iface); err != nil {
-			return err
-		}
-	} else {
-		client, err := wgctrl.New()
-		if err != nil {
-			ncutils.PrintLog("failed to start wgctrl", 0)
-			return err
-		}
-		defer client.Close()
-		device, err := client.Device(iface)
-		if err != nil {
-			ncutils.PrintLog("failed to parse interface", 0)
-			return err
-		}
-		devicePeers = device.Peers
+
+	client, err := wgctrl.New()
+	if err != nil {
+		ncutils.PrintLog("failed to start wgctrl", 0)
+		return err
 	}
+	defer client.Close()
+	device, err := client.Device(iface)
+	if err != nil {
+		ncutils.PrintLog("failed to parse interface", 0)
+		return err
+	}
+	devicePeers = device.Peers
+
 	if len(devicePeers) > 1 && len(peers) == 0 {
 		ncutils.PrintLog("no peers pulled", 1)
 		return err
