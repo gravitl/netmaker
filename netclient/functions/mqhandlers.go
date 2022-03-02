@@ -199,9 +199,11 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	if ncutils.IsWindows() {
 		windows = true
 	}
-	if err := setHostDNS(peerUpdate.DNS, windows); err != nil {
-		ncutils.Log("error updating /etc/hosts " + err.Error())
-		return
+	if cfg.Node.DNSOn == "yes" {
+		if err := setHostDNS(peerUpdate.DNS, windows); err != nil {
+			ncutils.Log("error updating /etc/hosts " + err.Error())
+			return
+		}
 	}
 }
 
