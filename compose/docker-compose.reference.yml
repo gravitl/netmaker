@@ -5,7 +5,6 @@ services:
     image: gravitl/netmaker:v0.11.0
     volumes: # Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
       - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
-      - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
     cap_add: # Necessary capabilities to set iptables when running in container
       - NET_ADMIN

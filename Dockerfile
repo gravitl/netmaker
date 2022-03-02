@@ -10,7 +10,7 @@ RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -X 'main.version=${version}'"
 FROM alpine:3.14.3
 
 # add a c lib
-RUN apk add gcompat iptables
+RUN apk add gcompat iptables wireguard-tools
 # set the working directory
 WORKDIR /root/
 RUN mkdir -p /etc/netclient/config
