@@ -39,7 +39,6 @@ func RestartWindowsDaemon() {
 	StopWindowsDaemon()
 	// start daemon, will not restart or start another
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
-	// ncutils.Log(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
 }
 
 // CleanupWindows - cleans up windows files
