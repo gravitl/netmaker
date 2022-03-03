@@ -31,24 +31,20 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
 	var err error
-	if ncutils.IsFreeBSD() {
-		if devicePeers, err = ncutils.GetPeers(iface); err != nil {
-			return err
-		}
-	} else {
-		client, err := wgctrl.New()
-		if err != nil {
-			ncutils.PrintLog("failed to start wgctrl", 0)
-			return err
-		}
-		defer client.Close()
-		device, err := client.Device(iface)
-		if err != nil {
-			ncutils.PrintLog("failed to parse interface", 0)
-			return err
-		}
-		devicePeers = device.Peers
+	client, err := wgctrl.New()
+	if err != nil {
+		ncutils.PrintLog("failed to start wgctrl", 0)
+		return err
 	}
+	defer client.Close()
+
+	device, err := client.Device(iface)
+	if err != nil {
+		ncutils.PrintLog("failed to parse interface", 0)
+		return err
+	}
+	devicePeers = device.Peers
+
 	if len(devicePeers) > 1 && len(peers) == 0 {
 		ncutils.PrintLog("no peers pulled", 1)
 		return err
