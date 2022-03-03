@@ -118,14 +118,14 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		}
 
 		time.Sleep(time.Second >> 0)
-		if newNode.DNSOn == "yes" {
-			for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
-				if server.IsLeader {
-					go local.SetDNSWithRetry(newNode, server.Address)
-					break
-				}
-			}
-		}
+		//	if newNode.DNSOn == "yes" {
+		//		for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
+		//			if server.IsLeader {
+		//				go local.SetDNSWithRetry(newNode, server.Address)
+		//				break
+		//			}
+		//		}
+		//	}
 		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
 		if doneErr != nil {
 			ncutils.Log("could not notify server to update peers after interface change")
@@ -143,10 +143,13 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
 		ncutils.Log("settng DNS off")
-		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
-		if err != nil {
-			ncutils.Log("error applying dns" + err.Error())
+		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
+			ncutils.Log("error removing netmaker profile from /etc/hosts " + dataErr.Error())
 		}
+		//		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
+		//		if err != nil {
+		//			ncutils.Log("error applying dns" + err.Error())
+		//		}
 	}
 }
 
@@ -195,12 +198,8 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	logger.Log(0, "DNS updating /etc/hosts")
-	windows := false
-	if ncutils.IsWindows() {
-		windows = true
-	}
 	if cfg.Node.DNSOn == "yes" {
-		if err := setHostDNS(peerUpdate.DNS, windows); err != nil {
+		if err := setHostDNS(peerUpdate.DNS, ncutils.IsWindows()); err != nil {
 			ncutils.Log("error updating /etc/hosts " + err.Error())
 			return
 		}
