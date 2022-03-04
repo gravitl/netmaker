@@ -30,6 +30,7 @@ new-module -name netclient-install -scriptblock {
                 If(-Not $installed) {
                     Quit "Could not install WireGuard"
                 } else {
+                    $env:Path +=  (";" + $env:ProgramFiles + "\WireGuard")
                     Write-Host "'$software' is installed."
                 }
             } else {
