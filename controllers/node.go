@@ -37,7 +37,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 	// ACLs
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/acls", authorize(true, "node", http.HandlerFunc(getNodeACL))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/acls", authorize(true, "node", http.HandlerFunc(updateNodeACL))).Methods("PUT")
 }
 
@@ -341,25 +340,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-}
-
-// Get an individual node. Nothin fancy here folks.
-func getNodeACL(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-	var nodeID = params["nodeid"]
-	var networkID = params["network"]
-
-	nodeACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(networkID), nodeacls.NodeID(nodeID))
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "notfound"))
-		return
-	}
-	logger.Log(2, r.Header.Get("user"), "fetched node ACL", params["nodeid"])
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(nodeACL)
 }
 
 //Get the time that a network of nodes was last modified.
