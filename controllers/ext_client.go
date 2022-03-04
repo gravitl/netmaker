@@ -154,6 +154,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	config := fmt.Sprintf(`[Interface]
 Address = %s
 PrivateKey = %s
+MTU = %d
 %s
 
 [Peer]
@@ -164,6 +165,7 @@ Endpoint = %s
 
 `, client.Address+"/32",
 		client.PrivateKey,
+		gwnode.MTU,
 		defaultDNS,
 		gwnode.PublicKey,
 		newAllowedIPs,
