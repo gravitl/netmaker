@@ -7,7 +7,7 @@ COPY . .
 
 ENV GO111MODULE=auto
 
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netmaker main.go
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-w -s" -o netmaker main.go
 
 FROM alpine:3.13.6
 # add a c lib

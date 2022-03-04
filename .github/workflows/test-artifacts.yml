@@ -71,7 +71,7 @@ jobs:
                 go-version: 1.17
             - name: build server
               run:
-                env CGO_ENABLED=0 go build -ldflags="-X 'main.version=testing'" -o build/netmaker
+                env CGO_ENABLED=1 go build -ldflags="-X 'main.version=testing'" -o build/netmaker
             - name: deploy
               uses: mdallasanta/ssh-scp-deploy@v1.1.0
               with:
