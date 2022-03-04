@@ -205,7 +205,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		}
 	} else {
 		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
-			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())
+			ncutils.Log("error removing netmaker profile from /etc/hosts " + dataErr.Error())
 			return
 		}
 	}
@@ -216,10 +216,14 @@ func setHostDNS(dns []byte, windows bool) error {
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
 	}
-	if err := os.WriteFile("/tmp/dnsdata", dns, 0600); err != nil {
+	tmpfile := "/tmp/dnsdata"
+	if windows {
+		tmpfile = "c:\\windows\\temp\\dnsdata"
+	}
+	if err := os.WriteFile(tmpfile, dns, 0600); err != nil {
 		return err
 	}
-	dnsdata, err := os.Open("/tmp/dnsdata")
+	dnsdata, err := os.Open(tmpfile)
 	if err != nil {
 		return err
 	}
@@ -227,7 +231,7 @@ func setHostDNS(dns []byte, windows bool) error {
 	if err != nil {
 		return err
 	}
-	hosts, err := file.NewFile(etchosts)
+	hosts, err := file.NewFile(etchosts) http.ResponseWriter, r *http.Request
 	if err != nil {
 		return err
 	}
