@@ -231,7 +231,7 @@ func setHostDNS(dns []byte, windows bool) error {
 	if err != nil {
 		return err
 	}
-	hosts, err := file.NewFile(etchosts) http.ResponseWriter, r *http.Request
+	hosts, err := file.NewFile(etchosts)
 	if err != nil {
 		return err
 	}
