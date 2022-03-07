@@ -3,6 +3,7 @@ package logic
 import (
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -224,6 +225,12 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 
 
 	*/
+	dns, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
+	if err != nil {
+		logger.Log(0, "failed to read netmaker.hosts", err.Error())
+	} else {
+		peerUpdate.DNS = dns
+	}
 	return peerUpdate, nil
 }
 

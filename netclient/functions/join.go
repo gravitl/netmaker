@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os/exec"
 	"runtime"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
@@ -110,14 +109,14 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 		}
 	}
 
-	if ncutils.IsLinux() {
-		_, err := exec.LookPath("resolvectl")
-		if err != nil {
-			ncutils.PrintLog("resolvectl not present", 2)
-			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
-			cfg.Node.DNSOn = "no"
-		}
-	}
+	//	if ncutils.IsLinux() {
+	//		_, err := exec.LookPath("resolvectl")
+	//		if err != nil {
+	//			ncutils.PrintLog("resolvectl not present", 2)
+	//			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
+	//			cfg.Node.DNSOn = "no"
+	//		}
+	//	}
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
 	}
@@ -236,20 +235,20 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 	if err != nil {
 		return err
 	}
-	if node.DNSOn == "yes" {
-		for _, server := range node.NetworkSettings.DefaultServerAddrs {
-			if server.IsLeader {
-				go func() {
-					if !local.SetDNSWithRetry(node, server.Address) {
-						cfg.Node.DNSOn = "no"
-						var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
-						PublishNodeUpdate(&currentCommsCfg, &cfg)
-					}
-				}()
-				break
-			}
-		}
-	}
+	//	if node.DNSOn == "yes" {
+	//		for _, server := range node.NetworkSettings.DefaultServerAddrs {
+	//			if server.IsLeader {
+	//				go func() {
+	//					if !local.SetDNSWithRetry(node, server.Address) {
+	//						cfg.Node.DNSOn = "no"
+	//						var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
+	//						PublishNodeUpdate(&currentCommsCfg, &cfg)
+	//					}
+	//				}()
+	//				break
+	//			}
+	//		}
+	//	}
 
 	if !iscomms {
 		if cfg.Daemon != "off" {
