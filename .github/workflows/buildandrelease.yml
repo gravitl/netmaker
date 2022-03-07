@@ -33,14 +33,14 @@ jobs:
 
       - name: Build
         run: |
-          env GOOS=linux GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netmaker main.go
+          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netmaker main.go
           cd netclient
-          env GOOS=linux GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient main.go
-          env GOOS=linux GOARCH=arm GOARM=5 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm5/netclient main.go
-          env GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm6/netclient main.go
-          env GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm7/netclient main.go
-          env GOOS=linux GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm64/netclient main.go
-          env GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
+          env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient main.go
+          env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm5/netclient main.go
+          env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm6/netclient main.go
+          env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm7/netclient main.go
+          env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm64/netclient main.go
+          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags="-X 'main.Version=${NETMAKER_VERSION}'" -o build/netclient-freebsd/netclient main.go
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=5 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm5/netclient main.go
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=6 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm6/netclient main.go

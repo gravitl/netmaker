@@ -39,7 +39,6 @@ func RestartWindowsDaemon() {
 	StopWindowsDaemon()
 	// start daemon, will not restart or start another
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
-	ncutils.Log(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
 }
 
 // CleanupWindows - cleans up windows files
@@ -78,7 +77,7 @@ func writeServiceConfig() error {
 
 // StopWindowsDaemon - stops the Windows daemon
 func StopWindowsDaemon() {
-	ncutils.Log("no networks detected, stopping Windows, Netclient daemon")
+	ncutils.Log("stopping Windows, Netclient daemon")
 	// stop daemon, will not overwrite
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe stop`, true)
 }

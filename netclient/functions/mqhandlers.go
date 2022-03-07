@@ -3,16 +3,21 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/guumaster/hostctl/pkg/file"
+	"github.com/guumaster/hostctl/pkg/parser"
+	"github.com/guumaster/hostctl/pkg/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -113,14 +118,14 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		}
 
 		time.Sleep(time.Second >> 0)
-		if newNode.DNSOn == "yes" {
-			for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
-				if server.IsLeader {
-					go local.SetDNSWithRetry(newNode, server.Address)
-					break
-				}
-			}
-		}
+		//	if newNode.DNSOn == "yes" {
+		//		for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
+		//			if server.IsLeader {
+		//				go local.SetDNSWithRetry(newNode, server.Address)
+		//				break
+		//			}
+		//		}
+		//	}
 		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
 		if doneErr != nil {
 			ncutils.Log("could not notify server to update peers after interface change")
@@ -138,10 +143,13 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
 		ncutils.Log("settng DNS off")
-		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
-		if err != nil {
-			ncutils.Log("error applying dns" + err.Error())
+		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
+			ncutils.Log("error removing netmaker profile from /etc/hosts " + dataErr.Error())
 		}
+		//		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
+		//		if err != nil {
+		//			ncutils.Log("error applying dns" + err.Error())
+		//		}
 	}
 }
 
@@ -189,4 +197,69 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		ncutils.Log("error syncing wg after peer update: " + err.Error())
 		return
 	}
+	logger.Log(0, "DNS updating /etc/hosts")
+	if cfg.Node.DNSOn == "yes" {
+		if err := setHostDNS(peerUpdate.DNS, ncutils.IsWindows()); err != nil {
+			ncutils.Log("error updating /etc/hosts " + err.Error())
+			return
+		}
+	} else {
+		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
+			ncutils.Log("error removing netmaker profile from /etc/hosts " + dataErr.Error())
+			return
+		}
+	}
+}
+
+func setHostDNS(dns []byte, windows bool) error {
+	etchosts := "/etc/hosts"
+	if windows {
+		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
+	}
+	tmpfile := "/tmp/dnsdata"
+	if windows {
+		tmpfile = "c:\\windows\\temp\\dnsdata"
+	}
+	if err := os.WriteFile(tmpfile, dns, 0600); err != nil {
+		return err
+	}
+	dnsdata, err := os.Open(tmpfile)
+	if err != nil {
+		return err
+	}
+	profile, err := parser.ParseProfile(dnsdata)
+	if err != nil {
+		return err
+	}
+	hosts, err := file.NewFile(etchosts)
+	if err != nil {
+		return err
+	}
+	profile.Name = "netmaker"
+	profile.Status = types.Enabled
+	if err := hosts.ReplaceProfile(profile); err != nil {
+		return err
+	}
+	if err := hosts.Flush(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func removeHostDNS(windows bool) error {
+	etchosts := "/etc/hosts"
+	if windows {
+		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
+	}
+	hosts, err := file.NewFile(etchosts)
+	if err != nil {
+		return err
+	}
+	if err := hosts.RemoveProfile("netmaker"); err != nil {
+		return err
+	}
+	if err := hosts.Flush(); err != nil {
+		return err
+	}
+	return nil
 }

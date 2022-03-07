@@ -167,6 +167,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	// ensure you clear any existing interface first
 	d, _ := wgclient.Device(deviceiface)
+	startTime := time.Now()
 	for d != nil && d.Name == deviceiface {
 		if err = RemoveConf(deviceiface, false); err != nil { // remove interface first
 			if strings.Contains(err.Error(), "does not exist") {
@@ -176,6 +177,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		time.Sleep(time.Second >> 2)
 		d, _ = wgclient.Device(deviceiface)
+		if time.Now().After(startTime.Add(time.Second << 4)) {
+			break
+		}
 	}
 	ApplyConf(node, ifacename, confPath)            // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
@@ -207,6 +211,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	ncutils.PrintLog("interface ready - netclient.. ENGAGE", 1)
 	if syncconf { // should never be called really.
+		fmt.Println("why here")
 		err = SyncWGQuickConf(ifacename, confPath)
 	}
 	if !ncutils.HasWgQuick() && ncutils.IsLinux() {
@@ -269,7 +274,7 @@ func SetWGConfig(network string, peerupdate bool) error {
 // RemoveConf - removes a configuration for a given WireGuard interface
 func RemoveConf(iface string, printlog bool) error {
 	os := runtime.GOOS
-	if !ncutils.HasWgQuick() {
+	if ncutils.IsLinux() && !ncutils.HasWgQuick() {
 		os = "nowgquick"
 	}
 	var err error
@@ -295,12 +300,12 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	}
 	var err error
 	switch os {
-	case "nowgquick":
-		ApplyWithoutWGQuick(node, ifacename, confPath)
 	case "windows":
 		ApplyWindowsConf(confPath)
 	case "darwin":
 		ApplyMacOSConf(node, ifacename, confPath)
+	case "nowgquick":
+		ApplyWithoutWGQuick(node, ifacename, confPath)
 	default:
 		ApplyWGQuickConf(confPath, ifacename)
 	}

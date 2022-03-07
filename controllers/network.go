@@ -134,9 +134,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var network models.Network
 	netname := params["networkname"]
-	if isCommsEdit(w, r, netname) {
-		return
-	}
 
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {

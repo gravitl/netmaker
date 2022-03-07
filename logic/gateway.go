@@ -26,8 +26,8 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	node.IsEgressGateway = "yes"
 	node.EgressGatewayRanges = gateway.Ranges
-	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -A FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -D FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 	if gateway.PostUp != "" {
 		postUpCmd = gateway.PostUp
 	}
@@ -89,8 +89,8 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node.PostUp = ""
 	node.PostDown = ""
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
-		node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-		node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+		node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -A FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+		node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -D FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 	}
 	node.SetLastModified()
 
@@ -125,8 +125,8 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	}
 	node.IsIngressGateway = "yes"
 	node.IngressGatewayRange = network.AddressRange
-	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -A FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -D FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
 			postUpCmd = node.PostUp + "; " + postUpCmd

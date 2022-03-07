@@ -390,6 +390,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.Version == "" {
 		newNode.Version = currentNode.Version
 	}
+	if newNode.IsHub == "" {
+		newNode.IsHub = currentNode.IsHub
+	}
 }
 
 // StringWithCharset - returns random string inside defined charset

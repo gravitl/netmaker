@@ -2,10 +2,9 @@ services:
   netmaker: # The Primary Server for running Netmaker
     privileged: true # Necessary to run sudo/root level commands on host system. Likely using this if running with host networking on.
     container_name: netmaker
-    image: gravitl/netmaker:v0.11.0
+    image: gravitl/netmaker:v0.11.1
     volumes: # Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
       - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
-      - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
     cap_add: # Necessary capabilities to set iptables when running in container
       - NET_ADMIN
@@ -45,7 +44,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.11.0
+    image: gravitl/netmaker-ui:v0.11.1
     links:
       - "netmaker:api"
     ports:

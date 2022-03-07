@@ -25,6 +25,10 @@ elif [ -f /etc/fedora-release ]; then
 	dependencies="wireguard"
 	update_cmd='dnf update'
 	install_cmd='dnf install -y'
+elif [ -f /etc/redhat-release ]; then
+	dependencies="wireguard"
+	update_cmd='yum update'
+	install_cmd='yum install -y'
 elif [ -f /etc/arch-releae ]; then
     	dependecies="wireguard-tools"
 	update_cmd='pacman -Sy'
