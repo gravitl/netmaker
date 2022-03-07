@@ -1,6 +1,12 @@
-===============
+==========
 About
-===============
+==========
+
+.. image:: images/netmaker-simple.png
+   :width: 60%
+   :alt: Netmaker Architecture Diagram
+   :align: center
+
 
 What is Netmaker?
 ==================
@@ -25,9 +31,9 @@ Netmaker relies on WireGuard to create tunnels between machines. At its core, Ne
 - the admin server, called Netmaker
 - the agent, called Netclient
 
-As the network manager, you interact with the server to create and manage networks and devices. The server holds configurations for these networks and devices, which are retrieved by the netclients (agent). 
+As the network manager, you interact with the server to create and manage networks and devices. The server holds configurations for these networks and devices, which are retrieved by the netclients (agent). The server runs an MQTT (message queue) broker for client-server communication.
 
-The netclient is installed on any machine you would like to add to a given network, whether that machine is a VM, Server, or IoT device. The netclient reaches out to the server, and the server tells it how it should configure the network. By doing this across many machines simultaneously, we create a dynamic, fully configurable virtual networks.
+The netclient is installed on any machine you would like to add to a given network, whether that machine is a VM, Server, or IoT device. The netclient subscribes to the server's MQ broker, and the server tells it how it should configure WireGuard. The client will let the server know when any local changes should be pushed out to the other clients. By doing this across many machines simultaneously, we create a dynamic, fully configurable virtual networks.
 
 The Netmaker server does not typically route traffic. Otherwise, this would be a hub-and-spoke model, which is very slow. Instead, Netmaker just tells the machines on the network how they can reach each other directly. This is called a *full mesh* network and is much faster. Even if the server goes down, as long as none of the existing machines change substantially, your network will still run just fine.
 

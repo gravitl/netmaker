@@ -46,7 +46,7 @@
   
   
   
-    <title>Advanced Server Installation &#8212; Netmaker 0.9.0 documentation</title>
+    <title>Advanced Server Installation &#8212; Netmaker 0.10.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/material.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -56,8 +56,8 @@
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Integrating OAuth" href="oauth.html" />
-    <link rel="prev" title="Install with Nginx (depreciated)" href="quick-start-nginx.html" />
+    <link rel="next" title="Advanced Client Installation" href="client-installation.html" />
+    <link rel="prev" title="Relay Servers" href="relay-server.html" />
   
    
 
@@ -81,7 +81,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex navheader">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href="index.html" title="Netmaker 0.9.0 documentation"
+        <a href="index.html" title="Netmaker 0.10.0 documentation"
            class="md-header-nav__button md-logo">
           
             <i class="md-icon">&#xe869</i>
@@ -167,7 +167,7 @@
   <nav class="md-tabs" data-md-component="tabs">
     <div class="md-tabs__inner md-grid">
       <ul class="md-tabs__list">
-          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.9.0 documentation</a></li>
+          <li class="md-tabs__item"><a href="index.html" class="md-tabs__link">Netmaker 0.10.0 documentation</a></li>
       </ul>
     </div>
   </nav>
@@ -179,13 +179,13 @@
               <div class="md-sidebar__inner">
                 <nav class="md-nav md-nav--primary" data-md-level="0">
   <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href="index.html" title="Netmaker 0.9.0 documentation" class="md-nav__button md-logo">
+    <a href="index.html" title="Netmaker 0.10.0 documentation" class="md-nav__button md-logo">
       
         <i class="md-icon">&#xe869</i>
       
     </a>
     <a href="index.html"
-       title="Netmaker 0.9.0 documentation">Netmaker Docs</a>
+       title="Netmaker 0.10.0 documentation">Netmaker Docs</a>
   </label>
     <div class="md-nav__source">
       <a href="https://github.com/gravitl/netmaker/" title="Go to repository" class="md-source" data-md-source="github">
@@ -210,70 +210,14 @@
     
     
       <a href="about.html" class="md-nav__link">About</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="about.html#what-is-netmaker" class="md-nav__link">What is Netmaker?</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="about.html#how-does-netmaker-work" class="md-nav__link">How Does Netmaker Work?</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="about.html#use-cases-for-netmaker" class="md-nav__link">Use Cases for Netmaker</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
     
     
       <a href="architecture.html" class="md-nav__link">Architecture</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="architecture.html#core-concepts" class="md-nav__link">Core Concepts</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="architecture.html#components" class="md-nav__link">Components</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="architecture.html#technical-process" class="md-nav__link">Technical Process</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="architecture.html#compatible-systems-for-netclient" class="md-nav__link">Compatible Systems for Netclient</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="architecture.html#limitations" class="md-nav__link">Limitations</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
@@ -287,133 +231,42 @@
     
     
       <a href="quick-start.html" class="md-nav__link">Quick Install</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#introduction" class="md-nav__link">Introduction</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#prerequisites" class="md-nav__link">0. Prerequisites</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#prepare-dns" class="md-nav__link">1. Prepare DNS</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#open-firewall" class="md-nav__link">3. Open Firewall</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
     
     
       <a href="getting-started.html" class="md-nav__link">Getting Started</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="getting-started.html#setup" class="md-nav__link">Setup</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="getting-started.html#deploy-nodes" class="md-nav__link">Deploy Nodes</a>
+      <a href="external-clients.html" class="md-nav__link">Ingress + External Clients</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="getting-started.html#manage-nodes" class="md-nav__link">Manage Nodes</a>
+      <a href="egress-gateway.html" class="md-nav__link">Egress Gateway</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="getting-started.html#uninstalling-the-netclient" class="md-nav__link">Uninstalling the netclient</a>
+      <a href="relay-server.html" class="md-nav__link">Relay Servers</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="getting-started.html#uninstalling-netmaker" class="md-nav__link">Uninstalling Netmaker</a>
+      <a href="https://k8s.netmaker.org" class="md-nav__link">Kubernetes</a>
       
-    
-    </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start-nginx.html" class="md-nav__link">Install with Nginx (depreciated)</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start-nginx.html#introduction" class="md-nav__link">0. Introduction</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start-nginx.html#prerequisites" class="md-nav__link">1. Prerequisites</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start-nginx.html#install-dependencies" class="md-nav__link">2. Install Dependencies</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start-nginx.html#prepare-vm" class="md-nav__link">3. Prepare VM</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="quick-start-nginx.html#install-netmaker" class="md-nav__link">4. Install Netmaker</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
@@ -439,6 +292,8 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
         <li class="md-nav__item"><a href="#compose-file-annotated" class="md-nav__link">Compose File - Annotated</a>
+        </li>
+        <li class="md-nav__item"><a href="#available-docker-compose-files" class="md-nav__link">Available docker-compose files</a>
         </li></ul>
             </nav>
         </li>
@@ -456,13 +311,15 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
+        <li class="md-nav__item"><a href="#database-setup-optional" class="md-nav__link">Database Setup (optional)</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
         <li class="md-nav__item"><a href="#ui-setup" class="md-nav__link">UI Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#coredns-setup" class="md-nav__link">CoreDNS Setup</a>
+        <li class="md-nav__item"><a href="#coredns-setup-optional" class="md-nav__link">CoreDNS Setup (optional)</a>
+        </li>
+        <li class="md-nav__item"><a href="#proxy-load-balancer" class="md-nav__link">Proxy / Load Balancer</a>
         </li></ul>
             </nav>
         </li>
@@ -498,7 +355,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">2. RQLite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
         </li>
@@ -579,288 +436,64 @@
     <li class="md-nav__item">
     
     
+      <a href="client-installation.html" class="md-nav__link">Advanced Client Installation</a>
+      
+    
+    </li>
+    <li class="md-nav__item">
+    
+    
       <a href="oauth.html" class="md-nav__link">Integrating OAuth</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html#introduction" class="md-nav__link">Introduction</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="oauth.html#configuring-your-provider" class="md-nav__link">Configuring your provider</a>
+      <a href="usage.html" class="md-nav__link">External Guides</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="oauth.html#configuring-netmaker" class="md-nav__link">Configuring Netmaker</a>
+      <a href="ui-reference.html" class="md-nav__link">UI Reference</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="oauth.html#configuring-user-permissions" class="md-nav__link">Configuring User Permissions</a>
-      
-    
-    </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html" class="md-nav__link">Client Installation</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html#introduction-to-netclient" class="md-nav__link">Introduction to Netclient</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html#notes-on-windows" class="md-nav__link">Notes on Windows</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html#modes-and-system-compatibility" class="md-nav__link">Modes and System Compatibility</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html#prerequisites" class="md-nav__link">Prerequisites</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html#configuration" class="md-nav__link">Configuration</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html#installation" class="md-nav__link">Installation</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="client-installation.html#managing-netclient" class="md-nav__link">Managing Netclient</a>
-      
-    
-    </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html" class="md-nav__link">External Clients</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html#introduction" class="md-nav__link">Introduction</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html#configuring-an-ingress-gateway" class="md-nav__link">Configuring an Ingress Gateway</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html#adding-clients-to-a-gateway" class="md-nav__link">Adding Clients to a Gateway</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="external-clients.html#configuring-dns-for-ext-clients-optional" class="md-nav__link">Configuring DNS for Ext Clients (OPTIONAL)</a>
-      
-    
-    </li></ul>
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html" class="md-nav__link">Using Netmaker</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="usage.html#external-tutorials" class="md-nav__link">External Tutorials</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
     
     
       <a href="api.html" class="md-nav__link">API Reference</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="api.html#api-usage" class="md-nav__link">API Usage</a>
       
     
     </li>
     <li class="md-nav__item">
     
     
-      <a href="api.html#authentication" class="md-nav__link">Authentication</a>
+      <a href="upgrades.html" class="md-nav__link">Upgrades</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="api.html#format-of-calls-for-curl" class="md-nav__link">Format of Calls for Curl</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="api.html#api-documentation" class="md-nav__link">API Documentation</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
     
     
       <a href="troubleshoot.html" class="md-nav__link">Troubleshooting</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="troubleshoot.html#common-issues" class="md-nav__link">Common Issues</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="troubleshoot.html#server" class="md-nav__link">Server</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="troubleshoot.html#ui" class="md-nav__link">UI</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="troubleshoot.html#netclient" class="md-nav__link">Netclient</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="troubleshoot.html#coredns" class="md-nav__link">CoreDNS</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
     
     
       <a href="support.html" class="md-nav__link">Support</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="support.html#faq" class="md-nav__link">FAQ</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="support.html#contact" class="md-nav__link">Contact</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
     
     
       <a href="conduct.html" class="md-nav__link">Code of Conduct</a>
-      <ul class="md-nav__list"> 
-    <li class="md-nav__item">
-    
-    
-      <a href="conduct.html#our-pledge" class="md-nav__link">Our Pledge</a>
       
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="conduct.html#our-standards" class="md-nav__link">Our Standards</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="conduct.html#our-responsibilities" class="md-nav__link">Our Responsibilities</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="conduct.html#scope" class="md-nav__link">Scope</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="conduct.html#enforcement" class="md-nav__link">Enforcement</a>
-      
-    
-    </li>
-    <li class="md-nav__item">
-    
-    
-      <a href="conduct.html#attribution" class="md-nav__link">Attribution</a>
-      
-    
-    </li></ul>
     
     </li>
     <li class="md-nav__item">
@@ -895,6 +528,8 @@
         <li class="md-nav__item"><a href="#config-file-reference" class="md-nav__link">Config File Reference</a>
         </li>
         <li class="md-nav__item"><a href="#compose-file-annotated" class="md-nav__link">Compose File - Annotated</a>
+        </li>
+        <li class="md-nav__item"><a href="#available-docker-compose-files" class="md-nav__link">Available docker-compose files</a>
         </li></ul>
             </nav>
         </li>
@@ -912,13 +547,15 @@
         </li>
         <li class="md-nav__item"><a href="#linux-install-without-docker" class="md-nav__link">Linux Install without Docker</a><nav class="md-nav">
               <ul class="md-nav__list">
-        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">rqlite Setup</a>
+        <li class="md-nav__item"><a href="#database-setup-optional" class="md-nav__link">Database Setup (optional)</a>
         </li>
         <li class="md-nav__item"><a href="#server-setup" class="md-nav__link">Server Setup</a>
         </li>
         <li class="md-nav__item"><a href="#ui-setup" class="md-nav__link">UI Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#coredns-setup" class="md-nav__link">CoreDNS Setup</a>
+        <li class="md-nav__item"><a href="#coredns-setup-optional" class="md-nav__link">CoreDNS Setup (optional)</a>
+        </li>
+        <li class="md-nav__item"><a href="#proxy-load-balancer" class="md-nav__link">Proxy / Load Balancer</a>
         </li></ul>
             </nav>
         </li>
@@ -954,7 +591,7 @@
               <ul class="md-nav__list">
         <li class="md-nav__item"><a href="#load-balancer-setup" class="md-nav__link">1. Load Balancer Setup</a>
         </li>
-        <li class="md-nav__item"><a href="#id1" class="md-nav__link">2. RQLite Setup</a>
+        <li class="md-nav__item"><a href="#rqlite-setup" class="md-nav__link">2. RQLite Setup</a>
         </li>
         <li class="md-nav__item"><a href="#netmaker-setup" class="md-nav__link">3. Netmaker Setup</a>
         </li>
@@ -1060,6 +697,32 @@
 <dt>CLIENT_MODE:</dt><dd><p><strong>Default:</strong> “on”</p>
 <p><strong>Description:</strong> Specifies if server should deploy itself as a node (client) in each network. May be turned to “off” for more restricted servers.</p>
 </dd>
+<dt>RCE:</dt><dd><p><strong>Default:</strong> “off”</p>
+<p><strong>Description:</strong> The server enables you to set PostUp and PostDown commands for nodes, which is standard for WireGuard with wg-quick, but is also <strong>Remote Code Execution</strong>, which is a critical vulnerability if the server is exploited. Because of this, it’s turned off by default, but if turned on, PostUp and PostDown become editable.</p>
+</dd>
+<dt>SERVER_GRPC_WIREGUARD</dt><dd><p><strong>Depreciated:</strong> no longer in use</p>
+</dd>
+<dt>DISPLAY_KEYS</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> If “on”, will allow you to always show the key values of “access keys”. This could be considered a vulnerability, so if turned “off”, will only display key values once, and it is up to the users to store the key values locally.</p>
+</dd>
+<dt>NODE_ID</dt><dd><p><strong>Default:</strong> &lt;system mac addres&gt;</p>
+<p><strong>Description:</strong> This setting is used for HA configurations of the server, to identify between different servers. Nodes are given ID’s like netmaker-1, netmaker-2, and netmaker-3. If the server is not HA, there is no reason to set this field.</p>
+</dd>
+<dt>TELEMETRY</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> If “on”, the server will send anonymous telemetry data once daily, which is used to improve the product. Data sent includes counts (integer values) for the number of nodes, types of nodes, users, and networks. It also sends the version of the server.</p>
+</dd>
+<dt>MQ_HOST</dt><dd><p><strong>Default:</strong> (public IP of server)</p>
+<p><strong>Description:</strong> The address of the mq server. If running from docker compose it will be “mq”. If using “host networking”, it will find and detect the IP of the mq container. Otherwise, need to input address. If not set, it will use the public IP of the server. the port 1883 will be appended automatically. This is the expected reachable port for MQ and cannot be changed at this time.</p>
+</dd>
+<dt>HOST_NETWORK:</dt><dd><p><strong>Default:</strong> “off”</p>
+<p><strong>Description:</strong> Whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables and forwarding for MQ.</p>
+</dd>
+<dt>MANAGE_IPTABLES:</dt><dd><p><strong>Default:</strong> “on”</p>
+<p><strong>Description:</strong> # Sets iptables on the machine being managed in order to forward properly from wireguard interface to MQ and other services listed in “port forward services.” It’s better to leave this on unless you know what you’re doing.</p>
+</dd>
+<dt>PORT_FORWARD_SERVICES:</dt><dd><p><strong>Default:</strong> “”</p>
+<p><strong>Description:</strong> Comma-separated list of services for which to configure port forwarding on the machine. Options include “mq,dns,ssh”. Typically best to leave mq and dns on. ssh can be removed.’ssh’ forwards port 22 over wireguard, enabling ssh to server over wireguard. dns enables private dns over wireguard. mq enables mq.</p>
+</dd>
 </dl>
 
 
@@ -1079,6 +742,7 @@
   <span class="nt">sqlconn</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "http://" or SQL_CONN (if set)</span>
   <span class="nt">disableremoteipcheck</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)</span>
   <span class="nt">version</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># version of server</span>
+  <span class="nt">rce</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># defaults to "off"</span>
 </pre></div>
 </div>
 
@@ -1098,7 +762,7 @@
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">rqlite</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.9.0</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker:v0.9.4</span>
     <span class="nt">volumes</span><span class="p">:</span> <span class="c1"># Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">dnsconfig:/root/config/dnsconfig</span> <span class="c1"># Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">/usr/bin/wg:/usr/bin/wg</span>
@@ -1124,11 +788,14 @@
       <span class="nt">DISPLAY_KEYS</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Show keys permanently in UI (until deleted) as opposed to 1-time display.</span>
       <span class="nt">SERVER_API_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT</span>
       <span class="nt">SERVER_GRPC_CONN_STRING</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT</span>
+      <span class="nt">RCE</span><span class="p">:</span> <span class="s">"off"</span> <span class="c1"># Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.</span>
+      <span class="nt">NODE_ID</span><span class="p">:</span> <span class="s">""</span> <span class="c1"># Sets the name/id of the nodes that the server creates. Necessary for HA configurations to identify between servers (for instance, netmaker-1, netmaker-2, etc). For non-HA deployments, is not necessary.</span>
+      <span class="nt">TELEMETRY</span><span class="p">:</span> <span class="s">"on"</span> <span class="c1"># Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.</span>
   <span class="nt">netmaker-ui</span><span class="p">:</span> <span class="c1"># The Netmaker UI Component</span>
     <span class="nt">container_name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">netmaker-ui</span>
     <span class="nt">depends_on</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">netmaker</span>
-    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker-ui:v0.9.0</span>
+    <span class="nt">image</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">gravitl/netmaker-ui:v0.9.3</span>
     <span class="nt">links</span><span class="p">:</span>
       <span class="p p-Indicator">-</span> <span class="s">"netmaker:api"</span>
     <span class="nt">ports</span><span class="p">:</span>
@@ -1151,6 +818,20 @@
   <span class="nt">dnsconfig</span><span class="p">:</span> <span class="p p-Indicator">{}</span>
 </pre></div>
 </div>
+
+
+<h3 id="available-docker-compose-files">Available docker-compose files<a class="headerlink" href="#available-docker-compose-files" title="Permalink to this headline">¶</a></h3>
+<p>The default options for docker-compose can be found here: <a class="reference external" href="https://github.com/gravitl/netmaker/tree/master/compose">https://github.com/gravitl/netmaker/tree/master/compose</a></p>
+<p>The following is a brief description of each:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.contained.yml">docker-compose.contained.yml</a> - This is the default docker-compose, used in the quick start and deployment script in the README on GitHub. It deploys Netmaker with all options included (Caddy and CoreDNS) and has “self-contained” netclients, meaning they do not affect host networking.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.coredns.yml">docker-compose.coredns.yml</a> - This is a simple compose used to spin up a standalone CoreDNS server. Can be useful if, for instance, you are unning Netmaker on baremetal but need CoreDNS.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.hostnetwork.yml">docker-compose.hostnetwork.yml</a> - This is similar to the docker-compose.contained.yml but with a key difference: it has advanced permissions and mounts host volumes to control networking on the host level.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nocaddy.yml">docker-compose.nocaddy.yml</a> -= This is the same as docker-compose.contained.yml but without Caddy, in case you need to use a different proxy like Nginx, Traefik, or HAProxy.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.nodns.yml">docker-compose.nodns.yml</a> - This is the same as docker-compose.contained.yml but without CoreDNS, in which case you will not have the Private DNS feature.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.reference.yml">docker-compose.reference.yml</a> - This is the same as docker-compose.contained.yml but with all variable options on display and annotated (it’s what we show right above this section). Use this to determine which variables you should add or change in your configuration.</p></li>
+<li><p><a class="reference external" href="https://github.com/gravitl/netmaker/blob/master/compose/docker-compose.yml">docker-compose.yml</a> - This is a renamed docker-compose.contained.yml. It is meant only to act as a placeholder for what we consider the “primary” docker-compose that users should work with.</p></li>
+</ul>
 
 
 
@@ -1208,15 +889,16 @@ docker-compose up -d`
 
 
 <span id="nodocker"></span><h2 id="linux-install-without-docker">Linux Install without Docker<a class="headerlink" href="#linux-install-without-docker" title="Permalink to this headline">¶</a></h2>
-<p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you need to install MongoDB and CoreDNS (optional).</p>
-<p>To start, we recommend following the Nginx instructions in the <a class="reference internal" href="quick-start.html"><span class="doc">Quick Install</span></a> guide to enable SSL for your environment.</p>
+<p>Most systems support Docker, but some do not. In such environments, there are many options for installing Netmaker. Netmaker is available as a binary file, and there is a zip file of the Netmaker UI static HTML on GitHub. Beyond the UI and Server, you may want to optionally install a database (sqlite is embedded, rqlite or postgres are supported) and CoreDNS (also optional).</p>
 <p>Once this is enabled and configured for a domain, you can continue with the below. The recommended server runs Ubuntu 20.04.</p>
 
-<h3 id="rqlite-setup">rqlite Setup<a class="headerlink" href="#rqlite-setup" title="Permalink to this headline">¶</a></h3>
+<h3 id="database-setup-optional">Database Setup (optional)<a class="headerlink" href="#database-setup-optional" title="Permalink to this headline">¶</a></h3>
+<p>You can run the netmaker binary standalone and it will run an embedded sqlite server. Data goes in the data/ directory. Optionally, you can run PostgreSQL or rqlite. Instructions for rqlite are below.</p>
 <ol class="arabic simple">
 <li><p>Install rqlite on your server: <a class="reference external" href="https://github.com/rqlite/rqlite">https://github.com/rqlite/rqlite</a></p></li>
 <li><p>Run rqlite: rqlited -node-id 1 ~/node.1</p></li>
 </ol>
+<p>If using rqlite or postgres, you must change the DATABASE environment/config variable and enter connection details.</p>
 
 
 <h3 id="server-setup">Server Setup<a class="headerlink" href="#server-setup" title="Permalink to this headline">¶</a></h3>
@@ -1249,7 +931,13 @@ docker-compose up -d`
 </div>
 
 
-<h3 id="coredns-setup">CoreDNS Setup<a class="headerlink" href="#coredns-setup" title="Permalink to this headline">¶</a></h3>
+<h3 id="coredns-setup-optional">CoreDNS Setup (optional)<a class="headerlink" href="#coredns-setup-optional" title="Permalink to this headline">¶</a></h3>
+<p>CoreDNS is only required if you want private DNS features. Once installed, you must set the CoreDNS variables in the env settings of the server.</p>
+<p>See <a class="reference external" href="https://coredns.io/manual/toc/#installation">https://coredns.io/manual/toc/#installation</a></p>
+
+
+<h3 id="proxy-load-balancer">Proxy / Load Balancer<a class="headerlink" href="#proxy-load-balancer" title="Permalink to this headline">¶</a></h3>
+<p>You will need to proxy connections to your UI and Server. By default the ports are 8081, 8082, and 50051 (grpc). This proxy should handle SSL certificates. We recommend Caddy or Nginx (you can follow the Nginx guide in these docs). The proxy must be able to handle gRPC connections.</p>
 
 
 
@@ -1457,7 +1145,7 @@ This install has some notable exceptions:
 <p>Your load balancer of choice will send requests to the Netmaker servers. Setup is similar to the various guides we have created for Nginx, Caddy, and Traefik. SSL certificates must also be configured and handled by the LB.</p>
 
 
-<h3 id="id1">2. RQLite Setup<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<h3 id="rqlite-setup">2. RQLite Setup<a class="headerlink" href="#rqlite-setup" title="Permalink to this headline">¶</a></h3>
 <p>RQLite is the included distributed datastore for an HA Netmaker installation. If you have a different corporate database you wish to integrate, Netmaker is easily extended to other DB’s. If this is a requirement, please contact us.</p>
 <p>Assuming you use Rqlite, you must run it on each Netmaker server VM, or alongside that VM as a container. Setup a config.json for database credentials (password supports BCRYPT HASHING) and mount in working directory of rqlite and specify with <cite>-auth config.json</cite> :</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[{</span>
@@ -1511,7 +1199,7 @@ This install has some notable exceptions:
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
           
-            <a href="quick-start-nginx.html" title="Install with Nginx (depreciated)"
+            <a href="relay-server.html" title="Relay Servers"
                class="md-flex md-footer-nav__link md-footer-nav__link--prev"
                rel="prev">
               <div class="md-flex__cell md-flex__cell--shrink">
@@ -1520,17 +1208,17 @@ This install has some notable exceptions:
               <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
                 <span class="md-flex__ellipsis">
                   <span
-                      class="md-footer-nav__direction"> Previous </span> Install with Nginx (depreciated) </span>
+                      class="md-footer-nav__direction"> Previous </span> Relay Servers </span>
               </div>
             </a>
           
           
-            <a href="oauth.html" title="Integrating OAuth"
+            <a href="client-installation.html" title="Advanced Client Installation"
                class="md-flex md-footer-nav__link md-footer-nav__link--next"
                rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
                 class="md-flex__ellipsis"> <span
-                class="md-footer-nav__direction"> Next </span> Integrating OAuth </span>
+                class="md-footer-nav__direction"> Next </span> Advanced Client Installation </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink"><i
                 class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>

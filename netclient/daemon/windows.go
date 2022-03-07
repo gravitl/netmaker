@@ -34,6 +34,13 @@ func SetupWindowsDaemon() error {
 	return nil
 }
 
+// RestartWindowsDaemon - restarts windows service
+func RestartWindowsDaemon() {
+	StopWindowsDaemon()
+	// start daemon, will not restart or start another
+	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
+}
+
 // CleanupWindows - cleans up windows files
 func CleanupWindows() {
 	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.xml") {
@@ -52,11 +59,12 @@ func writeServiceConfig() error {
 <name>Netclient</name>
 <description>Connects Windows nodes to one or more Netmaker networks.</description>
 <executable>%v</executable>
+<arguments>daemon</arguments>
 <log mode="roll"></log>
 </service>
 `, strings.Replace(ncutils.GetNetclientPathSpecific()+"netclient.exe", `\\`, `\`, -1))
 	if !ncutils.FileExists(serviceConfigPath) {
-		err := os.WriteFile(serviceConfigPath, []byte(scriptString), 0644)
+		err := os.WriteFile(serviceConfigPath, []byte(scriptString), 0600)
 		if err != nil {
 			return err
 		}
@@ -69,7 +77,7 @@ func writeServiceConfig() error {
 
 // StopWindowsDaemon - stops the Windows daemon
 func StopWindowsDaemon() {
-	ncutils.Log("no networks detected, stopping Windows, Netclient daemon")
+	ncutils.Log("stopping Windows, Netclient daemon")
 	// stop daemon, will not overwrite
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe stop`, true)
 }

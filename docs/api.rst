@@ -17,8 +17,11 @@ API calls must be authenticated via a header of  the format  `-H "Authorization:
 
 Format of Calls for Curl
 ========================
-Requests take the format of `curl -H "Authorization: Bearer <YOUR_SECRET_KEY>" -H 'Content-Type: application/json' localhost:8081/api/path/to/endpoint`
+Requests take the format of 
 
+.. code-block::
+
+    curl -H "Authorization: Bearer <YOUR_SECRET_KEY>" -H 'Content-Type: application/json' localhost:8081/api/path/to/endpoint
 
 API Documentation
 =================
@@ -41,18 +44,21 @@ Networks API
   
 Networks API Call Examples
 --------------------------  
-  
-**Get All Networks:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks | jq`
 
-**Create Network:** `curl -d '{"addressrange":"10.70.0.0/16","netid":"skynet"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks`
+.. code-block::
 
-**Get Network:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet | jq`
+    Get All Networks: curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks | jq
 
-**Update Network:** `curl -X PUT -d '{"displayname":"my-house"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks/skynet`
+    Create Network: curl -d '{"addressrange":"10.70.0.0/16","netid":"skynet"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks
 
-**Delete Network:** `curl -X DELETE -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet`
+    Get Network: curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet | jq
 
-**Cycle PublicKeys on all Nodes:** `curl -X POST -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keyupdate`
+    Update Network: curl -X PUT -d '{"displayname":"my-house"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks/skynet
+
+    Delete Network: curl -X DELETE -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet
+
+    Cycle PublicKeys on all Nodes: curl -X POST -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keyupdate
+
 
 Access Keys API
 ---------------
@@ -66,13 +72,15 @@ Access Keys API
   
 Access Keys API Call Examples
 -----------------------------
-   
-**Get All Keys:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys | jq`
-  
-**Create Key:** `curl -d '{"uses":10,"name":"mykey"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks/skynet/keys`
-  
-**Delete Key:** `curl -X DELETE -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys/mykey`
-  
+
+.. code-block::
+
+    Get All Keys: curl -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys | jq
+    
+    Create Key: curl -d '{"uses":10,"name":"mykey"}' -H "Authorization: Bearer YOUR_SECRET_KEY" -H 'Content-Type: application/json' localhost:8081/api/networks/skynet/keys
+    
+    Delete Key: curl -X DELETE -H "Authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/networks/skynet/keys/mykey
+
     
 Nodes API
 ---------
@@ -104,29 +112,31 @@ Nodes API
   
 Nodes API Call Examples
 ----------------------- 
-  
-**Get All Nodes:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes | jq`
-  
-**Get Network Nodes:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet | jq`
-    
-**Create Node:** `curl  -d  '{ "endpoint": 100.200.100.200, "publickey": aorijqalrik3ajflaqrdajhkr,"macaddress": "8c:90:b5:06:f1:d9","password": "reallysecret","localaddress": "172.16.16.1","accesskey": "aA3bVG0rnItIRXDx","listenport": 6400}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet`
-    
-**Get Node:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet/{macaddress} | jq`  
-  
-**Update Node:** `curl -X PUT -d '{"name":"laptop1"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9`
-  
-**Delete Node:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9`
-  
-**Create a Gateway:** `curl  -d  '{ "rangestring": "172.31.0.0/16", "interface": "eth0"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/creategateway`
-  
-**Delete a Gateway:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/deletegateway`
-  
-**Approve a Pending Node:** `curl -X POST -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/approve`
-  
-**Get Last Modified Date (Last Modified Node in Network):** `curl -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/adm/skynet/lastmodified`
 
-**Authenticate:** `curl -d  '{"macaddress": "8c:90:b5:06:f1:d9", "password": "YOUR_PASSWORD"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate`
-  
+.. code-block::
+
+    Get All Nodes: curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes | jq
+    
+    Get Network Nodes: curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet | jq
+        
+    Create Node: curl  -d  '{ "endpoint": 100.200.100.200, "publickey": aorijqalrik3ajflaqrdajhkr,"macaddress": "8c:90:b5:06:f1:d9","password": "reallysecret","localaddress": "172.16.16.1","accesskey": "aA3bVG0rnItIRXDx","listenport": 6400}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet
+        
+    Get Node: curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet/{macaddress} | jq  
+    
+    Update Node: curl -X PUT -d '{"name":"laptop1"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9
+    
+    Delete Node: curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/skynet/nodes/8c:90:b5:06:f1:d9
+    
+    Create a Gateway: curl  -d  '{ "rangestring": "172.31.0.0/16", "interface": "eth0"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/creategateway
+    
+    Delete a Gateway: curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/deletegateway
+    
+    Approve a Pending Node: curl -X POST -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9/approve
+    
+    Get Last Modified Date (Last Modified Node in Network): curl -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/adm/skynet/lastmodified
+
+    Authenticate: curl -d  '{"macaddress": "8c:90:b5:06:f1:d9", "password": "YOUR_PASSWORD"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate
+
 
 Users API
 -----------------------
@@ -148,19 +158,21 @@ Users API
   
 Users API Calls Examples
 ------------------------
-  
-**Get User:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq`
 
-**Update User:** `curl -X PUT -d '{"password":"noonewillguessthis"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
-  
-**Delete User:** `curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}`
-  
-**Check for Admin User:** `curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/adm/hasadmin`
-  
-**Create Admin User:** `curl -d '{ "username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/adm/createadmin`
-   
-**Authenticate:** `curl -d  '{"username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate`
-  
+.. code-block::
+
+    Get User: curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/{username} | jq
+
+    Update User: curl -X PUT -d '{"password":"noonewillguessthis"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}
+    
+    Delete User: curl -X DELETE -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/{username}
+    
+    Check for Admin User: curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/users/adm/hasadmin
+    
+    Create Admin User: curl -d '{ "username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/users/adm/createadmin
+    
+    Authenticate: curl -d  '{"username": "smartguy", "password": "YOUR_PASS"}' -H 'Content-Type: application/json' localhost:8081/api/nodes/adm/skynet/authenticate
+
 
 Server Management API
 ---------------------

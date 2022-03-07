@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -11,51 +12,51 @@ import (
 )
 
 // CreateRelay - creates a relay
-func CreateRelay(relay models.RelayRequest) (models.Node, error) {
-	node, err := GetNodeByMacAddress(relay.NetID, relay.NodeID)
-	if node.OS == "macos" { // add in darwin later
-		return models.Node{}, errors.New(node.OS + " is unsupported for relay")
-	}
+func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) {
+	var returnnodes []models.Node
+
+	node, err := GetNodeByID(relay.NodeID)
 	if err != nil {
-		return models.Node{}, err
+		return returnnodes, models.Node{}, err
+	}
+	if node.OS != "linux" {
+		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
 	}
 	err = ValidateRelay(relay)
 	if err != nil {
-		return models.Node{}, err
+		return returnnodes, models.Node{}, err
 	}
 	node.IsRelay = "yes"
 	node.RelayAddrs = relay.RelayAddrs
 
-	key, err := GetRecordKey(relay.NodeID, relay.NetID)
-	if err != nil {
-		return node, err
-	}
 	node.SetLastModified()
-	node.PullChanges = "yes"
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
-		return node, err
+		return returnnodes, node, err
 	}
-	if err = database.Insert(key, string(nodeData), database.NODES_TABLE_NAME); err != nil {
-		return models.Node{}, err
+	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
+		return returnnodes, models.Node{}, err
 	}
-	err = SetRelayedNodes("yes", node.Network, node.RelayAddrs)
+	returnnodes, err = SetRelayedNodes("yes", node.Network, node.RelayAddrs)
 	if err != nil {
-		return node, err
+		return returnnodes, node, err
 	}
-
 	if err = NetworkNodesUpdatePullChanges(node.Network); err != nil {
-		return models.Node{}, err
+		return returnnodes, models.Node{}, err
 	}
-	return node, nil
+	return returnnodes, node, nil
 }
 
 // SetRelayedNodes- set relayed nodes
-func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
-
+func SetRelayedNodes(yesOrno string, networkName string, addrs []string) ([]models.Node, error) {
+	var returnnodes []models.Node
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
-		return err
+		return returnnodes, err
+	}
+	network, err := GetNetworkSettings(networkName)
+	if err != nil {
+		return returnnodes, err
 	}
 
 	for _, value := range collections {
@@ -63,23 +64,60 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) error {
 		var node models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			return err
+			return returnnodes, err
 		}
-		if node.Network == networkName {
+		if node.Network == networkName && !(node.IsServer == "yes") {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
 					node.IsRelayed = yesOrno
+					if yesOrno == "yes" {
+						node.UDPHolePunch = "no"
+					} else {
+						node.UDPHolePunch = network.DefaultUDPHolePunch
+					}
 					data, err := json.Marshal(&node)
 					if err != nil {
-						return err
+						return returnnodes, err
 					}
-					node.SetID()
 					database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+					returnnodes = append(returnnodes, node)
 				}
 			}
 		}
 	}
-	return nil
+	return returnnodes, nil
+}
+
+// SetNodeIsRelayed - Sets IsRelayed to on or off for relay
+func SetNodeIsRelayed(yesOrno string, id string) (models.Node, error) {
+	node, err := GetNodeByID(id)
+	if err != nil {
+		return node, err
+	}
+	network, err := GetNetworkByNode(&node)
+	if err != nil {
+		return node, err
+	}
+	node.IsRelayed = yesOrno
+	if yesOrno == "yes" {
+		node.UDPHolePunch = "no"
+	} else {
+		node.UDPHolePunch = network.DefaultUDPHolePunch
+	}
+	data, err := json.Marshal(&node)
+	if err != nil {
+		return node, err
+	}
+	return node, database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+}
+
+// PeerListUnRelay - call this function if a relayed node fails to get its relay: unrelays node and gets new peer list
+func PeerListUnRelay(id string, network string) ([]models.Node, error) {
+	node, err := SetNodeIsRelayed("no", id)
+	if err != nil {
+		return nil, err
+	}
+	return GetPeersList(&node)
 }
 
 // ValidateRelay - checks if relay is valid
@@ -94,47 +132,45 @@ func ValidateRelay(relay models.RelayRequest) error {
 }
 
 // UpdateRelay - updates a relay
-func UpdateRelay(network string, oldAddrs []string, newAddrs []string) {
+func UpdateRelay(network string, oldAddrs []string, newAddrs []string) []models.Node {
+	var returnnodes []models.Node
 	time.Sleep(time.Second / 4)
-	err := SetRelayedNodes("no", network, oldAddrs)
+	returnnodes, err := SetRelayedNodes("no", network, oldAddrs)
 	if err != nil {
 		logger.Log(1, err.Error())
 	}
-	err = SetRelayedNodes("yes", network, newAddrs)
+	returnnodes, err = SetRelayedNodes("yes", network, newAddrs)
 	if err != nil {
 		logger.Log(1, err.Error())
 	}
+	return returnnodes
 }
 
 // DeleteRelay - deletes a relay
-func DeleteRelay(network, macaddress string) (models.Node, error) {
-
-	node, err := GetNodeByMacAddress(network, macaddress)
+func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
+	var returnnodes []models.Node
+	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.Node{}, err
+		return returnnodes, models.Node{}, err
 	}
-	err = SetRelayedNodes("no", node.Network, node.RelayAddrs)
+	_, err = SetRelayedNodes("no", node.Network, node.RelayAddrs)
 	if err != nil {
-		return node, err
+		return returnnodes, node, err
 	}
 
 	node.IsRelay = "no"
 	node.RelayAddrs = []string{}
 	node.SetLastModified()
-	node.PullChanges = "yes"
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return models.Node{}, err
-	}
+
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.Node{}, err
+		return returnnodes, models.Node{}, err
 	}
-	if err = database.Insert(key, string(data), database.NODES_TABLE_NAME); err != nil {
-		return models.Node{}, err
+	if err = database.Insert(nodeid, string(data), database.NODES_TABLE_NAME); err != nil {
+		return returnnodes, models.Node{}, err
 	}
 	if err = NetworkNodesUpdatePullChanges(network); err != nil {
-		return models.Node{}, err
+		return returnnodes, models.Node{}, err
 	}
-	return node, nil
+	return returnnodes, node, nil
 }

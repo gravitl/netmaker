@@ -1,17 +1,19 @@
 package daemon
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 const MAC_SERVICE_NAME = "com.gravitl.netclient"
+const MAC_EXEC_DIR = "/usr/local/bin/"
 
-func SetupMacDaemon(interval string) error {
+// SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
+func SetupMacDaemon() error {
 
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
@@ -19,8 +21,8 @@ func SetupMacDaemon(interval string) error {
 	}
 	binarypath := dir + "/netclient"
 
-	if !ncutils.FileExists("/etc/netclient/netclient") {
-		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
+	if !ncutils.FileExists(MAC_EXEC_DIR + "netclient") {
+		err = ncutils.Copy(binarypath, MAC_EXEC_DIR+"netclient")
 		if err != nil {
 			log.Println(err)
 			return err
@@ -31,7 +33,7 @@ func SetupMacDaemon(interval string) error {
 	if os.IsNotExist(errN) {
 		os.Mkdir("~/Library/LaunchAgents", 0755)
 	}
-	err = CreateMacService(MAC_SERVICE_NAME, interval)
+	err = CreateMacService(MAC_SERVICE_NAME)
 	if err != nil {
 		return err
 	}
@@ -39,6 +41,7 @@ func SetupMacDaemon(interval string) error {
 	return err
 }
 
+// CleanupMac - Removes the netclient checkin daemon from LaunchDaemons
 func CleanupMac() {
 	_, err := ncutils.RunCmd("launchctl unload /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
 	if ncutils.FileExists("/Library/LaunchDaemons/" + MAC_SERVICE_NAME + ".plist") {
@@ -49,9 +52,23 @@ func CleanupMac() {
 	}
 
 	os.RemoveAll(ncutils.GetNetclientPath())
+	os.Remove(MAC_EXEC_DIR + "netclient")
 }
 
-func CreateMacService(servicename string, interval string) error {
+// RestartLaunchD - restart launch daemon
+func RestartLaunchD() {
+	ncutils.RunCmd("launchctl unload /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
+	time.Sleep(time.Second >> 2)
+	ncutils.RunCmd("launchctl load /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
+}
+
+// StopLaunchD - stop launch daemon
+func StopLaunchD() {
+	ncutils.RunCmd("launchctl unload  /System/Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
+}
+
+// CreateMacService - Creates the mac service file for LaunchDaemons
+func CreateMacService(servicename string) error {
 	_, err := os.Stat("/Library/LaunchDaemons")
 	if os.IsNotExist(err) {
 		os.Mkdir("/Library/LaunchDaemons", 0755)
@@ -59,7 +76,7 @@ func CreateMacService(servicename string, interval string) error {
 		log.Println("couldnt find or create /Library/LaunchDaemons")
 		return err
 	}
-	daemonstring := MacDaemonString(interval)
+	daemonstring := MacDaemonString()
 	daemonbytes := []byte(daemonstring)
 
 	if !ncutils.FileExists("/Library/LaunchDaemons/com.gravitl.netclient.plist") {
@@ -68,24 +85,25 @@ func CreateMacService(servicename string, interval string) error {
 	return err
 }
 
-func MacDaemonString(interval string) string {
-	return fmt.Sprintf(`<?xml version='1.0' encoding='UTF-8'?>
+// MacDaemonString - the file contents for the mac netclient daemon service (launchdaemon)
+func MacDaemonString() string {
+	return `<?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
 <plist version='1.0'>
 <dict>
 	<key>Label</key><string>com.gravitl.netclient</string>
 	<key>ProgramArguments</key>
 		<array>
-			<string>/etc/netclient/netclient</string>
-			<string>checkin</string>
-			<string>-n</string>
-			<string>all</string>
+			<string>/usr/local/bin/netclient</string>
+			<string>daemon</string>
 		</array>
 	<key>StandardOutPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
 	<key>StandardErrorPath</key><string>/etc/netclient/com.gravitl.netclient.log</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
 	<key>AbandonProcessGroup</key><true/>
-	<key>StartInterval</key>
-	    <integer>%s</integer>
 	<key>EnvironmentVariables</key>
 		<dict>
 			<key>PATH</key>
@@ -93,9 +111,10 @@ func MacDaemonString(interval string) string {
 		</dict>
 </dict>
 </plist>
-`, interval)
+`
 }
 
+// MacTemplateData - struct to represent the mac service
 type MacTemplateData struct {
 	Label    string
 	Interval string

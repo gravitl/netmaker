@@ -43,23 +43,22 @@ type ServerConfig struct {
 	GRPCHost              string `yaml:"grpchost"`
 	GRPCPort              string `yaml:"grpcport"`
 	GRPCSecure            string `yaml:"grpcsecure"`
+	MQHOST                string `yaml:"mqhost"`
 	MasterKey             string `yaml:"masterkey"`
 	DNSKey                string `yaml:"dnskey"`
 	AllowedOrigin         string `yaml:"allowedorigin"`
 	NodeID                string `yaml:"nodeid"`
 	RestBackend           string `yaml:"restbackend"`
 	AgentBackend          string `yaml:"agentbackend"`
+	MessageQueueBackend   string `yaml:"messagequeuebackend"`
 	ClientMode            string `yaml:"clientmode"`
 	DNSMode               string `yaml:"dnsmode"`
-	SplitDNS              string `yaml:"splitdns"`
 	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
-	DisableDefaultNet     string `yaml:"disabledefaultnet"`
 	GRPCSSL               string `yaml:"grpcssl"`
 	Version               string `yaml:"version"`
 	SQLConn               string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
 	Database              string `yaml:"database"`
-	CheckinInterval       string `yaml:"checkininterval"`
 	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
 	Verbosity             int32  `yaml:"verbosity"`
 	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
@@ -70,6 +69,14 @@ type ServerConfig struct {
 	DisplayKeys           string `yaml:"displaykeys"`
 	AzureTenant           string `yaml:"azuretenant"`
 	RCE                   string `yaml:"rce"`
+	Debug                 bool   `yaml:"debug"`
+	Telemetry             string `yaml:"telemetry"`
+	ManageIPTables        string `yaml:"manageiptables"`
+	PortForwardServices   string `yaml:"portforwardservices"`
+	HostNetwork           string `yaml:"hostnetwork"`
+	CommsCIDR             string `yaml:"commscidr"`
+	MQPort                string `yaml:"mqport"`
+	CommsID               string `yaml:"commsid"`
 }
 
 // SQLConfig - Generic SQL Config

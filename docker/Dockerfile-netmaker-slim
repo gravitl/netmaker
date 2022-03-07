@@ -11,7 +11,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 /usr/local/go/bin/go build -ldflags="-
 
 FROM alpine:3.13.6
 # add a c lib
-RUN apk add gcompat iptables
+RUN apk add gcompat iptables wireguard-tools
 # set the working directory
 WORKDIR /root/
 

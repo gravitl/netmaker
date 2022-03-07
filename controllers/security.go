@@ -98,9 +98,9 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 	return nil, userNetworks, username
 }
 
-//Consider a more secure way of setting master key
+// Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
-	return tokenString == servercfg.GetMasterKey()
+	return tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != ""
 }
 
 //Consider a more secure way of setting master key

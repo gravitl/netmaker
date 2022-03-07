@@ -9,7 +9,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"sync"
-	"time"
+	"syscall"
 
 	"github.com/gravitl/netmaker/auth"
 	controller "github.com/gravitl/netmaker/controllers"
@@ -19,14 +19,18 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	"google.golang.org/grpc"
 )
 
+var version = "dev"
+
 // Start DB Connection and start API Request Handler
 func main() {
+	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and grpc server
 	setGarbageCollection()
@@ -37,11 +41,24 @@ func main() {
 func initialize() { // Client Mode Prereq Check
 	var err error
 
+	if servercfg.GetMasterKey() == "" {
+		logger.Log(0, "warning: MASTER_KEY not set, this could make account recovery difficult")
+	}
+
+	if servercfg.GetNodeID() == "" {
+		logger.FatalLog("error: must set NODE_ID, currently blank")
+	}
+
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("Error connecting to database")
 	}
 	logger.Log(0, "database successfully connected")
+	logic.SetJWTSecret()
 
+	err = logic.TimerCheckpoint()
+	if err != nil {
+		logger.Log(1, "Timer error occurred: ", err.Error())
+	}
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {
 		logger.Log(0, "OAuth provider,", authProvider+",", "initialized")
@@ -63,6 +80,16 @@ func initialize() { // Client Mode Prereq Check
 		}
 		if err := serverctl.InitServerNetclient(); err != nil {
 			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
+		}
+		if err := serverctl.InitializeCommsNetwork(); err != nil {
+			logger.FatalLog("could not inintialize comms network")
+		}
+	}
+	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
+	if servercfg.ManageIPTables() != "off" {
+		if err = serverctl.InitIPTables(); err != nil {
+			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
+
 		}
 	}
 
@@ -106,27 +133,17 @@ func startControllers() {
 		go controller.HandleRESTRequests(&waitnetwork)
 	}
 
-	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() {
-		logger.Log(0, "No Server Mode selected, so nothing is being served! Set either Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) to 'true'.")
+	//Run MessageQueue
+	if servercfg.IsMessageQueueBackend() {
+		waitnetwork.Add(1)
+		go runMessageQueue(&waitnetwork)
 	}
 
-	if servercfg.IsClientMode() == "on" {
-		var checkintime = time.Duration(servercfg.GetServerCheckinInterval()) * time.Second
-		for { // best effort currently
-			var serverGroup sync.WaitGroup
-			serverGroup.Add(1)
-			go runClient(&serverGroup)
-			serverGroup.Wait()
-			time.Sleep(checkintime)
-		}
+	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
+		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
 	waitnetwork.Wait()
-}
-
-func runClient(wg *sync.WaitGroup) {
-	defer wg.Done()
-	go serverctl.HandleContainedClient()
 }
 
 func runGRPC(wg *sync.WaitGroup) {
@@ -173,6 +190,21 @@ func runGRPC(wg *sync.WaitGroup) {
 	listener.Close()
 	logger.Log(0, "Agent server closed..")
 	logger.Log(0, "Closed DB connection.")
+}
+
+// Should we be using a context vice a waitgroup????????????
+func runMessageQueue(wg *sync.WaitGroup) {
+	defer wg.Done()
+	logger.Log(0, "connecting to mq broker at", servercfg.GetMessageQueueEndpoint())
+	var client = mq.SetupMQTT(false) // Set up the subscription listener
+	ctx, cancel := context.WithCancel(context.Background())
+	go mq.Keepalive(ctx)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+	<-quit
+	cancel()
+	logger.Log(0, "Message Queue shutting down")
+	client.Disconnect(250)
 }
 
 func authServerUnaryInterceptor() grpc.ServerOption {

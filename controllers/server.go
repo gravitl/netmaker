@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 func serverHandlers(r *mux.Router) {
@@ -50,17 +49,12 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
-		if adminonly && !isadmin && !authenticateMasterServer(authToken) {
+		if adminonly && !isadmin && !authenticateMaster(authToken) {
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
 		next.ServeHTTP(w, r)
 	}
-}
-
-//Consider a more secure way of setting master key
-func authenticateMasterServer(tokenString string) bool {
-	return tokenString == servercfg.GetMasterKey()
 }
 
 func removeNetwork(w http.ResponseWriter, r *http.Request) {
@@ -70,9 +64,8 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 
-	success, err := serverctl.RemoveNetwork(params["network"])
-
-	if err != nil || !success {
+	err := logic.DeleteNetwork(params["network"])
+	if err != nil {
 		json.NewEncoder(w).Encode("Could not remove server from network " + params["network"])
 		return
 	}

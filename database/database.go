@@ -1,12 +1,17 @@
 package database
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/crypto/nacl/box"
 )
 
 // NETWORKS_TABLE_NAME - networks table
@@ -27,14 +32,17 @@ const DNS_TABLE_NAME = "dns"
 // EXT_CLIENT_TABLE_NAME - ext client table
 const EXT_CLIENT_TABLE_NAME = "extclients"
 
-// INT_CLIENTS_TABLE_NAME - int client table
-const INT_CLIENTS_TABLE_NAME = "intclients"
-
 // PEERS_TABLE_NAME - peers table
 const PEERS_TABLE_NAME = "peers"
 
-// SERVERCONF_TABLE_NAME
+// SERVERCONF_TABLE_NAME - stores server conf
 const SERVERCONF_TABLE_NAME = "serverconf"
+
+// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
+const SERVER_UUID_TABLE_NAME = "serveruuid"
+
+// SERVER_UUID_RECORD_KEY - telemetry thing
+const SERVER_UUID_RECORD_KEY = "serveruuid"
 
 // DATABASE_FILENAME - database file name
 const DATABASE_FILENAME = "netmaker.db"
@@ -105,7 +113,7 @@ func InitializeDatabase() error {
 		time.Sleep(2 * time.Second)
 	}
 	createTables()
-	return nil
+	return initializeUUID()
 }
 
 func createTables() {
@@ -115,9 +123,9 @@ func createTables() {
 	createTable(USERS_TABLE_NAME)
 	createTable(DNS_TABLE_NAME)
 	createTable(EXT_CLIENT_TABLE_NAME)
-	createTable(INT_CLIENTS_TABLE_NAME)
 	createTable(PEERS_TABLE_NAME)
 	createTable(SERVERCONF_TABLE_NAME)
+	createTable(SERVER_UUID_TABLE_NAME)
 	createTable(GENERATED_TABLE_NAME)
 }
 
@@ -128,7 +136,8 @@ func createTable(tableName string) error {
 // IsJSONString - checks if valid json
 func IsJSONString(value string) bool {
 	var jsonInt interface{}
-	return json.Unmarshal([]byte(value), &jsonInt) == nil
+	var nodeInt models.Node
+	return json.Unmarshal([]byte(value), &jsonInt) == nil || json.Unmarshal([]byte(value), &nodeInt) == nil
 }
 
 // Insert - inserts object into db
@@ -182,6 +191,44 @@ func FetchRecord(tableName string, key string) (string, error) {
 // FetchRecords - fetches all records in given table
 func FetchRecords(tableName string) (map[string]string, error) {
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
+}
+
+// initializeUUID - create a UUID record for server if none exists
+func initializeUUID() error {
+	records, err := FetchRecords(SERVER_UUID_TABLE_NAME)
+	if err != nil {
+		if !IsEmptyRecord(err) {
+			return err
+		}
+	} else if len(records) > 0 {
+		return nil
+	}
+	// setup encryption keys
+	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
+	if errT != nil {
+		return errT
+	}
+	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
+	if err != nil {
+		return err
+	}
+
+	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
+	if err != nil {
+		return err
+	}
+
+	telemetry := models.Telemetry{
+		UUID:           uuid.NewString(),
+		TrafficKeyPriv: tPriv,
+		TrafficKeyPub:  tPub,
+	}
+	telJSON, err := json.Marshal(&telemetry)
+	if err != nil {
+		return err
+	}
+
+	return Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
 }
 
 // CloseDB - closes a database gracefully

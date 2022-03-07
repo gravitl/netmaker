@@ -6,12 +6,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+const EXEC_DIR = "/sbin/"
+
 // SetupSystemDDaemon - sets system daemon for supported machines
-func SetupSystemDDaemon(interval string) error {
+func SetupSystemDDaemon() error {
 
 	if ncutils.IsWindows() {
 		return nil
@@ -29,12 +32,10 @@ func SetupSystemDDaemon(interval string) error {
 		log.Println("couldnt find or create /etc/netclient")
 		return err
 	}
-
-	if !ncutils.FileExists("/usr/local/bin/netclient") {
-		os.Symlink("/etc/netclient/netclient", "/usr/local/bin/netclient")
-	}
-	if !ncutils.FileExists("/etc/netclient/netclient") {
-		err = ncutils.Copy(binarypath, "/etc/netclient/netclient")
+	//install binary
+	//should check if the existing binary is the corect version -- for now only copy if file doesn't exist
+	if !ncutils.FileExists(EXEC_DIR + "netclient") {
+		err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
 		if err != nil {
 			log.Println(err)
 			return err
@@ -42,36 +43,23 @@ func SetupSystemDDaemon(interval string) error {
 	}
 
 	systemservice := `[Unit]
-Description=Network Check
-Wants=netclient.timer
+Description=Netclient Daemon
+Documentation=https://docs.netmaker.org https://k8s.netmaker.org
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
 
 [Service]
+User=root
 Type=simple
-ExecStart=/etc/netclient/netclient checkin -n all
+ExecStart=/sbin/netclient daemon
+Restart=on-failure
+RestartSec=15s
 
 [Install]
 WantedBy=multi-user.target
 `
 
-	systemtimer := `[Unit]
-Description=Calls the Netmaker Mesh Client Service
-Requires=netclient.service
-
-[Timer]
-Unit=netclient.service
-
-`
-	systemtimer = systemtimer + "OnCalendar=*:*:0/" + interval
-
-	systemtimer = systemtimer +
-		`
-
-[Install]
-WantedBy=timers.target
-`
-
 	servicebytes := []byte(systemservice)
-	timerbytes := []byte(systemtimer)
 
 	if !ncutils.FileExists("/etc/systemd/system/netclient.service") {
 		err = os.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
@@ -80,27 +68,32 @@ WantedBy=timers.target
 			return err
 		}
 	}
-
-	if !ncutils.FileExists("/etc/systemd/system/netclient.timer") {
-		err = os.WriteFile("/etc/systemd/system/netclient.timer", timerbytes, 0644)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-	}
-
 	_, _ = ncutils.RunCmd("systemctl enable netclient.service", true)
 	_, _ = ncutils.RunCmd("systemctl daemon-reload", true)
-	_, _ = ncutils.RunCmd("systemctl enable netclient.timer", true)
-	_, _ = ncutils.RunCmd("systemctl start netclient.timer", true)
+	_, _ = ncutils.RunCmd("systemctl start netclient.service", true)
 	return nil
 }
 
+// RestartSystemD - restarts systemd service
+func RestartSystemD() {
+	ncutils.PrintLog("restarting netclient.service", 1)
+	time.Sleep(time.Second)
+	_, _ = ncutils.RunCmd("systemctl restart netclient.service", true)
+}
+
+// CleanupLinux - cleans up neclient configs
 func CleanupLinux() {
-	err := os.RemoveAll(ncutils.GetNetclientPath())
-	if err != nil {
+	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
+		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
+	}
+	if err := os.Remove(EXEC_DIR + "netclient"); err != nil {
 		ncutils.PrintLog("Removing netclient binary: "+err.Error(), 1)
 	}
+}
+
+// StopSystemD - tells system to stop systemd
+func StopSystemD() {
+	ncutils.RunCmd("systemctl stop netclient.service", false)
 }
 
 // RemoveSystemDServices - removes the systemd services on a machine

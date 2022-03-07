@@ -2,10 +2,14 @@
 package logic
 
 import (
+	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"math/rand"
-	"strconv"
+	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -14,7 +18,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -30,110 +33,36 @@ func CheckEndpoint(endpoint string) bool {
 	return len(endpointarr) == 2
 }
 
-// SetNetworkServerPeers - sets the network server peers of a given node
-func SetNetworkServerPeers(node *models.Node) {
-	if currentPeersList, err := GetSystemPeers(node); err == nil {
-		if database.SetPeers(currentPeersList, node.Network) {
-			logger.Log(1, "set new peers on network", node.Network)
-		}
-	} else {
-		logger.Log(1, "could not set peers on network", node.Network, ":", err.Error())
+// FileExists - checks if local file exists
+func FileExists(f string) bool {
+	info, err := os.Stat(f)
+	if os.IsNotExist(err) {
+		return false
 	}
+	return !info.IsDir()
 }
 
-// DeleteNode - deletes a node from database or moves into delete nodes table
-func DeleteNode(node *models.Node, exterminate bool) error {
-	var err error
-	node.SetID()
-	var key = node.ID
-	if !exterminate {
-		args := strings.Split(key, "###")
-		node, err := GetNode(args[0], args[1])
-		if err != nil {
-			return err
-		}
-		node.Action = models.NODE_DELETE
-		nodedata, err := json.Marshal(&node)
-		if err != nil {
-			return err
-		}
-		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
-		if err != nil {
-			return err
-		}
+// IsAddressInCIDR - util to see if an address is in a cidr or not
+func IsAddressInCIDR(address, cidr string) bool {
+	var _, currentCIDR, cidrErr = net.ParseCIDR(cidr)
+	if cidrErr != nil {
+		return false
+	}
+	var addrParts = strings.Split(address, ".")
+	var addrPartLength = len(addrParts)
+	if addrPartLength != 4 {
+		return false
 	} else {
-		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			logger.Log(2, err.Error())
+		if addrParts[addrPartLength-1] == "0" ||
+			addrParts[addrPartLength-1] == "255" {
+			return false
 		}
 	}
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
-	}
-	if servercfg.IsDNSMode() {
-		SetDNS()
-	}
-	return removeLocalServer(node)
-}
-
-// CreateNode - creates a node in database
-func CreateNode(node *models.Node) error {
-
-	//encrypt that password so we never see it
-	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
+	ip, _, err := net.ParseCIDR(fmt.Sprintf("%s/32", address))
 	if err != nil {
-		return err
+		return false
 	}
-	//set password to encrypted password
-	node.Password = string(hash)
-	if node.Name == models.NODE_SERVER_NAME {
-		node.IsServer = "yes"
-	}
-	if node.DNSOn == "" {
-		if servercfg.IsDNSMode() {
-			node.DNSOn = "yes"
-		} else {
-			node.DNSOn = "no"
-		}
-	}
-	SetNodeDefaults(node)
-	node.Address, err = UniqueAddress(node.Network)
-	if err != nil {
-		return err
-	}
-	node.Address6, err = UniqueAddress6(node.Network)
-	if err != nil {
-		return err
-	}
-	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.MacAddress, node.Network)
-	if tokenString == "" {
-		//returnErrorResponse(w, r, errorResponse)
-		return err
-	}
-	err = ValidateNode(node, false)
-	if err != nil {
-		return err
-	}
-	key, err := GetRecordKey(node.MacAddress, node.Network)
-	if err != nil {
-		return err
-	}
-	nodebytes, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(key, string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if node.IsPending != "yes" {
-		DecrimentKey(node.Network, node.AccessKey)
-	}
-	SetNetworkNodesLastModified(node.Network)
-	if servercfg.IsDNSMode() {
-		err = SetDNS()
-	}
-	return err
+	return currentCIDR.Contains(ip)
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
@@ -157,123 +86,47 @@ func SetNetworkNodesLastModified(networkName string) error {
 	return nil
 }
 
-// GetNode - fetches a node from database
-func GetNode(macaddress string, network string) (models.Node, error) {
-	var node models.Node
-
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-	data, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	if err != nil {
-		if data == "" {
-			data, _ = database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
-			err = json.Unmarshal([]byte(data), &node)
+// GenerateCryptoString - generates random string of n length
+func GenerateCryptoString(n int) (string, error) {
+	const chars = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
+	ret := make([]byte, n)
+	for i := range ret {
+		num, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			return "", err
 		}
-		return node, err
+		ret[i] = chars[num.Int64()]
 	}
-	if err = json.Unmarshal([]byte(data), &node); err != nil {
-		return node, err
-	}
-	SetNodeDefaults(&node)
 
-	return node, err
+	return string(ret), nil
 }
 
-// GetNodePeers - fetches peers for a given node
-func GetNodePeers(networkName string, excludeRelayed bool) ([]models.Node, error) {
-	var peers []models.Node
-	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
-	if err != nil {
-		return peers, nil
-	}
-
-	udppeers, errN := database.GetPeers(networkName)
-	if errN != nil {
-		logger.Log(2, errN.Error())
-	}
-
-	for _, node := range networkNodes {
-		var peer = models.Node{}
-		if node.IsEgressGateway == "yes" { // handle egress stuff
-			peer.EgressGatewayRanges = node.EgressGatewayRanges
-			peer.IsEgressGateway = node.IsEgressGateway
-		}
-		allow := node.IsRelayed != "yes" || !excludeRelayed
-
-		if node.Network == networkName && node.IsPending != "yes" && allow {
-			peer = setPeerInfo(&node)
-			if node.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[node.PublicKey]) {
-				endpointstring := udppeers[node.PublicKey]
-				endpointarr := strings.Split(endpointstring, ":")
-				if len(endpointarr) == 2 {
-					port, err := strconv.Atoi(endpointarr[1])
-					if err == nil {
-						peer.Endpoint = endpointarr[0]
-						peer.ListenPort = int32(port)
-					}
-				}
-			}
-			if node.IsRelay == "yes" {
-				network, err := GetNetwork(networkName)
-				if err == nil {
-					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
-				} else {
-					peer.AllowedIPs = append(peer.AllowedIPs, node.RelayAddrs...)
-				}
-				for _, egressNode := range egressNetworkNodes {
-					if egressNode.IsRelayed == "yes" && StringSliceContains(node.RelayAddrs, egressNode.Address) {
-						peer.AllowedIPs = append(peer.AllowedIPs, egressNode.EgressGatewayRanges...)
-					}
-				}
-			}
-			peers = append(peers, peer)
-		}
-	}
-
-	return peers, err
-}
-
-// GetPeersList - gets the peers of a given network
-func GetPeersList(networkName string, excludeRelayed bool, relayedNodeAddr string) ([]models.Node, error) {
-	var peers []models.Node
+// DeleteNodeByID - deletes a node from database or moves into delete nodes table
+func DeleteNodeByID(node *models.Node, exterminate bool) error {
 	var err error
-	if relayedNodeAddr == "" {
-		peers, err = GetNodePeers(networkName, excludeRelayed)
+	var key = node.ID
+	if !exterminate {
+		node.Action = models.NODE_DELETE
+		nodedata, err := json.Marshal(&node)
+		if err != nil {
+			return err
+		}
+		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
+		if err != nil {
+			return err
+		}
 	} else {
-		var relayNode models.Node
-		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
-		if relayNode.Address != "" {
-			var peerNode = setPeerInfo(&relayNode)
-			network, err := GetNetwork(networkName)
-			if err == nil {
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
-				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
-				if err == nil {
-					for _, egress := range egressNetworkNodes {
-						if egress.Address != relayedNodeAddr {
-							peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
-						}
-					}
-				}
-			} else {
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
-			}
-			nodepeers, err := GetNodePeers(networkName, false)
-			if err == nil && peerNode.UDPHolePunch == "yes" {
-				for _, nodepeer := range nodepeers {
-					if nodepeer.Address == peerNode.Address {
-						peerNode.Endpoint = nodepeer.Endpoint
-						peerNode.ListenPort = nodepeer.ListenPort
-					}
-				}
-			}
-
-			peers = append(peers, peerNode)
+		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
+			logger.Log(2, err.Error())
 		}
 	}
-	return peers, err
+	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
+		return err
+	}
+	if servercfg.IsDNSMode() {
+		SetDNS()
+	}
+	return removeLocalServer(node)
 }
 
 // RandomString - returns a random string in a charset
@@ -334,6 +187,7 @@ func setPeerInfo(node *models.Node) models.Node {
 	peer.UDPHolePunch = node.UDPHolePunch
 	peer.Address = node.Address
 	peer.Address6 = node.Address6
+	peer.IsHub = node.IsHub
 	peer.EgressGatewayRanges = node.EgressGatewayRanges
 	peer.IsEgressGateway = node.IsEgressGateway
 	peer.IngressGatewayRange = node.IngressGatewayRange
@@ -364,6 +218,30 @@ func setIPForwardingLinux() error {
 func StringSliceContains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// == private ==
+
+// sets the network server peers of a given node
+func setNetworkServerPeers(serverNode *models.Node) {
+	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if database.SetPeers(currentPeersList, serverNode.Network) {
+			logger.Log(1, "set new peers on network", serverNode.Network)
+		}
+	} else {
+		logger.Log(1, "could not set peers on network", serverNode.Network, ":", err.Error())
+	}
+}
+
+// ShouldPublishPeerPorts - Gets ports from iface, sets, and returns true if they are different
+func ShouldPublishPeerPorts(serverNode *models.Node) bool {
+	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if database.SetPeers(currentPeersList, serverNode.Network) {
+			logger.Log(1, "set new peers on network", serverNode.Network)
 			return true
 		}
 	}

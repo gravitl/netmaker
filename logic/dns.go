@@ -8,7 +8,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
 
@@ -39,9 +38,12 @@ func SetDNS() error {
 	if err != nil {
 		return err
 	}
+	/* if something goes wrong with server DNS, check here
+	// commented out bc we were not using IsSplitDNS
 	if servercfg.IsSplitDNS() {
 		err = SetCorefile(corefilestring)
 	}
+	*/
 	return err
 }
 
@@ -115,10 +117,12 @@ func SetCorefile(domains string) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = os.Stat(dir + "/config/dnsconfig")
 	if os.IsNotExist(err) {
-		os.Mkdir(dir+"/config/dnsconfig", 744)
-	} else if err != nil {
+		err = os.MkdirAll(dir+"/config/dnsconfig", 744)
+	}
+	if err != nil {
 		logger.Log(0, "couldnt find or create /config/dnsconfig")
 		return err
 	}

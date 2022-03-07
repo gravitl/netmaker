@@ -25,6 +25,14 @@ elif [ -f /etc/fedora-release ]; then
 	dependencies="wireguard"
 	update_cmd='dnf update'
 	install_cmd='dnf install -y'
+elif [ -f /etc/redhat-release ]; then
+	dependencies="wireguard"
+	update_cmd='yum update'
+	install_cmd='yum install -y'
+elif [ -f /etc/arch-releae ]; then
+    	dependecies="wireguard-tools"
+	update_cmd='pacman -Sy'
+	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
 	dependencies="wireguard"
 	update_cmd='pkg update'
@@ -118,9 +126,6 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 			x86_64)
 				dist=netclient
 			;;
-                        x86_32)
-                                dist=netclient-32
-                        ;;
  			arm64)
 				dist=netclient-arm64
 			;;
@@ -160,9 +165,6 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 			x86_64)
 				dist=netclient-freebsd
 			;;
-                        x86_32)
-                                dist=netclient-freebsd-32
-                        ;;
  			arm64)
 				dist=netclient-freebsd-arm64
 			;;
@@ -194,13 +196,13 @@ if curl --output /dev/null --silent --head --fail "$url"; then
 	wget $curl_opts -O netclient $url
 else
 	echo "Downloading $dist latest"
-	wget $curl_opts -O netclient https://github.com/gravitl/netmaker/releases/download/latest/$dist
+	wget $curl_opts -O netclient https://github.com/gravitl/netmaker/releases/latest/download/$dist
 fi
 
 chmod +x netclient
 
 EXTRA_ARGS=""
-if [ "${OS}" = "FreeBSD" ] || [ "${OS}" = "OpenWRT" ]; then
+if [  "${OS}" = "OpenWRT" ]; then
 	EXTRA_ARGS="--daemon=off"
 fi
 
@@ -210,34 +212,9 @@ else
   ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
 fi
 
-if [ "${OS}" = "FreeBSD" ]; then
-	mv ./netclient /etc/netclient/netclient
-	cat << 'END_OF_FILE' > ./netclient.service.tmp
-#!/bin/sh
 
-# PROVIDE: netclient
-# REQUIRE: LOGIN DAEMON NETWORKING SERVERS FILESYSTEM
-# BEFORE:  
-# KEYWORD: shutdown
-. /etc/rc.subr
-
-name="netclient"
-rcvar=netclient_enable
-pidfile="/var/run/${name}.pid"
-command="/usr/sbin/daemon"
-command_args="-c -f -P ${pidfile} -R 10 -t "Netclient" -u root -o /etc/netclient/netclient.log /etc/netclient/netclient checkin -n all"
-
-load_rc_config $name
-run_rc_command "$1"
-
-END_OF_FILE
-	sudo mv ./netclient.service.tmp /usr/local/etc/rc.d/netclient
-	sudo chmod +x /usr/local/etc/rc.d/netclient
-	sudo /usr/local/etc/rc.d/netclient enable
-	sudo /usr/local/etc/rc.d/netclient start
-
-elif [ "${OS}" = "OpenWRT" ]; then
-	mv ./netclient /etc/netclient/netclient
+if [ "${OS}" = "OpenWRT" ]; then
+	mv ./netclient /sbin/netclient
 	cat << 'END_OF_FILE' > ./netclient.service.tmp
 #!/bin/sh /etc/rc.common
 
@@ -251,18 +228,18 @@ start() {
   if [ ! -f "${LOG_FILE}" ];then
       touch "${LOG_FILE}"
   fi
-  local PID=$(ps|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
+  local PID=$(ps|grep "netclient daemon"|grep -v grep|awk '{print $1}')
   if [ "${PID}" ];then
     echo "service is running"
     return
   fi
-  bash -c "while [ 1 ]; do /etc/netclient/netclient checkin -n all >> ${LOG_FILE} 2>&1;sleep 15;\
+  bash -c "do /sbin/netclient daemon  >> ${LOG_FILE} 2>&1;\
            if [ $(ls -l ${LOG_FILE}|awk '{print $5}') -gt 10240000 ];then tar zcf "${LOG_FILE}.tar" -C / "tmp/netclient.logs"  && > $LOG_FILE;fi;done &"
   echo "start"
 }
 
 stop() {
-  pids=$(ps|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
+  pids=$(ps|grep "netclient daemon"|grep -v grep|awk '{print $1}')
   for i in "${pids[@]}"
   do
 	if [ "${i}" ];then
@@ -273,7 +250,7 @@ stop() {
 }
 
 status() {
-  local PID=$(ps|grep "netclient checkin -n all"|grep -v grep|awk '{print $1}')
+  local PID=$(ps|grep "netclient daemon"|grep -v grep|awk '{print $1}')
   if [ "${PID}" ];then
     echo -e "netclient[${PID}] is running \n"
   else
