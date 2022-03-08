@@ -1,5 +1,3 @@
--s dir
--t deb 
 --name netclient 
 --license sspl 
 --depends wireguard-tools 
@@ -7,5 +5,5 @@
 --url "https//:github.com/gravitl/netmaker" 
 --maintainer "info@gravitl.com" 
 --vendor Gravitl
-build/netclient=/sbin/netclient build/netclient.service=/lib/systemd/system/netclient.service
+netclient/build/netclient.service=/lib/systemd/system/netclient.service
 
