@@ -48,7 +48,7 @@ new-module -name netclient-install -scriptblock {
                 $loc = Get-Location
                 Copy-Item -Path "$env:userprofile\Downloads\netclient.exe" -Destination "$loc\netclient.exe"
             }
-            $runNum = "one","two"
+            $runNum = "one"
             foreach ($run in $runNum) { 
 
                 $NetArgs = @("join","-t",$token)
@@ -65,11 +65,13 @@ new-module -name netclient-install -scriptblock {
                         $env:Path += ";C:\ProgramData\Netclient\bin"
                     }
                 }
-                if($run -eq "one"){
-                    Write-Host "re-running setup to confirm all components are installed."
-                    Start-Sleep -s 1
-                }
+                #if($run -eq "one"){
+                #    Write-Host "re-running setup to confirm all components are installed."
+                #    Start-Sleep -s 1
+                #}
+                
             }
+        Start-Sleep -s 5
         Write-Host "'netclient' is installed."
     }
 }
