@@ -192,7 +192,7 @@ jobs:
       - name: Package x86 deb
         uses: gravitl/github-action-fpm@master
         with:
-          fpm_args: './hetclient/build'
+          fpm_args: 'netclient/build'
           fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.VERSION }} netclient/build/netclient=/sbin/netclient'
       - name: Upload x86 deb to Release
         uses: svenstaro/upload-release-action@v2
@@ -207,7 +207,7 @@ jobs:
       - name: Package arm64 deb
         uses: gravitl/github-action-fpm@master
         with:
-          fpm_args: './netclient/build'
+          fpm_args: 'netclient/build'
           fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.VERSION }} netclient/build/netclient-arm64/netclient=/sbin/netclient'
       - name: Upload x86 deb to Release
         uses: svenstaro/upload-release-action@v2
