@@ -302,7 +302,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	//Return all the nodes in JSON format
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(filterCommsNodes(nodes))
+	json.NewEncoder(w).Encode(nodes)
 }
 
 func getUsersNodes(user models.User) ([]models.Node, error) {
