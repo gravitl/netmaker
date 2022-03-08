@@ -9,7 +9,6 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
@@ -197,7 +196,11 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		ncutils.Log("error syncing wg after peer update: " + err.Error())
 		return
 	}
-	logger.Log(0, "DNS updating /etc/hosts")
+	//skip dns updates if this is a peer update for comms network
+	if cfg.Node.NetworkSettings.IsComms == "yes" {
+		return
+	}
+	ncutils.Log("DNS updating /etc/hosts")
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, ncutils.IsWindows()); err != nil {
 			ncutils.Log("error updating /etc/hosts " + err.Error())
