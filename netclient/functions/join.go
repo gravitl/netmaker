@@ -97,11 +97,10 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 		privateKey = wgPrivatekey.String()
 		cfg.Node.PublicKey = wgPrivatekey.PublicKey().String()
 	}
-
 	// Find and set node MacAddress
 	if cfg.Node.MacAddress == "" {
 		macs, err := ncutils.GetMacAddr()
-		if err != nil {
+		if err != nil || iscomms {
 			//if macaddress can't be found set to random string
 			cfg.Node.MacAddress = ncutils.MakeRandomString(18)
 		} else {
