@@ -205,7 +205,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		}
 	} else {
 		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
-			ncutils.Log("error removing netmaker profile from /etc/hosts " + dataErr.Error())
+			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())
 			return
 		}
 	}
