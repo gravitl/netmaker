@@ -188,3 +188,33 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-darwin-arm64
+          
+      - name: Package x86 deb
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './build'
+          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.VERSION }} netclient/build/netclient=/sbin/netclient'
+      - name: Upload x86 deb to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient_${{ env.VERSION }}_amd64.deb
+          tag: ${{ env.VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.VERSION }}_amd64.deb
+
+      - name: Package arm64 deb
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './build'
+          fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.VERSION }} netclient/build/netclient-arm64/netclient=/sbin/netclient'
+      - name: Upload x86 deb to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient_${{ env.VERSION }}_amd64.deb
+          tag: ${{ env.VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.VERSION }}_amd64.deb
