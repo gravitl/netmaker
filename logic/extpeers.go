@@ -133,6 +133,14 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		extclient.Address = newAddress
 	}
 
+	if extclient.Address6 == "" {
+		addr6, err := UniqueAddress6(extclient.Network)
+		if err != nil {
+			return err
+		}
+		extclient.Address6 = addr6
+	}
+
 	if extclient.ClientID == "" {
 		extclient.ClientID = models.GenerateNodeName()
 	}
@@ -150,8 +158,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
 	}
-	err = SetNetworkNodesLastModified(extclient.Network)
-	return err
+	return SetNetworkNodesLastModified(extclient.Network)
 }
 
 // UpdateExtClient - only supports name changes right now
