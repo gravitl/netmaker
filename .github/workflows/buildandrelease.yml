@@ -13,8 +13,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Get Version Number
-      run: |
+      - name: Get Version Number
+        run: |
           if [[ -n "${{ github.event.inputs.version }}" ]]; then
             NETMAKER_VERSION=${{ github.event.inputs.version }}
           else
