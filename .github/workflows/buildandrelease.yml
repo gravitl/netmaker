@@ -59,7 +59,7 @@ jobs:
           prerelease: true
           asset_name: netmaker
 
-      - name: Upload x86 to Release
+      - name: Upload netclient x86 to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -93,11 +93,29 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient_${{ env.PACKAGE_VERSION }}_x86_64.rpm
+          # remove -1 only needed for version with _testing
+          file: netclient_${{ env.PACKAGE_VERSION }}-1_x86_64.rpm 
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
           asset_name: netclient_${{ env.PACKAGE_VERSION }}_x86_64.rpm
+
+      - name: Package x86 pacman
+        uses: gravitl/github-action-fpm@master
+        with:
+          # arch has particular path requirements --- cannot write to a symbolic link e.g. /sbin and /lib
+          fpm_args: './netclient/build/netclient=/usr/bin/netclient ./netclient/build/netclient.service=/usr/lib/systemd/system/netclient.service'
+          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+      - name: Upload x86 pacman to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          # as for rpms  -1 only need for _testing releases
+          file: netclient_${{ env.PACKAGE_VERSION }}-1_x86_64.pkg.tar.zst
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.PACKAGE_VERSION }}_x86_64.pkg.tar.zst
 
               #- name: Upload arm5 to Release
               #  uses: svenstaro/upload-release-action@v2
