@@ -207,7 +207,7 @@ jobs:
       - name: Package arm64 deb
         uses: gravitl/github-action-fpm@master
         with:
-          fpm_args: './netclient/build/netclient-arm64/netlient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
+          fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
           fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 deb to Release
         uses: svenstaro/upload-release-action@v2
