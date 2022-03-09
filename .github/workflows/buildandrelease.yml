@@ -94,7 +94,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           # remove -1 only needed for version with _testing
-          file: netclient_${{ env.PACKAGE_VERSION }}-1_x86_64.rpm 
+          file: netclient_${{ env.PACKAGE_VERSION }}.1_x86_64.rpm 
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
@@ -181,7 +181,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient_${{ env.PACKAGE_VERSION }}_arm64.rpm
+          file: netclient_${{ env.PACKAGE_VERSION }}.1_arm64.rpm
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
