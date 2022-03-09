@@ -22,7 +22,7 @@ jobs:
           fi
           echo "NETMAKER_VERSION=${NETMAKER_VERSION}" >> $GITHUB_ENV
           # remove leading v for package (deb, rpm, etc) versions
-          echo "${NETMAKER_VERSION:1}=${PACKAGE_VERSION}" >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${NETMAKER_VERSION:1}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v2
 
@@ -40,7 +40,9 @@ jobs:
           env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm5/netclient main.go
           env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm6/netclient main.go
           env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm7/netclient main.go
-          nv CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm64/netclient main.go
+          COMMENT
+          env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm64/netclient main.go
+          <<COMMENT
           env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags="-X 'main.Version=${NETMAKER_VERSION}'" -o build/netclient-freebsd/netclient main.go
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=5 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm5/netclient main.go
@@ -194,8 +196,8 @@ jobs:
       - name: Package x86 deb
         uses: gravitl/github-action-fpm@master
         with:
-          fpm_args: ''
-          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }} netclient/build/netclient=/sbin/netclient'
+          fpm_args: './build/netclient=/sbin/netclient ./build/netclient.service=/lib/systemd/system/netclient.service'
+          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 deb to Release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -209,8 +211,8 @@ jobs:
       - name: Package arm64 deb
         uses: gravitl/github-action-fpm@master
         with:
-          fpm_args: ''
-          fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }} netclient/build/netclient-arm64/netclient=/sbin/netclient'
+          fpm_args: '.build/netclient-arm64/neclient=/sbin/netclient ./build/netclient.service=/lib/systemd/netclient.service'
+          fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 deb to Release
         uses: svenstaro/upload-release-action@v2
         with:
