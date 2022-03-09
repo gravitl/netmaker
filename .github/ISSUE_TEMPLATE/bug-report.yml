@@ -2,8 +2,7 @@ name: Bug Report
 description: File a bug report
 title: "[Bug]: "
 labels: ["bug", "triage"]
-assignees:
-  - octocat
+assignees: ["ok-john", "0xdcarns", "afeiszli",  "mattkasun"]
 body:
   - type: markdown
     attributes:
@@ -46,7 +45,7 @@ body:
     validations:
       required: true
   - type: dropdown
-    id: browsers
+    id: os
     attributes:
       label: What OS are you using?
       multiple: true
@@ -65,10 +64,8 @@ body:
   - type: checkboxes
     id: terms
     attributes:
-      label: Code of Conduct
-      description: By submitting this issue, you agree to follow our [Code of Conduct](https://example.com)
+      label: Contributing guidelines
+      description: Have you read [CONTRIBUTING.md](https://github.com/gravitl/netmaker/blob/master/CONTRIBUTING.md)
       options:
-        - label: I agree to follow this project's Code of Conduct
+        - label: Yes, I did.
           required: true
-
-
