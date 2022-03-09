@@ -12,9 +12,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+
       - name: Get Version Number
-        run: |
+      run: |
           if [[ -n "${{ github.event.inputs.version }}" ]]; then
             NETMAKER_VERSION=${{ github.event.inputs.version }}
           else
@@ -61,7 +63,7 @@ jobs:
           #          prerelease: true
           #          asset_name: netmaker
 
-       - name: Upload x86 to Release
+        - name: Upload x86 to Release
           uses: svenstaro/upload-release-action@v2
           with:
             repo_token: ${{ secrets.GITHUB_TOKEN }}
