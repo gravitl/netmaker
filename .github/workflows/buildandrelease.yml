@@ -49,15 +49,15 @@ jobs:
           env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient main.go
           env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
           
-          #      - name: Upload netmaker x86 to Release
-          #        uses: svenstaro/upload-release-action@v2
-          #        with:
-          #          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          #          file: build/netmaker
-          #          tag: ${{ env.NETMAKER_VERSION }}
-          #          overwrite: true
-          #          prerelease: true
-          #          asset_name: netmaker
+      - name: Upload netmaker x86 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/netmaker
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netmaker
 
       - name: Upload x86 to Release
         uses: svenstaro/upload-release-action@v2
@@ -68,6 +68,36 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient
+
+      - name: Package x86 deb
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
+          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+      - name: Upload x86 deb to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient_${{ env.PACKAGE_VERSION }}_amd64.deb
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.PACKAGE_VERSION }}_amd64.deb
+
+      - name: Package x86 rpm
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
+          fpm_opts: '-s dir -t rpm --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+      - name: Upload x86 rpm to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient_${{ env.PACKAGE_VERSION }}_amd64.rpm
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.PACKAGE_VERSION }}_amd64.rpm
 
               #- name: Upload arm5 to Release
               #  uses: svenstaro/upload-release-action@v2
@@ -99,15 +129,46 @@ jobs:
               #    prerelease: true
               #    asset_name: netclient-arm7
 
-              #- name: Upload arm64 to Release
-              #  uses: svenstaro/upload-release-action@v2
-              #  with:
-              #    repo_token: ${{ secrets.GITHUB_TOKEN }}
-              #    file: netclient/build/netclient-arm64/netclient
-              #    tag: ${{ env.NETMAKER_VERSION }}
-              #    overwrite: true
-              #    prerelease: true
-              #    asset_name: netclient-arm64
+      - name: Upload arm64 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-arm64/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm64
+
+      - name: Package arm64 deb
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
+          fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
+      - name: Upload arm deb to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
+
+      - name: Package arm64 rpm
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
+          fpm_opts: '--debug -s dir -t rpm --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
+      - name: Upload arm64 rpm to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient_${{ env.PACKAGE_VERSION }}_arm64.rpm
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.rpm
+
 
               #- name: Upload mipsle to Release
               #  uses: svenstaro/upload-release-action@v2
@@ -189,32 +250,4 @@ jobs:
               #    prerelease: true
               #    asset_name: netclient-darwin-arm64
           
-      - name: Package x86 deb
-        uses: gravitl/github-action-fpm@master
-        with:
-          fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
-          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
-      - name: Upload x86 deb to Release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient_${{ env.PACKAGE_VERSION }}_amd64.deb
-          tag: ${{ env.NETMAKER_VERSION }}
-          overwrite: true
-          prerelease: true
-          asset_name: netclient_${{ env.PACKAGE_VERSION }}_amd64.deb
 
-      - name: Package arm64 deb
-        uses: gravitl/github-action-fpm@master
-        with:
-          fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
-          fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
-      - name: Upload x86 deb to Release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
-          tag: ${{ env.NETMAKER_VERSION }}
-          overwrite: true
-          prerelease: true
-          asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
