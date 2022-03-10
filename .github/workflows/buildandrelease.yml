@@ -24,6 +24,18 @@ jobs:
           # remove everything but digits and . for package (deb, rpm, etc) versions
           PACKAGE_VERSION=$(echo ${VERSION} | tr -cd '[:digit:].')
           echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
+      - name: Echo
+        run: |
+          echo ${{ env.NETMAKER_VERSION }}
+          echo ${{ env.PACKAGE_VERSION }}
+          if [ -z ${{ env.NETMAKER_VERSION }} ]
+          then
+            exit 1
+          fi
+          if [ -z ${{ env.PACKAGE_VERSION }} ]
+          then
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v2
 
