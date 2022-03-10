@@ -251,6 +251,20 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", netname)
+
+	// send peer updates
+	if servercfg.IsMessageQueueBackend() {
+		serverNode, err := logic.GetNetworkServerLeader(netname)
+		if err != nil {
+			logger.Log(1, "failed to find server node after ACL update on", netname)
+		} else {
+			if err = mq.PublishPeerUpdate(&serverNode); err != nil {
+				logger.Log(0, "failed to publish peer update after ACL update on", netname)
+			}
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetACL)
 }
@@ -265,6 +279,7 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	logger.Log(2, r.Header.Get("user"), "fetched acl for network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(networkACL)
 }
