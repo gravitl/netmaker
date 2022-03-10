@@ -196,16 +196,17 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		ncutils.Log("error syncing wg after peer update: " + err.Error())
 		return
 	}
+	ncutils.Log("received peer update for node " + cfg.Node.Name + " " + cfg.Node.Network)
 	//skip dns updates if this is a peer update for comms network
 	if cfg.Node.NetworkSettings.IsComms == "yes" {
 		return
 	}
-	ncutils.Log("DNS updating /etc/hosts")
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, ncutils.IsWindows()); err != nil {
 			ncutils.Log("error updating /etc/hosts " + err.Error())
 			return
 		}
+		ncutils.Log("DNS updating /etc/hosts")
 	} else {
 		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
 			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())
