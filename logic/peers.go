@@ -10,6 +10,8 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/acls"
+	nodeacls "github.com/gravitl/netmaker/logic/acls/node-acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -33,7 +35,7 @@ func GetHubPeer(networkName string) []models.Node {
 */
 
 // GetNodePeers - fetches peers for a given node
-func GetNodePeers(networkName string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
+func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
 	var peers []models.Node
 	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
 	if err != nil {
@@ -43,6 +45,11 @@ func GetNodePeers(networkName string, excludeRelayed bool, isP2S bool) ([]models
 	udppeers, errN := database.GetPeers(networkName)
 	if errN != nil {
 		logger.Log(2, errN.Error())
+	}
+
+	currentNetworkACLs, aclErr := nodeacls.FetchAllACLs(nodeacls.NetworkID(networkName))
+	if aclErr != nil {
+		return peers, aclErr
 	}
 
 	for _, node := range networkNodes {
@@ -79,7 +86,7 @@ func GetNodePeers(networkName string, excludeRelayed bool, isP2S bool) ([]models
 					}
 				}
 			}
-			if !isP2S || peer.IsHub == "yes" {
+			if !isP2S || peer.IsHub == "yes" && currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
 				peers = append(peers, peer)
 			}
 		}
@@ -107,7 +114,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 		isP2S = true
 	}
 	if relayedNodeAddr == "" {
-		peers, err = GetNodePeers(networkName, excludeRelayed, isP2S)
+		peers, err = GetNodePeers(networkName, refnode.ID, excludeRelayed, isP2S)
 	} else {
 		var relayNode models.Node
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
@@ -127,7 +134,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 			} else {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
-			nodepeers, err := GetNodePeers(networkName, false, isP2S)
+			nodepeers, err := GetNodePeers(networkName, refnode.ID, false, isP2S)
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
 					if nodepeer.Address == peerNode.Address {
