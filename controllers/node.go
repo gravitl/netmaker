@@ -11,8 +11,6 @@ import (
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
-	nodeacls "github.com/gravitl/netmaker/logic/acls/node-acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -36,8 +34,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
-	// ACLs
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/acls", authorize(true, "node", http.HandlerFunc(updateNodeACL))).Methods("PUT")
 }
 
 func authenticate(response http.ResponseWriter, request *http.Request) {
@@ -624,31 +620,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)
 	runForceServerUpdate(&node)
-}
-
-func updateNodeACL(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-	var nodeID = params["nodeid"]
-	var networkID = params["network"]
-	var newNodeACL acls.ACL
-	// we decode our body request params
-	err := json.NewDecoder(r.Body).Decode(&newNodeACL)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return
-	}
-
-	newNodeACL, err = nodeacls.UpdateNodeACL(nodeacls.NetworkID(networkID), nodeacls.NodeID(nodeID), newNodeACL)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	logger.Log(1, r.Header.Get("user"), "updated node ACL for", nodeID, "on network", networkID)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newNodeACL)
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {

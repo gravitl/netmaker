@@ -33,6 +33,11 @@ func (acl ACL) IsAllowed(ID AclID) bool {
 	return acl[ID] == Allowed
 }
 
+// ACLContainer.IsAllowed - returns if the current ACL container contains allowed ACLs between two IDs
+func (aclContainer ACLContainer) IsAllowed(ID1, ID2 AclID) bool {
+	return aclContainer[ID1].IsAllowed(ID2) && aclContainer[ID2].IsAllowed(ID1)
+}
+
 // ACLContainer.UpdateACL - saves the state of a ACL in the ACLContainer in memory
 func (aclContainer ACLContainer) UpdateACL(ID AclID, acl ACL) ACLContainer {
 	aclContainer[ID] = acl
