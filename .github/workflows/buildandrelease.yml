@@ -21,8 +21,9 @@ jobs:
             NETMAKER_VERSION=$(curl -fsSL https://api.github.com/repos/gravitl/netmaker/tags | grep 'name' | head -1 | cut -d'"' -f4)
           fi
           echo "NETMAKER_VERSION=${NETMAKER_VERSION}" >> $GITHUB_ENV
-          # remove leading v for package (deb, rpm, etc) versions
-          echo "PACKAGE_VERSION=${NETMAKER_VERSION:1}" >> $GITHUB_ENV
+          # remove everything but digits and . for package (deb, rpm, etc) versions
+          PACKAGE_VERSION=$(echo ${VERSION} | tr -cd '[:digit:].')
+          echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v2
 
@@ -99,12 +100,11 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          # remove -1 only needed for version with _testing
-          file: netclient_${{ env.PACKAGE_VERSION }}.1_x86_64.rpm 
+          file: netclient-${{ env.PACKAGE_VERSION }}-1_x86_64.rpm 
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
-          asset_name: netclient_${{ env.PACKAGE_VERSION }}_x86_64.rpm
+          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1_x86_64.rpm
 
       - name: Package x86 pacman
         continue-on-error: true
@@ -118,7 +118,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          # as for rpms  -1 only need for _testing releases
           file: netclient_${{ env.PACKAGE_VERSION }}-1_x86_64.pkg.tar.zst
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
@@ -194,11 +193,11 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient_${{ env.PACKAGE_VERSION }}.1_arm64.rpm
+          file: netclient-${{ env.PACKAGE_VERSION }}-1.arm64.rpm
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
-          asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.rpm
+          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.arm64.rpm
 
 
               #- name: Upload mipsle to Release
