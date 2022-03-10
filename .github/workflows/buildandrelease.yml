@@ -50,6 +50,7 @@ jobs:
           env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
           
       - name: Upload netmaker x86 to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -60,6 +61,7 @@ jobs:
           asset_name: netmaker
 
       - name: Upload netclient x86 to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -70,11 +72,13 @@ jobs:
           asset_name: netclient
 
       - name: Package x86 deb
+        continue-on-error: true
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
           fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 deb to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -85,11 +89,13 @@ jobs:
           asset_name: netclient_${{ env.PACKAGE_VERSION }}_amd64.deb
 
       - name: Package x86 rpm
+        continue-on-error: true
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
           fpm_opts: '-s dir -t rpm --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 rpm to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -101,12 +107,14 @@ jobs:
           asset_name: netclient_${{ env.PACKAGE_VERSION }}_x86_64.rpm
 
       - name: Package x86 pacman
+        continue-on-error: true
         uses: gravitl/github-action-fpm@master
         with:
           # arch has particular path requirements --- cannot write to a symbolic link e.g. /sbin and /lib
           fpm_args: './netclient/build/netclient=/usr/bin/netclient ./netclient/build/netclient.service=/usr/lib/systemd/system/netclient.service'
           fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 pacman to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -148,6 +156,7 @@ jobs:
               #    asset_name: netclient-arm7
 
       - name: Upload arm64 to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -158,11 +167,13 @@ jobs:
           asset_name: netclient-arm64
 
       - name: Package arm64 deb
+        continue-on-error: true
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
           fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload arm deb to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -173,11 +184,13 @@ jobs:
           asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
 
       - name: Package arm64 rpm
+        continue-on-error: true
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
           fpm_opts: '--debug -s dir -t rpm --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload arm64 rpm to Release
+        continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
