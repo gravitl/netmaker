@@ -8,17 +8,17 @@ import (
 
 // == type functions ==
 
-// ACL.AllowNode - allows a node by ID in memory
+// ACL.Allow - allows access by ID in memory
 func (acl ACL) Allow(ID AclID) {
 	acl[ID] = Allowed
 }
 
-// ACL.DisallowNode - disallows a node access by ID in memory
+// ACL.DisallowNode - disallows access by ID in memory
 func (acl ACL) Disallow(ID AclID) {
 	acl[ID] = NotAllowed
 }
 
-// ACL.Remove - removes a node from a ACL
+// ACL.Remove - removes a node from a ACL in memory
 func (acl ACL) Remove(ID AclID) {
 	delete(acl, ID)
 }
@@ -73,7 +73,7 @@ func (aclContainer ACLContainer) Get(containerID ContainerID) (ACLContainer, err
 
 // == private ==
 
-// fetchACLContainer - fetches all current node rules in given network ACL
+// fetchACLContainer - fetches all current rules in given ACL container
 func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	aclJson, err := fetchACLContainerJson(ContainerID(containerID))
 	if err != nil {
@@ -86,7 +86,7 @@ func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	return currentNetworkACL, nil
 }
 
-// fetchACLContainerJson - fetch the current ACL of given network except in json string
+// fetchACLContainerJson - fetch the current ACL of given container except in json string
 func fetchACLContainerJson(containerID ContainerID) (ACLJson, error) {
 	currentACLs, err := database.FetchRecord(database.NODE_ACLS_TABLE_NAME, string(containerID))
 	if err != nil {
@@ -106,7 +106,7 @@ func upsertACL(containerID ContainerID, ID AclID, acl ACL) (ACL, error) {
 	return acl, err
 }
 
-// upsertACLContainer - Inserts or updates a network ACL given the json string of the ACL and the network name
+// upsertACLContainer - Inserts or updates a network ACL given the json string of the ACL and the container ID
 // if nil, create it
 func upsertACLContainer(containerID ContainerID, aclContainer ACLContainer) (ACLContainer, error) {
 	if aclContainer == nil {
