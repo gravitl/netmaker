@@ -86,7 +86,7 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 					}
 				}
 			}
-			if !isP2S || peer.IsHub == "yes" && currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
+			if (!isP2S || peer.IsHub == "yes") && currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
 				peers = append(peers, peer)
 			}
 		}

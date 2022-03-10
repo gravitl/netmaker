@@ -255,10 +255,13 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 
 	// send peer updates
 	if servercfg.IsMessageQueueBackend() {
-		serverNode, err := logic.GetNetworkServerLeader(netname)
+		serverNode, err := logic.GetNetworkServerLocal(netname)
 		if err != nil {
 			logger.Log(1, "failed to find server node after ACL update on", netname)
 		} else {
+			if err = logic.ServerUpdate(&serverNode, false); err != nil {
+				logger.Log(1, "failed to update server node after ACL update on", netname)
+			}
 			if err = mq.PublishPeerUpdate(&serverNode); err != nil {
 				logger.Log(0, "failed to publish peer update after ACL update on", netname)
 			}
