@@ -22,7 +22,7 @@ jobs:
           fi
           echo "NETMAKER_VERSION=${NETMAKER_VERSION}" >> $GITHUB_ENV
           # remove everything but digits and . for package (deb, rpm, etc) versions
-          PACKAGE_VERSION=$(echo ${VERSION} | tr -cd '[:digit:].')
+          PACKAGE_VERSION=$(echo ${NETMAKER_VERSION} | tr -cd '[:digit:].')
           echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
       - name: Echo
         run: |
