@@ -5,7 +5,7 @@ on:
     inputs:
       version:
         description: 'Netmaker version'
-        required: false
+        required: true
   release:
     types: [published]
 
@@ -89,7 +89,7 @@ jobs:
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
-          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+          fpm_opts: '-s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 deb to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -112,11 +112,11 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient-${{ env.PACKAGE_VERSION }}-1_x86_64.rpm 
+          file: netclient-${{ env.PACKAGE_VERSION }}-1.x86_64.rpm 
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
-          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1_x86_64.rpm
+          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.x86_64.rpm
 
       - name: Package x86 pacman
         continue-on-error: true
@@ -124,7 +124,7 @@ jobs:
         with:
           # arch has particular path requirements --- cannot write to a symbolic link e.g. /sbin and /lib
           fpm_args: './netclient/build/netclient=/usr/bin/netclient ./netclient/build/netclient.service=/usr/lib/systemd/system/netclient.service'
-          fpm_opts: '--debug -s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+          fpm_opts: '-s dir -t pacman --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload x86 pacman to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -182,7 +182,7 @@ jobs:
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
-          fpm_opts: '--debug -s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
+          fpm_opts: '-s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload arm deb to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -199,17 +199,17 @@ jobs:
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
-          fpm_opts: '--debug -s dir -t rpm --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
+          fpm_opts: '-s dir -t rpm --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
       - name: Upload arm64 rpm to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient-${{ env.PACKAGE_VERSION }}-1.arm64.rpm
+          file: netclient-${{ env.PACKAGE_VERSION }}-1.aarch64.rpm
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
-          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.arm64.rpm
+          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.aarch4.rpm
 
 
               #- name: Upload mipsle to Release
