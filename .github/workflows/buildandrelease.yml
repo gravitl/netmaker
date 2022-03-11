@@ -35,8 +35,8 @@ jobs:
           then
             exit 1
           fi
-        echo "::set-output name=tag::${{ env.NETMAKER_VERSION }}"
-        echo "::set-output name=version::${{ env.PACKAGE_VERSION }}"
+          echo "::set-output name=tag::${{ env.NETMAKER_VERSION }}"
+          echo "::set-output name=version::${{ env.PACKAGE_VERSION }}"
   netmaker:        
     runs-on: ubuntu-latest
     needs: set-version
@@ -57,17 +57,17 @@ jobs:
         with:
           go-version: 1.17
       - name: Build
-      run: |
+        run: |
           env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netmaker main.go
-        - name: Upload netmaker x86 to Release
-          uses: svenstaro/upload-release-action@v2
-            with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: build/netmaker
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netmaker
+      - name: Upload netmaker x86 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/netmaker
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netmaker
 
   netclient-x86:
     runs-on: ubuntu-latest
@@ -194,64 +194,64 @@ jobs:
       - name: Upload arm6 to Release
         uses: svenstaro/upload-release-action@v2
         with: 
-         repo_token: ${{ secrets.GITHUB_TOKEN }}
-         file: netclient/build/netclient-arm6/netclient
-         tag: ${{ env.NETMAKER_VERSION }}
-         overwrite: true
-         prerelease: true
-         asset_name: netclient-arm6
-       - name: Upload arm7 to Release
-         uses: svenstaro/upload-release-action@v2
-         with:
-         repo_token: ${{ secrets.GITHUB_TOKEN }}
-         file: netclient/build/netclient-arm7/netclient
-         tag: ${{ env.NETMAKER_VERSION }}
-         overwrite: true
-         prerelease: true
-         asset_name: netclient-arm7
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-arm6/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm6
+      - name: Upload arm7 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-arm7/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm7
      
-       - name: Upload arm64 to Release
-          continue-on-error: true
-          uses: svenstaro/upload-release-action@v2
-          with:
-           repo_token: ${{ secrets.GITHUB_TOKEN }}
-           file: netclient/build/netclient-arm64/netclient
-           tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient-arm64
-       - name: Package arm64 deb
-          continue-on-error: true
-          uses: gravitl/github-action-fpm@master
-          with:
-            fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
-            fpm_opts: '-s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
-       - name: Upload arm deb to Release
-          continue-on-error: true
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
-       - name: Package arm64 rpm
-          continue-on-error: true
-          uses: gravitl/github-action-fpm@master
-          with:
-            fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
-            fpm_opts: '-s dir -t rpm --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
-       - name: Upload arm64 rpm to Release
-          continue-on-error: true
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: netclient-${{ env.PACKAGE_VERSION }}-1.aarch64.rpm
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.aarch4.rpm
+      - name: Upload arm64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-arm64/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-arm64
+      - name: Package arm64 deb
+        continue-on-error: true
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
+          fpm_opts: '-s dir -t deb --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
+      - name: Upload arm deb to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
+      - name: Package arm64 rpm
+        continue-on-error: true
+        uses: gravitl/github-action-fpm@master
+        with:
+          fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
+          fpm_opts: '-s dir -t rpm --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
+      - name: Upload arm64 rpm to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient-${{ env.PACKAGE_VERSION }}-1.aarch64.rpm
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.aarch4.rpm
 
   netclient-mipsle:
     runs-on: ubuntu-latest
@@ -277,14 +277,14 @@ jobs:
           cd netclient
           env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
       - name: Upload mipsle to Release
-         uses: svenstaro/upload-release-action@v2
-           with:
-             repo_token: ${{ secrets.GITHUB_TOKEN }}
-             file: netclient/build/netclient-mipsle/netclient
-             tag: ${{ env.NETMAKER_VERSION }}
-             overwrite: true
-             prerelease: true
-             asset_name: netclient-mipsle
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mipsle/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mipsle
    
   netclient-freebsd:
     runs-on: ubuntu-latest
@@ -315,54 +315,54 @@ jobs:
           env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm64/netclient main.go
 
       - name: Upload freebsd to Release
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: netclient/build/netclient-freebsd/netclient
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient-freebsd      
-            
-        - name: Upload freebsd-arm5 to Release
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: netclient/build/netclient-freebsd-arm5/netclient
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient-freebsd-arm5
-            
-        - name: Upload freebsd-arm6 to Release
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: netclient/build/netclient-freebsd-arm6/netclient
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient-freebsd-arm6
-            
-        - name: Upload freebsd-arm7 to Release
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: netclient/build/netclient-freebsd-arm7/netclient
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient-freebsd-arm7
-            
-        - name: Upload freebsd-arm64 to Release
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: netclient/build/netclient-freebsd-arm64/netclient
-            tag: ${{ env.NETMAKER_VERSION }}
-            overwrite: true
-            prerelease: true
-            asset_name: netclient-freebsd-arm64
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-freebsd/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-freebsd      
+          
+      - name: Upload freebsd-arm5 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-freebsd-arm5/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-freebsd-arm5
+          
+      - name: Upload freebsd-arm6 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-freebsd-arm6/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-freebsd-arm6
+          
+      - name: Upload freebsd-arm7 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-freebsd-arm7/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-freebsd-arm7
+          
+      - name: Upload freebsd-arm64 to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-freebsd-arm64/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-freebsd-arm64
 
   netclient-darwin:
     runs-on: ubuntu-latest
@@ -398,7 +398,7 @@ jobs:
           prerelease: true
           asset_name: netclient-darwin
 
-       - name: Upload darwin-arm64 to Release
+      - name: Upload darwin-arm64 to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
