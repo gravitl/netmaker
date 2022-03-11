@@ -72,14 +72,14 @@ jobs:
 
   netclient-x86:
     runs-on: ubuntu-latest
-    needs: set-version
+    needs: version
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set Variables
         run: |
-          TAG=${{needs.set-version.outputs.tag}}
-          VERSION=${{needs.set-version.outputs.version}}
+          TAG=${{needs.version.outputs.tag}}
+          VERSION=${{needs.version.outputs.version}}
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
@@ -158,14 +158,14 @@ jobs:
 
   netclient-arm:
     runs-on: ubuntu-latest
-    needs: set-version
+    needs: version
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set Variables
         run: |
-          TAG=${{needs.set-version.outputs.tag}}
-          VERSION=${{needs.set-version.outputs.version}}
+          TAG=${{needs.version.outputs.tag}}
+          VERSION=${{needs.version.outputs.version}}
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
@@ -256,14 +256,14 @@ jobs:
 
   netclient-mipsle:
     runs-on: ubuntu-latest
-    needs: set-version
+    needs: version
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set Variables
         run: |
-          TAG=${{needs.set-version.outputs.tag}}
-          VERSION=${{needs.set-version.outputs.version}}
+          TAG=${{needs.version.outputs.tag}}
+          VERSION=${{needs.version.outputs.version}}
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
@@ -289,14 +289,14 @@ jobs:
    
   netclient-freebsd:
     runs-on: ubuntu-latest
-    needs: set-version
+    needs: version
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set Variables
         run: |
-          TAG=${{needs.set-version.outputs.tag}}
-          VERSION=${{needs.set-version.outputs.version}}
+          TAG=${{needs.version.outputs.tag}}
+          VERSION=${{needs.version.outputs.version}}
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
@@ -367,14 +367,14 @@ jobs:
 
   netclient-darwin:
     runs-on: ubuntu-latest
-    needs: set-version
+    needs: version
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set Variables
         run: |
-          TAG=${{needs.set-version.outputs.tag}}
-          VERSION=${{needs.set-version.outputs.version}}
+          TAG=${{needs.version.outputs.tag}}
+          VERSION=${{needs.version.outputs.version}}
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
