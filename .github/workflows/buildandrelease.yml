@@ -81,11 +81,8 @@ jobs:
         run: |
           TAG=${{needs.version.outputs.tag}}
           VERSION=${{needs.version.outputs.version}}
-          if [[ -n ${VERSION} || -n ${TAG} ]]; then
-            exit 1
-          fi
-          echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
-          echo "$PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
         uses: actions/setup-go@v2
         with:
@@ -170,8 +167,8 @@ jobs:
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
-          echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
-          echo "$PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
         uses: actions/setup-go@v2
         with:
@@ -268,8 +265,8 @@ jobs:
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
-          echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
-          echo "$PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
         uses: actions/setup-go@v2
         with:
@@ -301,8 +298,8 @@ jobs:
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
-          echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
-          echo "$PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
         uses: actions/setup-go@v2
         with:
@@ -379,8 +376,8 @@ jobs:
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
-          echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
-          echo "$PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go                                    
         uses: actions/setup-go@v2                        
         with:                                           
