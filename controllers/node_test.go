@@ -5,6 +5,8 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -141,6 +143,72 @@ func TestValidateEgressGateway(t *testing.T) {
 		err := logic.ValidateEgressGateway(gateway)
 		assert.Nil(t, err)
 	})
+}
+
+func TestNodeACLs(t *testing.T) {
+	deleteAllNodes()
+	node1 := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.50", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "linux"}
+	node2 := models.Node{PublicKey: "DM5qhLAE20FG7BbfBCger+Ac9D2NDOwCtY1rbYDXf14=", Name: "testnode", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
+	logic.CreateNode(&node1)
+	logic.CreateNode(&node2)
+	t.Run("acls not present", func(t *testing.T) {
+		currentACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(node1.Network))
+		assert.Nil(t, err)
+		assert.NotNil(t, currentACL)
+		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		assert.Nil(t, err)
+		assert.NotNil(t, node1ACL)
+		assert.Equal(t, acls.Allowed, node1ACL[acls.AclID(node2.ID)])
+	})
+	t.Run("node acls exists after creates", func(t *testing.T) {
+		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		assert.Nil(t, err)
+		assert.NotNil(t, node1ACL)
+		node2ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node2.Network), nodeacls.NodeID(node2.ID))
+		assert.Nil(t, err)
+		assert.NotNil(t, node2ACL)
+		assert.Equal(t, acls.Allowed, node2ACL[acls.AclID(node1.ID)])
+	})
+	t.Run("node acls correct after fetch", func(t *testing.T) {
+		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		assert.Nil(t, err)
+		assert.Equal(t, acls.Allowed, node1ACL[acls.AclID(node2.ID)])
+	})
+	t.Run("node acls correct after modify", func(t *testing.T) {
+		node1ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		assert.Nil(t, err)
+		assert.NotNil(t, node1ACL)
+		node2ACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(node2.Network), nodeacls.NodeID(node2.ID))
+		assert.Nil(t, err)
+		assert.NotNil(t, node2ACL)
+		currentACL, err := nodeacls.DisallowNodes(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID), nodeacls.NodeID(node2.ID))
+		assert.Nil(t, err)
+		assert.Equal(t, acls.NotAllowed, currentACL[acls.AclID(node1.ID)][acls.AclID(node2.ID)])
+		assert.Equal(t, acls.NotAllowed, currentACL[acls.AclID(node2.ID)][acls.AclID(node1.ID)])
+		currentACL.Save(acls.ContainerID(node1.Network))
+	})
+	t.Run("node acls correct after add new node not allowed", func(t *testing.T) {
+		node3 := models.Node{PublicKey: "DM5qhLAE20FG7BbfBCger+Ac9D2NDOwCtY1rbYDXv24=", Name: "testnode3", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
+		logic.CreateNode(&node3)
+		var currentACL, err = nodeacls.FetchAllACLs(nodeacls.NetworkID(node3.Network))
+		assert.Nil(t, err)
+		assert.NotNil(t, currentACL)
+		assert.Equal(t, acls.NotPresent, currentACL[acls.AclID(node1.ID)][acls.AclID(node3.ID)])
+		nodeACL, err := nodeacls.CreateNodeACL(nodeacls.NetworkID(node3.Network), nodeacls.NodeID(node3.ID), acls.NotAllowed)
+		assert.Nil(t, err)
+		nodeACL.Save(acls.ContainerID(node3.Network), acls.AclID(node3.ID))
+		currentACL, err = nodeacls.FetchAllACLs(nodeacls.NetworkID(node3.Network))
+		assert.Nil(t, err)
+		assert.Equal(t, acls.NotAllowed, currentACL[acls.AclID(node1.ID)][acls.AclID(node3.ID)])
+		assert.Equal(t, acls.NotAllowed, currentACL[acls.AclID(node2.ID)][acls.AclID(node3.ID)])
+	})
+	t.Run("node acls removed", func(t *testing.T) {
+		retNetworkACL, err := nodeacls.RemoveNodeACL(nodeacls.NetworkID(node1.Network), nodeacls.NodeID(node1.ID))
+		assert.Nil(t, err)
+		assert.NotNil(t, retNetworkACL)
+		assert.Equal(t, acls.NotPresent, retNetworkACL[acls.AclID(node2.ID)][acls.AclID(node1.ID)])
+	})
+	deleteAllNodes()
 }
 
 func deleteAllNodes() {

@@ -50,6 +50,9 @@ const DATABASE_FILENAME = "netmaker.db"
 // GENERATED_TABLE_NAME - stores server generated k/v
 const GENERATED_TABLE_NAME = "generated"
 
+// NODE_ACLS_TABLE_NAME - stores the node ACL rules
+const NODE_ACLS_TABLE_NAME = "nodeacls"
+
 // == ERROR CONSTS ==
 
 // NO_RECORD - no singular result found
@@ -127,6 +130,7 @@ func createTables() {
 	createTable(SERVERCONF_TABLE_NAME)
 	createTable(SERVER_UUID_TABLE_NAME)
 	createTable(GENERATED_TABLE_NAME)
+	createTable(NODE_ACLS_TABLE_NAME)
 }
 
 func createTable(tableName string) error {
