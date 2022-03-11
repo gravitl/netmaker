@@ -45,6 +45,7 @@ jobs:
         uses: actions/checkout@v2
       - name: set variables
         run: |
+          echo ${{ needs.set-version.outputs.tag }} {{ needs.set-version.outputs.version }}
           TAG=${{needs.set-version.outputs.tag}}
           VERSION=${{needs.set-version.outputs.version}}
           if [[ -n ${VERSION} || -n ${TAG} ]]; then
