@@ -53,6 +53,10 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 	}
 
 	for _, node := range networkNodes {
+		if !currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
+			continue
+		}
+
 		var peer = models.Node{}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
@@ -86,7 +90,7 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 					}
 				}
 			}
-			if (!isP2S || peer.IsHub == "yes") && currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
+			if !isP2S || peer.IsHub == "yes" {
 				peers = append(peers, peer)
 			}
 		}
