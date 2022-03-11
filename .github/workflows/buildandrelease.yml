@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Get Version Number
         run: |
-          if [[ -n ${VERSION} || -n ${TAG} ]]; then
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
             NETMAKER_VERSION=${{ github.event.inputs.version }}
           else
             NETMAKER_VERSION=$(curl -fsSL https://api.github.com/repos/gravitl/netmaker/tags | grep 'name' | head -1 | cut -d'"' -f4)
