@@ -28,6 +28,7 @@ jobs:
           PACKAGE_VERSION=$(echo ${NETMAKER_VERSION} | tr -cd '[:digit:].')
           echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
       - name: Echo
+        id: echo
         run: |
           echo ${{ env.NETMAKER_VERSION }}
           echo ${{ env.PACKAGE_VERSION }}
