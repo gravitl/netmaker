@@ -181,9 +181,9 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with: 
           repo_token: ${{ secrets.GITHUB_TOKEN }} 
-          file: netclient/build/netclient-arm5/netclientenv 
-          tag: ${{ env.NETMAKER_VERSION }}env CGO_ENABLED=0 
-          overwrite: true env 
+          file: netclient/build/netclient-arm5/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true 
           prerelease: true
           asset_name: netclient-arm5
 
