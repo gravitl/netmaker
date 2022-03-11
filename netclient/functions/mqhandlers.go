@@ -206,7 +206,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			ncutils.Log("error updating /etc/hosts " + err.Error())
 			return
 		}
-		ncutils.Log("DNS updating /etc/hosts")
 	} else {
 		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
 			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())

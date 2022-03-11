@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -208,6 +210,11 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 		return nil, hasGateway, gateways, err
 	}
 
+	currentNetworkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(serverNode.Network))
+	if err != nil {
+		logger.Log(1, "could not fetch current ACL list, proceeding with all peers")
+	}
+
 	for _, node := range nodes {
 		pubkey, err := wgtypes.ParseKey(node.PublicKey)
 		if err != nil {
@@ -290,7 +297,11 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 			ReplaceAllowedIPs:           true,
 			AllowedIPs:                  allowedips,
 		}
-		peers = append(peers, peer)
+		if currentNetworkACL != nil && currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID)) {
+			peers = append(peers, peer)
+		} else { // if ACLs were not found
+			peers = append(peers, peer)
+		}
 	}
 	if serverNode.IsIngressGateway == "yes" {
 		extPeers, err := GetServerExtPeers(serverNode)
