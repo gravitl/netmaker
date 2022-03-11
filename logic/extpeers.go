@@ -33,7 +33,7 @@ func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 			logger.Log(2, "failed to unmarshal ext client")
 			continue
 		}
-		if extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
+		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
 			peers = append(peers, peer)
 		}
 	}
@@ -162,13 +162,14 @@ func CreateExtClient(extclient *models.ExtClient) error {
 }
 
 // UpdateExtClient - only supports name changes right now
-func UpdateExtClient(newclientid string, network string, client *models.ExtClient) (*models.ExtClient, error) {
+func UpdateExtClient(newclientid string, network string, enabled bool, client *models.ExtClient) (*models.ExtClient, error) {
 
 	err := DeleteExtClient(network, client.ClientID)
 	if err != nil {
 		return client, err
 	}
 	client.ClientID = newclientid
+	client.Enabled = enabled
 	CreateExtClient(client)
 	return client, err
 }

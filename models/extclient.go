@@ -12,4 +12,5 @@ type ExtClient struct {
 	IngressGatewayID       string `json:"ingressgatewayid" bson:"ingressgatewayid"`
 	IngressGatewayEndpoint string `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
 	LastModified           int64  `json:"lastmodified" bson:"lastmodified"`
+	Enabled                bool   `json:"enabled" bson:"enabled"`
 }
