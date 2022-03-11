@@ -15,6 +15,8 @@ netclient/netclient-32
 netclient/netclient32
 netclient/netclient.exe
 config/dnsconfig/
+controllers/config/dnsconfig/
+controllers/data/
 data/
 .vscode/
 .idea/
