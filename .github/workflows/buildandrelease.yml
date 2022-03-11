@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Get Version Number
         run: |
-          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+          if [[ -n ${VERSION} || -n ${TAG} ]]; then
             NETMAKER_VERSION=${{ github.event.inputs.version }}
           else
             NETMAKER_VERSION=$(curl -fsSL https://api.github.com/repos/gravitl/netmaker/tags | grep 'name' | head -1 | cut -d'"' -f4)
@@ -31,7 +31,7 @@ jobs:
         run: |
           echo ${{ env.NETMAKER_VERSION }}
           echo ${{ env.PACKAGE_VERSION }}
-          if [ -z ${{ env.NETMAKER_VERSION }} || -z ${{ env.PACKAGE_VERSION }} ]
+          if [[ -z ${{ env.NETMAKER_VERSION }} || -z ${{ env.PACKAGE_VERSION }} ]]
           then
             exit 1
           fi
@@ -47,7 +47,7 @@ jobs:
         run: |
           TAG=${{needs.set-version.outputs.tag}}
           VERSION=${{needs.set-version.outputs.version}}
-          if [ -n ${VERSION} || -n ${TAG} ]; then
+          if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
           echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
@@ -79,7 +79,7 @@ jobs:
         run: |
           TAG=${{needs.set-version.outputs.tag}}
           VERSION=${{needs.set-version.outputs.version}}
-          if [ -n ${VERSION} || -n ${TAG} ]; then
+          if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
           echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
@@ -165,7 +165,7 @@ jobs:
         run: |
           TAG=${{needs.set-version.outputs.tag}}
           VERSION=${{needs.set-version.outputs.version}}
-          if [ -n ${VERSION} || -n ${TAG} ]; then
+          if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
           echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
@@ -263,7 +263,7 @@ jobs:
         run: |
           TAG=${{needs.set-version.outputs.tag}}
           VERSION=${{needs.set-version.outputs.version}}
-          if [ -n ${VERSION} || -n ${TAG} ]; then
+          if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
           echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
@@ -296,7 +296,7 @@ jobs:
         run: |
           TAG=${{needs.set-version.outputs.tag}}
           VERSION=${{needs.set-version.outputs.version}}
-          if [ -n ${VERSION} || -n ${TAG} ]; then
+          if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
           echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
@@ -374,7 +374,7 @@ jobs:
         run: |
           TAG=${{needs.set-version.outputs.tag}}
           VERSION=${{needs.set-version.outputs.version}}
-          if [ -n ${VERSION} || -n ${TAG} ]; then
+          if [[ -n ${VERSION} || -n ${TAG} ]]; then
             exit 1
           fi
           echo "$NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
