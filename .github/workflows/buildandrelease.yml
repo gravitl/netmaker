@@ -148,11 +148,11 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient_${{ env.PACKAGE_VERSION }}-1_x86_64.pkg.tar.zst
+          file: netclient_${{ env.PACKAGE_VERSION }}-1-x86_64.pkg.tar.zst
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
-          asset_name: netclient_${{ env.PACKAGE_VERSION }}_x86_64.pkg.tar.zst
+          asset_name: netclient_${{ env.PACKAGE_VERSION }}-1-x86_64.pkg.tar.zst
 
   netclient-arm:
     runs-on: ubuntu-latest
