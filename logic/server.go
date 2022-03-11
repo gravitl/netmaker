@@ -232,6 +232,9 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 				continue
 			}
 		}
+		if currentNetworkACL != nil && currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID)) {
+			continue
+		}
 
 		var peer wgtypes.PeerConfig
 		var peeraddr = net.IPNet{
@@ -297,11 +300,8 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 			ReplaceAllowedIPs:           true,
 			AllowedIPs:                  allowedips,
 		}
-		if currentNetworkACL != nil && currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID)) {
-			peers = append(peers, peer)
-		} else { // if ACLs were not found
-			peers = append(peers, peer)
-		}
+
+		peers = append(peers, peer)
 	}
 	if serverNode.IsIngressGateway == "yes" {
 		extPeers, err := GetServerExtPeers(serverNode)
