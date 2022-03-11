@@ -6,7 +6,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
-	nodeacls "github.com/gravitl/netmaker/logic/acls/node-acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
