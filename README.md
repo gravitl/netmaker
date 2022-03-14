@@ -3,7 +3,7 @@
   <img src="netmaker.png" width="75%"><break/>
 </p>
 <p align="center">
-<i>Create and control automated virtual networks.</i> 
+a platform for blazing fast and dynamic virtual networks 
 </p>
 
 <p align="center">
