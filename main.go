@@ -66,6 +66,11 @@ func initialize() { // Client Mode Prereq Check
 		logger.Log(0, "no OAuth provider found or not configured, continuing without OAuth")
 	}
 
+	err = serverctl.SetDefaultACLS()
+	if err != nil {
+		logger.FatalLog("error setting default acls: ", err.Error())
+	}
+
 	if servercfg.IsClientMode() != "off" {
 		output, err := ncutils.RunCmd("id -u", true)
 		if err != nil {
@@ -85,12 +90,6 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog("could not inintialize comms network")
 		}
 	}
-
-	err = serverctl.SetDefaultACLS()
-	if err != nil {
-		logger.FatalLog("error setting default acls: ", err.Error())
-	}
-
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
 	if servercfg.ManageIPTables() != "off" {
 		if err = serverctl.InitIPTables(); err != nil {
