@@ -182,7 +182,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			//skip yourself
 			continue
 		}
-		dns = dns + fmt.Sprint("%s.%s %s\n", peer.Name, peer.Network, peer.Address)
+		dns = dns + fmt.Sprintf("%s.%s %s\n", peer.Name, peer.Network, peer.Address)
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return models.PeerUpdate{}, err
