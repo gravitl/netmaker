@@ -3,7 +3,6 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"runtime"
 	"strings"
 	"time"
@@ -198,9 +197,9 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	}
 	ncutils.Log("received peer update for node " + cfg.Node.Name + " " + cfg.Node.Network)
 	//skip dns updates if this is a peer update for comms network
-	//if cfg.Node.NetworkSettings.IsComms == "yes" {
-	//	return
-	//}
+	if cfg.Node.NetworkSettings.IsComms == "yes" {
+		return
+	}
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Network, ncutils.IsWindows()); err != nil {
 			ncutils.Log("error updating /etc/hosts " + err.Error())
@@ -215,7 +214,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 }
 
 func setHostDNS(dns, network string, windows bool) error {
-	log.Println(dns)
 	etchosts := "/etc/hosts"
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"

@@ -182,7 +182,6 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			//skip yourself
 			continue
 		}
-		log.Println("adding dns entry for ", peer.Name, " on ", peer.Network, " address ", peer.Address)
 		dns = dns + fmt.Sprintf("%s %s.%s\n", peer.Address, peer.Name, peer.Network)
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
