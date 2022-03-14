@@ -166,21 +166,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	// ensure you clear any existing interface first
-	d, _ := wgclient.Device(deviceiface)
-	startTime := time.Now()
-	for d != nil && d.Name == deviceiface {
-		if err = RemoveConf(deviceiface, false); err != nil { // remove interface first
-			if strings.Contains(err.Error(), "does not exist") {
-				err = nil
-				break
-			}
-		}
-		time.Sleep(time.Second >> 2)
-		d, _ = wgclient.Device(deviceiface)
-		if time.Now().After(startTime.Add(time.Second << 4)) {
-			break
-		}
-	}
+	RemoveConfGraceful(deviceiface)
 	ApplyConf(node, ifacename, confPath)            // Apply initially
 	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
@@ -301,6 +287,7 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	var err error
 	switch os {
 	case "windows":
+		RemoveConfGraceful(ifacename)
 		ApplyWindowsConf(confPath)
 	case "darwin":
 		ApplyMacOSConf(node, ifacename, confPath)
@@ -477,4 +464,30 @@ func UpdatePrivateKey(file, privateKey string) error {
 		return err
 	}
 	return nil
+}
+
+// RemoveConfGraceful - Run remove conf and wait for it to actually be gone before proceeding
+func RemoveConfGraceful(ifacename string) {
+	// ensure you clear any existing interface first
+	wgclient, err := wgctrl.New()
+	if err != nil {
+		ncutils.PrintLog("could not create wgclient", 0)
+		return
+	}
+	defer wgclient.Close()
+	d, _ := wgclient.Device(ifacename)
+	startTime := time.Now()
+	for d != nil && d.Name == ifacename {
+		if err = RemoveConf(ifacename, false); err != nil { // remove interface first
+			if strings.Contains(err.Error(), "does not exist") {
+				err = nil
+				break
+			}
+		}
+		time.Sleep(time.Second >> 2)
+		d, _ = wgclient.Device(ifacename)
+		if time.Now().After(startTime.Add(time.Second << 4)) {
+			break
+		}
+	}
 }
