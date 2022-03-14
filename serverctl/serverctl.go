@@ -10,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -143,4 +145,32 @@ func SyncServerNetwork(network string) error {
 		}
 	*/
 	return nil
+}
+
+// SetDefaultACLS - runs through each network to see if ACL's are set. If not, goes through each node in network and adds the default ACL
+func SetDefaultACLS() error {
+	// upgraded systems will not have ACL's set, which is why we need this function
+	var err error
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		return err
+	}
+	for i, _ := range networks {
+		_, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(networks[i].NetID))
+		if err != nil {
+			if database.IsEmptyRecord(err) {
+				nodes, err := logic.GetNetworkNodes(networks[i].NetID)
+				if err != nil {
+					return err
+				}
+				for j, _ := range nodes {
+					_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(networks[i].NetID), nodeacls.NodeID(nodes[j].ID), acls.Allowed)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return err
 }
