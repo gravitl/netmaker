@@ -239,7 +239,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 
 
 	*/
-	peerUpdate.DNS = []byte(dns)
+	peerUpdate.DNS = dns
 	return peerUpdate, nil
 }
 
