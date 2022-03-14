@@ -152,6 +152,7 @@ func setPeerInfo(node *models.Node) models.Node {
 	peer.PublicKey = node.PublicKey
 	peer.Endpoint = node.Endpoint
 	peer.Name = node.Name
+	peer.Network = node.Network
 	peer.LocalAddress = node.LocalAddress
 	peer.ListenPort = node.ListenPort
 	peer.AllowedIPs = node.AllowedIPs

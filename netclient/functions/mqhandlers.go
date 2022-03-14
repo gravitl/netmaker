@@ -141,7 +141,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
 		ncutils.Log("settng DNS off")
-		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
+		if err := removeHostDNS(nodeCfg.Network, ncutils.IsWindows()); err != nil {
 			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())
 		}
 		//		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
@@ -201,24 +201,24 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if cfg.Node.DNSOn == "yes" {
-		if err := setHostDNS(peerUpdate.DNS, ncutils.IsWindows()); err != nil {
+		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Network, ncutils.IsWindows()); err != nil {
 			ncutils.Log("error updating /etc/hosts " + err.Error())
 			return
 		}
 	} else {
-		if err := removeHostDNS(ncutils.IsWindows()); err != nil {
-			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())
+		if err := removeHostDNS(cfg.Node.Network, ncutils.IsWindows()); err != nil {
+			ncutils.Log("error removing profile from /etc/hosts " + err.Error())
 			return
 		}
 	}
 }
 
-func setHostDNS(dns []byte, windows bool) error {
+func setHostDNS(dns, network string, windows bool) error {
 	etchosts := "/etc/hosts"
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
 	}
-	dnsdata := strings.NewReader(string(dns))
+	dnsdata := strings.NewReader(dns)
 	profile, err := parser.ParseProfile(dnsdata)
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func setHostDNS(dns []byte, windows bool) error {
 	if err != nil {
 		return err
 	}
-	profile.Name = "netmaker"
+	profile.Name = network
 	profile.Status = types.Enabled
 	if err := hosts.ReplaceProfile(profile); err != nil {
 		return err
@@ -238,7 +238,7 @@ func setHostDNS(dns []byte, windows bool) error {
 	return nil
 }
 
-func removeHostDNS(windows bool) error {
+func removeHostDNS(network string, windows bool) error {
 	etchosts := "/etc/hosts"
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
@@ -247,7 +247,7 @@ func removeHostDNS(windows bool) error {
 	if err != nil {
 		return err
 	}
-	if err := hosts.RemoveProfile("netmaker"); err != nil {
+	if err := hosts.RemoveProfile(network); err != nil {
 		return err
 	}
 	if err := hosts.Flush(); err != nil {
