@@ -3,7 +3,6 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -219,17 +218,7 @@ func setHostDNS(dns []byte, windows bool) error {
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
 	}
-	tmpfile := "/tmp/dnsdata"
-	if windows {
-		tmpfile = "c:\\windows\\temp\\dnsdata"
-	}
-	if err := os.WriteFile(tmpfile, dns, 0600); err != nil {
-		return err
-	}
-	dnsdata, err := os.Open(tmpfile)
-	if err != nil {
-		return err
-	}
+	dnsdata := strings.NewReader(string(dns))
 	profile, err := parser.ParseProfile(dnsdata)
 	if err != nil {
 		return err
