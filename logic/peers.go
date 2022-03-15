@@ -1,9 +1,9 @@
 package logic
 
 import (
+	"fmt"
 	"log"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -53,6 +53,10 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 	}
 
 	for _, node := range networkNodes {
+		if !currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
+			continue
+		}
+
 		var peer = models.Node{}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
@@ -172,11 +176,13 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #1 Set Keepalive values: set_keepalive
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
+	var dns string
 	for _, peer := range currentPeers {
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
 		}
+		dns = dns + fmt.Sprintf("%s %s.%s\n", peer.Address, peer.Name, peer.Network)
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return models.PeerUpdate{}, err
@@ -232,12 +238,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 
 
 	*/
-	dns, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
-	if err != nil {
-		logger.Log(0, "failed to read netmaker.hosts", err.Error())
-	} else {
-		peerUpdate.DNS = dns
-	}
+	peerUpdate.DNS = dns
 	return peerUpdate, nil
 }
 

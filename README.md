@@ -3,12 +3,12 @@
   <img src="netmaker.png" width="75%"><break/>
 </p>
 <p align="center">
-<i>Create and control automated virtual networks.</i> 
+a platform for blazing fast and dynamic virtual networks 
 </p>
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.11.1-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.12.0-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />

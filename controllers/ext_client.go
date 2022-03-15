@@ -228,6 +228,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
+	// TODO, could rely on network template as well in future
+	extclient.Enabled = true
 	err = json.NewDecoder(r.Body).Decode(&extclient)
 	if err != nil && !errors.Is(err, io.EOF) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -238,6 +240,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	err = mq.PublishExtPeerUpdate(&node)
 	if err != nil {
@@ -268,12 +271,20 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], &oldExtClient)
+	var changedEnabled = newExtClient.Enabled != oldExtClient.Enabled // indicates there was a change in enablement
+	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "updated client", newExtClient.ClientID)
+	logger.Log(0, r.Header.Get("user"), "updated ext client", newExtClient.ClientID)
+	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
+		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
+			if err = mq.PublishExtPeerUpdate(&ingressNode); err != nil {
+				logger.Log(1, "error setting ext peers on", ingressNode.ID, ":", err.Error())
+			}
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 }
@@ -311,7 +322,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(1, "error setting ext peers on "+ingressnode.ID+": "+err.Error())
 	}
-	logger.Log(1, r.Header.Get("user"),
+	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])
 	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }

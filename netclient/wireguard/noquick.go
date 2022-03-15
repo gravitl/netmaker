@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -72,7 +71,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 		}
 	}
 	if _, err := ncutils.RunCmd(ipExec+" link set down dev "+ifacename, false); err != nil {
-		logger.Log(2, "attempted to remove interface before editing")
+		ncutils.PrintLog("attempted to remove interface before editing", 1)
 		return err
 	}
 	if node.PostDown != "" {
@@ -81,7 +80,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 	}
 	// set MTU of node interface
 	if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {
-		logger.Log(2, "failed to create interface with mtu", strconv.Itoa(int(node.MTU)), "-", ifacename)
+		ncutils.PrintLog("failed to create interface with mtu "+strconv.Itoa(int(node.MTU))+"-"+ifacename, 1)
 		return err
 	}
 	if node.PostUp != "" {
@@ -89,7 +88,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 		_ = ncutils.RunCmds(runcmds, true)
 	}
 	if node.Address6 != "" && node.IsDualStack == "yes" {
-		logger.Log(1, "adding address:", node.Address6)
+		ncutils.PrintLog("adding address: "+node.Address6, 1)
 		_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
 	}
 	return nil
@@ -104,8 +103,8 @@ func RemoveWithoutWGQuick(ifacename string) error {
 	out, err := ncutils.RunCmd(ipExec+" link del "+ifacename, false)
 	dontprint := strings.Contains(out, "does not exist") || strings.Contains(out, "Cannot find device")
 	if err != nil && !dontprint {
-		logger.Log(1, "error running command:", ipExec, "link del", ifacename)
-		logger.Log(1, out)
+		ncutils.PrintLog("error running command: "+ipExec+" link del "+ifacename, 1)
+		ncutils.PrintLog(out, 1)
 	}
 	network := strings.ReplaceAll(ifacename, "nm-", "")
 	nodeconf, err := config.ReadConfig(network)
