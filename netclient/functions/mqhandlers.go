@@ -109,6 +109,9 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
 		ncutils.Log("applying WG conf to " + file)
+		if ncutils.IsWindows() {
+			wireguard.RemoveConfGraceful(nodeCfg.Node.Interface)
+		}
 		err = wireguard.ApplyConf(&nodeCfg.Node, nodeCfg.Node.Interface, file)
 		if err != nil {
 			ncutils.Log("error restarting wg after node update " + err.Error())
