@@ -151,9 +151,15 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultExtClientDNS != "" {
 		defaultDNS = "DNS = " + network.DefaultExtClientDNS
 	}
+
+	defaultMTU := 1420
+	if gwnode.MTU != 0 {
+		defaultMTU = int(gwnode.MTU)
+	}
 	config := fmt.Sprintf(`[Interface]
 Address = %s
 PrivateKey = %s
+MTU = %d
 %s
 
 [Peer]
@@ -164,6 +170,7 @@ Endpoint = %s
 
 `, client.Address+"/32",
 		client.PrivateKey,
+		defaultMTU,
 		defaultDNS,
 		gwnode.PublicKey,
 		newAllowedIPs,
