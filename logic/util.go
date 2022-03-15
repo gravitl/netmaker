@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -101,34 +100,6 @@ func GenerateCryptoString(n int) (string, error) {
 	return string(ret), nil
 }
 
-// DeleteNodeByID - deletes a node from database or moves into delete nodes table
-func DeleteNodeByID(node *models.Node, exterminate bool) error {
-	var err error
-	var key = node.ID
-	if !exterminate {
-		node.Action = models.NODE_DELETE
-		nodedata, err := json.Marshal(&node)
-		if err != nil {
-			return err
-		}
-		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
-		if err != nil {
-			return err
-		}
-	} else {
-		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			logger.Log(2, err.Error())
-		}
-	}
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
-	}
-	if servercfg.IsDNSMode() {
-		SetDNS()
-	}
-	return removeLocalServer(node)
-}
-
 // RandomString - returns a random string in a charset
 func RandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -181,6 +152,7 @@ func setPeerInfo(node *models.Node) models.Node {
 	peer.PublicKey = node.PublicKey
 	peer.Endpoint = node.Endpoint
 	peer.Name = node.Name
+	peer.Network = node.Network
 	peer.LocalAddress = node.LocalAddress
 	peer.ListenPort = node.ListenPort
 	peer.AllowedIPs = node.AllowedIPs

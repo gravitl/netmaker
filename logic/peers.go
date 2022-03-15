@@ -1,15 +1,17 @@
 package logic
 
 import (
+	"fmt"
 	"log"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -33,7 +35,7 @@ func GetHubPeer(networkName string) []models.Node {
 */
 
 // GetNodePeers - fetches peers for a given node
-func GetNodePeers(networkName string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
+func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
 	var peers []models.Node
 	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
 	if err != nil {
@@ -45,7 +47,16 @@ func GetNodePeers(networkName string, excludeRelayed bool, isP2S bool) ([]models
 		logger.Log(2, errN.Error())
 	}
 
+	currentNetworkACLs, aclErr := nodeacls.FetchAllACLs(nodeacls.NetworkID(networkName))
+	if aclErr != nil {
+		return peers, aclErr
+	}
+
 	for _, node := range networkNodes {
+		if !currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
+			continue
+		}
+
 		var peer = models.Node{}
 		if node.IsEgressGateway == "yes" { // handle egress stuff
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
@@ -79,7 +90,7 @@ func GetNodePeers(networkName string, excludeRelayed bool, isP2S bool) ([]models
 					}
 				}
 			}
-			if !isP2S || peer.IsHub == "yes" {
+			if (!isP2S || peer.IsHub == "yes") && currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
 				peers = append(peers, peer)
 			}
 		}
@@ -107,7 +118,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 		isP2S = true
 	}
 	if relayedNodeAddr == "" {
-		peers, err = GetNodePeers(networkName, excludeRelayed, isP2S)
+		peers, err = GetNodePeers(networkName, refnode.ID, excludeRelayed, isP2S)
 	} else {
 		var relayNode models.Node
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
@@ -127,7 +138,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 			} else {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
-			nodepeers, err := GetNodePeers(networkName, false, isP2S)
+			nodepeers, err := GetNodePeers(networkName, refnode.ID, false, isP2S)
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
 					if nodepeer.Address == peerNode.Address {
@@ -165,11 +176,13 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #1 Set Keepalive values: set_keepalive
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
+	var dns string
 	for _, peer := range currentPeers {
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
 		}
+		dns = dns + fmt.Sprintf("%s %s.%s\n", peer.Address, peer.Name, peer.Network)
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return models.PeerUpdate{}, err
@@ -225,12 +238,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 
 
 	*/
-	dns, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
-	if err != nil {
-		logger.Log(0, "failed to read netmaker.hosts", err.Error())
-	} else {
-		peerUpdate.DNS = dns
-	}
+	peerUpdate.DNS = dns
 	return peerUpdate, nil
 }
 

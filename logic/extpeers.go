@@ -33,7 +33,7 @@ func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 			logger.Log(2, "failed to unmarshal ext client")
 			continue
 		}
-		if extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
+		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
 			peers = append(peers, peer)
 		}
 	}
@@ -133,6 +133,14 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		extclient.Address = newAddress
 	}
 
+	if extclient.Address6 == "" {
+		addr6, err := UniqueAddress6(extclient.Network)
+		if err != nil {
+			return err
+		}
+		extclient.Address6 = addr6
+	}
+
 	if extclient.ClientID == "" {
 		extclient.ClientID = models.GenerateNodeName()
 	}
@@ -150,18 +158,18 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
 	}
-	err = SetNetworkNodesLastModified(extclient.Network)
-	return err
+	return SetNetworkNodesLastModified(extclient.Network)
 }
 
 // UpdateExtClient - only supports name changes right now
-func UpdateExtClient(newclientid string, network string, client *models.ExtClient) (*models.ExtClient, error) {
+func UpdateExtClient(newclientid string, network string, enabled bool, client *models.ExtClient) (*models.ExtClient, error) {
 
 	err := DeleteExtClient(network, client.ClientID)
 	if err != nil {
 		return client, err
 	}
 	client.ClientID = newclientid
+	client.Enabled = enabled
 	CreateExtClient(client)
 	return client, err
 }

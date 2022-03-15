@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.3.5
-	github.com/go-playground/validator/v10 v10.10.0
+	github.com/go-playground/validator/v10 v10.10.1
 	github.com/golang-jwt/jwt/v4 v4.3.0
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.3.0
@@ -17,15 +17,15 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/txn2/txeh v1.3.0
 	github.com/urfave/cli/v2 v2.3.0
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
-	golang.org/x/net v0.0.0-20210726213435-c6fcb2dbf985 // indirect
+	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e // indirect
-	golang.org/x/text v0.3.7-0.20210524175448-3115f89c4b99 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20210805125648-3957e9b9dd19 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210913210325-91d1988e44de
 	google.golang.org/genproto v0.0.0-20210201151548-94839c025ad4 // indirect
-	google.golang.org/grpc v1.44.0
+	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/ini.v1 v1.66.4
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b

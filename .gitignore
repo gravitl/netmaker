@@ -6,6 +6,7 @@ netmaker-amd64
 netclient/netclient
 netclient/build
 netclient/build/
+!netclient/build/netclient.service
 netclient/files/netclient
 netclient/netclient-amd64
 netclient/netclient-arm
@@ -14,6 +15,8 @@ netclient/netclient-32
 netclient/netclient32
 netclient/netclient.exe
 config/dnsconfig/
+controllers/config/dnsconfig/
+controllers/data/
 data/
 .vscode/
 .idea/
