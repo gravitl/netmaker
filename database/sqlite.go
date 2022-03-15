@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 
 	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
@@ -26,6 +27,8 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 	FETCH_ALL:    sqliteFetchRecords,
 	CLOSE_DB:     sqliteCloseDB,
 }
+
+var mutex sync.Mutex
 
 func initSqliteDB() error {
 	// == create db file if not present ==
@@ -60,6 +63,8 @@ func sqliteCreateTable(tableName string) error {
 
 func sqliteInsert(key string, value string, tableName string) error {
 	if key != "" && value != "" && IsJSONString(value) {
+		mutex.Lock()
+		defer mutex.Unlock()
 		insertSQL := "INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES (?, ?)"
 		statement, err := SqliteDB.Prepare(insertSQL)
 		if err != nil {
@@ -77,6 +82,8 @@ func sqliteInsert(key string, value string, tableName string) error {
 
 func sqliteInsertPeer(key string, value string) error {
 	if key != "" && value != "" && IsJSONString(value) {
+		mutex.Lock()
+		defer mutex.Unlock()
 		err := sqliteInsert(key, value, PEERS_TABLE_NAME)
 		if err != nil {
 			return err
@@ -87,6 +94,8 @@ func sqliteInsertPeer(key string, value string) error {
 }
 
 func sqliteDeleteRecord(tableName string, key string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
 	deleteSQL := "DELETE FROM " + tableName + " WHERE key = \"" + key + "\""
 	statement, err := SqliteDB.Prepare(deleteSQL)
 	if err != nil {
@@ -100,6 +109,8 @@ func sqliteDeleteRecord(tableName string, key string) error {
 }
 
 func sqliteDeleteAllRecords(tableName string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
 	deleteSQL := "DELETE FROM " + tableName
 	statement, err := SqliteDB.Prepare(deleteSQL)
 	if err != nil {
