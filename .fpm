@@ -1,0 +1,8 @@
+--name netclient 
+--license sspl 
+--depends wireguard-tools 
+--description "Netmaker's netclient agent and CLI" 
+--url "https//:github.com/gravitl/netmaker" 
+--maintainer "info@gravitl.com" 
+--vendor Gravitl
+

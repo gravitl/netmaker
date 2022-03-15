@@ -6,6 +6,7 @@ netmaker-amd64
 netclient/netclient
 netclient/build
 netclient/build/
+!netclient/build/netclient.service
 netclient/files/netclient
 netclient/netclient-amd64
 netclient/netclient-arm
