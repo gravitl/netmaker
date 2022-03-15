@@ -192,6 +192,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	} else {
 		_, devErr := wgclient.Device(deviceiface)
 		if !ifaceReady || devErr != nil {
+			fmt.Printf("%v\n", devErr)
 			return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
 		}
 	}
@@ -287,7 +288,6 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	var err error
 	switch os {
 	case "windows":
-		RemoveConfGraceful(ifacename)
 		ApplyWindowsConf(confPath)
 	case "darwin":
 		ApplyMacOSConf(node, ifacename, confPath)
@@ -490,4 +490,5 @@ func RemoveConfGraceful(ifacename string) {
 			break
 		}
 	}
+	time.Sleep(time.Second << 1)
 }
