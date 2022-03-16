@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="netmaker.png" width="75%"><break/>
+  <img src="./img/netmaker.png" width="75%"><break/>
 </p>
 <p align="center">
 a platform for blazing fast and dynamic virtual networks 
@@ -45,7 +45,7 @@ a platform for blazing fast and dynamic virtual networks
 
 `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash`
 
-<img src="./docs/images/visit-website.gif" width="50%" /><img src="./docs/images/graph-readme.gif" width="50%" />
+<img src="./img/visit-website.gif" width="50%" /><img src="./img/graph-readme.gif" width="50%" />
 
 Upon completion, the logs will display the instructions to connect various devices. These can also be retrieved from the UI under "Access Keys."
 
