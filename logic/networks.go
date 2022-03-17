@@ -68,7 +68,7 @@ func DeleteNetwork(network string) error {
 }
 
 // CreateNetwork - creates a network in database
-func CreateNetwork(network models.Network) error {
+func CreateNetwork(network models.Network) (models.Network, error) {
 
 	network.SetDefaults()
 	network.SetNodesLastModified()
@@ -77,18 +77,18 @@ func CreateNetwork(network models.Network) error {
 	err := ValidateNetwork(&network, false)
 	if err != nil {
 		//returnErrorResponse(w, r, formatError(err, "badrequest"))
-		return err
+		return models.Network{}, err
 	}
 
 	data, err := json.Marshal(&network)
 	if err != nil {
-		return err
+		return models.Network{}, err
 	}
 	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
-		return err
+		return models.Network{}, err
 	}
 
-	return err
+	return network, nil
 }
 
 // NetworkNodesUpdatePullChanges - tells nodes on network to pull
