@@ -326,7 +326,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.CreateNetwork(network)
+	network, err = logic.CreateNetwork(network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -348,6 +348,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(network)
 }
 
 // BEGIN KEY MANAGEMENT SECTION

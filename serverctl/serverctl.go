@@ -39,7 +39,8 @@ func InitializeCommsNetwork() error {
 		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
 		logger.Log(1, "comms net does not exist, creating with ID,", network.NetID, "and CIDR,", network.AddressRange)
-		return logic.CreateNetwork(network)
+		_, err = logic.CreateNetwork(network)
+		return err
 	}
 	time.Sleep(time.Second << 1)
 	SyncServerNetwork(COMMS_NETID)
