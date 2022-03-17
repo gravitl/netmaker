@@ -9,6 +9,8 @@ import (
 	"path"
 	"runtime"
 	"strings"
+
+	"github.com/gravitl/netmaker/logic"
 )
 
 type (
@@ -31,15 +33,6 @@ var (
 	}
 )
 
-// Opens a file or creates it if non-existent, caller is responsible for closing the file.
-func openOrCreate(path string) (f *os.File, err error) {
-	f, err = os.OpenFile(path, os.O_RDWR, 066)
-	if err != nil {
-		f, err = os.Create(path)
-	}
-	return
-}
-
 func (s *sysctl) set(key, value string) {
 	s.config[key] = value
 }
@@ -54,7 +47,7 @@ func (s *sysctl) delete(key string) {
 }
 
 func (s *sysctl) update() error {
-	f, err := openOrCreate(s.path)
+	f, err := os.OpenFile(s.path, os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil || f == nil {
 		return err
 	}
@@ -73,11 +66,17 @@ func load() (s *sysctl, err error) {
 		path:   path.Join(sysctlPaths[runtime.GOOS], NM_SYSCTL_CONF),
 		config: make(map[string]string),
 	}
-	f, err := openOrCreate(s.path)
+
+	if !logic.FileExists(s.path) {
+		os.MkdirAll(sysctlPaths[runtime.GOOS], os.ModeDir)
+	}
+
+	f, err := os.OpenFile(s.path, os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil {
-		return
+		return s, err
 	}
 	defer f.Close()
+
 	for sc := bufio.NewScanner(f); sc.Scan(); {
 		line := sc.Bytes()
 		if len(line) >= 1 && line[0] == '#' {
