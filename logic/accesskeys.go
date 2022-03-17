@@ -1,11 +1,13 @@
 package logic
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"math/rand"
-	"time"
+	"math/big"
+	"strings"
+	"sync"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -214,34 +216,31 @@ func RemoveKeySensitiveInfo(keys []models.AccessKey) []models.AccessKey {
 	return returnKeys
 }
 
+const (
+	maxr string = "ff578f57c15bb743beaa77d27637e02b598dffa9aebd15889187fe6eb3bdca516c3fa1a52eabef31f33b4b8c2e5b5524f1aa4f3329393912f40dbbe23d7f39723e0be05b6696b11f8eea0abe365a11d9f2735ac7e5b4e015ab19b35b84893685b37a9a0a62a566d6571d7e00d4241687f5c804f37cde9bf311c0781f51cc007c5a01a94f6cfcecea640b8e9ab7bd43e73e5df5d0e1eeb4d9b6cc44be67b7cad80808b17869561b579ffe0bbdeca5c83139e458000000000000000000000000000000000000000000000000000000000000000"
+)
+
+var (
+	uno        sync.Once
+	maxentropy *big.Int
+)
+
+func init() {
+	uno.Do(func() {
+		maxentropy, _ = new(big.Int).SetString(maxr, 16)
+	})
+}
+
 // == private methods ==
 
 func genKeyName() string {
-
-	var seededRand *rand.Rand = rand.New(
-		rand.NewSource(time.Now().UnixNano()))
-
-	length := 5
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return "key" + string(b)
+	entropy, _ := rand.Int(rand.Reader, maxentropy)
+	return strings.Join([]string{"key", entropy.Text(16)[:16]}, "-")
 }
 
 func genKey() string {
-
-	var seededRand *rand.Rand = rand.New(
-		rand.NewSource(time.Now().UnixNano()))
-
-	length := 16
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
+	entropy, _ := rand.Int(rand.Reader, maxentropy)
+	return entropy.Text(16)[:16]
 }
 
 func getAllAccessKeys() []models.AccessKey {
