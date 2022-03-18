@@ -235,8 +235,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
-	// TODO, could rely on network template as well in future
+
 	extclient.Enabled = true
+	parentNetwork, err := logic.GetNetwork(networkName)
+	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
+		extclient.Enabled = parentNetwork.DefaultACL == "yes"
+	}
+
 	err = json.NewDecoder(r.Body).Decode(&extclient)
 	if err != nil && !errors.Is(err, io.EOF) {
 		returnErrorResponse(w, r, formatError(err, "internal"))

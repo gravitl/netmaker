@@ -30,7 +30,7 @@ func InitializeCommsNetwork() error {
 
 	setCommsID()
 
-	_, err := logic.GetNetwork(COMMS_NETID)
+	commsNetwork, err := logic.GetNetwork(COMMS_NETID)
 	if err != nil {
 		var network models.Network
 		network.NetID = COMMS_NETID
@@ -41,6 +41,11 @@ func InitializeCommsNetwork() error {
 		logger.Log(1, "comms net does not exist, creating with ID,", network.NetID, "and CIDR,", network.AddressRange)
 		_, err = logic.CreateNetwork(network)
 		return err
+	} else if commsNetwork.DefaultACL == "" {
+		commsNetwork.DefaultACL = "yes"
+		if err = logic.SaveNetwork(&commsNetwork); err != nil {
+			logger.Log(1, "comms net default acl is set incorrectly, please manually adjust to \"yes\",", COMMS_NETID)
+		}
 	}
 	time.Sleep(time.Second << 1)
 	SyncServerNetwork(COMMS_NETID)
