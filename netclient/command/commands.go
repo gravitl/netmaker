@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gravitl/netmaker/netclient/config"
@@ -9,25 +10,32 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+type (
+	AuthenticationKey struct {
+	}
+)
+
 // JoinComms -- Join the message queue comms network if it doesn't have it
 // tries to ping if already found locally, if fail ping pull for best effort for communication
 func JoinComms(cfg *config.ClientConfig) error {
-	var commsCfg config.ClientConfig
+	commsCfg := &config.ClientConfig{}
 	commsCfg.Network = cfg.Server.CommsNetwork
 	commsCfg.Node.Network = cfg.Server.CommsNetwork
 	commsCfg.Server.AccessKey = cfg.Server.AccessKey
 	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
 	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
 	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
-	if commsCfg.ConfigFileExists() {
-		commsCfg.ReadConfig()
+	if !commsCfg.ConfigFileExists() {
+		return errors.New("no configuration file exists")
 	}
-	if commsCfg.Node.Name == "" {
+	commsCfg.ReadConfig()
+
+	if len(commsCfg.Node.Name) == 0 {
 		if err := functions.JoinNetwork(commsCfg, "", true); err != nil {
 			return err
 		}
 	} else { // check if comms is currently reachable
-		if err := functions.PingServer(&commsCfg); err != nil {
+		if err := functions.PingServer(commsCfg); err != nil {
 			if err = Pull(commsCfg); err != nil {
 				return err
 			}
@@ -37,10 +45,10 @@ func JoinComms(cfg *config.ClientConfig) error {
 }
 
 // Join - join command to run from cli
-func Join(cfg config.ClientConfig, privateKey string) error {
+func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
 	//check if comms network exists
-	if err = JoinComms(&cfg); err != nil {
+	if err = JoinComms(cfg); err != nil {
 		return err
 	}
 
@@ -88,7 +96,7 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 }
 
 // Leave - runs the leave command from cli
-func Leave(cfg config.ClientConfig, force bool) error {
+func Leave(cfg *config.ClientConfig, force bool) error {
 	err := functions.LeaveNetwork(cfg.Network, force)
 	if err != nil {
 		ncutils.PrintLog("error attempting to leave network "+cfg.Network, 1)
@@ -106,7 +114,7 @@ func Leave(cfg config.ClientConfig, force bool) error {
 }
 
 // Pull - runs pull command from cli
-func Pull(cfg config.ClientConfig) error {
+func Pull(cfg *config.ClientConfig) error {
 	var err error
 	if cfg.Network == "all" {
 		ncutils.PrintLog("No network selected. Running Pull for all networks.", 0)
