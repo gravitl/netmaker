@@ -38,6 +38,9 @@ func Daemon() error {
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
 	for _, network := range networks {
+		//temporary code --- remove in version v0.13.0
+		removeHostDNS(network, ncutils.IsWindows())
+		// end of code to be removed in version v0.13.0
 		var cfg config.ClientConfig
 		cfg.Network = network
 		cfg.ReadConfig()
