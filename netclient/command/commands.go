@@ -10,11 +10,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-type (
-	AuthenticationKey struct {
-	}
-)
-
 // JoinComms -- Join the message queue comms network if it doesn't have it
 // tries to ping if already found locally, if fail ping pull for best effort for communication
 func JoinComms(cfg *config.ClientConfig) error {
