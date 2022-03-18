@@ -144,7 +144,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
 		ncutils.Log("settng DNS off")
-		if err := removeHostDNS(nodeCfg.Network, ncutils.IsWindows()); err != nil {
+		if err := removeHostDNS(nodeCfg.Node.Interface, ncutils.IsWindows()); err != nil {
 			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())
 		}
 		//		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
