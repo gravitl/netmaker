@@ -30,7 +30,7 @@ services:
       DISABLE_REMOTE_IP_CHECK: "off" # If turned "on", Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned "off" by default.
       GRPC_SSL: "off" # Tells clients to use SSL to connect to GRPC. Switch to on to turn on.
       COREDNS_ADDR: "" # Address of the CoreDNS server. Defaults to SERVER_HOST
-      DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
+      DISPLAY_KEYS: "off" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
       SERVER_API_CONN_STRING: "" # Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT
       SERVER_GRPC_CONN_STRING: "" # Changes the grpc connection string. IP:PORT format. By default is empty and uses SERVER_HOST:GRPC_PORT
       RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.

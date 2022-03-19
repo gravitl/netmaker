@@ -29,7 +29,7 @@ services:
       CLIENT_MODE: "on"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       CORS_ALLOWED_ORIGIN: "*"
-      DISPLAY_KEYS: "on"
+      DISPLAY_KEYS: "off"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"

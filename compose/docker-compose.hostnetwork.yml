@@ -30,7 +30,7 @@ services:
       MASTER_KEY: "REPLACE_MASTER_KEY"
       SERVER_GRPC_WIREGUARD: "off"
       CORS_ALLOWED_ORIGIN: "*"
-      DISPLAY_KEYS: "on"
+      DISPLAY_KEYS: "off"
       DATABASE: "sqlite"
       HOST_NETWORK: "on"
       NODE_ID: "netmaker-server-1"
