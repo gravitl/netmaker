@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/validation"
 )
 
@@ -698,7 +699,7 @@ func nameInNetworkCharSet(name string) bool {
 func deleteInterface(ifacename string, postdown string) error {
 	var err error
 	if !ncutils.IsKernel() {
-		err = RemoveConf(ifacename, true)
+		err = wireguard.RemoveConf(ifacename, true)
 	} else {
 		ipExec, errN := exec.LookPath("ip")
 		err = errN

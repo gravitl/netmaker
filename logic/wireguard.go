@@ -17,14 +17,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// RemoveConf - removes a configuration for a given WireGuard interface
-func RemoveConf(iface string, printlog bool) error {
-	var err error
-	confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
-	err = removeWGQuickConf(confPath, printlog)
-	return err
-}
-
 // HasPeerConnected - checks if a client node has connected over WG
 func HasPeerConnected(node *models.Node) bool {
 	client, err := wgctrl.New()
@@ -179,7 +171,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 		d, _ := wgclient.Device(deviceiface)
 		for d != nil && d.Name == deviceiface {
-			_ = RemoveConf(ifacename, false) // remove interface first
+			_ = wireguard.RemoveConf(ifacename, false) // remove interface first
 			time.Sleep(time.Second >> 2)
 			d, _ = wgclient.Device(deviceiface)
 		}
@@ -399,7 +391,7 @@ func removeLocalServer(node *models.Node) error {
 	}
 	if ifacename != "" {
 		if !ncutils.IsKernel() {
-			if err = RemoveConf(ifacename, true); err == nil {
+			if err = wireguard.RemoveConf(ifacename, true); err == nil {
 				logger.Log(1, "removed WireGuard interface:", ifacename)
 			}
 		} else {
