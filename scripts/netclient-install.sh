@@ -29,7 +29,7 @@ elif [ -f /etc/redhat-release ]; then
 	dependencies="wireguard"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
-elif [ -f /etc/arch-releae ]; then
+elif [ -f /etc/arch-release ]; then
     	dependecies="wireguard-tools"
 	update_cmd='pacman -Sy'
 	install_cmd='pacman -S --noconfirm'
