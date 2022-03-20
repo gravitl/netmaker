@@ -17,27 +17,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// HasPeerConnected - checks if a client node has connected over WG
-func HasPeerConnected(node *models.Node) bool {
-	client, err := wgctrl.New()
-	if err != nil {
-		return false
-	}
-	defer client.Close()
-	device, err := client.Device(node.Interface)
-	if err != nil {
-		return false
-	}
-	for _, peer := range device.Peers {
-		if peer.PublicKey.String() == node.PublicKey {
-			if peer.Endpoint != nil {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // IfaceDelta - checks if the new node causes an interface change
 func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	// single comparison statements

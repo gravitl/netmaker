@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
@@ -122,7 +123,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 				return
 			}
 			for i := 0; i < 5; i++ {
-				if logic.HasPeerConnected(node) {
+				if wireguard.HasPeerConnected(node) {
 					if logic.ShouldPublishPeerPorts(&currentServerNode) {
 						err = mq.PublishPeerUpdate(&currentServerNode)
 						if err != nil {
