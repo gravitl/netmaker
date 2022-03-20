@@ -3,6 +3,8 @@ package ncutils
 import (
 	"fmt"
 	"time"
+
+	"github.com/gravitl/netmaker/logger"
 )
 
 // BackOff - back off any function while there is an error
@@ -18,7 +20,7 @@ func BackOff(isExponential bool, maxTime int, f interface{}) (interface{}, error
 		if isExponential {
 			sleepTime = sleepTime << 1
 		}
-		PrintLog("retrying...", 1)
+		logger.Log(1, "retrying...")
 	}
 	return nil, fmt.Errorf("could not find result")
 }

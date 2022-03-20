@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -19,18 +20,18 @@ func SetupWindowsDaemon() error {
 	}
 
 	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.exe") {
-		ncutils.Log("performing first time daemon setup")
+		logger.Log(0, "performing first time daemon setup")
 		err := ncutils.GetEmbedded()
 		if err != nil {
 			return err
 		}
-		ncutils.Log("finished daemon setup")
+		logger.Log(0, "finished daemon setup")
 	}
 	// install daemon, will not overwrite
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe install`, false)
 	// start daemon, will not restart or start another
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
-	ncutils.Log(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1) + `winsw.exe start`)
+	logger.Log(0, strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`)
 	return nil
 }
 
@@ -68,7 +69,7 @@ func writeServiceConfig() error {
 		if err != nil {
 			return err
 		}
-		ncutils.Log("wrote the daemon config file to the Netclient directory")
+		logger.Log(0, "wrote the daemon config file to the Netclient directory")
 	}
 	return nil
 }
@@ -77,7 +78,7 @@ func writeServiceConfig() error {
 
 // StopWindowsDaemon - stops the Windows daemon
 func StopWindowsDaemon() {
-	ncutils.Log("stopping Windows, Netclient daemon")
+	logger.Log(0, "stopping Windows, Netclient daemon")
 	// stop daemon, will not overwrite
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe stop`, true)
 }
@@ -86,25 +87,25 @@ func StopWindowsDaemon() {
 func RemoveWindowsDaemon() {
 	// uninstall daemon, will not restart or start another
 	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe uninstall`, true)
-	ncutils.Log("uninstalled Windows, Netclient daemon")
+	logger.Log(0, "uninstalled Windows, Netclient daemon")
 }
 
 // func copyWinswOver() error {
 
 // 	input, err := ioutil.ReadFile(".\\winsw.exe")
 // 	if err != nil {
-// 		ncutils.Log("failed to find winsw.exe")
+// 		logger.Log(0, "failed to find winsw.exe")
 // 		return err
 // 	}
 // 	if err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"winsw.exe", input, 0644); err != nil {
-// 		ncutils.Log("failed to copy winsw.exe to " + ncutils.GetNetclientPath())
+// 		logger.Log(0, "failed to copy winsw.exe to " + ncutils.GetNetclientPath())
 // 		return err
 // 	}
 // 	if err = os.Remove(".\\winsw.exe"); err != nil {
-// 		ncutils.Log("failed to cleanup local winsw.exe, feel free to delete it")
+// 		logger.Log(0, "failed to cleanup local winsw.exe, feel free to delete it")
 // 		return err
 // 	}
-// 	ncutils.Log("finished copying winsw.exe")
+// 	logger.Log(0, "finished copying winsw.exe")
 // 	return nil
 // }
 
@@ -115,7 +116,7 @@ func RemoveWindowsDaemon() {
 // 	// Create the file
 // 	file, err := os.Create(fileName)
 // 	if err != nil {
-// 		ncutils.Log("could not create file on OS for Winsw")
+// 		logger.Log(0, "could not create file on OS for Winsw")
 // 		return err
 // 	}
 // 	defer file.Close()
@@ -127,19 +128,19 @@ func RemoveWindowsDaemon() {
 // 		},
 // 	}
 // 	// Put content on file
-// 	ncutils.Log("downloading service tool...")
+// 	logger.Log(0, "downloading service tool...")
 // 	resp, err := client.Get(fullURLFile)
 // 	if err != nil {
-// 		ncutils.Log("could not GET Winsw")
+// 		logger.Log(0, "could not GET Winsw")
 // 		return err
 // 	}
 // 	defer resp.Body.Close()
 
 // 	_, err = io.Copy(file, resp.Body)
 // 	if err != nil {
-// 		ncutils.Log("could not mount winsw.exe")
+// 		logger.Log(0, "could not mount winsw.exe")
 // 		return err
 // 	}
-// 	ncutils.Log("finished downloading Winsw")
+// 	logger.Log(0, "finished downloading Winsw")
 // 	return nil
 // }

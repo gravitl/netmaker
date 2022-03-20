@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -43,7 +44,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
 			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
 		if err != nil {
-			ncutils.PrintLog("Cant dial GRPC server: "+err.Error(), 1)
+			logger.Log(1, "Cant dial GRPC server: ", err.Error())
 			return nil, err
 		}
 		defer conn.Close()
@@ -51,12 +52,12 @@ func Pull(network string, manual bool) (*models.Node, error) {
 
 		ctx, err = auth.SetJWT(wcclient, network)
 		if err != nil {
-			ncutils.PrintLog("Failed to authenticate: "+err.Error(), 1)
+			logger.Log(1, "Failed to authenticate: ", err.Error())
 			return nil, err
 		}
 		data, err := json.Marshal(&node)
 		if err != nil {
-			ncutils.PrintLog("Failed to parse node config: "+err.Error(), 1)
+			logger.Log(1, "Failed to parse node config: ", err.Error())
 			return nil, err
 		}
 
@@ -80,7 +81,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		// check for interface change
 		if cfg.Node.Interface != resNode.Interface {
 			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
-				ncutils.PrintLog("could not delete old interface "+cfg.Node.Interface, 1)
+				logger.Log(1, "could not delete old interface ", cfg.Node.Interface)
 			}
 		}
 		if err = config.ModConfig(&resNode); err != nil {
@@ -119,7 +120,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	}
 	var bkupErr = config.SaveBackup(network)
 	if bkupErr != nil {
-		ncutils.Log("unable to update backup file")
+		logger.Log(0, "unable to update backup file")
 	}
 
 	return &resNode, err

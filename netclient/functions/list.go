@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -43,7 +44,7 @@ func List(network string) error {
 	for _, network := range networks {
 		net, err := getNetwork(network)
 		if err != nil {
-			ncutils.PrintLog(network+": Could not retrieve network configuration.", 1)
+			logger.Log(1, network+": Could not retrieve network configuration.")
 			return err
 		}
 		nets = append(nets, net)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
@@ -38,19 +39,19 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 	} else {
 		client, err := wgctrl.New()
 		if err != nil {
-			ncutils.PrintLog("failed to start wgctrl", 0)
+			logger.Log(0, "failed to start wgctrl")
 			return err
 		}
 		defer client.Close()
 		device, err := client.Device(iface)
 		if err != nil {
-			ncutils.PrintLog("failed to parse interface", 0)
+			logger.Log(0, "failed to parse interface")
 			return err
 		}
 		devicePeers = device.Peers
 	}
 	if len(devicePeers) > 1 && len(peers) == 0 {
-		ncutils.PrintLog("no peers pulled", 1)
+		logger.Log(1, "no peers pulled")
 		return err
 	}
 	for _, peer := range peers {
@@ -153,7 +154,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		node.ListenPort = 0
 	}
 	if err := WriteWgConfig(&modcfg.Node, key.String(), peers); err != nil {
-		ncutils.PrintLog("error writing wg conf file: "+err.Error(), 1)
+		logger.Log(1, "error writing wg conf file: ", err.Error())
 		return err
 	}
 	// spin up userspace / windows interface + apply the conf file
@@ -167,8 +168,8 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	// ensure you clear any existing interface first
 	RemoveConfGraceful(deviceiface)
-	ApplyConf(node, ifacename, confPath)            // Apply initially
-	ncutils.PrintLog("waiting for interface...", 1) // ensure interface is created
+	ApplyConf(node, ifacename, confPath)      // Apply initially
+	logger.Log(1, "waiting for interface...") // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
 	ifaceReady := strings.Contains(output, deviceiface)
@@ -196,7 +197,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			return fmt.Errorf("could not reliably create interface, please check wg installation and retry")
 		}
 	}
-	ncutils.PrintLog("interface ready - netclient.. ENGAGE", 1)
+	logger.Log(1, "interface ready - netclient.. ENGAGE")
 	if syncconf { // should never be called really.
 		fmt.Println("why here")
 		err = SyncWGQuickConf(ifacename, confPath)
@@ -204,7 +205,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if !ncutils.HasWgQuick() && ncutils.IsLinux() {
 		err = SetPeers(ifacename, node, peers)
 		if err != nil {
-			ncutils.PrintLog("error setting peers: "+err.Error(), 1)
+			logger.Log(1, "error setting peers: ", err.Error())
 		}
 		time.Sleep(time.Second)
 	}
@@ -212,7 +213,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if cidrErr == nil {
 		local.SetCIDRRoute(ifacename, node.Address, cidr)
 	} else {
-		ncutils.PrintLog("could not set cidr route properly: "+cidrErr.Error(), 1)
+		logger.Log(1, "could not set cidr route properly: ", cidrErr.Error())
 	}
 	local.SetCurrentPeerRoutes(ifacename, node.Address, peers)
 
@@ -495,7 +496,7 @@ func RemoveConfGraceful(ifacename string) {
 	// ensure you clear any existing interface first
 	wgclient, err := wgctrl.New()
 	if err != nil {
-		ncutils.PrintLog("could not create wgclient", 0)
+		logger.Log(0, "could not create wgclient")
 		return
 	}
 	defer wgclient.Close()

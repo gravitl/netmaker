@@ -2,12 +2,12 @@ package functions
 
 import (
 	"encoding/json"
-	"fmt"
 	"runtime"
 	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
@@ -21,9 +21,9 @@ import (
 
 // All -- mqtt message hander for all ('#') topics
 var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	ncutils.Log("default message handler -- received message but not handling")
-	ncutils.Log("Topic: " + string(msg.Topic()))
-	//ncutils.Log("Message: " + string(msg.Payload()))
+	logger.Log(0, "default message handler -- received message but not handling")
+	logger.Log(0, "Topic: "+string(msg.Topic()))
+	//logger.Log(0, "Message: " + string(msg.Payload()))
 }
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
@@ -41,11 +41,11 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	}
 	err := json.Unmarshal([]byte(data), &newNode)
 	if err != nil {
-		ncutils.Log("error unmarshalling node update data" + err.Error())
+		logger.Log(0, "error unmarshalling node update data"+err.Error())
 		return
 	}
 
-	ncutils.Log("received message to update node " + newNode.Name)
+	logger.Log(0, "received message to update node "+newNode.Name)
 	// see if cache hit, if so skip
 	var currentMessage = read(newNode.Network, lastNodeUpdate)
 	if currentMessage == string(data) {
@@ -64,15 +64,15 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	nodeCfg.Node = newNode
 	switch newNode.Action {
 	case models.NODE_DELETE:
-		ncutils.PrintLog(fmt.Sprintf("received delete request for %s", nodeCfg.Node.Name), 0)
+		logger.Log(0, "received delete request for %s", nodeCfg.Node.Name)
 		unsubscribeNode(client, &nodeCfg)
 		if err = LeaveNetwork(nodeCfg.Node.Network, true); err != nil {
 			if !strings.Contains("rpc error", err.Error()) {
-				ncutils.PrintLog(fmt.Sprintf("failed to leave, please check that local files for network %s were removed", nodeCfg.Node.Network), 0)
+				logger.Log(0, "failed to leave, please check that local files for network", nodeCfg.Node.Network, "were removed")
 				return
 			}
 		}
-		ncutils.PrintLog(fmt.Sprintf("%s was removed", nodeCfg.Node.Name), 0)
+		logger.Log(0, nodeCfg.Node.Name, " was removed")
 		return
 	case models.NODE_UPDATE_KEY:
 		// == get the current key for node ==
@@ -81,7 +81,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			break
 		}
 		if err := UpdateKeys(&nodeCfg, client); err != nil {
-			ncutils.PrintLog("err updating wireguard keys, reusing last key\n"+err.Error(), 0)
+			logger.Log(0, "err updating wireguard keys, reusing last key\n", err.Error())
 			if key, parseErr := wgtypes.ParseKey(oldPrivateKey); parseErr == nil {
 				wireguard.StorePrivKey(key.String(), nodeCfg.Network)
 				nodeCfg.Node.PublicKey = key.PublicKey().String()
@@ -94,31 +94,31 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	// Save new config
 	nodeCfg.Node.Action = models.NODE_NOOP
 	if err := config.Write(&nodeCfg, nodeCfg.Network); err != nil {
-		ncutils.PrintLog("error updating node configuration: "+err.Error(), 0)
+		logger.Log(0, "error updating node configuration: ", err.Error())
 	}
 	nameserver := nodeCfg.Server.CoreDNSAddr
 	privateKey, err := wireguard.RetrievePrivKey(newNode.Network)
 	if err != nil {
-		ncutils.Log("error reading PrivateKey " + err.Error())
+		logger.Log(0, "error reading PrivateKey "+err.Error())
 		return
 	}
 	file := ncutils.GetNetclientPathSpecific() + nodeCfg.Node.Interface + ".conf"
 
 	if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, newNode); err != nil {
-		ncutils.Log("error updating wireguard config " + err.Error())
+		logger.Log(0, "error updating wireguard config "+err.Error())
 		return
 	}
 	if keepaliveChange {
 		wireguard.UpdateKeepAlive(file, newNode.PersistentKeepalive)
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
-		ncutils.Log("applying WG conf to " + file)
+		logger.Log(0, "applying WG conf to "+file)
 		if ncutils.IsWindows() {
 			wireguard.RemoveConfGraceful(nodeCfg.Node.Interface)
 		}
 		err = wireguard.ApplyConf(&nodeCfg.Node, nodeCfg.Node.Interface, file)
 		if err != nil {
-			ncutils.Log("error restarting wg after node update " + err.Error())
+			logger.Log(0, "error restarting wg after node update "+err.Error())
 			return
 		}
 
@@ -133,27 +133,27 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//	}
 		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
 		if doneErr != nil {
-			ncutils.Log("could not notify server to update peers after interface change")
+			logger.Log(0, "could not notify server to update peers after interface change")
 		} else {
-			ncutils.Log("signalled finished interface update to server")
+			logger.Log(0, "signalled finished interface update to server")
 		}
 	} else if hubChange {
 		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
 		if doneErr != nil {
-			ncutils.Log("could not notify server to update peers after hub change")
+			logger.Log(0, "could not notify server to update peers after hub change")
 		} else {
-			ncutils.Log("signalled finished hub update to server")
+			logger.Log(0, "signalled finished hub update to server")
 		}
 	}
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
-		ncutils.Log("settng DNS off")
-		if err := removeHostDNS(nodeCfg.Node.Interface, ncutils.IsWindows()); err != nil {
-			ncutils.Log("error removing netmaker profile from /etc/hosts " + err.Error())
+		logger.Log(0, "settng DNS off")
+		if err := removeHostDNS(nodeCfg.Network, ncutils.IsWindows()); err != nil {
+			logger.Log(0, "error removing netmaker profile from /etc/hosts "+err.Error())
 		}
 		//		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
 		//		if err != nil {
-		//			ncutils.Log("error applying dns" + err.Error())
+		//			logger.Log(0, "error applying dns" + err.Error())
 		//		}
 	}
 }
@@ -172,7 +172,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	}
 	err := json.Unmarshal([]byte(data), &peerUpdate)
 	if err != nil {
-		ncutils.Log("error unmarshalling peer data")
+		logger.Log(0, "error unmarshalling peer data")
 		return
 	}
 	// see if cached hit, if so skip
@@ -185,7 +185,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 	err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 	if err != nil {
-		ncutils.Log("error updating wireguard peers" + err.Error())
+		logger.Log(0, "error updating wireguard peers"+err.Error())
 		return
 	}
 	//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
@@ -193,28 +193,28 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	if ncutils.IsMac() {
 		iface, err = local.GetMacIface(cfg.Node.Address)
 		if err != nil {
-			ncutils.Log("error retrieving mac iface: " + err.Error())
+			logger.Log(0, "error retrieving mac iface: "+err.Error())
 			return
 		}
 	}
 	err = wireguard.SetPeers(iface, &cfg.Node, peerUpdate.Peers)
 	if err != nil {
-		ncutils.Log("error syncing wg after peer update: " + err.Error())
+		logger.Log(0, "error syncing wg after peer update: "+err.Error())
 		return
 	}
-	ncutils.Log("received peer update for node " + cfg.Node.Name + " " + cfg.Node.Network)
+	logger.Log(0, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
 	//skip dns updates if this is a peer update for comms network
 	if cfg.Node.NetworkSettings.IsComms == "yes" {
 		return
 	}
 	if cfg.Node.DNSOn == "yes" {
-		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Interface, ncutils.IsWindows()); err != nil {
-			ncutils.Log("error updating /etc/hosts " + err.Error())
+		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Network, ncutils.IsWindows()); err != nil {
+			logger.Log(0, "error updating /etc/hosts "+err.Error())
 			return
 		}
 	} else {
-		if err := removeHostDNS(cfg.Node.Interface, ncutils.IsWindows()); err != nil {
-			ncutils.Log("error removing profile from /etc/hosts " + err.Error())
+		if err := removeHostDNS(cfg.Node.Network, ncutils.IsWindows()); err != nil {
+			logger.Log(0, "error removing profile from /etc/hosts "+err.Error())
 			return
 		}
 	}

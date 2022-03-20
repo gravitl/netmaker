@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -44,13 +45,13 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 	}
 	realIface, err = addInterface(iface)
 	if err != nil {
-		ncutils.PrintLog("error creating wg interface", 1)
+		logger.Log(1, "error creating wg interface")
 		return err
 	}
 	time.Sleep(time.Second / 2)
 	err = setConfig(realIface, confPath)
 	if err != nil {
-		ncutils.PrintLog("error setting config for "+realIface, 1)
+		logger.Log(1, "error setting config for ", realIface)
 		return err
 	}
 	var ips = append(node.AllowedIPs, node.Address, node.Address6)
@@ -62,7 +63,7 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 		if i != "" {
 			err = addAddress(realIface, i)
 			if err != nil {
-				ncutils.PrintLog("error adding address "+i+" on interface "+realIface, 1)
+				logger.Log(1, "error adding address ", i, " on interface ", realIface)
 				return err
 			}
 		}
@@ -70,14 +71,14 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 	setMTU(realIface, int(node.MTU))
 	err = upInterface(realIface)
 	if err != nil {
-		ncutils.PrintLog("error turning on interface "+iface, 1)
+		logger.Log(1, "error turning on interface ", iface)
 		return err
 	}
 	for _, i := range ips {
 		if i != "" {
 			err = addRoute(i, realIface)
 			if err != nil {
-				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)
+				logger.Log(1, "error adding route to ", realIface, " for ", i)
 				return err
 			}
 		}
@@ -237,7 +238,7 @@ func SetMacPeerRoutes(realIface string) error {
 		if i != "" {
 			err = addRoute(i, realIface)
 			if err != nil {
-				ncutils.PrintLog("error adding route to "+realIface+" for "+i, 1)
+				logger.Log(1, "error adding route to ", realIface, " for ", i)
 				return err
 			}
 		}

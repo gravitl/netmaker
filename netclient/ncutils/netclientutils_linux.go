@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/gravitl/netmaker/logger"
 )
 
 // RunCmd - runs a local command
@@ -13,8 +15,8 @@ func RunCmd(command string, printerr bool) (string, error) {
 	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
-		Log(fmt.Sprintf("error running command: %s", command))
-		Log(strings.TrimSuffix(string(out), "\n"))
+		logger.Log(0, fmt.Sprintf("error running command: %s", command))
+		logger.Log(0, strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
 }
@@ -28,5 +30,3 @@ func RunCmdFormatted(command string, printerr bool) (string, error) {
 func GetEmbedded() error {
 	return nil
 }
-
-
