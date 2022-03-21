@@ -47,10 +47,23 @@ func InitializeCommsNetwork() error {
 			logger.Log(1, "comms net default acl is set incorrectly, please manually adjust to \"yes\",", COMMS_NETID)
 		}
 	}
-	time.Sleep(time.Second << 1)
-	SyncServerNetwork(COMMS_NETID)
+	// gracefully check for comms interface
+	gracefulCommsWait()
 
 	return nil
+}
+
+func gracefulCommsWait() {
+	output, _ := ncutils.RunCmd("wg", false)
+	starttime := time.Now()
+	ifaceReady := strings.Contains(output, COMMS_NETID)
+	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
+		output, _ = ncutils.RunCmd("wg", false)
+		SyncServerNetwork(COMMS_NETID)
+		time.Sleep(time.Second)
+		ifaceReady = strings.Contains(output, COMMS_NETID)
+	}
+	logger.Log(1, "comms network", COMMS_NETID, "ready")
 }
 
 // SetJWTSecret - sets the jwt secret on server startup
