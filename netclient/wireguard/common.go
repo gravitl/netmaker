@@ -466,6 +466,30 @@ func UpdatePrivateKey(file, privateKey string) error {
 	return nil
 }
 
+// UpdateKeepAlive - updates the persistentkeepalive of all peers
+func UpdateKeepAlive(file string, keepalive int32) error {
+	options := ini.LoadOptions{
+		AllowNonUniqueSections: true,
+		AllowShadows:           true,
+	}
+	wireguard, err := ini.LoadSources(options, file)
+	if err != nil {
+		return err
+	}
+	peers, err := wireguard.SectionsByName(section_peers)
+	if err != nil {
+		return err
+	}
+	newvalue := strconv.Itoa(int(keepalive))
+	for i := range peers {
+		wireguard.SectionWithIndex(section_peers, i).Key("PersistentKeepALive").SetValue(newvalue)
+	}
+	if err := wireguard.SaveTo(file); err != nil {
+		return err
+	}
+	return nil
+}
+
 // RemoveConfGraceful - Run remove conf and wait for it to actually be gone before proceeding
 func RemoveConfGraceful(ifacename string) {
 	// ensure you clear any existing interface first
