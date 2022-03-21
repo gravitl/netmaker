@@ -91,19 +91,19 @@ Nodes API
   
 **Create Node:** `/api/nodes/{network id}`, `POST`  
   
-**Get Node:** `/api/nodes/{network id}/{macaddress}`, `GET`  
+**Get Node:** `/api/nodes/{network id}/{ID}`, `GET`  
   
-**Update Node:** `/api/nodes/{network id}/{macaddress}`, `PUT`  
+**Update Node:** `/api/nodes/{network id}/{ID}`, `PUT`  
   
-**Delete Node:** `/api/nodes/{network id}/{macaddress}`, `DELETE`  
+**Delete Node:** `/api/nodes/{network id}/{ID}`, `DELETE`  
   
-**Check In Node:** `/api/nodes/{network id}/{macaddress}/checkin`, `POST`  
+**Check In Node:** `/api/nodes/{network id}/{ID}/checkin`, `POST`  
   
-**Create a Gateway:** `/api/nodes/{network id}/{macaddress}/creategateway`, `POST`  
+**Create a Gateway:** `/api/nodes/{network id}/{ID}/creategateway`, `POST`  
   
-**Delete a Gateway:** `/api/nodes/{network id}/{macaddress}/deletegateway`, `DELETE`  
+**Delete a Gateway:** `/api/nodes/{network id}/{ID}/deletegateway`, `DELETE`  
   
-**Uncordon (Approve) a Pending Node:** `/api/nodes/{network id}/{macaddress}/uncordon`, `POST`  
+**Uncordon (Approve) a Pending Node:** `/api/nodes/{network id}/{ID}/uncordon`, `POST`  
   
 **Get Last Modified Date (Last Modified Node in Network):** `/api/nodes/adm/{network id}/lastmodified`, `GET`  
   
@@ -121,7 +121,7 @@ Nodes API Call Examples
         
     Create Node: curl  -d  '{ "endpoint": 100.200.100.200, "publickey": aorijqalrik3ajflaqrdajhkr,"macaddress": "8c:90:b5:06:f1:d9","password": "reallysecret","localaddress": "172.16.16.1","accesskey": "aA3bVG0rnItIRXDx","listenport": 6400}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet
         
-    Get Node: curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet/{macaddress} | jq  
+    Get Node: curl -H "Authorization: Bearer YOUR_SECRET_KEY" http://localhost:8081/api/nodes/skynet/{ID} | jq  
     
     Update Node: curl -X PUT -d '{"name":"laptop1"}' -H 'Content-Type: application/json' -H "authorization: Bearer YOUR_SECRET_KEY" localhost:8081/api/nodes/skynet/8c:90:b5:06:f1:d9
     
