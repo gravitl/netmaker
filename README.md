@@ -5,7 +5,7 @@
   </a>
 </p>
 <p align="center">
-a platform for blazing fast and dynamic virtual networks 
+a platform for modern, blazing fast virtual networks 
 </p>
 
 <p align="center">
@@ -34,6 +34,7 @@ a platform for blazing fast and dynamic virtual networks
 - [x] Kubernetes and Multi-Cloud Enablement
 - [x] Remote Site Access via Gateway
 - [x] OAuth and Private DNS Features
+- [x] Fine-grained access controls 
 - [x] Support for Linux, Mac, Windows, FreeBSD, iPhone, and Android
 
 # Get Started in 5 Minutes  
