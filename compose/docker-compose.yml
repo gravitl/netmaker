@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.12.0
+    image: gravitl/netmaker:v0.12.1
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -35,7 +35,7 @@ services:
       MQ_HOST: "mq"
       HOST_NETWORK: "off"
       MANAGE_IPTABLES: "on"
-      PORT_FORWARD_SERVICES: "mq,dns,ssh"
+      PORT_FORWARD_SERVICES: "mq"
       VERBOSITY: "1"
     ports:
       - "51821-51830:51821-51830/udp"
@@ -45,7 +45,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.12.0
+    image: gravitl/netmaker-ui:v0.12.1
     links:
       - "netmaker:api"
     ports:
