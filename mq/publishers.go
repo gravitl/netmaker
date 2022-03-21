@@ -96,6 +96,12 @@ func sendPeers() {
 	var force bool
 	peer_force_send++
 	if peer_force_send == 5 {
+
+		// run iptables update to ensure gateways work correctly and mq is forwarded if containerized
+		if servercfg.ManageIPTables() != "off" {
+			serverctl.InitIPTables()
+		}
+
 		force = true
 		peer_force_send = 0
 		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
