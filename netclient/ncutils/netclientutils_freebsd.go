@@ -2,12 +2,12 @@ package ncutils
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"os/exec"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/gravitl/netmaker/logger"
 )
 
 // RunCmdFormatted - run a command formatted for freebsd
@@ -19,8 +19,8 @@ func RunCmdFormatted(command string, printerr bool) (string, error) {
 	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
-		Log(fmt.Sprintf("error running command: %s", command))
-		Log(strings.TrimSuffix(string(out), "\n"))
+		logger.Log(0, "error running command: ", command)
+		logger.Log(0, strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
 }
@@ -43,8 +43,8 @@ func RunCmd(command string, printerr bool) (string, error) {
 	}()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
-		log.Println("error running command:", command)
-		log.Println(strings.TrimSuffix(string(out), "\n"))
+		logger.Log(0, "error running command:", command)
+		logger.Log(0, strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
 }
