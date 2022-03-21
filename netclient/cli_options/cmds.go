@@ -28,7 +28,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 					err = errors.New("no server address provided")
 					return err
 				}
-				err = command.Join(cfg, pvtKey)
+				err = command.Join(&cfg, pvtKey)
 				return err
 			},
 		},
@@ -43,7 +43,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				if err != nil {
 					return err
 				}
-				err = command.Leave(cfg, c.String("force") == "yes")
+				err = command.Leave(&cfg, c.String("force") == "yes")
 				return err
 			},
 		},
@@ -58,7 +58,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				if err != nil {
 					return err
 				}
-				err = command.Pull(cfg)
+				err = command.Pull(&cfg)
 				return err
 			},
 		},
