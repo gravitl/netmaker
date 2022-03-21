@@ -75,7 +75,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		if keepAliveString == "0" {
 			keepAliveString = "15"
 		}
-		if node.IsHub == "yes" || peer.Endpoint == nil {
+		if node.IsHub == "yes" || node.IsServer == "yes" || peer.Endpoint == nil {
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
 				" persistent-keepalive "+keepAliveString+
 				" allowed-ips "+allowedips, true)
