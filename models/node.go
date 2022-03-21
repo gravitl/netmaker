@@ -283,7 +283,7 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.AllowedIPs == nil {
 		newNode.AllowedIPs = currentNode.AllowedIPs
 	}
-	if newNode.PersistentKeepalive == 0 {
+	if newNode.PersistentKeepalive < 0 {
 		newNode.PersistentKeepalive = currentNode.PersistentKeepalive
 	}
 	if newNode.AccessKey == "" {

@@ -59,6 +59,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	ifaceDelta := ncutils.IfaceDelta(&nodeCfg.Node, &newNode)
 	shouldDNSChange := nodeCfg.Node.DNSOn != newNode.DNSOn
 	hubChange := nodeCfg.Node.IsHub != newNode.IsHub
+	keepaliveChange := nodeCfg.Node.PersistentKeepalive != newNode.PersistentKeepalive
 
 	nodeCfg.Node = newNode
 	switch newNode.Action {
@@ -106,6 +107,9 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, newNode); err != nil {
 		ncutils.Log("error updating wireguard config " + err.Error())
 		return
+	}
+	if keepaliveChange {
+		wireguard.UpdateKeepAlive(file, newNode.PersistentKeepalive)
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
 		ncutils.Log("applying WG conf to " + file)
