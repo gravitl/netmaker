@@ -6,7 +6,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -110,7 +109,6 @@ func readConfig() (*EnvironmentConfig, error) {
 
 func init() {
 	if Config, SetupErr = readConfig(); SetupErr != nil {
-		log.Fatal(SetupErr)
-		os.Exit(2)
+		Config = &EnvironmentConfig{}
 	}
 }
