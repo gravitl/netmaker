@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -48,7 +49,7 @@ func CleanupMac() {
 		err = os.Remove("/Library/LaunchDaemons/" + MAC_SERVICE_NAME + ".plist")
 	}
 	if err != nil {
-		ncutils.PrintLog(err.Error(), 1)
+		logger.Log(1, err.Error())
 	}
 
 	os.RemoveAll(ncutils.GetNetclientPath())

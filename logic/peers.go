@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -316,17 +315,17 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 		for _, iprange := range ranges { // go through each cidr for egress gateway
 			_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 			if err != nil {
-				ncutils.PrintLog("could not parse gateway IP range. Not adding "+iprange, 1)
+				logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
 				continue // if can't parse CIDR
 			}
 			nodeEndpointArr := strings.Split(peer.Endpoint, ":") // getting the public ip of node
 			if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain endpoint of node
-				ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.Endpoint+", omitting", 2)
+				logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.Endpoint, ", omitting")
 				continue // skip adding egress range if overlaps with node's ip
 			}
 			// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
 			if ipnet.Contains(net.ParseIP(node.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
-				ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.LocalAddress+", omitting", 2)
+				logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.LocalAddress, ", omitting")
 				continue // skip adding egress range if overlaps with node's local ip
 			}
 			if err != nil {

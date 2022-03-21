@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -25,7 +26,7 @@ func InitWindows() {
 	_, currentNetclientErr := os.Stat(currentPath)
 
 	if currentPath == dataPath && currentNetclientErr == nil {
-		ncutils.Log("netclient.exe is in proper location, " + currentPath)
+		logger.Log(0, "netclient.exe is in proper location, "+currentPath)
 	} else if os.IsNotExist(dataNetclientErr) { // check and see if netclient.exe is in appdata
 		if currentNetclientErr == nil { // copy it if it exists locally
 			input, err := os.ReadFile(currentPath)
