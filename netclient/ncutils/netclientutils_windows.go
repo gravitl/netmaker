@@ -3,11 +3,12 @@ package ncutils
 import (
 	"embed"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+
+	"github.com/gravitl/netmaker/logger"
 )
 
 //go:embed windowsdaemon/winsw.exe
