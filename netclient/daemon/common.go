@@ -9,7 +9,7 @@ import (
 )
 
 // InstallDaemon - Calls the correct function to install the netclient as a daemon service on the given operating system.
-func InstallDaemon(cfg config.ClientConfig) error {
+func InstallDaemon(cfg *config.ClientConfig) error {
 	os := runtime.GOOS
 	var err error
 

@@ -24,7 +24,7 @@ import (
 )
 
 // JoinNetwork - helps a client join a network
-func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error {
+func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) error {
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -35,7 +35,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 		return err
 	}
 
-	err = config.Write(&cfg, cfg.Network)
+	err = config.Write(cfg, cfg.Network)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 
 	cfg.Node = node
 
-	setListenPort(oldListenPort, &cfg)
+	setListenPort(oldListenPort, cfg)
 
 	err = config.ModConfig(&cfg.Node)
 	if err != nil {
