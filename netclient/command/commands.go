@@ -1,7 +1,6 @@
 package command
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/gravitl/netmaker/logger"
@@ -21,8 +20,8 @@ func JoinComms(cfg *config.ClientConfig) error {
 	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
 	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
 	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
-	if !commsCfg.ConfigFileExists() {
-		return errors.New("no configuration file exists")
+	if commsCfg.ConfigFileExists() {
+		return nil
 	}
 	commsCfg.ReadConfig()
 
