@@ -28,7 +28,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	}
 
 	if accesskey.Value == "" {
-		accesskey.Value = genKey()
+		accesskey.Value = GenKey()
 	}
 	if accesskey.Uses == 0 {
 		accesskey.Uses = 1
@@ -238,9 +238,14 @@ func genKeyName() string {
 	return strings.Join([]string{"key", entropy.Text(16)[:16]}, "-")
 }
 
-func genKey() string {
+func GenKey() string {
 	entropy, _ := rand.Int(rand.Reader, maxentropy)
 	return entropy.Text(16)[:16]
+}
+
+func GenId() string {
+	entropy, _ := rand.Int(rand.Reader, maxentropy)
+	return entropy.Text(16)[:23]
 }
 
 func getAllAccessKeys() []models.AccessKey {

@@ -11,6 +11,7 @@ import (
 
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -41,7 +42,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 		return err
 	}
 	if cfg.Node.Password == "" {
-		cfg.Node.Password = ncutils.GenPass()
+		cfg.Node.Password = logic.GenKey()
 	}
 	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
 	if errT != nil {

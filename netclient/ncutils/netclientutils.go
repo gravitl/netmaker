@@ -2,13 +2,13 @@ package ncutils
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -29,9 +29,6 @@ import (
 
 // Version - version of the netclient
 var Version = "dev"
-
-// src - for random strings
-var src = rand.NewSource(time.Now().UnixNano())
 
 // MAX_NAME_LENGTH - maximum node name length
 const MAX_NAME_LENGTH = 62
@@ -125,23 +122,6 @@ func IsEmptyRecord(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), NO_DB_RECORD) || strings.Contains(err.Error(), NO_DB_RECORDS)
-}
-
-//generate an access key value
-// GenPass - generates a pass
-func GenPass() string {
-
-	var seededRand *rand.Rand = rand.New(
-		rand.NewSource(time.Now().UnixNano()))
-
-	length := 16
-	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
 }
 
 // GetPublicIP - gets public ip
@@ -592,20 +572,7 @@ func ServerAddrSliceContains(slice []models.ServerAddr, item models.ServerAddr) 
 
 // MakeRandomString - generates a random string of len n
 func MakeRandomString(n int) string {
-	sb := strings.Builder{}
-	sb.Grow(n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			sb.WriteByte(letterBytes[idx])
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return sb.String()
+	result := make([]byte, n)
+	rand.Reader.Read(result)
+	return string(result)
 }
