@@ -243,11 +243,6 @@ func GenKey() string {
 	return entropy.Text(16)[:16]
 }
 
-func GenId() string {
-	entropy, _ := rand.Int(rand.Reader, maxentropy)
-	return entropy.Text(16)[:23]
-}
-
 func getAllAccessKeys() []models.AccessKey {
 	var accesskeys = make([]models.AccessKey, 0)
 	networks, err := GetNetworks()
