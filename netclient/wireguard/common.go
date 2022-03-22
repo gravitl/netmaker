@@ -171,10 +171,13 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	ApplyConf(node, ifacename, confPath)      // Apply initially
 	logger.Log(1, "waiting for interface...") // ensure interface is created
 	output, _ := ncutils.RunCmd("wg", false)
-	starttime := time.Now()
 	ifaceReady := strings.Contains(output, deviceiface)
-	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
-		if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
+	maxRetries := 10
+	for ticker, attempts := time.NewTicker(time.Second<<4), 0; !strings.Contains(output, deviceiface); <-ticker.C {
+		if attempts >= maxRetries {
+			break
+		}
+		if ncutils.IsMac() { //	 if node is Mac (Darwin) get the tunnel name first
 			deviceiface, err = local.GetMacIface(node.Address)
 			if err != nil || deviceiface == "" {
 				deviceiface = ifacename
@@ -184,6 +187,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		err = ApplyConf(node, node.Interface, confPath)
 		time.Sleep(time.Second)
 		ifaceReady = strings.Contains(output, deviceiface)
+		attempts += 1
 	}
 	//wgclient does not work well on freebsd
 	if node.OS == "freebsd" {
