@@ -24,6 +24,9 @@ type Peer struct {
 
 type Network struct {
 	Name        string `json:"name"`
+	ID          string `json:"id"`
+	OS          string `json:"os"`
+	Version     string `json:"version"`
 	CurrentNode Peer   `json:"current_node"`
 	Peers       []Peer `json:"peers"`
 }
@@ -68,8 +71,11 @@ func getNetwork(network string) (Network, error) {
 		return Network{}, fmt.Errorf("listing peers for network %v: %w", network, err)
 	}
 	return Network{
-		Name:  network,
-		Peers: peers,
+		Name:    network,
+		ID:      cfg.Node.ID,
+		OS:      cfg.Node.OS,
+		Version: cfg.Node.Version,
+		Peers:   peers,
 		CurrentNode: Peer{
 			Name:           cfg.Node.Name,
 			Interface:      cfg.Node.Interface,
