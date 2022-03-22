@@ -1,5 +1,5 @@
 #!/bin/bash
-if [[ ${#VERSION} -lt 1 ]]; then VERSION="develop"; fi 
+VERSION=${VERSION:-"develop"}
 echo "build with version tag: $VERSION"
 readonly __HOST_ARCH=${1:-"amd64"}  # change this for your machine.
 readonly __HOST_GOOSE=${2:-"linux"} # change this for your machine.
