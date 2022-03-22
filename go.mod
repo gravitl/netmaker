@@ -33,7 +33,7 @@ require (
 
 require (
 	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
-	github.com/guumaster/hostctl v1.1.1
+	github.com/guumaster/hostctl v1.1.2
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 

@@ -123,8 +123,8 @@ github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgf
 github.com/grpc-ecosystem/grpc-gateway v1.9.0/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/guumaster/cligger v0.1.1/go.mod h1:7d2cVJR7sExHITuqWUU7S9inAs+Hx1QbMDZwO+21a64=
-github.com/guumaster/hostctl v1.1.1 h1:MU/ROqJq0HftokEnLdz4pc/A6pbEEqEMIHRJuGvp4dI=
-github.com/guumaster/hostctl v1.1.1/go.mod h1:n5R/s1/tUbYNN1t3J/F/70ZGUWzExgJnEAS0YZ8VWg8=
+github.com/guumaster/hostctl v1.1.2 h1:M+DrRaLLeBt7JTh3YbE607gCgRzyxOKuqyrpBC153LQ=
+github.com/guumaster/hostctl v1.1.2/go.mod h1:n5R/s1/tUbYNN1t3J/F/70ZGUWzExgJnEAS0YZ8VWg8=
 github.com/guumaster/logsymbols v0.3.1/go.mod h1:1M5/1js2Z7Yo8DRB3QrPURwqsXeOfgsJv1Utjookknw=
 github.com/guumaster/tablewriter v0.0.9 h1:qyswXhSCI1SWYH78MLApi8AfL8JsWZWAUkZLONNMiYI=
 github.com/guumaster/tablewriter v0.0.9/go.mod h1:9B1xy1BLPtcVAeYjC1EXPxcklqnzk7dU2c3ywGbUnKY=
