@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// Peer - the peer struct for list
 type Peer struct {
 	Name           string `json:"name"`
 	Interface      string `json:"interface,omitempty"`
@@ -22,15 +23,15 @@ type Peer struct {
 	PublicEndpoint string `json:"public_endpoint,omitempty"`
 }
 
+// Network - the local node network representation for list command
 type Network struct {
 	Name        string `json:"name"`
-	ID          string `json:"id"`
-	OS          string `json:"os"`
-	Version     string `json:"version"`
+	ID          string `json:"node_id"`
 	CurrentNode Peer   `json:"current_node"`
 	Peers       []Peer `json:"peers"`
 }
 
+// List - lists the current peers for the local node with name and node ID
 func List(network string) error {
 	nets := []Network{}
 	var err error
@@ -71,11 +72,9 @@ func getNetwork(network string) (Network, error) {
 		return Network{}, fmt.Errorf("listing peers for network %v: %w", network, err)
 	}
 	return Network{
-		Name:    network,
-		ID:      cfg.Node.ID,
-		OS:      cfg.Node.OS,
-		Version: cfg.Node.Version,
-		Peers:   peers,
+		Name:  network,
+		ID:    cfg.Node.ID,
+		Peers: peers,
 		CurrentNode: Peer{
 			Name:           cfg.Node.Name,
 			Interface:      cfg.Node.Interface,
