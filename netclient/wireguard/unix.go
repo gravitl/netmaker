@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -58,7 +59,7 @@ func ApplyWGQuickConf(confPath string, ifacename string) error {
 	} else {
 		_, err := os.Stat(confPath)
 		if err != nil {
-			ncutils.Log(confPath + " does not exist " + err.Error())
+			logger.Log(0, confPath+" does not exist "+err.Error())
 			return err
 		}
 		if ncutils.IfaceExists(ifacename) {
@@ -98,12 +99,12 @@ func SyncWGQuickConf(iface string, confPath string) error {
 	_, err = ncutils.RunCmd("wg syncconf "+iface+" "+tmpConf, true)
 	if err != nil {
 		log.Println(err.Error())
-		ncutils.Log("error syncing conf, resetting")
+		logger.Log(0, "error syncing conf, resetting")
 		err = ApplyWGQuickConf(confPath, iface)
 	}
 	errN := os.Remove(tmpConf)
 	if errN != nil {
-		ncutils.Log(errN.Error())
+		logger.Log(0, errN.Error())
 	}
 	return err
 }

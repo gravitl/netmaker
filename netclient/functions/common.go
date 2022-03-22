@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -120,13 +121,13 @@ func GetNode(network string) models.Node {
 func Uninstall() error {
 	networks, err := ncutils.GetSystemNetworks()
 	if err != nil {
-		ncutils.PrintLog("unable to retrieve networks: "+err.Error(), 1)
-		ncutils.PrintLog("continuing uninstall without leaving networks", 1)
+		logger.Log(1, "unable to retrieve networks: ", err.Error())
+		logger.Log(1, "continuing uninstall without leaving networks")
 	} else {
 		for _, network := range networks {
 			err = LeaveNetwork(network, true)
 			if err != nil {
-				ncutils.PrintLog("Encounter issue leaving network "+network+": "+err.Error(), 1)
+				logger.Log(1, "Encounter issue leaving network ", network, ": ", err.Error())
 			}
 		}
 	}
@@ -140,7 +141,7 @@ func Uninstall() error {
 	} else if ncutils.IsFreeBSD() {
 		daemon.CleanupFreebsd()
 	} else if !ncutils.IsKernel() {
-		ncutils.PrintLog("manual cleanup required", 1)
+		logger.Log(1, "manual cleanup required")
 	}
 
 	return err
@@ -184,9 +185,9 @@ func LeaveNetwork(network string, force bool) error {
 					grpc.Header(&header),
 				)
 				if err != nil {
-					ncutils.PrintLog("encountered error deleting node: "+err.Error(), 1)
+					logger.Log(1, "encountered error deleting node: ", err.Error())
 				} else {
-					ncutils.PrintLog("removed machine from "+node.Network+" network on remote server", 1)
+					logger.Log(1, "removed machine from ", node.Network, " network on remote server")
 				}
 			}
 		}
@@ -211,15 +212,15 @@ func LeaveNetwork(network string, force bool) error {
 				local.RemoveCIDRRoute(removeIface, cfg.Node.Address, cidr)
 			}
 		} else {
-			ncutils.PrintLog("could not flush peer routes when leaving network, "+cfg.Node.Network, 1)
+			logger.Log(1, "could not flush peer routes when leaving network, ", cfg.Node.Network)
 		}
 	}
 
 	err = WipeLocal(node.Network)
 	if err != nil {
-		ncutils.PrintLog("unable to wipe local config", 1)
+		logger.Log(1, "unable to wipe local config")
 	} else {
-		ncutils.PrintLog("removed "+node.Network+" network locally", 1)
+		logger.Log(1, "removed ", node.Network, " network locally")
 	}
 
 	currentNets, err := ncutils.GetSystemNetworks()
@@ -262,7 +263,7 @@ func WipeLocal(network string) error {
 	ifacename := nodecfg.Interface
 	if ifacename != "" {
 		if err = wireguard.RemoveConf(ifacename, true); err == nil {
-			ncutils.PrintLog("removed WireGuard interface: "+ifacename, 1)
+			logger.Log(1, "removed WireGuard interface: ", ifacename)
 		} else if strings.Contains(err.Error(), "does not exist") {
 			err = nil
 		}

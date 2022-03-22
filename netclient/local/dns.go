@@ -11,6 +11,7 @@ import (
 	"log"
 	"os/exec"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -28,10 +29,10 @@ func SetDNSWithRetry(node models.Node, address string) bool {
 		time.Sleep(time.Second << 1)
 	}
 	if !reachable {
-		ncutils.Log("not setting dns (server unreachable), will try again later: " + address)
+		logger.Log(0, "not setting dns (server unreachable), will try again later: "+address)
 		return true
 	} else if err := UpdateDNS(node.Interface, node.Network, address); err != nil {
-		ncutils.Log("error applying dns" + err.Error())
+		logger.Log(0, "error applying dns"+err.Error())
 	} else if IsDNSWorking(node.Network, address) {
 		return true
 	}

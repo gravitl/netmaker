@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -76,7 +77,7 @@ WantedBy=multi-user.target
 
 // RestartSystemD - restarts systemd service
 func RestartSystemD() {
-	ncutils.PrintLog("restarting netclient.service", 1)
+	logger.Log(1, "restarting netclient.service")
 	time.Sleep(time.Second)
 	_, _ = ncutils.RunCmd("systemctl restart netclient.service", true)
 }
@@ -84,10 +85,10 @@ func RestartSystemD() {
 // CleanupLinux - cleans up neclient configs
 func CleanupLinux() {
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
-		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
+		logger.Log(1, "Removing netclient configs: ", err.Error())
 	}
 	if err := os.Remove(EXEC_DIR + "netclient"); err != nil {
-		ncutils.PrintLog("Removing netclient binary: "+err.Error(), 1)
+		logger.Log(1, "Removing netclient binary: ", err.Error())
 	}
 }
 
@@ -109,18 +110,18 @@ func RemoveSystemDServices() error {
 		if ncutils.FileExists("/etc/systemd/system/netclient.service") {
 			err = os.Remove("/etc/systemd/system/netclient.service")
 			if err != nil {
-				ncutils.Log("Error removing /etc/systemd/system/netclient.service. Please investigate.")
+				logger.Log(0, "Error removing /etc/systemd/system/netclient.service. Please investigate.")
 			}
 		}
 		if ncutils.FileExists("/etc/systemd/system/netclient.timer") {
 			err = os.Remove("/etc/systemd/system/netclient.timer")
 			if err != nil {
-				ncutils.Log("Error removing /etc/systemd/system/netclient.timer. Please investigate.")
+				logger.Log(0, "Error removing /etc/systemd/system/netclient.timer. Please investigate.")
 			}
 		}
 		ncutils.RunCmd("systemctl daemon-reload", false)
 		ncutils.RunCmd("systemctl reset-failed", false)
-		ncutils.Log("removed systemd remnants if any existed")
+		logger.Log(0, "removed systemd remnants if any existed")
 	}
 	return nil
 }

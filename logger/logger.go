@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -17,6 +18,15 @@ const TimeFormat = "2006-01-02 15:04:05"
 // == fields ==
 var currentLogs = make(map[string]string)
 var mu sync.Mutex
+var program string
+
+func init() {
+	fullpath, err := os.Executable()
+	if err != nil {
+		fullpath = ""
+	}
+	program = filepath.Base(fullpath)
+}
 
 // Log - handles adding logs
 func Log(verbosity int, message ...string) {
@@ -25,13 +35,18 @@ func Log(verbosity int, message ...string) {
 	var currentTime = time.Now()
 	var currentMessage = MakeString(" ", message...)
 	if int32(verbosity) <= getVerbose() && getVerbose() >= 0 {
-		fmt.Printf("[netmaker] %s %s \n", currentTime.Format(TimeFormat), currentMessage)
+		fmt.Printf("[%s] %s %s \n", program, currentTime.Format(TimeFormat), currentMessage)
 	}
-	currentLogs[currentMessage] = currentTime.Format("2006-01-02 15:04:05.999999999")
+	if program == "netmaker" {
+		currentLogs[currentMessage] = currentTime.Format("2006-01-02 15:04:05.999999999")
+	}
 }
 
 // Dump - dumps all logs into a formatted string
 func Dump() string {
+	if program != "netmaker" {
+		return ""
+	}
 	var dumpString = ""
 	type keyVal struct {
 		Key   string
@@ -65,6 +80,9 @@ func Dump() string {
 
 // DumpFile - appends log dump log file
 func DumpFile(filePath string) {
+	if program != "netmaker" {
+		return
+	}
 	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		fmt.Println(MakeString(" ", "could not open log file", filePath))

@@ -3,11 +3,12 @@ package ncutils
 import (
 	"embed"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+
+	"github.com/gravitl/netmaker/logger"
 )
 
 //go:embed windowsdaemon/winsw.exe
@@ -21,8 +22,8 @@ func RunCmd(command string, printerr bool) (string, error) {
 	//cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: "/C \"" + command + "\""}
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
-		log.Println("error running command:", command)
-		log.Println(strings.TrimSuffix(string(out), "\n"))
+		logger.Log(0, "error running command:", command)
+		logger.Log(0, strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
 }
@@ -38,8 +39,8 @@ func RunCmdFormatted(command string, printerr bool) (string, error) {
 	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
-		log.Println("error running command:", command)
-		log.Println(strings.TrimSuffix(string(out), "\n"))
+		logger.Log(0, "error running command:", command)
+		logger.Log(0, strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
 }
@@ -53,7 +54,7 @@ func GetEmbedded() error {
 	fileName := fmt.Sprintf("%swinsw.exe", GetNetclientPathSpecific())
 	err = os.WriteFile(fileName, data, 0700)
 	if err != nil {
-		Log("could not mount winsw.exe")
+		logger.Log(0, "could not mount winsw.exe")
 		return err
 	}
 	return nil

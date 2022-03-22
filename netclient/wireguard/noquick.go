@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -67,11 +68,11 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 	err = wgclient.ConfigureDevice(ifacename, conf)
 	if err != nil {
 		if os.IsNotExist(err) {
-			ncutils.PrintLog("Could not configure device: "+err.Error(), 0)
+			logger.Log(0, "Could not configure device: ", err.Error())
 		}
 	}
 	if _, err := ncutils.RunCmd(ipExec+" link set down dev "+ifacename, false); err != nil {
-		ncutils.PrintLog("attempted to remove interface before editing", 1)
+		logger.Log(1, "attempted to remove interface before editing")
 		return err
 	}
 	if node.PostDown != "" {
@@ -80,7 +81,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 	}
 	// set MTU of node interface
 	if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {
-		ncutils.PrintLog("failed to create interface with mtu "+strconv.Itoa(int(node.MTU))+"-"+ifacename, 1)
+		logger.Log(1, "failed to create interface with mtu ", strconv.Itoa(int(node.MTU)), "-", ifacename)
 		return err
 	}
 	if node.PostUp != "" {
@@ -88,7 +89,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 		_ = ncutils.RunCmds(runcmds, true)
 	}
 	if node.Address6 != "" && node.IsDualStack == "yes" {
-		ncutils.PrintLog("adding address: "+node.Address6, 1)
+		logger.Log(1, "adding address: ", node.Address6)
 		_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
 	}
 	return nil
@@ -103,8 +104,8 @@ func RemoveWithoutWGQuick(ifacename string) error {
 	out, err := ncutils.RunCmd(ipExec+" link del "+ifacename, false)
 	dontprint := strings.Contains(out, "does not exist") || strings.Contains(out, "Cannot find device")
 	if err != nil && !dontprint {
-		ncutils.PrintLog("error running command: "+ipExec+" link del "+ifacename, 1)
-		ncutils.PrintLog(out, 1)
+		logger.Log(1, "error running command: ", ipExec, " link del ", ifacename)
+		logger.Log(1, out)
 	}
 	network := strings.ReplaceAll(ifacename, "nm-", "")
 	nodeconf, err := config.ReadConfig(network)
@@ -114,7 +115,7 @@ func RemoveWithoutWGQuick(ifacename string) error {
 			_ = ncutils.RunCmds(runcmds, false)
 		}
 	} else if err != nil {
-		ncutils.PrintLog("error retrieving config: "+err.Error(), 1)
+		logger.Log(1, "error retrieving config: ", err.Error())
 	}
 	return err
 }

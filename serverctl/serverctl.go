@@ -30,7 +30,7 @@ func InitializeCommsNetwork() error {
 
 	setCommsID()
 
-	_, err := logic.GetNetwork(COMMS_NETID)
+	commsNetwork, err := logic.GetNetwork(COMMS_NETID)
 	if err != nil {
 		var network models.Network
 		network.NetID = COMMS_NETID
@@ -39,12 +39,31 @@ func InitializeCommsNetwork() error {
 		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
 		logger.Log(1, "comms net does not exist, creating with ID,", network.NetID, "and CIDR,", network.AddressRange)
-		return logic.CreateNetwork(network)
+		_, err = logic.CreateNetwork(network)
+		return err
+	} else if commsNetwork.DefaultACL == "" {
+		commsNetwork.DefaultACL = "yes"
+		if err = logic.SaveNetwork(&commsNetwork); err != nil {
+			logger.Log(1, "comms net default acl is set incorrectly, please manually adjust to \"yes\",", COMMS_NETID)
+		}
 	}
-	time.Sleep(time.Second << 1)
-	SyncServerNetwork(COMMS_NETID)
+	// gracefully check for comms interface
+	gracefulCommsWait()
 
 	return nil
+}
+
+func gracefulCommsWait() {
+	output, _ := ncutils.RunCmd("wg", false)
+	starttime := time.Now()
+	ifaceReady := strings.Contains(output, COMMS_NETID)
+	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
+		output, _ = ncutils.RunCmd("wg", false)
+		SyncServerNetwork(COMMS_NETID)
+		time.Sleep(time.Second)
+		ifaceReady = strings.Contains(output, COMMS_NETID)
+	}
+	logger.Log(1, "comms network", COMMS_NETID, "ready")
 }
 
 // SetJWTSecret - sets the jwt secret on server startup

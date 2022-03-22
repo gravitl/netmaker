@@ -9,6 +9,7 @@ import (
 	"time"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -103,7 +104,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 
 		nodeData, err := json.Marshal(&nodecfg)
 		if err != nil {
-			ncutils.PrintLog("could not parse node data from config during peer fetch for network "+network, 1)
+			logger.Log(1, "could not parse node data from config during peer fetch for network ", network)
 			return peers, hasGateway, gateways, err
 		}
 
@@ -185,16 +186,16 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 			for _, iprange := range ranges { // go through each cidr for egress gateway
 				_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 				if err != nil {
-					ncutils.PrintLog("could not parse gateway IP range. Not adding "+iprange, 1)
+					logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
 					continue // if can't parse CIDR
 				}
 				nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
 				if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain public ip of node
-					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+node.Endpoint+", omitting", 2)
+					logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.Endpoint, ", omitting")
 					continue // skip adding egress range if overlaps with node's ip
 				}
 				if ipnet.Contains(net.ParseIP(nodecfg.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
-					ncutils.PrintLog("egress IP range of "+iprange+" overlaps with "+nodecfg.LocalAddress+", omitting", 2)
+					logger.Log(2, "egress IP range of ", iprange, " overlaps with ", nodecfg.LocalAddress, ", omitting")
 					continue // skip adding egress range if overlaps with node's local ip
 				}
 				gateways = append(gateways, iprange)
@@ -282,7 +283,7 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 
 		nodeData, err := json.Marshal(&nodecfg)
 		if err != nil {
-			ncutils.PrintLog("could not parse node data from config during peer fetch for network "+network, 1)
+			logger.Log(1, "could not parse node data from config during peer fetch for network ", network)
 			return peers, err
 		}
 

@@ -3,6 +3,7 @@ package local
 import (
 	"net"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -20,14 +21,14 @@ func SetPeerRoutes(iface, currentNodeAddr string, oldPeers map[string][]net.IPNe
 			for _, allowedIP := range peer.AllowedIPs { // compare new ones (if any) to old ones
 				if !ncutils.IPNetSliceContains(currPeerAllowedIPs, allowedIP) {
 					if err := setRoute(iface, &allowedIP, allowedIP.IP.String()); err != nil {
-						ncutils.PrintLog(err.Error(), 1)
+						logger.Log(1, err.Error())
 					}
 				}
 			}
 			for _, allowedIP := range currPeerAllowedIPs { // compare old ones (if any) to new ones
 				if !ncutils.IPNetSliceContains(peer.AllowedIPs, allowedIP) {
 					if err := deleteRoute(iface, &allowedIP, allowedIP.IP.String()); err != nil {
-						ncutils.PrintLog(err.Error(), 1)
+						logger.Log(1, err.Error())
 					}
 				}
 			}
@@ -35,7 +36,7 @@ func SetPeerRoutes(iface, currentNodeAddr string, oldPeers map[string][]net.IPNe
 		} else {
 			for _, allowedIP := range peer.AllowedIPs { // add all routes as peer doesn't exist
 				if err := setRoute(iface, &allowedIP, allowedIP.String()); err != nil {
-					ncutils.PrintLog(err.Error(), 1)
+					logger.Log(1, err.Error())
 				}
 			}
 		}

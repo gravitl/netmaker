@@ -6,7 +6,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -26,6 +25,7 @@ func getEnv() string {
 
 // Config : application config stored as global variable
 var Config *EnvironmentConfig
+var SetupErr error
 
 // EnvironmentConfig - environment conf struct
 type EnvironmentConfig struct {
@@ -90,25 +90,25 @@ type SQLConfig struct {
 }
 
 // reading in the env file
-func readConfig() *EnvironmentConfig {
-	file := fmt.Sprintf("config/environments/%s.yaml", getEnv())
+func readConfig() (*EnvironmentConfig, error) {
+	file := fmt.Sprintf("environments/%s.yaml", getEnv())
 	f, err := os.Open(file)
 	var cfg EnvironmentConfig
 	if err != nil {
-		return &cfg
+		return &cfg, err
 	}
 	defer f.Close()
 
 	decoder := yaml.NewDecoder(f)
-	err = decoder.Decode(&cfg)
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(2)
+	if decoder.Decode(&cfg) != nil {
+		return &cfg, err
 	}
-	return &cfg
+	return &cfg, err
 
 }
 
 func init() {
-	Config = readConfig()
+	if Config, SetupErr = readConfig(); SetupErr != nil {
+		Config = &EnvironmentConfig{}
+	}
 }

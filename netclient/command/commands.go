@@ -3,6 +3,7 @@ package command
 import (
 	"strings"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
@@ -12,7 +13,7 @@ import (
 // JoinComms -- Join the message queue comms network if it doesn't have it
 // tries to ping if already found locally, if fail ping pull for best effort for communication
 func JoinComms(cfg *config.ClientConfig) error {
-	var commsCfg config.ClientConfig
+	commsCfg := &config.ClientConfig{}
 	commsCfg.Network = cfg.Server.CommsNetwork
 	commsCfg.Node.Network = cfg.Server.CommsNetwork
 	commsCfg.Server.AccessKey = cfg.Server.AccessKey
@@ -20,14 +21,16 @@ func JoinComms(cfg *config.ClientConfig) error {
 	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
 	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
 	if commsCfg.ConfigFileExists() {
-		commsCfg.ReadConfig()
+		return nil
 	}
-	if commsCfg.Node.Name == "" {
+	commsCfg.ReadConfig()
+
+	if len(commsCfg.Node.Name) == 0 {
 		if err := functions.JoinNetwork(commsCfg, "", true); err != nil {
 			return err
 		}
 	} else { // check if comms is currently reachable
-		if err := functions.PingServer(&commsCfg); err != nil {
+		if err := functions.PingServer(commsCfg); err != nil {
 			if err = Pull(commsCfg); err != nil {
 				return err
 			}
@@ -37,10 +40,10 @@ func JoinComms(cfg *config.ClientConfig) error {
 }
 
 // Join - join command to run from cli
-func Join(cfg config.ClientConfig, privateKey string) error {
+func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
 	//check if comms network exists
-	if err = JoinComms(&cfg); err != nil {
+	if err = JoinComms(cfg); err != nil {
 		return err
 	}
 
@@ -48,12 +51,12 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 	err = functions.JoinNetwork(cfg, privateKey, false)
 	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
-			ncutils.PrintLog("error installing: "+err.Error(), 1)
+			logger.Log(1, "error installing: ", err.Error())
 			err = functions.LeaveNetwork(cfg.Network, true)
 			if err != nil {
 				err = functions.WipeLocal(cfg.Network)
 				if err != nil {
-					ncutils.PrintLog("error removing artifacts: "+err.Error(), 1)
+					logger.Log(1, "error removing artifacts: ", err.Error())
 				}
 			}
 			if cfg.Daemon != "off" {
@@ -61,25 +64,25 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 					err = daemon.RemoveSystemDServices()
 				}
 				if err != nil {
-					ncutils.PrintLog("error removing services: "+err.Error(), 1)
+					logger.Log(1, "error removing services: ", err.Error())
 				}
 				if ncutils.IsFreeBSD() {
 					daemon.RemoveFreebsdDaemon()
 				}
 			}
 		} else {
-			ncutils.PrintLog("success", 0)
+			logger.Log(0, "success")
 		}
 		if err != nil && strings.Contains(err.Error(), "ALREADY_INSTALLED") {
-			ncutils.PrintLog(err.Error(), 0)
+			logger.Log(0, err.Error())
 			err = nil
 		}
 		return err
 	}
-	ncutils.PrintLog("joined "+cfg.Network, 1)
+	logger.Log(1, "joined ", cfg.Network)
 	/*
 		if ncutils.IsWindows() {
-			ncutils.PrintLog("setting up WireGuard app", 0)
+			logger.Log("setting up WireGuard app", 0)
 			time.Sleep(time.Second >> 1)
 			functions.Pull(cfg.Network, true)
 		}
@@ -88,17 +91,17 @@ func Join(cfg config.ClientConfig, privateKey string) error {
 }
 
 // Leave - runs the leave command from cli
-func Leave(cfg config.ClientConfig, force bool) error {
+func Leave(cfg *config.ClientConfig, force bool) error {
 	err := functions.LeaveNetwork(cfg.Network, force)
 	if err != nil {
-		ncutils.PrintLog("error attempting to leave network "+cfg.Network, 1)
+		logger.Log(1, "error attempting to leave network "+cfg.Network)
 	} else {
-		ncutils.PrintLog("success", 0)
+		logger.Log(0, "success")
 	}
 	nets, err := ncutils.GetSystemNetworks()
 	if err == nil && len(nets) == 1 {
 		if nets[0] == cfg.Node.CommID {
-			ncutils.PrintLog("detected comms as remaining network, removing...", 1)
+			logger.Log(1, "detected comms as remaining network, removing...")
 			err = functions.LeaveNetwork(nets[0], true)
 		}
 	}
@@ -106,33 +109,33 @@ func Leave(cfg config.ClientConfig, force bool) error {
 }
 
 // Pull - runs pull command from cli
-func Pull(cfg config.ClientConfig) error {
+func Pull(cfg *config.ClientConfig) error {
 	var err error
 	if cfg.Network == "all" {
-		ncutils.PrintLog("No network selected. Running Pull for all networks.", 0)
+		logger.Log(0, "No network selected. Running Pull for all networks.")
 		networks, err := ncutils.GetSystemNetworks()
 		if err != nil {
-			ncutils.PrintLog("Error retrieving networks. Exiting.", 1)
+			logger.Log(1, "Error retrieving networks. Exiting.")
 			return err
 		}
 		for _, network := range networks {
 			_, err = functions.Pull(network, true)
 			if err != nil {
-				ncutils.PrintLog("Error pulling network config for network: "+network+"\n"+err.Error(), 1)
+				logger.Log(1, "Error pulling network config for network: ", network, "\n", err.Error())
 			} else {
-				ncutils.PrintLog("pulled network config for "+network, 1)
+				logger.Log(1, "pulled network config for "+network)
 			}
 		}
 		err = nil
 	} else {
 		_, err = functions.Pull(cfg.Network, true)
 	}
-	ncutils.PrintLog("reset network and peer configs", 1)
+	logger.Log(1, "reset network and peer configs")
 	if err == nil {
-		ncutils.PrintLog("reset network and peer configs", 1)
-		ncutils.PrintLog("success", 1)
+		logger.Log(1, "reset network and peer configs")
+		logger.Log(1, "success")
 	} else {
-		ncutils.PrintLog("error occurred pulling configs from server", 1)
+		logger.Log(0, "error occurred pulling configs from server")
 	}
 	return err
 }
@@ -145,9 +148,9 @@ func List(cfg config.ClientConfig) error {
 
 // Uninstall - runs uninstall command from cli
 func Uninstall() error {
-	ncutils.PrintLog("uninstalling netclient...", 0)
+	logger.Log(0, "uninstalling netclient...")
 	err := functions.Uninstall()
-	ncutils.PrintLog("uninstalled netclient", 0)
+	logger.Log(0, "uninstalled netclient")
 	return err
 }
 

@@ -1,7 +1,7 @@
 package ncutils
 
 import (
-	"log"
+	"github.com/gravitl/netmaker/logger"
 	"os/exec"
 	"strings"
 )
@@ -13,8 +13,8 @@ func RunCmd(command string, printerr bool) (string, error) {
 	cmd.Wait()
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
-		log.Println("error running command:", command)
-		log.Println(strings.TrimSuffix(string(out), "\n"))
+		logger.Log(0, "error running command:", command)
+		logger.Log(0, strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
 }

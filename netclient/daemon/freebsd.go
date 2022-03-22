@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -110,10 +111,10 @@ func FreebsdDaemon(command string) {
 // CleanupFreebsd - removes config files and netclient binary
 func CleanupFreebsd() {
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
-		ncutils.PrintLog("Removing netclient configs: "+err.Error(), 1)
+		logger.Log(1, "Removing netclient configs: ", err.Error())
 	}
 	if err := os.Remove(EXEC_DIR + "netclient"); err != nil {
-		ncutils.PrintLog("Removing netclient binary: "+err.Error(), 1)
+		logger.Log(1, "Removing netclient binary: ", err.Error())
 	}
 }
 
@@ -122,13 +123,13 @@ func RemoveFreebsdDaemon() {
 	if ncutils.FileExists("/etc/rc.d/netclient") {
 		err := os.Remove("/etc/rc.d/netclient")
 		if err != nil {
-			ncutils.Log("Error removing /etc/rc.d/netclient. Please investigate.")
+			logger.Log(0, "Error removing /etc/rc.d/netclient. Please investigate.")
 		}
 	}
 	if ncutils.FileExists("/etc/rc.conf.d/netclient") {
 		err := os.Remove("/etc/rc.conf.d/netclient")
 		if err != nil {
-			ncutils.Log("Error removing /etc/rc.conf.d/netclient. Please investigate.")
+			logger.Log(0, "Error removing /etc/rc.conf.d/netclient. Please investigate.")
 		}
 	}
 }

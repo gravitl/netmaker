@@ -243,6 +243,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 			logger.Log(1, "adding address:", node.Address6)
 			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
 		}
+		wireguard.SetPeers(ifacename, node, peers)
 	}
 
 	return err
@@ -276,79 +277,6 @@ func removeWGQuickConf(confPath string, printlog bool) error {
 	return nil
 }
 
-func setServerPeers(iface string, keepalive int32, peers []wgtypes.PeerConfig) error {
-
-	client, err := wgctrl.New()
-	if err != nil {
-		logger.Log(0, "failed to start wgctrl")
-		return err
-	}
-	defer client.Close()
-
-	device, err := client.Device(iface)
-	if err != nil {
-		logger.Log(1, "failed to parse interface")
-		return err
-	}
-	devicePeers := device.Peers
-	if len(devicePeers) > 1 && len(peers) == 0 {
-		logger.Log(1, "no peers pulled")
-		return err
-	}
-
-	for _, peer := range peers {
-		if len(peer.AllowedIPs) > 0 {
-			for _, currentPeer := range devicePeers {
-				if len(currentPeer.AllowedIPs) > 0 && currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
-					currentPeer.PublicKey.String() != peer.PublicKey.String() {
-					_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
-					if err != nil {
-						logger.Log(0, "error removing peer", peer.Endpoint.String())
-					}
-				}
-			}
-		}
-		var allowedips string
-		var iparr []string
-		for _, ipaddr := range peer.AllowedIPs {
-			iparr = append(iparr, ipaddr.String())
-		}
-		allowedips = strings.Join(iparr, ",")
-		keepAliveString := strconv.Itoa(int(keepalive))
-		if keepAliveString == "0" {
-			keepAliveString = "5"
-		}
-
-		_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
-			" persistent-keepalive "+keepAliveString+
-			" allowed-ips "+allowedips, true)
-		if err != nil {
-			logger.Log(2, "error setting peer", peer.PublicKey.String())
-		}
-	}
-
-	for _, currentPeer := range devicePeers {
-		if len(currentPeer.AllowedIPs) > 0 {
-			shouldDelete := true
-			for _, peer := range peers {
-				if len(peer.AllowedIPs) > 0 &&
-					(peer.PublicKey.String() == currentPeer.PublicKey.String() ||
-						peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String()) {
-					shouldDelete = false
-				}
-			}
-			if shouldDelete {
-				output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
-				if err != nil {
-					logger.Log(0, output, "error removing peer", currentPeer.PublicKey.String())
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 func setWGConfig(node *models.Node, peerupdate bool) error {
 
 	peers, hasGateway, gateways, err := GetServerPeers(node)
@@ -360,7 +288,9 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 		return err
 	}
 	if peerupdate {
-		err = setServerPeers(node.Interface, node.PersistentKeepalive, peers[:])
+		if err := wireguard.SetPeers(node.Interface, node, peers); err != nil {
+			logger.Log(0, "error updating peers", err.Error())
+		}
 		logger.Log(2, "updated peers on server", node.Name)
 	} else {
 		err = initWireguard(node, privkey, peers[:], hasGateway, gateways[:])

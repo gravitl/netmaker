@@ -311,8 +311,16 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	// TODO get template logic to decide initial ACL value
-	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), acls.Allowed)
+
+	defaultACLVal := acls.Allowed
+	parentNetwork, err := GetNetwork(node.Network)
+	if err == nil {
+		if parentNetwork.DefaultACL != "yes" {
+			defaultACLVal = acls.NotAllowed
+		}
+	}
+
+	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID, "err:", err.Error())
 		return err

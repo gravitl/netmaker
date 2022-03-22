@@ -32,6 +32,7 @@ type Network struct {
 	DefaultMTU          int32       `json:"defaultmtu" bson:"defaultmtu"`
 	// consider removing - may be depreciated
 	DefaultServerAddrs []ServerAddr `json:"defaultserveraddrs" bson:"defaultserveraddrs" yaml:"defaultserveraddrs"`
+	DefaultACL         string       `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
@@ -95,5 +96,9 @@ func (network *Network) SetDefaults() {
 
 	if network.DefaultMTU == 0 {
 		network.DefaultMTU = 1280
+	}
+
+	if network.DefaultACL == "" {
+		network.DefaultACL = "yes"
 	}
 }

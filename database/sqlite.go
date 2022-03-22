@@ -42,6 +42,7 @@ func initSqliteDB() error {
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}
+	SqliteDB.SetMaxOpenConns(1)
 	return nil
 }
 

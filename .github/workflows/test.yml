@@ -24,7 +24,10 @@ jobs:
   tests:
     env:
       DATABASE: sqlite
-    runs-on: ubuntu-20.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -38,3 +41,4 @@ jobs:
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"
+

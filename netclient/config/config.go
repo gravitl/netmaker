@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/urfave/cli/v2"
@@ -24,6 +25,7 @@ type ClientConfig struct {
 	Daemon          string         `yaml:"daemon"`
 	OperatingSystem string         `yaml:"operatingsystem"`
 	DebugOn         bool           `yaml:"debugon"`
+	
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient
@@ -86,7 +88,7 @@ func (config *ClientConfig) ReadConfig() {
 	//f, err := os.Open(file)
 	f, err := os.OpenFile(file, os.O_RDONLY, 0600)
 	if err != nil {
-		ncutils.PrintLog("trouble opening file: "+err.Error(), 1)
+		logger.Log(1, "trouble opening file: ", err.Error())
 		nofile = true
 		//fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
 	}
@@ -133,11 +135,11 @@ func SaveBackup(network string) error {
 	if FileExists(configPath) {
 		input, err := os.ReadFile(configPath)
 		if err != nil {
-			ncutils.Log("failed to read " + configPath + " to make a backup")
+			logger.Log(0, "failed to read ", configPath, " to make a backup")
 			return err
 		}
 		if err = os.WriteFile(backupPath, input, 0600); err != nil {
-			ncutils.Log("failed to copy backup to " + backupPath)
+			logger.Log(0, "failed to copy backup to ", backupPath)
 			return err
 		}
 	}
@@ -151,15 +153,15 @@ func ReplaceWithBackup(network string) error {
 	if FileExists(backupPath) {
 		input, err := os.ReadFile(backupPath)
 		if err != nil {
-			ncutils.Log("failed to read file " + backupPath + " to backup network: " + network)
+			logger.Log(0, "failed to read file ", backupPath, " to backup network: ", network)
 			return err
 		}
 		if err = os.WriteFile(configPath, input, 0600); err != nil {
-			ncutils.Log("failed backup " + backupPath + " to " + configPath)
+			logger.Log(0, "failed backup ", backupPath, " to ", configPath)
 			return err
 		}
 	}
-	ncutils.Log("used backup file for network: " + network)
+	logger.Log(0, "used backup file for network: ", network)
 	return nil
 }
 

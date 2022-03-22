@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
@@ -73,12 +74,6 @@ const (
 // SetVersion -- set netclient version for use by other packages
 func SetVersion(ver string) {
 	Version = ver
-}
-
-// Log - logs a message
-func Log(message string) {
-	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
-	log.Println("[netclient]", message)
 }
 
 // IsWindows - checks if is windows
@@ -335,7 +330,7 @@ func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
 		if err == nil {
 			return data, err
 		} else {
-			PrintLog("failed to retrieve file "+path+", retrying...", 1)
+			logger.Log(1, "failed to retrieve file ", path, ", retrying...")
 			time.Sleep(time.Second >> 2)
 		}
 	}
@@ -444,8 +439,8 @@ func RunCmds(commands []string, printerr bool) error {
 		args := strings.Fields(command)
 		out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 		if err != nil && printerr {
-			log.Println("error running command:", command)
-			log.Println(strings.TrimSuffix(string(out), "\n"))
+			logger.Log(0, "error running command:", command)
+			logger.Log(0, strings.TrimSuffix(string(out), "\n"))
 		}
 	}
 	return err
@@ -461,17 +456,9 @@ func FileExists(f string) bool {
 		return false
 	}
 	if err != nil {
-		Log("error reading file: " + f + ", " + err.Error())
+		logger.Log(0, "error reading file: "+f+", "+err.Error())
 	}
 	return !info.IsDir()
-}
-
-// PrintLog - prints log
-func PrintLog(message string, loglevel int) {
-	log.SetFlags(log.Flags() &^ (log.Llongfile | log.Lshortfile))
-	if loglevel < 2 {
-		log.Println("[netclient]", message)
-	}
 }
 
 // GetSystemNetworks - get networks locally
@@ -519,7 +506,7 @@ func ShortenString(input string, length int) string {
 func DNSFormatString(input string) string {
 	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
 	if err != nil {
-		Log("error with regex: " + err.Error())
+		logger.Log(0, "error with regex: "+err.Error())
 		return ""
 	}
 	return reg.ReplaceAllString(input, "")
@@ -562,12 +549,12 @@ func CheckWG() {
 	uspace := GetWireGuard()
 	if err != nil {
 		if uspace == "wg" {
-			PrintLog(err.Error(), 0)
+			logger.Log(0, err.Error())
 			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
 		}
-		PrintLog("running with userspace wireguard: "+uspace, 0)
+		logger.Log(0, "running with userspace wireguard: ", uspace)
 	} else if uspace != "wg" {
-		PrintLog("running userspace WireGuard with "+uspace, 0)
+		logger.Log(0, "running userspace WireGuard with ", uspace)
 	}
 }
 

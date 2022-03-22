@@ -10,6 +10,7 @@ import (
 	"runtime"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -24,7 +25,7 @@ import (
 )
 
 // JoinNetwork - helps a client join a network
-func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error {
+func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) error {
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -35,7 +36,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 		return err
 	}
 
-	err = config.Write(&cfg, cfg.Network)
+	err = config.Write(cfg, cfg.Network)
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 		if err == nil {
 			cfg.Node.LocalAddress = intIP
 		} else {
-			ncutils.PrintLog("error retrieving private address: "+err.Error(), 1)
+			logger.Log(1, "error retrieving private address: ", err.Error())
 		}
 	}
 
@@ -84,7 +85,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 			cfg.Node.Endpoint, err = ncutils.GetPublicIP()
 		}
 		if err != nil || cfg.Node.Endpoint == "" {
-			ncutils.Log("Error setting cfg.Node.Endpoint.")
+			logger.Log(0, "Error setting cfg.Node.Endpoint.")
 			return err
 		}
 	}
@@ -111,8 +112,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 	//	if ncutils.IsLinux() {
 	//		_, err := exec.LookPath("resolvectl")
 	//		if err != nil {
-	//			ncutils.PrintLog("resolvectl not present", 2)
-	//			ncutils.PrintLog("unable to configure DNS automatically, disabling automated DNS management", 2)
+	//			logger.Log("resolvectl not present", 2)
+	//			logger.Log("unable to configure DNS automatically, disabling automated DNS management", 2)
 	//			cfg.Node.DNSOn = "no"
 	//		}
 	//	}
@@ -148,7 +149,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 		Version:             ncutils.Version,
 	}
 
-	ncutils.Log("joining " + cfg.Network + " at " + cfg.Server.GRPCAddress)
+	logger.Log(0, "joining "+cfg.Network+" at "+cfg.Server.GRPCAddress)
 	var wcclient nodepb.NodeServiceClient
 
 	conn, err := grpc.Dial(cfg.Server.GRPCAddress,
@@ -178,8 +179,8 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 		return err
 	}
 	if node.IsPending == "yes" {
-		ncutils.Log("Node is marked as PENDING.")
-		ncutils.Log("Awaiting approval from Admin before configuring WireGuard.")
+		logger.Log(0, "Node is marked as PENDING.")
+		logger.Log(0, "Awaiting approval from Admin before configuring WireGuard.")
 		if cfg.Daemon != "off" {
 			return daemon.InstallDaemon(cfg)
 		}
@@ -199,7 +200,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 	if err != nil {
 		return err
 	}
-	ncutils.PrintLog("node created on remote server...updating configs", 1)
+	logger.Log(1, "node created on remote server...updating configs")
 
 	// keep track of the old listenport value
 	oldListenPort := node.ListenPort
@@ -211,7 +212,7 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 
 	cfg.Node = node
 
-	setListenPort(oldListenPort, &cfg)
+	setListenPort(oldListenPort, cfg)
 
 	err = config.ModConfig(&cfg.Node)
 	if err != nil {
@@ -219,17 +220,17 @@ func JoinNetwork(cfg config.ClientConfig, privateKey string, iscomms bool) error
 	}
 	// attempt to make backup
 	if err = config.SaveBackup(node.Network); err != nil {
-		ncutils.Log("failed to make backup, node will not auto restore if config is corrupted")
+		logger.Log(0, "failed to make backup, node will not auto restore if config is corrupted")
 	}
 
-	ncutils.Log("retrieving peers")
+	logger.Log(0, "retrieving peers")
 	peers, hasGateway, gateways, err := server.GetPeers(node.MacAddress, cfg.Network, cfg.Server.GRPCAddress, node.IsDualStack == "yes", node.IsIngressGateway == "yes", node.IsServer == "yes")
 	if err != nil && !ncutils.IsEmptyRecord(err) {
-		ncutils.Log("failed to retrieve peers")
+		logger.Log(0, "failed to retrieve peers")
 		return err
 	}
 
-	ncutils.Log("starting wireguard")
+	logger.Log(0, "starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, peers, hasGateway, gateways, false)
 	if err != nil {
 		return err
@@ -273,8 +274,8 @@ func formatName(node models.Node) string {
 		node.Name = ncutils.ShortenString(node.Name, models.MAX_NAME_LENGTH)
 	}
 	if !node.NameInNodeCharSet() || len(node.Name) > models.MAX_NAME_LENGTH {
-		ncutils.PrintLog("could not properly format name: "+node.Name, 1)
-		ncutils.PrintLog("setting name to blank", 1)
+		logger.Log(1, "could not properly format name: "+node.Name)
+		logger.Log(1, "setting name to blank")
 		node.Name = ""
 	}
 	return node.Name
@@ -290,7 +291,7 @@ func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
 		cfg.Node.ListenPort, errN = ncutils.GetFreePort(cfg.Node.ListenPort)
 		if errN != nil {
 			cfg.Node.ListenPort = newListenPort
-			ncutils.PrintLog("Error retrieving port: "+errN.Error(), 1)
+			logger.Log(1, "Error retrieving port: ", errN.Error())
 		}
 
 		// if newListenPort has been modified to find an available port, publish to server
