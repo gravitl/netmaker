@@ -7,20 +7,18 @@ import (
 	"os"
 	"runtime/debug"
 
+	cfg "github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/netclient/cli_options"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/ncwindows"
 	"github.com/urfave/cli/v2"
 )
 
-var version = "dev"
-
 func main() {
 	app := cli.NewApp()
 	app.Name = "Netclient CLI"
 	app.Usage = "Netmaker's netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config."
-	app.Version = version
-	ncutils.SetVersion(version)
+	app.Version = cfg.VERSION
 
 	cliFlags := cli_options.GetFlags(ncutils.GetHostname())
 	app.Commands = cli_options.GetCommands(cliFlags[:])

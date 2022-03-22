@@ -27,9 +27,6 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-// Version - version of the netclient
-var Version = "dev"
-
 // src - for random strings
 var src = rand.NewSource(time.Now().UnixNano())
 
@@ -70,11 +67,6 @@ const (
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
-
-// SetVersion -- set netclient version for use by other packages
-func SetVersion(ver string) {
-	Version = ver
-}
 
 // IsWindows - checks if is windows
 func IsWindows() bool {

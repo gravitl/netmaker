@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	Version = "dev"
 	commsID = ""
 )
 
@@ -78,7 +77,7 @@ func GetServerConfig() config.ServerConfig {
 	}
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
-	cfg.Version = GetVersion()
+	cfg.Version = config.VERSION
 
 	// == auth config ==
 	var authInfo = GetAuthProviderInfo()
@@ -121,16 +120,6 @@ func GetAPIConnString() string {
 		conn = config.Config.Server.APIConnString
 	}
 	return conn
-}
-
-// SetVersion - set version of netmaker
-func SetVersion(v string) {
-	Version = v
-}
-
-// GetVersion - version of netmaker
-func GetVersion() string {
-	return Version
 }
 
 // GetDB - gets the database type

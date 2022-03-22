@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -70,7 +71,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		IsLocal:      networkSettings.IsLocal,
 		LocalRange:   networkSettings.LocalRange,
 		OS:           runtime.GOOS,
-		Version:      servercfg.Version,
+		Version:      config.VERSION,
 		IsHub:        ishub,
 	}
 

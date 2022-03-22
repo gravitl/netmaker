@@ -10,6 +10,8 @@ import (
 	"runtime"
 
 	nodepb "github.com/gravitl/netmaker/grpc"
+
+	_cfg "github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
@@ -146,7 +148,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 		UDPHolePunch:        cfg.Node.UDPHolePunch,
 		TrafficKeys:         cfg.Node.TrafficKeys,
 		OS:                  runtime.GOOS,
-		Version:             ncutils.Version,
+		Version:             _cfg.VERSION,
 	}
 
 	logger.Log(0, "joining "+cfg.Network+" at "+cfg.Server.GRPCAddress)

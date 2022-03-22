@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
+	cfg "github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -106,7 +107,7 @@ func PublishNodeUpdate(commsCfg, nodeCfg *config.ClientConfig) error {
 
 // Hello -- ping the broker to let server know node it's alive and well
 func Hello(commsCfg, nodeCfg *config.ClientConfig) {
-	if err := publish(commsCfg, nodeCfg, fmt.Sprintf("ping/%s", nodeCfg.Node.ID), []byte(ncutils.Version), 0); err != nil {
+	if err := publish(commsCfg, nodeCfg, fmt.Sprintf("ping/%s", nodeCfg.Node.ID), []byte(cfg.VERSION), 0); err != nil {
 		logger.Log(0, fmt.Sprintf("error publishing ping, %v", err))
 		logger.Log(0, "running pull on "+commsCfg.Node.Network+" to reconnect")
 		_, err := Pull(commsCfg.Node.Network, true)

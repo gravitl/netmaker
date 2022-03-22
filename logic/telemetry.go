@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -64,7 +65,7 @@ func fetchTelemetryData() (telemetryData, error) {
 	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
-	data.Version = servercfg.GetVersion()
+	data.Version = config.VERSION
 	nodes, err := GetAllNodes()
 	if err == nil {
 		data.Nodes = len(nodes)
