@@ -18,11 +18,7 @@ jobs:
     steps:
       - name: Get Version Number
         run: |
-          if [[ -n "${{ github.event.inputs.version }}" ]]; then
-            NETMAKER_VERSION=${{ github.event.inputs.version }}
-          else
-            NETMAKER_VERSION=$(curl -fsSL https://api.github.com/repos/gravitl/netmaker/tags | grep 'name' | head -1 | cut -d'"' -f4)
-          fi
+          NETMAKER_VERSION=$(cat config/version.go | grep VERSION | cut -c 12- | tr -d "\"")
           echo "NETMAKER_VERSION=${NETMAKER_VERSION}" >> $GITHUB_ENV
           # remove everything but digits and . for package (deb, rpm, etc) versions
           PACKAGE_VERSION=$(echo ${NETMAKER_VERSION} | tr -cd '[:digit:].')
