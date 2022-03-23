@@ -237,6 +237,12 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 
 
 	*/
+	if customDNSEntries, err := GetCustomDNS(peerUpdate.Network); err == nil {
+		for _, entry := range customDNSEntries {
+			// TODO - filter entries based on ACLs / given peers vs nodes in network
+			dns = dns + fmt.Sprintf("%s %s.%s\n", entry.Address, entry.Name, entry.Network)
+		}
+	}
 	peerUpdate.DNS = dns
 	return peerUpdate, nil
 }
