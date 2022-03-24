@@ -27,10 +27,8 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-var (
-	// Version - version of the netclient
-	Version = "dev"
-)
+// Version - version of the netclient
+var Version = "dev"
 
 // MAX_NAME_LENGTH - maximum node name length
 const MAX_NAME_LENGTH = 62

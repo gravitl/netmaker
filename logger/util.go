@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Verbosity - current logging verbosity of netclient
+// Verbosity - current logging verbosity level (optionally set)
 var Verbosity = 0
 
 // MakeString - makes a string using golang string builder
