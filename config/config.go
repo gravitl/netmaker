@@ -13,18 +13,15 @@ import (
 
 // setting dev by default
 func getEnv() string {
-
 	env := os.Getenv("NETMAKER_ENV")
-
 	if len(env) == 0 {
 		return "dev"
 	}
-
 	return env
 }
 
 // Config : application config stored as global variable
-var Config *EnvironmentConfig
+var Config *EnvironmentConfig = &EnvironmentConfig{}
 var SetupErr error
 
 // EnvironmentConfig - environment conf struct
@@ -90,9 +87,11 @@ type SQLConfig struct {
 }
 
 // reading in the env file
-func readConfig() (*EnvironmentConfig, error) {
-	file := fmt.Sprintf("environments/%s.yaml", getEnv())
-	f, err := os.Open(file)
+func ReadConfig(absolutePath string) (*EnvironmentConfig, error) {
+	if len(absolutePath) == 0 {
+		absolutePath = fmt.Sprintf("environments/%s.yaml", getEnv())
+	}
+	f, err := os.Open(absolutePath)
 	var cfg EnvironmentConfig
 	if err != nil {
 		return &cfg, err
@@ -104,11 +103,4 @@ func readConfig() (*EnvironmentConfig, error) {
 		return &cfg, err
 	}
 	return &cfg, err
-
-}
-
-func init() {
-	if Config, SetupErr = readConfig(); SetupErr != nil {
-		Config = &EnvironmentConfig{}
-	}
 }
