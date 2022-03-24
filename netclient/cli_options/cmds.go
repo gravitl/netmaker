@@ -9,16 +9,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func parseVerbosity(c *cli.Context) {
-	if c.Bool("V") {
-		logger.Verbosity = 1
-	} else if c.Bool("VV") {
-		logger.Verbosity = 2
-	} else if c.Bool("VVV") {
-		logger.Verbosity = 3
-	}
-}
-
 // GetCommands - return commands that CLI uses
 func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 	return []*cli.Command{
@@ -115,5 +105,17 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				return err
 			},
 		},
+	}
+}
+
+// == Private funcs ==
+
+func parseVerbosity(c *cli.Context) {
+	if c.Bool("V") {
+		logger.Verbosity = 1
+	} else if c.Bool("VV") {
+		logger.Verbosity = 2
+	} else if c.Bool("VVV") {
+		logger.Verbosity = 3
 	}
 }
