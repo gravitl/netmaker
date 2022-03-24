@@ -25,7 +25,6 @@ type ClientConfig struct {
 	Daemon          string         `yaml:"daemon"`
 	OperatingSystem string         `yaml:"operatingsystem"`
 	DebugOn         bool           `yaml:"debugon"`
-	
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient
@@ -168,6 +167,9 @@ func ReplaceWithBackup(network string) error {
 // GetCLIConfig - gets the cli flags as a config
 func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	var cfg ClientConfig
+	if c.String("version") != "" {
+		return cfg, c.String("version"), nil
+	}
 	if c.String("token") != "" {
 		tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
 		if err != nil {
