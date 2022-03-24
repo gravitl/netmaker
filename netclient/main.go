@@ -24,7 +24,7 @@ func main() {
 	app.Commands = cli_options.GetCommands(cliFlags[:])
 	app.Description = "Used to perform interactions with Netmaker server and set local WireGuard config."
 	app.Usage = "Netmaker's netclient agent and CLI."
-	app.UsageText = "netclient [global options] command [command options] [arguments...]. Adjust verbosity of given command with -V, -VV or -VVV (max)."
+	app.UsageText = "netclient [global options] command [command options] [arguments...]. Adjust verbosity of given command with -v, -vv or -vvv (max)."
 
 	setGarbageCollection()
 

@@ -206,19 +206,19 @@ func GetFlags(hostname string) []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:    "verbosity-level-1",
-			Aliases: []string{"V"},
+			Aliases: []string{"v"},
 			Value:   false,
 			Usage:   "Netclient Verbosity level 1.",
 		},
 		&cli.BoolFlag{
 			Name:    "verbosity-level-2",
-			Aliases: []string{"VV"},
+			Aliases: []string{"vv"},
 			Value:   false,
 			Usage:   "Netclient Verbosity level 2.",
 		},
 		&cli.BoolFlag{
 			Name:    "verbosity-level-3",
-			Aliases: []string{"VVV"},
+			Aliases: []string{"vvv"},
 			Value:   false,
 			Usage:   "Netclient Verbosity level 3.",
 		},

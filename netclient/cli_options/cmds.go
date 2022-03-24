@@ -2,6 +2,7 @@ package cli_options
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/command"
@@ -105,6 +106,16 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				return err
 			},
 		},
+		{
+			Name:  "verbosity",
+			Usage: "run netclient verb as daemon",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				// set max verbosity for daemon regardless
+				parseVerbosity(c)
+				return nil
+			},
+		},
 	}
 }
 
@@ -118,4 +129,6 @@ func parseVerbosity(c *cli.Context) {
 	} else if c.Bool("VVV") {
 		logger.Verbosity = 3
 	}
+	logger.Log(0, fmt.Sprintf("set verbosity to %d", logger.Verbosity))
+
 }
