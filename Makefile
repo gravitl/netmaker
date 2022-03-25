@@ -15,32 +15,30 @@ tidy :: fmt
 install :: tidy
 	go install ./...
 
-test :: install
+proto :: 
+	protoc --proto_path=grpc --go_out=grpc --go_opt=paths=source_relative grpc/node.proto
+
+test :: install proto
 	go test -v ./...
 
 cat ::
 	cat Makefile
 
-all ::  
+all :: test
 	./bin-maker.sh
+	make -C netclient all
 
-server ::
+server :: test
 	CGO_ENABLED=0 go build 
 
-client ::
+client :: test
 	make -C netclient
-
-client-all ::
-	make -C netclient all
 
 format-patch ::
 	git format-patch -1
 
 apply-patch ::
 	git apply --reject --whitespace=fix *.patch
-
-proto ::
-	protoc --proto_path=grpc --go_out=grpc --go_opt=paths=source_relative grpc/node.proto
 
 # The above make targets can be used to compile various
 # portions of netmaker.
