@@ -37,7 +37,7 @@ jobs:
           go-version: 1.18
       - name: run tests
         run: |
-            sudo go test -v ./...
+            sudo make test
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"

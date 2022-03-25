@@ -9,7 +9,13 @@ fmt ::
 	gofmt -w -s */*/*.go
 	gofmt -w -s */*/*/*.go
 
-test ::
+tidy :: fmt
+	go mod tidy
+
+install :: tidy
+	go install ./...
+
+test :: install
 	go test -v ./...
 
 cat ::

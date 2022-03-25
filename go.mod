@@ -1,6 +1,6 @@
 module github.com/gravitl/netmaker
 
-go 1.17
+go 1.18
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.3.5
@@ -32,6 +32,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.0.0-rc.1
 	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
 	github.com/guumaster/hostctl v1.1.2
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
@@ -39,7 +40,6 @@ require (
 
 require (
 	cloud.google.com/go v0.34.0 // indirect
-	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
