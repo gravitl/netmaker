@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -79,7 +78,6 @@ func InitializeAuthProvider() string {
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintln(w, oauthNotConfigured)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
@@ -98,7 +96,6 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintln(w, oauthNotConfigured)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
