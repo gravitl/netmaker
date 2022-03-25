@@ -204,5 +204,23 @@ func GetFlags(hostname string) []cli.Flag {
 			Value:   "no",
 			Usage:   "Allows to run the command with force, if otherwise prevented.",
 		},
+		&cli.BoolFlag{
+			Name:    "verbosity-level-1",
+			Aliases: []string{"v"},
+			Value:   false,
+			Usage:   "Netclient Verbosity level 1.",
+		},
+		&cli.BoolFlag{
+			Name:    "verbosity-level-2",
+			Aliases: []string{"vv"},
+			Value:   false,
+			Usage:   "Netclient Verbosity level 2.",
+		},
+		&cli.BoolFlag{
+			Name:    "verbosity-level-3",
+			Aliases: []string{"vvv"},
+			Value:   false,
+			Usage:   "Netclient Verbosity level 3.",
+		},
 	}
 }
