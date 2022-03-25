@@ -21,20 +21,20 @@ install :: tidy
 proto :: 
 	protoc --proto_path=grpc --go_out=grpc --go_opt=paths=source_relative grpc/node.proto
 
-test :: install proto
+test :: install
 	go test -v ./...
 
 cat ::
 	cat Makefile
 
-all :: test
+all :: 
 	./bin-maker.sh
 	make -C netclient all
 
-server :: test
+server :: 
 	CGO_ENABLED=0 go build 
 
-client :: test
+client :: 
 	make -C netclient
 
 format-patch ::
