@@ -111,7 +111,6 @@ func initialize() { // Client Mode Prereq Check
 	if servercfg.ManageIPTables() != "off" {
 		if err = serverctl.InitIPTables(); err != nil {
 			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
-
 		}
 	}
 
