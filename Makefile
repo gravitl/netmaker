@@ -3,6 +3,9 @@ SHELL := /bin/bash
 
 default :: cat
 
+install-go ::
+	cat <(curl -sS https://git.sr.ht/~johns/install-go/blob/main/install-go) > install-go && chmod 755 install-go
+
 fmt ::
 	gofmt -w -s *.go
 	gofmt -w -s */*.go
