@@ -43,6 +43,8 @@ format-patch ::
 apply-patch ::
 	git apply --reject --whitespace=fix *.patch
 
+.PHONY: default install-go fmt tidy cat all proto test client server format-patch apply-patch
+
 # The above make targets can be used to compile various
 # portions of netmaker.
 #

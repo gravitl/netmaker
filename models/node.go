@@ -56,7 +56,7 @@ type Node struct {
 	LastCheckIn         int64             `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	MacAddress          string            `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"macaddress_unique"`
 	Password            string            `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
-	PublicAuthKey       ed25519.PublicKey `json:"publicauthkey" bson:"publicauthkey" yaml:"publicauthkey" validate:"required,min=6"`
+	PublicAuthKey       ed25519.PublicKey `json:"publicauthkey" bson:"publicauthkey" yaml:"publicauthkey"`
 	Network             string            `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
 	IsRelayed           string            `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	IsPending           string            `json:"ispending" bson:"ispending" yaml:"ispending"`
