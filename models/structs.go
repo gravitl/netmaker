@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/ed25519"
+
 	jwt "github.com/golang-jwt/jwt/v4"
 )
 
@@ -9,9 +11,10 @@ const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 
 // AuthParams - struct for auth params
 type AuthParams struct {
-	MacAddress string `json:"macaddress"`
-	ID         string `json:"id"`
-	Password   string `json:"password"`
+	MacAddress string            `json:"macaddress"`
+	ID         string            `json:"id"`
+	Password   string            `json:"password"`
+	PublicKey  ed25519.PublicKey `json:"publickey"`
 }
 
 // User struct - struct for Users

@@ -2,10 +2,12 @@ package cli_options
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/urfave/cli/v2"
 )
 
@@ -32,6 +34,28 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				}
 				err = command.Join(&cfg, pvtKey)
 				return err
+			},
+		},
+		{
+			Name:  "register",
+			Usage: "Requests to register a key with a network.",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				cfg, _, err := config.GetCLIConfig(c)
+				if err != nil {
+					return err
+				}
+				// if cfg.Network == "all" {
+				// 	return errors.New("no network provided")
+				// }
+				// if cfg.Server.GRPCAddress == "" {
+				// 	return errors.New("no server address provided")
+				// }
+				if server := c.String("apiserver"); len(server) >= 5 {
+					return functions.Register(&cfg, server)
+				}
+				fmt.Printf("\n[USAGE]\n\tnetclient register -w [addr:port]\n\n")
+				return nil
 			},
 		},
 		{

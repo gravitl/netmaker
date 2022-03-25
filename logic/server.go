@@ -127,10 +127,11 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	}
 
 	// get free port based on returned default listen port
-	node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
+	addrPort, err := ncutils.GetFreePort()
 	if err != nil {
 		logger.Log(2, "Error retrieving port:", err.Error())
 	} else {
+		node.ListenPort = addrPort.Port()
 		logger.Log(1, "Set client port to", fmt.Sprintf("%d", node.ListenPort), "for network", node.Network)
 	}
 
@@ -334,7 +335,7 @@ func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 			Endpoint:            tempPeers[i].Endpoint,
 			PublicKey:           tempPeers[i].PublicKey,
 			PersistentKeepalive: tempPeers[i].KeepAlive,
-			ListenPort:          tempPeers[i].ListenPort,
+			ListenPort:          uint16(tempPeers[i].ListenPort),
 			LocalAddress:        tempPeers[i].LocalAddress,
 		})
 	}

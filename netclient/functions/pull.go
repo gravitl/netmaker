@@ -62,7 +62,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		}
 
 		req := &nodepb.Object{
-			Data: string(data),
+			Data: data,
 			Type: nodepb.NODE_TYPE,
 		}
 
@@ -100,7 +100,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 				return &cfg.Node, errors.New("issue initializing gRPC client")
 			}
 			req := &nodepb.Object{
-				Data:     string(nodeData),
+				Data:     nodeData,
 				Type:     nodepb.NODE_TYPE,
 				Metadata: "",
 			}

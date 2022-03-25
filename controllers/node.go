@@ -1,8 +1,12 @@
 package controller
 
 import (
+	"crypto/ed25519"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -37,97 +41,155 @@ func nodeHandlers(r *mux.Router) {
 }
 
 func authenticate(response http.ResponseWriter, request *http.Request) {
-
-	var params = mux.Vars(request)
-	networkname := params["network"]
-
-	var authRequest models.AuthParams
-	var result models.Node
+	var authRequest models.AuthParams = models.AuthParams{}
+	var result models.Node = models.Node{}
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
+	var params = mux.Vars(request)
+	networkname := params["network"]
 
-	decoder := json.NewDecoder(request.Body)
-	decoderErr := decoder.Decode(&authRequest)
-	defer request.Body.Close()
+	// Grab signatures from HTTP request header
+	signatures := request.Header["Signature"]
+	if len(signatures) < 1 {
+		logger.Log(2, "no signatures on auth request")
+		return
+	}
 
-	if decoderErr != nil {
+	// Decode signature from hexadecimal format
+	signature := make([]byte, len(signatures[0]))
+	if _, err := hex.Decode(signature, []byte(signatures[0])); err != nil {
+		logger.Log(2, "failed to decode signature on auth request")
+		return
+	}
+
+	// Unmarshal HTTP Request body
+	body, err := io.ReadAll(request.Body)
+	if err != nil {
+		logger.Log(2, "could not read HTTP request body on auth request")
+		return
+	}
+	if err = json.Unmarshal(body, &authRequest); err != nil {
 		errorResponse.Code = http.StatusBadRequest
-		errorResponse.Message = decoderErr.Error()
+		errorResponse.Message = "Invalid format."
+		returnErrorResponse(response, request, errorResponse)
+		logger.Log(2, "could not unmarshal auth request + ", err.Error())
+		return
+	}
+	net, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
+	if err != nil {
+		errorResponse.Code = http.StatusInternalServerError
+		errorResponse.Message = "Invalid format."
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	network := models.Network{}
+	if err = json.Unmarshal([]byte(net), &network); err != nil {
+		errorResponse.Code = http.StatusInternalServerError
+		errorResponse.Message = "Invalid format."
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	errorResponse.Code = http.StatusForbidden
+	for _, allowedKey := range network.AllowedKeys {
+		if subtle.ConstantTimeCompare(allowedKey, authRequest.PublicKey) == 1 {
+			errorResponse.Code = http.StatusAccepted
+			break
+		}
+	}
+	if errorResponse.Code != http.StatusAccepted {
+		errorResponse.Message = "Unauthorized."
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	defer request.Body.Close()
+	// decoder := json.NewDecoder(request.Body)
+	// decoderErr := decoder.Decode(&authRequest)
+	if authRequest.MacAddress == "" {
+		errorResponse.Message = "Invalid format."
+		errorResponse.Code = http.StatusBadRequest
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	if authRequest.Password == "" {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = "Invalid format."
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	if !ed25519.Verify(authRequest.PublicKey, body, signature) {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = "Invalid signature."
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	// TODO:
+	//	1. Add a new database table for ALLOWED_KEYS // or use NETWORK table
+	//  2. Check that the requests public key is in that table (we're not tying keys
+	//     to specific nodes, makes no sense to store them relationally if node A/B
+	//     can use the same key to authenticate). (e.g we are authenticating based
+	//     on your private/public key, not _who you say you are_, that is irrelevant.)
+	//  3. Then issue JWT for now.
+
+	// records, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+
+	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		errorResponse.Code = http.StatusInternalServerError
+		errorResponse.Message = ""
+		returnErrorResponse(response, request, errorResponse)
+		return
+	}
+	for _, value := range collection {
+		if err := json.Unmarshal([]byte(value), &result); err != nil {
+			continue
+		}
+		if (result.ID == authRequest.ID || result.MacAddress == authRequest.MacAddress) && result.IsPending != "yes" && result.Network == networkname {
+			break
+		}
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
 		returnErrorResponse(response, request, errorResponse)
 		return
 	} else {
-		errorResponse.Code = http.StatusBadRequest
-		if authRequest.MacAddress == "" {
-			errorResponse.Message = "W1R3: MacAddress can't be empty"
+		tokenString, _ := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
+
+		if tokenString == "" {
+			errorResponse.Code = http.StatusBadRequest
+			errorResponse.Message = "Could not create Token"
 			returnErrorResponse(response, request, errorResponse)
 			return
-		} else if authRequest.Password == "" {
-			errorResponse.Message = "W1R3: Password can't be empty"
-			returnErrorResponse(response, request, errorResponse)
-			return
-		} else {
-
-			collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				returnErrorResponse(response, request, errorResponse)
-				return
-			}
-			for _, value := range collection {
-				if err := json.Unmarshal([]byte(value), &result); err != nil {
-					continue
-				}
-				if (result.ID == authRequest.ID || result.MacAddress == authRequest.MacAddress) && result.IsPending != "yes" && result.Network == networkname {
-					break
-				}
-			}
-
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				returnErrorResponse(response, request, errorResponse)
-				return
-			}
-
-			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				returnErrorResponse(response, request, errorResponse)
-				return
-			} else {
-				tokenString, _ := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
-
-				if tokenString == "" {
-					errorResponse.Code = http.StatusBadRequest
-					errorResponse.Message = "Could not create Token"
-					returnErrorResponse(response, request, errorResponse)
-					return
-				}
-
-				var successResponse = models.SuccessResponse{
-					Code:    http.StatusOK,
-					Message: "W1R3: Device " + authRequest.MacAddress + " Authorized",
-					Response: models.SuccessfulLoginResponse{
-						AuthToken:  tokenString,
-						MacAddress: authRequest.MacAddress,
-					},
-				}
-				successJSONResponse, jsonError := json.Marshal(successResponse)
-
-				if jsonError != nil {
-					errorResponse.Code = http.StatusBadRequest
-					errorResponse.Message = err.Error()
-					returnErrorResponse(response, request, errorResponse)
-					return
-				}
-				response.WriteHeader(http.StatusOK)
-				response.Header().Set("Content-Type", "application/json")
-				response.Write(successJSONResponse)
-			}
 		}
+
+		var successResponse = models.SuccessResponse{
+			Code:    http.StatusOK,
+			Message: "W1R3: Device " + authRequest.MacAddress + " Authorized",
+			Response: models.SuccessfulLoginResponse{
+				AuthToken:  tokenString,
+				MacAddress: authRequest.MacAddress,
+			},
+		}
+		successJSONResponse, jsonError := json.Marshal(successResponse)
+
+		if jsonError != nil {
+			errorResponse.Code = http.StatusBadRequest
+			errorResponse.Message = err.Error()
+			returnErrorResponse(response, request, errorResponse)
+			return
+		}
+		response.WriteHeader(http.StatusOK)
+		response.Header().Set("Content-Type", "application/json")
+		response.Write(successJSONResponse)
 	}
 }
 

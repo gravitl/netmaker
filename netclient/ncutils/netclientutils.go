@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -258,22 +259,18 @@ func GetNetworkIPMask(networkstring string) (string, string, error) {
 	return ipstring, maskstring, err
 }
 
-// GetFreePort - gets free port of machine
-func GetFreePort(rangestart int32) (int32, error) {
-	addr := net.UDPAddr{}
-	if rangestart == 0 {
-		rangestart = NETCLIENT_DEFAULT_PORT
-	}
-	for x := rangestart; x <= 65535; x++ {
-		addr.Port = int(x)
-		conn, err := net.ListenUDP("udp", &addr)
-		if err != nil {
+// Starting at from the top (65535) work our way down
+// looking for an available port returning the first one found.
+func GetFreePort() (addr netip.AddrPort, err error) {
+	for x := uint16((1 << 16) - 1); x >= 1001; x-- {
+		conn, netErr := net.ListenUDP("udp", &net.UDPAddr{Port: int(x)})
+		if netErr != nil {
 			continue
 		}
-		defer conn.Close()
-		return x, nil
+		addr, err = netip.AddrPortFrom(netip.IPv4Unspecified(), x), conn.Close()
+		break
 	}
-	return rangestart, errors.New("no free ports")
+	return
 }
 
 // == OS PATH FUNCTIONS ==

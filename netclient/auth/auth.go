@@ -64,7 +64,7 @@ func AutoLogin(client nodepb.NodeServiceClient, network string) error {
 	}
 
 	login := &nodepb.Object{
-		Data: string(data),
+		Data: data,
 		Type: nodepb.NODE_TYPE,
 	}
 	// RPC call

@@ -1,3 +1,4 @@
+*.patch
 netmaker
 netmaker-arm
 netmaker-arm64

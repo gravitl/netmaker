@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -121,8 +122,9 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
 	}
-	// make sure name is appropriate, if not, give blank name
+	// make sure name is appropriate, if not, sets it to an 8-byte random string
 	cfg.Node.Name = formatName(cfg.Node)
+
 	// differentiate between client/server here
 	var node = models.Node{
 		Password:   cfg.Node.Password,
@@ -194,7 +196,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	res, err := wcclient.CreateNode(
 		context.TODO(),
 		&nodepb.Object{
-			Data: string(data),
+			Data: data,
 			Type: nodepb.NODE_TYPE,
 		},
 	)
@@ -265,7 +267,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	return nil
 }
 
-// format name appropriately. Set to blank on failure
+// format name appropriately. Set to 8byte random string on failure
 func formatName(node models.Node) string {
 	// Logic to properly format name
 	if !node.NameInNodeCharSet() {
@@ -276,25 +278,24 @@ func formatName(node models.Node) string {
 	}
 	if !node.NameInNodeCharSet() || len(node.Name) > models.MAX_NAME_LENGTH {
 		logger.Log(1, "could not properly format name: "+node.Name)
-		logger.Log(1, "setting name to blank")
-		node.Name = ""
+		node.Name = hex.EncodeToString([]byte(ncutils.MakeRandomString(8)))
+		logger.Log(1, "setting name to random string: "+node.Name)
 	}
 	return node.Name
 }
 
-func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
+func setListenPort(oldListenPort uint16, cfg *config.ClientConfig) {
 	// keep track of the returned listenport value
 	newListenPort := cfg.Node.ListenPort
 
 	if newListenPort != oldListenPort {
 		var errN error
-		// get free port based on returned default listen port
-		cfg.Node.ListenPort, errN = ncutils.GetFreePort(cfg.Node.ListenPort)
+		addrPort, errN := ncutils.GetFreePort()
 		if errN != nil {
 			cfg.Node.ListenPort = newListenPort
 			logger.Log(1, "Error retrieving port: ", errN.Error())
 		}
-
+		cfg.Node.ListenPort = addrPort.Port()
 		// if newListenPort has been modified to find an available port, publish to server
 		if cfg.Node.ListenPort != newListenPort {
 			var currentCommsCfg = getCommsCfgByNode(&cfg.Node)

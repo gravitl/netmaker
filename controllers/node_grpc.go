@@ -2,12 +2,14 @@ package controller
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/database"
 	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -43,7 +45,7 @@ func (s *NodeServiceServer) ReadNode(ctx context.Context, req *nodepb.Object) (*
 	}
 	logic.UpdateNode(&node, &node)
 	response := &nodepb.Object{
-		Data: string(nodeData),
+		Data: nodeData,
 		Type: nodepb.NODE_TYPE,
 	}
 	return response, nil
@@ -54,8 +56,15 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	var node = models.Node{}
 	var err error
 	data := req.GetData()
+	sig := req.GetSignature()
 	if err := json.Unmarshal([]byte(data), &node); err != nil {
 		return nil, err
+	}
+
+	database.FetchRecord(database.NETWORKS_TABLE_NAME, string(node.PublicAuthKey))
+
+	if !ed25519.Verify(node.PublicAuthKey, data, sig) {
+		return nil, errors.New("could not verify signature")
 	}
 
 	validKey := logic.IsKeyValid(node.Network, node.AccessKey)
@@ -109,7 +118,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	}
 
 	response := &nodepb.Object{
-		Data: string(nodeData),
+		Data: nodeData,
 		Type: nodepb.NODE_TYPE,
 	}
 
@@ -174,7 +183,7 @@ func (s *NodeServiceServer) UpdateNode(ctx context.Context, req *nodepb.Object) 
 	}
 
 	return &nodepb.Object{
-		Data: string(nodeData),
+		Data: nodeData,
 		Type: nodepb.NODE_TYPE,
 	}, nil
 }
@@ -225,7 +234,7 @@ func (s *NodeServiceServer) DeleteNode(ctx context.Context, req *nodepb.Object) 
 	runForceServerUpdate(&node)
 
 	return &nodepb.Object{
-		Data: "success",
+		Data: []byte("success"),
 		Type: nodepb.STRING_TYPE,
 	}, nil
 }
@@ -253,7 +262,7 @@ func (s *NodeServiceServer) GetPeers(ctx context.Context, req *nodepb.Object) (*
 	peersData, err := json.Marshal(&peers)
 	logger.Log(3, node.Address, "checked in successfully")
 	return &nodepb.Object{
-		Data: string(peersData),
+		Data: peersData,
 		Type: nodepb.NODE_TYPE,
 	}, err
 }
@@ -278,7 +287,7 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 			Endpoint:            peers[i].Endpoint,
 			PublicKey:           peers[i].PublicKey,
 			PersistentKeepalive: peers[i].KeepAlive,
-			ListenPort:          peers[i].ListenPort,
+			ListenPort:          uint16(peers[i].ListenPort),
 			LocalAddress:        peers[i].LocalAddress,
 		})
 	}
@@ -289,18 +298,18 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 	}
 
 	return &nodepb.Object{
-		Data: string(extData),
+		Data: extData,
 		Type: nodepb.EXT_PEER,
 	}, nil
 }
 
 // == private methods ==
 
-func getNodeFromRequestData(data string) (models.Node, error) {
+func getNodeFromRequestData(data []byte) (models.Node, error) {
 	var reqNode models.Node
 	var err error
 
-	if err = json.Unmarshal([]byte(data), &reqNode); err != nil {
+	if err = json.Unmarshal(data, &reqNode); err != nil {
 		return models.Node{}, err
 	}
 	return logic.GetNodeByID(reqNode.ID)

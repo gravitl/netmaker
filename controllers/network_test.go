@@ -256,7 +256,7 @@ func TestValidateNetworkUpdate(t *testing.T) {
 		{
 			testname: "ListenPortTooHigh",
 			network: models.Network{
-				DefaultListenPort: 65536,
+				DefaultListenPort: (1 << 16) - 1,
 			},
 			errMessage: "Field validation for 'DefaultListenPort' failed on the 'max' tag",
 		},

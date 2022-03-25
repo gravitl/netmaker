@@ -26,6 +26,7 @@ const NO_NETWORKS_PRESENT = "THIS_USER_HAS_NONE"
 
 func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", securityCheck(false, http.HandlerFunc(getNetworks))).Methods("GET")
+	// r.HandleFunc("/api/register").Methods("GET")
 	r.HandleFunc("/api/networks", securityCheck(true, http.HandlerFunc(createNetwork))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(getNetwork))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(updateNetwork))).Methods("PUT")

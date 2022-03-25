@@ -61,7 +61,7 @@ func CheckIn(network string) (*models.Node, error) {
 		response, err := wcclient.ReadNode(
 			ctx,
 			&nodepb.Object{
-				Data: string(nodeData),
+				Data: nodeData,
 				Type: nodepb.NODE_TYPE,
 			},
 			grpc.Header(&header),
@@ -109,7 +109,7 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		}
 
 		req := &nodepb.Object{
-			Data: string(nodeData),
+			Data: nodeData,
 			Type: nodepb.NODE_TYPE,
 		}
 
@@ -288,7 +288,7 @@ func GetExtPeers(macaddress string, network string, server string, dualstack boo
 		}
 
 		req := &nodepb.Object{
-			Data: string(nodeData),
+			Data: nodeData,
 			Type: nodepb.NODE_TYPE,
 		}
 

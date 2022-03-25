@@ -4,7 +4,7 @@ echo "build with version tag: $VERSION"
 readonly __HOST_ARCH=${1:-"amd64"}  # change this for your machine.
 readonly __HOST_GOOSE=${2:-"linux"} # change this for your machine.
 readonly __EXEC_DIR=$(dirname "$(realpath $0)") && cd $__EXEC_DIR   
-readonly __APP_NAME="netclient"
+readonly __APP_NAME="netmaker"
 readonly __OUT_DIR="build" && mkdir -p $__OUT_DIR
 
 __darwin=( arm64 amd64 )

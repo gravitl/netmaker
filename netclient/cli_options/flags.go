@@ -108,6 +108,7 @@ func GetFlags(hostname string) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:    "apiserver",
+			Aliases: []string{"w"},
 			EnvVars: []string{"NETCLIENT_API_SERVER"},
 			Value:   "",
 			Usage:   "Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server.",

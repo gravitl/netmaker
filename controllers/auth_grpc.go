@@ -173,7 +173,7 @@ func (s *NodeServiceServer) Login(ctx context.Context, req *nodepb.Object) (*nod
 			}
 
 			response := &nodepb.Object{
-				Data: tokenString,
+				Data: []byte(tokenString),
 				Type: nodepb.ACCESS_TOKEN,
 			}
 			return response, nil

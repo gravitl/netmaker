@@ -69,10 +69,10 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
 				if len(endpointarr) == 2 {
-					port, err := strconv.Atoi(endpointarr[1])
+					port, err := strconv.ParseUint(endpointarr[1], 10, 16)
 					if err == nil {
 						// peer.Endpoint = endpointarr[0]
-						peer.ListenPort = int32(port)
+						peer.ListenPort = uint16(port)
 					}
 				}
 			}

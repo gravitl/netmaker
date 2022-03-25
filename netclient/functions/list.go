@@ -110,7 +110,7 @@ func getPeers(network string) ([]Peer, error) {
 	}
 
 	req := &nodepb.Object{
-		Data: string(nodeData),
+		Data: nodeData,
 		Type: nodepb.NODE_TYPE,
 	}
 

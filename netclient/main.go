@@ -31,7 +31,7 @@ func main() {
 	if ncutils.IsWindows() {
 		ncwindows.InitWindows()
 	} else {
-		ncutils.CheckUID()
+		// ncutils.CheckUID()
 		ncutils.CheckWG()
 	}
 

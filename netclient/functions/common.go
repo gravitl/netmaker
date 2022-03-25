@@ -179,7 +179,7 @@ func LeaveNetwork(network string, force bool) error {
 				_, err = wcclient.DeleteNode(
 					ctx,
 					&nodepb.Object{
-						Data: string(nodeData),
+						Data: nodeData,
 						Type: nodepb.NODE_TYPE,
 					},
 					grpc.Header(&header),
