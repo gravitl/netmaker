@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"crypto/ed25519"
 	"os"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestCreateNetwork(t *testing.T) {
 	// if tests break - check here (removed displayname)
 	//network.DisplayName = "mynetwork"
 
-	_, err := logic.CreateNetwork(network)
+	_, err := logic.CreateNetwork(&network)
 	assert.Nil(t, err)
 }
 func TestGetNetwork(t *testing.T) {
@@ -293,13 +294,20 @@ func deleteAllNetworks() {
 	}
 }
 
-func createNet() {
-	var network models.Network
-	network.NetID = "skynet"
-	network.AddressRange = "10.0.0.1/24"
-	_, err := logic.GetNetwork("skynet")
-	if err != nil {
-		logic.CreateNetwork(network)
+func createNet() error {
+	net := &models.Network{
+		NetID:              "skynet",
+		AddressRange:       "10.0.0.1/24",
+		AccessKeys:         []models.AccessKey{},
+		AllowedKeys:        []ed25519.PublicKey{},
+		DefaultServerAddrs: []models.ServerAddr{},
 	}
-	serverctl.InitializeCommsNetwork()
+	_, err := logic.GetNetwork(net.NetID)
+	if err != nil {
+		_, err = logic.CreateNetwork(net)
+		if err != nil {
+			return err
+		}
+	}
+	return serverctl.InitializeCommsNetwork()
 }

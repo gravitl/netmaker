@@ -37,7 +37,8 @@ func TestGetAllDNS(t *testing.T) {
 }
 
 func TestGetNodeDNS(t *testing.T) {
-	database.InitializeDatabase()
+	err := database.InitializeDatabase()
+	assert.Nil(t, err)
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -47,10 +48,14 @@ func TestGetNodeDNS(t *testing.T) {
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NodeExists", func(t *testing.T) {
+		createNet()
 		createTestNode()
 		dns, err := logic.GetNodeDNS("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, "10.0.0.1", dns[0].Address)
+		assert.True(t, len(dns) >= 1)
+		if len(dns) >= 1 {
+			assert.Equal(t, "10.0.0.1", dns[0].Address)
+		}
 	})
 	t.Run("MultipleNodes", func(t *testing.T) {
 		createnode := &models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.100.100.3", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet"}

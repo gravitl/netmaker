@@ -318,7 +318,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var network models.Network
+	network := models.Network{}
 
 	// we decode our body request params
 	err := json.NewDecoder(r.Body).Decode(&network)
@@ -327,11 +327,12 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	network, err = logic.CreateNetwork(network)
+	newNetwork, err := logic.CreateNetwork(&network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	network = *newNetwork
 
 	if servercfg.IsClientMode() != "off" {
 		var node models.Node

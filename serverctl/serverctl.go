@@ -39,7 +39,7 @@ func InitializeCommsNetwork() error {
 		network.DefaultUDPHolePunch = "yes"
 		network.IsComms = "yes"
 		logger.Log(1, "comms net does not exist, creating with ID,", network.NetID, "and CIDR,", network.AddressRange)
-		_, err = logic.CreateNetwork(network)
+		_, err = logic.CreateNetwork(&network)
 		return err
 	} else if commsNetwork.DefaultACL == "" {
 		commsNetwork.DefaultACL = "yes"
