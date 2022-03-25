@@ -84,7 +84,6 @@ func setForwardPolicy() error {
 
 // port forward from an entry, can contain a dns name for lookup
 func iptablesPortForward(entry string, inport string, outport string, isIP bool) error {
-	logger.Log(2, "forwarding "+entry+" traffic from host port "+inport+" to container port "+outport)
 
 	var address string
 	if !isIP {
