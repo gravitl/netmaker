@@ -110,7 +110,7 @@ func iptablesPortForward(entry string, inport string, outport string, isIP bool)
 		return errors.New("could not locate ip for " + entry)
 	}
 
-	if output, _ := ncutils.RunCmd("iptables -t nat -C PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false); output == "" {
+	if output, err := ncutils.RunCmd("iptables -t nat -C PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false); output != "" || err != nil {
 		_, err := ncutils.RunCmd("iptables -t nat -A PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
 		if err != nil {
 			return err
@@ -121,6 +121,8 @@ func iptablesPortForward(entry string, inport string, outport string, isIP bool)
 		}
 		_, err = ncutils.RunCmd("iptables -t nat -A POSTROUTING -j MASQUERADE", false)
 		return err
+	} else {
+		logger.Log(2, "mq forwarding could not be set reliably")
 	}
 	return nil
 }
