@@ -110,16 +110,19 @@ func iptablesPortForward(entry string, inport string, outport string, isIP bool)
 		return errors.New("could not locate ip for " + entry)
 	}
 
-	_, err := ncutils.RunCmd("iptables -t nat -A PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
-	if err != nil {
+	if output, _ := ncutils.RunCmd("iptables -t nat -C PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false); output == "" {
+		_, err := ncutils.RunCmd("iptables -t nat -A PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
+		if err != nil {
+			return err
+		}
+		_, err = ncutils.RunCmd("iptables -t nat -A PREROUTING -p udp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
+		if err != nil {
+			return err
+		}
+		_, err = ncutils.RunCmd("iptables -t nat -A POSTROUTING -j MASQUERADE", false)
 		return err
 	}
-	_, err = ncutils.RunCmd("iptables -t nat -A PREROUTING -p udp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
-	if err != nil {
-		return err
-	}
-	_, err = ncutils.RunCmd("iptables -t nat -A POSTROUTING -j MASQUERADE", false)
-	return err
+	return nil
 }
 
 // if running in host networking mode, run iptables to map to CoreDNS container
