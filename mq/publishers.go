@@ -69,7 +69,11 @@ func PublishExtPeerUpdate(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	return publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data)
+	if err = publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
+		return err
+	}
+	go PublishPeerUpdate(node)
+	return nil
 }
 
 // NodeUpdate -- publishes a node update
