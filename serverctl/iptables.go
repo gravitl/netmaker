@@ -122,7 +122,7 @@ func iptablesPortForward(entry string, inport string, outport string, isIP bool)
 		_, err = ncutils.RunCmd("iptables -t nat -A POSTROUTING -j MASQUERADE", false)
 		return err
 	} else {
-		logger.Log(2, "mq forwarding could not be set reliably")
+		logger.Log(3, "mq forwarding is already set... skipping")
 	}
 	return nil
 }
