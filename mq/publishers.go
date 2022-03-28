@@ -103,7 +103,7 @@ func sendPeers() {
 
 		// run iptables update to ensure gateways work correctly and mq is forwarded if containerized
 		if servercfg.ManageIPTables() != "off" {
-			serverctl.InitIPTables()
+			serverctl.InitIPTables(false)
 		}
 
 		force = true
