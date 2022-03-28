@@ -109,7 +109,7 @@ func initialize() { // Client Mode Prereq Check
 	}
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
 	if servercfg.ManageIPTables() != "off" {
-		if err = serverctl.InitIPTables(); err != nil {
+		if err = serverctl.InitIPTables(true); err != nil {
 			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
 		}
 	}
