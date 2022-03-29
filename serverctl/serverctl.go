@@ -100,6 +100,10 @@ func InitServerNetclient() error {
 		for _, network := range networks {
 			var currentServerNode, nodeErr = logic.GetNetworkServerLocal(network.NetID)
 			if nodeErr == nil {
+				if currentServerNode.Version != servercfg.Version {
+					currentServerNode.Version = servercfg.Version
+					logic.UpdateNode(&currentServerNode, &currentServerNode)
+				}
 				if err = logic.ServerPull(&currentServerNode, true); err != nil {
 					logger.Log(1, "failed pull for network", network.NetID, ", on server node", currentServerNode.ID)
 				}
