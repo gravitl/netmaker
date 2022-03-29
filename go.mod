@@ -26,7 +26,7 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
 	google.golang.org/genproto v0.0.0-20210201151548-94839c025ad4 // indirect
 	google.golang.org/grpc v1.45.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 	gopkg.in/ini.v1 v1.66.4
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
