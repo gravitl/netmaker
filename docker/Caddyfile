@@ -21,11 +21,10 @@ https://dashboard.NETMAKER_BASE_DOMAIN {
                 -Server
         }
 
-        reverse_proxy http://127.0.0.1:8082
+        reverse_proxy http://netmaker-ui
 }
 
 # API
 https://api.NETMAKER_BASE_DOMAIN {
-        reverse_proxy http://127.0.0.1:8081
+        reverse_proxy http://netmaker:8081
 }
-
