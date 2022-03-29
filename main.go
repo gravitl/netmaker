@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
@@ -30,12 +32,27 @@ var version = "dev"
 
 // Start DB Connection and start API Request Handler
 func main() {
+	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
+	flag.Parse()
+
+	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and grpc server
 	setGarbageCollection()
 	defer database.CloseDB()
 	startControllers() // start the grpc or rest endpoints
+}
+
+func setupConfig(absoluteConfigPath string) {
+	if len(absoluteConfigPath) > 0 {
+		cfg, err := config.ReadConfig(absoluteConfigPath)
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("failed parsing config at: %s", absoluteConfigPath))
+			return
+		}
+		config.Config = cfg
+	}
 }
 
 func initialize() { // Client Mode Prereq Check
@@ -92,9 +109,8 @@ func initialize() { // Client Mode Prereq Check
 	}
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
 	if servercfg.ManageIPTables() != "off" {
-		if err = serverctl.InitIPTables(); err != nil {
+		if err = serverctl.InitIPTables(true); err != nil {
 			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
-
 		}
 	}
 

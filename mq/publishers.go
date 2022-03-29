@@ -69,7 +69,11 @@ func PublishExtPeerUpdate(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	return publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data)
+	if err = publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
+		return err
+	}
+	go PublishPeerUpdate(node)
+	return nil
 }
 
 // NodeUpdate -- publishes a node update
@@ -99,7 +103,7 @@ func sendPeers() {
 
 		// run iptables update to ensure gateways work correctly and mq is forwarded if containerized
 		if servercfg.ManageIPTables() != "off" {
-			serverctl.InitIPTables()
+			serverctl.InitIPTables(false)
 		}
 
 		force = true

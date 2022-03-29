@@ -61,6 +61,9 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
 			peer.IsEgressGateway = node.IsEgressGateway
 		}
+
+		peer.IsIngressGateway = node.IsIngressGateway
+		isDualStack := node.IsDualStack == "yes"
 		allow := node.IsRelayed != "yes" || !excludeRelayed
 
 		if node.Network == networkName && node.IsPending != "yes" && allow {
@@ -89,6 +92,17 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 					}
 				}
 			}
+			if peer.IsIngressGateway == "yes" { // handle ingress stuff
+				if currentExtClients, err := GetExtPeersList(&node); err == nil {
+					for i := range currentExtClients {
+						peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
+						if isDualStack {
+							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address6)
+						}
+					}
+				}
+			}
+
 			if (!isP2S || peer.IsHub == "yes") && currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
 				peers = append(peers, peer)
 			}
@@ -237,6 +251,12 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 
 
 	*/
+	if customDNSEntries, err := GetCustomDNS(peerUpdate.Network); err == nil {
+		for _, entry := range customDNSEntries {
+			// TODO - filter entries based on ACLs / given peers vs nodes in network
+			dns = dns + fmt.Sprintf("%s %s.%s\n", entry.Address, entry.Name, entry.Network)
+		}
+	}
 	peerUpdate.DNS = dns
 	return peerUpdate, nil
 }

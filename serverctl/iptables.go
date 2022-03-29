@@ -16,7 +16,7 @@ import (
 const netmakerProcessName = "netmaker"
 
 // InitIPTables - intializes the server iptables
-func InitIPTables() error {
+func InitIPTables(force bool) error {
 	_, err := exec.LookPath("iptables")
 	if err != nil {
 		return err
@@ -26,7 +26,7 @@ func InitIPTables() error {
 		logger.Log(0, "error setting iptables forward policy: "+err.Error())
 	}
 
-	err = portForwardServices()
+	err = portForwardServices(force)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func InitIPTables() error {
 }
 
 // set up port forwarding for services listed in config
-func portForwardServices() error {
+func portForwardServices(force bool) error {
 	var err error
 	services := servercfg.GetPortForwardServiceList()
 	if len(services) == 0 || services[0] == "" {
@@ -46,15 +46,15 @@ func portForwardServices() error {
 	for _, service := range services {
 		switch service {
 		case "mq":
-			err = iptablesPortForward("mq", "1883", "1883", false)
+			err = iptablesPortForward("mq", "1883", "1883", false, force)
 		case "dns":
-			err = iptablesPortForward("coredns", "53", "53", false)
+			err = iptablesPortForward("coredns", "53", "53", false, force)
 		case "ssh":
-			err = iptablesPortForward("netmaker", "22", "22", false)
+			err = iptablesPortForward("netmaker", "22", "22", false, force)
 		default:
 			params := strings.Split(service, ":")
 			if len(params) == 3 {
-				err = iptablesPortForward(params[0], params[1], params[2], true)
+				err = iptablesPortForward(params[0], params[1], params[2], true, force)
 			}
 		}
 		if err != nil {
@@ -83,8 +83,7 @@ func setForwardPolicy() error {
 }
 
 // port forward from an entry, can contain a dns name for lookup
-func iptablesPortForward(entry string, inport string, outport string, isIP bool) error {
-	logger.Log(1, "forwarding "+entry+" traffic from host port "+inport+" to container port "+outport)
+func iptablesPortForward(entry string, inport string, outport string, isIP, force bool) error {
 
 	var address string
 	if !isIP {
@@ -111,16 +110,21 @@ func iptablesPortForward(entry string, inport string, outport string, isIP bool)
 		return errors.New("could not locate ip for " + entry)
 	}
 
-	_, err := ncutils.RunCmd("iptables -t nat -A PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
-	if err != nil {
+	if output, err := ncutils.RunCmd("iptables -t nat -C PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false); output != "" || err != nil || force {
+		_, err := ncutils.RunCmd("iptables -t nat -A PREROUTING -p tcp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
+		if err != nil {
+			return err
+		}
+		_, err = ncutils.RunCmd("iptables -t nat -A PREROUTING -p udp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
+		if err != nil {
+			return err
+		}
+		_, err = ncutils.RunCmd("iptables -t nat -A POSTROUTING -j MASQUERADE", false)
 		return err
+	} else {
+		logger.Log(3, "mq forwarding is already set... skipping")
 	}
-	_, err = ncutils.RunCmd("iptables -t nat -A PREROUTING -p udp --dport "+inport+" -j DNAT --to-destination "+address+":"+outport, false)
-	if err != nil {
-		return err
-	}
-	_, err = ncutils.RunCmd("iptables -t nat -A POSTROUTING -j MASQUERADE", false)
-	return err
+	return nil
 }
 
 // if running in host networking mode, run iptables to map to CoreDNS container

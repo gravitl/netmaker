@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+// Verbosity - current logging verbosity level (optionally set)
+var Verbosity = 0
+
 // MakeString - makes a string using golang string builder
 func MakeString(delimeter string, message ...string) string {
 	var builder strings.Builder
@@ -19,6 +22,9 @@ func MakeString(delimeter string, message ...string) string {
 }
 
 func getVerbose() int32 {
+	if Verbosity >= 1 && Verbosity <= 3 {
+		return int32(Verbosity)
+	}
 	level, err := strconv.Atoi(os.Getenv("VERBOSITY"))
 	if err != nil || level < 0 {
 		level = 0

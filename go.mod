@@ -1,11 +1,11 @@
 module github.com/gravitl/netmaker
 
-go 1.17
+go 1.18
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/go-playground/validator/v10 v10.10.1
-	github.com/golang-jwt/jwt/v4 v4.4.0
+	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
@@ -17,16 +17,16 @@ require (
 	github.com/stretchr/testify v1.7.1
 	github.com/txn2/txeh v1.3.0
 	github.com/urfave/cli/v2 v2.4.0
-	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
+	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20210903071746-97244b99971b // indirect
+	golang.org/x/sys v0.0.0-20220315194320-039c03cc5b86 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.zx2c4.com/wireguard v0.0.0-20210805125648-3957e9b9dd19 // indirect
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210913210325-91d1988e44de
+	golang.zx2c4.com/wireguard v0.0.0-20220318042302-193cf8d6a5d6 // indirect
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
 	google.golang.org/genproto v0.0.0-20210201151548-94839c025ad4 // indirect
 	google.golang.org/grpc v1.45.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 	gopkg.in/ini.v1 v1.66.4
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
@@ -50,12 +50,13 @@ require (
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/josharian/native v0.0.0-20200817173448-b6b71def0850 // indirect
+	github.com/josharian/native v1.0.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/mdlayher/genetlink v1.0.0 // indirect
-	github.com/mdlayher/netlink v1.4.0 // indirect
+	github.com/mdlayher/genetlink v1.2.0 // indirect
+	github.com/mdlayher/netlink v1.6.0 // indirect
+	github.com/mdlayher/socket v0.1.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

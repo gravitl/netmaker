@@ -71,16 +71,3 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 
 	return extclients, nil
 }
-
-// DeleteKey - deletes a key
-func DeleteKey(network models.Network, i int) {
-
-	network.AccessKeys = append(network.AccessKeys[:i],
-		network.AccessKeys[i+1:]...)
-
-	if networkData, err := json.Marshal(&network); err != nil {
-		return
-	} else {
-		database.Insert(network.NetID, string(networkData), database.NETWORKS_TABLE_NAME)
-	}
-}

@@ -9,7 +9,7 @@ ENV GO111MODULE=auto
 
 RUN GOOS=linux CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s -X 'main.version=${TAG}'" -o netclient-app netclient/main.go
 
-FROM alpine:3.13.6
+FROM alpine:3.15.2
 
 WORKDIR /root/
 
