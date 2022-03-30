@@ -396,7 +396,7 @@ jobs:
           asset_name: netclient-darwin-arm64
 
   netclient-windows:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: version
     steps:
       - name: Checkout
