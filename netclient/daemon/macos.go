@@ -3,7 +3,6 @@ package daemon
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
@@ -16,11 +15,10 @@ const MAC_EXEC_DIR = "/usr/local/bin/"
 // SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
 func SetupMacDaemon() error {
 
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	binarypath, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	binarypath := dir + "/netclient"
 
 	if !ncutils.FileExists(MAC_EXEC_DIR + "netclient") {
 		err = ncutils.Copy(binarypath, MAC_EXEC_DIR+"netclient")
