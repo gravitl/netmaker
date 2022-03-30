@@ -394,3 +394,34 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-darwin-arm64
+
+  netclient-windows:
+    runs-on: windows-latest
+    needs: version
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set Variables
+        run: |
+          TAG=${{needs.version.outputs.tag}}
+          VERSION=${{needs.version.outputs.version}}
+          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+      - name: Build
+        run: |
+          cd netclient
+          env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
+      - name: Upload netclient windows to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient.exe
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient.exe
