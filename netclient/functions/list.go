@@ -118,6 +118,9 @@ func getPeers(network string) ([]Peer, error) {
 	if err != nil {
 		return []Peer{}, fmt.Errorf("authenticating: %w", err)
 	}
+	md := metadata.New(map[string]string{"content-type": "application/grpc+proto"})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
 	var header metadata.MD
 
 	response, err := wcclient.GetPeers(ctx, req, grpc.Header(&header))

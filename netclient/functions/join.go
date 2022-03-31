@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // JoinNetwork - helps a client join a network
@@ -190,9 +191,14 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	if err != nil {
 		return err
 	}
+
+	var ctx = context.TODO()
+	md := metadata.New(map[string]string{"content-type": "application/grpc+proto"})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
 	// Create node on server
 	res, err := wcclient.CreateNode(
-		context.TODO(),
+		ctx,
 		&nodepb.Object{
 			Data: string(data),
 			Type: nodepb.NODE_TYPE,

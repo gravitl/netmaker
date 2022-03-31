@@ -66,6 +66,9 @@ func Pull(network string, manual bool) (*models.Node, error) {
 			Type: nodepb.NODE_TYPE,
 		}
 
+		md := metadata.New(map[string]string{"content-type": "application/grpc+proto"})
+		ctx = metadata.NewOutgoingContext(ctx, md)
+
 		readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
 		if err != nil {
 			return nil, err

@@ -176,6 +176,9 @@ func LeaveNetwork(network string, force bool) error {
 			var header metadata.MD
 			nodeData, err := json.Marshal(&node)
 			if err == nil {
+				md := metadata.New(map[string]string{"content-type": "application/grpc+proto"})
+				ctx = metadata.NewOutgoingContext(ctx, md)
+
 				_, err = wcclient.DeleteNode(
 					ctx,
 					&nodepb.Object{
