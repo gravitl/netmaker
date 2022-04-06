@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 // ALL_NETWORK_ACCESS - represents all networks
@@ -84,9 +82,6 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	if isCommsEdit(w, r, netname) {
-		return
-	}
 
 	network, err := logic.GetNetwork(netname)
 	if err != nil {
@@ -105,9 +100,6 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	if isCommsEdit(w, r, netname) {
-		return
-	}
 
 	network, err := logic.KeyUpdate(netname)
 	if err != nil {
@@ -295,9 +287,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	if isCommsEdit(w, r, network) {
-		return
-	}
 
 	err := logic.DeleteNetwork(network)
 	if err != nil {
@@ -358,9 +347,6 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	var accesskey models.AccessKey
 	//start here
 	netname := params["networkname"]
-	if isCommsEdit(w, r, netname) {
-		return
-	}
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -412,22 +398,4 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
 	w.WriteHeader(http.StatusOK)
-}
-
-func isCommsEdit(w http.ResponseWriter, r *http.Request, netname string) bool {
-	if netname == serverctl.COMMS_NETID {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot access comms network"), "internal"))
-		return true
-	}
-	return false
-}
-
-func filterCommsNetwork(networks []models.Network) []models.Network {
-	var filterdNets []models.Network
-	for i := range networks {
-		if networks[i].IsComms != "yes" && networks[i].NetID != servercfg.GetCommsID() {
-			filterdNets = append(filterdNets, networks[i])
-		}
-	}
-	return filterdNets
 }

@@ -10,45 +10,11 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-// JoinComms -- Join the message queue comms network if it doesn't have it
-// tries to ping if already found locally, if fail ping pull for best effort for communication
-func JoinComms(cfg *config.ClientConfig) error {
-	commsCfg := &config.ClientConfig{}
-	commsCfg.Network = cfg.Server.CommsNetwork
-	commsCfg.Node.Network = cfg.Server.CommsNetwork
-	commsCfg.Server.AccessKey = cfg.Server.AccessKey
-	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
-	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
-	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
-	if commsCfg.ConfigFileExists() {
-		return nil
-	}
-	commsCfg.ReadConfig()
-
-	if len(commsCfg.Node.Name) == 0 {
-		if err := functions.JoinNetwork(commsCfg, "", true); err != nil {
-			return err
-		}
-	} else { // check if comms is currently reachable
-		if err := functions.PingServer(commsCfg); err != nil {
-			if err = Pull(commsCfg); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // Join - join command to run from cli
 func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
-	//check if comms network exists
-	if err = JoinComms(cfg); err != nil {
-		return err
-	}
-
 	//join network
-	err = functions.JoinNetwork(cfg, privateKey, false)
+	err = functions.JoinNetwork(cfg, privateKey)
 	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			logger.Log(1, "error installing: ", err.Error())

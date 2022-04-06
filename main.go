@@ -103,9 +103,6 @@ func initialize() { // Client Mode Prereq Check
 		if err := serverctl.InitServerNetclient(); err != nil {
 			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
 		}
-		if err := serverctl.InitializeCommsNetwork(); err != nil {
-			logger.FatalLog("could not inintialize comms network")
-		}
 	}
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
 	if servercfg.ManageIPTables() != "off" {
@@ -216,7 +213,7 @@ func runGRPC(wg *sync.WaitGroup) {
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
-	logger.Log(0, "connecting to mq broker at", servercfg.GetMessageQueueEndpoint())
+	logger.Log(0, "connecting to mq broker at", servercfg.GetMessageQueueEndpoint(false))
 	var client = mq.SetupMQTT(false) // Set up the subscription listener
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)

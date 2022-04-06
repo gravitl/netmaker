@@ -7,7 +7,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/serverctl"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -301,5 +300,4 @@ func createNet() {
 	if err != nil {
 		logic.CreateNetwork(network)
 	}
-	serverctl.InitializeCommsNetwork()
 }

@@ -21,7 +21,7 @@ var peer_force_send = 0
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(servercfg.GetMessageQueueEndpoint())
+	opts.AddBroker(servercfg.GetMessageQueueEndpoint(false))
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
 	opts.SetAutoReconnect(true)
@@ -49,11 +49,11 @@ func SetupMQTT(publish bool) mqtt.Client {
 				client.Disconnect(240)
 				logger.Log(0, "node client subscription failed")
 			}
-
-			opts.SetOrderMatters(true)
-			opts.SetResumeSubs(true)
+			logger.Log(3, "message queue subscriptions succeeded")
 		}
 	})
+	opts.SetOrderMatters(true)
+	opts.SetResumeSubs(true)
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
@@ -67,6 +67,7 @@ func SetupMQTT(publish bool) mqtt.Client {
 		}
 		time.Sleep(2 * time.Second)
 	}
+	logger.Log(2, "connected to broker")
 	return client
 }
 

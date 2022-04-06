@@ -630,11 +630,6 @@ func IsLocalServer(node *models.Node) bool {
 	return node.ID != "" && local.ID == node.ID
 }
 
-// IsNodeInComms returns if node is in comms network or not
-func IsNodeInComms(node *models.Node) bool {
-	return node.Network == servercfg.GetCommsID() && node.IsServer != "yes"
-}
-
 // validateServer - make sure servers dont change port or address
 func validateServer(currentNode, newNode *models.Node) bool {
 	return (newNode.Address == currentNode.Address &&

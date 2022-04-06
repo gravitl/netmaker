@@ -96,7 +96,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ManageIPTables = ManageIPTables()
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
-	cfg.CommsID = GetCommsID()
+	cfg.MQEndPoint = GetMessageQueueEndpoint(true)
 
 	return cfg
 }
@@ -259,43 +259,19 @@ func GetMQPort() string {
 	return mqport
 }
 
-// GetGRPCPort - gets the grpc port
-func GetCommsCIDR() string {
-	netrange := "172.16.0.0/16"
-	if os.Getenv("COMMS_CIDR") != "" {
-		netrange = os.Getenv("COMMS_CIDR")
-	} else if config.Config.Server.CommsCIDR != "" {
-		netrange = config.Config.Server.CommsCIDR
-	} else { // make a random one, which should only affect initialize first time, unless db is removed
-		netrange = genNewCommsCIDR()
-	}
-	_, _, err := net.ParseCIDR(netrange)
-	if err == nil {
-		return netrange
-	}
-	return "172.16.0.0/16"
-}
-
-// GetCommsID - gets the grpc port
-func GetCommsID() string {
-	return commsID
-}
-
-// SetCommsID - sets the commsID
-func SetCommsID(newCommsID string) {
-	commsID = newCommsID
-}
-
 // GetMessageQueueEndpoint - gets the message queue endpoint
-func GetMessageQueueEndpoint() string {
-	host, _ := GetPublicIP()
-	if os.Getenv("MQ_HOST") != "" {
-		host = os.Getenv("MQ_HOST")
-	} else if config.Config.Server.MQHOST != "" {
-		host = config.Config.Server.MQHOST
+func GetMessageQueueEndpoint(ssl bool) string {
+	if ssl {
+		host, _ := GetPublicIP()
+		if os.Getenv("MQ_HOST") != "" {
+			host = os.Getenv("MQ_HOST")
+		} else if config.Config.Server.MQHOST != "" {
+			host = config.Config.Server.MQHOST
+		}
+		return host + ":8883"
 	}
 	//Do we want MQ port configurable???
-	return host + ":1883"
+	return "127.0.0.1:1883"
 }
 
 // GetMasterKey - gets the configured master key of server

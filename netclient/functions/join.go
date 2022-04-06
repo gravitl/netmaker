@@ -26,7 +26,7 @@ import (
 )
 
 // JoinNetwork - helps a client join a network
-func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) error {
+func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -102,7 +102,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	// Find and set node MacAddress
 	if cfg.Node.MacAddress == "" {
 		macs, err := ncutils.GetMacAddr()
-		if err != nil || iscomms {
+		if err != nil {
 			//if macaddress can't be found set to random string
 			cfg.Node.MacAddress = ncutils.MakeRandomString(18)
 		} else {
@@ -251,15 +251,13 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	//		}
 	//	}
 
-	if !iscomms {
-		if cfg.Daemon != "off" {
-			err = daemon.InstallDaemon(cfg)
-		}
-		if err != nil {
-			return err
-		} else {
-			daemon.Restart()
-		}
+	if cfg.Daemon != "off" {
+		err = daemon.InstallDaemon(cfg)
+	}
+	if err != nil {
+		return err
+	} else {
+		daemon.Restart()
 	}
 
 	return nil
@@ -297,8 +295,7 @@ func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
 
 		// if newListenPort has been modified to find an available port, publish to server
 		if cfg.Node.ListenPort != newListenPort {
-			var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
-			PublishNodeUpdate(&currentCommsCfg, cfg)
+			PublishNodeUpdate(cfg)
 		}
 	}
 }

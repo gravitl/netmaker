@@ -155,9 +155,6 @@ func LeaveNetwork(network string, force bool) error {
 	}
 	servercfg := cfg.Server
 	node := cfg.Node
-	if node.NetworkSettings.IsComms == "yes" && !force {
-		return errors.New("COMMS_NET - You are trying to leave the comms network. This will break network updates. Unless you re-join. If you really want to leave, run with --force=yes.")
-	}
 
 	if node.IsServer != "yes" {
 		var wcclient nodepb.NodeServiceClient

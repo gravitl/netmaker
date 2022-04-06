@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -25,34 +24,6 @@ const (
 	NETMAKER_BINARY_NAME = "netmaker"
 )
 
-// InitializeCommsNetwork - Check if comms network exists (for MQ, DNS, SSH traffic), if not, create
-func InitializeCommsNetwork() error {
-
-	setCommsID()
-
-	commsNetwork, err := logic.GetNetwork(COMMS_NETID)
-	if err != nil {
-		var network models.Network
-		network.NetID = COMMS_NETID
-		network.AddressRange = servercfg.GetCommsCIDR()
-		network.IsPointToSite = "yes"
-		network.DefaultUDPHolePunch = "yes"
-		network.IsComms = "yes"
-		logger.Log(1, "comms net does not exist, creating with ID,", network.NetID, "and CIDR,", network.AddressRange)
-		_, err = logic.CreateNetwork(network)
-		return err
-	} else if commsNetwork.DefaultACL == "" {
-		commsNetwork.DefaultACL = "yes"
-		if err = logic.SaveNetwork(&commsNetwork); err != nil {
-			logger.Log(1, "comms net default acl is set incorrectly, please manually adjust to \"yes\",", COMMS_NETID)
-		}
-	}
-	// gracefully check for comms interface
-	gracefulCommsWait()
-
-	return nil
-}
-
 func gracefulCommsWait() {
 	output, _ := ncutils.RunCmd("wg", false)
 	starttime := time.Now()
@@ -64,22 +35,6 @@ func gracefulCommsWait() {
 		ifaceReady = strings.Contains(output, COMMS_NETID)
 	}
 	logger.Log(1, "comms network", COMMS_NETID, "ready")
-}
-
-// SetJWTSecret - sets the jwt secret on server startup
-func setCommsID() {
-	currentid, idErr := logic.FetchCommsNetID()
-	if idErr != nil {
-		commsid := logic.RandomString(8)
-		if err := logic.StoreCommsNetID(commsid); err != nil {
-			logger.FatalLog("something went wrong when configuring comms id")
-		}
-		COMMS_NETID = commsid
-		servercfg.SetCommsID(COMMS_NETID)
-		return
-	}
-	COMMS_NETID = currentid
-	servercfg.SetCommsID(COMMS_NETID)
 }
 
 // InitServerNetclient - intializes the server netclient

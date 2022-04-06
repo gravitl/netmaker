@@ -81,6 +81,7 @@ type Node struct {
 	Version      string      `json:"version" bson:"version" yaml:"version"`
 	CommID       string      `json:"commid" bson:"commid" yaml:"comid"`
 	TrafficKeys  TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
+	MQEndPoint   string      `json:"mqendpont" yaml:"mqendpoint"`
 }
 
 // NodesArray - used for node sorting
