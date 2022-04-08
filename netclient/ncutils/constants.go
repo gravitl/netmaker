@@ -2,7 +2,7 @@ package ncutils
 
 const (
 	// ACK - acknowledgement signal for MQ
-	ACK = 1
+	ACK = "ack"
 	// DONE - done signal for MQ
-	DONE = 2
+	DONE = "done"
 )

@@ -268,8 +268,8 @@ func NewTLSConfig(cfg *config.ClientConfig) *tls.Config {
 }
 
 // publishes a message to server to update peers on this peer's behalf
-func publishSignal(nodeCfg *config.ClientConfig, signal byte) error {
-	if err := publish(nodeCfg, fmt.Sprintf("signal/%s", nodeCfg.Node.ID), []byte{signal}, 1); err != nil {
+func publishSignal(nodeCfg *config.ClientConfig, signal string) error {
+	if err := publish(nodeCfg, fmt.Sprintf("signal/%s", nodeCfg.Node.ID), []byte(signal), 1); err != nil {
 		return err
 	}
 	return nil
