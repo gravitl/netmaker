@@ -136,9 +136,8 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 	//if err != nil {
 	//return err
 	//}
-	encrypted := "This is a test"
 	logger.Log(0, "calling Publish")
-	if token := client.Publish(dest, qos, false, encrypted); token.Wait() && token.Error() != nil {
+	if token := client.Publish(dest, qos, false, msg); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 	return nil

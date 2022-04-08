@@ -21,7 +21,7 @@ var peer_force_send = 0
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(servercfg.GetMessageQueueEndpoint(false))
+	opts.AddBroker("tcp://127.0.0.1:1883")
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
 	opts.SetAutoReconnect(true)

@@ -41,14 +41,12 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 		//	logger.Log(0, "error decrypting when updating node ", node.ID, decryptErr.Error())
 		//	return
 		//}
-		version := []byte{}
-		if err := json.Unmarshal(msg.Payload(), &version); err != nil {
+		if err := json.Unmarshal(msg.Payload(), &node.Version); err != nil {
 			logger.Log(0, "error getting version from payload ", node.ID, err.Error())
 			return
 		}
 
 		node.SetLastCheckIn()
-		node.Version = string(version)
 		if err := logic.UpdateNode(&node, &node); err != nil {
 			logger.Log(0, "error updating node", node.Name, node.ID, " on checkin", err.Error())
 			return
