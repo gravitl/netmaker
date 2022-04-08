@@ -75,7 +75,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 					}
 				}
 				if err := PingServer(&nodeCfg); err != nil {
-					logger.Log(0, "could not ping server  ", nodeCfg.Server.MQEndPoint, "\n", err.Error())
+					logger.Log(0, "could not ping server  ", nodeCfg.Server.ServerName, "\n", err.Error())
 				} else {
 					Hello(&nodeCfg)
 				}
@@ -130,7 +130,7 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		return err
 	}
 	logger.Log(0, "calling setup MQ ", nodeCfg.NetworkSettings.NetID)
-	client := SetupMQTT(nodeCfg, true)
+	client := setupMQTT(nodeCfg, true)
 	defer client.Disconnect(250)
 	//encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	//if err != nil {

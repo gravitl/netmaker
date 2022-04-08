@@ -72,7 +72,7 @@ type ServerConfig struct {
 	PortForwardServices   string `yaml:"portforwardservices"`
 	HostNetwork           string `yaml:"hostnetwork"`
 	MQPort                string `yaml:"mqport"`
-	MQEndPoint            string `yaml:"mqendpoint"`
+	ServerName            string `yaml:"servername"`
 }
 
 // SQLConfig - Generic SQL Config

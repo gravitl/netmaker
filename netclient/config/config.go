@@ -33,7 +33,7 @@ type ServerConfig struct {
 	GRPCAddress string `yaml:"grpcaddress"`
 	AccessKey   string `yaml:"accesskey"`
 	GRPCSSL     string `yaml:"grpcssl"`
-	MQEndPoint  string `yaml:"MQEndpoint"`
+	ServerName  string `yaml:"servername"`
 }
 
 // Write - writes the config of a client to disk
@@ -188,7 +188,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
-		cfg.Server.MQEndPoint = accesstoken.ServerConfig.MQEndpoint
+		cfg.Server.ServerName = accesstoken.ServerConfig.ServerName
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}

@@ -14,5 +14,5 @@ type ClientConfig struct {
 type ServerConfig struct {
 	GRPCConnString string `json:"grpcconn"`
 	GRPCSSL        string `json:"grpcssl"`
-	MQEndpoint     string `json:"mqendpoint"`
+	ServerName     string `json:"servername"`
 }

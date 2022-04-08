@@ -96,7 +96,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ManageIPTables = ManageIPTables()
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
-	cfg.MQEndPoint = GetMessageQueueEndpoint(true)
+	cfg.ServerName = GetServerName()
 
 	return cfg
 }
@@ -259,19 +259,30 @@ func GetMQPort() string {
 	return mqport
 }
 
+// GetServerName - gets FQDN of server
+func GetServerName() string {
+	name := ""
+	if os.Getenv("DOMAIN_NAME") != "" {
+		name = os.Getenv("DOMAIN_NAME")
+	} else if config.Config.Server.ServerName != "" {
+		name = config.Config.Server.ServerName
+	}
+	return name
+}
+
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint(ssl bool) string {
 	if ssl {
-		host, _ := GetPublicIP()
-		if os.Getenv("MQ_HOST") != "" {
-			host = os.Getenv("MQ_HOST")
-		} else if config.Config.Server.MQHOST != "" {
-			host = config.Config.Server.MQHOST
+		endpoint := ""
+		if os.Getenv("SERVER_NAME") != "" {
+			endpoint = "ssl://" + os.Getenv("SERVER_NAME") + ":8883"
+		} else if config.Config.Server.ServerName != "" {
+			endpoint = "ssl://" + config.Config.Server.ServerName + ":8883"
 		}
-		return host + ":8883"
+		return endpoint
 	}
-	//Do we want MQ port configurable???
-	return "127.0.0.1:1883"
+	// only the netmaker node should use unsecure endpoint
+	return "tcl://127.0.0.1:1883"
 }
 
 // GetMasterKey - gets the configured master key of server
