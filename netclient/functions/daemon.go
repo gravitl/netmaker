@@ -24,7 +24,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -177,7 +176,7 @@ func messageQueue(ctx context.Context, wg sync.WaitGroup, cfg *config.ClientConf
 // utilizes comms client configs to setup connections
 func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(servercfg.GetMessageQueueEndpoint(true))
+	opts.AddBroker("ssl://" + cfg.Server.ServerName + ":8883")
 	logger.Log(2, "added broker ", cfg.Server.ServerName)
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
