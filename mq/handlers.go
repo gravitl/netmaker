@@ -36,11 +36,17 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, record)
 			return
 		}
-		version, decryptErr := decryptMsg(&node, msg.Payload())
-		if decryptErr != nil {
-			logger.Log(0, "error decrypting when updating node ", node.ID, decryptErr.Error())
+		//version, decryptErr := decryptMsg(&node, msg.Payload())
+		//if decryptErr != nil {
+		//	logger.Log(0, "error decrypting when updating node ", node.ID, decryptErr.Error())
+		//	return
+		//}
+		version := []byte{}
+		if err := json.Unmarshal(msg.Payload(), &version); err != nil {
+			logger.Log(0, "error getting version from payload ", node.ID, err.Error())
 			return
 		}
+
 		node.SetLastCheckIn()
 		node.Version = string(version)
 		if err := logic.UpdateNode(&node, &node); err != nil {
@@ -67,13 +73,14 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error getting node ", id, err.Error())
 			return
 		}
-		decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
-		if decryptErr != nil {
-			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
-			return
-		}
+		//decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
+		//if decryptErr != nil {
+		//	logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
+		//	return
+		//}
 		var newNode models.Node
-		if err := json.Unmarshal(decrypted, &newNode); err != nil {
+		//if err := json.Unmarshal(decrypted, &newNode); err != nil {
+		if err := json.Unmarshal(msg.Payload(), &newNode); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
@@ -98,12 +105,18 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error getting node ", id, err.Error())
 			return
 		}
-		decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
-		if decryptErr != nil {
-			logger.Log(1, "failed to decrypt message during client peer update for node ", id, decryptErr.Error())
+		//decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
+		//if decryptErr != nil {
+		//	logger.Log(1, "failed to decrypt message during client peer update for node ", id, decryptErr.Error())
+		//	return
+		//}
+		response := []byte{}
+		if err := json.Unmarshal(msg.Payload(), &response); err != nil {
+			logger.Log(1, "failed to decode message during client peer update for node ", id, err.Error())
 			return
 		}
-		switch decrypted[0] {
+		//switch decrypted[0] {
+		switch response[0] {
 		case ncutils.ACK:
 			currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
 			if err != nil {

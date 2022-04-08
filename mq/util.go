@@ -61,11 +61,12 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 func publish(node *models.Node, dest string, msg []byte) error {
 	client := SetupMQTT(true)
 	defer client.Disconnect(250)
-	encrypted, encryptErr := encryptMsg(node, msg)
-	if encryptErr != nil {
-		return encryptErr
-	}
-	if token := client.Publish(dest, 0, true, encrypted); token.Wait() && token.Error() != nil {
+	//encrypted, encryptErr := encryptMsg(node, msg)
+	//if encryptErr != nil {
+	//return encryptErr
+	//}
+	//if token := client.Publish(dest, 0, true, encrypted); token.Wait() && token.Error() != nil {
+	if token := client.Publish(dest, 0, true, msg); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 	return nil

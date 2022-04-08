@@ -34,11 +34,13 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	nodeCfg.Network = network
 	nodeCfg.ReadConfig()
 
-	data, dataErr := decryptMsg(&nodeCfg, msg.Payload())
-	if dataErr != nil {
-		return
-	}
-	err := json.Unmarshal([]byte(data), &newNode)
+	//data, dataErr := decryptMsg(&nodeCfg, msg.Payload())
+	//if dataErr != nil {
+	//	return
+	//}
+	//err := json.Unmarshal([]byte(data), &newNode)
+	data := msg.Payload()
+	err := json.Unmarshal(msg.Payload(), &newNode)
 	if err != nil {
 		logger.Log(0, "error unmarshalling node update data"+err.Error())
 		return
@@ -165,11 +167,13 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	cfg.Network = network
 	cfg.ReadConfig()
 
-	data, dataErr := decryptMsg(&cfg, msg.Payload())
-	if dataErr != nil {
-		return
-	}
-	err := json.Unmarshal([]byte(data), &peerUpdate)
+	//data, dataErr := decryptMsg(&cfg, msg.Payload())
+	//if dataErr != nil {
+	//	return
+	//}
+	//err := json.Unmarshal([]byte(data), &peerUpdate)
+	data := msg.Payload()
+	err := json.Unmarshal(msg.Payload(), &peerUpdate)
 	if err != nil {
 		logger.Log(0, "error unmarshalling peer data")
 		return

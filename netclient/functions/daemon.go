@@ -100,9 +100,8 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 }
 
 // PingServer -- checks if server is reachable
-func PingServer(nodeCfg *config.ClientConfig) error {
-	node := getServerAddress(nodeCfg)
-	pinger, err := ping.NewPinger(node)
+func PingServer(cfg *config.ClientConfig) error {
+	pinger, err := ping.NewPinger(cfg.Server.ServerName)
 	if err != nil {
 		return err
 	}
