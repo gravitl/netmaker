@@ -262,8 +262,8 @@ func GetMQPort() string {
 // GetServerName - gets FQDN of server
 func GetServerName() string {
 	name := ""
-	if os.Getenv("DOMAIN_NAME") != "" {
-		name = os.Getenv("DOMAIN_NAME")
+	if os.Getenv("SERVER_NAME") != "" {
+		name = os.Getenv("SERVER_NAME")
 	} else if config.Config.Server.ServerName != "" {
 		name = config.Config.Server.ServerName
 	}

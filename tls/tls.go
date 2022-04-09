@@ -1,10 +1,11 @@
-package ssl
+package tls
 
 import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -12,7 +13,70 @@ import (
 	"math/big"
 	"os"
 	"time"
+
+	"filippo.io/edwards25519"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+type (
+	Key struct {
+		point *edwards25519.Point
+	}
+)
+
+// NewKey generates a new key.
+func NewKey() *Key {
+	seed := make([]byte, 64)
+	rand.Reader.Read(seed)
+	s := (&edwards25519.Scalar{}).SetUniformBytes(seed)
+	return &Key{(&edwards25519.Point{}).ScalarBaseMult(s)}
+}
+
+// Ed25519PrivateKey returns the private key in Edwards form used for EdDSA.
+func (n *Key) Ed25519PrivateKey() (ed25519.PrivateKey, error) {
+	if n.point == nil {
+		return ed25519.PrivateKey{}, errors.New("nil point")
+	}
+	if len(n.point.Bytes()) != ed25519.SeedSize {
+		return ed25519.PrivateKey{}, errors.New("incorrect seed size")
+	}
+	return ed25519.NewKeyFromSeed(n.point.Bytes()), nil
+}
+
+// Curve25519PrivateKey returns the private key in Montogomery form used for ECDH.
+func (n *Key) Curve25519PrivateKey() (wgtypes.Key, error) {
+	if n.point == nil {
+		return wgtypes.Key{}, errors.New("nil point")
+	}
+	if len(n.point.Bytes()) != ed25519.SeedSize {
+		return wgtypes.Key{}, errors.New("incorrect seed size")
+	}
+	return wgtypes.ParseKey(base64.StdEncoding.EncodeToString(n.point.BytesMontgomery()))
+}
+
+// Save : saves the private key to path.
+func (n *Key) Save(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	f.Write(n.point.Bytes())
+	return nil
+}
+
+// Reads the private key from path.
+func ReadFrom(path string) (*Key, error) {
+	key, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	point, err := (&edwards25519.Point{}).SetBytes(key)
+	if err != nil {
+		return nil, err
+	}
+	return &Key{point}, nil
+}
 
 // creates a new pkix.Name
 func NewName(commonName, country, org string) pkix.Name {
@@ -99,9 +163,12 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 	return result, nil
 }
 
-func SaveCert(name string, cert *x509.Certificate) error {
+func SaveCert(path, name string, cert *x509.Certificate) error {
 	//certbytes, err := x509.ParseCertificate(cert)
-	certOut, err := os.Create(name + ".PEM")
+	if err := os.MkdirAll(path, 0644); err != nil {
+		return fmt.Errorf("failed to create dir %s %w", path, err)
+	}
+	certOut, err := os.Create(path + name)
 	if err != nil {
 		return fmt.Errorf("failed to open certficate file for writing: %v", err)
 	}
@@ -115,14 +182,17 @@ func SaveCert(name string, cert *x509.Certificate) error {
 	return nil
 }
 
-func SaveKey(name string, key *ed25519.PrivateKey) error {
+func SaveKey(path, name string, key ed25519.PrivateKey) error {
 	//func SaveKey(name string, key *ecdsa.PrivateKey) error {
-	keyOut, err := os.Create(name + ".key")
+	if err := os.MkdirAll(path, 0644); err != nil {
+		return fmt.Errorf("failed to create dir %s %w", path, err)
+	}
+	keyOut, err := os.Create(path + name)
 	if err != nil {
 		return fmt.Errorf("failed open key file for writing: %v", err)
 	}
 	defer keyOut.Close()
-	privBytes, err := x509.MarshalPKCS8PrivateKey(*key)
+	privBytes, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
 		return fmt.Errorf("failedto marshal key %v ", err)
 	}

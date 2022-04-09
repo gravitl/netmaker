@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/x509"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -25,6 +28,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
+	"github.com/gravitl/netmaker/tls"
 	"google.golang.org/grpc"
 )
 
@@ -38,7 +42,8 @@ func main() {
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
-	initialize()                       // initial db and grpc server
+	initialize()
+	logger.Log(2, "inialization complete") // initial db and grpc server
 	setGarbageCollection()
 	defer database.CloseDB()
 	startControllers() // start the grpc or rest endpoints
@@ -117,6 +122,11 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog(err.Error())
 		}
 	}
+	if servercfg.GetServerName() == "" {
+		logger.FatalLog("Server Name not set")
+	}
+	logger.Log(2, "Checking certificates")
+	checkCertificates(servercfg.GetServerName())
 }
 
 func startControllers() {
@@ -234,4 +244,66 @@ func setGarbageCollection() {
 	if !gcset {
 		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
+}
+
+func checkCertificates(server string) {
+	var key *ed25519.PrivateKey
+	var ca *x509.Certificate
+	if _, err := os.Stat("/etc/netclient/root.pem"); errors.Is(err, os.ErrNotExist) {
+		logger.Log(2, "generating root CA")
+		key, ca, err = generateRootCA()
+		if err != nil {
+			logger.FatalLog("root-ca failure ", err.Error())
+		}
+	}
+	if _, err := os.Stat("/etc/netclient/" + server + "/server.pem"); errors.Is(err, os.ErrNotExist) {
+		logger.Log(2, "generating server certificate")
+		_, err := generateCertificate(server, key, ca)
+		if err != nil {
+			logger.FatalLog("server cert failure ", err.Error())
+		}
+	}
+}
+
+func generateRootCA() (*ed25519.PrivateKey, *x509.Certificate, error) {
+	key := tls.NewKey()
+	privateKey, err := key.Ed25519PrivateKey()
+	if err != nil {
+		return nil, nil, fmt.Errorf("private key %w", err)
+	}
+	name := tls.NewCName("Gravitl")
+	csr, err := tls.NewCSR(privateKey, name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("csr %w", err)
+	}
+	ca, err := tls.SelfSignedCA(privateKey, csr, 365)
+	if err != nil {
+		return nil, nil, fmt.Errorf("self signed cert %w", err)
+	}
+	logger.Log(2, "Saving root key")
+	if err := tls.SaveKey("/etc/netmaker/", "root.key", privateKey); err != nil {
+		return nil, nil, fmt.Errorf("save key %w", err)
+	}
+	logger.Log(2, "Saving root ca")
+	if err := tls.SaveCert("/etc/netmaker/", "root.pem", ca); err != nil {
+		return nil, nil, fmt.Errorf("save root ca %w", err)
+	}
+	return &privateKey, ca, nil
+}
+
+func generateCertificate(server string, key *ed25519.PrivateKey, ca *x509.Certificate) (*x509.Certificate, error) {
+	name := tls.NewName(server, "", "Netmaker")
+	csr, err := tls.NewCSR(*key, name)
+	if err != nil {
+		return nil, fmt.Errorf("csr %w", err)
+	}
+	cert, err := tls.NewEndEntityCert(*key, csr, ca, 365)
+	if err != nil {
+		return nil, fmt.Errorf("cert %w", err)
+	}
+	logger.Log(2, "saving server cert")
+	if err := tls.SaveCert("/etc/netmaker/"+server+"/", "/server.pem", cert); err != nil {
+		return nil, fmt.Errorf("save cert %w", err)
+	}
+	return cert, nil
 }

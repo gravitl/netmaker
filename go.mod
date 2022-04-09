@@ -32,6 +32,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.0.0-beta.3
 	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
 	github.com/guumaster/hostctl v1.1.2
 	github.com/kr/pretty v0.3.0
