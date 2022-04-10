@@ -19,7 +19,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/tls"
-	"github.com/kr/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -107,8 +106,8 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		Key:    key.Public().(ed25519.PublicKey),
 	}
 
-	log.Println("calling api")
-	response, err := join(request, cfg.Server.API+"/api/nodes/join", cfg.Node.AccessKey)
+	log.Println("calling api ", cfg.Server.API+"/api/nodes/join")
+	response, err := join(request, "https://"+cfg.Server.API+"/api/nodes/join", cfg.Node.AccessKey)
 	if err != nil {
 		return fmt.Errorf("error joining network %w", err)
 	}
@@ -238,11 +237,9 @@ func join(node config.JoinRequest, url, authorization string) (*config.JoinRespo
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("authorization", "Bearer "+authorization)
-	fmt.Println("sending api request")
-	pretty.Println(request)
+	fmt.Println("sending api request", url, authorization)
 	client := http.Client{}
 	response, err := client.Do(request)
-	pretty.Println(response)
 	if err != nil {
 		return nil, err
 	}
