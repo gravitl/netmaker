@@ -369,6 +369,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	log.Println("check if network exists ", node.NetworkSettings.NetID)
 	networkexists, err := functions.NetworkExists(node.NetworkSettings.NetID)
 
 	if err != nil {
