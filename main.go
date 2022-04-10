@@ -249,7 +249,7 @@ func setGarbageCollection() {
 func checkCertificates(server string) {
 	var key *ed25519.PrivateKey
 	var ca *x509.Certificate
-	if _, err := os.Stat("/etc/netcmaker/root.pem"); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat("/etc/netmaker/root.pem"); errors.Is(err, os.ErrNotExist) {
 		logger.Log(2, "generating root CA", err.Error())
 		key, ca, err = generateRootCA()
 		if err != nil {
