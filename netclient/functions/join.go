@@ -108,7 +108,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	log.Println("calling api")
-	response, err := join(request, cfg.Server.API, cfg.Node.AccessKey)
+	response, err := join(request, cfg.Server.API+"/api/nodes/join", cfg.Node.AccessKey)
 	if err != nil {
 		return fmt.Errorf("error joining network %w", err)
 	}
