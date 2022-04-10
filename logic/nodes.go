@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"github.com/kr/pretty"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -298,6 +300,8 @@ func CreateNode(node *models.Node) error {
 		//returnErrorResponse(w, r, errorResponse)
 		return err
 	}
+	log.Println("validating node")
+	pretty.Println(node)
 	err = ValidateNode(node, false)
 	if err != nil {
 		return err

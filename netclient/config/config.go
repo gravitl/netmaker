@@ -202,6 +202,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Network = accesstoken.ClientConfig.Network
 		cfg.Node.Network = accesstoken.ClientConfig.Network
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
+		cfg.Node.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.ServerName = accesstoken.ServerConfig.ServerName
