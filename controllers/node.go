@@ -373,8 +373,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pretty.Println(node)
-	log.Println("check if network exists ", node.Network)
-	networkexists, err := functions.NetworkExists(node.Network)
+	log.Println("check if network exists ", request.Node.Network)
+	networkexists, err := functions.NetworkExists(request.Node.Network)
 
 	if err != nil {
 		log.Println("network does not exist error")
@@ -389,14 +389,14 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	network, err := logic.GetNetworkByNode(&node)
+	network, err := logic.GetNetworkByNode(&request.Node)
 	if err != nil {
 		log.Println("failed to get Network")
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	validKey := logic.IsKeyValid(network.NetID, node.AccessKey)
+	validKey := logic.IsKeyValid(network.NetID, request.Node.AccessKey)
 
 	if !validKey {
 		// Check to see if network will allow manual sign up
@@ -412,17 +412,17 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = logic.CreateNode(&node)
+	err = logic.CreateNode(&request.Node)
 	if err != nil {
 		log.Println("error creating node")
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
+	logger.Log(1, r.Header.Get("user"), "created new node", request.Node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
-	runForceServerUpdate(&node)
+	runForceServerUpdate(&request.Node)
 }
 
 // Takes node out of pending state
