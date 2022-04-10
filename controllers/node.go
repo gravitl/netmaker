@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -362,8 +363,9 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
 	//get node from body of request
-	var node = models.Node{}
-	err := json.NewDecoder(r.Body).Decode(&node)
+	var request = config.JoinRequest{}
+	node := request.Node
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		log.Println("json decoder error")
 		returnErrorResponse(w, r, formatError(err, "badrequest"))

@@ -41,8 +41,8 @@ type ServerConfig struct {
 }
 
 type JoinRequest struct {
-	Config ClientConfig
-	Key    ed25519.PublicKey
+	Node models.Node
+	Key  ed25519.PublicKey
 }
 
 type JoinResponse struct {

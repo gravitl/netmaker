@@ -102,8 +102,8 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	request := config.JoinRequest{
-		Config: *cfg,
-		Key:    key.Public().(ed25519.PublicKey),
+		Node: cfg.Node,
+		Key:  key.Public().(ed25519.PublicKey),
 	}
 
 	log.Println("calling api ", cfg.Server.API+"/api/nodes/join")
