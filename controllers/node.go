@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -354,15 +355,20 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 }
 
 func createNode(w http.ResponseWriter, r *http.Request) {
+	log.Println("create node request")
 	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
 
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
-	networkName := params["network"]
-	networkexists, err := functions.NetworkExists(networkName)
+	//get node from body of request
+	var node = models.Node{}
+	err := json.NewDecoder(r.Body).Decode(&node)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	networkexists, err := functions.NetworkExists(node.NetworkSettings.NetID)
 
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -375,24 +381,13 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var node = models.Node{}
-
-	//get node from body of request
-	err = json.NewDecoder(r.Body).Decode(&node)
-	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
-
-	node.Network = networkName
-
 	network, err := logic.GetNetworkByNode(&node)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	validKey := logic.IsKeyValid(networkName, node.AccessKey)
+	validKey := logic.IsKeyValid(network.NetID, node.AccessKey)
 
 	if !validKey {
 		// Check to see if network will allow manual sign up
