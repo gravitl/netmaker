@@ -2,6 +2,8 @@ package config
 
 import (
 	//"github.com/davecgh/go-spew/spew"
+	"crypto/ed25519"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -13,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/urfave/cli/v2"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,6 +37,19 @@ type ServerConfig struct {
 	AccessKey   string `yaml:"accesskey"`
 	GRPCSSL     string `yaml:"grpcssl"`
 	ServerName  string `yaml:"servername"`
+	API         string `yaml:"api"`
+}
+
+type JoinRequest struct {
+	Config ClientConfig
+	Key    ed25519.PublicKey
+}
+
+type JoinResponse struct {
+	Config      ClientConfig
+	Peers       []wgtypes.PeerConfig
+	Certificate x509.Certificate
+	CA          x509.Certificate
 }
 
 // Write - writes the config of a client to disk
@@ -189,6 +205,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.ServerName = accesstoken.ServerConfig.ServerName
+		cfg.Server.API = accesstoken.ServerConfig.API
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}

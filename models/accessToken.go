@@ -15,4 +15,5 @@ type ServerConfig struct {
 	GRPCConnString string `json:"grpcconn"`
 	GRPCSSL        string `json:"grpcssl"`
 	ServerName     string `json:"servername"`
+	API            string `json:"api"`
 }
