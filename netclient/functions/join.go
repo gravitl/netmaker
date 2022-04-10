@@ -2,8 +2,6 @@ package functions
 
 import (
 	"bytes"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -103,23 +101,23 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	//if err != nil {
 	//	return err
 	//}
-	public, key, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return err
-	}
-	name := tls.NewCName(cfg.Node.Name)
-	csr, err := tls.NewCSR(key, name)
-	if err != nil {
-		return err
-	}
-	request := config.JoinRequest{
-		Node: cfg.Node,
-		Key:  public,
-		CSR:  *csr,
-	}
+	//public, key, err := ed25519.GenerateKey(rand.Reader)
+	//if err != nil {
+	//return err
+	//}
+	//name := tls.NewCName(cfg.Node.Name)
+	//csr, err := tls.NewCSR(key, name)
+	//if err != nil {
+	//	return err
+	//}
+	//request := config.JoinRequest{
+	//	Node: cfg.Node,
+	//	Key:  public,
+	//	CSR:  *csr,
+	//}
 
 	log.Println("calling api ", cfg.Server.API+"/api/nodes/join")
-	response, err := join(request, "https://"+cfg.Server.API+"/api/nodes/join", cfg.Node.AccessKey)
+	response, err := join(cfg.Node, "https://"+cfg.Server.API+"/api/nodes/join", cfg.Node.AccessKey)
 	if err != nil {
 		return fmt.Errorf("error joining network %w", err)
 	}
@@ -239,7 +237,7 @@ func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
 	}
 }
 
-func join(node config.JoinRequest, url, authorization string) (*config.JoinResponse, error) {
+func join(node models.Node, url, authorization string) (*config.JoinResponse, error) {
 	var request *http.Request
 	var joinResponse config.JoinResponse
 	payload, err := json.Marshal(node)

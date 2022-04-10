@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -366,8 +367,9 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
 	//get node from body of request
-	var request = config.JoinRequest{}
-	err := json.NewDecoder(r.Body).Decode(&request)
+	//var request = config.JoinRequest{}
+	var node = models.Node{}
+	err := json.NewDecoder(r.Body).Decode(&node)
 	if err != nil {
 		log.Println("json decoder error")
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -375,6 +377,21 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Generate certificate for client
+	//client key
+	_, private, err := ed25519.GenerateKey()
+	if err != nil {
+		log.Println("failed to gen client key", err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	name := tls.NewCName(node.Name)
+	csr, err := tls.NewCSR(private, name)
+	if err != nil {
+		log.Println("failed to gen client csr", err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
 	key, err := tls.ReadKey("/etc/netmaker/root.key")
 	if err != nil {
 		log.Println("error reading root private key ", err)
@@ -388,17 +405,17 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	cert, err := tls.NewEndEntityCert(*key, &request.CSR, ca, 30)
+	cert, err := tls.NewEndEntityCert(*key, csr, ca, 30)
 	if err != nil {
 		log.Println("error creating client certificate ", err)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	node := request.Node
-	pretty.Println(node)
-	log.Println("check if network exists ", request.Node.Network)
-	networkexists, err := functions.NetworkExists(request.Node.Network)
+	//node := request.Node
+	//pretty.Println(node)
+	log.Println("check if network exists ", node.Network)
+	networkexists, err := functions.NetworkExists(node.Network)
 
 	if err != nil {
 		log.Println("network does not exist error")
@@ -413,14 +430,14 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	network, err := logic.GetNetworkByNode(&request.Node)
+	network, err := logic.GetNetworkByNode(&node)
 	if err != nil {
 		log.Println("failed to get Network")
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	validKey := logic.IsKeyValid(network.NetID, request.Node.AccessKey)
+	validKey := logic.IsKeyValid(network.NetID, node.AccessKey)
 
 	if !validKey {
 		// Check to see if network will allow manual sign up
@@ -436,7 +453,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	newNode, err := logic.CreateNode(&request.Node)
+	newNode, err := logic.CreateNode(&node)
 	if err != nil {
 		log.Println("error creating node")
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -459,11 +476,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Peers:       peers,
 		Certificate: *cert,
 		CA:          *ca,
+		Key:         private,
 	}
-	logger.Log(1, r.Header.Get("user"), "created new node", request.Node.Name, "on network", node.Network)
+	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-	runForceServerUpdate(&request.Node)
+	runForceServerUpdate(&node)
 }
 
 // Takes node out of pending state

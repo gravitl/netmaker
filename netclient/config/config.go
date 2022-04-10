@@ -51,6 +51,7 @@ type JoinResponse struct {
 	Peers       []wgtypes.PeerConfig
 	Certificate x509.Certificate
 	CA          x509.Certificate
+	Key         ed25519.PrivateKey
 }
 
 // Write - writes the config of a client to disk
