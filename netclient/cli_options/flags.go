@@ -171,8 +171,8 @@ func GetFlags(hostname string) []cli.Flag {
 		&cli.StringFlag{
 			Name:    "ipforwarding",
 			EnvVars: []string{"NETCLIENT_IPFORWARDING"},
-			Value:   "on",
-			Usage:   "Sets ip forwarding on if 'on'. Ignores if 'off'. On by default.",
+			Value:   "yes",
+			Usage:   "Sets ip forwarding on if 'yes'. Ignores if 'no'. On by default.",
 		},
 		&cli.StringFlag{
 			Name:    "postup",

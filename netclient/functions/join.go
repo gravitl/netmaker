@@ -102,10 +102,15 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
-
+	name := tls.NewCName(cfg.Node.Name)
+	csr, err := tls.NewCSR(key, name)
+	if err != nil {
+		return err
+	}
 	request := config.JoinRequest{
 		Node: cfg.Node,
 		Key:  key.Public().(ed25519.PublicKey),
+		CSR:  *csr,
 	}
 
 	log.Println("calling api ", cfg.Server.API+"/api/nodes/join")
@@ -113,8 +118,11 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return fmt.Errorf("error joining network %w", err)
 	}
-	node := response.Config.Node
+	node := response.Node
 	peers := response.Peers
+	pretty.Println(response)
+	pretty.Println(node)
+	pretty.Println(peers)
 
 	// safety check. If returned no:de from server is local, but not currently configured as local, set to local addr
 	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {

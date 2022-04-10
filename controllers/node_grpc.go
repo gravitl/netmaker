@@ -98,7 +98,7 @@ func (s *NodeServiceServer) CreateNode(ctx context.Context, req *nodepb.Object) 
 	}
 	node.CommID = commID
 
-	err = logic.CreateNode(&node)
+	_, err = logic.CreateNode(&node)
 	if err != nil {
 		return nil, err
 	}

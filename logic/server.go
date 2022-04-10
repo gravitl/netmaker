@@ -143,7 +143,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		node.Endpoint = node.LocalAddress
 	}
 
-	if err = CreateNode(node); err != nil {
+	if _, err = CreateNode(node); err != nil {
 		return returnNode, err
 	}
 	if err = StorePrivKey(node.ID, privateKey); err != nil {

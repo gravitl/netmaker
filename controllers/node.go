@@ -15,7 +15,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/server"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/tls"
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -365,13 +367,34 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 	//get node from body of request
 	var request = config.JoinRequest{}
-	node := request.Node
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		log.Println("json decoder error")
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+
+	//Generate certificate for client
+	key, err := tls.ReadKey("/etc/netmaker/root.key")
+	if err != nil {
+		log.Println("error reading root private key ", err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
+	if err != nil {
+		log.Println("error reading root certificate ", err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	cert, err := tls.NewEndEntityCert(*key, &request.CSR, ca, 30)
+	if err != nil {
+		log.Println("error creating client certificate ", err)
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	node := request.Node
 	pretty.Println(node)
 	log.Println("check if network exists ", request.Node.Network)
 	networkexists, err := functions.NetworkExists(request.Node.Network)
@@ -412,16 +435,33 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = logic.CreateNode(&request.Node)
+	newNode, err := logic.CreateNode(&request.Node)
 	if err != nil {
 		log.Println("error creating node")
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	// get peers
+	isIngress := false
+	if newNode.IsIngressGateway == "yes" {
+		isIngress = true
+	}
+	isDualStack := false
+	if newNode.IsDualStack == "yes" {
+		isDualStack = true
+	}
 
+	peers, _, _, err := server.GetPeers(newNode.MacAddress, newNode.Network, "", isDualStack, isIngress, false)
+
+	response := config.JoinResponse{
+		Node:        *newNode,
+		Peers:       peers,
+		Certificate: *cert,
+		CA:          *ca,
+	}
 	logger.Log(1, r.Header.Get("user"), "created new node", request.Node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(response)
 	runForceServerUpdate(&request.Node)
 }
 

@@ -43,10 +43,11 @@ type ServerConfig struct {
 type JoinRequest struct {
 	Node models.Node
 	Key  ed25519.PublicKey
+	CSR  x509.CertificateRequest
 }
 
 type JoinResponse struct {
-	Config      ClientConfig
+	Node        models.Node
 	Peers       []wgtypes.PeerConfig
 	Certificate x509.Certificate
 	CA          x509.Certificate

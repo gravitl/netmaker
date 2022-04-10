@@ -250,12 +250,12 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 }
 
 // CreateNode - creates a node in database
-func CreateNode(node *models.Node) error {
+func CreateNode(node *models.Node) (*models.Node, error) {
 
 	//encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	//set password to encrypted password
 	node.Password = string(hash)
@@ -274,22 +274,22 @@ func CreateNode(node *models.Node) error {
 
 	if node.IsServer == "yes" {
 		if node.Address, err = UniqueAddressServer(node.Network); err != nil {
-			return err
+			return nil, err
 		}
 	} else if node.Address == "" {
 		if node.Address, err = UniqueAddress(node.Network); err != nil {
-			return err
+			return nil, err
 		}
 	} else if !IsIPUnique(node.Network, node.Address, database.NODES_TABLE_NAME, false) {
-		return fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
+		return nil, fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
 	}
 
 	if node.Address6 == "" {
 		if node.Address6, err = UniqueAddress6(node.Network); err != nil {
-			return err
+			return nil, err
 		}
 	} else if !IsIPUnique(node.Network, node.Address6, database.NODES_TABLE_NAME, true) {
-		return fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
+		return nil, fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
 	}
 
 	node.ID = uuid.NewString()
@@ -298,22 +298,22 @@ func CreateNode(node *models.Node) error {
 	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
 	if tokenString == "" {
 		//returnErrorResponse(w, r, errorResponse)
-		return err
+		return nil, err
 	}
 	log.Println("validating node")
 	pretty.Println(node)
 	err = ValidateNode(node, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defaultACLVal := acls.Allowed
@@ -327,7 +327,7 @@ func CreateNode(node *models.Node) error {
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID, "err:", err.Error())
-		return err
+		return nil, err
 	}
 
 	if node.IsPending != "yes" {
@@ -336,8 +336,9 @@ func CreateNode(node *models.Node) error {
 	SetNetworkNodesLastModified(node.Network)
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
+		return nil, err
 	}
-	return err
+	return node, nil
 }
 
 // GetAllNodes - returns all nodes in the DB
