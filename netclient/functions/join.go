@@ -19,12 +19,14 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/tls"
+	"github.com/kr/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // JoinNetwork - helps a client join a network
 func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	log.Println("starting join")
+	pretty.Println(cfg.Node)
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/kr/pretty"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -371,6 +372,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	pretty.Println(node)
 	log.Println("check if network exists ", node.Network)
 	networkexists, err := functions.NetworkExists(node.Network)
 
