@@ -250,7 +250,7 @@ func checkCertificates(server string) {
 	var key *ed25519.PrivateKey
 	var ca *x509.Certificate
 	if _, err := os.Stat("/etc/netmaker/root.pem"); errors.Is(err, os.ErrNotExist) {
-		logger.Log(2, "generating root CA", err.Error())
+		logger.Log(2, "generating root CA")
 		key, ca, err = generateRootCA()
 		if err != nil {
 			logger.FatalLog("root-ca failure ", err.Error())

@@ -381,6 +381,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	pretty.Println(key)
 	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
 	if err != nil {
 		log.Println("error reading root certificate ", err)
