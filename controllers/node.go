@@ -365,15 +365,18 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	var node = models.Node{}
 	err := json.NewDecoder(r.Body).Decode(&node)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		log.Println("json decoder error")
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	networkexists, err := functions.NetworkExists(node.NetworkSettings.NetID)
 
 	if err != nil {
+		log.Println("network does not exist error")
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else if !networkexists {
+		log.Println("network does not exist ")
 		errorResponse = models.ErrorResponse{
 			Code: http.StatusNotFound, Message: "W1R3: Network does not exist! ",
 		}
@@ -383,6 +386,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	network, err := logic.GetNetworkByNode(&node)
 	if err != nil {
+		log.Println("failed to get Network")
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -405,6 +409,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	err = logic.CreateNode(&node)
 	if err != nil {
+		log.Println("error creating node")
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
