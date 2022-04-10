@@ -3,6 +3,7 @@ package functions
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -97,8 +98,12 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	// make sure name is appropriate, if not, give blank name
 	cfg.Node.Name = formatName(cfg.Node)
 
-	seed := tls.NewKey()
-	key, err := seed.Ed25519PrivateKey()
+	//seed := tls.NewKey()
+	//key, err := seed.Ed25519PrivateKey()
+	//if err != nil {
+	//	return err
+	//}
+	public, key, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
@@ -109,7 +114,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 	request := config.JoinRequest{
 		Node: cfg.Node,
-		Key:  key.Public().(ed25519.PublicKey),
+		Key:  public,
 		CSR:  *csr,
 	}
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"filippo.io/edwards25519"
+	"github.com/kr/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -96,7 +97,7 @@ func NewCName(commonName string) pkix.Name {
 func NewCSR(key ed25519.PrivateKey, name pkix.Name) (*x509.CertificateRequest, error) {
 	derCertRequest, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
 		Subject:   name,
-		PublicKey: key.Public(),
+		PublicKey: key.Public().(ed25519.PublicKey),
 	}, key)
 	if err != nil {
 		return nil, err
@@ -151,6 +152,7 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 		SubjectKeyId:       req.RawSubject,
 		Issuer:             parent.Subject,
 	}
+	pretty.Println(req.PublicKey)
 	rootCa, err := x509.CreateCertificate(rand.Reader, template, parent, req.PublicKey, key)
 	if err != nil {
 		return nil, err
@@ -201,22 +203,6 @@ func SaveKey(path, name string, key ed25519.PrivateKey) error {
 	}); err != nil {
 		return fmt.Errorf("failed to write key to file %v", err)
 	}
-	pubOut, err := os.Create(name + ".pub")
-	if err != nil {
-		return fmt.Errorf("failed open key file for writing: %v", err)
-	}
-	defer pubOut.Close()
-	pubBytes, err := x509.MarshalPKIXPublicKey(key.Public())
-	if err != nil {
-		return fmt.Errorf("failedto marshal key %v ", err)
-	}
-	if err := pem.Encode(pubOut, &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: pubBytes,
-	}); err != nil {
-		return fmt.Errorf("failed to write key to file %v", err)
-	}
-
 	return nil
 }
 
