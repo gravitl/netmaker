@@ -137,6 +137,11 @@ echo "setting mosquitto.conf..."
 
 wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
 
+echo "setting certificates for mosquitto"
+wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/certs/generate_server_certificates
+server=$(echo "broker."$NETMAKER_BASE_DOMAIN)
+./generate_server_certificates $server
+
 echo "setting docker-compose..."
 
 wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.contained.yml

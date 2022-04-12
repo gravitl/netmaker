@@ -2,8 +2,11 @@ package functions
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -176,7 +179,8 @@ func messageQueue(ctx context.Context, server string) {
 // utilizes comms client configs to setup connections
 func setupMQTTSub(server string) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(server + ":1883")             // TODO get the appropriate port of the comms mq server
+	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	opts.TLSConfig = NewTLSConfig(nil, server)
 	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
@@ -261,12 +265,44 @@ func setupMQTTSub(server string) mqtt.Client {
 	return client
 }
 
+// NewTLSConf sets up tls to connect to broker
+func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
+	var ca []byte
+	var err error
+	certpool := x509.NewCertPool()
+	if cfg != nil {
+		ca, err = ioutil.ReadFile("/etc/netclient/" + cfg.Server.Server + "/root.pem")
+		if err != nil {
+			logger.Log(0, "could not read CA file %v\n", err.Error())
+		}
+	} else {
+		ca, err = ioutil.ReadFile("/etc/netclient/" + server + "/root.pem")
+		if err != nil {
+			logger.Log(0, "could not read CA file %v\n", err.Error())
+		}
+	}
+	certpool.AppendCertsFromPEM(ca)
+	//clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+cfg.Server.Server+"/client.pem", "/etc/netclient/client.key")
+	//if err != nil {
+	//	log.Fatalf("could not read client cert/key %v \n", err)
+	//}
+	return &tls.Config{
+		RootCAs:    certpool,
+		ClientAuth: tls.NoClientCert,
+		//ClientAuth:         tls.VerifyClientCertIfGiven,
+		ClientCAs:          nil,
+		InsecureSkipVerify: true,
+		//Certificates:       []tls.Certificate{clientKeyPair},
+	}
+}
+
 // setupMQTT creates a connection to broker and return client
 // utilizes comms client configs to setup connections
 func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
-	opts.AddBroker(server + ":1883")             // TODO get the appropriate port of the comms mq server
+	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	opts.TLSConfig = NewTLSConfig(cfg, "")
 	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
