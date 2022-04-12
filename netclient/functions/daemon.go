@@ -20,7 +20,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/kr/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -42,15 +41,13 @@ func Daemon() error {
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
 	for _, network := range networks {
-		serverSet[network] = exists
-		pretty.Println(serverSet)
-
+		cfg := config.ClientConfig{}
+		cfg.Network = network
+		cfg.ReadConfig()
+		serverSet[cfg.Server.Server] = exists
 		//temporary code --- remove in version v0.13.0
 		removeHostDNS(network, ncutils.IsWindows())
 		// end of code to be removed in version v0.13.0
-		var cfg config.ClientConfig
-		cfg.Network = network
-		cfg.ReadConfig()
 		initialPull(cfg.Network)
 	}
 
@@ -108,8 +105,6 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 // PingServer -- checks if server is reachable
 // use commsCfg only*
 func PingServer(cfg *config.ClientConfig) error {
-	fmt.Println("ping server ", cfg.Server.Server)
-	pretty.Println(cfg)
 	pinger, err := ping.NewPinger(cfg.Server.Server)
 	if err != nil {
 		return err
@@ -270,7 +265,7 @@ func setupMQTTSub(server string) mqtt.Client {
 // utilizes comms client configs to setup connections
 func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	server := cfg.Node.Server
+	server := cfg.Server.Server
 	opts.AddBroker(server + ":1883")             // TODO get the appropriate port of the comms mq server
 	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
 	opts.SetDefaultPublishHandler(All)
