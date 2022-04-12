@@ -42,11 +42,6 @@ func JoinComms(cfg *config.ClientConfig) error {
 // Join - join command to run from cli
 func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
-	//check if comms network exists
-	if err = JoinComms(cfg); err != nil {
-		return err
-	}
-
 	//join network
 	err = functions.JoinNetwork(cfg, privateKey, false)
 	if err != nil && !cfg.DebugOn {
