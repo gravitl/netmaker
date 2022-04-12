@@ -33,7 +33,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	var network = parseNetworkFromTopic(msg.Topic())
 	nodeCfg.Network = network
 	nodeCfg.ReadConfig()
-	var commsCfg = getCommsCfgByNode(&nodeCfg.Node)
 
 	data, dataErr := decryptMsg(&nodeCfg, msg.Payload())
 	if dataErr != nil {
@@ -131,14 +130,14 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//			}
 		//		}
 		//	}
-		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
+		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
 		if doneErr != nil {
 			logger.Log(0, "could not notify server to update peers after interface change")
 		} else {
 			logger.Log(0, "signalled finished interface update to server")
 		}
 	} else if hubChange {
-		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
+		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
 		if doneErr != nil {
 			logger.Log(0, "could not notify server to update peers after hub change")
 		} else {

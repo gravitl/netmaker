@@ -98,13 +98,13 @@ func Leave(cfg *config.ClientConfig, force bool) error {
 	} else {
 		logger.Log(0, "success")
 	}
-	nets, err := ncutils.GetSystemNetworks()
-	if err == nil && len(nets) == 1 {
-		if nets[0] == cfg.Node.CommID {
-			logger.Log(1, "detected comms as remaining network, removing...")
-			err = functions.LeaveNetwork(nets[0], true)
-		}
-	}
+	//nets, err := ncutils.GetSystemNetworks()
+	//if err == nil && len(nets) == 1 {
+	//if nets[0] == cfg.Node.CommID {
+	//logger.Log(1, "detected comms as remaining network, removing...")
+	//err = functions.LeaveNetwork(nets[0], true)
+	//}
+	//}
 	return err
 }
 

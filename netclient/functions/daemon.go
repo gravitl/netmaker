@@ -36,9 +36,13 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
+	var exists = struct{}{}
+	serverSet := make(map[string]struct{})
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
 	for _, network := range networks {
+		serverSet[network] = exists
+
 		//temporary code --- remove in version v0.13.0
 		removeHostDNS(network, ncutils.IsWindows())
 		// end of code to be removed in version v0.13.0
@@ -48,30 +52,24 @@ func Daemon() error {
 		initialPull(cfg.Network)
 	}
 
-	// == get all the comms networks on machine ==
-	commsNetworks, err := getCommsNetworks(networks[:])
-	if err != nil {
-		return errors.New("no comm networks exist")
-	}
-
 	// == subscribe to all nodes on each comms network on machine ==
-	for currCommsNet := range commsNetworks {
-		logger.Log(1, "started comms network daemon, ", currCommsNet)
+	for server := range serverSet {
+		logger.Log(1, "started daemon for server , ", server)
 		ctx, cancel := context.WithCancel(context.Background())
-		networkcontext.Store(currCommsNet, cancel)
-		go messageQueue(ctx, currCommsNet)
+		networkcontext.Store(server, cancel)
+		go messageQueue(ctx, server)
 	}
 
 	// == add waitgroup and cancel for checkin routine ==
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	wg.Add(1)
-	go Checkin(ctx, &wg, commsNetworks)
+	go Checkin(ctx, &wg, serverSet)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-quit
-	for currCommsNet := range commsNetworks {
-		if cancel, ok := networkcontext.Load(currCommsNet); ok {
+	for server := range serverSet {
+		if cancel, ok := networkcontext.Load(server); ok {
 			cancel.(context.CancelFunc)()
 		}
 	}
@@ -101,16 +99,14 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 	}
 
 	nodeCfg.Node.PublicKey = key.PublicKey().String()
-	var commsCfg = getCommsCfgByNode(&nodeCfg.Node)
-	PublishNodeUpdate(&commsCfg, nodeCfg)
+	PublishNodeUpdate(nodeCfg)
 	return nil
 }
 
 // PingServer -- checks if server is reachable
 // use commsCfg only*
-func PingServer(commsCfg *config.ClientConfig) error {
-	node := getServerAddress(commsCfg)
-	pinger, err := ping.NewPinger(node)
+func PingServer(cfg *config.ClientConfig) error {
+	pinger, err := ping.NewPinger(cfg.Node.Server)
 	if err != nil {
 		return err
 	}
@@ -185,9 +181,9 @@ func messageQueue(ctx context.Context, commsNet string) {
 
 // setupMQTT creates a connection to broker and return client
 // utilizes comms client configs to setup connections
-func setupMQTT(commsCfg *config.ClientConfig, publish bool) mqtt.Client {
+func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	server := getServerAddress(commsCfg)
+	server := cfg.Node.Server
 	opts.AddBroker(server + ":1883")             // TODO get the appropriate port of the comms mq server
 	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
 	opts.SetDefaultPublishHandler(All)
@@ -213,8 +209,8 @@ func setupMQTT(commsCfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts.SetOrderMatters(true)
 	opts.SetResumeSubs(true)
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		logger.Log(0, "detected broker connection lost, running pull for ", commsCfg.Node.Network)
-		_, err := Pull(commsCfg.Node.Network, true)
+		logger.Log(0, "detected broker connection lost, running pull for ", cfg.Node.Network)
+		_, err := Pull(cfg.Node.Network, true)
 		if err != nil {
 			logger.Log(0, "could not run pull, server unreachable: ", err.Error())
 			logger.Log(0, "waiting to retry...")
@@ -227,10 +223,10 @@ func setupMQTT(commsCfg *config.ClientConfig, publish bool) mqtt.Client {
 	for {
 		//if after 12 seconds, try a gRPC pull on the last try
 		if time.Now().After(tperiod) {
-			logger.Log(0, "running pull for ", commsCfg.Node.Network)
-			_, err := Pull(commsCfg.Node.Network, true)
+			logger.Log(0, "running pull for ", cfg.Node.Network)
+			_, err := Pull(cfg.Node.Network, true)
 			if err != nil {
-				logger.Log(0, "could not run pull, exiting ", commsCfg.Node.Network, " setup: ", err.Error())
+				logger.Log(0, "could not run pull, exiting ", cfg.Node.Network, " setup: ", err.Error())
 				return client
 			}
 			time.Sleep(time.Second)
@@ -238,10 +234,10 @@ func setupMQTT(commsCfg *config.ClientConfig, publish bool) mqtt.Client {
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
 			logger.Log(0, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
-				logger.Log(0, "could not connect to broker, exiting ", commsCfg.Node.Network, " setup: ", token.Error().Error())
+				logger.Log(0, "could not connect to broker, exiting ", cfg.Node.Network, " setup: ", token.Error().Error())
 				if strings.Contains(token.Error().Error(), "connectex") || strings.Contains(token.Error().Error(), "i/o timeout") {
 					logger.Log(0, "connection issue detected.. pulling and restarting daemon")
-					Pull(commsCfg.Node.Network, true)
+					Pull(cfg.Node.Network, true)
 					daemon.Restart()
 				}
 				return client
@@ -255,8 +251,8 @@ func setupMQTT(commsCfg *config.ClientConfig, publish bool) mqtt.Client {
 }
 
 // publishes a message to server to update peers on this peer's behalf
-func publishSignal(commsCfg, nodeCfg *config.ClientConfig, signal byte) error {
-	if err := publish(commsCfg, nodeCfg, fmt.Sprintf("signal/%s", nodeCfg.Node.ID), []byte{signal}, 1); err != nil {
+func publishSignal(nodeCfg *config.ClientConfig, signal byte) error {
+	if err := publish(nodeCfg, fmt.Sprintf("signal/%s", nodeCfg.Node.ID), []byte{signal}, 1); err != nil {
 		return err
 	}
 	return nil
@@ -322,24 +318,6 @@ func getServerAddress(cfg *config.ClientConfig) string {
 		}
 	}
 	return server.Address
-}
-
-func getCommsNetworks(networks []string) (map[string]bool, error) {
-	var cfg config.ClientConfig
-	var response = make(map[string]bool, 1)
-	for _, network := range networks {
-		cfg.Network = network
-		cfg.ReadConfig()
-		response[cfg.Node.CommID] = true
-	}
-	return response, nil
-}
-
-func getCommsCfgByNode(node *models.Node) config.ClientConfig {
-	var commsCfg config.ClientConfig
-	commsCfg.Network = node.CommID
-	commsCfg.ReadConfig()
-	return commsCfg
 }
 
 // == Message Caches ==
