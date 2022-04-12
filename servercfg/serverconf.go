@@ -96,7 +96,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ManageIPTables = ManageIPTables()
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
-	cfg.CommsID = GetCommsID()
+	cfg.Server = GetServer()
 
 	return cfg
 }
@@ -410,6 +410,17 @@ func ManageIPTables() string {
 		manage = "off"
 	}
 	return manage
+}
+
+// GetServer - gets the server name
+func GetServer() string {
+	server := ""
+	if os.Getenv("SERVER_NAME") != "" {
+		server = os.Getenv("SERVER_NAME")
+	} else if config.Config.Server.Server != "" {
+		server = config.Config.Server.Server
+	}
+	return server
 }
 
 // IsDNSMode - should it run with DNS

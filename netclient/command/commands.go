@@ -42,11 +42,6 @@ func JoinComms(cfg *config.ClientConfig) error {
 // Join - join command to run from cli
 func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
-	//check if comms network exists
-	if err = JoinComms(cfg); err != nil {
-		return err
-	}
-
 	//join network
 	err = functions.JoinNetwork(cfg, privateKey, false)
 	if err != nil && !cfg.DebugOn {
@@ -98,13 +93,13 @@ func Leave(cfg *config.ClientConfig, force bool) error {
 	} else {
 		logger.Log(0, "success")
 	}
-	nets, err := ncutils.GetSystemNetworks()
-	if err == nil && len(nets) == 1 {
-		if nets[0] == cfg.Node.CommID {
-			logger.Log(1, "detected comms as remaining network, removing...")
-			err = functions.LeaveNetwork(nets[0], true)
-		}
-	}
+	//nets, err := ncutils.GetSystemNetworks()
+	//if err == nil && len(nets) == 1 {
+	//if nets[0] == cfg.Node.CommID {
+	//logger.Log(1, "detected comms as remaining network, removing...")
+	//err = functions.LeaveNetwork(nets[0], true)
+	//}
+	//}
 	return err
 }
 

@@ -297,8 +297,7 @@ func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
 
 		// if newListenPort has been modified to find an available port, publish to server
 		if cfg.Node.ListenPort != newListenPort {
-			var currentCommsCfg = getCommsCfgByNode(&cfg.Node)
-			PublishNodeUpdate(&currentCommsCfg, cfg)
+			PublishNodeUpdate(cfg)
 		}
 	}
 }

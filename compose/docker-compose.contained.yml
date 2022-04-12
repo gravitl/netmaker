@@ -16,6 +16,7 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     restart: always
     environment:
+      SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:443"

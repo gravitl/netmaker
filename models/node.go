@@ -79,7 +79,7 @@ type Node struct {
 	OS           string      `json:"os" bson:"os" yaml:"os"`
 	MTU          int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
 	Version      string      `json:"version" bson:"version" yaml:"version"`
-	CommID       string      `json:"commid" bson:"commid" yaml:"comid"`
+	Server       string      `json:"server" bson:"server" yaml:"server"`
 	TrafficKeys  TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
 }
 
@@ -392,6 +392,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.IsHub == "" {
 		newNode.IsHub = currentNode.IsHub
+	}
+	if newNode.Server == "" {
+		newNode.Server = currentNode.Server
 	}
 }
 
