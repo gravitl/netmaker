@@ -393,6 +393,9 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.IsHub == "" {
 		newNode.IsHub = currentNode.IsHub
 	}
+	if newNode.Server == "" {
+		newNode.Server = currentNode.Server
+	}
 }
 
 // StringWithCharset - returns random string inside defined charset

@@ -106,6 +106,7 @@ func Hello(nodeCfg *config.ClientConfig) {
 			logger.Log(0, "could not run pull on "+nodeCfg.Node.Network+", error: "+err.Error())
 		}
 	}
+	logger.Log(3, "server checkin complete")
 }
 
 // requires the commscfg in which to send traffic over and nodecfg of node that is publish the message
