@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gravitl/netmaker/logger"
@@ -19,7 +20,8 @@ func Register(cfg *config.ClientConfig) error {
 	if cfg.Server.AccessKey == "" {
 		return errors.New("no access key provided")
 	}
-	url := "https://" + cfg.Server.Server + "/api/register"
+	url := cfg.Server.API + "/api/server/register"
+	log.Println("regsiter at ", url)
 	request, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
 		return err

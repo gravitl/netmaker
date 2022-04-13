@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -112,6 +113,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	found := false
 	networks, err := logic.GetNetworks()
 	if err != nil {
+		logger.Log(3, "no networks")
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusNotFound, Message: "no networks",
 		}
@@ -126,6 +128,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !found {
+		logger.Log(2, "valid access key not found")
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: "You are unauthorized to access this endpoint.",
 		}
@@ -134,6 +137,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}
 	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
 	if err != nil {
+		logger.Log(2, "root ca not found")
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusNotFound, Message: "root ca not found",
 		}
