@@ -44,7 +44,11 @@ func Daemon() error {
 	serverSet := make(map[string]struct{})
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
+	if len(networks) == 0 {
+		return errors.New("no networks")
+	}
 	for _, network := range networks {
+		logger.Log(3, "initializing network", network)
 		cfg := config.ClientConfig{}
 		cfg.Network = network
 		cfg.ReadConfig()

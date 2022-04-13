@@ -1,10 +1,8 @@
 package functions
 
 import (
-	"crypto/x509"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -36,19 +34,11 @@ func Register(cfg *config.ClientConfig) error {
 	if response.StatusCode != http.StatusOK {
 		return errors.New(response.Status)
 	}
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-
-	}
-	log.Println(string(body))
-	var cert *x509.Certificate
-	if err := json.Unmarshal(body, cert); err != nil {
-		//if err := json.NewDecoder(response.Body).Decode(cert); err != nil {
+	var resp config.RegisterResponse
+	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
 		return errors.New("unmarshal cert error " + err.Error())
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server, "root.cert", cert); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server, "root.cert", &resp.CA); err != nil {
 		return err
 	}
 	logger.Log(0, "server certificate saved ")
