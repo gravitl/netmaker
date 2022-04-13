@@ -9,12 +9,14 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/tls"
 )
 
 func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
 	r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
 	r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
+	r.HandleFunc("/api/server/register/", http.HandlerFunc(register)).Methods("POST")
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
@@ -102,3 +104,43 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 // 	json.NewEncoder(w).Encode("Server added to network " + params["network"])
 // }
+
+// register - registers a client with the server and return the CA cert
+func register(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	token := r.Header.Get("Authorization")
+	found := false
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusNotFound, Message: "no networks",
+		}
+		returnErrorResponse(w, r, errorResponse)
+	}
+	for _, network := range networks {
+		for _, key := range network.AccessKeys {
+			if key.AccessString == token {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusUnauthorized, Message: "You are unauthorized to access this endpoint.",
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+	}
+	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
+	if err != nil {
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusNotFound, Message: "root ca not found",
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+		//return err
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(*ca)
+}
