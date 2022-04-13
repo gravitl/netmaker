@@ -2,11 +2,11 @@ package functions
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -23,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	ssl "github.com/gravitl/netmaker/tls"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -267,21 +268,22 @@ func setupMQTTSub(server string) mqtt.Client {
 
 // NewTLSConf sets up tls to connect to broker
 func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
-	var ca []byte
-	var err error
-	certpool := x509.NewCertPool()
+	var file string
 	if cfg != nil {
-		ca, err = ioutil.ReadFile("/etc/netclient/" + cfg.Server.Server + "/root.pem")
-		if err != nil {
-			logger.Log(0, "could not read CA file %v\n", err.Error())
-		}
+		server = cfg.Server.Server
+		file = "/etc/netclient/" + cfg.Server.Server + "/root.pem"
 	} else {
-		ca, err = ioutil.ReadFile("/etc/netclient/" + server + "/root.pem")
-		if err != nil {
-			logger.Log(0, "could not read CA file %v\n", err.Error())
-		}
+		file = "/etc/netclient/" + server + "/root.pem"
 	}
-	certpool.AppendCertsFromPEM(ca)
+	certpool := x509.NewCertPool()
+	ca, err := os.ReadFile(file)
+	if err != nil {
+		logger.Log(0, "could not read CA file %v\n", err.Error())
+	}
+	ok := certpool.AppendCertsFromPEM(ca)
+	if !ok {
+		logger.Log(0, "failed to append cert")
+	}
 	//clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+cfg.Server.Server+"/client.pem", "/etc/netclient/client.key")
 	//if err != nil {
 	//	log.Fatalf("could not read client cert/key %v \n", err)
@@ -290,9 +292,29 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 		RootCAs:    certpool,
 		ClientAuth: tls.NoClientCert,
 		//ClientAuth:         tls.VerifyClientCertIfGiven,
-		ClientCAs:          nil,
+		ClientCAs: nil,
+		//InsecureSkipVerify: false  fails ---- so need to use VerifyConnection
 		InsecureSkipVerify: true,
-		//Certificates:       []tls.Certificate{clientKeyPair},
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			if cs.ServerName != server {
+				logger.Log(0, "VerifyConnection - certifiate mismatch")
+				return errors.New("certificate doesn't match server")
+			}
+			ca, err := ssl.ReadCert("/etc/netclient/" + cs.ServerName + "/root.pem")
+			if err != nil {
+				logger.Log(0, "VerifyConnection - unable to read ca", err.Error())
+				return errors.New("unable to read ca")
+			}
+			for _, cert := range cs.PeerCertificates {
+				if cert.IsCA {
+					if string(cert.PublicKey.(ed25519.PublicKey)) != string(ca.PublicKey.(ed25519.PublicKey)) {
+						logger.Log(0, "VerifyConnection - public key mismatch")
+						return errors.New("cert public key does not match ca public key")
+					}
+				}
+			}
+			return nil
+		},
 	}
 }
 

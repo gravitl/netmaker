@@ -50,7 +50,7 @@ elif [ -f /etc/fedora-release ]; then
 	dnf update
 fi
 
-dependencies=( "docker.io" "docker-compose" "wireguard" "jq" )
+dependencies=( "docker.io" "docker-compose" "wireguard" "jq" "openssl" )
 
 for dependency in ${dependencies[@]}; do
     is_installed=$(dpkg-query -W --showformat='${Status}\n' ${dependency} | grep "install ok installed")
@@ -137,10 +137,17 @@ echo "setting mosquitto.conf..."
 
 wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
 
-echo "setting certificates for mosquitto"
-wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/certs/generate_server_certificates
-server=$(echo "broker."$NETMAKER_BASE_DOMAIN)
-./generate_server_certificates $server
+echo "creating certificates for mosquitto"
+server=$( echo "broker."$NETMAKER_BASE_DOMAIN)
+mkdir certs
+
+openssl genpkey -algorithm Ed25519 -out certs/root.key
+openssl req -new -key certs/root.key -out certs/root.csr -subj '/CN=CA Root'
+openssl x509 -req -in certs/root.csr -days 365 -signkey certs/root.key -CAcreateserial -out certs/root.pem
+
+openssl genpkey -algorithm Ed25519 -out certs/server.key
+openssl req -new -out certs/server.csr -key certs/server.key -subj  $subject 
+openssl x509 -req -in certs/server.csr -days 365 -CA certs/root.pem -CAkey certs/root.key -CAcreateserial -out certs/server.pem
 
 echo "setting docker-compose..."
 
