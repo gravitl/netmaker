@@ -105,6 +105,18 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				return err
 			},
 		},
+		{
+			Name:  "register",
+			Usage: "register with netmaker",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				cfg, _, err := config.GetCLIConfig(c)
+				if err != nil {
+					return err
+				}
+				return command.Register(&cfg)
+			},
+		},
 	}
 }
 

@@ -154,3 +154,7 @@ func Daemon() error {
 	err := functions.Daemon()
 	return err
 }
+
+func Register(cfg *config.ClientConfig) error {
+	return functions.Register(cfg)
+}
