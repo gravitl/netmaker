@@ -17,7 +17,7 @@ func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
 	r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
 	r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
-	r.HandleFunc("/api/server/register/", http.HandlerFunc(register)).Methods("POST")
+	r.HandleFunc("/api/server/register", http.HandlerFunc(register)).Methods("POST")
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
@@ -109,7 +109,20 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // register - registers a client with the server and return the CA cert
 func register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	token := r.Header.Get("Authorization")
+	bearerToken := r.Header.Get("Authorization")
+
+	var tokenSplit = strings.Split(bearerToken, " ")
+	var token = ""
+	if len(tokenSplit) < 2 {
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+	} else {
+		token = tokenSplit[1]
+	}
+
 	found := false
 	networks, err := logic.GetNetworks()
 	if err != nil {
