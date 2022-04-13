@@ -44,6 +44,10 @@ type RegisterRequest struct {
 	CSR x509.CertificateRequest
 }
 
+type RegisterResponse struct {
+	CA x509.Certificate
+}
+
 // Write - writes the config of a client to disk
 func Write(config *ClientConfig, network string) error {
 	if network == "" {

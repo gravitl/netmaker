@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/tls"
 )
@@ -158,6 +159,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 		//return err
 	}
+	response := config.RegisterResponse{
+		CA: *ca,
+	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(*ca)
+	json.NewEncoder(w).Encode(response)
 }
