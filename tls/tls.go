@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"os"
 	"time"
@@ -233,7 +232,6 @@ func ReadKey(name string) (*ed25519.PrivateKey, error) {
 		return nil, fmt.Errorf("unable to read file %w", err)
 	}
 	keyBytes, _ := pem.Decode(bytes)
-	log.Println(keyBytes.Type)
 	key, err := x509.ParsePKCS8PrivateKey(keyBytes.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse file %w", err)

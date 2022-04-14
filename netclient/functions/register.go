@@ -35,13 +35,17 @@ func Register(cfg *config.ClientConfig) error {
 		return err
 	}
 	data := config.RegisterRequest{
-		CSR: *csr,
+		Name: name,
+		CSR:  *csr,
 	}
 	pretty.Println(data.CSR.PublicKey)
+	pretty.Println(data.CSR.RawSubjectPublicKeyInfo)
+	pretty.Println("data\n", data)
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
+	os.WriteFile("/tmp/data", payload, os.ModePerm)
 	url := cfg.Server.API + "/api/server/register"
 	log.Println("registering at ", url)
 
@@ -69,7 +73,7 @@ func Register(cfg *config.ClientConfig) error {
 	if err := tls.SaveCert(ncutils.GetNetclientPath(), "client.cert", &resp.Cert); err != nil {
 		return err
 	}
-	if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", key); err != nil {
+	if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", resp.Key); err != nil {
 		return err
 	}
 	logger.Log(0, "certificates/key saved ")

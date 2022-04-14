@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -12,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/tls"
-	"github.com/kr/pretty"
 )
 
 func serverHandlers(r *mux.Router) {
@@ -175,9 +176,26 @@ func register(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
-	pretty.Println(&request.CSR.PublicKey)
-	pretty.Println(request.CSR.RawSubjectPublicKeyInfo)
-	cert, err := tls.NewEndEntityCert(*key, &request.CSR, ca, tls.CERTIFICATE_VALIDITY)
+	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		logger.Log(2, "failed to generate client key", err.Error())
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusInternalServerError, Message: err.Error(),
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+	}
+	csr, err := tls.NewCSR(privKey, request.Name)
+	if err != nil {
+		logger.Log(2, "failed to generate client key", err.Error())
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusInternalServerError, Message: err.Error(),
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+	}
+
+	cert, err := tls.NewEndEntityCert(*key, csr, ca, tls.CERTIFICATE_VALIDITY)
 	if err != nil {
 		logger.Log(2, "unable to generate client certificate", err.Error())
 		errorResponse := models.ErrorResponse{
@@ -189,6 +207,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	response := config.RegisterResponse{
 		CA:   *ca,
 		Cert: *cert,
+		Key:  privKey,
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
