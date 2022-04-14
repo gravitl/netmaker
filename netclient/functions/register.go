@@ -1,10 +1,14 @@
 package functions
 
 import (
+	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -19,12 +23,28 @@ func Register(cfg *config.ClientConfig) error {
 	if cfg.Server.AccessKey == "" {
 		return errors.New("no access key provided")
 	}
-	url := cfg.Server.API + "/api/server/register"
-	log.Println("regsiter at ", url)
-	request, err := http.NewRequest(http.MethodPost, url, nil)
+	//create certificate request
+	_, key, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
+	name := tls.NewCName(os.Getenv("HOSTNAME"))
+	csr, err := tls.NewCSR(key, name)
+	if err != nil {
+		return err
+	}
+	data := config.RegisterRequest{
+		CSR: *csr,
+	}
+	payload, err := json.Marshal(data)
+	url := cfg.Server.API + "/api/server/register"
+	log.Println("registering at ", url)
+
+	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("authorization", "Bearer "+cfg.Server.AccessKey)
 	client := http.Client{}
 	response, err := client.Do(request)
@@ -41,6 +61,12 @@ func Register(cfg *config.ClientConfig) error {
 	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server, "root.cert", &resp.CA); err != nil {
 		return err
 	}
-	logger.Log(0, "server certificate saved ")
+	if err := tls.SaveCert(ncutils.GetNetclientPath(), "client.cert", &resp.Cert); err != nil {
+		return err
+	}
+	if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", key); err != nil {
+		return err
+	}
+	logger.Log(0, "certificates/key saved ")
 	return nil
 }

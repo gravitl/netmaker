@@ -45,7 +45,8 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	CA x509.Certificate
+	CA   x509.Certificate
+	Cert x509.Certificate
 }
 
 // Write - writes the config of a client to disk

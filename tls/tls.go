@@ -18,6 +18,9 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// certificate validity in days
+const CERTIFICATE_VALIDITY = 365
+
 type (
 	Key struct {
 		point *edwards25519.Point

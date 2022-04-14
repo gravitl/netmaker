@@ -111,7 +111,6 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 func register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	bearerToken := r.Header.Get("Authorization")
-
 	var tokenSplit = strings.Split(bearerToken, " ")
 	var token = ""
 	if len(tokenSplit) < 2 {
@@ -123,7 +122,15 @@ func register(w http.ResponseWriter, r *http.Request) {
 	} else {
 		token = tokenSplit[1]
 	}
-
+	//decode body
+	var request config.RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		logger.Log(3, "error decoding request")
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusBadRequest, Message: "invalid request",
+		}
+		returnErrorResponse(w, r, errorResponse)
+	}
 	found := false
 	networks, err := logic.GetNetworks()
 	if err != nil {
@@ -157,10 +164,28 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 		returnErrorResponse(w, r, errorResponse)
 		return
-		//return err
+	}
+	key, err := tls.ReadKey("etc/netmaker/root.key")
+	if err != nil {
+		logger.Log(2, "root ca not found")
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusNotFound, Message: "root ca not found",
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
+	}
+	cert, err := tls.NewEndEntityCert(*key, &request.CSR, ca, tls.CERTIFICATE_VALIDITY)
+	if err != nil {
+		logger.Log(2, "unable to generate client certificate")
+		errorResponse := models.ErrorResponse{
+			Code: http.StatusNotFound, Message: err.Error(),
+		}
+		returnErrorResponse(w, r, errorResponse)
+		return
 	}
 	response := config.RegisterResponse{
-		CA: *ca,
+		CA:   *ca,
+		Cert: *cert,
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
