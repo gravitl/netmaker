@@ -2,9 +2,7 @@ package controller
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -131,7 +129,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	//decode body
 	var request config.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		logger.Log(3, "error decoding request", err.Error())
+		logger.Log(0, "error decoding request", err.Error())
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusBadRequest, Message: err.Error(),
 		}
@@ -141,7 +139,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	found := false
 	networks, err := logic.GetNetworks()
 	if err != nil {
-		logger.Log(3, "no networks", err.Error())
+		logger.Log(0, "no networks", err.Error())
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusNotFound, Message: "no networks",
 		}
@@ -157,14 +155,14 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !found {
-		logger.Log(2, "valid access key not found")
+		logger.Log(0, "valid access key not found")
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: "You are unauthorized to access this endpoint.",
 		}
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
-	privKey, cert, ca, err := genCerts(request.Name)
+	cert, ca, err := genCerts(&request.CSR, request.Key)
 	if err != nil {
 		logger.Log(0, "failed to generater certs ", err.Error())
 		errorResponse := models.ErrorResponse{
@@ -176,38 +174,37 @@ func register(w http.ResponseWriter, r *http.Request) {
 	response := config.RegisterResponse{
 		CA:   *ca,
 		Cert: *cert,
-		Key:  *privKey,
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 
-func genCerts(name pkix.Name) (*ed25519.PrivateKey, *x509.Certificate, *x509.Certificate, error) {
+func genCerts(csr *x509.CertificateRequest, publickey ed25519.PublicKey) (*x509.Certificate, *x509.Certificate, error) {
 	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
 	if err != nil {
 		logger.Log(2, "root ca not found ", err.Error())
-		return nil, nil, nil, fmt.Errorf("root ca not found %w", err)
+		return nil, nil, fmt.Errorf("root ca not found %w", err)
 	}
 	key, err := tls.ReadKey("/etc/netmaker/root.key")
 	if err != nil {
 		logger.Log(2, "root key not found ", err.Error())
-		return nil, nil, nil, fmt.Errorf("root key not found %w", err)
+		return nil, nil, fmt.Errorf("root key not found %w", err)
 	}
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		logger.Log(2, "failed to generate client key", err.Error())
-		return nil, nil, nil, fmt.Errorf("client key generation failed %w", err)
-	}
-	csr, err := tls.NewCSR(privKey, name)
-	if err != nil {
-		logger.Log(2, "failed to generate client certificate requests", err.Error())
-		return nil, nil, nil, fmt.Errorf("client certification request generation failed %w", err)
-	}
-
+	//_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	//if err != nil {
+	//	logger.Log(2, "failed to generate client key", err.Error())
+	//	return nil, nil, nil, fmt.Errorf("client key generation failed %w", err)
+	//}
+	//csr, err := tls.NewCSR(privKey, name)
+	//if err != nil {
+	//	logger.Log(2, "failed to generate client certificate requests", err.Error())
+	//	return nil, nil, nil, fmt.Errorf("client certification request generation failed %w", err)
+	//}
+	csr.PublicKey = publickey
 	cert, err := tls.NewEndEntityCert(*key, csr, ca, tls.CERTIFICATE_VALIDITY)
 	if err != nil {
 		logger.Log(2, "unable to generate client certificate", err.Error())
-		return nil, nil, nil, fmt.Errorf("client certification generation failed %w", err)
+		return nil, nil, fmt.Errorf("client certification generation failed %w", err)
 	}
-	return &privKey, ca, cert, nil
+	return ca, cert, nil
 }

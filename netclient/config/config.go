@@ -4,7 +4,6 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"crypto/ed25519"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -43,13 +42,13 @@ type ServerConfig struct {
 
 // RegisterRequest - struct for registation with netmaker server
 type RegisterRequest struct {
-	Name pkix.Name
+	CSR x509.CertificateRequest
+	Key ed25519.PublicKey
 }
 
 type RegisterResponse struct {
 	CA   x509.Certificate
 	Cert x509.Certificate
-	Key  ed25519.PrivateKey
 }
 
 // Write - writes the config of a client to disk
