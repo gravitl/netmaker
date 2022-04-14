@@ -44,7 +44,6 @@ type ServerConfig struct {
 // RegisterRequest - struct for registation with netmaker server
 type RegisterRequest struct {
 	Name pkix.Name
-	CSR  x509.CertificateRequest
 }
 
 type RegisterResponse struct {

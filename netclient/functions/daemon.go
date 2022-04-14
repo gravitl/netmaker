@@ -282,7 +282,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	certpool := x509.NewCertPool()
 	ca, err := os.ReadFile(file)
 	if err != nil {
-		logger.Log(0, "could not read CA file %v\n", err.Error())
+		logger.Log(0, "could not read CA file ", err.Error())
 	}
 	ok := certpool.AppendCertsFromPEM(ca)
 	if !ok {

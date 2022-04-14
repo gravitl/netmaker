@@ -67,13 +67,13 @@ func Register(cfg *config.ClientConfig) error {
 	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
 		return errors.New("unmarshal cert error " + err.Error())
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server, "root.cert", &resp.CA); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "root.pem", &resp.CA); err != nil {
 		return err
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientPath(), "client.cert", &resp.Cert); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.pem", &resp.Cert); err != nil {
 		return err
 	}
-	if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", resp.Key); err != nil {
+	if err := tls.SaveKey(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.key", resp.Key); err != nil {
 		return err
 	}
 	logger.Log(0, "certificates/key saved ")
