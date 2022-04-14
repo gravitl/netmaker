@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/tls"
+	"github.com/kr/pretty"
 )
 
 func serverHandlers(r *mux.Router) {
@@ -142,7 +143,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, network := range networks {
 		for _, key := range network.AccessKeys {
-			if key.AccessString == token {
+			if key.Value == token {
 				found = true
 				break
 			}
@@ -158,27 +159,29 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}
 	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
 	if err != nil {
-		logger.Log(2, "root ca not found")
+		logger.Log(2, "root ca not found ", err.Error())
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusNotFound, Message: "root ca not found",
 		}
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
-	key, err := tls.ReadKey("etc/netmaker/root.key")
+	key, err := tls.ReadKey("/etc/netmaker/root.key")
 	if err != nil {
-		logger.Log(2, "root ca not found")
+		logger.Log(2, "root key not found ", err.Error())
 		errorResponse := models.ErrorResponse{
-			Code: http.StatusNotFound, Message: "root ca not found",
+			Code: http.StatusNotFound, Message: "root key not found",
 		}
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
+	pretty.Println(&request.CSR.PublicKey)
+	pretty.Println(request.CSR.RawSubjectPublicKeyInfo)
 	cert, err := tls.NewEndEntityCert(*key, &request.CSR, ca, tls.CERTIFICATE_VALIDITY)
 	if err != nil {
-		logger.Log(2, "unable to generate client certificate")
+		logger.Log(2, "unable to generate client certificate", err.Error())
 		errorResponse := models.ErrorResponse{
-			Code: http.StatusNotFound, Message: err.Error(),
+			Code: http.StatusInternalServerError, Message: err.Error(),
 		}
 		returnErrorResponse(w, r, errorResponse)
 		return

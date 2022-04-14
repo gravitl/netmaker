@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/tls"
+	"github.com/kr/pretty"
 )
 
 func Register(cfg *config.ClientConfig) error {
@@ -36,7 +37,11 @@ func Register(cfg *config.ClientConfig) error {
 	data := config.RegisterRequest{
 		CSR: *csr,
 	}
+	pretty.Println(data.CSR.PublicKey)
 	payload, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
 	url := cfg.Server.API + "/api/server/register"
 	log.Println("registering at ", url)
 
