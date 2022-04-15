@@ -288,8 +288,8 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 		logger.Log(0, "failed to append cert")
 	}
 	//mycert, err := ssl.ReadCert("/etc/netclient/" + server + "/client.pem")
-	//clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+server+"/client.pem", "/etc/netclient/client.key")
-	clientKeyPair, err := tls.LoadX509KeyPair("/home/mkasun/tmp/client.pem", "/home/mkasun/tmp/client.key")
+	clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+server+"/client.pem", "/etc/netclient/client.key")
+	//clientKeyPair, err := tls.LoadX509KeyPair("/home/mkasun/tmp/client.pem", "/home/mkasun/tmp/client.key")
 	if err != nil {
 		log.Fatalf("could not read client cert/key %v \n", err)
 	}

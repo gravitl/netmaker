@@ -47,6 +47,7 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
+	Key  ed25519.PrivateKey
 	CA   x509.Certificate
 	Cert x509.Certificate
 }

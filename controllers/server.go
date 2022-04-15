@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/tls"
 )
@@ -163,7 +164,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
-	cert, ca, err := genCerts(&request.CSR, request.Key)
+	// not working --- use openssl instead
+	//	cert, ca, err := genCerts(&request.CSR, request.Key)
+	key, cert, ca, err := genOpenSSLCerts()
 	if err != nil {
 		logger.Log(0, "failed to generater certs ", err.Error())
 		errorResponse := models.ErrorResponse{
@@ -172,6 +175,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
+
 	response := config.RegisterResponse{
 		CA:   *ca,
 		Cert: *cert,
@@ -201,6 +205,7 @@ func genCerts(csr *x509.CertificateRequest, publickey ed25519.PublicKey) (*x509.
 	//	logger.Log(2, "failed to generate client certificate requests", err.Error())
 	//	return nil, nil, nil, fmt.Errorf("client certification request generation failed %w", err)
 	//}
+
 	csr.PublicKey = publickey
 	cert, err := tls.NewEndEntityCert(*key, csr, ca, tls.CERTIFICATE_VALIDITY)
 	if err != nil {
@@ -208,4 +213,33 @@ func genCerts(csr *x509.CertificateRequest, publickey ed25519.PublicKey) (*x509.
 		return nil, nil, fmt.Errorf("client certification generation failed %w", err)
 	}
 	return ca, cert, nil
+}
+
+func genOpenSSLCerts() (*ed25519.PrivateKey, *x509.Certificate, *x509.Certificate, error) {
+	cmd1 := "openssl genpkey -algorithm Ed25519 -out /tmp/client.key"
+	cmd2 := "openssl req -new -out /tmp/client.csr -key tmp/client.key -subj  '/CN=client'"
+	cmd3 := "openssl x509 -req -in /tmp/client.csr -days 365 -CA /etc/netmaker/root.pem -CAkey /etc/netmaker/root.key -CAcreateserial -out /tmp/client.pem"
+
+	if _, err := ncutils.RunCmd(cmd1, true); err != nil {
+		return nil, nil, nil, fmt.Errorf("client key error %w", err)
+	}
+	if _, err := ncutils.RunCmd(cmd2, true); err != nil {
+		return nil, nil, nil, fmt.Errorf("client csr error %w", err)
+	}
+	if _, err := ncutils.RunCmd(cmd3, true); err != nil {
+		return nil, nil, nil, fmt.Errorf("client cert error %w", err)
+	}
+	key, err := tls.ReadKey("/tmp/client.key")
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("read client key error %w", err)
+	}
+	cert, err := tls.ReadCert("/tmp/client.pem")
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("read client cert error %w", err)
+	}
+	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("read ca cert error %w", err)
+	}
+	return key, cert, ca, nil
 }

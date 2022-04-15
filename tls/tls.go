@@ -100,9 +100,11 @@ func NewCSR(key ed25519.PrivateKey, name pkix.Name) (*x509.CertificateRequest, e
 	dnsnames := []string{}
 	dnsnames = append(dnsnames, name.CommonName)
 	derCertRequest, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
-		Subject:   name,
-		PublicKey: key.Public(),
-		DNSNames:  dnsnames,
+		Subject:            name,
+		PublicKey:          key.Public(),
+		DNSNames:           dnsnames,
+		PublicKeyAlgorithm: x509.Ed25519,
+		Version:            3,
 	}, key)
 	if err != nil {
 		return nil, err
@@ -152,10 +154,10 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 		SerialNumber:       serialNumber(),
 		SignatureAlgorithm: req.SignatureAlgorithm,
 		PublicKeyAlgorithm: req.PublicKeyAlgorithm,
-		//PublicKey:          req.PublicKey,
-		Subject:      req.Subject,
-		SubjectKeyId: req.RawSubject,
-		Issuer:       parent.Subject,
+		PublicKey:          key.Public(),
+		Subject:            req.Subject,
+		SubjectKeyId:       req.RawSubject,
+		Issuer:             parent.Subject,
 	}
 	rootCa, err := x509.CreateCertificate(rand.Reader, template, parent, key.Public(), key)
 	if err != nil {
@@ -168,6 +170,23 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 	return result, nil
 }
 
+func SaveRequest(path, name string, csr *x509.CertificateRequest) error {
+	if err := os.MkdirAll(path, 0644); err != nil {
+		return err
+	}
+	requestOut, err := os.Create(path + name)
+	if err != nil {
+		return err
+	}
+	defer requestOut.Close()
+	if err := pem.Encode(requestOut, &pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csr.Raw,
+	}); err != nil {
+		return err
+	}
+	return nil
+}
 func SaveCert(path, name string, cert *x509.Certificate) error {
 	//certbytes, err := x509.ParseCertificate(cert)
 	if err := os.MkdirAll(path, 0644); err != nil {
