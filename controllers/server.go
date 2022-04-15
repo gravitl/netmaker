@@ -177,6 +177,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := config.RegisterResponse{
+		Key:  *key,
 		CA:   *ca,
 		Cert: *cert,
 	}
