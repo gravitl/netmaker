@@ -2,11 +2,10 @@ package config
 
 import (
 	//"github.com/davecgh/go-spew/spew"
-	"bytes"
+
 	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,33 +47,35 @@ type RegisterRequest struct {
 	Key ed25519.PublicKey
 }
 
-// ConvertStructToByte - util to convert bytes to a key to use elsewhere
-func ConvertCertToBytes(cert x509.Certificate) ([]byte, error) {
-	var buffer bytes.Buffer
-	var enc = gob.NewEncoder(&buffer)
-	if err := enc.Encode(cert); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
-}
+// // ConvertStructToByte - util to convert bytes to a key to use elsewhere
+// func ConvertCertToBytes(cert x509.Certificate) ([]byte, error) {
+// 	var buffer bytes.Buffer
+// 	var enc = gob.NewEncoder(&buffer)
+// 	if err := enc.Encode(cert); err != nil {
+// 		return nil, err
+// 	}
+// 	return buffer.Bytes(), nil
+// }
 
-// ConvertStructToByte - util to convert bytes to a key to use elsewhere
-func ConvertBytesToCert(data []byte) (x509.Certificate, error) {
-	var buffer = bytes.NewBuffer(data)
-	var dec = gob.NewDecoder(buffer)
-	var result = new(x509.Certificate)
-	var err = dec.Decode(result)
-	if err != nil {
-		return *result, err
-	}
-	return *result, nil
-}
+// // ConvertStructToByte - util to convert bytes to a key to use elsewhere
+// func ConvertBytesToCert(data []byte) (x509.Certificate, error) {
+// 	var buffer = bytes.NewBuffer(data)
+// 	var dec = gob.NewDecoder(buffer)
+// 	var result = new(x509.Certificate)
+// 	var err = dec.Decode(result)
+// 	if err != nil {
+// 		return *result, err
+// 	}
+// 	return *result, nil
+// }
 
 // RegisterResponse - the response to register function
 type RegisterResponse struct {
-	Key       ed25519.PrivateKey
-	CABytes   []byte
-	CertBytes []byte
+	Key        ed25519.PrivateKey
+	CA         x509.Certificate
+	CAPubKey   ed25519.PublicKey
+	Cert       x509.Certificate
+	CertPubKey ed25519.PublicKey
 }
 
 // Write - writes the config of a client to disk

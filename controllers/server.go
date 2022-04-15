@@ -176,30 +176,32 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	caBytes, err := config.ConvertCertToBytes(*ca)
-	if err != nil {
-		logger.Log(0, "failed to encode CA cert ", err.Error())
-		errorResponse := models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: err.Error(),
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
-	}
+	// caBytes, err := config.ConvertCertToBytes(*ca)
+	// if err != nil {
+	// 	logger.Log(0, "failed to encode CA cert ", err.Error())
+	// 	errorResponse := models.ErrorResponse{
+	// 		Code: http.StatusInternalServerError, Message: err.Error(),
+	// 	}
+	// 	returnErrorResponse(w, r, errorResponse)
+	// 	return
+	// }
 
-	certBytes, err := config.ConvertCertToBytes(*cert)
-	if err != nil {
-		logger.Log(0, "failed to encode CA cert ", err.Error())
-		errorResponse := models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: err.Error(),
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
-	}
+	// certBytes, err := config.ConvertCertToBytes(*cert)
+	// if err != nil {
+	// 	logger.Log(0, "failed to encode CA cert ", err.Error())
+	// 	errorResponse := models.ErrorResponse{
+	// 		Code: http.StatusInternalServerError, Message: err.Error(),
+	// 	}
+	// 	returnErrorResponse(w, r, errorResponse)
+	// 	return
+	// }
 
 	response := config.RegisterResponse{
-		Key:       *key,
-		CABytes:   caBytes,
-		CertBytes: certBytes,
+		Key:        *key,
+		CA:         *ca,
+		CAPubKey:   (ca.PublicKey).(ed25519.PublicKey),
+		Cert:       *cert,
+		CertPubKey: (cert.PublicKey).(ed25519.PublicKey),
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)

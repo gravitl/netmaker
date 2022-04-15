@@ -63,19 +63,14 @@ func Register(cfg *config.ClientConfig) error {
 	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
 		return errors.New("unmarshal cert error " + err.Error())
 	}
-	responseCA, err := config.ConvertBytesToCert(resp.CABytes)
-	if err != nil {
-		return errors.New("could not acquire CA from response " + err.Error())
-	}
-	responseCert, err := config.ConvertBytesToCert(resp.CertBytes)
-	if err != nil {
-		return errors.New("could not acquire client certificate from response " + err.Error())
-	}
 
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "root.pem", &responseCA); err != nil {
+	resp.CA.PublicKey = resp.CAPubKey
+	resp.Cert.PublicKey = resp.CertPubKey
+
+	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "root.pem", &resp.CA); err != nil {
 		return err
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.pem", &responseCert); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.pem", &resp.Cert); err != nil {
 		return err
 	}
 	if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", private); err != nil {
