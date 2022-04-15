@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/tls"
 )
 
+// Register - the function responsible for registering with the server and acquiring certs
 func Register(cfg *config.ClientConfig) error {
 	if cfg.Server.Server == "" {
 		return errors.New("no server provided")
@@ -62,10 +63,19 @@ func Register(cfg *config.ClientConfig) error {
 	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
 		return errors.New("unmarshal cert error " + err.Error())
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "root.pem", &resp.CA); err != nil {
+	responseCA, err := config.ConvertBytesToCert(resp.CABytes)
+	if err != nil {
+		return errors.New("could not acquire CA from response " + err.Error())
+	}
+	responseCert, err := config.ConvertBytesToCert(resp.CertBytes)
+	if err != nil {
+		return errors.New("could not acquire client certificate from response " + err.Error())
+	}
+
+	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "root.pem", &responseCA); err != nil {
 		return err
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.pem", &resp.Cert); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.pem", &responseCert); err != nil {
 		return err
 	}
 	if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", private); err != nil {
