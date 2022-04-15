@@ -196,6 +196,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
+	tls.SaveCert("/tmp/sent/", "root.pem", ca)
+	tls.SaveCert("/tmp/sent/", "client.pem", cert)
+	tls.SaveKey("/tmp/sent/", "client.key", *key)
 	response := config.RegisterResponse{
 		Key:        *key,
 		CA:         *ca,
@@ -240,7 +243,7 @@ func genCerts(csr *x509.CertificateRequest, publickey ed25519.PublicKey) (*x509.
 
 func genOpenSSLCerts() (*ed25519.PrivateKey, *x509.Certificate, *x509.Certificate, error) {
 	cmd1 := "openssl genpkey -algorithm Ed25519 -out /tmp/client.key"
-	cmd2 := "openssl req -new -out /tmp/client.csr -key tmp/client.key -subj  '/CN=client'"
+	cmd2 := "openssl req -new -out /tmp/client.csr -key /tmp/client.key -subj /CN=client"
 	cmd3 := "openssl x509 -req -in /tmp/client.csr -days 365 -CA /etc/netmaker/root.pem -CAkey /etc/netmaker/root.key -CAcreateserial -out /tmp/client.pem"
 
 	if _, err := ncutils.RunCmd(cmd1, true); err != nil {
