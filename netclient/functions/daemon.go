@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -56,7 +57,7 @@ func Daemon() error {
 		//temporary code --- remove in version v0.13.0
 		removeHostDNS(network, ncutils.IsWindows())
 		// end of code to be removed in version v0.13.0
-		initialPull(cfg.Network)
+		//initialPull(cfg.Network)
 	}
 
 	// == subscribe to all nodes for each on machine ==
@@ -275,10 +276,8 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	var file string
 	if cfg != nil {
 		server = cfg.Server.Server
-		file = "/etc/netclient/" + cfg.Server.Server + "/root.pem"
-	} else {
-		file = "/etc/netclient/" + server + "/root.pem"
 	}
+	file = "/etc/netclient/" + server + "/server.pem"
 	certpool := x509.NewCertPool()
 	ca, err := os.ReadFile(file)
 	if err != nil {
@@ -288,15 +287,20 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	if !ok {
 		logger.Log(0, "failed to append cert")
 	}
-	//clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+cfg.Server.Server+"/client.pem", "/etc/netclient/client.key")
-	//if err != nil {
-	//	log.Fatalf("could not read client cert/key %v \n", err)
-	//}
+	//mycert, err := ssl.ReadCert("/etc/netclient/" + server + "/client.pem")
+	//clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+server+"/client.pem", "/etc/netclient/client.key")
+	clientKeyPair, err := tls.LoadX509KeyPair("/home/mkasun/tmp/client.pem", "/home/mkasun/tmp/client.key")
+	if err != nil {
+		log.Fatalf("could not read client cert/key %v \n", err)
+	}
+	certs := []tls.Certificate{clientKeyPair}
+	//certs = append(certs, tls.Certificate(&mycert))
 	return &tls.Config{
 		RootCAs:    certpool,
 		ClientAuth: tls.NoClientCert,
 		//ClientAuth:         tls.VerifyClientCertIfGiven,
-		ClientCAs: nil,
+		ClientCAs:    nil,
+		Certificates: certs,
 		//InsecureSkipVerify: false  fails ---- so need to use VerifyConnection
 		InsecureSkipVerify: true,
 		VerifyConnection: func(cs tls.ConnectionState) error {
@@ -304,7 +308,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 				logger.Log(0, "VerifyConnection - certifiate mismatch")
 				return errors.New("certificate doesn't match server")
 			}
-			ca, err := ssl.ReadCert("/etc/netclient/" + cs.ServerName + "/root.pem")
+			ca, err := ssl.ReadCert("/etc/netclient/" + cs.ServerName + "/server.pem")
 			if err != nil {
 				logger.Log(0, "VerifyConnection - unable to read ca", err.Error())
 				return errors.New("unable to read ca")

@@ -112,7 +112,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 // register - registers a client with the server and return the CA cert
 func register(w http.ResponseWriter, r *http.Request) {
-	logger.Log(3, "processing registration request")
+	logger.Log(2, "processing registration request")
 	w.Header().Set("Content-Type", "application/json")
 	bearerToken := r.Header.Get("Authorization")
 	var tokenSplit = strings.Split(bearerToken, " ")
@@ -136,6 +136,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
+	request.CSR.PublicKey = request.Key
 	found := false
 	networks, err := logic.GetNetworks()
 	if err != nil {
@@ -180,12 +181,12 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func genCerts(csr *x509.CertificateRequest, publickey ed25519.PublicKey) (*x509.Certificate, *x509.Certificate, error) {
-	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
+	ca, err := tls.ReadCert("/etc/netmaker/server.pem")
 	if err != nil {
 		logger.Log(2, "root ca not found ", err.Error())
 		return nil, nil, fmt.Errorf("root ca not found %w", err)
 	}
-	key, err := tls.ReadKey("/etc/netmaker/root.key")
+	key, err := tls.ReadKey("/etc/netmaker/server.key")
 	if err != nil {
 		logger.Log(2, "root key not found ", err.Error())
 		return nil, nil, fmt.Errorf("root key not found %w", err)

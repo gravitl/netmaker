@@ -146,7 +146,7 @@ openssl req -new -key certs/root.key -out certs/root.csr -subj '/CN=CA Root'
 openssl x509 -req -in certs/root.csr -days 365 -signkey certs/root.key -CAcreateserial -out certs/root.pem
 
 openssl genpkey -algorithm Ed25519 -out certs/server.key
-openssl req -new -out certs/server.csr -key certs/server.key -subj  $subject 
+openssl req -new -out certs/server.csr -key certs/server.key -subj  $server
 openssl x509 -req -in certs/server.csr -days 365 -CA certs/root.pem -CAkey certs/root.key -CAcreateserial -out certs/server.pem
 
 echo "setting docker-compose..."

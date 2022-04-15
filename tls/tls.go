@@ -121,7 +121,7 @@ func SelfSignedCA(key ed25519.PrivateKey, req *x509.CertificateRequest, days int
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		Version:               req.Version,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDataEncipherment,
 		NotAfter:              time.Now().Add(duration(days)),
 		NotBefore:             time.Now(),
 		SerialNumber:          serialNumber(),
@@ -152,12 +152,12 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 		SerialNumber:       serialNumber(),
 		SignatureAlgorithm: req.SignatureAlgorithm,
 		PublicKeyAlgorithm: req.PublicKeyAlgorithm,
-		PublicKey:          req.PublicKey,
-		Subject:            req.Subject,
-		SubjectKeyId:       req.RawSubject,
-		Issuer:             parent.Subject,
+		//PublicKey:          req.PublicKey,
+		Subject:      req.Subject,
+		SubjectKeyId: req.RawSubject,
+		Issuer:       parent.Subject,
 	}
-	rootCa, err := x509.CreateCertificate(rand.Reader, template, parent, req.PublicKey, key)
+	rootCa, err := x509.CreateCertificate(rand.Reader, template, parent, key.Public(), key)
 	if err != nil {
 		return nil, err
 	}

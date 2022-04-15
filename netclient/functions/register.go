@@ -42,7 +42,7 @@ func Register(cfg *config.ClientConfig) error {
 		return err
 	}
 	url := cfg.Server.API + "/api/server/register"
-	log.Println("registering at ", url)
+	log.Println("register at ", url)
 
 	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
 	if err != nil {
@@ -68,7 +68,7 @@ func Register(cfg *config.ClientConfig) error {
 	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.pem", &resp.Cert); err != nil {
 		return err
 	}
-	if err := tls.SaveKey(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.key", private); err != nil {
+	if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", private); err != nil {
 		return err
 	}
 	logger.Log(0, "certificates/key saved ")
