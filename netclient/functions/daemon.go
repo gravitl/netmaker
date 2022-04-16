@@ -57,7 +57,7 @@ func Daemon() error {
 		//temporary code --- remove in version v0.13.0
 		removeHostDNS(network, ncutils.IsWindows())
 		// end of code to be removed in version v0.13.0
-		//initialPull(cfg.Network)
+		initialPull(cfg.Network)
 	}
 
 	// == subscribe to all nodes for each on machine ==
@@ -277,7 +277,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	if cfg != nil {
 		server = cfg.Server.Server
 	}
-	file = "/etc/netclient/" + server + "/server.pem"
+	file = "/etc/netclient/" + server + "/root.pem"
 	certpool := x509.NewCertPool()
 	ca, err := os.ReadFile(file)
 	if err != nil {

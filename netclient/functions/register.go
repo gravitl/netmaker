@@ -41,7 +41,7 @@ func Register(cfg *config.ClientConfig) error {
 	if err != nil {
 		return err
 	}
-	url := cfg.Server.API + "/api/server/register"
+	url := "https://" + cfg.Server.API + "/api/server/register"
 	log.Println("register at ", url)
 
 	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
@@ -76,5 +76,5 @@ func Register(cfg *config.ClientConfig) error {
 		return err
 	}
 	logger.Log(0, "certificates/key saved ")
-	return nil
+	return JoinNetwork(cfg, "", false)
 }
