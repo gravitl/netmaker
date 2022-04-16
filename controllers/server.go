@@ -165,8 +165,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// not working --- use openssl instead
-	//	cert, ca, err := genCerts(&request.CSR, request.Key)
-	cert, ca, err := genOpenSSLCerts(&request.Key, &request.CommonName)
+	cert, ca, err := genCerts(&request.Key, &request.CommonName)
+	//cert, ca, err := genOpenSSLCerts(&request.Key, &request.CommonName)
 	if err != nil {
 		logger.Log(0, "failed to generater certs ", err.Error())
 		errorResponse := models.ErrorResponse{
@@ -188,29 +188,22 @@ func register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func genCerts(csr *x509.CertificateRequest, publickey ed25519.PublicKey) (*x509.Certificate, *x509.Certificate, error) {
-	ca, err := tls.ReadCert("/etc/netmaker/server.pem")
+func genCerts(clientKey *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
+	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
 	if err != nil {
 		logger.Log(2, "root ca not found ", err.Error())
 		return nil, nil, fmt.Errorf("root ca not found %w", err)
 	}
-	key, err := tls.ReadKey("/etc/netmaker/server.key")
+	key, err := tls.ReadKey("/etc/netmaker/root.key")
 	if err != nil {
 		logger.Log(2, "root key not found ", err.Error())
 		return nil, nil, fmt.Errorf("root key not found %w", err)
 	}
-	//_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	//if err != nil {
-	//	logger.Log(2, "failed to generate client key", err.Error())
-	//	return nil, nil, nil, fmt.Errorf("client key generation failed %w", err)
-	//}
-	//csr, err := tls.NewCSR(privKey, name)
-	//if err != nil {
-	//	logger.Log(2, "failed to generate client certificate requests", err.Error())
-	//	return nil, nil, nil, fmt.Errorf("client certification request generation failed %w", err)
-	//}
-
-	csr.PublicKey = publickey
+	csr, err := tls.NewCSR(*clientKey, *name)
+	if err != nil {
+		logger.Log(2, "failed to generate client certificate requests", err.Error())
+		return nil, nil, fmt.Errorf("client certification request generation failed %w", err)
+	}
 	cert, err := tls.NewEndEntityCert(*key, csr, ca, tls.CERTIFICATE_VALIDITY)
 	if err != nil {
 		logger.Log(2, "unable to generate client certificate", err.Error())
