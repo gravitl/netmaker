@@ -25,18 +25,17 @@ func Register(cfg *config.ClientConfig) error {
 		return errors.New("no access key provided")
 	}
 	//create certificate request
-	public, private, err := ed25519.GenerateKey(rand.Reader)
+	_, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
-	name := tls.NewCName(os.Getenv("HOSTNAME"))
-	csr, err := tls.NewCSR(private, name)
+	//csr, err := tls.NewCSR(private, name)
 	if err != nil {
 		return err
 	}
 	data := config.RegisterRequest{
-		CSR: *csr,
-		Key: public,
+		Key:        private,
+		CommonName: tls.NewCName(os.Getenv("HOSTNAME")),
 	}
 	payload, err := json.Marshal(data)
 	if err != nil {

@@ -3,6 +3,7 @@ package controller
 import (
 	"crypto/ed25519"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -137,7 +138,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
-	request.CSR.PublicKey = request.Key
 	found := false
 	networks, err := logic.GetNetworks()
 	if err != nil {
@@ -166,7 +166,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}
 	// not working --- use openssl instead
 	//	cert, ca, err := genCerts(&request.CSR, request.Key)
-	key, cert, ca, err := genOpenSSLCerts()
+	cert, ca, err := genOpenSSLCerts(&request.Key, &request.CommonName)
 	if err != nil {
 		logger.Log(0, "failed to generater certs ", err.Error())
 		errorResponse := models.ErrorResponse{
@@ -176,31 +176,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// caBytes, err := config.ConvertCertToBytes(*ca)
-	// if err != nil {
-	// 	logger.Log(0, "failed to encode CA cert ", err.Error())
-	// 	errorResponse := models.ErrorResponse{
-	// 		Code: http.StatusInternalServerError, Message: err.Error(),
-	// 	}
-	// 	returnErrorResponse(w, r, errorResponse)
-	// 	return
-	// }
-
-	// certBytes, err := config.ConvertCertToBytes(*cert)
-	// if err != nil {
-	// 	logger.Log(0, "failed to encode CA cert ", err.Error())
-	// 	errorResponse := models.ErrorResponse{
-	// 		Code: http.StatusInternalServerError, Message: err.Error(),
-	// 	}
-	// 	returnErrorResponse(w, r, errorResponse)
-	// 	return
-	// }
-
 	tls.SaveCert("/tmp/sent/", "root.pem", ca)
 	tls.SaveCert("/tmp/sent/", "client.pem", cert)
-	tls.SaveKey("/tmp/sent/", "client.key", *key)
 	response := config.RegisterResponse{
-		Key:        *key,
 		CA:         *ca,
 		CAPubKey:   (ca.PublicKey).(ed25519.PublicKey),
 		Cert:       *cert,
@@ -241,31 +219,26 @@ func genCerts(csr *x509.CertificateRequest, publickey ed25519.PublicKey) (*x509.
 	return ca, cert, nil
 }
 
-func genOpenSSLCerts() (*ed25519.PrivateKey, *x509.Certificate, *x509.Certificate, error) {
-	cmd1 := "openssl genpkey -algorithm Ed25519 -out /tmp/client.key"
-	cmd2 := "openssl req -new -out /tmp/client.csr -key /tmp/client.key -subj /CN=client"
+func genOpenSSLCerts(key *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
+	if err := tls.SaveKey("/tmp/", "client.key", *key); err != nil {
+		return nil, nil, fmt.Errorf("failed to store client key %w", err)
+	}
+	cmd2 := fmt.Sprintf("openssl req -new -out /tmp/client.csr -key /tmp/client.key -subj /CN=%s", name.CommonName)
 	cmd3 := "openssl x509 -req -in /tmp/client.csr -days 365 -CA /etc/netmaker/root.pem -CAkey /etc/netmaker/root.key -CAcreateserial -out /tmp/client.pem"
 
-	if _, err := ncutils.RunCmd(cmd1, true); err != nil {
-		return nil, nil, nil, fmt.Errorf("client key error %w", err)
-	}
 	if _, err := ncutils.RunCmd(cmd2, true); err != nil {
-		return nil, nil, nil, fmt.Errorf("client csr error %w", err)
+		return nil, nil, fmt.Errorf("client csr error %w", err)
 	}
 	if _, err := ncutils.RunCmd(cmd3, true); err != nil {
-		return nil, nil, nil, fmt.Errorf("client cert error %w", err)
-	}
-	key, err := tls.ReadKey("/tmp/client.key")
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("read client key error %w", err)
+		return nil, nil, fmt.Errorf("client cert error %w", err)
 	}
 	cert, err := tls.ReadCert("/tmp/client.pem")
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("read client cert error %w", err)
+		return nil, nil, fmt.Errorf("read client cert error %w", err)
 	}
 	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("read ca cert error %w", err)
+		return nil, nil, fmt.Errorf("read ca cert error %w", err)
 	}
-	return key, cert, ca, nil
+	return cert, ca, nil
 }

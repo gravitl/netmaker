@@ -5,6 +5,7 @@ import (
 
 	"crypto/ed25519"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -43,31 +44,9 @@ type ServerConfig struct {
 
 // RegisterRequest - struct for registation with netmaker server
 type RegisterRequest struct {
-	CSR x509.CertificateRequest
-	Key ed25519.PublicKey
+	Key        ed25519.PrivateKey
+	CommonName pkix.Name
 }
-
-// // ConvertStructToByte - util to convert bytes to a key to use elsewhere
-// func ConvertCertToBytes(cert x509.Certificate) ([]byte, error) {
-// 	var buffer bytes.Buffer
-// 	var enc = gob.NewEncoder(&buffer)
-// 	if err := enc.Encode(cert); err != nil {
-// 		return nil, err
-// 	}
-// 	return buffer.Bytes(), nil
-// }
-
-// // ConvertStructToByte - util to convert bytes to a key to use elsewhere
-// func ConvertBytesToCert(data []byte) (x509.Certificate, error) {
-// 	var buffer = bytes.NewBuffer(data)
-// 	var dec = gob.NewDecoder(buffer)
-// 	var result = new(x509.Certificate)
-// 	var err = dec.Decode(result)
-// 	if err != nil {
-// 		return *result, err
-// 	}
-// 	return *result, nil
-// }
 
 // RegisterResponse - the response to register function
 type RegisterResponse struct {
