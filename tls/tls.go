@@ -80,7 +80,7 @@ func ReadFrom(path string) (*Key, error) {
 	return &Key{point}, nil
 }
 
-// creates a new pkix.Name
+// NewName creates a new pkix.Name
 func NewName(commonName, country, org string) pkix.Name {
 	res := NewCName(commonName)
 	res.Country = []string{country}
@@ -88,14 +88,14 @@ func NewName(commonName, country, org string) pkix.Name {
 	return res
 }
 
-// creates a new pkix.Name with only a common name
+// NewCName creates a new pkix.Name with only a common name
 func NewCName(commonName string) pkix.Name {
 	return pkix.Name{
 		CommonName: commonName,
 	}
 }
 
-// creates a new certificate signing request for a
+// NewCSR creates a new certificate signing request for a
 func NewCSR(key ed25519.PrivateKey, name pkix.Name) (*x509.CertificateRequest, error) {
 	dnsnames := []string{}
 	dnsnames = append(dnsnames, name.CommonName)
@@ -116,7 +116,7 @@ func NewCSR(key ed25519.PrivateKey, name pkix.Name) (*x509.CertificateRequest, e
 	return csr, nil
 }
 
-// returns a new self-signed certificate
+// SelfSignedCA returns a new self-signed certificate
 func SelfSignedCA(key ed25519.PrivateKey, req *x509.CertificateRequest, days int) (*x509.Certificate, error) {
 
 	template := &x509.Certificate{
@@ -145,7 +145,7 @@ func SelfSignedCA(key ed25519.PrivateKey, req *x509.CertificateRequest, days int
 	return result, nil
 }
 
-// issues a new certificate from a parent certificate authority
+// NewEndEntityCert issues a new certificate from a parent certificate authority
 func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, parent *x509.Certificate, days int) (*x509.Certificate, error) {
 	template := &x509.Certificate{
 		Version:            req.Version,
@@ -170,6 +170,7 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 	return result, nil
 }
 
+// SaveRequest saves a certificate request to the specified path
 func SaveRequest(path, name string, csr *x509.CertificateRequest) error {
 	if err := os.MkdirAll(path, 0644); err != nil {
 		return err
@@ -187,6 +188,8 @@ func SaveRequest(path, name string, csr *x509.CertificateRequest) error {
 	}
 	return nil
 }
+
+// SaveCert save a certificate to the specified path
 func SaveCert(path, name string, cert *x509.Certificate) error {
 	//certbytes, err := x509.ParseCertificate(cert)
 	if err := os.MkdirAll(path, 0644); err != nil {
@@ -206,6 +209,7 @@ func SaveCert(path, name string, cert *x509.Certificate) error {
 	return nil
 }
 
+// SaveKey save a private key (ed25519) to the specified path
 func SaveKey(path, name string, key ed25519.PrivateKey) error {
 	//func SaveKey(name string, key *ecdsa.PrivateKey) error {
 	if err := os.MkdirAll(path, 0644); err != nil {
@@ -229,6 +233,7 @@ func SaveKey(path, name string, key ed25519.PrivateKey) error {
 	return nil
 }
 
+// ReadCert reads a certificate from disk
 func ReadCert(name string) (*x509.Certificate, error) {
 	contents, err := os.ReadFile(name)
 	if err != nil {
@@ -245,6 +250,7 @@ func ReadCert(name string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+// ReadKey reads a private key (ed25519) from disk
 func ReadKey(name string) (*ed25519.PrivateKey, error) {
 	bytes, err := os.ReadFile(name)
 	if err != nil {
@@ -259,6 +265,7 @@ func ReadKey(name string) (*ed25519.PrivateKey, error) {
 	return &private, nil
 }
 
+// serialNumber generates a serial number for a certificate
 func serialNumber() *big.Int {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
@@ -268,6 +275,7 @@ func serialNumber() *big.Int {
 	return serialNumber
 }
 
+// duration coverts the number of days to time.duration
 func duration(days int) time.Duration {
 	hours := days * 24
 	duration, err := time.ParseDuration(fmt.Sprintf("%dh", hours))

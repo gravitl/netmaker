@@ -50,7 +50,6 @@ type RegisterRequest struct {
 
 // RegisterResponse - the response to register function
 type RegisterResponse struct {
-	Key        ed25519.PrivateKey
 	CA         x509.Certificate
 	CAPubKey   ed25519.PublicKey
 	Cert       x509.Certificate
