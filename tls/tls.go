@@ -148,18 +148,16 @@ func SelfSignedCA(key ed25519.PrivateKey, req *x509.CertificateRequest, days int
 // issues a new certificate from a parent certificate authority
 func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, parent *x509.Certificate, days int) (*x509.Certificate, error) {
 	template := &x509.Certificate{
-		Version:            req.Version,
-		NotBefore:          time.Now(),
-		NotAfter:           time.Now().Add(duration(days)),
-		SerialNumber:       serialNumber(),
-		SignatureAlgorithm: req.SignatureAlgorithm,
-		PublicKeyAlgorithm: req.PublicKeyAlgorithm,
-		PublicKey:          key.Public(),
-		Subject:            req.Subject,
-		SubjectKeyId:       req.RawSubject,
-		Issuer:             parent.Subject,
+		Version:               req.Version,
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(duration(days)),
+		SerialNumber:          serialNumber(),
+		Subject:               req.Subject,
+		Issuer:                parent.Subject,
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
 	}
-	rootCa, err := x509.CreateCertificate(rand.Reader, template, parent, key.Public(), key)
+	rootCa, err := x509.CreateCertificate(rand.Reader, template, parent, req.PublicKey, key)
 	if err != nil {
 		return nil, err
 	}
