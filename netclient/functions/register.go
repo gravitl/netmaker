@@ -25,13 +25,13 @@ func Register(cfg *config.ClientConfig) error {
 		return errors.New("no access key provided")
 	}
 	//generate new key if one doesn' exist
-	private, err := tls.ReadKey("/etc/netclient/client.key")
+	private, err := tls.ReadKey(ncutils.GetNetclientPath() + "/client.key")
 	if err != nil {
 		_, *private, err = ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveKey(ncutils.GetNetclientPath(), "client.key", *private); err != nil {
+		if err := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", *private); err != nil {
 			return err
 		}
 	}
@@ -67,10 +67,10 @@ func Register(cfg *config.ClientConfig) error {
 	//the pubkeys are included in the response so the values in the certificate can be updated appropriately
 	resp.CA.PublicKey = resp.CAPubKey
 	resp.Cert.PublicKey = resp.CertPubKey
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "root.pem", &resp.CA); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientServerPath(cfg.Server.Server)+"/", "root.pem", &resp.CA); err != nil {
 		return err
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientPath()+cfg.Server.Server+"/", "client.pem", &resp.Cert); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientServerPath(cfg.Server.Server)+"/", "client.pem", &resp.Cert); err != nil {
 		return err
 	}
 	logger.Log(0, "certificates/key saved ")

@@ -40,7 +40,7 @@ const NO_DB_RECORD = "no result found"
 const NO_DB_RECORDS = "could not find any records"
 
 // LINUX_APP_DATA_PATH - linux path
-const LINUX_APP_DATA_PATH = "/etc/netclient/"
+const LINUX_APP_DATA_PATH = "/etc/netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
@@ -315,6 +315,17 @@ func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
 		}
 	}
 	return data, err
+}
+
+// GetNetclientServerPath - gets netclient server path
+func GetNetclientServerPath(server string) string {
+	if IsWindows() {
+		return WINDOWS_APP_DATA_PATH + "\\" + server + "\\"
+	} else if IsMac() {
+		return "/etc/netclient/" + server + "/"
+	} else {
+		return LINUX_APP_DATA_PATH + "/" + server
+	}
 }
 
 // GetNetclientPathSpecific - gets specific netclient config path

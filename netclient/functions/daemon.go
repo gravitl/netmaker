@@ -276,7 +276,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	if cfg != nil {
 		server = cfg.Server.Server
 	}
-	file = "/etc/netclient/" + server + "/root.pem"
+	file = ncutils.GetNetclientServerPath(server) + "/root.pem"
 	certpool := x509.NewCertPool()
 	ca, err := os.ReadFile(file)
 	if err != nil {
@@ -286,7 +286,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	if !ok {
 		logger.Log(0, "failed to append cert")
 	}
-	clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+server+"/client.pem", "/etc/netclient/client.key")
+	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+"/client.pem", ncutils.GetNetclientPath()+"/client.key")
 	if err != nil {
 		log.Fatalf("could not read client cert/key %v \n", err)
 	}
@@ -303,7 +303,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 				logger.Log(0, "VerifyConnection - certifiate mismatch")
 				return errors.New("certificate doesn't match server")
 			}
-			ca, err := ssl.ReadCert("/etc/netclient/" + cs.ServerName + "/root.pem")
+			ca, err := ssl.ReadCert(ncutils.GetNetclientServerPath(cs.ServerName) + "/root.pem")
 			if err != nil {
 				logger.Log(0, "VerifyConnection - unable to read ca", err.Error())
 				return errors.New("unable to read ca")
