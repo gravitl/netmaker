@@ -112,7 +112,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // 	json.NewEncoder(w).Encode("Server added to network " + params["network"])
 // }
 
-// register - registers a client with the server and return the CA cert
+// register - registers a client with the server and return the CA and cert
 func register(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, "processing registration request")
 	w.Header().Set("Content-Type", "application/json")
@@ -164,9 +164,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
-	// not working --- use openssl instead
 	cert, ca, err := genCerts(&request.Key, &request.CommonName)
-	//cert, ca, err := genOpenSSLCerts(&request.Key, &request.CommonName)
 	if err != nil {
 		logger.Log(0, "failed to generater certs ", err.Error())
 		errorResponse := models.ErrorResponse{
@@ -178,6 +176,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 	tls.SaveCert("/tmp/sent/", "root.pem", ca)
 	tls.SaveCert("/tmp/sent/", "client.pem", cert)
+	//x509.Certificate.PublicKey is an interface therefore json encoding/decoding result in a string value rather than a []byte
+	//include the actual public key so the certificate can be properly reassembled on the other end.
 	response := config.RegisterResponse{
 		CA:         *ca,
 		CAPubKey:   (ca.PublicKey).(ed25519.PublicKey),
@@ -188,6 +188,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// genCerts generates a client certificate and returns the certificate and root CA
 func genCerts(clientKey *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
 	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
 	if err != nil {
@@ -212,6 +213,7 @@ func genCerts(clientKey *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate
 	return cert, ca, nil
 }
 
+// genCerts generates a client certificate using calls to openssl and returns the certificate and root CA
 func genOpenSSLCerts(key *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
 	if err := tls.SaveKey("/tmp/", "client.key", *key); err != nil {
 		return nil, nil, fmt.Errorf("failed to store client key %w", err)

@@ -131,7 +131,7 @@ func PingServer(cfg *config.ClientConfig) error {
 // == Private ==
 
 // sets MQ client subscriptions for a specific node config
-// should be called for each node belonging to a given comms network
+// should be called for each node belonging to a given server
 func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 	if nodeCfg.DebugOn {
 		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
@@ -140,7 +140,6 @@ func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 		}
 		logger.Log(0, "subscribed to all topics for debugging purposes")
 	}
-
 	if token := client.Subscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
 		logger.Log(0, token.Error().Error())
 		return
@@ -271,7 +270,7 @@ func setupMQTTSub(server string) mqtt.Client {
 	return client
 }
 
-// NewTLSConf sets up tls to connect to broker
+// NewTLSConf sets up tls configuration to connect to broker securely
 func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	var file string
 	if cfg != nil {
@@ -287,18 +286,14 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	if !ok {
 		logger.Log(0, "failed to append cert")
 	}
-	//mycert, err := ssl.ReadCert("/etc/netclient/" + server + "/client.pem")
 	clientKeyPair, err := tls.LoadX509KeyPair("/etc/netclient/"+server+"/client.pem", "/etc/netclient/client.key")
-	//clientKeyPair, err := tls.LoadX509KeyPair("/home/mkasun/tmp/client.pem", "/home/mkasun/tmp/client.key")
 	if err != nil {
 		log.Fatalf("could not read client cert/key %v \n", err)
 	}
 	certs := []tls.Certificate{clientKeyPair}
-	//certs = append(certs, tls.Certificate(&mycert))
 	return &tls.Config{
-		RootCAs:    certpool,
-		ClientAuth: tls.NoClientCert,
-		//ClientAuth:         tls.VerifyClientCertIfGiven,
+		RootCAs:      certpool,
+		ClientAuth:   tls.NoClientCert,
 		ClientCAs:    nil,
 		Certificates: certs,
 		//InsecureSkipVerify: false  fails ---- so need to use VerifyConnection
@@ -327,7 +322,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 }
 
 // setupMQTT creates a connection to broker and return client
-// utilizes comms client configs to setup connections
+// this function is primarily used to create a connection to publish to the broker
 func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
@@ -493,5 +488,3 @@ func read(network, which string) string {
 	}
 	return ""
 }
-
-// == End Message Caches ==
