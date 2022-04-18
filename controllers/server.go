@@ -213,7 +213,7 @@ func genCerts(clientKey *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate
 	return cert, ca, nil
 }
 
-// genCerts generates a client certificate using calls to openssl and returns the certificate and root CA
+// genOpenSSLCerts generates a client certificate using calls to openssl and returns the certificate and root CA
 func genOpenSSLCerts(key *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
 	if err := tls.SaveKey("/tmp/", "client.key", *key); err != nil {
 		return nil, nil, fmt.Errorf("failed to store client key %w", err)
