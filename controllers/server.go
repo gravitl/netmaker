@@ -209,7 +209,7 @@ func genCerts(clientKey *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate
 		logger.Log(2, "unable to generate client certificate", err.Error())
 		return nil, nil, fmt.Errorf("client certification generation failed %w", err)
 	}
-	return ca, cert, nil
+	return cert, ca, nil
 }
 
 func genOpenSSLCerts(key *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
