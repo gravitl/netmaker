@@ -103,9 +103,6 @@ func initialize() { // Client Mode Prereq Check
 		if err := serverctl.InitServerNetclient(); err != nil {
 			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
 		}
-		if err := serverctl.InitializeCommsNetwork(); err != nil {
-			logger.FatalLog("could not inintialize comms network")
-		}
 	}
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
 	if servercfg.ManageIPTables() != "off" {
