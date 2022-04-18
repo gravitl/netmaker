@@ -7,6 +7,7 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
+      - /root/certs/:/etc/netmaker/
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -78,7 +79,7 @@ services:
     container_name: mq
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
       - "8883:8883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf

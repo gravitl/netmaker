@@ -138,7 +138,7 @@ echo "setting mosquitto.conf..."
 wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
 
 echo "creating certificates for mosquitto"
-server=$( echo "broker."$NETMAKER_BASE_DOMAIN)
+server=$( echo "/CN=broker."$NETMAKER_BASE_DOMAIN)
 mkdir certs
 
 openssl genpkey -algorithm Ed25519 -out certs/root.key
