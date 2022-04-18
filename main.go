@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -11,6 +14,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/config"
@@ -25,6 +29,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
+	"github.com/gravitl/netmaker/tls"
 	"google.golang.org/grpc"
 )
 
@@ -117,6 +122,7 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog(err.Error())
 		}
 	}
+	genCerts()
 }
 
 func startControllers() {
@@ -234,4 +240,64 @@ func setGarbageCollection() {
 	if !gcset {
 		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
+}
+
+func genCerts() error {
+	private, err := tls.ReadKey(functions.GetNetmakerPath())
+	if errors.Is(err, os.ErrNotExist) {
+		_, *private, err = ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		if err := tls.SaveKey(functions.GetNetmakerPath(), "/root.key", *private); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	ca, err := tls.ReadCert(functions.GetNetmakerPath() + "/root.pem")
+	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
+	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+	if errors.Is(err, os.ErrNotExist) {
+		caName := tls.NewName("CA Root", "US", "Gravitl")
+		csr, err := tls.NewCSR(*private, caName)
+		if err != nil {
+			return err
+		}
+		rootCA, err := tls.SelfSignedCA(*private, csr, tls.CERTIFICATE_VALIDITY)
+		if err != nil {
+			return err
+		}
+		if err := tls.SaveCert(functions.GetNetmakerPath(), "/root.pem", rootCA); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	cert, err := tls.ReadCert(functions.GetNetmakerPath() + "/server.pem")
+	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+		//gen new key
+		_, key, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		serverName := tls.NewCName(servercfg.GetServer())
+		csr, err := tls.NewCSR(key, serverName)
+		if err != nil {
+			return err
+		}
+		cert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
+		if err != nil {
+			return err
+		}
+		if err := tls.SaveKey(functions.GetNetmakerPath(), "/server.key", key); err != nil {
+			return err
+		}
+		if err := tls.SaveCert(functions.GetNetmakerPath(), "/server.pem", cert); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	return nil
 }

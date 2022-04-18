@@ -155,6 +155,6 @@ func Daemon() error {
 	return err
 }
 
-func Register(cfg *config.ClientConfig) error {
-	return functions.Register(cfg)
+func Register(cfg *config.ClientConfig, key string) error {
+	return functions.Register(cfg, key)
 }

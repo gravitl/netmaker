@@ -170,7 +170,7 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 
 // SaveRequest saves a certificate request to the specified path
 func SaveRequest(path, name string, csr *x509.CertificateRequest) error {
-	if err := os.MkdirAll(path, 0644); err != nil {
+	if err := os.MkdirAll(path, 0600); err != nil {
 		return err
 	}
 	requestOut, err := os.Create(path + name)
@@ -190,7 +190,7 @@ func SaveRequest(path, name string, csr *x509.CertificateRequest) error {
 // SaveCert save a certificate to the specified path
 func SaveCert(path, name string, cert *x509.Certificate) error {
 	//certbytes, err := x509.ParseCertificate(cert)
-	if err := os.MkdirAll(path, 0644); err != nil {
+	if err := os.MkdirAll(path, 0600); err != nil {
 		return fmt.Errorf("failed to create dir %s %w", path, err)
 	}
 	certOut, err := os.Create(path + name)
@@ -210,7 +210,7 @@ func SaveCert(path, name string, cert *x509.Certificate) error {
 // SaveKey save a private key (ed25519) to the specified path
 func SaveKey(path, name string, key ed25519.PrivateKey) error {
 	//func SaveKey(name string, key *ecdsa.PrivateKey) error {
-	if err := os.MkdirAll(path, 0644); err != nil {
+	if err := os.MkdirAll(path, 0600); err != nil {
 		return fmt.Errorf("failed to create dir %s %w", path, err)
 	}
 	keyOut, err := os.Create(path + name)

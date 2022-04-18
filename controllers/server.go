@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/tls"
 )
@@ -173,9 +172,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
-
-	tls.SaveCert("/tmp/sent/", "root.pem", ca)
-	tls.SaveCert("/tmp/sent/", "client.pem", cert)
 	//x509.Certificate.PublicKey is an interface therefore json encoding/decoding result in a string value rather than a []byte
 	//include the actual public key so the certificate can be properly reassembled on the other end.
 	response := config.RegisterResponse{
@@ -209,31 +205,6 @@ func genCerts(clientKey *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate
 	if err != nil {
 		logger.Log(2, "unable to generate client certificate", err.Error())
 		return nil, nil, fmt.Errorf("client certification generation failed %w", err)
-	}
-	return cert, ca, nil
-}
-
-// genOpenSSLCerts generates a client certificate using calls to openssl and returns the certificate and root CA
-func genOpenSSLCerts(key *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
-	if err := tls.SaveKey("/tmp/", "client.key", *key); err != nil {
-		return nil, nil, fmt.Errorf("failed to store client key %w", err)
-	}
-	cmd2 := fmt.Sprintf("openssl req -new -out /tmp/client.csr -key /tmp/client.key -subj /CN=%s", name.CommonName)
-	cmd3 := "openssl x509 -req -in /tmp/client.csr -days 365 -CA /etc/netmaker/root.pem -CAkey /etc/netmaker/root.key -CAcreateserial -out /tmp/client.pem"
-
-	if _, err := ncutils.RunCmd(cmd2, true); err != nil {
-		return nil, nil, fmt.Errorf("client csr error %w", err)
-	}
-	if _, err := ncutils.RunCmd(cmd3, true); err != nil {
-		return nil, nil, fmt.Errorf("client cert error %w", err)
-	}
-	cert, err := tls.ReadCert("/tmp/client.pem")
-	if err != nil {
-		return nil, nil, fmt.Errorf("read client cert error %w", err)
-	}
-	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
-	if err != nil {
-		return nil, nil, fmt.Errorf("read ca cert error %w", err)
 	}
 	return cert, ca, nil
 }

@@ -23,6 +23,9 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// LINUX_APP_DATA_PATH - linux path
+const LINUX_APP_DATA_PATH = "/etc/netmaker"
+
 // ListPorts - lists ports of WireGuard devices
 func ListPorts() error {
 	wgclient, err := wgctrl.New()
@@ -320,4 +323,9 @@ func WipeLocal(network string) error {
 		}
 	}
 	return err
+}
+
+// GetNetmakerPath - gets netmaker path locally
+func GetNetmakerPath() string {
+	return LINUX_APP_DATA_PATH
 }

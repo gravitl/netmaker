@@ -7,6 +7,9 @@ import (
 	"github.com/gravitl/netmaker/logic"
 )
 
+// LINUX_APP_DATA_PATH - linux path
+const LINUX_APP_DATA_PATH = "/etc/netmaker"
+
 // FileExists - checks if file exists
 func FileExists(f string) bool {
 	info, err := os.Stat(f)
@@ -48,4 +51,9 @@ func SetDNSDir() error {
 		}
 	}
 	return nil
+}
+
+// GetNetmakerPath - gets netmaker path locally
+func GetNetmakerPath() string {
+	return LINUX_APP_DATA_PATH
 }

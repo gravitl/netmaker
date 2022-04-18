@@ -3,7 +3,9 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/tls"
 )
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
@@ -75,6 +78,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup, currentComms map[string]st
 				} else {
 					Hello(&nodeCfg)
 				}
+				checkCertExpiry(&nodeCfg)
 			}
 		}
 	}
@@ -132,6 +136,22 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 
 	if token := client.Publish(dest, qos, false, encrypted); token.Wait() && token.Error() != nil {
 		return token.Error()
+	}
+	return nil
+}
+
+func checkCertExpiry(cfg *config.ClientConfig) error {
+	cert, err := tls.ReadCert(ncutils.GetNetclientServerPath(cfg.Server.Server) + "/client.pem")
+	//if cert doesn't exist or will expire within 10 days
+	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+		key, err := tls.ReadKey(ncutils.GetNetclientPath() + "/client.key")
+		if err != nil {
+			return err
+		}
+		return RegisterWithServer(key, cfg)
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }

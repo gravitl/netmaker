@@ -186,7 +186,6 @@ func setupMQTTSub(server string) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
 	opts.TLSConfig = NewTLSConfig(nil, server)
-	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
@@ -328,7 +327,6 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	server := cfg.Server.Server
 	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
 	opts.TLSConfig = NewTLSConfig(cfg, "")
-	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)

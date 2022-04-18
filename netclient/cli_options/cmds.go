@@ -30,7 +30,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 					err = errors.New("no server address provided")
 					return err
 				}
-				err = command.Join(&cfg, pvtKey)
+				err = command.Register(&cfg, pvtKey)
 				return err
 			},
 		},
@@ -103,18 +103,6 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				logger.Verbosity = 3
 				err := command.Daemon()
 				return err
-			},
-		},
-		{
-			Name:  "register",
-			Usage: "register with netmaker",
-			Flags: cliFlags,
-			Action: func(c *cli.Context) error {
-				cfg, _, err := config.GetCLIConfig(c)
-				if err != nil {
-					return err
-				}
-				return command.Register(&cfg)
 			},
 		},
 	}

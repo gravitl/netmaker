@@ -17,7 +17,7 @@ import (
 )
 
 // Register - the function responsible for registering with the server and acquiring certs
-func Register(cfg *config.ClientConfig) error {
+func Register(cfg *config.ClientConfig, key string) error {
 	if cfg.Server.Server == "" {
 		return errors.New("no server provided")
 	}
@@ -35,6 +35,20 @@ func Register(cfg *config.ClientConfig) error {
 			return err
 		}
 	}
+	//check if cert exists
+	_, err = tls.ReadCert(ncutils.GetNetclientServerPath(cfg.Server.Server) + "/client.pem")
+	if err != os.ErrNotExist {
+		if err := RegisterWithServer(private, cfg); err != nil {
+			return err
+		}
+	}
+	if err != nil {
+		return err
+	}
+	return JoinNetwork(cfg, key, false)
+}
+
+func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) error {
 	data := config.RegisterRequest{
 		Key:        *private,
 		CommonName: tls.NewCName(os.Getenv("HOSTNAME")),
@@ -75,5 +89,5 @@ func Register(cfg *config.ClientConfig) error {
 	}
 	logger.Log(0, "certificates/key saved ")
 	//join the network defined in the token
-	return JoinNetwork(cfg, "", false)
+	return nil
 }
