@@ -21,7 +21,7 @@ type Network struct {
 	AccessKeys          []AccessKey `json:"accesskeys" bson:"accesskeys"`
 	AllowManualSignUp   string      `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
 	IsLocal             string      `json:"islocal" bson:"islocal" validate:"checkyesorno"`
-	IsDualStack         string      `json:"isdualstack" bson:"isdualstack" validate:"checkyesorno"`
+	IsDualStack         string      `json:"isdualstack" bson:"isdualstack" validate:"checkyesorno"` // ** IsDualStack deprecated **
 	IsIPv4              string      `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
 	IsPointToSite       string      `json:"ispointtosite" bson:"ispointtosite" validate:"checkyesorno"`
@@ -86,6 +86,14 @@ func (network *Network) SetDefaults() {
 	} else {
 		network.IsIPv6 = "no"
 		network.IsIPv4 = "yes"
+	}
+
+	if network.IsIPv4 == "" {
+		network.IsIPv4 = "yes"
+	}
+
+	if network.IsIPv6 == "" {
+		network.IsIPv6 = "no"
 	}
 
 	if network.DefaultMTU == 0 {

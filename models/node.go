@@ -70,7 +70,8 @@ type Node struct {
 	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
 	//PullChanges         string      `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
-	DNSOn        string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	DNSOn string `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	// ** IsDualStack deprecated **
 	IsDualStack  string      `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
 	IsServer     string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Action       string      `json:"action" bson:"action" yaml:"action"`
