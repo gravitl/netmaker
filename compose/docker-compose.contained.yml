@@ -7,7 +7,7 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - /etc/netmaker/:/etc/netmaker/
+      - /root/certs:/etc/netmaker/
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -85,7 +85,7 @@ services:
       - "8883:8883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /etc/netmaker:/mosquitto/certs/
+      - /root/certs/:/mosquitto/certs/
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
 volumes:
