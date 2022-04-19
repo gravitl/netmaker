@@ -243,15 +243,20 @@ func setGarbageCollection() {
 }
 
 func genCerts() error {
-	private, err := tls.ReadKey(functions.GetNetmakerPath())
+	logger.Log(0, "checking keys and certificates")
+	var private *ed25519.PrivateKey
+	var err error
+	private, err = tls.ReadKey(functions.GetNetmakerPath() + "/root.key")
 	if errors.Is(err, os.ErrNotExist) {
-		_, *private, err = ed25519.GenerateKey(rand.Reader)
+		logger.Log(0, "generating new root key")
+		_, newKey, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveKey(functions.GetNetmakerPath(), "/root.key", *private); err != nil {
+		if err := tls.SaveKey(functions.GetNetmakerPath(), "/root.key", newKey); err != nil {
 			return err
 		}
+		private = &newKey
 	} else if err != nil {
 		return err
 	}
@@ -259,6 +264,7 @@ func genCerts() error {
 	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
 	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 	if errors.Is(err, os.ErrNotExist) {
+		logger.Log(0, "generating new root CA")
 		caName := tls.NewName("CA Root", "US", "Gravitl")
 		csr, err := tls.NewCSR(*private, caName)
 		if err != nil {
@@ -271,12 +277,14 @@ func genCerts() error {
 		if err := tls.SaveCert(functions.GetNetmakerPath(), "/root.pem", rootCA); err != nil {
 			return err
 		}
+		ca = rootCA
 	} else if err != nil {
 		return err
 	}
 	cert, err := tls.ReadCert(functions.GetNetmakerPath() + "/server.pem")
 	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		//gen new key
+		logger.Log(0, "generating new server key/certificate")
 		_, key, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return err
