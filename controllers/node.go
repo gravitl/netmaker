@@ -19,20 +19,20 @@ import (
 
 func nodeHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/nodes", authorize(false, "user", http.HandlerFunc(getAllNodes))).Methods("GET")
-	r.HandleFunc("/api/nodes/{network}", authorize(true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, "node", http.HandlerFunc(getNode))).Methods("GET")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(true, "user", http.HandlerFunc(createRelay))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(true, "user", http.HandlerFunc(deleteRelay))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", authorize(true, "user", http.HandlerFunc(createEgressGateway))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", authorize(true, "user", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
+	r.HandleFunc("/api/nodes", authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods("GET")
+	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods("GET")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods("DELETE")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", authorize(false, true, "user", http.HandlerFunc(createEgressGateway))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", securityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(false, true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
-	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
+	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(false, true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 }
 
@@ -138,7 +138,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 //even if it's technically ok
 //This is kind of a poor man's RBAC. There's probably a better/smarter way.
 //TODO: Consider better RBAC implementations
-func authorize(networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
+func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
@@ -175,6 +175,13 @@ func authorize(networkCheck bool, authNetwork string, next http.Handler) http.Ha
 				}
 				returnErrorResponse(w, r, errorResponse)
 				return
+			}
+			//check if node instead of user
+			if nodesAllowed {
+				// TODO --- should ensure that node is only operating on itself
+				if _, _, _, err := logic.VerifyToken(authToken); err == nil {
+					next.ServeHTTP(w, r)
+				}
 			}
 
 			var isAuthorized = false
