@@ -232,7 +232,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	cfg.Node.MacAddress = c.String("macaddress")
 	cfg.Node.LocalAddress = c.String("localaddress")
 	cfg.Node.Address = c.String("address")
-	cfg.Node.Address6 = c.String("addressIPV6")
+	cfg.Node.Address6 = c.String("address6")
 	//cfg.Node.Roaming = c.String("roaming")
 	cfg.Node.DNSOn = c.String("dnson")
 	cfg.Node.IsLocal = c.String("islocal")

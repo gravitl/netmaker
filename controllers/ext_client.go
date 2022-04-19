@@ -135,6 +135,18 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
+	addrString := client.Address
+	if addrString != "" {
+		addrString += "/32"
+	}
+	if client.Address6 != "" {
+		if addrString != "" {
+			addrString += ","
+		}
+		addrString += client.Address6 + "/128"
+	}
+
 	keepalive := ""
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
@@ -167,7 +179,7 @@ AllowedIPs = %s
 Endpoint = %s
 %s
 
-`, client.Address+"/32",
+`, addrString,
 		client.PrivateKey,
 		defaultMTU,
 		defaultDNS,

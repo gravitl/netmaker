@@ -100,6 +100,14 @@ func isLess(ipA string, ipB string) bool {
 	return bytes.Compare(ipNetA, ipNetB) < 0
 }
 
+// Node.PrimaryAddress - return ipv4 address if present, else return ipv6
+func (node *Node) PrimaryAddress() string {
+	if node.Address != "" {
+		return node.Address
+	}
+	return node.Address6
+}
+
 // Node.SetDefaultMTU - sets default MTU of a node
 func (node *Node) SetDefaultMTU() {
 	if node.MTU == 0 {

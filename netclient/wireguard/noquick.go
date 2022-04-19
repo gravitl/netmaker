@@ -52,13 +52,22 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 		}
 	}
 
-	netmaskArr := strings.Split(node.NetworkSettings.AddressRange, "/")
-	var netmask = "32"
-	if len(netmaskArr) == 2 {
-		netmask = netmaskArr[1]
+	if node.Address != "" {
+		netmaskArr := strings.Split(node.NetworkSettings.AddressRange, "/")
+		var netmask = "32"
+		if len(netmaskArr) == 2 {
+			netmask = netmaskArr[1]
+		}
+		setKernelDevice(ifacename, node.Address, netmask)
 	}
-	setKernelDevice(ifacename, node.Address, netmask)
-
+	if node.Address6 != "" {
+		netmaskArr := strings.Split(node.NetworkSettings.AddressRange6, "/")
+		var netmask = "128"
+		if len(netmaskArr) == 2 {
+			netmask = netmaskArr[1]
+		}
+		setKernelDevice(ifacename, node.Address6, netmask)
+	}
 	_, err = wgclient.Device(ifacename)
 	if err != nil {
 		if !os.IsNotExist(err) {

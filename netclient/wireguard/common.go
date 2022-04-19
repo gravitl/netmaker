@@ -28,7 +28,6 @@ const (
 // SetPeers - sets peers on a given WireGuard interface
 func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error {
 	var devicePeers []wgtypes.Peer
-	var currentNodeAddr = node.Address
 	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
 	var err error
@@ -115,7 +114,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		err = SetMacPeerRoutes(iface)
 		return err
 	} else if ncutils.IsLinux() {
-		local.SetPeerRoutes(iface, currentNodeAddr, oldPeerAllowedIps, peers)
+		local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
 	}
 
 	return nil
@@ -147,9 +146,10 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	} else {
 		return fmt.Errorf("no interface to configure")
 	}
-	if node.Address == "" {
+	if node.PrimaryAddress() == "" {
 		return fmt.Errorf("no address to configure")
 	}
+
 	if node.UDPHolePunch == "yes" {
 		node.ListenPort = 0
 	}
@@ -161,7 +161,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	var deviceiface = ifacename
 	if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
-		deviceiface, err = local.GetMacIface(node.Address)
+		deviceiface, err = local.GetMacIface(node.PrimaryAddress())
 		if err != nil || deviceiface == "" {
 			deviceiface = ifacename
 		}
@@ -175,7 +175,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	ifaceReady := strings.Contains(output, deviceiface)
 	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
 		if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
-			deviceiface, err = local.GetMacIface(node.Address)
+			deviceiface, err = local.GetMacIface(node.PrimaryAddress())
 			if err != nil || deviceiface == "" {
 				deviceiface = ifacename
 			}
@@ -209,13 +209,27 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 		time.Sleep(time.Second)
 	}
-	_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
-	if cidrErr == nil {
-		local.SetCIDRRoute(ifacename, node.Address, cidr)
-	} else {
-		logger.Log(1, "could not set cidr route properly: ", cidrErr.Error())
+
+	//ipv4
+	if node.Address != "" {
+		_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
+		if cidrErr == nil {
+			local.SetCIDRRoute(ifacename, node.Address, cidr)
+		} else {
+			logger.Log(1, "could not set cidr route properly: ", cidrErr.Error())
+		}
+		local.SetCurrentPeerRoutes(ifacename, node.Address, peers)
 	}
-	local.SetCurrentPeerRoutes(ifacename, node.Address, peers)
+	if node.Address6 != "" {
+		//ipv6
+		_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange6)
+		if cidrErr == nil {
+			local.SetCIDRRoute(ifacename, node.Address6, cidr)
+		} else {
+			logger.Log(1, "could not set cidr route properly: ", cidrErr.Error())
+		}
+		local.SetCurrentPeerRoutes(ifacename, node.Address6, peers)
+	}
 
 	return err
 }
@@ -238,12 +252,14 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	var iface string
-	iface = nodecfg.Interface
-	if ncutils.IsMac() {
-		iface, err = local.GetMacIface(nodecfg.Address)
-		if err != nil {
-			return err
+	if peerupdate && !ncutils.IsFreeBSD() && !(ncutils.IsLinux() && !ncutils.IsKernel()) {
+		var iface string
+		iface = nodecfg.Interface
+		if ncutils.IsMac() {
+			iface, err = local.GetMacIface(nodecfg.PrimaryAddress())
+			if err != nil {
+				return err
+			}
 		}
 		err = SetPeers(iface, &nodecfg, []wgtypes.PeerConfig{})
 	} else if peerupdate {
