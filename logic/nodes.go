@@ -270,20 +270,25 @@ func CreateNode(node *models.Node) error {
 
 	SetNodeDefaults(node)
 
-	if node.IsServer == "yes" {
-		if node.Address, err = UniqueAddressServer(node.Network); err != nil {
-			return err
+	defaultACLVal := acls.Allowed
+	parentNetwork, err := GetNetwork(node.Network)
+	if err == nil {
+		if parentNetwork.DefaultACL != "yes" {
+			defaultACLVal = acls.NotAllowed
 		}
-	} else if node.Address == "" {
-		if node.Address, err = UniqueAddress(node.Network); err != nil {
+	}
+
+	reverse := node.IsServer == "yes"
+	if node.Address == "" && parentNetwork.IsIPv4 == "yes" {
+		if node.Address, err = UniqueAddress(node.Network, reverse); err != nil {
 			return err
 		}
 	} else if !IsIPUnique(node.Network, node.Address, database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
 	}
 
-	if node.Address6 == "" {
-		if node.Address6, err = UniqueAddress6(node.Network); err != nil {
+	if node.Address6 == "" && parentNetwork.IsIPv6 == "yes" {
+		if node.Address6, err = UniqueAddress6(node.Network, reverse); err != nil {
 			return err
 		}
 	} else if !IsIPUnique(node.Network, node.Address6, database.NODES_TABLE_NAME, true) {
@@ -310,14 +315,6 @@ func CreateNode(node *models.Node) error {
 	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
-	}
-
-	defaultACLVal := acls.Allowed
-	parentNetwork, err := GetNetwork(node.Network)
-	if err == nil {
-		if parentNetwork.DefaultACL != "yes" {
-			defaultACLVal = acls.NotAllowed
-		}
 	}
 
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), defaultACLVal)

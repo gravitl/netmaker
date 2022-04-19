@@ -173,7 +173,7 @@ func GetNetworkSettings(networkname string) (models.Network, error) {
 }
 
 // UniqueAddress - see if address is unique
-func UniqueAddress(networkName string) (string, error) {
+func UniqueAddress(networkName string, reverse bool) (string, error) {
 
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
@@ -192,7 +192,12 @@ func UniqueAddress(networkName string) (string, error) {
 		return "666", err
 	}
 
-	for ; newAddr.ToAddressString().IsValid(); newAddr = newAddr.Increment(1) {
+	incVal := 1
+	if reverse {
+		incVal = -1
+	}
+
+	for ; newAddr.ToAddressString().IsValid(); newAddr = newAddr.Increment(int64(incVal)) {
 		if IsIPUnique(networkName, newAddr.GetNetIPAddr().IP.String(), database.NODES_TABLE_NAME, false) &&
 			IsIPUnique(networkName, newAddr.GetNetIPAddr().IP.String(), database.EXT_CLIENT_TABLE_NAME, false) {
 			return newAddr.GetNetIPAddr().IP.String(), nil
@@ -200,64 +205,6 @@ func UniqueAddress(networkName string) (string, error) {
 	}
 
 	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", errors.New("ERROR: No unique addresses available. Check network subnet")
-}
-
-// UniqueAddressServer - get unique address starting from last available
-func UniqueAddressServer(networkName string) (string, error) {
-
-	var network models.Network
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
-		return "666", err
-	}
-
-	if network.IsIPv4 == "no" {
-		return "", fmt.Errorf("IPv4 not active on network " + networkName)
-	}
-
-	newAddr, err := ips.GetLastAddr(network.AddressRange)
-	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
-		return "666", err
-	}
-
-	for ; newAddr.ToAddressString().IsValid(); newAddr = newAddr.Increment(-1) {
-		if IsIPUnique(networkName, newAddr.GetNetIPAddr().IP.String(), database.NODES_TABLE_NAME, false) &&
-			IsIPUnique(networkName, newAddr.GetNetIPAddr().IP.String(), database.EXT_CLIENT_TABLE_NAME, false) {
-			return newAddr.GetNetIPAddr().IP.String(), nil
-		}
-	}
-
-	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", fmt.Errorf("no unique server addresses found")
-}
-
-// UniqueAddress6Server - get unique address starting from last available
-func UniqueAddress6Server(networkName string) (string, error) {
-
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
-		return "666", err
-	}
-
-	if network.IsIPv6 == "no" {
-		return "", fmt.Errorf("IPv6 not active on network " + networkName)
-	}
-
-	newAddr6, err := ips.GetLastAddr6(network.AddressRange6)
-	if err != nil {
-		return "666", err
-	}
-
-	for ; newAddr6.ToAddressString().IsValid(); newAddr6 = newAddr6.Increment(-1) {
-		if IsIPUnique(networkName, newAddr6.GetNetIPAddr().IP.String(), database.NODES_TABLE_NAME, true) &&
-			IsIPUnique(networkName, newAddr6.GetNetIPAddr().IP.String(), database.EXT_CLIENT_TABLE_NAME, true) {
-			return newAddr6.GetNetIPAddr().IP.String(), nil
-		}
-	}
-
-	return "W1R3: NO UNIQUE ADDRESSES AVAILABLE", fmt.Errorf("no unique server addresses found")
 }
 
 // IsIPUnique - checks if an IP is unique
@@ -290,7 +237,7 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 }
 
 // UniqueAddress6 - see if ipv6 address is unique
-func UniqueAddress6(networkName string) (string, error) {
+func UniqueAddress6(networkName string, reverse bool) (string, error) {
 
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
@@ -307,7 +254,12 @@ func UniqueAddress6(networkName string) (string, error) {
 		return "666", err
 	}
 
-	for ; newAddr6.ToAddressString().IsValid(); newAddr6 = newAddr6.Increment(1) {
+	incVal := 1
+	if reverse {
+		incVal = -1
+	}
+
+	for ; newAddr6.ToAddressString().IsValid(); newAddr6 = newAddr6.Increment(int64(incVal)) {
 		if IsIPUnique(networkName, newAddr6.GetNetIPAddr().IP.String(), database.NODES_TABLE_NAME, true) &&
 			IsIPUnique(networkName, newAddr6.GetNetIPAddr().IP.String(), database.EXT_CLIENT_TABLE_NAME, true) {
 			return newAddr6.GetNetIPAddr().IP.String(), nil
@@ -395,9 +347,9 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 			var ipaddr string
 			var iperr error
 			if node.IsServer == "yes" {
-				ipaddr, iperr = UniqueAddressServer(networkName)
+				ipaddr, iperr = UniqueAddress(networkName, true)
 			} else {
-				ipaddr, iperr = UniqueAddress(networkName)
+				ipaddr, iperr = UniqueAddress(networkName, false)
 			}
 			if iperr != nil {
 				fmt.Println("error in node  address assignment!")
@@ -489,9 +441,9 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			var ipaddr string
 			var iperr error
 			if node.IsServer == "yes" {
-				ipaddr, iperr = UniqueAddressServer(networkName)
+				ipaddr, iperr = UniqueAddress(networkName, true)
 			} else {
-				ipaddr, iperr = UniqueAddress(networkName)
+				ipaddr, iperr = UniqueAddress(networkName, false)
 			}
 			if iperr != nil {
 				fmt.Println("error in node  address assignment!")
@@ -550,16 +502,6 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 	}
 	// copy values
 	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
-}
-
-// Inc - increments an IP
-func Inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
 }
 
 // GetNetwork - gets a network from database

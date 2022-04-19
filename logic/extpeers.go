@@ -125,16 +125,21 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		extclient.PublicKey = privateKey.PublicKey().String()
 	}
 
-	if extclient.Address == "" {
-		newAddress, err := UniqueAddress(extclient.Network)
+	parentNetwork, err := GetNetwork(extclient.Network)
+	if err != nil {
+		return err
+	}
+
+	if extclient.Address == "" && parentNetwork.IsIPv4 == "yes" {
+		newAddress, err := UniqueAddress(extclient.Network, false)
 		if err != nil {
 			return err
 		}
 		extclient.Address = newAddress
 	}
 
-	if extclient.Address6 == "" {
-		addr6, err := UniqueAddress6(extclient.Network)
+	if extclient.Address6 == "" && parentNetwork.IsIPv6 == "yes" {
+		addr6, err := UniqueAddress6(extclient.Network, false)
 		if err != nil {
 			return err
 		}
