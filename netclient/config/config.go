@@ -233,6 +233,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	cfg.Node.PostUp = c.String("postup")
 	cfg.Node.PostDown = c.String("postdown")
 	cfg.Node.ListenPort = int32(c.Int("port"))
+	cfg.Node.LocalListenPort = int32(c.Int("localport"))
 	cfg.Node.PersistentKeepalive = int32(c.Int("keepalive"))
 	cfg.Node.PublicKey = c.String("publickey")
 	privateKey := c.String("privatekey")

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -120,4 +121,19 @@ func GetMacIface(ipstring string) (string, error) {
 // HasNetwork - checks if a network exists locally
 func HasNetwork(network string) bool {
 	return ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "netconfig-" + network)
+}
+
+// Get LocalListenPort - Gets the port running on the local interface
+func GetLocalListenPort(ifacename string) (int32, error) {
+	portstring, err := ncutils.RunCmd("wg show "+ifacename+" listen-port", false)
+	if err != nil {
+		return 0, err
+	}
+	i, err := strconv.ParseInt(portstring, 10, 32)
+	if err != nil {
+		return 0, err
+	} else if i == 0 {
+		return 0, errors.New("parsed port is unset or invalid")
+	}
+	return int32(i), nil
 }

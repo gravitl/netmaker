@@ -152,6 +152,10 @@ func GetPeers(macaddress string, network string, server string, dualstack bool, 
 		if nodecfg.Endpoint == node.Endpoint {
 			if nodecfg.LocalAddress != node.LocalAddress && node.LocalAddress != "" {
 				node.Endpoint = node.LocalAddress
+				if nodecfg.LocalListenPort != node.LocalListenPort && node.LocalListenPort != 0 {
+					node.ListenPort = node.LocalListenPort
+
+				}
 			} else {
 				continue
 			}

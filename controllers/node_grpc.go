@@ -279,6 +279,7 @@ func (s *NodeServiceServer) GetExtPeers(ctx context.Context, req *nodepb.Object)
 			PublicKey:           peers[i].PublicKey,
 			PersistentKeepalive: peers[i].KeepAlive,
 			ListenPort:          peers[i].ListenPort,
+			LocalListenPort:     peers[i].LocalListenPort,
 			LocalAddress:        peers[i].LocalAddress,
 		})
 	}

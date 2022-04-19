@@ -139,6 +139,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 		PostDown:            cfg.Node.PostDown,
 		PersistentKeepalive: cfg.Node.PersistentKeepalive,
 		LocalAddress:        cfg.Node.LocalAddress,
+		LocalListenPort:     cfg.Node.ListenPort,
 		Interface:           cfg.Node.Interface,
 		PublicKey:           cfg.Node.PublicKey,
 		DNSOn:               cfg.Node.DNSOn,
@@ -239,7 +240,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	//	if node.DNSOn == "yes" {
 	//		for _, server := range node.NetworkSettings.DefaultServerAddrs {
 	//			if server.IsLeader {
-	//				go func() {
+	//				go func()
 	//					if !local.SetDNSWithRetry(node, server.Address) {
 	//						cfg.Node.DNSOn = "no"
 	//						var currentCommsCfg = getCommsCfgByNode(&cfg.Node)

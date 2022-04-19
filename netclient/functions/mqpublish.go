@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -62,6 +63,24 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup, currentComms map[string]bo
 							nodeCfg.Node.LocalAddress = intIP
 							if err := PublishNodeUpdate(&currCommsCfg, &nodeCfg); err != nil {
 								logger.Log(0, "could not publish local address change")
+							}
+						}
+						var deviceiface = nodeCfg.Node.Interface
+						if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
+							deviceiface, err = local.GetMacIface(nodeCfg.Node.Address)
+							if err != nil || deviceiface == "" {
+								deviceiface = nodeCfg.Node.Interface
+							}
+						}
+						localPort, err := local.GetLocalListenPort(deviceiface)
+						if err != nil {
+							logger.Log(1, "error encountered checking private ip addresses: ", err.Error())
+						}
+						if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
+							logger.Log(1, "local port has changed from ", string(nodeCfg.Node.LocalListenPort), " to ", string(localPort))
+							nodeCfg.Node.LocalListenPort = localPort
+							if err := PublishNodeUpdate(&currCommsCfg, &nodeCfg); err != nil {
+								logger.Log(0, "could not publish local port change")
 							}
 						}
 					} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {

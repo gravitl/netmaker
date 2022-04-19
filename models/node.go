@@ -37,6 +37,7 @@ type Node struct {
 	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
+	LocalListenPort     int32    `json:"locallistenport" bson:"locallistenport" yaml:"locallistenport" validate:"numeric,min=1024,max=65535"`
 	Name                string   `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
 	NetworkSettings     Network  `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort          int32    `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
@@ -267,6 +268,12 @@ func (newNode *Node) Fill(currentNode *Node) {
 	}
 	if newNode.ListenPort == 0 && newNode.IsStatic != "yes" {
 		newNode.ListenPort = currentNode.ListenPort
+	}
+	if newNode.LocalListenPort == 0 && newNode.IsStatic != "yes" {
+		newNode.LocalListenPort = currentNode.LocalListenPort
+	}
+	if newNode.LocalListenPort == 0 {
+		newNode.LocalListenPort = currentNode.ListenPort
 	}
 	if newNode.PublicKey == "" && newNode.IsStatic != "yes" {
 		newNode.PublicKey = currentNode.PublicKey
