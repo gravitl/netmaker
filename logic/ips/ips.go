@@ -51,6 +51,6 @@ func GetLastAddr6(cidr6 string) (*ipaddr.IPAddress, error) {
 	if !currentCidr.IsIPv6() {
 		return nil, fmt.Errorf("invalid IPv6 CIDR provided to GetLastAddr6")
 	}
-	lower := currentCidr.GetLower()
-	return lower, nil
+	upper := currentCidr.GetUpper()
+	return upper, nil
 }
