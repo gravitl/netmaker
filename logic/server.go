@@ -287,7 +287,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 			}
 			ranges = nil
 		}
-		if node.Address6 != "" && serverNode.IsDualStack == "yes" {
+		if node.Address6 != "" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(node.Address6),
 				Mask: net.CIDRMask(128, 128),
@@ -357,7 +357,7 @@ func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 			peeraddr,
 		}
 
-		if extPeer.Address6 != "" && serverNode.IsDualStack == "yes" {
+		if extPeer.Address6 != "" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),

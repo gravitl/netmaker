@@ -152,11 +152,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if newNetwork.IsDualStack != currentNetwork.IsDualStack && newNetwork.IsDualStack == "no" {
-	// 	// Remove IPv6 address from network nodes
-	// 	RemoveNetworkNodeIPv6Addresses(currentNetwork.NetID)
-	// }
-
 	if rangeupdate {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
 		if err != nil {

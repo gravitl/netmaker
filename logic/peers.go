@@ -34,19 +34,19 @@ func GetHubPeer(networkName string) []models.Node {
 */
 
 // GetNodePeers - fetches peers for a given node
-func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
+func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
 	var peers []models.Node
-	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
+	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(network.NetID)
 	if err != nil {
 		return peers, nil
 	}
 
-	udppeers, errN := database.GetPeers(networkName)
+	udppeers, errN := database.GetPeers(network.NetID)
 	if errN != nil {
 		logger.Log(2, errN.Error())
 	}
 
-	currentNetworkACLs, aclErr := nodeacls.FetchAllACLs(nodeacls.NetworkID(networkName))
+	currentNetworkACLs, aclErr := nodeacls.FetchAllACLs(nodeacls.NetworkID(network.NetID))
 	if aclErr != nil {
 		return peers, aclErr
 	}
@@ -63,10 +63,9 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 		}
 
 		peer.IsIngressGateway = node.IsIngressGateway
-		isDualStack := node.IsDualStack == "yes"
 		allow := node.IsRelayed != "yes" || !excludeRelayed
 
-		if node.Network == networkName && node.IsPending != "yes" && allow {
+		if node.Network == network.NetID && node.IsPending != "yes" && allow {
 			peer = setPeerInfo(&node)
 			if node.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[node.PublicKey]) {
 				endpointstring := udppeers[node.PublicKey]
@@ -84,12 +83,7 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 				peer.ListenPort = node.LocalListenPort
 			}
 			if node.IsRelay == "yes" {
-				network, err := GetNetwork(networkName)
-				if err == nil {
-					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
-				} else {
-					peer.AllowedIPs = append(peer.AllowedIPs, node.RelayAddrs...)
-				}
+				peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
 				for _, egressNode := range egressNetworkNodes {
 					if egressNode.IsRelayed == "yes" && StringSliceContains(node.RelayAddrs, egressNode.Address) {
 						peer.AllowedIPs = append(peer.AllowedIPs, egressNode.EgressGatewayRanges...)
@@ -99,8 +93,10 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 			if peer.IsIngressGateway == "yes" { // handle ingress stuff
 				if currentExtClients, err := GetExtPeersList(&node); err == nil {
 					for i := range currentExtClients {
-						peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
-						if isDualStack {
+						if network.IsIPv4 == "yes" {
+							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
+						}
+						if network.IsIPv6 == "yes" {
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address6)
 						}
 					}
@@ -135,7 +131,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 		isP2S = true
 	}
 	if relayedNodeAddr == "" {
-		peers, err = GetNodePeers(networkName, refnode.ID, excludeRelayed, isP2S)
+		peers, err = GetNodePeers(&network, refnode.ID, excludeRelayed, isP2S)
 	} else {
 		var relayNode models.Node
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
@@ -155,7 +151,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 			} else {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
-			nodepeers, err := GetNodePeers(networkName, refnode.ID, false, isP2S)
+			nodepeers, err := GetNodePeers(&network, refnode.ID, false, isP2S)
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
 					if nodepeer.Address == peerNode.Address {

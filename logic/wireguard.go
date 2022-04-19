@@ -50,9 +50,9 @@ func HasPeerConnected(node *models.Node) bool {
 func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	// single comparison statements
 	if newNode.Endpoint != currentNode.Endpoint ||
-		newNode.LocalAddress != currentNode.LocalAddress ||
 		newNode.PublicKey != currentNode.PublicKey ||
 		newNode.Address != currentNode.Address ||
+		newNode.Address6 != currentNode.Address6 ||
 		newNode.IsEgressGateway != currentNode.IsEgressGateway ||
 		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
 		newNode.IsRelay != currentNode.IsRelay ||
@@ -67,12 +67,6 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	}
 
 	// multi-comparison statements
-	if newNode.IsDualStack == "yes" {
-		if newNode.Address6 != currentNode.Address6 {
-			return true
-		}
-	}
-
 	if newNode.IsEgressGateway == "yes" {
 		if len(currentNode.EgressGatewayRanges) != len(newNode.EgressGatewayRanges) {
 			return true
@@ -239,7 +233,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 				_, _ = ncutils.RunCmd(ipExec+" -4 route add "+gateway+" dev "+ifacename, true)
 			}
 		}
-		if node.Address6 != "" && node.IsDualStack == "yes" {
+		if node.Address6 != "" {
 			logger.Log(1, "adding address:", node.Address6)
 			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
 		}

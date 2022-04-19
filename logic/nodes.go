@@ -425,9 +425,7 @@ func SetNodeDefaults(node *models.Node) {
 		}
 	}
 	// == Parent Network settings ==
-	if node.IsDualStack == "" {
-		node.IsDualStack = parentNetwork.IsDualStack
-	}
+
 	if node.MTU == 0 {
 		node.MTU = parentNetwork.DefaultMTU
 	}
@@ -435,7 +433,6 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetIPForwardingDefault()
 	node.SetDNSOnDefault()
 	node.SetIsLocalDefault()
-	node.SetIsDualStackDefault()
 	node.SetLastModified()
 	node.SetDefaultName()
 	node.SetLastCheckIn()

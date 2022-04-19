@@ -33,56 +33,53 @@ var seededRand *rand.Rand = rand.New(
 
 // Node - struct for node model
 type Node struct {
-	ID                  string   `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5"`
-	Address             string   `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
-	Address6            string   `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
-	LocalAddress        string   `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
-	LocalListenPort     int32    `json:"locallistenport" bson:"locallistenport" yaml:"locallistenport" validate:"numeric,min=0,max=65535"`
-	Name                string   `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
-	NetworkSettings     Network  `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
-	ListenPort          int32    `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
-	PublicKey           string   `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
-	Endpoint            string   `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`
-	PostUp              string   `json:"postup" bson:"postup" yaml:"postup"`
-	PostDown            string   `json:"postdown" bson:"postdown" yaml:"postdown"`
-	AllowedIPs          []string `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
-	PersistentKeepalive int32    `json:"persistentkeepalive" bson:"persistentkeepalive" yaml:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
-	IsHub               string   `json:"ishub" bson:"ishub" yaml:"ishub" validate:"checkyesorno"`
-	AccessKey           string   `json:"accesskey" bson:"accesskey" yaml:"accesskey"`
-	Interface           string   `json:"interface" bson:"interface" yaml:"interface"`
-	LastModified        int64    `json:"lastmodified" bson:"lastmodified" yaml:"lastmodified"`
-	ExpirationDateTime  int64    `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
-	LastPeerUpdate      int64    `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
-	LastCheckIn         int64    `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
-	MacAddress          string   `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"macaddress_unique"`
-	Password            string   `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
-	Network             string   `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
-	IsRelayed           string   `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	IsPending           string   `json:"ispending" bson:"ispending" yaml:"ispending"`
-	IsRelay             string   `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
-	IsDocker            string   `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
-	IsK8S               string   `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
-	IsEgressGateway     string   `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
-	IsIngressGateway    string   `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
-	EgressGatewayRanges []string `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	RelayAddrs          []string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
-	IngressGatewayRange string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
-	IsStatic            string   `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
-	UDPHolePunch        string   `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
-	//PullChanges         string      `json:"pullchanges" bson:"pullchanges" yaml:"pullchanges" validate:"checkyesorno"`
-	DNSOn string `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
-	// ** IsDualStack deprecated **
-	IsDualStack  string      `json:"isdualstack" bson:"isdualstack" yaml:"isdualstack" validate:"checkyesorno"`
-	IsServer     string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Action       string      `json:"action" bson:"action" yaml:"action"`
-	IsLocal      string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange   string      `json:"localrange" bson:"localrange" yaml:"localrange"`
-	IPForwarding string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
-	OS           string      `json:"os" bson:"os" yaml:"os"`
-	MTU          int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
-	Version      string      `json:"version" bson:"version" yaml:"version"`
-	Server       string      `json:"server" bson:"server" yaml:"server"`
-	TrafficKeys  TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
+	ID                  string      `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5"`
+	Address             string      `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
+	Address6            string      `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
+	LocalAddress        string      `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
+	Name                string      `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
+	NetworkSettings     Network     `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
+	ListenPort          int32       `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
+	LocalListenPort     int32       `json:"locallistenport" bson:"locallistenport" yaml:"locallistenport" validate:"numeric,min=0,max=65535"`
+	PublicKey           string      `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
+	Endpoint            string      `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`
+	PostUp              string      `json:"postup" bson:"postup" yaml:"postup"`
+	PostDown            string      `json:"postdown" bson:"postdown" yaml:"postdown"`
+	AllowedIPs          []string    `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
+	PersistentKeepalive int32       `json:"persistentkeepalive" bson:"persistentkeepalive" yaml:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
+	IsHub               string      `json:"ishub" bson:"ishub" yaml:"ishub" validate:"checkyesorno"`
+	AccessKey           string      `json:"accesskey" bson:"accesskey" yaml:"accesskey"`
+	Interface           string      `json:"interface" bson:"interface" yaml:"interface"`
+	LastModified        int64       `json:"lastmodified" bson:"lastmodified" yaml:"lastmodified"`
+	ExpirationDateTime  int64       `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
+	LastPeerUpdate      int64       `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
+	LastCheckIn         int64       `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
+	MacAddress          string      `json:"macaddress" bson:"macaddress" yaml:"macaddress" validate:"macaddress_unique"`
+	Password            string      `json:"password" bson:"password" yaml:"password" validate:"required,min=6"`
+	Network             string      `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
+	IsRelayed           string      `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	IsPending           string      `json:"ispending" bson:"ispending" yaml:"ispending"`
+	IsRelay             string      `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
+	IsDocker            string      `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
+	IsK8S               string      `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
+	IsEgressGateway     string      `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
+	IsIngressGateway    string      `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
+	EgressGatewayRanges []string    `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	RelayAddrs          []string    `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
+	IngressGatewayRange string      `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
+	IsStatic            string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
+	UDPHolePunch        string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
+	DNSOn               string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	IsServer            string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Action              string      `json:"action" bson:"action" yaml:"action"`
+	IsLocal             string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
+	LocalRange          string      `json:"localrange" bson:"localrange" yaml:"localrange"`
+	IPForwarding        string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	OS                  string      `json:"os" bson:"os" yaml:"os"`
+	MTU                 int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
+	Version             string      `json:"version" bson:"version" yaml:"version"`
+	Server              string      `json:"server" bson:"server" yaml:"server"`
+	TrafficKeys         TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
 }
 
 // NodesArray - used for node sorting
@@ -198,13 +195,6 @@ func (node *Node) SetIsLocalDefault() {
 func (node *Node) SetDNSOnDefault() {
 	if node.DNSOn == "" {
 		node.DNSOn = "yes"
-	}
-}
-
-// Node.SetIsDualStackDefault - set is dual stack default status
-func (node *Node) SetIsDualStackDefault() {
-	if node.IsDualStack == "" {
-		node.IsDualStack = "no"
 	}
 }
 
@@ -350,18 +340,12 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.DNSOn == "" {
 		newNode.DNSOn = currentNode.DNSOn
 	}
-	if newNode.IsDualStack == "" {
-		newNode.IsDualStack = currentNode.IsDualStack
-	}
 	if newNode.IsLocal == "" {
 		newNode.IsLocal = currentNode.IsLocal
 	}
 	if newNode.IPForwarding == "" {
 		newNode.IPForwarding = currentNode.IPForwarding
 	}
-	//if newNode.Roaming == "" {
-	//newNode.Roaming = currentNode.Roaming
-	//}
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
 	}

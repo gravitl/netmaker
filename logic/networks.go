@@ -408,7 +408,6 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 			return err
 		}
 		if node.Network == networkName {
-			node.IsDualStack = "no"
 			node.Address6 = ""
 			data, err := json.Marshal(&node)
 			if err != nil {

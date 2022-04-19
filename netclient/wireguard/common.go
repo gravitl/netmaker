@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/server"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gopkg.in/ini.v1"
@@ -229,6 +230,10 @@ func SetWGConfig(network string, peerupdate bool) error {
 	servercfg := cfg.Server
 	nodecfg := cfg.Node
 
+	peers, hasGateway, gateways, err := server.GetPeers(nodecfg.MacAddress, nodecfg.Network, servercfg.GRPCAddress, nodecfg.IsIngressGateway == "yes", nodecfg.IsServer == "yes")
+	if err != nil {
+		return err
+	}
 	privkey, err := RetrievePrivKey(network)
 	if err != nil {
 		return err
