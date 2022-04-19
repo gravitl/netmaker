@@ -20,11 +20,10 @@ func SetupSystemDDaemon() error {
 	if ncutils.IsWindows() {
 		return nil
 	}
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	binarypath, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	binarypath := dir + "/netclient"
 
 	_, err = os.Stat("/etc/netclient/config")
 	if os.IsNotExist(err) {

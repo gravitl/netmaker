@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 
@@ -240,12 +239,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	parentNetwork, err := logic.GetNetwork(networkName)
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&extclient)
-	if err != nil && !errors.Is(err, io.EOF) {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
 	}
 	err = logic.CreateExtClient(&extclient)
 	if err != nil {

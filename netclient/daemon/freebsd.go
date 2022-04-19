@@ -3,7 +3,6 @@ package daemon
 import (
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -11,11 +10,10 @@ import (
 
 // SetupFreebsdDaemon -- sets up daemon for freebsd
 func SetupFreebsdDaemon() error {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	binarypath, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	binarypath := dir + "/netclient"
 
 	_, err = os.Stat("/etc/netclient/config")
 	if os.IsNotExist(err) {
