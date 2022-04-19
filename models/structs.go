@@ -122,6 +122,7 @@ type PeersResponse struct {
 	Address             string `json:"address" bson:"address"`
 	Address6            string `json:"address6" bson:"address6"`
 	LocalAddress        string `json:"localaddress" bson:"localaddress"`
+	LocalListenPort     int32  `json:"locallistenport" bson:"locallistenport"`
 	IsEgressGateway     string `json:"isegressgateway" bson:"isegressgateway"`
 	EgressGatewayRanges string `json:"egressgatewayrange" bson:"egressgatewayrange"`
 	ListenPort          int32  `json:"listenport" bson:"listenport"`
@@ -130,13 +131,14 @@ type PeersResponse struct {
 
 // ExtPeersResponse - ext peers response
 type ExtPeersResponse struct {
-	PublicKey    string `json:"publickey" bson:"publickey"`
-	Endpoint     string `json:"endpoint" bson:"endpoint"`
-	Address      string `json:"address" bson:"address"`
-	Address6     string `json:"address6" bson:"address6"`
-	LocalAddress string `json:"localaddress" bson:"localaddress"`
-	ListenPort   int32  `json:"listenport" bson:"listenport"`
-	KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
+	PublicKey       string `json:"publickey" bson:"publickey"`
+	Endpoint        string `json:"endpoint" bson:"endpoint"`
+	Address         string `json:"address" bson:"address"`
+	Address6        string `json:"address6" bson:"address6"`
+	LocalAddress    string `json:"localaddress" bson:"localaddress"`
+	LocalListenPort int32  `json:"locallistenport" bson:"locallistenport"`
+	ListenPort      int32  `json:"listenport" bson:"listenport"`
+	KeepAlive       int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
 // EgressGatewayRequest - egress gateway request
