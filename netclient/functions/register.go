@@ -25,24 +25,26 @@ func Register(cfg *config.ClientConfig, key string) error {
 		return errors.New("no access key provided")
 	}
 	//generate new key if one doesn' exist
-	private, err := tls.ReadKey(ncutils.GetNetclientPath() + "/client.key")
+	var private *ed25519.PrivateKey
+	var err error
+	private, err = tls.ReadKey(ncutils.GetNetclientPath() + "/client.key")
 	if err != nil {
-		_, *private, err = ed25519.GenerateKey(rand.Reader)
+		_, newKey, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", *private); err != nil {
+		if err := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", newKey); err != nil {
 			return err
 		}
+		private = &newKey
 	}
 	//check if cert exists
 	_, err = tls.ReadCert(ncutils.GetNetclientServerPath(cfg.Server.Server) + "/client.pem")
-	if err != os.ErrNotExist {
+	if errors.Is(err, os.ErrNotExist) {
 		if err := RegisterWithServer(private, cfg); err != nil {
 			return err
 		}
-	}
-	if err != nil {
+	} else if err != nil {
 		return err
 	}
 	return JoinNetwork(cfg, key, false)
