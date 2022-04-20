@@ -31,7 +31,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", securityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(false, true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}", createNode).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}", nodeauth(http.HandlerFunc(createNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(false, true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 }
@@ -128,6 +128,51 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				response.Write(successJSONResponse)
 			}
 		}
+	}
+}
+
+// auth middleware for api calls from nodes where node is has not yet joined the server (register, join)
+func nodeauth(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bearerToken := r.Header.Get("Authorization")
+		var tokenSplit = strings.Split(bearerToken, " ")
+		var token = ""
+		if len(tokenSplit) < 2 {
+			errorResponse := models.ErrorResponse{
+				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
+			}
+			returnErrorResponse(w, r, errorResponse)
+			return
+		} else {
+			token = tokenSplit[1]
+		}
+		found := false
+		networks, err := logic.GetNetworks()
+		if err != nil {
+			logger.Log(0, "no networks", err.Error())
+			errorResponse := models.ErrorResponse{
+				Code: http.StatusNotFound, Message: "no networks",
+			}
+			returnErrorResponse(w, r, errorResponse)
+			return
+		}
+		for _, network := range networks {
+			for _, key := range network.AccessKeys {
+				if key.Value == token {
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			logger.Log(0, "valid access key not found")
+			errorResponse := models.ErrorResponse{
+				Code: http.StatusUnauthorized, Message: "You are unauthorized to access this endpoint.",
+			}
+			returnErrorResponse(w, r, errorResponse)
+			return
+		}
+		next.ServeHTTP(w, r)
 	}
 }
 

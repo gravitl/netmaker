@@ -352,11 +352,16 @@ func Authenticate(cfg *config.ClientConfig) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		bodybytes, _ := ioutil.ReadAll(response.Body)
+		return "", fmt.Errorf("failed to authenticate %s %s", response.Status, string(bodybytes))
+	}
 	resp := models.SuccessResponse{}
 	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
-		return "", err
+		return "", fmt.Errorf("error decoding respone %w", err)
 	}
-	tokenData := (resp.Response.(map[string]interface{}))
+	tokenData := resp.Response.(map[string]interface{})
 	token := tokenData["AuthToken"]
 	return token.(string), nil
 }
