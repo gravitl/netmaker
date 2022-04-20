@@ -1,11 +1,13 @@
 package functions
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 
@@ -328,4 +330,57 @@ func WipeLocal(network string) error {
 // GetNetmakerPath - gets netmaker path locally
 func GetNetmakerPath() string {
 	return LINUX_APP_DATA_PATH
+}
+
+//API function to interact with netmaker api endpoints. response from endpoint is returned
+func API(data any, method, url, authorization string) (*http.Response, error) {
+	var request *http.Request
+	var err error
+	if data != "" {
+		payload, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("error encoding data %w", err)
+		}
+		request, err = http.NewRequest(method, url, bytes.NewBuffer(payload))
+		if err != nil {
+			return nil, fmt.Errorf("error creating http request %w", err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+	} else {
+		request, err = http.NewRequest(method, url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating http request %w", err)
+		}
+	}
+	if authorization != "" {
+		request.Header.Set("authorization", "Bearer "+authorization)
+	}
+	client := http.Client{}
+	return client.Do(request)
+}
+
+// Authenticate authenticates with api to permit subsequent interactions with the api
+func Authenticate(cfg *config.ClientConfig) (string, error) {
+
+	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "/secret-" + cfg.Network)
+	if err != nil {
+		return "", fmt.Errorf("could not read secrets file %w", err)
+	}
+	data := models.AuthParams{
+		MacAddress: cfg.Node.MacAddress,
+		ID:         cfg.Node.ID,
+		Password:   string(pass),
+	}
+	url := "https://" + cfg.Server.API + "/api/nodes/adm/" + cfg.Network + "/authenticate"
+	response, err := API(data, http.MethodPost, url, "")
+	if err != nil {
+		return "", err
+	}
+	resp := models.SuccessResponse{}
+	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
+		return "", err
+	}
+	tokenData := (resp.Response.(map[string]interface{}))
+	token := tokenData["AuthToken"]
+	return token.(string), nil
 }
