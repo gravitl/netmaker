@@ -57,6 +57,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 		GRPCConnString: s.GRPCConnString,
 		GRPCSSL:        s.GRPCSSL,
 		Server:         s.Server,
+		APIConnString:  s.APIConnString,
 	}
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID

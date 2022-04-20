@@ -2,6 +2,10 @@ package config
 
 import (
 	//"github.com/davecgh/go-spew/spew"
+
+	"crypto/ed25519"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -35,6 +39,21 @@ type ServerConfig struct {
 	GRPCSSL      string `yaml:"grpcssl"`
 	CommsNetwork string `yaml:"commsnetwork"`
 	Server       string `yaml:"server"`
+	API          string `yaml:"api"`
+}
+
+// RegisterRequest - struct for registation with netmaker server
+type RegisterRequest struct {
+	Key        ed25519.PrivateKey
+	CommonName pkix.Name
+}
+
+// RegisterResponse - the response to register function
+type RegisterResponse struct {
+	CA         x509.Certificate
+	CAPubKey   ed25519.PublicKey
+	Cert       x509.Certificate
+	CertPubKey ed25519.PublicKey
 }
 
 // Write - writes the config of a client to disk
@@ -190,6 +209,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.Server = accesstoken.ServerConfig.Server
+		cfg.Server.API = accesstoken.ServerConfig.APIConnString
 		if c.String("grpcserver") != "" {
 			cfg.Server.GRPCAddress = c.String("grpcserver")
 		}
@@ -209,6 +229,9 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("corednsaddr") != "" {
 			cfg.Server.CoreDNSAddr = c.String("corednsaddr")
 		}
+		if c.String("apiserver") != "" {
+			cfg.Server.API = c.String("apiserver")
+		}
 
 	} else {
 		cfg.Server.GRPCAddress = c.String("grpcserver")
@@ -218,6 +241,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Node.LocalRange = c.String("localrange")
 		cfg.Server.GRPCSSL = c.String("grpcssl")
 		cfg.Server.CoreDNSAddr = c.String("corednsaddr")
+		cfg.Server.API = c.String("apiserver")
 	}
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")

@@ -30,7 +30,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 					err = errors.New("no server address provided")
 					return err
 				}
-				err = command.Join(&cfg, pvtKey)
+				err = command.Register(&cfg, pvtKey)
 				return err
 			},
 		},

@@ -2,8 +2,12 @@ package functions
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -20,6 +24,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	ssl "github.com/gravitl/netmaker/tls"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -40,7 +45,11 @@ func Daemon() error {
 	serverSet := make(map[string]struct{})
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
+	if len(networks) == 0 {
+		return errors.New("no networks")
+	}
 	for _, network := range networks {
+		logger.Log(3, "initializing network", network)
 		cfg := config.ClientConfig{}
 		cfg.Network = network
 		cfg.ReadConfig()
@@ -122,7 +131,7 @@ func PingServer(cfg *config.ClientConfig) error {
 // == Private ==
 
 // sets MQ client subscriptions for a specific node config
-// should be called for each node belonging to a given comms network
+// should be called for each node belonging to a given server
 func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 	if nodeCfg.DebugOn {
 		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
@@ -131,7 +140,6 @@ func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 		}
 		logger.Log(0, "subscribed to all topics for debugging purposes")
 	}
-
 	if token := client.Subscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
 		logger.Log(0, token.Error().Error())
 		return
@@ -176,8 +184,8 @@ func messageQueue(ctx context.Context, server string) {
 // utilizes comms client configs to setup connections
 func setupMQTTSub(server string) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(server + ":1883")             // TODO get the appropriate port of the comms mq server
-	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
+	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	opts.TLSConfig = NewTLSConfig(nil, server)
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
@@ -261,13 +269,64 @@ func setupMQTTSub(server string) mqtt.Client {
 	return client
 }
 
+// NewTLSConf sets up tls configuration to connect to broker securely
+func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
+	var file string
+	if cfg != nil {
+		server = cfg.Server.Server
+	}
+	file = ncutils.GetNetclientServerPath(server) + "/root.pem"
+	certpool := x509.NewCertPool()
+	ca, err := os.ReadFile(file)
+	if err != nil {
+		logger.Log(0, "could not read CA file ", err.Error())
+	}
+	ok := certpool.AppendCertsFromPEM(ca)
+	if !ok {
+		logger.Log(0, "failed to append cert")
+	}
+	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+"/client.pem", ncutils.GetNetclientPath()+"/client.key")
+	if err != nil {
+		log.Fatalf("could not read client cert/key %v \n", err)
+	}
+	certs := []tls.Certificate{clientKeyPair}
+	return &tls.Config{
+		RootCAs:      certpool,
+		ClientAuth:   tls.NoClientCert,
+		ClientCAs:    nil,
+		Certificates: certs,
+		//InsecureSkipVerify: false  fails ---- so need to use VerifyConnection
+		InsecureSkipVerify: true,
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			if cs.ServerName != server {
+				logger.Log(0, "VerifyConnection - certifiate mismatch")
+				return errors.New("certificate doesn't match server")
+			}
+			ca, err := ssl.ReadCert(ncutils.GetNetclientServerPath(cs.ServerName) + "/root.pem")
+			if err != nil {
+				logger.Log(0, "VerifyConnection - unable to read ca", err.Error())
+				return errors.New("unable to read ca")
+			}
+			for _, cert := range cs.PeerCertificates {
+				if cert.IsCA {
+					if string(cert.PublicKey.(ed25519.PublicKey)) != string(ca.PublicKey.(ed25519.PublicKey)) {
+						logger.Log(0, "VerifyConnection - public key mismatch")
+						return errors.New("cert public key does not match ca public key")
+					}
+				}
+			}
+			return nil
+		},
+	}
+}
+
 // setupMQTT creates a connection to broker and return client
-// utilizes comms client configs to setup connections
+// this function is primarily used to create a connection to publish to the broker
 func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
-	opts.AddBroker(server + ":1883")             // TODO get the appropriate port of the comms mq server
-	opts.ClientID = ncutils.MakeRandomString(23) // helps avoid id duplication on broker
+	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	opts.TLSConfig = NewTLSConfig(cfg, "")
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
@@ -427,5 +486,3 @@ func read(network, which string) string {
 	}
 	return ""
 }
-
-// == End Message Caches ==

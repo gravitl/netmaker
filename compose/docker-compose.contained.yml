@@ -7,6 +7,7 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
+      - /root/certs:/etc/netmaker/
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -36,7 +37,6 @@ services:
       MQ_HOST: "mq"
       HOST_NETWORK: "off"
       MANAGE_IPTABLES: "on"
-      PORT_FORWARD_SERVICES: "mq"
       VERBOSITY: "1"
     ports:
       - "51821-51830:51821-51830/udp"
@@ -74,13 +74,17 @@ services:
       - caddy_data:/data
       - caddy_conf:/config
   mq:
-    image: eclipse-mosquitto:2.0.14
+    image: eclipse-mosquitto:2.0.11-openssl
+    depends_on:
+      - netmaker
     container_name: mq
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
+      - "8883:8883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/certs/:/mosquitto/certs/
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
 volumes:

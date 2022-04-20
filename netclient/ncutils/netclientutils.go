@@ -317,6 +317,17 @@ func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
 	return data, err
 }
 
+// GetNetclientServerPath - gets netclient server path
+func GetNetclientServerPath(server string) string {
+	if IsWindows() {
+		return WINDOWS_APP_DATA_PATH + "\\" + server + "\\"
+	} else if IsMac() {
+		return "/etc/netclient/" + server + "/"
+	} else {
+		return LINUX_APP_DATA_PATH + "/" + server
+	}
+}
+
 // GetNetclientPathSpecific - gets specific netclient config path
 func GetNetclientPathSpecific() string {
 	if IsWindows() {
