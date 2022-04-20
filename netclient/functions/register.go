@@ -50,6 +50,7 @@ func Register(cfg *config.ClientConfig, key string) error {
 	return JoinNetwork(cfg, key, false)
 }
 
+// RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate
 func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) error {
 	data := config.RegisterRequest{
 		Key:        *private,

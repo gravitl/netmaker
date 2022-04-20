@@ -17,10 +17,11 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// certificate validity in days
+// CERTTIFICAT_VALIDITY duration of certificate validity in days
 const CERTIFICATE_VALIDITY = 365
 
 type (
+	// Key is the struct for an edwards representation point
 	Key struct {
 		point *edwards25519.Point
 	}
@@ -34,7 +35,7 @@ func NewKey() *Key {
 	return &Key{(&edwards25519.Point{}).ScalarBaseMult(s)}
 }
 
-// Ed25519PrivateKey returns the private key in Edwards form used for EdDSA.
+// Key.Ed25519PrivateKey returns the private key in Edwards form used for EdDSA.
 func (n *Key) Ed25519PrivateKey() (ed25519.PrivateKey, error) {
 	if n.point == nil {
 		return ed25519.PrivateKey{}, errors.New("nil point")
@@ -45,7 +46,7 @@ func (n *Key) Ed25519PrivateKey() (ed25519.PrivateKey, error) {
 	return ed25519.NewKeyFromSeed(n.point.Bytes()), nil
 }
 
-// Curve25519PrivateKey returns the private key in Montogomery form used for ECDH.
+// Key.Curve25519PrivateKey returns the private key in Montogomery form used for ECDH.
 func (n *Key) Curve25519PrivateKey() (wgtypes.Key, error) {
 	if n.point == nil {
 		return wgtypes.Key{}, errors.New("nil point")
@@ -56,7 +57,7 @@ func (n *Key) Curve25519PrivateKey() (wgtypes.Key, error) {
 	return wgtypes.ParseKey(base64.StdEncoding.EncodeToString(n.point.BytesMontgomery()))
 }
 
-// Save : saves the private key to path.
+// Key.Save : saves the private key to path.
 func (n *Key) Save(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
@@ -67,7 +68,7 @@ func (n *Key) Save(path string) error {
 	return nil
 }
 
-// Reads the private key from path.
+// ReadFrom reads a private key from path.
 func ReadFrom(path string) (*Key, error) {
 	key, err := os.ReadFile(path)
 	if err != nil {
@@ -80,7 +81,7 @@ func ReadFrom(path string) (*Key, error) {
 	return &Key{point}, nil
 }
 
-// NewName creates a new pkix.Name
+// NewName creates a new pkix.Name with common name, country, and organization
 func NewName(commonName, country, org string) pkix.Name {
 	res := NewCName(commonName)
 	res.Country = []string{country}
