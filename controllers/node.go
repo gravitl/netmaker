@@ -447,9 +447,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
+	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
+	if err != nil {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
 	validKey := logic.IsKeyValid(networkName, node.AccessKey)
-
 	if !validKey {
 		// Check to see if network will allow manual sign up
 		// may want to switch this up with the valid key check and avoid a DB call that way.
@@ -462,6 +465,27 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
+	}
+	getServerAddrs(&node)
+	key, keyErr := logic.RetrievePublicTrafficKey()
+	if keyErr != nil {
+		logger.Log(0, "error retrieving key: ", keyErr.Error())
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if key == nil {
+		logger.Log(0, "error: server traffic key is nil")
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	if node.TrafficKeys.Mine == nil {
+		logger.Log(0, "error: node traffic key is nil")
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+	node.TrafficKeys = models.TrafficKeys{
+		Mine:   node.TrafficKeys.Mine,
+		Server: key,
 	}
 
 	err = logic.CreateNode(&node)
