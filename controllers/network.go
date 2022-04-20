@@ -307,6 +307,11 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if network.AddressRange == "" && network.AddressRange6 == "" {
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+
 	network, err = logic.CreateNetwork(network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
