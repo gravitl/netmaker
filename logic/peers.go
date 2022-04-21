@@ -93,10 +93,10 @@ func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, i
 			if peer.IsIngressGateway == "yes" { // handle ingress stuff
 				if currentExtClients, err := GetExtPeersList(&node); err == nil {
 					for i := range currentExtClients {
-						if network.IsIPv4 == "yes" {
+						if network.IsIPv4 == "yes" && currentExtClients[i].Address != "" {
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
 						}
-						if network.IsIPv6 == "yes" {
+						if network.IsIPv6 == "yes" && currentExtClients[i].Address6 != "" {
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address6)
 						}
 					}
