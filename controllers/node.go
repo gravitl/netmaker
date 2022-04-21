@@ -226,6 +226,7 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 				// TODO --- should ensure that node is only operating on itself
 				if _, _, _, err := logic.VerifyToken(authToken); err == nil {
 					next.ServeHTTP(w, r)
+					return
 				}
 			}
 
