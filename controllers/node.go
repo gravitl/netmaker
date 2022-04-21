@@ -746,3 +746,22 @@ func filterCommsNodes(nodes []models.Node) []models.Node {
 	}
 	return filterdNodes
 }
+
+func runForceServerUpdate(node *models.Node) {
+	go func() {
+		if err := mq.PublishPeerUpdate(node); err != nil {
+			logger.Log(1, "failed a peer update after creation of node", node.Name)
+		}
+
+		var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
+		if getErr == nil {
+			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
+				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
+			}
+		}
+	}()
+}
+
+func isServer(node *models.Node) bool {
+	return node.IsServer == "yes"
+}

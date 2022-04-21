@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -430,4 +431,34 @@ func filterCommsNetwork(networks []models.Network) []models.Network {
 		}
 	}
 	return filterdNets
+}
+
+func getServerAddrs(node *models.Node) {
+	serverNodes := logic.GetServerNodes(serverctl.COMMS_NETID)
+	//pubIP, _ := servercfg.GetPublicIP()
+	if len(serverNodes) == 0 {
+		if err := serverctl.SyncServerNetwork(serverctl.COMMS_NETID); err != nil {
+			return
+		}
+	}
+
+	var serverAddrs = make([]models.ServerAddr, 0)
+
+	for _, node := range serverNodes {
+		if node.Address != "" {
+			serverAddrs = append(serverAddrs, models.ServerAddr{
+				IsLeader: logic.IsLeader(&node),
+				Address:  node.Address,
+			})
+		}
+	}
+
+	networkSettings, _ := logic.GetParentNetwork(node.Network)
+	// TODO consolidate functionality around files
+	networkSettings.NodesLastModified = time.Now().Unix()
+	networkSettings.DefaultServerAddrs = serverAddrs
+	if err := logic.SaveNetwork(&networkSettings); err != nil {
+		logger.Log(1, "unable to save network on serverAddr update", err.Error())
+	}
+	node.NetworkSettings.DefaultServerAddrs = networkSettings.DefaultServerAddrs
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -21,7 +20,6 @@ import (
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -30,7 +28,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	"github.com/gravitl/netmaker/tls"
-	"google.golang.org/grpc"
 )
 
 var version = "dev"
@@ -128,16 +125,16 @@ func initialize() { // Client Mode Prereq Check
 func startControllers() {
 	var waitnetwork sync.WaitGroup
 	//Run Agent Server
-	if servercfg.IsAgentBackend() {
-		if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
-			err := servercfg.SetHost()
-			if err != nil {
-				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
-			}
-		}
-		waitnetwork.Add(1)
-		go runGRPC(&waitnetwork)
-	}
+	//	if servercfg.IsAgentBackend() {
+	//		if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
+	//			err := servercfg.SetHost()
+	//			if err != nil {
+	//				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
+	//			}
+	//		}
+	//		waitnetwork.Add(1)
+	//		go runGRPC(&waitnetwork)
+	//	}
 
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
@@ -170,51 +167,51 @@ func startControllers() {
 	waitnetwork.Wait()
 }
 
-func runGRPC(wg *sync.WaitGroup) {
+// func runGRPC(wg *sync.WaitGroup) {
 
-	defer wg.Done()
+// 	defer wg.Done()
 
-	grpcport := servercfg.GetGRPCPort()
+// 	grpcport := servercfg.GetGRPCPort()
 
-	listener, err := net.Listen("tcp", ":"+grpcport)
-	// Handle errors if any
-	if err != nil {
-		logger.FatalLog("[netmaker] Unable to listen on port", grpcport, ": error:", err.Error())
-	}
+// 	listener, err := net.Listen("tcp", ":"+grpcport)
+// 	// Handle errors if any
+// 	if err != nil {
+// 		logger.FatalLog("[netmaker] Unable to listen on port", grpcport, ": error:", err.Error())
+// 	}
 
-	s := grpc.NewServer(
-		authServerUnaryInterceptor(),
-	)
-	// Create NodeService type
-	srv := &controller.NodeServiceServer{}
+// 	s := grpc.NewServer(
+// 		authServerUnaryInterceptor(),
+// 	)
+// 	// Create NodeService type
+// 	srv := &controller.NodeServiceServer{}
 
-	// Register the service with the server
-	nodepb.RegisterNodeServiceServer(s, srv)
+// 	// Register the service with the server
+// 	nodepb.RegisterNodeServiceServer(s, srv)
 
-	// Start the server in a child routine
-	go func() {
-		if err := s.Serve(listener); err != nil {
-			logger.FatalLog("Failed to serve:", err.Error())
-		}
-	}()
-	logger.Log(0, "Agent Server successfully started on port ", grpcport, "(gRPC)")
+// 	// Start the server in a child routine
+// 	go func() {
+// 		if err := s.Serve(listener); err != nil {
+// 			logger.FatalLog("Failed to serve:", err.Error())
+// 		}
+// 	}()
+// 	logger.Log(0, "Agent Server successfully started on port ", grpcport, "(gRPC)")
 
-	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
-	// Ignore other incoming signals
-	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt)
-	defer stop()
+// 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
+// 	// Ignore other incoming signals
+// 	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt)
+// 	defer stop()
 
-	// Block main routine until a signal is received
-	// As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
-	<-ctx.Done()
+// 	// Block main routine until a signal is received
+// 	// As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
+// 	<-ctx.Done()
 
-	// After receiving CTRL+C Properly stop the server
-	logger.Log(0, "Stopping the Agent server...")
-	s.GracefulStop()
-	listener.Close()
-	logger.Log(0, "Agent server closed..")
-	logger.Log(0, "Closed DB connection.")
-}
+// 	// After receiving CTRL+C Properly stop the server
+// 	logger.Log(0, "Stopping the Agent server...")
+// 	s.GracefulStop()
+// 	listener.Close()
+// 	logger.Log(0, "Agent server closed..")
+// 	logger.Log(0, "Closed DB connection.")
+// }
 
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup) {
@@ -231,9 +228,9 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	client.Disconnect(250)
 }
 
-func authServerUnaryInterceptor() grpc.ServerOption {
-	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)
-}
+//func authServerUnaryInterceptor() grpc.ServerOption {
+//	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)
+//}
 
 func setGarbageCollection() {
 	_, gcset := os.LookupEnv("GOGC")
