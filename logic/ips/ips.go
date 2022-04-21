@@ -42,6 +42,12 @@ func GetFirstAddr6(cidr6 string) (*ipaddr.IPAddress, error) {
 		return nil, fmt.Errorf("invalid IPv6 CIDR provided to GetFirstAddr6")
 	}
 	lower := currentCidr.GetLower()
+	ipParts := strings.Split(lower.GetNetIPAddr().IP.String(), "::")
+	if len(ipParts) == 2 {
+		if len(ipParts[len(ipParts)-1]) == 0 {
+			lower = lower.Increment(1)
+		}
+	}
 	return lower, nil
 }
 
