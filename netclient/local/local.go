@@ -129,6 +129,7 @@ func GetLocalListenPort(ifacename string) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
+	portstring = strings.TrimSuffix(portstring, "\n")
 	i, err := strconv.ParseInt(portstring, 10, 32)
 	if err != nil {
 		return 0, err
