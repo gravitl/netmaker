@@ -130,20 +130,24 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		return err
 	}
 
-	if extclient.Address == "" && parentNetwork.IsIPv4 == "yes" {
-		newAddress, err := UniqueAddress(extclient.Network, false)
-		if err != nil {
-			return err
+	if extclient.Address == "" {
+		if parentNetwork.IsIPv4 == "yes" {
+			newAddress, err := UniqueAddress(extclient.Network, false)
+			if err != nil {
+				return err
+			}
+			extclient.Address = newAddress
 		}
-		extclient.Address = newAddress
 	}
 
-	if extclient.Address6 == "" && parentNetwork.IsIPv6 == "yes" {
-		addr6, err := UniqueAddress6(extclient.Network, false)
-		if err != nil {
-			return err
+	if extclient.Address6 == "" {
+		if parentNetwork.IsIPv6 == "yes" {
+			addr6, err := UniqueAddress6(extclient.Network, false)
+			if err != nil {
+				return err
+			}
+			extclient.Address6 = addr6
 		}
-		extclient.Address6 = addr6
 	}
 
 	if extclient.ClientID == "" {

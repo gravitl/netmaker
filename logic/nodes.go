@@ -279,17 +279,21 @@ func CreateNode(node *models.Node) error {
 	}
 
 	reverse := node.IsServer == "yes"
-	if node.Address == "" && parentNetwork.IsIPv4 == "yes" {
-		if node.Address, err = UniqueAddress(node.Network, reverse); err != nil {
-			return err
+	if node.Address == "" {
+		if parentNetwork.IsIPv4 == "yes" {
+			if node.Address, err = UniqueAddress(node.Network, reverse); err != nil {
+				return err
+			}
 		}
 	} else if !IsIPUnique(node.Network, node.Address, database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
 	}
 
-	if node.Address6 == "" && parentNetwork.IsIPv6 == "yes" {
-		if node.Address6, err = UniqueAddress6(node.Network, reverse); err != nil {
-			return err
+	if node.Address6 == "" {
+		if parentNetwork.IsIPv6 == "yes" {
+			if node.Address6, err = UniqueAddress6(node.Network, reverse); err != nil {
+				return err
+			}
 		}
 	} else if !IsIPUnique(node.Network, node.Address6, database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
