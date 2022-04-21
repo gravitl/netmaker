@@ -101,9 +101,7 @@ type DisplayKey struct {
 
 // GlobalConfig - global config
 type GlobalConfig struct {
-	Name       string `json:"name" bson:"name"`
-	PortGRPC   string `json:"portgrpc" bson:"portgrpc"`
-	ServerGRPC string `json:"servergrpc" bson:"servergrpc"`
+	Name string `json:"name" bson:"name"`
 }
 
 // CheckInResponse - checkin response

@@ -382,10 +382,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if logic.IsNodeInComms(&node) {
-		returnErrorResponse(w, r, formatError(err, "internal"))
-		return
-	}
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
@@ -735,16 +731,6 @@ func runServerUpdate(node *models.Node, ifaceDelta bool) error {
 		return err
 	}
 	return nil
-}
-
-func filterCommsNodes(nodes []models.Node) []models.Node {
-	var filterdNodes []models.Node
-	for i := range nodes {
-		if !logic.IsNodeInComms(&nodes[i]) {
-			filterdNodes = append(filterdNodes, nodes[i])
-		}
-	}
-	return filterdNodes
 }
 
 func runForceServerUpdate(node *models.Node) {

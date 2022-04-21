@@ -18,14 +18,10 @@ services:
     environment:
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
-      SERVER_GRPC_CONN_STRING: "grpc.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
-      GRPC_SSL: "on"
       DNS_MODE: "on"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
-      SERVER_GRPC_HOST: "grpc.NETMAKER_BASE_DOMAIN"
       API_PORT: "8081"
-      GRPC_PORT: "50051"
       CLIENT_MODE: "on"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       CORS_ALLOWED_ORIGIN: "*"
@@ -35,7 +31,6 @@ services:
       MQ_HOST: "mq"
       HOST_NETWORK: "off"
       MANAGE_IPTABLES: "on"
-      PORT_FORWARD_SERVICES: "mq"
       VERBOSITY: "1"
     ports:
       - "51821-51830:51821-51830/udp"

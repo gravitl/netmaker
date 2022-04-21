@@ -40,9 +40,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.APIPort = GetAPIPort()
 	cfg.APIPort = GetAPIPort()
 	cfg.MQPort = GetMQPort()
-	cfg.GRPCHost = GetGRPCHost()
-	cfg.GRPCPort = GetGRPCPort()
-	cfg.GRPCConnString = GetGRPCConnString()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
@@ -67,10 +64,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.DisplayKeys = "off"
 	if IsDisplayKeys() {
 		cfg.DisplayKeys = "on"
-	}
-	cfg.GRPCSSL = "off"
-	if IsGRPCSSL() {
-		cfg.GRPCSSL = "on"
 	}
 	cfg.DisableRemoteIPCheck = "off"
 	if DisableRemoteIPCheck() {
@@ -195,57 +188,15 @@ func GetDefaultNodeLimit() int32 {
 	return limit
 }
 
-// GetGRPCConnString - get grpc conn string
-func GetGRPCConnString() string {
-	conn := ""
-	if os.Getenv("SERVER_GRPC_CONN_STRING") != "" {
-		conn = os.Getenv("SERVER_GRPC_CONN_STRING")
-	} else if config.Config.Server.GRPCConnString != "" {
-		conn = config.Config.Server.GRPCConnString
-	} else {
-		conn = GetGRPCHost() + ":" + GetGRPCPort()
-	}
-	return conn
-}
-
 // GetCoreDNSAddr - gets the core dns address
 func GetCoreDNSAddr() string {
 	addr, _ := GetPublicIP()
 	if os.Getenv("COREDNS_ADDR") != "" {
 		addr = os.Getenv("COREDNS_ADDR")
 	} else if config.Config.Server.CoreDNSAddr != "" {
-		addr = config.Config.Server.GRPCConnString
+		addr = config.Config.Server.CoreDNSAddr
 	}
 	return addr
-}
-
-// GetGRPCHost - get the grpc host url
-func GetGRPCHost() string {
-	serverhost := "127.0.0.1"
-	remoteip, _ := GetPublicIP()
-	if os.Getenv("SERVER_GRPC_HOST") != "" {
-		serverhost = os.Getenv("SERVER_GRPC_HOST")
-	} else if config.Config.Server.GRPCHost != "" {
-		serverhost = config.Config.Server.GRPCHost
-	} else if os.Getenv("SERVER_HOST") != "" {
-		serverhost = os.Getenv("SERVER_HOST")
-	} else {
-		if remoteip != "" {
-			serverhost = remoteip
-		}
-	}
-	return serverhost
-}
-
-// GetGRPCPort - gets the grpc port
-func GetGRPCPort() string {
-	grpcport := "50051"
-	if os.Getenv("GRPC_PORT") != "" {
-		grpcport = os.Getenv("GRPC_PORT")
-	} else if config.Config.Server.GRPCPort != "" {
-		grpcport = config.Config.Server.GRPCPort
-	}
-	return grpcport
 }
 
 // GetMQPort - gets the mq port
@@ -257,28 +208,6 @@ func GetMQPort() string {
 		mqport = config.Config.Server.MQPort
 	}
 	return mqport
-}
-
-// GetGRPCPort - gets the grpc port
-func GetCommsCIDR() string {
-	netrange := "172.16.0.0/16"
-	if os.Getenv("COMMS_CIDR") != "" {
-		netrange = os.Getenv("COMMS_CIDR")
-	} else if config.Config.Server.CommsCIDR != "" {
-		netrange = config.Config.Server.CommsCIDR
-	} else { // make a random one, which should only affect initialize first time, unless db is removed
-		netrange = genNewCommsCIDR()
-	}
-	_, _, err := net.ParseCIDR(netrange)
-	if err == nil {
-		return netrange
-	}
-	return "172.16.0.0/16"
-}
-
-// GetCommsID - gets the grpc port
-func GetCommsID() string {
-	return commsID
 }
 
 // SetCommsID - sets the commsID
@@ -451,21 +380,6 @@ func IsDisplayKeys() bool {
 		}
 	}
 	return isdisplay
-}
-
-// IsGRPCSSL - ssl grpc on or off
-func IsGRPCSSL() bool {
-	isssl := false
-	if os.Getenv("GRPC_SSL") != "" {
-		if os.Getenv("GRPC_SSL") == "on" {
-			isssl = true
-		}
-	} else if config.Config.Server.GRPCSSL != "" {
-		if config.Config.Server.GRPCSSL == "on" {
-			isssl = true
-		}
-	}
-	return isssl
 }
 
 // DisableRemoteIPCheck - disable the remote ip check

@@ -33,13 +33,10 @@ type ClientConfig struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr  string `yaml:"corednsaddr"`
-	GRPCAddress  string `yaml:"grpcaddress"`
-	AccessKey    string `yaml:"accesskey"`
-	GRPCSSL      string `yaml:"grpcssl"`
-	CommsNetwork string `yaml:"commsnetwork"`
-	Server       string `yaml:"server"`
-	API          string `yaml:"api"`
+	CoreDNSAddr string `yaml:"corednsaddr"`
+	AccessKey   string `yaml:"accesskey"`
+	Server      string `yaml:"server"`
+	API         string `yaml:"api"`
 }
 
 // RegisterRequest - struct for registation with netmaker server
@@ -198,21 +195,12 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 			log.Println("error converting token json to object", tokenbytes)
 			return cfg, "", err
 		}
-
-		if accesstoken.ServerConfig.GRPCConnString != "" {
-			cfg.Server.GRPCAddress = accesstoken.ServerConfig.GRPCConnString
-		}
-
 		cfg.Network = accesstoken.ClientConfig.Network
 		cfg.Node.Network = accesstoken.ClientConfig.Network
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
-		cfg.Server.GRPCSSL = accesstoken.ServerConfig.GRPCSSL
 		cfg.Server.Server = accesstoken.ServerConfig.Server
 		cfg.Server.API = accesstoken.ServerConfig.APIConnString
-		if c.String("grpcserver") != "" {
-			cfg.Server.GRPCAddress = c.String("grpcserver")
-		}
 		if c.String("key") != "" {
 			cfg.Server.AccessKey = c.String("key")
 		}
@@ -223,9 +211,6 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("localrange") != "" {
 			cfg.Node.LocalRange = c.String("localrange")
 		}
-		if c.String("grpcssl") != "" {
-			cfg.Server.GRPCSSL = c.String("grpcssl")
-		}
 		if c.String("corednsaddr") != "" {
 			cfg.Server.CoreDNSAddr = c.String("corednsaddr")
 		}
@@ -234,12 +219,10 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		}
 
 	} else {
-		cfg.Server.GRPCAddress = c.String("grpcserver")
 		cfg.Server.AccessKey = c.String("key")
 		cfg.Network = c.String("network")
 		cfg.Node.Network = c.String("network")
 		cfg.Node.LocalRange = c.String("localrange")
-		cfg.Server.GRPCSSL = c.String("grpcssl")
 		cfg.Server.CoreDNSAddr = c.String("corednsaddr")
 		cfg.Server.API = c.String("apiserver")
 	}

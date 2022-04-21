@@ -231,7 +231,7 @@ func setupMQTTSub(server string) mqtt.Client {
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(12 * time.Second)
 	for {
-		//if after 12 seconds, try a gRPC pull on the last try
+		//if after 12 seconds, try a pull on the last try
 		if time.Now().After(tperiod) {
 			networks, err := ncutils.GetSystemNetworks()
 			if err != nil {
@@ -362,7 +362,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(12 * time.Second)
 	for {
-		//if after 12 seconds, try a gRPC pull on the last try
+		//if after 12 seconds, try a pull on the last try
 		if time.Now().After(tperiod) {
 			logger.Log(0, "running pull for ", cfg.Node.Network)
 			_, err := Pull(cfg.Node.Network, true)

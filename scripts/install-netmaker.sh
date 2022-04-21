@@ -34,7 +34,6 @@ echo "To Override, add a Wildcard (*.netmaker.example.com) DNS record pointing t
 echo "Or, add three DNS records pointing to $SERVER_PUBLIC_IP for the following (Replacing 'netmaker.example.com' with the domain of your choice):"
 echo "   dashboard.netmaker.example.com"
 echo "         api.netmaker.example.com"
-echo "        grpc.netmaker.example.com"
 echo "-----------------------------------------------------"
 read -p "Domain (Hit 'enter' to use $NETMAKER_BASE_DOMAIN): " domain
 read -p "Contact Email: " email

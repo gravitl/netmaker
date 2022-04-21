@@ -56,24 +56,16 @@ spec:
         env:
         - name: SERVER_API_CONN_STRING
           value: "api.NETMAKER_BASE_DOMAIN:443"
-        - name: SERVER_GRPC_CONN_STRING
-          value: "grpc.NETMAKER_BASE_DOMAIN:443"
         - name: COREDNS_ADDR
           value: "10.152.183.53"
         - name: POD_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: GRPC_SSL
-          value: "on"
         - name: SERVER_HTTP_HOST
           value: "api.NETMAKER_BASE_DOMAIN:443"
-        - name: SERVER_GRPC_HOST
-          value: "grpc.NETMAKER_BASE_DOMAIN:443"
         - name: API_PORT
           value: "8081"
-        - name: GRPC_PORT
-          value: "443"
         - name: CLIENT_MODE
           value: "off"
         - name: MASTER_KEY

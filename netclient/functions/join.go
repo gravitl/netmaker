@@ -182,7 +182,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 		logger.Log(0, "failed to make backup, node will not auto restore if config is corrupted")
 	}
 	logger.Log(0, "starting wireguard")
-	err = wireguard.InitWireguard(&node, privateKey, []wgtypes.PeerConfig{}, false, []string{}, false)
+	err = wireguard.InitWireguard(&node, privateKey, []wgtypes.PeerConfig{}, false)
 	if err != nil {
 		return err
 	}

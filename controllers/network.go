@@ -423,16 +423,6 @@ func isCommsEdit(w http.ResponseWriter, r *http.Request, netname string) bool {
 	return false
 }
 
-func filterCommsNetwork(networks []models.Network) []models.Network {
-	var filterdNets []models.Network
-	for i := range networks {
-		if networks[i].IsComms != "yes" && networks[i].NetID != servercfg.GetCommsID() {
-			filterdNets = append(filterdNets, networks[i])
-		}
-	}
-	return filterdNets
-}
-
 func getServerAddrs(node *models.Node) {
 	serverNodes := logic.GetServerNodes(serverctl.COMMS_NETID)
 	//pubIP, _ := servercfg.GetPublicIP()

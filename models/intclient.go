@@ -12,7 +12,6 @@ type IntClient struct {
 	ServerAPIPort        string `json:"serverapiport" bson:"serverapiport"`
 	ServerPrivateAddress string `json:"serverprivateaddress" bson:"serverprivateaddress"`
 	ServerWGPort         string `json:"serverwgport" bson:"serverwgport"`
-	ServerGRPCPort       string `json:"servergrpcport" bson:"servergrpcport"`
 	ServerKey            string `json:"serverkey" bson:"serverkey"`
 	IsServer             string `json:"isserver" bson:"isserver"`
 }

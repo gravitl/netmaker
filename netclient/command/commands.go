@@ -14,11 +14,7 @@ import (
 // tries to ping if already found locally, if fail ping pull for best effort for communication
 func JoinComms(cfg *config.ClientConfig) error {
 	commsCfg := &config.ClientConfig{}
-	commsCfg.Network = cfg.Server.CommsNetwork
-	commsCfg.Node.Network = cfg.Server.CommsNetwork
 	commsCfg.Server.AccessKey = cfg.Server.AccessKey
-	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
-	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
 	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
 	if commsCfg.ConfigFileExists() {
 		return nil
