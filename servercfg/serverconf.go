@@ -90,6 +90,7 @@ func GetServerConfig() config.ServerConfig {
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
+	cfg.Verbosity = GetVerbosity()
 
 	return cfg
 }
@@ -350,6 +351,21 @@ func GetServer() string {
 		server = config.Config.Server.Server
 	}
 	return server
+}
+
+func GetVerbosity() int {
+	var verbosity = 0
+	var err error
+	if os.Getenv("VERBOSITY") != "" {
+		verbosity, err = strconv.Atoi(os.Getenv("VERBOSITY"))
+		if err != nil {
+			verbosity = 0
+		}
+	} else if config.Config.Server.Verbosity != 0 {
+		verbosity = config.Config.Server.Verbosity
+	}
+	logger.Verbosity = int(verbosity)
+	return verbosity
 }
 
 // IsDNSMode - should it run with DNS
