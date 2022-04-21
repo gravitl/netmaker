@@ -154,7 +154,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" {
-		addrString += ","
+		newAllowedIPs += ","
 	}
 	if network.AddressRange6 != "" {
 		newAllowedIPs += network.AddressRange6
