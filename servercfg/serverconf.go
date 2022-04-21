@@ -348,7 +348,7 @@ func GetServer() string {
 	return server
 }
 
-func GetVerbosity() int {
+func GetVerbosity() int32 {
 	var verbosity = 0
 	var err error
 	if os.Getenv("VERBOSITY") != "" {
@@ -357,12 +357,12 @@ func GetVerbosity() int {
 			verbosity = 0
 		}
 	} else if config.Config.Server.Verbosity != 0 {
-		verbosity = config.Config.Server.Verbosity
+		verbosity = int(config.Config.Server.Verbosity)
 	}
 	if verbosity < 0 || verbosity > 3 {
 		verbosity = 0
 	}
-	return verbosity
+	return int32(verbosity)
 }
 
 // IsDNSMode - should it run with DNS

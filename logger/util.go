@@ -25,6 +25,6 @@ func getVerbose() int32 {
 	if Verbosity >= 1 && Verbosity <= 3 {
 		return int32(Verbosity)
 	}
-	Verbosity = servercfg.GetVerbosity()
+	Verbosity = int(servercfg.GetVerbosity())
 	return int32(Verbosity)
 }
