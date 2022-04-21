@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -65,12 +66,11 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup, currentComms map[string]st
 							deviceiface = nodeCfg.Node.Interface
 						}
 					}
-					localPort, err := local.GetLocalListenPort(deviceiface)
-					if err != nil {
-						logger.Log(1, "error encountered checking private ip addresses: ", err.Error())
-					}
-					if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
-						logger.Log(1, "local port has changed from ", string(nodeCfg.Node.LocalListenPort), " to ", string(localPort))
+					localPort, errN := local.GetLocalListenPort(deviceiface)
+					if errN != nil {
+						logger.Log(1, "error encountered checking local listen port: ", err.Error())
+					} else if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
+						logger.Log(1, "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
 						nodeCfg.Node.LocalListenPort = localPort
 						if err := PublishNodeUpdate(&nodeCfg); err != nil {
 							logger.Log(0, "could not publish local port change")

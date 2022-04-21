@@ -139,7 +139,6 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 		PostDown:            cfg.Node.PostDown,
 		PersistentKeepalive: cfg.Node.PersistentKeepalive,
 		LocalAddress:        cfg.Node.LocalAddress,
-		LocalListenPort:     cfg.Node.ListenPort,
 		Interface:           cfg.Node.Interface,
 		PublicKey:           cfg.Node.PublicKey,
 		DNSOn:               cfg.Node.DNSOn,
