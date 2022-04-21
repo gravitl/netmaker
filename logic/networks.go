@@ -188,13 +188,20 @@ func UniqueAddress(networkName string, reverse bool) (string, error) {
 
 	newAddr, err := ips.GetFirstAddr(network.AddressRange)
 	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
+		logger.Log(0, "UniqueAddress encountered  an error")
 		return "666", err
 	}
 
 	incVal := 1
 	if reverse {
 		incVal = -1
+		newAddr, err = ips.GetLastAddr(network.AddressRange)
+		if err != nil {
+			if err != nil {
+				logger.Log(0, "UniqueAddressServer encountered  an error")
+				return "666", err
+			}
+		}
 	}
 
 	for ; newAddr.ToAddressString().IsValid(); newAddr = newAddr.Increment(int64(incVal)) {
@@ -257,6 +264,13 @@ func UniqueAddress6(networkName string, reverse bool) (string, error) {
 	incVal := 1
 	if reverse {
 		incVal = -1
+		newAddr6, err = ips.GetLastAddr6(network.AddressRange)
+		if err != nil {
+			if err != nil {
+				logger.Log(0, "UniqueAddress6Server encountered  an error")
+				return "666", err
+			}
+		}
 	}
 
 	for ; newAddr6.ToAddressString().IsValid(); newAddr6 = newAddr6.Increment(int64(incVal)) {
