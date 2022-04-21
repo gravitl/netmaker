@@ -264,7 +264,7 @@ func UniqueAddress6(networkName string, reverse bool) (string, error) {
 	incVal := 1
 	if reverse {
 		incVal = -1
-		newAddr6, err = ips.GetLastAddr6(network.AddressRange)
+		newAddr6, err = ips.GetLastAddr6(network.AddressRange6)
 		if err != nil {
 			if err != nil {
 				logger.Log(0, "UniqueAddress6Server encountered  an error")

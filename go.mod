@@ -35,8 +35,8 @@ require (
 	filippo.io/edwards25519 v1.0.0-rc.1
 	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
 	github.com/guumaster/hostctl v1.1.2
-	github.com/kr/pretty v0.3.0
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
+	github.com/seancfoley/ipaddress-go v1.1.2
 )
 
 require (
@@ -55,7 +55,6 @@ require (
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/josharian/native v1.0.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mdlayher/genetlink v1.2.0 // indirect
 	github.com/mdlayher/netlink v1.6.0 // indirect
@@ -64,9 +63,8 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/seancfoley/ipaddress-go/ipaddr v0.0.0-20220113215635-21f206932b4b // indirect
+	github.com/seancfoley/bintree v1.0.1 // indirect
 	github.com/spf13/afero v1.3.2 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
