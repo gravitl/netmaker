@@ -153,6 +153,12 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
 	newAllowedIPs := network.AddressRange
+	if newAllowedIPs != "" {
+		addrString += ","
+	}
+	if network.AddressRange6 != "" {
+		newAllowedIPs += network.AddressRange6
+	}
 	if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(&client); err == nil {
 		for _, egressGatewayRange := range egressGatewayRanges {
 			newAllowedIPs += "," + egressGatewayRange

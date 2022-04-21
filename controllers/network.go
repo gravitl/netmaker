@@ -308,7 +308,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if network.AddressRange == "" && network.AddressRange6 == "" {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		returnErrorResponse(w, r, formatError(fmt.Errorf("IPv4 or IPv6 CIDR required"), "badrequest"))
 		return
 	}
 
