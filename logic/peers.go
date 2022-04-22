@@ -212,7 +212,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			} else {
 				continue
 			}
-			if node.LocalListenPort != peer.LocalListenPort && peer.LocalListenPort != 0 {
+			if peer.LocalListenPort != 0 {
 				peer.ListenPort = peer.LocalListenPort
 			} else {
 				continue

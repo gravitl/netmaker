@@ -2,7 +2,6 @@ package functions
 
 import (
 	"errors"
-	"log"
 	"strconv"
 	"strings"
 
@@ -28,6 +27,7 @@ func GetLocalListenPort(ifacename string) (int32, error) {
 	return int32(i), nil
 }
 
+// UpdateLocalListenPort - check local port, if different, mod config and publish
 func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 	var err error
 	ifacename := getRealIface(nodeCfg.Node.Interface, nodeCfg.Node.Address)
@@ -41,7 +41,6 @@ func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 		if err != nil {
 			return err
 		}
-		log.Println("server: " + nodeCfg.Server.Server)
 		if err := PublishNodeUpdate(nodeCfg); err != nil {
 			logger.Log(0, "could not publish local port change")
 		}
