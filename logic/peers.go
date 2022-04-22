@@ -98,7 +98,6 @@ func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, i
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
 						}
 						if network.IsIPv6 == "yes" && currentExtClients[i].Address6 != "" {
-							fmt.Printf("append ext client address6 %s \n", currentExtClients[i].Address6)
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address6)
 						}
 					}
@@ -324,9 +323,7 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 			IP:   net.ParseIP(peer.Address),
 			Mask: net.CIDRMask(32, 32),
 		}
-		if peeraddr.IP != nil && peeraddr.Mask != nil {
-			allowedips = append(allowedips, peeraddr)
-		}
+		allowedips = append(allowedips, peeraddr)
 	}
 
 	if peer.Address6 != "" {
@@ -334,9 +331,7 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 			IP:   net.ParseIP(peer.Address6),
 			Mask: net.CIDRMask(128, 128),
 		}
-		if addr6.IP != nil && addr6.Mask != nil {
-			allowedips = append(allowedips, addr6)
-		}
+		allowedips = append(allowedips, addr6)
 	}
 
 	// handle manually set peers
@@ -360,9 +355,7 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 				IP:   net.ParseIP(allowedIp),
 				Mask: net.CIDRMask(128, 128),
 			}
-			if ipnet.IP != nil && ipnet.Mask != nil {
-				allowedips = append(allowedips, ipnet)
-			}
+			allowedips = append(allowedips, ipnet)
 		}
 	}
 	// handle egress gateway peers
@@ -375,24 +368,19 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 				logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
 				continue // if can't parse CIDR
 			}
-			currentAddr := ipaddr.NewIPAddressString(ipnet.String()).GetAddress()
-			if currentAddr.IsIPv4() {
-				nodeEndpointArr := strings.Split(peer.Endpoint, ":") // getting the public ip of node
-				if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain endpoint of node
-					logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.Endpoint, ", omitting")
-					continue // skip adding egress range if overlaps with node's ip
-				}
-				// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
-				if ipnet.Contains(net.ParseIP(node.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
-					logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.LocalAddress, ", omitting")
-					continue // skip adding egress range if overlaps with node's local ip
-				}
-				if err != nil {
-					logger.Log(1, "error encountered when setting egress range", err.Error())
-				} else {
-					allowedips = append(allowedips, *ipnet)
-				}
-			} else if currentAddr.IsIPv6() {
+			nodeEndpointArr := strings.Split(peer.Endpoint, ":") // getting the public ip of node
+			if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain endpoint of node
+				logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.Endpoint, ", omitting")
+				continue // skip adding egress range if overlaps with node's ip
+			}
+			// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
+			if ipnet.Contains(net.ParseIP(node.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
+				logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.LocalAddress, ", omitting")
+				continue // skip adding egress range if overlaps with node's local ip
+			}
+			if err != nil {
+				logger.Log(1, "error encountered when setting egress range", err.Error())
+			} else {
 				allowedips = append(allowedips, *ipnet)
 			}
 		}

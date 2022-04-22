@@ -293,28 +293,22 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 					logger.Log(1, "could not parse gateway IP range. Not adding", iprange)
 					continue // if can't parse CIDR
 				}
-				currentAddr := ipaddr.NewIPAddressString(ipnet.String()).GetAddress()
-				if currentAddr.IsIPv4() {
-					nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
-					if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain public ip of node
-						logger.Log(2, "egress IP range of", iprange, "overlaps with", node.Endpoint, ", omitting")
-						continue // skip adding egress range if overlaps with node's ip
-					}
-					if ipnet.Contains(net.ParseIP(serverNode.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
-						logger.Log(2, "egress IP range of", iprange, "overlaps with", serverNode.LocalAddress, ", omitting")
-						continue // skip adding egress range if overlaps with node's local ip
-					}
-					gateways = append(gateways, iprange)
-					if err != nil {
-						logger.Log(1, "ERROR ENCOUNTERED SETTING GATEWAY:", err.Error())
-					} else {
-						allowedips = append(allowedips, *ipnet)
-					}
-				} else if currentAddr.IsIPv6() {
+				nodeEndpointArr := strings.Split(node.Endpoint, ":") // getting the public ip of node
+				if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain public ip of node
+					logger.Log(2, "egress IP range of", iprange, "overlaps with", node.Endpoint, ", omitting")
+					continue // skip adding egress range if overlaps with node's ip
+				}
+				if ipnet.Contains(net.ParseIP(serverNode.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
+					logger.Log(2, "egress IP range of", iprange, "overlaps with", serverNode.LocalAddress, ", omitting")
+					continue // skip adding egress range if overlaps with node's local ip
+				}
+				gateways = append(gateways, iprange)
+				if err != nil {
+					logger.Log(1, "ERROR ENCOUNTERED SETTING GATEWAY:", err.Error())
+				} else {
 					allowedips = append(allowedips, *ipnet)
 				}
 			}
-			ranges = nil
 		}
 
 		peer = wgtypes.PeerConfig{
@@ -402,7 +396,6 @@ func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 	}
 	tempPeers = nil
 	extPeers = nil
-	fmt.Printf("appended peers: %v \n", peers)
 	return peers, err
 }
 
