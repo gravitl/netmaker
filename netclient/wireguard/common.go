@@ -80,7 +80,6 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
 				" persistent-keepalive "+keepAliveString+
 				" allowed-ips "+allowedips, true)
-
 		} else {
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
 				" endpoint "+udpendpoint+
