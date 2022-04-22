@@ -54,10 +54,8 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
 	servervals := models.ServerConfig{
-		GRPCConnString: s.GRPCConnString,
-		GRPCSSL:        s.GRPCSSL,
-		Server:         s.Server,
-		APIConnString:  s.APIConnString,
+		Server:        s.Server,
+		APIConnString: s.APIConnString,
 	}
 	accessToken.ServerConfig = servervals
 	accessToken.ClientConfig.Network = netID
@@ -145,7 +143,7 @@ func DecrimentKey(networkName string, keyvalue string) {
 	var network models.Network
 
 	network, err := GetParentNetwork(networkName)
-	if err != nil || network.IsComms == "yes" {
+	if err != nil {
 		return
 	}
 
@@ -178,9 +176,6 @@ func IsKeyValid(networkname string, keyvalue string) bool {
 		return false
 	}
 	accesskeys := network.AccessKeys
-	if network.IsComms == "yes" {
-		accesskeys = getAllAccessKeys()
-	}
 
 	var key models.AccessKey
 	foundkey := false

@@ -1,22 +1,20 @@
 package functions
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"runtime"
 
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 	//homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -26,54 +24,31 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	node := cfg.Node
-	//servercfg := cfg.Server
-
 	if cfg.Node.IPForwarding == "yes" && !ncutils.IsWindows() {
 		if err = local.SetIPForwarding(); err != nil {
 			return nil, err
 		}
 	}
-	var resNode models.Node // just need to fill this with either server calls or client calls
-
-	var header metadata.MD
-	var wcclient nodepb.NodeServiceClient
-	var ctx context.Context
-
-	if cfg.Node.IsServer != "yes" {
-		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+	token, err := Authenticate(cfg)
+	if err != nil {
+		return nil, err
+	}
+	url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
+	response, err := API("", http.MethodGet, url, token)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		bytes, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			logger.Log(1, "Cant dial GRPC server: ", err.Error())
-			return nil, err
+			fmt.Println(err)
 		}
-		defer conn.Close()
-		wcclient = nodepb.NewNodeServiceClient(conn)
-
-		ctx, err = auth.SetJWT(wcclient, network)
-		if err != nil {
-			logger.Log(1, "Failed to authenticate: ", err.Error())
-			return nil, err
-		}
-		data, err := json.Marshal(&node)
-		if err != nil {
-			logger.Log(1, "Failed to parse node config: ", err.Error())
-			return nil, err
-		}
-
-		req := &nodepb.Object{
-			Data: string(data),
-			Type: nodepb.NODE_TYPE,
-		}
-
-		readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
-		if err != nil {
-			return nil, err
-		}
-
-		if err = json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
-			return nil, err
-		}
+		return nil, (fmt.Errorf("%s %w", string(bytes), err))
+	}
+	defer response.Body.Close()
+	resNode := models.Node{}
+	if err := json.NewDecoder(response.Body).Decode(&resNode); err != nil {
+		return nil, fmt.Errorf("error decoding node %w", err)
 	}
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
@@ -89,25 +64,6 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		}
 		if err = wireguard.SetWGConfig(network, false); err != nil {
 			return nil, err
-		}
-		nodeData, err := json.Marshal(&resNode)
-		if err != nil {
-			return &resNode, err
-		}
-
-		if resNode.IsServer != "yes" {
-			if wcclient == nil || ctx == nil {
-				return &cfg.Node, errors.New("issue initializing gRPC client")
-			}
-			req := &nodepb.Object{
-				Data:     string(nodeData),
-				Type:     nodepb.NODE_TYPE,
-				Metadata: "",
-			}
-			_, err = wcclient.UpdateNode(ctx, req, grpc.Header(&header))
-			if err != nil {
-				return &resNode, err
-			}
 		}
 	} else {
 		if err = wireguard.SetWGConfig(network, true); err != nil {

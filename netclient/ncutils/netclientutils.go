@@ -3,7 +3,6 @@ package ncutils
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/tls"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -23,8 +22,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // Version - version of the netclient
@@ -379,17 +376,6 @@ func GetWGPathSpecific() string {
 	} else {
 		return "/etc/wireguard/"
 	}
-}
-
-// GRPCRequestOpts - gets grps request opts
-func GRPCRequestOpts(isSecure string) grpc.DialOption {
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if isSecure == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	return requestOpts
 }
 
 // Copy - copies a src file to dest

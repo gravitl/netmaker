@@ -22,7 +22,7 @@ func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
 	r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
 	r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
-	r.HandleFunc("/api/server/register", http.HandlerFunc(register)).Methods("POST")
+	r.HandleFunc("/api/server/register", nodeauth(http.HandlerFunc(register))).Methods("POST")
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
@@ -115,50 +115,12 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 func register(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, "processing registration request")
 	w.Header().Set("Content-Type", "application/json")
-	bearerToken := r.Header.Get("Authorization")
-	var tokenSplit = strings.Split(bearerToken, " ")
-	var token = ""
-	if len(tokenSplit) < 2 {
-		errorResponse := models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
-	} else {
-		token = tokenSplit[1]
-	}
 	//decode body
 	var request config.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		logger.Log(0, "error decoding request", err.Error())
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusBadRequest, Message: err.Error(),
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
-	}
-	found := false
-	networks, err := logic.GetNetworks()
-	if err != nil {
-		logger.Log(0, "no networks", err.Error())
-		errorResponse := models.ErrorResponse{
-			Code: http.StatusNotFound, Message: "no networks",
-		}
-		returnErrorResponse(w, r, errorResponse)
-		return
-	}
-	for _, network := range networks {
-		for _, key := range network.AccessKeys {
-			if key.Value == token {
-				found = true
-				break
-			}
-		}
-	}
-	if !found {
-		logger.Log(0, "valid access key not found")
-		errorResponse := models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "You are unauthorized to access this endpoint.",
 		}
 		returnErrorResponse(w, r, errorResponse)
 		return

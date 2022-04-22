@@ -36,10 +36,6 @@ type ServerConfig struct {
 	APIConnString         string `yaml:"apiconn"`
 	APIHost               string `yaml:"apihost"`
 	APIPort               string `yaml:"apiport"`
-	GRPCConnString        string `yaml:"grpcconn"`
-	GRPCHost              string `yaml:"grpchost"`
-	GRPCPort              string `yaml:"grpcport"`
-	GRPCSecure            string `yaml:"grpcsecure"`
 	MQHOST                string `yaml:"mqhost"`
 	MasterKey             string `yaml:"masterkey"`
 	DNSKey                string `yaml:"dnskey"`
@@ -51,7 +47,6 @@ type ServerConfig struct {
 	ClientMode            string `yaml:"clientmode"`
 	DNSMode               string `yaml:"dnsmode"`
 	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
-	GRPCSSL               string `yaml:"grpcssl"`
 	Version               string `yaml:"version"`
 	SQLConn               string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
@@ -71,7 +66,6 @@ type ServerConfig struct {
 	ManageIPTables        string `yaml:"manageiptables"`
 	PortForwardServices   string `yaml:"portforwardservices"`
 	HostNetwork           string `yaml:"hostnetwork"`
-	CommsCIDR             string `yaml:"commscidr"`
 	MQPort                string `yaml:"mqport"`
 	Server                string `yaml:"server"`
 }

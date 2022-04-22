@@ -25,20 +25,12 @@ spec:
         env:
         - name: SERVER_API_CONN_STRING
           value: "api.nm.k8s.gravitl.com:443"
-        - name: SERVER_GRPC_CONN_STRING
-          value: "grpc.nm.k8s.gravitl.com:443"
         - name: COREDNS_ADDR
           value: "netmaker-dns"
-        - name: GRPC_SSL
-          value: "on"
         - name: SERVER_HTTP_HOST
           value: "api.nm.k8s.gravitl.com"
-        - name: SERVER_GRPC_HOST
-          value: "grpc.nm.k8s.gravitl.com"
         - name: API_PORT
           value: "8081"
-        - name: GRPC_PORT
-          value: "50051"
         - name: AGENT_BACKEND
           value: "off"
         - name: CLIENT_MODE
@@ -47,8 +39,6 @@ spec:
           value: "on"
         - name: MASTER_KEY
           value: "Unkn0wn!"
-        - name: SERVER_GRPC_WIREGUARD
-          value: "off"
         - name: MASTER_KEY
           value: "secretkey"
         - name: CORS_ALLOWED_ORIGIN

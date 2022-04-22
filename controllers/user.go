@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 func userHandlers(r *mux.Router) {
@@ -167,11 +166,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	// get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&user)
 
-	if !user.IsAdmin && isAddingComms(user.Networks) {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("can not add comms network to non admin"), "badrequest"))
-		return
-	}
-
 	user, err := logic.CreateUser(user)
 
 	if err != nil {
@@ -200,11 +194,6 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	if !userchange.IsAdmin && isAddingComms(userchange.Networks) {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("can not add comms network to non admin"), "badrequest"))
-		return
-	}
-
 	err = logic.UpdateUserNetworks(userchange.Networks, userchange.IsAdmin, &user)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -227,10 +216,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if auth.IsOauthUser(&user) == nil {
 		returnErrorResponse(w, r, formatError(fmt.Errorf("can not update user info for oauth user %s", username), "forbidden"))
-		return
-	}
-	if !user.IsAdmin && isAddingComms(user.Networks) {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("can not add comms network to non admin"), "badrequest"))
 		return
 	}
 	var userchange models.User
@@ -301,14 +286,4 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
-}
-
-func isAddingComms(networks []string) bool {
-	commsID := servercfg.GetCommsID()
-	for i := range networks {
-		if networks[i] == commsID {
-			return true
-		}
-	}
-	return false
 }

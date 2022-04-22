@@ -26,10 +26,6 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 					err = errors.New("no network provided")
 					return err
 				}
-				if cfg.Server.GRPCAddress == "" {
-					err = errors.New("no server address provided")
-					return err
-				}
 				err = command.Register(&cfg, pvtKey)
 				return err
 			},

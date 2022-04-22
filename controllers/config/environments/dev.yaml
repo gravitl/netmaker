@@ -1,7 +1,6 @@
 server:
   host: "localhost"
   apiport: "8081"
-  grpcport: "50051"
   masterkey: ""
   allowedorigin: "*"
   restbackend: true            

@@ -2,23 +2,17 @@ package servercfg
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"math/rand"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/logger"
 )
 
 var (
 	Version = "dev"
-	commsID = ""
 )
 
 // SetHost - sets the host ip
@@ -40,9 +34,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.APIPort = GetAPIPort()
 	cfg.APIPort = GetAPIPort()
 	cfg.MQPort = GetMQPort()
-	cfg.GRPCHost = GetGRPCHost()
-	cfg.GRPCPort = GetGRPCPort()
-	cfg.GRPCConnString = GetGRPCConnString()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
@@ -67,10 +58,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.DisplayKeys = "off"
 	if IsDisplayKeys() {
 		cfg.DisplayKeys = "on"
-	}
-	cfg.GRPCSSL = "off"
-	if IsGRPCSSL() {
-		cfg.GRPCSSL = "on"
 	}
 	cfg.DisableRemoteIPCheck = "off"
 	if DisableRemoteIPCheck() {
@@ -97,6 +84,7 @@ func GetServerConfig() config.ServerConfig {
 	services := strings.Join(GetPortForwardServiceList(), ",")
 	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
+	cfg.Verbosity = GetVerbosity()
 
 	return cfg
 }
@@ -195,57 +183,15 @@ func GetDefaultNodeLimit() int32 {
 	return limit
 }
 
-// GetGRPCConnString - get grpc conn string
-func GetGRPCConnString() string {
-	conn := ""
-	if os.Getenv("SERVER_GRPC_CONN_STRING") != "" {
-		conn = os.Getenv("SERVER_GRPC_CONN_STRING")
-	} else if config.Config.Server.GRPCConnString != "" {
-		conn = config.Config.Server.GRPCConnString
-	} else {
-		conn = GetGRPCHost() + ":" + GetGRPCPort()
-	}
-	return conn
-}
-
 // GetCoreDNSAddr - gets the core dns address
 func GetCoreDNSAddr() string {
 	addr, _ := GetPublicIP()
 	if os.Getenv("COREDNS_ADDR") != "" {
 		addr = os.Getenv("COREDNS_ADDR")
 	} else if config.Config.Server.CoreDNSAddr != "" {
-		addr = config.Config.Server.GRPCConnString
+		addr = config.Config.Server.CoreDNSAddr
 	}
 	return addr
-}
-
-// GetGRPCHost - get the grpc host url
-func GetGRPCHost() string {
-	serverhost := "127.0.0.1"
-	remoteip, _ := GetPublicIP()
-	if os.Getenv("SERVER_GRPC_HOST") != "" {
-		serverhost = os.Getenv("SERVER_GRPC_HOST")
-	} else if config.Config.Server.GRPCHost != "" {
-		serverhost = config.Config.Server.GRPCHost
-	} else if os.Getenv("SERVER_HOST") != "" {
-		serverhost = os.Getenv("SERVER_HOST")
-	} else {
-		if remoteip != "" {
-			serverhost = remoteip
-		}
-	}
-	return serverhost
-}
-
-// GetGRPCPort - gets the grpc port
-func GetGRPCPort() string {
-	grpcport := "50051"
-	if os.Getenv("GRPC_PORT") != "" {
-		grpcport = os.Getenv("GRPC_PORT")
-	} else if config.Config.Server.GRPCPort != "" {
-		grpcport = config.Config.Server.GRPCPort
-	}
-	return grpcport
 }
 
 // GetMQPort - gets the mq port
@@ -257,33 +203,6 @@ func GetMQPort() string {
 		mqport = config.Config.Server.MQPort
 	}
 	return mqport
-}
-
-// GetGRPCPort - gets the grpc port
-func GetCommsCIDR() string {
-	netrange := "172.16.0.0/16"
-	if os.Getenv("COMMS_CIDR") != "" {
-		netrange = os.Getenv("COMMS_CIDR")
-	} else if config.Config.Server.CommsCIDR != "" {
-		netrange = config.Config.Server.CommsCIDR
-	} else { // make a random one, which should only affect initialize first time, unless db is removed
-		netrange = genNewCommsCIDR()
-	}
-	_, _, err := net.ParseCIDR(netrange)
-	if err == nil {
-		return netrange
-	}
-	return "172.16.0.0/16"
-}
-
-// GetCommsID - gets the grpc port
-func GetCommsID() string {
-	return commsID
-}
-
-// SetCommsID - sets the commsID
-func SetCommsID(newCommsID string) {
-	commsID = newCommsID
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
@@ -423,6 +342,23 @@ func GetServer() string {
 	return server
 }
 
+func GetVerbosity() int32 {
+	var verbosity = 0
+	var err error
+	if os.Getenv("VERBOSITY") != "" {
+		verbosity, err = strconv.Atoi(os.Getenv("VERBOSITY"))
+		if err != nil {
+			verbosity = 0
+		}
+	} else if config.Config.Server.Verbosity != 0 {
+		verbosity = int(config.Config.Server.Verbosity)
+	}
+	if verbosity < 0 || verbosity > 3 {
+		verbosity = 0
+	}
+	return int32(verbosity)
+}
+
 // IsDNSMode - should it run with DNS
 func IsDNSMode() bool {
 	isdns := true
@@ -451,21 +387,6 @@ func IsDisplayKeys() bool {
 		}
 	}
 	return isdisplay
-}
-
-// IsGRPCSSL - ssl grpc on or off
-func IsGRPCSSL() bool {
-	isssl := false
-	if os.Getenv("GRPC_SSL") != "" {
-		if os.Getenv("GRPC_SSL") == "on" {
-			isssl = true
-		}
-	} else if config.Config.Server.GRPCSSL != "" {
-		if config.Config.Server.GRPCSSL == "on" {
-			isssl = true
-		}
-	}
-	return isssl
 }
 
 // DisableRemoteIPCheck - disable the remote ip check
@@ -629,35 +550,4 @@ func GetRce() bool {
 // GetDebug -- checks if debugging is enabled, off by default
 func GetDebug() bool {
 	return os.Getenv("DEBUG") == "on" || config.Config.Server.Debug == true
-}
-
-func genNewCommsCIDR() string {
-	currIfaces, err := net.Interfaces()
-	netrange := fmt.Sprintf("172.%d.0.0/16", genCommsByte())
-	if err == nil { // make sure chosen CIDR doesn't overlap with any local iface CIDRs
-		iter := 0
-		for i := 0; i < len(currIfaces); i++ {
-			if currentAddrs, err := currIfaces[i].Addrs(); err == nil {
-				for j := range currentAddrs {
-					if strings.Contains(currentAddrs[j].String(), netrange[0:7]) {
-						if iter > 20 { // if this hits, then the cidr should be specified
-							logger.FatalLog("could not find a suitable comms network on this server, please manually enter one")
-						}
-						netrange = fmt.Sprintf("172.%d.0.0/16", genCommsByte())
-						i = -1 // reset to loop back through
-						iter++ // track how many times you've iterated and not found one
-						break
-					}
-				}
-			}
-		}
-	}
-	return netrange
-}
-
-func genCommsByte() int {
-	const min = 1 << 4 // 16
-	const max = 1 << 5 // 32
-	rand.Seed(time.Now().UnixNano())
-	return rand.Intn(max-min) + min
 }

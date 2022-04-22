@@ -1,26 +1,25 @@
 package functions
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 // LINUX_APP_DATA_PATH - linux path
@@ -156,46 +155,25 @@ func LeaveNetwork(network string, force bool) error {
 	if err != nil {
 		return err
 	}
-	servercfg := cfg.Server
 	node := cfg.Node
-	if node.NetworkSettings.IsComms == "yes" && !force {
-		return errors.New("COMMS_NET - You are trying to leave the comms network. This will break network updates. Unless you re-join. If you really want to leave, run with --force=yes.")
-	}
-
 	if node.IsServer != "yes" {
-		var wcclient nodepb.NodeServiceClient
-		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
+		token, err := Authenticate(cfg)
 		if err != nil {
-			log.Printf("Unable to establish client connection to "+servercfg.GRPCAddress+": %v", err)
+			return fmt.Errorf("unable to authenticate %w", err)
 		}
-		defer conn.Close()
-		wcclient = nodepb.NewNodeServiceClient(conn)
-
-		ctx, err := auth.SetJWT(wcclient, network)
+		url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
+		response, err := API("", http.MethodDelete, url, token)
 		if err != nil {
-			log.Printf("Failed to authenticate: %v", err)
-		} else { // handle client side
-			var header metadata.MD
-			nodeData, err := json.Marshal(&node)
-			if err == nil {
-				_, err = wcclient.DeleteNode(
-					ctx,
-					&nodepb.Object{
-						Data: string(nodeData),
-						Type: nodepb.NODE_TYPE,
-					},
-					grpc.Header(&header),
-				)
-				if err != nil {
-					logger.Log(1, "encountered error deleting node: ", err.Error())
-				} else {
-					logger.Log(1, "removed machine from ", node.Network, " network on remote server")
-				}
-			}
+			return fmt.Errorf("error deleting node on server %w", err)
+		}
+		if response.StatusCode == http.StatusOK {
+			logger.Log(0, "deleted node", cfg.Node.Name, " on network ", cfg.Network)
+		} else {
+			bodybytes, _ := ioutil.ReadAll(response.Body)
+			defer response.Body.Close()
+			return fmt.Errorf("error deleting node on server %s %s", response.Status, string(bodybytes))
 		}
 	}
-
 	wgClient, wgErr := wgctrl.New()
 	if wgErr == nil {
 		removeIface := cfg.Node.Interface
@@ -328,4 +306,62 @@ func WipeLocal(network string) error {
 // GetNetmakerPath - gets netmaker path locally
 func GetNetmakerPath() string {
 	return LINUX_APP_DATA_PATH
+}
+
+//API function to interact with netmaker api endpoints. response from endpoint is returned
+func API(data any, method, url, authorization string) (*http.Response, error) {
+	var request *http.Request
+	var err error
+	if data != "" {
+		payload, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("error encoding data %w", err)
+		}
+		request, err = http.NewRequest(method, url, bytes.NewBuffer(payload))
+		if err != nil {
+			return nil, fmt.Errorf("error creating http request %w", err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+	} else {
+		request, err = http.NewRequest(method, url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating http request %w", err)
+		}
+	}
+	if authorization != "" {
+		request.Header.Set("authorization", "Bearer "+authorization)
+	}
+	client := http.Client{}
+	return client.Do(request)
+}
+
+// Authenticate authenticates with api to permit subsequent interactions with the api
+func Authenticate(cfg *config.ClientConfig) (string, error) {
+
+	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "/secret-" + cfg.Network)
+	if err != nil {
+		return "", fmt.Errorf("could not read secrets file %w", err)
+	}
+	data := models.AuthParams{
+		MacAddress: cfg.Node.MacAddress,
+		ID:         cfg.Node.ID,
+		Password:   string(pass),
+	}
+	url := "https://" + cfg.Server.API + "/api/nodes/adm/" + cfg.Network + "/authenticate"
+	response, err := API(data, http.MethodPost, url, "")
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		bodybytes, _ := ioutil.ReadAll(response.Body)
+		return "", fmt.Errorf("failed to authenticate %s %s", response.Status, string(bodybytes))
+	}
+	resp := models.SuccessResponse{}
+	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
+		return "", fmt.Errorf("error decoding respone %w", err)
+	}
+	tokenData := resp.Response.(map[string]interface{})
+	token := tokenData["AuthToken"]
+	return token.(string), nil
 }

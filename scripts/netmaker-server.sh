@@ -9,7 +9,6 @@ cat >/etc/netmaker/config/environments/dev.yaml<<EOL
 server:
   host:
   apiport: "8081"
-  grpcport: "50051"
   masterkey: "secretkey"
   allowedorigin: "*"
   restbackend: true            

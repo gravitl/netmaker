@@ -72,32 +72,3 @@ func StoreJWTSecret(privateKey string) error {
 	}
 	return database.Insert("nm-jwt-secret", string(data), database.SERVERCONF_TABLE_NAME)
 }
-
-// FetchCommsNetID - fetches comms netid from db
-func FetchCommsNetID() (string, error) {
-	var dbData string
-	var err error
-	var fetchedData = serverData{}
-	dbData, err = database.FetchRecord(database.SERVERCONF_TABLE_NAME, "nm-comms-id")
-	if err != nil {
-		return "", err
-	}
-	err = json.Unmarshal([]byte(dbData), &fetchedData)
-	if err != nil {
-		return "", err
-	}
-	return fetchedData.PrivateKey, nil
-}
-
-// StoreCommsNetID - stores server comms network netid if needed
-func StoreCommsNetID(netid string) error {
-	var newData = serverData{}
-	var err error
-	var data []byte
-	newData.PrivateKey = netid
-	data, err = json.Marshal(&newData)
-	if err != nil {
-		return err
-	}
-	return database.Insert("nm-comms-id", string(data), database.SERVERCONF_TABLE_NAME)
-}

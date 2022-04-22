@@ -18,7 +18,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
@@ -72,7 +71,7 @@ func Daemon() error {
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	wg.Add(1)
-	go Checkin(ctx, &wg, serverSet)
+	go Checkin(ctx, &wg)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit
@@ -112,7 +111,6 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 }
 
 // PingServer -- checks if server is reachable
-// use commsCfg only*
 func PingServer(cfg *config.ClientConfig) error {
 	pinger, err := ping.NewPinger(cfg.Server.Server)
 	if err != nil {
@@ -181,10 +179,9 @@ func messageQueue(ctx context.Context, server string) {
 }
 
 // setupMQTTSub creates a connection to broker and subscribes to topic
-// utilizes comms client configs to setup connections
 func setupMQTTSub(server string) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	opts.AddBroker("ssl://" + server + ":8883")
 	opts.TLSConfig = NewTLSConfig(nil, server)
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
@@ -231,7 +228,7 @@ func setupMQTTSub(server string) mqtt.Client {
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(12 * time.Second)
 	for {
-		//if after 12 seconds, try a gRPC pull on the last try
+		//if after 12 seconds, try a pull on the last try
 		if time.Now().After(tperiod) {
 			networks, err := ncutils.GetSystemNetworks()
 			if err != nil {
@@ -325,7 +322,7 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
-	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	opts.AddBroker("ssl://" + server + ":8883")
 	opts.TLSConfig = NewTLSConfig(cfg, "")
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
@@ -362,7 +359,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(12 * time.Second)
 	for {
-		//if after 12 seconds, try a gRPC pull on the last try
+		//if after 12 seconds, try a pull on the last try
 		if time.Now().After(tperiod) {
 			logger.Log(0, "running pull for ", cfg.Node.Network)
 			_, err := Pull(cfg.Node.Network, true)
@@ -449,16 +446,6 @@ func decryptMsg(nodeCfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	}
 
 	return ncutils.DeChunk(msg, serverPubKey, diskKey)
-}
-
-func getServerAddress(cfg *config.ClientConfig) string {
-	var server models.ServerAddr
-	for _, server = range cfg.Node.NetworkSettings.DefaultServerAddrs {
-		if server.Address != "" && server.IsLeader {
-			break
-		}
-	}
-	return server.Address
 }
 
 // == Message Caches ==

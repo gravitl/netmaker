@@ -25,14 +25,11 @@ type Network struct {
 	IsIPv4              string      `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string      `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
 	IsPointToSite       string      `json:"ispointtosite" bson:"ispointtosite" validate:"checkyesorno"`
-	IsComms             string      `json:"iscomms" bson:"iscomms" validate:"checkyesorno"`
 	LocalRange          string      `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	DefaultUDPHolePunch string      `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS string      `json:"defaultextclientdns" bson:"defaultextclientdns"`
 	DefaultMTU          int32       `json:"defaultmtu" bson:"defaultmtu"`
-	// consider removing - may be depreciated
-	DefaultServerAddrs []ServerAddr `json:"defaultserveraddrs" bson:"defaultserveraddrs" yaml:"defaultserveraddrs"`
-	DefaultACL         string       `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
+	DefaultACL          string      `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
@@ -60,9 +57,6 @@ func (network *Network) SetDefaults() {
 	}
 	if network.IsPointToSite == "" {
 		network.IsPointToSite = "no"
-	}
-	if network.IsComms == "" {
-		network.IsComms = "no"
 	}
 	if network.DefaultInterface == "" {
 		if len(network.NetID) < 13 {

@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/netclient/server"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gopkg.in/ini.v1"
@@ -122,7 +121,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 }
 
 // Initializes a WireGuard interface
-func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string, syncconf bool) error {
+func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, syncconf bool) error {
 
 	key, err := wgtypes.ParseKey(privkey)
 	if err != nil {
@@ -230,10 +229,6 @@ func SetWGConfig(network string, peerupdate bool) error {
 	servercfg := cfg.Server
 	nodecfg := cfg.Node
 
-	peers, hasGateway, gateways, err := server.GetPeers(nodecfg.MacAddress, nodecfg.Network, servercfg.GRPCAddress, nodecfg.IsDualStack == "yes", nodecfg.IsIngressGateway == "yes", nodecfg.IsServer == "yes")
-	if err != nil {
-		return err
-	}
 	privkey, err := RetrievePrivKey(network)
 	if err != nil {
 		return err
@@ -247,11 +242,11 @@ func SetWGConfig(network string, peerupdate bool) error {
 				return err
 			}
 		}
-		err = SetPeers(iface, &nodecfg, peers)
+		err = SetPeers(iface, &nodecfg, []wgtypes.PeerConfig{})
 	} else if peerupdate {
-		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, true)
+		err = InitWireguard(&nodecfg, privkey, []wgtypes.PeerConfig{}, true)
 	} else {
-		err = InitWireguard(&nodecfg, privkey, peers, hasGateway, gateways, false)
+		err = InitWireguard(&nodecfg, privkey, []wgtypes.PeerConfig{}, false)
 	}
 	if nodecfg.DNSOn == "yes" {
 		_ = local.UpdateDNS(nodecfg.Interface, nodecfg.Network, servercfg.CoreDNSAddr)
