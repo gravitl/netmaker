@@ -155,6 +155,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//			logger.Log(0, "error applying dns" + err.Error())
 		//		}
 	}
+	_ = UpdateLocalListenPort(&nodeCfg)
 }
 
 // UpdatePeers -- mqtt message handler for peers/<Network>/<NodeID> topic
@@ -213,6 +214,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	}
+	_ = UpdateLocalListenPort(&cfg)
 }
 
 func setHostDNS(dns, iface string, windows bool) error {

@@ -233,14 +233,12 @@ func SetWGConfig(network string, peerupdate bool) error {
 	if err != nil {
 		return err
 	}
-	if peerupdate && !ncutils.IsFreeBSD() && !(ncutils.IsLinux() && !ncutils.IsKernel()) {
-		var iface string
-		iface = nodecfg.Interface
-		if ncutils.IsMac() {
-			iface, err = local.GetMacIface(nodecfg.Address)
-			if err != nil {
-				return err
-			}
+	var iface string
+	iface = nodecfg.Interface
+	if ncutils.IsMac() {
+		iface, err = local.GetMacIface(nodecfg.Address)
+		if err != nil {
+			return err
 		}
 		err = SetPeers(iface, &nodecfg, []wgtypes.PeerConfig{})
 	} else if peerupdate {

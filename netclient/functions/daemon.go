@@ -218,6 +218,7 @@ func setupMQTT(cfg *config.ClientConfig, server string, publish bool) mqtt.Clien
 	opts.SetConnectRetryInterval(time.Second << 2)
 	opts.SetKeepAlive(time.Minute >> 1)
 	opts.SetWriteTimeout(time.Minute)
+
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		if !publish {
 			networks, err := ncutils.GetSystemNetworks()
@@ -243,8 +244,8 @@ func setupMQTT(cfg *config.ClientConfig, server string, publish bool) mqtt.Clien
 		}
 		logger.Log(0, "connection re-established with mqtt server")
 	})
-
 	client := mqtt.NewClient(opts)
+
 	tperiod := time.Now().Add(12 * time.Second)
 	for {
 		//if after 12 seconds, try a pull on the last try
@@ -258,6 +259,7 @@ func setupMQTT(cfg *config.ClientConfig, server string, publish bool) mqtt.Clien
 			time.Sleep(time.Second)
 		}
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
+
 			logger.Log(0, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				logger.Log(0, "could not connect to broker, exiting ", cfg.Node.Network, " setup: ", token.Error().Error())

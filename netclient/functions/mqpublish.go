@@ -6,14 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/tls"
 )
@@ -62,23 +60,8 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 							logger.Log(0, "could not publish local address change")
 						}
 					}
-					var deviceiface = nodeCfg.Node.Interface
-					if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
-						deviceiface, err = local.GetMacIface(nodeCfg.Node.Address)
-						if err != nil || deviceiface == "" {
-							deviceiface = nodeCfg.Node.Interface
-						}
-					}
-					localPort, errN := local.GetLocalListenPort(deviceiface)
-					if errN != nil {
-						logger.Log(1, "error encountered checking local listen port: ", err.Error())
-					} else if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
-						logger.Log(1, "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
-						nodeCfg.Node.LocalListenPort = localPort
-						if err := PublishNodeUpdate(&nodeCfg); err != nil {
-							logger.Log(0, "could not publish local port change")
-						}
-					}
+					_ = UpdateLocalListenPort(&nodeCfg)
+
 				} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {
 					localIP, err := ncutils.GetLocalIP(nodeCfg.Node.LocalRange)
 					if err != nil {
@@ -115,6 +98,7 @@ func PublishNodeUpdate(nodeCfg *config.ClientConfig) error {
 	if err = publish(nodeCfg, fmt.Sprintf("update/%s", nodeCfg.Node.ID), data, 1); err != nil {
 		return err
 	}
+
 	logger.Log(0, "sent a node update to server for node", nodeCfg.Node.Name, ", ", nodeCfg.Node.ID)
 	return nil
 }
@@ -139,7 +123,6 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 	if err != nil {
 		return err
 	}
-
 	serverPubKey, err := ncutils.ConvertBytesToKey(nodeCfg.Node.TrafficKeys.Server)
 	if err != nil {
 		return err
@@ -155,6 +138,7 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 	if token := client.Publish(dest, qos, false, encrypted); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
 	return nil
 }
 

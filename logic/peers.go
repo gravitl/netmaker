@@ -79,6 +79,10 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 					}
 				}
 			}
+			// if udp hole punching is on, but port is still set to default (e.g. 51821), use the LocalListenPort
+			if node.UDPHolePunch == "yes" && node.IsStatic != "yes" && peer.ListenPort == node.ListenPort {
+				peer.ListenPort = node.LocalListenPort
+			}
 			if node.IsRelay == "yes" {
 				network, err := GetNetwork(networkName)
 				if err == nil {
