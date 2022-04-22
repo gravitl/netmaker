@@ -25,7 +25,7 @@ import (
 )
 
 // JoinNetwork - helps a client join a network
-func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) error {
+func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if cfg.Node.Network == "" {
 		return errors.New("no network provided")
 	}
@@ -101,7 +101,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string, iscomms bool) erro
 	// Find and set node MacAddress
 	if cfg.Node.MacAddress == "" {
 		macs, err := ncutils.GetMacAddr()
-		if err != nil || iscomms {
+		if err != nil {
 			//if macaddress can't be found set to random string
 			cfg.Node.MacAddress = ncutils.MakeRandomString(18)
 		} else {

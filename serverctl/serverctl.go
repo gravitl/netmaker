@@ -15,29 +15,10 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// COMMS_NETID - name of the comms network
-var COMMS_NETID string
-
 const (
 	// NETMAKER_BINARY_NAME - name of netmaker binary
 	NETMAKER_BINARY_NAME = "netmaker"
 )
-
-// SetJWTSecret - sets the jwt secret on server startup
-func setCommsID() {
-	currentid, idErr := logic.FetchCommsNetID()
-	if idErr != nil {
-		commsid := logic.RandomString(8)
-		if err := logic.StoreCommsNetID(commsid); err != nil {
-			logger.FatalLog("something went wrong when configuring comms id")
-		}
-		COMMS_NETID = commsid
-		servercfg.SetCommsID(COMMS_NETID)
-		return
-	}
-	COMMS_NETID = currentid
-	servercfg.SetCommsID(COMMS_NETID)
-}
 
 // InitServerNetclient - intializes the server netclient
 // 1. Check if config directory exists, if not attempt to make

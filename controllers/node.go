@@ -463,7 +463,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	getServerAddrs(&node)
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key: ", keyErr.Error())

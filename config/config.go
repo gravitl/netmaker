@@ -66,7 +66,6 @@ type ServerConfig struct {
 	ManageIPTables        string `yaml:"manageiptables"`
 	PortForwardServices   string `yaml:"portforwardservices"`
 	HostNetwork           string `yaml:"hostnetwork"`
-	CommsCIDR             string `yaml:"commscidr"`
 	MQPort                string `yaml:"mqport"`
 	Server                string `yaml:"server"`
 }

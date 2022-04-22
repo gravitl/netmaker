@@ -47,7 +47,7 @@ func Register(cfg *config.ClientConfig, key string) error {
 	} else if err != nil {
 		return err
 	}
-	return JoinNetwork(cfg, key, false)
+	return JoinNetwork(cfg, key)
 }
 
 // RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate

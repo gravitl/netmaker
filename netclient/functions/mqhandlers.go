@@ -202,10 +202,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	logger.Log(0, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
-	//skip dns updates if this is a peer update for comms network
-	if cfg.Node.NetworkSettings.IsComms == "yes" {
-		return
-	}
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Network, ncutils.IsWindows()); err != nil {
 			logger.Log(0, "error updating /etc/hosts "+err.Error())

@@ -18,7 +18,7 @@ import (
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
-func Checkin(ctx context.Context, wg *sync.WaitGroup, currentComms map[string]struct{}) {
+func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		select {
@@ -113,8 +113,7 @@ func Hello(nodeCfg *config.ClientConfig) {
 	logger.Log(3, "server checkin complete")
 }
 
-// requires the commscfg in which to send traffic over and nodecfg of node that is publish the message
-// node cfg is so that the traffic keys of that node may be fetched for encryption
+// node cfg is required  in order to fetch the traffic keys of that node for encryption
 func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) error {
 	// setup the keys
 	trafficPrivKey, err := auth.RetrieveTrafficKey(nodeCfg.Node.Network)

@@ -13,7 +13,6 @@ import (
 
 var (
 	Version = "dev"
-	commsID = ""
 )
 
 // SetHost - sets the host ip
@@ -204,11 +203,6 @@ func GetMQPort() string {
 		mqport = config.Config.Server.MQPort
 	}
 	return mqport
-}
-
-// SetCommsID - sets the commsID
-func SetCommsID(newCommsID string) {
-	commsID = newCommsID
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
