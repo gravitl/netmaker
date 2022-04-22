@@ -347,22 +347,27 @@ func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 		if serverNode.PublicKey == extPeer.PublicKey {
 			continue
 		}
+		var allowedips = []net.IPNet{}
 
 		var peer wgtypes.PeerConfig
-		var peeraddr = net.IPNet{
-			IP:   net.ParseIP(extPeer.Address),
-			Mask: net.CIDRMask(32, 32),
-		}
-		var allowedips = []net.IPNet{
-			peeraddr,
+		if extPeer.Address != "" {
+			newAddr := net.IPNet{
+				IP:   net.ParseIP(extPeer.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			if &newAddr != nil {
+				allowedips = append(allowedips, newAddr)
+			}
 		}
 
 		if extPeer.Address6 != "" {
-			var addr6 = net.IPNet{
+			newAddr6 := net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
 			}
-			allowedips = append(allowedips, addr6)
+			if &newAddr6 != nil {
+				allowedips = append(allowedips, newAddr6)
+			}
 		}
 		peer = wgtypes.PeerConfig{
 			PublicKey:         pubkey,
@@ -374,6 +379,7 @@ func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 	}
 	tempPeers = nil
 	extPeers = nil
+	fmt.Printf("appended peers: %v \n", peers)
 	return peers, err
 }
 

@@ -97,6 +97,7 @@ func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, i
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
 						}
 						if network.IsIPv6 == "yes" && currentExtClients[i].Address6 != "" {
+							fmt.Printf("append ext client address6 %s \n", currentExtClients[i].Address6)
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address6)
 						}
 					}
@@ -281,20 +282,26 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, error) {
 			continue
 		}
 
-		var peer wgtypes.PeerConfig
-		var peeraddr = net.IPNet{
-			IP:   net.ParseIP(extPeer.Address),
-			Mask: net.CIDRMask(32, 32),
-		}
 		var allowedips []net.IPNet
-		allowedips = append(allowedips, peeraddr)
+		var peer wgtypes.PeerConfig
+		if extPeer.Address != "" {
+			var peeraddr = net.IPNet{
+				IP:   net.ParseIP(extPeer.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			if peeraddr.IP != nil && peeraddr.Mask != nil {
+				allowedips = append(allowedips, peeraddr)
+			}
+		}
 
 		if extPeer.Address6 != "" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
 			}
-			allowedips = append(allowedips, addr6)
+			if addr6.IP != nil && addr6.Mask != nil {
+				allowedips = append(allowedips, addr6)
+			}
 		}
 		peer = wgtypes.PeerConfig{
 			PublicKey:         pubkey,

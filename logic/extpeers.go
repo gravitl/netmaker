@@ -33,6 +33,7 @@ func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 			logger.Log(2, "failed to unmarshal ext client")
 			continue
 		}
+
 		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
 			peers = append(peers, peer)
 		}

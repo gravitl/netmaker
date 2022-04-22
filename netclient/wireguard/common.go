@@ -68,7 +68,9 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		var allowedips string
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
-			iparr = append(iparr, ipaddr.String())
+			if len(peer.AllowedIPs) > 0 && (&ipaddr) != nil {
+				iparr = append(iparr, ipaddr.String())
+			}
 		}
 		allowedips = strings.Join(iparr, ",")
 		keepAliveString := strconv.Itoa(int(keepalive))
