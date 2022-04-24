@@ -225,18 +225,13 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 		if serverNode.PublicKey == node.PublicKey {
 			continue
 		}
-		/*
-			//		Test This: Removed logic to set local address for nodes on same network as server
-			//		This may be causing issues setting nodes on server currently
-			//		Removing may fix but could cause other issues
-					if serverNode.Endpoint == node.Endpoint {
-						if serverNode.LocalAddress != node.LocalAddress && node.LocalAddress != "" {
-							node.Endpoint = node.LocalAddress
-						} else {
-							continue
-						}
-					}
-		*/
+		if serverNode.Endpoint == node.Endpoint {
+			if serverNode.LocalAddress != node.LocalAddress && node.LocalAddress != "" {
+				node.Endpoint = node.LocalAddress
+			} else {
+				continue
+			}
+		}
 		if currentNetworkACL != nil && currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID)) {
 			continue
 		}

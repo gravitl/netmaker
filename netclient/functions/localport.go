@@ -11,7 +11,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-// Get LocalListenPort - Gets the port running on the local interface
+// GetLocalListenPort - Gets the port running on the local interface
 func GetLocalListenPort(ifacename string) (int32, error) {
 	portstring, err := ncutils.RunCmd("wg show "+ifacename+" listen-port", false)
 	if err != nil {
