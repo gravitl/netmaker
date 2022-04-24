@@ -54,7 +54,7 @@ func Register(cfg *config.ClientConfig, key string) error {
 func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) error {
 	data := config.RegisterRequest{
 		Key:        *private,
-		CommonName: tls.NewCName(os.Getenv("HOSTNAME")),
+		CommonName: tls.NewCName(cfg.Node.Name),
 	}
 	payload, err := json.Marshal(data)
 	if err != nil {

@@ -18,7 +18,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
@@ -174,108 +173,15 @@ func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 // the client should subscribe to ALL nodes that exist on server locally
 func messageQueue(ctx context.Context, server string) {
 	logger.Log(0, "netclient daemon started for server: ", server)
-	client := setupMQTTSub(server)
+	client := setupMQTT(nil, server, false)
 	defer client.Disconnect(250)
 	<-ctx.Done()
 	logger.Log(0, "shutting down daemon for server ", server)
 }
 
-// setupMQTTSub creates a connection to broker and subscribes to topic
-// utilizes comms client configs to setup connections
-func setupMQTTSub(server string) mqtt.Client {
-	opts := mqtt.NewClientOptions()
-	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
-	opts.TLSConfig = NewTLSConfig(nil, server)
-	opts.SetDefaultPublishHandler(All)
-	opts.SetAutoReconnect(true)
-	opts.SetConnectRetry(true)
-	opts.SetConnectRetryInterval(time.Second << 2)
-	opts.SetKeepAlive(time.Minute >> 1)
-	opts.SetWriteTimeout(time.Minute)
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		networks, err := ncutils.GetSystemNetworks()
-		if err != nil {
-			logger.Log(0, "error retriving networks ", err.Error())
-		}
-		for _, network := range networks {
-			var currNodeCfg config.ClientConfig
-			currNodeCfg.Network = network
-			currNodeCfg.ReadConfig()
-			if currNodeCfg.Server.Server == server {
-				setSubscriptions(client, &currNodeCfg)
-			}
-		}
-	})
-	opts.SetOrderMatters(true)
-	opts.SetResumeSubs(true)
-	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		logger.Log(0, "detected broker connection lost, running pull for all nodes")
-		networks, err := ncutils.GetSystemNetworks()
-		if err != nil {
-			logger.Log(0, "error retriving networks ", err.Error())
-		}
-		for _, network := range networks {
-			var cfg config.ClientConfig
-			cfg.Network = network
-			cfg.ReadConfig()
-			_, err := Pull(cfg.Node.Network, true)
-			if err != nil {
-				logger.Log(0, "could not run pull, server unreachable: ", err.Error())
-				logger.Log(0, "waiting to retry...")
-			}
-		}
-		// don't think following log message is accurate
-		//logger.Log(0, "connection re-established with mqtt server")
-	})
-
-	client := mqtt.NewClient(opts)
-	tperiod := time.Now().Add(12 * time.Second)
-	for {
-		//if after 12 seconds, try a gRPC pull on the last try
-		if time.Now().After(tperiod) {
-			networks, err := ncutils.GetSystemNetworks()
-			if err != nil {
-				logger.Log(0, "error retriving networks ", err.Error())
-			}
-			for _, network := range networks {
-				var cfg config.ClientConfig
-				cfg.Network = network
-				cfg.ReadConfig()
-				if cfg.Server.Server == server {
-					_, err := Pull(cfg.Node.Network, true)
-					if err != nil {
-						logger.Log(0, "could not run pull, exiting ", cfg.Node.Network, " setup: ", err.Error())
-						return client
-					}
-				}
-			}
-			time.Sleep(time.Second)
-		}
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			logger.Log(0, "unable to connect to broker, retrying ...")
-			if time.Now().After(tperiod) {
-				logger.Log(0, "could not connect to broker, exiting ", server, " setup: ", token.Error().Error())
-				if strings.Contains(token.Error().Error(), "connectex") || strings.Contains(token.Error().Error(), "i/o timeout") {
-					logger.Log(0, "connection issue detected.. restarting daemon")
-					daemon.Restart()
-				}
-				return client
-			}
-		} else {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return client
-}
-
 // NewTLSConf sets up tls configuration to connect to broker securely
-func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
-	var file string
-	if cfg != nil {
-		server = cfg.Server.Server
-	}
-	file = ncutils.GetNetclientServerPath(server) + "/root.pem"
+func NewTLSConfig(server string) *tls.Config {
+	file := ncutils.GetNetclientServerPath(server) + "/root.pem"
 	certpool := x509.NewCertPool()
 	ca, err := os.ReadFile(file)
 	if err != nil {
@@ -320,13 +226,16 @@ func NewTLSConfig(cfg *config.ClientConfig, server string) *tls.Config {
 	}
 }
 
-// setupMQTT creates a connection to broker and return client
+// setupMQTT creates a connection to broker and returns client
 // this function is primarily used to create a connection to publish to the broker
-func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
+func setupMQTT(cfg *config.ClientConfig, server string, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	server := cfg.Server.Server
+	if cfg != nil {
+		server = cfg.Server.Server
+	}
 	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
-	opts.TLSConfig = NewTLSConfig(cfg, "")
+	opts.SetTLSConfig(NewTLSConfig(server))
+	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
@@ -449,16 +358,6 @@ func decryptMsg(nodeCfg *config.ClientConfig, msg []byte) ([]byte, error) {
 	}
 
 	return ncutils.DeChunk(msg, serverPubKey, diskKey)
-}
-
-func getServerAddress(cfg *config.ClientConfig) string {
-	var server models.ServerAddr
-	for _, server = range cfg.Node.NetworkSettings.DefaultServerAddrs {
-		if server.Address != "" && server.IsLeader {
-			break
-		}
-	}
-	return server.Address
 }
 
 // == Message Caches ==
