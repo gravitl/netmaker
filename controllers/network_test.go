@@ -300,7 +300,7 @@ func TestIpv6Network(t *testing.T) {
 	nodeErr := logic.CreateNode(&node1)
 	t.Run("Test node on network IPv6", func(t *testing.T) {
 		assert.Nil(t, nodeErr)
-		assert.Equal(t, node1.Address6, "fde6:be04:fa5e:d076::")
+		assert.Equal(t, node1.Address6, "fde6:be04:fa5e:d076::1")
 	})
 }
 
