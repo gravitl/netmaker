@@ -69,7 +69,7 @@ func Daemon() error {
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	wg.Add(1)
-	go Checkin(ctx, &wg, serverSet)
+	go Checkin(ctx, &wg)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit
