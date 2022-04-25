@@ -60,6 +60,8 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 							logger.Log(0, "could not publish local address change")
 						}
 					}
+					_ = UpdateLocalListenPort(&nodeCfg)
+
 				} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {
 					localIP, err := ncutils.GetLocalIP(nodeCfg.Node.LocalRange)
 					if err != nil {
@@ -96,6 +98,7 @@ func PublishNodeUpdate(nodeCfg *config.ClientConfig) error {
 	if err = publish(nodeCfg, fmt.Sprintf("update/%s", nodeCfg.Node.ID), data, 1); err != nil {
 		return err
 	}
+
 	logger.Log(0, "sent a node update to server for node", nodeCfg.Node.Name, ", ", nodeCfg.Node.ID)
 	return nil
 }
@@ -120,7 +123,6 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 	if err != nil {
 		return err
 	}
-
 	serverPubKey, err := ncutils.ConvertBytesToKey(nodeCfg.Node.TrafficKeys.Server)
 	if err != nil {
 		return err
@@ -136,6 +138,7 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 	if token := client.Publish(dest, qos, false, encrypted); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
 	return nil
 }
 

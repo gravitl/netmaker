@@ -189,6 +189,9 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err := Register(cfg, privateKey); err != nil {
 		return err
 	}
+
+	_ = UpdateLocalListenPort(cfg)
+
 	if cfg.Daemon != "off" {
 		err = daemon.InstallDaemon(cfg)
 		if err != nil {
