@@ -1,39 +1,38 @@
-//go:build !freebsd
-// +build !freebsd
+//go:build freebsd
+// +build freebsd
 
 package functions
 
 import (
+	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
 // GetLocalListenPort - Gets the port running on the local interface
 func GetLocalListenPort(ifacename string) (int32, error) {
-	client, err := wgctrl.New()
+	portstring, err := ncutils.RunCmd("wg show "+ifacename+" listen-port", false)
 	if err != nil {
-		logger.Log(0, "failed to start wgctrl")
 		return 0, err
 	}
-	defer client.Close()
-	device, err := client.Device(ifacename)
+	portstring = strings.TrimSuffix(portstring, "\n")
+	i, err := strconv.ParseInt(portstring, 10, 32)
 	if err != nil {
-		logger.Log(0, "failed to parse interface")
 		return 0, err
+	} else if i == 0 {
+		return 0, errors.New("parsed port is unset or invalid")
 	}
-	return int32(device.ListenPort), nil
+	return int32(i), nil
 }
 
 // UpdateLocalListenPort - check local port, if different, mod config and publish
 func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 	var err error
-	ifacename := getRealIface(nodeCfg.Node.Interface, nodeCfg.Node.Address)
-	localPort, err := GetLocalListenPort(ifacename)
+	localPort, err := GetLocalListenPort(nodeCfg.Node.Interface)
 	if err != nil {
 		logger.Log(1, "error encountered checking local listen port: ", err.Error())
 	} else if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
@@ -48,16 +47,4 @@ func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 		}
 	}
 	return err
-}
-
-func getRealIface(ifacename string, address string) string {
-	var deviceiface = ifacename
-	var err error
-	if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
-		deviceiface, err = local.GetMacIface(address)
-		if err != nil || deviceiface == "" {
-			deviceiface = ifacename
-		}
-	}
-	return deviceiface
 }
