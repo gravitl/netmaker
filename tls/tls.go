@@ -157,6 +157,7 @@ func NewEndEntityCert(key ed25519.PrivateKey, req *x509.CertificateRequest, pare
 		Issuer:                parent.Subject,
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 		BasicConstraintsValid: true,
+		DNSNames:              req.DNSNames,
 	}
 	rootCa, err := x509.CreateCertificate(rand.Reader, template, parent, req.PublicKey, key)
 	if err != nil {

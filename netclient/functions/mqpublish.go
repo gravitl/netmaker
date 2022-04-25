@@ -18,7 +18,7 @@ import (
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
-func Checkin(ctx context.Context, wg *sync.WaitGroup) {
+func Checkin(ctx context.Context, wg *sync.WaitGroup, currentComms map[string]struct{}) {
 	defer wg.Done()
 	for {
 		select {
@@ -126,7 +126,7 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		return err
 	}
 
-	client := setupMQTT(nodeCfg, true)
+	client := setupMQTT(nodeCfg, "", true)
 	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
