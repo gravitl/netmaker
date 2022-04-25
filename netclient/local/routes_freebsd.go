@@ -3,7 +3,9 @@ package local
 import (
 	"net"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
 
 func setRoute(iface string, addr *net.IPNet, address string) error {

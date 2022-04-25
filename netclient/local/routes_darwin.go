@@ -4,7 +4,9 @@ import (
 	"net"
 	"strings"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
 
 // route -n add -net 10.0.0.0/8 192.168.0.254
