@@ -19,7 +19,7 @@ import (
 )
 
 // Pull - pulls the latest config from the server, if manual it will overwrite
-func Pull(network string, manual bool) (*models.Node, error) {
+func Pull(network string, iface bool) (*models.Node, error) {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	}
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
-	if manual {
+	if iface {
 		// check for interface change
 		if cfg.Node.Interface != resNode.Interface {
 			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
@@ -78,6 +78,5 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	if bkupErr != nil {
 		logger.Log(0, "unable to update backup file")
 	}
-
 	return &resNode, err
 }

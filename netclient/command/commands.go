@@ -1,6 +1,8 @@
 package command
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"strings"
 
 	"github.com/gravitl/netmaker/logger"
@@ -8,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/tls"
 )
 
 // Join - join command to run from cli
@@ -87,7 +90,20 @@ func Pull(cfg *config.ClientConfig) error {
 		}
 		err = nil
 	} else {
+
 		_, err = functions.Pull(cfg.Network, true)
+		_, newKey, kerr := ed25519.GenerateKey(rand.Reader)
+		if kerr == nil {
+			if kerr := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", newKey); err != nil {
+				logger.Log(0, "error saving key", kerr.Error())
+			} else {
+				if kerr = functions.RegisterWithServer(&newKey, cfg); err != nil {
+					logger.Log(0, "registration error", kerr.Error())
+				} else {
+					daemon.Restart()
+				}
+			}
+		}
 	}
 	logger.Log(1, "reset network and peer configs")
 	if err == nil {
