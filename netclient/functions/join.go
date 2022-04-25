@@ -144,6 +144,9 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		return fmt.Errorf("error decoding node from server %w %s", err, string(bodybytes))
 	}
 	node := nodeGET.Node
+	if nodeGET.Peers == nil {
+		nodeGET.Peers = []wgtypes.PeerConfig{}
+	}
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
 	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {
 		node.LocalAddress, err = ncutils.GetLocalIP(node.LocalRange)
