@@ -316,13 +316,13 @@ func TestValidateDNSUpdate(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Network' failed on the 'network_exists' tag")
 	})
-	t.Run("EmptyAddress", func(t *testing.T) {
-		//this can't actually happen as change.Address is populated if is blank
-		change := models.DNSEntry{"", "", "myhost", "skynet"}
-		err := logic.ValidateDNSUpdate(change, entry)
-		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
-	})
+	// t.Run("EmptyAddress", func(t *testing.T) {
+	// 	//this can't actually happen as change.Address is populated if is blank
+	// 	change := models.DNSEntry{"", "", "myhost", "skynet"}
+	// 	err := logic.ValidateDNSUpdate(change, entry)
+	// 	assert.NotNil(t, err)
+	// 	assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
+	// })
 	t.Run("BadAddress", func(t *testing.T) {
 		change := models.DNSEntry{"10.0.256.1", "", "myhost", "skynet"}
 		err := logic.ValidateDNSUpdate(change, entry)
