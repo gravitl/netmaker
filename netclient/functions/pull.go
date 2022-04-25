@@ -1,8 +1,6 @@
 package functions
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,16 +12,14 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/gravitl/netmaker/tls"
 	//homedir "github.com/mitchellh/go-homedir"
 )
 
 // Pull - pulls the latest config from the server, if manual it will overwrite
-func Pull(network string, iface bool, register bool) (*models.Node, error) {
+func Pull(network string, iface bool) (*models.Node, error) {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return nil, err
@@ -72,7 +68,7 @@ func Pull(network string, iface bool, register bool) (*models.Node, error) {
 	} else {
 		if err = wireguard.SetWGConfig(network, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) && !ncutils.IsFreeBSD() {
-				return Pull(network, true, false)
+				return Pull(network, true)
 			} else {
 				return nil, err
 			}
@@ -82,20 +78,5 @@ func Pull(network string, iface bool, register bool) (*models.Node, error) {
 	if bkupErr != nil {
 		logger.Log(0, "unable to update backup file")
 	}
-	//generate new private key and re-register with server
-	if register {
-		_, newKey, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return &resNode, err
-		}
-		if err := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", newKey); err != nil {
-			return &resNode, err
-		}
-		if err = RegisterWithServer(&newKey, cfg); err != nil {
-			return &resNode, err
-		}
-		daemon.Restart()
-	}
-
 	return &resNode, err
 }

@@ -236,7 +236,7 @@ func setupMQTT(cfg *config.ClientConfig, server string, publish bool) mqtt.Clien
 	opts.SetResumeSubs(true)
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		logger.Log(0, "detected broker connection lost, running pull for ", cfg.Node.Network)
-		_, err := Pull(cfg.Node.Network, true, false)
+		_, err := Pull(cfg.Node.Network, true)
 		if err != nil {
 			logger.Log(0, "could not run pull, server unreachable: ", err.Error())
 			logger.Log(0, "waiting to retry...")
@@ -250,7 +250,7 @@ func setupMQTT(cfg *config.ClientConfig, server string, publish bool) mqtt.Clien
 		//if after 12 seconds, try a pull on the last try
 		if time.Now().After(tperiod) {
 			logger.Log(0, "running pull for ", cfg.Node.Network)
-			_, err := Pull(cfg.Node.Network, true, false)
+			_, err := Pull(cfg.Node.Network, true)
 			if err != nil {
 				logger.Log(0, "could not run pull, exiting ", cfg.Node.Network, " setup: ", err.Error())
 				return client
@@ -263,7 +263,7 @@ func setupMQTT(cfg *config.ClientConfig, server string, publish bool) mqtt.Clien
 				logger.Log(0, "could not connect to broker, exiting ", cfg.Node.Network, " setup: ", token.Error().Error())
 				if strings.Contains(token.Error().Error(), "connectex") || strings.Contains(token.Error().Error(), "i/o timeout") {
 					logger.Log(0, "connection issue detected.. pulling and restarting daemon")
-					Pull(cfg.Node.Network, true, false)
+					Pull(cfg.Node.Network, true)
 					daemon.Restart()
 				}
 				return client
@@ -296,7 +296,7 @@ func initialPull(network string) {
 	if !fileInfo.ModTime().IsZero() && time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
 		sleepTime := 2
 		for {
-			_, err := Pull(network, true, false)
+			_, err := Pull(network, true)
 			if err == nil {
 				break
 			}

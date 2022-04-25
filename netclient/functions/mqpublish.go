@@ -105,7 +105,7 @@ func Hello(nodeCfg *config.ClientConfig) {
 	if err := publish(nodeCfg, fmt.Sprintf("ping/%s", nodeCfg.Node.ID), []byte(ncutils.Version), 0); err != nil {
 		logger.Log(0, fmt.Sprintf("error publishing ping, %v", err))
 		logger.Log(0, "running pull on "+nodeCfg.Node.Network+" to reconnect")
-		_, err := Pull(nodeCfg.Node.Network, true, false)
+		_, err := Pull(nodeCfg.Node.Network, true)
 		if err != nil {
 			logger.Log(0, "could not run pull on "+nodeCfg.Node.Network+", error: "+err.Error())
 		}
