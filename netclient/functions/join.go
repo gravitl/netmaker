@@ -186,7 +186,12 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
-	if cfg.Daemon != "off" {
+	if !cfg.Registered {
+		if err := Register(cfg, privateKey); err != nil {
+			logger.Log(0, "registration failed", err.Error())
+		}
+	}
+	if cfg.Daemon != "off" && cfg.Registered {
 		err = daemon.InstallDaemon(cfg)
 		if err != nil {
 			return err

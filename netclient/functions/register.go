@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -47,7 +46,8 @@ func Register(cfg *config.ClientConfig, key string) error {
 	} else if err != nil {
 		return err
 	}
-	return JoinNetwork(cfg, key)
+	cfg.Registered = true
+	return nil
 }
 
 // RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate
@@ -56,20 +56,14 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 		Key:        *private,
 		CommonName: tls.NewCName(cfg.Node.Name),
 	}
-	payload, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
 	url := "https://" + cfg.Server.API + "/api/server/register"
 	log.Println("register at ", url)
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+
+	token, err := Authenticate(cfg)
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("authorization", "Bearer "+cfg.Server.AccessKey)
-	client := http.Client{}
-	response, err := client.Do(request)
+	response, err := API(data, http.MethodPut, url, token)
 	if err != nil {
 		return err
 	}

@@ -53,6 +53,7 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 			functions.Pull(cfg.Network, true)
 		}
 	*/
+	config.Write(cfg, cfg.Network)
 	return err
 }
 
@@ -117,8 +118,4 @@ func Uninstall() error {
 func Daemon() error {
 	err := functions.Daemon()
 	return err
-}
-
-func Register(cfg *config.ClientConfig, key string) error {
-	return functions.Register(cfg, key)
 }

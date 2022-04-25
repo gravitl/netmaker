@@ -26,7 +26,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 					err = errors.New("no network provided")
 					return err
 				}
-				err = command.Register(&cfg, pvtKey)
+				err = command.Join(&cfg, pvtKey)
 				return err
 			},
 		},
