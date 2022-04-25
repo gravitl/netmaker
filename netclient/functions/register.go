@@ -46,7 +46,6 @@ func Register(cfg *config.ClientConfig, key string) error {
 	} else if err != nil {
 		return err
 	}
-	cfg.Registered = true
 	return nil
 }
 
@@ -63,7 +62,7 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	if err != nil {
 		return err
 	}
-	response, err := API(data, http.MethodPut, url, token)
+	response, err := API(data, http.MethodPost, url, token)
 	if err != nil {
 		return err
 	}

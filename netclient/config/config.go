@@ -23,7 +23,6 @@ import (
 // ClientConfig - struct for dealing with client configuration
 type ClientConfig struct {
 	Server          ServerConfig   `yaml:"server"`
-	Registered      bool           `yaml:"registered"`
 	Node            models.Node    `yaml:"node"`
 	NetworkSettings models.Network `yaml:"networksettings"`
 	Network         string         `yaml:"network"`
