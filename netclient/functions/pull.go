@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"runtime"
@@ -39,7 +39,7 @@ func Pull(network string, iface bool) (*models.Node, error) {
 		return nil, err
 	}
 	if response.StatusCode != http.StatusOK {
-		bytes, err := ioutil.ReadAll(response.Body)
+		bytes, err := io.ReadAll(response.Body)
 		if err != nil {
 			fmt.Println(err)
 		}

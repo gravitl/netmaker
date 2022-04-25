@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -169,7 +169,7 @@ func LeaveNetwork(network string, force bool) error {
 		if response.StatusCode == http.StatusOK {
 			logger.Log(0, "deleted node", cfg.Node.Name, " on network ", cfg.Network)
 		} else {
-			bodybytes, _ := ioutil.ReadAll(response.Body)
+			bodybytes, _ := io.ReadAll(response.Body)
 			defer response.Body.Close()
 			return fmt.Errorf("error deleting node on server %s %s", response.Status, string(bodybytes))
 		}
@@ -355,7 +355,7 @@ func Authenticate(cfg *config.ClientConfig) (string, error) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		bodybytes, _ := ioutil.ReadAll(response.Body)
+		bodybytes, _ := io.ReadAll(response.Body)
 		return "", fmt.Errorf("failed to authenticate %s %s", response.Status, string(bodybytes))
 	}
 	resp := models.SuccessResponse{}

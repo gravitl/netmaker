@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"runtime"
@@ -141,7 +140,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	var nodeGET models.NodeGet
 	if err := json.NewDecoder(response.Body).Decode(&nodeGET); err != nil {
 		//not sure the next line will work as response.Body probably needs to be reset before it can be read again
-		bodybytes, _ := ioutil.ReadAll(response.Body)
+		bodybytes, _ := io.ReadAll(response.Body)
 		return fmt.Errorf("error decoding node from server %w %s", err, string(bodybytes))
 	}
 	node := nodeGET.Node
