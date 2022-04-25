@@ -187,7 +187,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		return err
 	}
 	if err := Register(cfg, privateKey); err != nil {
-		logger.Log(0, "registration failed", err.Error())
+		return err
 	}
 	if cfg.Daemon != "off" {
 		err = daemon.InstallDaemon(cfg)

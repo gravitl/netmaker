@@ -53,7 +53,6 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 			functions.Pull(cfg.Network, true)
 		}
 	*/
-	config.Write(cfg, cfg.Network)
 	return err
 }
 
