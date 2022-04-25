@@ -147,9 +147,10 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	// spin up userspace / windows interface + apply the conf file
 	confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
 	var deviceiface = ifacename
+	var mErr error
 	if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
-		deviceiface, err = local.GetMacIface(node.PrimaryAddress())
-		if err != nil || deviceiface == "" {
+		deviceiface, mErr = local.GetMacIface(node.PrimaryAddress())
+		if mErr != nil || deviceiface == "" {
 			deviceiface = ifacename
 		}
 	}
@@ -162,8 +163,8 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	ifaceReady := strings.Contains(output, deviceiface)
 	for !ifaceReady && !(time.Now().After(starttime.Add(time.Second << 4))) {
 		if ncutils.IsMac() { // if node is Mac (Darwin) get the tunnel name first
-			deviceiface, err = local.GetMacIface(node.PrimaryAddress())
-			if err != nil || deviceiface == "" {
+			deviceiface, mErr = local.GetMacIface(node.PrimaryAddress())
+			if mErr != nil || deviceiface == "" {
 				deviceiface = ifacename
 			}
 		}
@@ -194,6 +195,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		if err != nil {
 			logger.Log(1, "error setting peers: ", err.Error())
 		}
+
 		time.Sleep(time.Second)
 	}
 
@@ -215,9 +217,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		} else {
 			logger.Log(1, "could not set cidr route properly: ", cidrErr.Error())
 		}
+
 		local.SetCurrentPeerRoutes(ifacename, node.Address6, peers)
 	}
-
 	return err
 }
 
@@ -298,9 +300,17 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	var nodeCfg config.ClientConfig
 	nodeCfg.Network = node.Network
 	nodeCfg.ReadConfig()
-	ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange)
-	if err == nil {
-		local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+	if nodeCfg.NetworkSettings.AddressRange != "" {
+		ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange)
+		if err == nil {
+			local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+		}
+	}
+	if nodeCfg.NetworkSettings.AddressRange6 != "" {
+		ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange6)
+		if err == nil {
+			local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+		}
 	}
 
 	return err
