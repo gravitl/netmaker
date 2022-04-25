@@ -11,7 +11,7 @@ import (
 // TODO handle ipv6 in future
 
 // SetPeerRoutes - sets/removes ip routes for each peer on a network
-func SetPeerRoutes(iface, currentNodeAddr string, oldPeers map[string][]net.IPNet, newPeers []wgtypes.PeerConfig) {
+func SetPeerRoutes(iface string, oldPeers map[string][]net.IPNet, newPeers []wgtypes.PeerConfig) {
 	// traverse through all recieved peers
 	for _, peer := range newPeers {
 		// if pubkey found in existing peers, check against existing peer

@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -151,11 +152,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
-	// if newNetwork.IsDualStack != currentNetwork.IsDualStack && newNetwork.IsDualStack == "no" {
-	// 	// Remove IPv6 address from network nodes
-	// 	RemoveNetworkNodeIPv6Addresses(currentNetwork.NetID)
-	// }
 
 	if rangeupdate {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
@@ -309,6 +305,11 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	if network.AddressRange == "" && network.AddressRange6 == "" {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("IPv4 or IPv6 CIDR required"), "badrequest"))
 		return
 	}
 

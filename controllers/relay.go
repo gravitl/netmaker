@@ -31,7 +31,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	for _, relayedNode := range updatenodes {
 		err = mq.NodeUpdate(&relayedNode)
 		if err != nil {
-			logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", relay.NetID, ": ", err.Error())
+			logger.Log(1, "error sending update to relayed node ", relayedNode.Name, "on network", relay.NetID, ": ", err.Error())
 		}
 	}
 	w.WriteHeader(http.StatusOK)
@@ -53,7 +53,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	for _, relayedNode := range updatenodes {
 		err = mq.NodeUpdate(&relayedNode)
 		if err != nil {
-			logger.Log(1, "error sending update to relayed node ", relayedNode.Address, "on network", netid, ": ", err.Error())
+			logger.Log(1, "error sending update to relayed node ", relayedNode.Name, "on network", netid, ": ", err.Error())
 		}
 	}
 	w.WriteHeader(http.StatusOK)

@@ -188,10 +188,12 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		logger.Log(0, "error updating wireguard peers"+err.Error())
 		return
 	}
+	queryAddr := cfg.Node.PrimaryAddress()
+
 	//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
 	var iface = cfg.Node.Interface
 	if ncutils.IsMac() {
-		iface, err = local.GetMacIface(cfg.Node.Address)
+		iface, err = local.GetMacIface(queryAddr)
 		if err != nil {
 			logger.Log(0, "error retrieving mac iface: "+err.Error())
 			return

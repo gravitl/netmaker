@@ -10,9 +10,9 @@ import (
 func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	// single comparison statements
 	if newNode.Endpoint != currentNode.Endpoint ||
-		newNode.LocalAddress != currentNode.LocalAddress ||
 		newNode.PublicKey != currentNode.PublicKey ||
 		newNode.Address != currentNode.Address ||
+		newNode.Address6 != currentNode.Address6 ||
 		newNode.IsEgressGateway != currentNode.IsEgressGateway ||
 		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
 		newNode.IsRelay != currentNode.IsRelay ||
@@ -27,12 +27,6 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 	}
 
 	// multi-comparison statements
-	if newNode.IsDualStack == "yes" {
-		if newNode.Address6 != currentNode.Address6 {
-			return true
-		}
-	}
-
 	if newNode.IsEgressGateway == "yes" {
 		if len(currentNode.EgressGatewayRanges) != len(newNode.EgressGatewayRanges) {
 			return true

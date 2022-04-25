@@ -77,7 +77,7 @@ func isContainerized() bool {
 
 // make sure host allows forwarding
 func setForwardPolicy() error {
-	logger.Log(1, "setting iptables forward policy")
+	logger.Log(2, "setting iptables forward policy")
 	_, err := ncutils.RunCmd("iptables --policy FORWARD ACCEPT", false)
 	return err
 }

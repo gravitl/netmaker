@@ -10,6 +10,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// GetPeers - gets the peers from a given WireGuard interface
 func GetPeers(iface string) ([]wgtypes.Peer, error) {
 
 	var peers []wgtypes.Peer

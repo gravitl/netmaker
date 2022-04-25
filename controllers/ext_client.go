@@ -135,12 +135,30 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
+	addrString := client.Address
+	if addrString != "" {
+		addrString += "/32"
+	}
+	if client.Address6 != "" {
+		if addrString != "" {
+			addrString += ","
+		}
+		addrString += client.Address6 + "/128"
+	}
+
 	keepalive := ""
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
 	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
 	newAllowedIPs := network.AddressRange
+	if newAllowedIPs != "" {
+		newAllowedIPs += ","
+	}
+	if network.AddressRange6 != "" {
+		newAllowedIPs += network.AddressRange6
+	}
 	if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(&client); err == nil {
 		for _, egressGatewayRange := range egressGatewayRanges {
 			newAllowedIPs += "," + egressGatewayRange
@@ -167,7 +185,7 @@ AllowedIPs = %s
 Endpoint = %s
 %s
 
-`, client.Address+"/32",
+`, addrString,
 		client.PrivateKey,
 		defaultMTU,
 		defaultDNS,

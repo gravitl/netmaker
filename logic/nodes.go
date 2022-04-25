@@ -270,21 +270,30 @@ func CreateNode(node *models.Node) error {
 
 	SetNodeDefaults(node)
 
-	if node.IsServer == "yes" {
-		if node.Address, err = UniqueAddressServer(node.Network); err != nil {
-			return err
+	defaultACLVal := acls.Allowed
+	parentNetwork, err := GetNetwork(node.Network)
+	if err == nil {
+		if parentNetwork.DefaultACL != "yes" {
+			defaultACLVal = acls.NotAllowed
 		}
-	} else if node.Address == "" {
-		if node.Address, err = UniqueAddress(node.Network); err != nil {
-			return err
+	}
+
+	reverse := node.IsServer == "yes"
+	if node.Address == "" {
+		if parentNetwork.IsIPv4 == "yes" {
+			if node.Address, err = UniqueAddress(node.Network, reverse); err != nil {
+				return err
+			}
 		}
 	} else if !IsIPUnique(node.Network, node.Address, database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address + " is not unique")
 	}
 
 	if node.Address6 == "" {
-		if node.Address6, err = UniqueAddress6(node.Network); err != nil {
-			return err
+		if parentNetwork.IsIPv6 == "yes" {
+			if node.Address6, err = UniqueAddress6(node.Network, reverse); err != nil {
+				return err
+			}
 		}
 	} else if !IsIPUnique(node.Network, node.Address6, database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6 + " is not unique")
@@ -310,14 +319,6 @@ func CreateNode(node *models.Node) error {
 	err = database.Insert(node.ID, string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
-	}
-
-	defaultACLVal := acls.Allowed
-	parentNetwork, err := GetNetwork(node.Network)
-	if err == nil {
-		if parentNetwork.DefaultACL != "yes" {
-			defaultACLVal = acls.NotAllowed
-		}
 	}
 
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), defaultACLVal)
@@ -428,9 +429,7 @@ func SetNodeDefaults(node *models.Node) {
 		}
 	}
 	// == Parent Network settings ==
-	if node.IsDualStack == "" {
-		node.IsDualStack = parentNetwork.IsDualStack
-	}
+
 	if node.MTU == 0 {
 		node.MTU = parentNetwork.DefaultMTU
 	}
@@ -438,7 +437,6 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetIPForwardingDefault()
 	node.SetDNSOnDefault()
 	node.SetIsLocalDefault()
-	node.SetIsDualStackDefault()
 	node.SetLastModified()
 	node.SetDefaultName()
 	node.SetLastCheckIn()

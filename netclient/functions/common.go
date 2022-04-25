@@ -177,9 +177,10 @@ func LeaveNetwork(network string, force bool) error {
 	wgClient, wgErr := wgctrl.New()
 	if wgErr == nil {
 		removeIface := cfg.Node.Interface
+		queryAddr := cfg.Node.PrimaryAddress()
 		if ncutils.IsMac() {
 			var macIface string
-			macIface, wgErr = local.GetMacIface(cfg.Node.Address)
+			macIface, wgErr = local.GetMacIface(queryAddr)
 			if wgErr == nil && removeIface != "" {
 				removeIface = macIface
 			}
@@ -187,10 +188,10 @@ func LeaveNetwork(network string, force bool) error {
 		}
 		dev, devErr := wgClient.Device(removeIface)
 		if devErr == nil {
-			local.FlushPeerRoutes(removeIface, cfg.Node.Address, dev.Peers[:])
+			local.FlushPeerRoutes(removeIface, queryAddr, dev.Peers[:])
 			_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
 			if cidrErr == nil {
-				local.RemoveCIDRRoute(removeIface, cfg.Node.Address, cidr)
+				local.RemoveCIDRRoute(removeIface, queryAddr, cidr)
 			}
 		} else {
 			logger.Log(1, "could not flush peer routes when leaving network, ", cfg.Node.Network)

@@ -145,12 +145,6 @@ func GetFlags(hostname string) []cli.Flag {
 			Usage:   "Sets endpoint to local address if 'yes'. Ignores if 'no'. Will retrieve from network if unset.",
 		},
 		&cli.StringFlag{
-			Name:    "isdualstack",
-			EnvVars: []string{"NETCLIENT_IS_DUALSTACK"},
-			Value:   "",
-			Usage:   "Sets ipv6 address if 'yes'. Ignores if 'no'. Will retrieve from network if unset.",
-		},
-		&cli.StringFlag{
 			Name:    "udpholepunch",
 			EnvVars: []string{"NETCLIENT_UDP_HOLEPUNCH"},
 			Value:   "",
