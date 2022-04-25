@@ -17,7 +17,7 @@ const (
 	TEN_YEARS_IN_SECONDS = 300000000
 	// MAX_NAME_LENGTH - max name length of node
 	MAX_NAME_LENGTH = 62
-	// == ACTIONS == (can only be set by GRPC)
+	// == ACTIONS == (can only be set by server)
 	// NODE_UPDATE_KEY - action to update key
 	NODE_UPDATE_KEY = "updatekey"
 	// NODE_DELETE - delete node action
@@ -26,6 +26,8 @@ const (
 	NODE_IS_PENDING = "pending"
 	// NODE_NOOP - node no op action
 	NODE_NOOP = "noop"
+	// NODE_FORCE_UPDATE - indicates a node should pull all changes
+	NODE_FORCE_UPDATE = "force"
 )
 
 var seededRand *rand.Rand = rand.New(

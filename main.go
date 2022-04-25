@@ -119,6 +119,12 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog(err.Error())
 		}
 	}
+
+	if servercfg.IsMessageQueueBackend() {
+		if err = mq.ServerStartNotify(); err != nil {
+			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
+		}
+	}
 	genCerts()
 }
 

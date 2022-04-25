@@ -141,3 +141,18 @@ func sendPeers() {
 		}
 	}
 }
+
+// ServerStartNotify - notifies all non server nodes to pull changes after a restart
+func ServerStartNotify() error {
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		return err
+	}
+	for i := range nodes {
+		nodes[i].Action = models.NODE_FORCE_UPDATE
+		if err = NodeUpdate(&nodes[i]); err != nil {
+			logger.Log(1, "error when notifying node", nodes[i].Name, " - ", nodes[i].ID, "of a server startup")
+		}
+	}
+	return nil
+}

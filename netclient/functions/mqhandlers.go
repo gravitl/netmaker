@@ -87,6 +87,8 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 		}
 		ifaceDelta = true
+	case models.NODE_FORCE_UPDATE:
+		ifaceDelta = true
 	case models.NODE_NOOP:
 	default:
 	}
