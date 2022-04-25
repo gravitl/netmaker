@@ -30,24 +30,11 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
 	var err error
-	if ncutils.IsFreeBSD() {
-		if devicePeers, err = ncutils.GetPeers(iface); err != nil {
-			return err
-		}
-	} else {
-		client, err := wgctrl.New()
-		if err != nil {
-			logger.Log(0, "failed to start wgctrl")
-			return err
-		}
-		defer client.Close()
-		device, err := client.Device(iface)
-		if err != nil {
-			logger.Log(0, "failed to parse interface")
-			return err
-		}
-		devicePeers = device.Peers
+	devicePeers, err = GetDevicePeers(iface)
+	if err != nil {
+		return err
 	}
+
 	if len(devicePeers) > 1 && len(peers) == 0 {
 		logger.Log(1, "no peers pulled")
 		return err
@@ -235,7 +222,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 }
 
 // SetWGConfig - sets the WireGuard Config of a given network and checks if it needs a peer update
-func SetWGConfig(network string, peerupdate bool) error {
+func SetWGConfig(network string, peerupdate bool, peers []wgtypes.PeerConfig) error {
 
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -257,11 +244,11 @@ func SetWGConfig(network string, peerupdate bool) error {
 				return err
 			}
 		}
-		err = SetPeers(iface, &nodecfg, []wgtypes.PeerConfig{})
+		err = SetPeers(iface, &nodecfg, peers)
 	} else if peerupdate {
-		err = InitWireguard(&nodecfg, privkey, []wgtypes.PeerConfig{}, true)
+		err = InitWireguard(&nodecfg, privkey, peers, true)
 	} else {
-		err = InitWireguard(&nodecfg, privkey, []wgtypes.PeerConfig{}, false)
+		err = InitWireguard(&nodecfg, privkey, peers, false)
 	}
 	if nodecfg.DNSOn == "yes" {
 		_ = local.UpdateDNS(nodecfg.Interface, nodecfg.Network, servercfg.CoreDNSAddr)
@@ -526,4 +513,28 @@ func RemoveConfGraceful(ifacename string) {
 		}
 	}
 	time.Sleep(time.Second << 1)
+}
+
+// GetDevicePeers - gets the current device's peers
+func GetDevicePeers(iface string) ([]wgtypes.Peer, error) {
+	if ncutils.IsFreeBSD() {
+		if devicePeers, err := ncutils.GetPeers(iface); err != nil {
+			return nil, err
+		} else {
+			return devicePeers, nil
+		}
+	} else {
+		client, err := wgctrl.New()
+		if err != nil {
+			logger.Log(0, "failed to start wgctrl")
+			return nil, err
+		}
+		defer client.Close()
+		device, err := client.Device(iface)
+		if err != nil {
+			logger.Log(0, "failed to parse interface")
+			return nil, err
+		}
+		return device.Peers, nil
+	}
 }
