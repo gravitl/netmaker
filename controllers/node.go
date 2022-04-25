@@ -382,9 +382,21 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
+	peerUpdate, err := logic.GetPeerUpdate(&node)
+	if err != nil && !database.IsEmptyRecord(err) {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	response := models.NodeGet{
+		Node:  node,
+		Peers: peerUpdate.Peers,
+	}
+
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(response)
 }
 
 //Get the time that a network of nodes was last modified.
@@ -490,9 +502,20 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	peerUpdate, err := logic.GetPeerUpdate(&node)
+	if err != nil && !database.IsEmptyRecord(err) {
+		returnErrorResponse(w, r, formatError(err, "internal"))
+		return
+	}
+
+	response := models.NodeGet{
+		Node:  node,
+		Peers: peerUpdate.Peers,
+	}
+
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(response)
 	runForceServerUpdate(&node)
 }
 

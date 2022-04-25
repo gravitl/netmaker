@@ -138,12 +138,13 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		bodybytes, _ := io.ReadAll(response.Body)
 		return fmt.Errorf("error creating node %s %s", response.Status, string(bodybytes))
 	}
-	var node models.Node
-	if err := json.NewDecoder(response.Body).Decode(&node); err != nil {
+	var nodeGET models.NodeGet
+	if err := json.NewDecoder(response.Body).Decode(&nodeGET); err != nil {
 		//not sure the next line will work as response.Body probably needs to be reset before it can be read again
 		bodybytes, _ := ioutil.ReadAll(response.Body)
 		return fmt.Errorf("error decoding node from server %w %s", err, string(bodybytes))
 	}
+	node := nodeGET.Node
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
 	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {
 		node.LocalAddress, err = ncutils.GetLocalIP(node.LocalRange)
@@ -182,7 +183,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		logger.Log(0, "failed to make backup, node will not auto restore if config is corrupted")
 	}
 	logger.Log(0, "starting wireguard")
-	err = wireguard.InitWireguard(&node, privateKey, []wgtypes.PeerConfig{}, false)
+	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:], false)
 	if err != nil {
 		return err
 	}

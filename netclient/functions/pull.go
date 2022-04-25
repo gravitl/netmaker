@@ -46,27 +46,22 @@ func Pull(network string, iface bool) (*models.Node, error) {
 		return nil, (fmt.Errorf("%s %w", string(bytes), err))
 	}
 	defer response.Body.Close()
-	resNode := models.Node{}
-	if err := json.NewDecoder(response.Body).Decode(&resNode); err != nil {
+	var nodeGET models.NodeGet
+	if err := json.NewDecoder(response.Body).Decode(&nodeGET); err != nil {
 		return nil, fmt.Errorf("error decoding node %w", err)
 	}
+	resNode := nodeGET.Node
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
 	if iface {
-		// check for interface change
-		if cfg.Node.Interface != resNode.Interface {
-			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
-				logger.Log(1, "could not delete old interface ", cfg.Node.Interface)
-			}
-		}
 		if err = config.ModConfig(&resNode); err != nil {
 			return nil, err
 		}
-		if err = wireguard.SetWGConfig(network, false); err != nil {
+		if err = wireguard.SetWGConfig(network, false, nodeGET.Peers[:]); err != nil {
 			return nil, err
 		}
 	} else {
-		if err = wireguard.SetWGConfig(network, true); err != nil {
+		if err = wireguard.SetWGConfig(network, true, nodeGET.Peers[:]); err != nil {
 			if errors.Is(err, os.ErrNotExist) && !ncutils.IsFreeBSD() {
 				return Pull(network, true)
 			} else {

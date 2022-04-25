@@ -2,6 +2,7 @@ package models
 
 import (
 	jwt "github.com/golang-jwt/jwt/v4"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
@@ -185,4 +186,10 @@ type ServerAddr struct {
 type TrafficKeys struct {
 	Mine   []byte `json:"mine" bson:"mine" yaml:"mine"`
 	Server []byte `json:"server" bson:"server" yaml:"server"`
+}
+
+// NodeGet - struct for a single node get response
+type NodeGet struct {
+	Node  Node                 `json:"node" bson:"node" yaml:"node"`
+	Peers []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 }
