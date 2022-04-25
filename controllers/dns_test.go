@@ -368,12 +368,12 @@ func TestValidateDNSCreate(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Network' failed on the 'network_exists' tag")
 	})
-	t.Run("EmptyAddress", func(t *testing.T) {
-		entry := models.DNSEntry{"", "", "myhost", "skynet"}
-		err := logic.ValidateDNSCreate(entry)
-		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
-	})
+	// t.Run("EmptyAddress", func(t *testing.T) {
+	// 	entry := models.DNSEntry{"", "", "myhost", "skynet"}
+	// 	err := logic.ValidateDNSCreate(entry)
+	// 	assert.NotNil(t, err)
+	// 	assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
+	// })
 	t.Run("BadAddress", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.256.1", "", "myhost", "skynet"}
 		err := logic.ValidateDNSCreate(entry)
