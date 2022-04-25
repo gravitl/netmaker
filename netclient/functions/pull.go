@@ -23,7 +23,7 @@ import (
 )
 
 // Pull - pulls the latest config from the server, if manual it will overwrite
-func Pull(network string, manual bool) (*models.Node, error) {
+func Pull(network string, iface bool, register bool) (*models.Node, error) {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	}
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
-	if manual {
+	if iface {
 		// check for interface change
 		if cfg.Node.Interface != resNode.Interface {
 			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
@@ -72,7 +72,7 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	} else {
 		if err = wireguard.SetWGConfig(network, true); err != nil {
 			if errors.Is(err, os.ErrNotExist) && !ncutils.IsFreeBSD() {
-				return Pull(network, true)
+				return Pull(network, true, false)
 			} else {
 				return nil, err
 			}
@@ -83,17 +83,19 @@ func Pull(network string, manual bool) (*models.Node, error) {
 		logger.Log(0, "unable to update backup file")
 	}
 	//generate new private key and re-register with server
-	_, newKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return &resNode, err
+	if register {
+		_, newKey, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return &resNode, err
+		}
+		if err := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", newKey); err != nil {
+			return &resNode, err
+		}
+		if err = RegisterWithServer(&newKey, cfg); err != nil {
+			return &resNode, err
+		}
+		daemon.Restart()
 	}
-	if err := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", newKey); err != nil {
-		return &resNode, err
-	}
-	if err = RegisterWithServer(&newKey, cfg); err != nil {
-		return &resNode, err
-	}
-	daemon.Restart()
 
 	return &resNode, err
 }

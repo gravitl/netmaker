@@ -78,7 +78,7 @@ func Pull(cfg *config.ClientConfig) error {
 			return err
 		}
 		for _, network := range networks {
-			_, err = functions.Pull(network, true)
+			_, err = functions.Pull(network, true, true)
 			if err != nil {
 				logger.Log(1, "Error pulling network config for network: ", network, "\n", err.Error())
 			} else {
@@ -87,7 +87,7 @@ func Pull(cfg *config.ClientConfig) error {
 		}
 		err = nil
 	} else {
-		_, err = functions.Pull(cfg.Network, true)
+		_, err = functions.Pull(cfg.Network, true, true)
 	}
 	logger.Log(1, "reset network and peer configs")
 	if err == nil {
