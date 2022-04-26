@@ -21,14 +21,14 @@ func TestGetAllDNS(t *testing.T) {
 		assert.Equal(t, []models.DNSEntry(nil), entries)
 	})
 	t.Run("OneEntry", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.3", "newhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.3", "", "newhost", "skynet"}
 		CreateDNS(entry)
 		entries, err := logic.GetAllDNS()
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(entries))
 	})
 	t.Run("MultipleEntry", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.7", "anotherhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.7", "", "anotherhost", "skynet"}
 		CreateDNS(entry)
 		entries, err := logic.GetAllDNS()
 		assert.Nil(t, err)
@@ -83,14 +83,14 @@ func TestGetCustomDNS(t *testing.T) {
 		assert.Equal(t, 0, len(dns))
 	})
 	t.Run("EntryExist", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.3", "newhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.3", "", "newhost", "skynet"}
 		CreateDNS(entry)
 		dns, err := logic.GetCustomDNS("skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(dns))
 	})
 	t.Run("MultipleEntries", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.4", "host4", "skynet"}
+		entry := models.DNSEntry{"10.0.0.4", "", "host4", "skynet"}
 		CreateDNS(entry)
 		dns, err := logic.GetCustomDNS("skynet")
 		assert.Nil(t, err)
@@ -109,7 +109,7 @@ func TestGetDNSEntryNum(t *testing.T) {
 		assert.Equal(t, 0, num)
 	})
 	t.Run("NodeExists", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.2", "", "newhost", "skynet"}
 		_, err := CreateDNS(entry)
 		assert.Nil(t, err)
 		num, err := logic.GetDNSEntryNum("newhost", "skynet")
@@ -128,7 +128,7 @@ func TestGetDNS(t *testing.T) {
 		assert.Nil(t, dns)
 	})
 	t.Run("CustomDNSExists", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.2", "", "newhost", "skynet"}
 		_, err := CreateDNS(entry)
 		assert.Nil(t, err)
 		dns, err := logic.GetDNS("skynet")
@@ -148,7 +148,7 @@ func TestGetDNS(t *testing.T) {
 		assert.Equal(t, 1, len(dns))
 	})
 	t.Run("NodeAndCustomDNS", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.2", "", "newhost", "skynet"}
 		_, err := CreateDNS(entry)
 		dns, err := logic.GetDNS("skynet")
 		t.Log(dns)
@@ -165,7 +165,7 @@ func TestCreateDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
-	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+	entry := models.DNSEntry{"10.0.0.2", "", "newhost", "skynet"}
 	dns, err := CreateDNS(entry)
 	assert.Nil(t, err)
 	assert.Equal(t, "newhost", dns.Name)
@@ -204,7 +204,7 @@ func TestSetDNS(t *testing.T) {
 		assert.Contains(t, string(content), "testnode.skynet")
 	})
 	t.Run("EntryExists", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.3", "newhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.3", "", "newhost", "skynet"}
 		CreateDNS(entry)
 		err := logic.SetDNS()
 		assert.Nil(t, err)
@@ -224,7 +224,7 @@ func TestGetDNSEntry(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	createTestNode()
-	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+	entry := models.DNSEntry{"10.0.0.2", "", "newhost", "skynet"}
 	CreateDNS(entry)
 	t.Run("wrong net", func(t *testing.T) {
 		entry, err := GetDNSEntry("newhost", "w286 Toronto Street South, Uxbridge, ONirecat")
@@ -280,7 +280,7 @@ func TestDeleteDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
-	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+	entry := models.DNSEntry{"10.0.0.2", "", "newhost", "skynet"}
 	CreateDNS(entry)
 	t.Run("EntryExists", func(t *testing.T) {
 		err := logic.DeleteDNS("newhost", "skynet")
@@ -302,36 +302,36 @@ func TestValidateDNSUpdate(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
-	entry := models.DNSEntry{"10.0.0.2", "myhost", "skynet"}
+	entry := models.DNSEntry{"10.0.0.2", "", "myhost", "skynet"}
 	t.Run("BadNetwork", func(t *testing.T) {
-		change := models.DNSEntry{"10.0.0.2", "myhost", "badnet"}
+		change := models.DNSEntry{"10.0.0.2", "", "myhost", "badnet"}
 		err := logic.ValidateDNSUpdate(change, entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Network' failed on the 'network_exists' tag")
 	})
 	t.Run("EmptyNetwork", func(t *testing.T) {
 		//this can't actually happen as change.Network is populated if is blank
-		change := models.DNSEntry{"10.0.0.2", "myhost", ""}
+		change := models.DNSEntry{"10.0.0.2", "", "myhost", ""}
 		err := logic.ValidateDNSUpdate(change, entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Network' failed on the 'network_exists' tag")
 	})
-	t.Run("EmptyAddress", func(t *testing.T) {
-		//this can't actually happen as change.Address is populated if is blank
-		change := models.DNSEntry{"", "myhost", "skynet"}
-		err := logic.ValidateDNSUpdate(change, entry)
-		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
-	})
+	// t.Run("EmptyAddress", func(t *testing.T) {
+	// 	//this can't actually happen as change.Address is populated if is blank
+	// 	change := models.DNSEntry{"", "", "myhost", "skynet"}
+	// 	err := logic.ValidateDNSUpdate(change, entry)
+	// 	assert.NotNil(t, err)
+	// 	assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
+	// })
 	t.Run("BadAddress", func(t *testing.T) {
-		change := models.DNSEntry{"10.0.256.1", "myhost", "skynet"}
+		change := models.DNSEntry{"10.0.256.1", "", "myhost", "skynet"}
 		err := logic.ValidateDNSUpdate(change, entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'ip' tag")
 	})
 	t.Run("EmptyName", func(t *testing.T) {
 		//this can't actually happen as change.Name is populated if is blank
-		change := models.DNSEntry{"10.0.0.2", "", "skynet"}
+		change := models.DNSEntry{"10.0.0.2", "", "", "skynet"}
 		err := logic.ValidateDNSUpdate(change, entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'required' tag")
@@ -341,13 +341,13 @@ func TestValidateDNSUpdate(t *testing.T) {
 		for i := 1; i < 194; i++ {
 			name = name + "a"
 		}
-		change := models.DNSEntry{"10.0.0.2", name, "skynet"}
+		change := models.DNSEntry{"10.0.0.2", "", name, "skynet"}
 		err := logic.ValidateDNSUpdate(change, entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'max' tag")
 	})
 	t.Run("NameUnique", func(t *testing.T) {
-		change := models.DNSEntry{"10.0.0.2", "myhost", "wirecat"}
+		change := models.DNSEntry{"10.0.0.2", "", "myhost", "wirecat"}
 		CreateDNS(entry)
 		CreateDNS(change)
 		err := logic.ValidateDNSUpdate(change, entry)
@@ -363,25 +363,25 @@ func TestValidateDNSCreate(t *testing.T) {
 	database.InitializeDatabase()
 	_ = logic.DeleteDNS("mynode", "skynet")
 	t.Run("NoNetwork", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.2", "myhost", "badnet"}
+		entry := models.DNSEntry{"10.0.0.2", "", "myhost", "badnet"}
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Network' failed on the 'network_exists' tag")
 	})
-	t.Run("EmptyAddress", func(t *testing.T) {
-		entry := models.DNSEntry{"", "myhost", "skynet"}
-		err := logic.ValidateDNSCreate(entry)
-		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
-	})
+	// t.Run("EmptyAddress", func(t *testing.T) {
+	// 	entry := models.DNSEntry{"", "", "myhost", "skynet"}
+	// 	err := logic.ValidateDNSCreate(entry)
+	// 	assert.NotNil(t, err)
+	// 	assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'required' tag")
+	// })
 	t.Run("BadAddress", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.256.1", "myhost", "skynet"}
+		entry := models.DNSEntry{"10.0.256.1", "", "myhost", "skynet"}
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Address' failed on the 'ip' tag")
 	})
 	t.Run("EmptyName", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.2", "", "skynet"}
+		entry := models.DNSEntry{"10.0.0.2", "", "", "skynet"}
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'required' tag")
@@ -391,13 +391,13 @@ func TestValidateDNSCreate(t *testing.T) {
 		for i := 1; i < 194; i++ {
 			name = name + "a"
 		}
-		entry := models.DNSEntry{"10.0.0.2", name, "skynet"}
+		entry := models.DNSEntry{"10.0.0.2", "", name, "skynet"}
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'max' tag")
 	})
 	t.Run("NameUnique", func(t *testing.T) {
-		entry := models.DNSEntry{"10.0.0.2", "myhost", "skynet"}
+		entry := models.DNSEntry{"10.0.0.2", "", "myhost", "skynet"}
 		_, _ = CreateDNS(entry)
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)

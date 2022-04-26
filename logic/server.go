@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -43,7 +44,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	}
 	var ishub = "no"
 
-	if networkSettings.IsPointToSite == "yes" || networkSettings.IsComms == "yes" {
+	if networkSettings.IsPointToSite == "yes" {
 		nodes, err := GetNetworkNodes(networkSettings.NetID)
 		if err != nil || nodes == nil {
 			ishub = "yes"
@@ -237,24 +238,47 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 		}
 
 		var peer wgtypes.PeerConfig
-		var peeraddr = net.IPNet{
-			IP:   net.ParseIP(node.Address),
-			Mask: net.CIDRMask(32, 32),
+		var allowedips = []net.IPNet{}
+		if node.Address != "" {
+			var peeraddr = net.IPNet{
+				IP:   net.ParseIP(node.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			if peeraddr.IP != nil && peeraddr.Mask != nil {
+				allowedips = append(allowedips, peeraddr)
+			}
 		}
-		var allowedips = []net.IPNet{
-			peeraddr,
+
+		if node.Address6 != "" {
+			var addr6 = net.IPNet{
+				IP:   net.ParseIP(node.Address6),
+				Mask: net.CIDRMask(128, 128),
+			}
+			if addr6.IP != nil && addr6.Mask != nil {
+				allowedips = append(allowedips, addr6)
+			}
 		}
+
 		// handle manually set peers
 		for _, allowedIp := range node.AllowedIPs {
-			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
-				nodeEndpointArr := strings.Split(node.Endpoint, ":")
-				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != node.Address { // don't need to add an allowed ip that already exists..
-					allowedips = append(allowedips, *ipnet)
+			currentIP := ipaddr.NewIPAddressString(allowedIp).GetAddress()
+			if currentIP.IsIPv4() {
+				if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
+					nodeEndpointArr := strings.Split(node.Endpoint, ":")
+					if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != node.Address { // don't need to add an allowed ip that already exists..
+						allowedips = append(allowedips, *ipnet)
+					}
+				} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != node.Address {
+					ipnet := net.IPNet{
+						IP:   net.ParseIP(allowedIp),
+						Mask: net.CIDRMask(32, 32),
+					}
+					allowedips = append(allowedips, ipnet)
 				}
-			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != node.Address {
+			} else if currentIP.IsIPv6() {
 				ipnet := net.IPNet{
-					IP:   net.ParseIP(allowedIp),
-					Mask: net.CIDRMask(32, 32),
+					IP:   currentIP.GetNetIP(),
+					Mask: net.CIDRMask(128, 128),
 				}
 				allowedips = append(allowedips, ipnet)
 			}
@@ -285,15 +309,8 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 					allowedips = append(allowedips, *ipnet)
 				}
 			}
-			ranges = nil
 		}
-		if node.Address6 != "" && serverNode.IsDualStack == "yes" {
-			var addr6 = net.IPNet{
-				IP:   net.ParseIP(node.Address6),
-				Mask: net.CIDRMask(128, 128),
-			}
-			allowedips = append(allowedips, addr6)
-		}
+
 		peer = wgtypes.PeerConfig{
 			PublicKey:                   pubkey,
 			PersistentKeepaliveInterval: &(keepalivedur),
@@ -347,22 +364,27 @@ func GetServerExtPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, error) {
 		if serverNode.PublicKey == extPeer.PublicKey {
 			continue
 		}
+		var allowedips = []net.IPNet{}
 
 		var peer wgtypes.PeerConfig
-		var peeraddr = net.IPNet{
-			IP:   net.ParseIP(extPeer.Address),
-			Mask: net.CIDRMask(32, 32),
-		}
-		var allowedips = []net.IPNet{
-			peeraddr,
+		if extPeer.Address != "" {
+			newAddr := net.IPNet{
+				IP:   net.ParseIP(extPeer.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			if &newAddr != nil {
+				allowedips = append(allowedips, newAddr)
+			}
 		}
 
-		if extPeer.Address6 != "" && serverNode.IsDualStack == "yes" {
-			var addr6 = net.IPNet{
+		if extPeer.Address6 != "" {
+			newAddr6 := net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
 			}
-			allowedips = append(allowedips, addr6)
+			if &newAddr6 != nil {
+				allowedips = append(allowedips, newAddr6)
+			}
 		}
 		peer = wgtypes.PeerConfig{
 			PublicKey:         pubkey,

@@ -12,7 +12,6 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
-	GRPCConnString string `json:"grpcconn"`
-	GRPCSSL        string `json:"grpcssl"`
-	CommsNetwork   string `json:"commsnetwork"`
+	Server        string `json:"server"`
+	APIConnString string `json:"apiconnstring"`
 }

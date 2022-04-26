@@ -3,7 +3,6 @@ package ncutils
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/tls"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -23,8 +22,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // Version - version of the netclient
@@ -301,6 +298,15 @@ func GetNetclientPath() string {
 	}
 }
 
+// GetSeparator - gets the separator for OS
+func GetSeparator() string {
+	if IsWindows() {
+		return "\\"
+	} else {
+		return "/"
+	}
+}
+
 // GetFileWithRetry - retry getting file X number of times before failing
 func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
 	var data []byte
@@ -315,6 +321,17 @@ func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
 		}
 	}
 	return data, err
+}
+
+// GetNetclientServerPath - gets netclient server path
+func GetNetclientServerPath(server string) string {
+	if IsWindows() {
+		return WINDOWS_APP_DATA_PATH + "\\" + server + "\\"
+	} else if IsMac() {
+		return "/etc/netclient/" + server + "/"
+	} else {
+		return LINUX_APP_DATA_PATH + "/" + server
+	}
 }
 
 // GetNetclientPathSpecific - gets specific netclient config path
@@ -368,17 +385,6 @@ func GetWGPathSpecific() string {
 	} else {
 		return "/etc/wireguard/"
 	}
-}
-
-// GRPCRequestOpts - gets grps request opts
-func GRPCRequestOpts(isSecure string) grpc.DialOption {
-	var requestOpts grpc.DialOption
-	requestOpts = grpc.WithInsecure()
-	if isSecure == "on" {
-		h2creds := credentials.NewTLS(&tls.Config{NextProtos: []string{"h2"}})
-		requestOpts = grpc.WithTransportCredentials(h2creds)
-	}
-	return requestOpts
 }
 
 // Copy - copies a src file to dest

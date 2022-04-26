@@ -1,4 +1,4 @@
-FROM golang:latest as builder
+FROM gravitl/go-builder as builder
 # add glib support daemon manager
 WORKDIR /app
 ARG version

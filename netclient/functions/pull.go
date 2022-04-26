@@ -1,116 +1,72 @@
 package functions
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"runtime"
 
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	//homedir "github.com/mitchellh/go-homedir"
 )
 
 // Pull - pulls the latest config from the server, if manual it will overwrite
-func Pull(network string, manual bool) (*models.Node, error) {
+func Pull(network string, iface bool) (*models.Node, error) {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return nil, err
 	}
-	node := cfg.Node
-	//servercfg := cfg.Server
-
 	if cfg.Node.IPForwarding == "yes" && !ncutils.IsWindows() {
 		if err = local.SetIPForwarding(); err != nil {
 			return nil, err
 		}
 	}
-	var resNode models.Node // just need to fill this with either server calls or client calls
-
-	var header metadata.MD
-	var wcclient nodepb.NodeServiceClient
-	var ctx context.Context
-
-	if cfg.Node.IsServer != "yes" {
-		conn, err := grpc.Dial(cfg.Server.GRPCAddress,
-			ncutils.GRPCRequestOpts(cfg.Server.GRPCSSL))
-		if err != nil {
-			logger.Log(1, "Cant dial GRPC server: ", err.Error())
-			return nil, err
-		}
-		defer conn.Close()
-		wcclient = nodepb.NewNodeServiceClient(conn)
-
-		ctx, err = auth.SetJWT(wcclient, network)
-		if err != nil {
-			logger.Log(1, "Failed to authenticate: ", err.Error())
-			return nil, err
-		}
-		data, err := json.Marshal(&node)
-		if err != nil {
-			logger.Log(1, "Failed to parse node config: ", err.Error())
-			return nil, err
-		}
-
-		req := &nodepb.Object{
-			Data: string(data),
-			Type: nodepb.NODE_TYPE,
-		}
-
-		readres, err := wcclient.ReadNode(ctx, req, grpc.Header(&header))
-		if err != nil {
-			return nil, err
-		}
-
-		if err = json.Unmarshal([]byte(readres.Data), &resNode); err != nil {
-			return nil, err
-		}
+	token, err := Authenticate(cfg)
+	if err != nil {
+		return nil, err
 	}
+	url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
+	response, err := API("", http.MethodGet, url, token)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		bytes, err := io.ReadAll(response.Body)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return nil, (fmt.Errorf("%s %w", string(bytes), err))
+	}
+	defer response.Body.Close()
+	var nodeGET models.NodeGet
+	if err := json.NewDecoder(response.Body).Decode(&nodeGET); err != nil {
+		return nil, fmt.Errorf("error decoding node %w", err)
+	}
+	resNode := nodeGET.Node
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
-	if manual {
-		// check for interface change
-		if cfg.Node.Interface != resNode.Interface {
-			if err = DeleteInterface(cfg.Node.Interface, cfg.Node.PostDown); err != nil {
-				logger.Log(1, "could not delete old interface ", cfg.Node.Interface)
-			}
-		}
+	if nodeGET.Peers == nil {
+		nodeGET.Peers = []wgtypes.PeerConfig{}
+	}
+
+	if iface {
 		if err = config.ModConfig(&resNode); err != nil {
 			return nil, err
 		}
-		if err = wireguard.SetWGConfig(network, false); err != nil {
+		if err = wireguard.SetWGConfig(network, false, nodeGET.Peers[:]); err != nil {
 			return nil, err
 		}
-		nodeData, err := json.Marshal(&resNode)
-		if err != nil {
-			return &resNode, err
-		}
-
-		if resNode.IsServer != "yes" {
-			if wcclient == nil || ctx == nil {
-				return &cfg.Node, errors.New("issue initializing gRPC client")
-			}
-			req := &nodepb.Object{
-				Data:     string(nodeData),
-				Type:     nodepb.NODE_TYPE,
-				Metadata: "",
-			}
-			_, err = wcclient.UpdateNode(ctx, req, grpc.Header(&header))
-			if err != nil {
-				return &resNode, err
-			}
-		}
 	} else {
-		if err = wireguard.SetWGConfig(network, true); err != nil {
+		if err = wireguard.SetWGConfig(network, true, nodeGET.Peers[:]); err != nil {
 			if errors.Is(err, os.ErrNotExist) && !ncutils.IsFreeBSD() {
 				return Pull(network, true)
 			} else {
@@ -122,6 +78,5 @@ func Pull(network string, manual bool) (*models.Node, error) {
 	if bkupErr != nil {
 		logger.Log(0, "unable to update backup file")
 	}
-
 	return &resNode, err
 }

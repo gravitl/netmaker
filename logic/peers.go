@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -34,19 +35,19 @@ func GetHubPeer(networkName string) []models.Node {
 */
 
 // GetNodePeers - fetches peers for a given node
-func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
+func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
 	var peers []models.Node
-	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
+	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(network.NetID)
 	if err != nil {
 		return peers, nil
 	}
 
-	udppeers, errN := database.GetPeers(networkName)
+	udppeers, errN := database.GetPeers(network.NetID)
 	if errN != nil {
 		logger.Log(2, errN.Error())
 	}
 
-	currentNetworkACLs, aclErr := nodeacls.FetchAllACLs(nodeacls.NetworkID(networkName))
+	currentNetworkACLs, aclErr := nodeacls.FetchAllACLs(nodeacls.NetworkID(network.NetID))
 	if aclErr != nil {
 		return peers, aclErr
 	}
@@ -63,10 +64,9 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 		}
 
 		peer.IsIngressGateway = node.IsIngressGateway
-		isDualStack := node.IsDualStack == "yes"
 		allow := node.IsRelayed != "yes" || !excludeRelayed
 
-		if node.Network == networkName && node.IsPending != "yes" && allow {
+		if node.Network == network.NetID && node.IsPending != "yes" && allow {
 			peer = setPeerInfo(&node)
 			if node.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[node.PublicKey]) {
 				endpointstring := udppeers[node.PublicKey]
@@ -79,13 +79,12 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 					}
 				}
 			}
+			// if udp hole punching is on, but port is still set to default (e.g. 51821), use the LocalListenPort
+			if node.UDPHolePunch == "yes" && node.IsStatic != "yes" && peer.ListenPort == node.ListenPort {
+				peer.ListenPort = node.LocalListenPort
+			}
 			if node.IsRelay == "yes" {
-				network, err := GetNetwork(networkName)
-				if err == nil {
-					peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
-				} else {
-					peer.AllowedIPs = append(peer.AllowedIPs, node.RelayAddrs...)
-				}
+				peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
 				for _, egressNode := range egressNetworkNodes {
 					if egressNode.IsRelayed == "yes" && StringSliceContains(node.RelayAddrs, egressNode.Address) {
 						peer.AllowedIPs = append(peer.AllowedIPs, egressNode.EgressGatewayRanges...)
@@ -95,8 +94,10 @@ func GetNodePeers(networkName, nodeid string, excludeRelayed bool, isP2S bool) (
 			if peer.IsIngressGateway == "yes" { // handle ingress stuff
 				if currentExtClients, err := GetExtPeersList(&node); err == nil {
 					for i := range currentExtClients {
-						peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
-						if isDualStack {
+						if network.IsIPv4 == "yes" && currentExtClients[i].Address != "" {
+							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address)
+						}
+						if network.IsIPv6 == "yes" && currentExtClients[i].Address6 != "" {
 							peer.AllowedIPs = append(peer.AllowedIPs, currentExtClients[i].Address6)
 						}
 					}
@@ -131,7 +132,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 		isP2S = true
 	}
 	if relayedNodeAddr == "" {
-		peers, err = GetNodePeers(networkName, refnode.ID, excludeRelayed, isP2S)
+		peers, err = GetNodePeers(&network, refnode.ID, excludeRelayed, isP2S)
 	} else {
 		var relayNode models.Node
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
@@ -151,7 +152,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 			} else {
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
-			nodepeers, err := GetNodePeers(networkName, refnode.ID, false, isP2S)
+			nodepeers, err := GetNodePeers(&network, refnode.ID, false, isP2S)
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
 					if nodepeer.Address == peerNode.Address {
@@ -205,6 +206,9 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			// set_local
 			if node.LocalAddress != peer.LocalAddress && peer.LocalAddress != "" {
 				peer.Endpoint = peer.LocalAddress
+				if peer.LocalListenPort != 0 {
+					peer.ListenPort = peer.LocalListenPort
+				}
 			} else {
 				continue
 			}
@@ -278,20 +282,26 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, error) {
 			continue
 		}
 
-		var peer wgtypes.PeerConfig
-		var peeraddr = net.IPNet{
-			IP:   net.ParseIP(extPeer.Address),
-			Mask: net.CIDRMask(32, 32),
-		}
 		var allowedips []net.IPNet
-		allowedips = append(allowedips, peeraddr)
+		var peer wgtypes.PeerConfig
+		if extPeer.Address != "" {
+			var peeraddr = net.IPNet{
+				IP:   net.ParseIP(extPeer.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			if peeraddr.IP != nil && peeraddr.Mask != nil {
+				allowedips = append(allowedips, peeraddr)
+			}
+		}
 
 		if extPeer.Address6 != "" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
 			}
-			allowedips = append(allowedips, addr6)
+			if addr6.IP != nil && addr6.Mask != nil {
+				allowedips = append(allowedips, addr6)
+			}
 		}
 		peer = wgtypes.PeerConfig{
 			PublicKey:         pubkey,
@@ -307,23 +317,43 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, error) {
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 	var allowedips []net.IPNet
-	var peeraddr = net.IPNet{
-		IP:   net.ParseIP(peer.Address),
-		Mask: net.CIDRMask(32, 32),
+
+	if peer.Address != "" {
+		var peeraddr = net.IPNet{
+			IP:   net.ParseIP(peer.Address),
+			Mask: net.CIDRMask(32, 32),
+		}
+		allowedips = append(allowedips, peeraddr)
 	}
-	dualstack := false
-	allowedips = append(allowedips, peeraddr)
+
+	if peer.Address6 != "" {
+		var addr6 = net.IPNet{
+			IP:   net.ParseIP(peer.Address6),
+			Mask: net.CIDRMask(128, 128),
+		}
+		allowedips = append(allowedips, addr6)
+	}
+
 	// handle manually set peers
 	for _, allowedIp := range peer.AllowedIPs {
-		if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
-			nodeEndpointArr := strings.Split(node.Endpoint, ":")
-			if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address { // don't need to add an allowed ip that already exists..
-				allowedips = append(allowedips, *ipnet)
+		currentAddr := ipaddr.NewIPAddressString(allowedIp).GetAddress()
+		if currentAddr.IsIPv4() {
+			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
+				nodeEndpointArr := strings.Split(node.Endpoint, ":")
+				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address { // don't need to add an allowed ip that already exists..
+					allowedips = append(allowedips, *ipnet)
+				}
+			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != peer.Address {
+				ipnet := net.IPNet{
+					IP:   net.ParseIP(allowedIp),
+					Mask: net.CIDRMask(32, 32),
+				}
+				allowedips = append(allowedips, ipnet)
 			}
-		} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != peer.Address {
+		} else if currentAddr.IsIPv6() {
 			ipnet := net.IPNet{
 				IP:   net.ParseIP(allowedIp),
-				Mask: net.CIDRMask(32, 32),
+				Mask: net.CIDRMask(128, 128),
 			}
 			allowedips = append(allowedips, ipnet)
 		}
@@ -349,18 +379,11 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 				continue // skip adding egress range if overlaps with node's local ip
 			}
 			if err != nil {
-				log.Println("ERROR ENCOUNTERED SETTING GATEWAY")
+				logger.Log(1, "error encountered when setting egress range", err.Error())
 			} else {
 				allowedips = append(allowedips, *ipnet)
 			}
 		}
-	}
-	if peer.Address6 != "" && dualstack {
-		var addr6 = net.IPNet{
-			IP:   net.ParseIP(peer.Address6),
-			Mask: net.CIDRMask(128, 128),
-		}
-		allowedips = append(allowedips, addr6)
 	}
 	return allowedips
 }

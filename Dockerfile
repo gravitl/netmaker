@@ -1,7 +1,6 @@
 #first stage - builder
-FROM golang:1.18.0-alpine3.15 as builder
+FROM gravitl/go-builder as builder
 ARG version 
-RUN apk add build-base
 WORKDIR /app
 COPY . .
 ENV GO111MODULE=auto
@@ -17,5 +16,4 @@ RUN mkdir -p /etc/netclient/config
 COPY --from=builder /app/netmaker .
 COPY --from=builder /app/config config
 EXPOSE 8081
-EXPOSE 50051
 ENTRYPOINT ["./netmaker"]

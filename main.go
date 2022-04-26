@@ -2,22 +2,24 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"runtime/debug"
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
-	nodepb "github.com/gravitl/netmaker/grpc"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -25,7 +27,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
-	"google.golang.org/grpc"
+	"github.com/gravitl/netmaker/tls"
 )
 
 var version = "dev"
@@ -38,10 +40,10 @@ func main() {
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
-	initialize()                       // initial db and grpc server
+	initialize()                       // initial db and acls; gen cert if required
 	setGarbageCollection()
 	defer database.CloseDB()
-	startControllers() // start the grpc or rest endpoints
+	startControllers() // start the api endpoint and mq
 }
 
 func setupConfig(absoluteConfigPath string) {
@@ -103,9 +105,6 @@ func initialize() { // Client Mode Prereq Check
 		if err := serverctl.InitServerNetclient(); err != nil {
 			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
 		}
-		if err := serverctl.InitializeCommsNetwork(); err != nil {
-			logger.FatalLog("could not inintialize comms network")
-		}
 	}
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
 	if servercfg.ManageIPTables() != "off" {
@@ -120,22 +119,18 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog(err.Error())
 		}
 	}
+
+	genCerts()
+
+	if servercfg.IsMessageQueueBackend() {
+		if err = mq.ServerStartNotify(); err != nil {
+			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
+		}
+	}
 }
 
 func startControllers() {
 	var waitnetwork sync.WaitGroup
-	//Run Agent Server
-	if servercfg.IsAgentBackend() {
-		if !(servercfg.DisableRemoteIPCheck()) && servercfg.GetGRPCHost() == "127.0.0.1" {
-			err := servercfg.SetHost()
-			if err != nil {
-				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
-			}
-		}
-		waitnetwork.Add(1)
-		go runGRPC(&waitnetwork)
-	}
-
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
 		if err != nil {
@@ -167,52 +162,6 @@ func startControllers() {
 	waitnetwork.Wait()
 }
 
-func runGRPC(wg *sync.WaitGroup) {
-
-	defer wg.Done()
-
-	grpcport := servercfg.GetGRPCPort()
-
-	listener, err := net.Listen("tcp", ":"+grpcport)
-	// Handle errors if any
-	if err != nil {
-		logger.FatalLog("[netmaker] Unable to listen on port", grpcport, ": error:", err.Error())
-	}
-
-	s := grpc.NewServer(
-		authServerUnaryInterceptor(),
-	)
-	// Create NodeService type
-	srv := &controller.NodeServiceServer{}
-
-	// Register the service with the server
-	nodepb.RegisterNodeServiceServer(s, srv)
-
-	// Start the server in a child routine
-	go func() {
-		if err := s.Serve(listener); err != nil {
-			logger.FatalLog("Failed to serve:", err.Error())
-		}
-	}()
-	logger.Log(0, "Agent Server successfully started on port ", grpcport, "(gRPC)")
-
-	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
-	// Ignore other incoming signals
-	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt)
-	defer stop()
-
-	// Block main routine until a signal is received
-	// As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
-	<-ctx.Done()
-
-	// After receiving CTRL+C Properly stop the server
-	logger.Log(0, "Stopping the Agent server...")
-	s.GracefulStop()
-	listener.Close()
-	logger.Log(0, "Agent server closed..")
-	logger.Log(0, "Closed DB connection.")
-}
-
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -228,13 +177,77 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	client.Disconnect(250)
 }
 
-func authServerUnaryInterceptor() grpc.ServerOption {
-	return grpc.UnaryInterceptor(controller.AuthServerUnaryInterceptor)
-}
-
 func setGarbageCollection() {
 	_, gcset := os.LookupEnv("GOGC")
 	if !gcset {
 		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
+}
+
+func genCerts() error {
+	logger.Log(0, "checking keys and certificates")
+	var private *ed25519.PrivateKey
+	var err error
+	private, err = tls.ReadKey(functions.GetNetmakerPath() + "/root.key")
+	if errors.Is(err, os.ErrNotExist) {
+		logger.Log(0, "generating new root key")
+		_, newKey, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		if err := tls.SaveKey(functions.GetNetmakerPath(), "/root.key", newKey); err != nil {
+			return err
+		}
+		private = &newKey
+	} else if err != nil {
+		return err
+	}
+	ca, err := tls.ReadCert(functions.GetNetmakerPath() + ncutils.GetSeparator() + "root.pem")
+	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
+	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+	if errors.Is(err, os.ErrNotExist) {
+		logger.Log(0, "generating new root CA")
+		caName := tls.NewName("CA Root", "US", "Gravitl")
+		csr, err := tls.NewCSR(*private, caName)
+		if err != nil {
+			return err
+		}
+		rootCA, err := tls.SelfSignedCA(*private, csr, tls.CERTIFICATE_VALIDITY)
+		if err != nil {
+			return err
+		}
+		if err := tls.SaveCert(functions.GetNetmakerPath(), ncutils.GetSeparator()+"root.pem", rootCA); err != nil {
+			return err
+		}
+		ca = rootCA
+	} else if err != nil {
+		return err
+	}
+	cert, err := tls.ReadCert(functions.GetNetmakerPath() + "/server.pem")
+	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+		//gen new key
+		logger.Log(0, "generating new server key/certificate")
+		_, key, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		serverName := tls.NewCName(servercfg.GetServer())
+		csr, err := tls.NewCSR(key, serverName)
+		if err != nil {
+			return err
+		}
+		cert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
+		if err != nil {
+			return err
+		}
+		if err := tls.SaveKey(functions.GetNetmakerPath(), "/server.key", key); err != nil {
+			return err
+		}
+		if err := tls.SaveCert(functions.GetNetmakerPath(), "/server.pem", cert); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	return nil
 }

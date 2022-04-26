@@ -1,6 +1,8 @@
 package command
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"strings"
 
 	"github.com/gravitl/netmaker/logger"
@@ -8,47 +10,14 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/tls"
 )
-
-// JoinComms -- Join the message queue comms network if it doesn't have it
-// tries to ping if already found locally, if fail ping pull for best effort for communication
-func JoinComms(cfg *config.ClientConfig) error {
-	commsCfg := &config.ClientConfig{}
-	commsCfg.Network = cfg.Server.CommsNetwork
-	commsCfg.Node.Network = cfg.Server.CommsNetwork
-	commsCfg.Server.AccessKey = cfg.Server.AccessKey
-	commsCfg.Server.GRPCAddress = cfg.Server.GRPCAddress
-	commsCfg.Server.GRPCSSL = cfg.Server.GRPCSSL
-	commsCfg.Server.CoreDNSAddr = cfg.Server.CoreDNSAddr
-	if commsCfg.ConfigFileExists() {
-		return nil
-	}
-	commsCfg.ReadConfig()
-
-	if len(commsCfg.Node.Name) == 0 {
-		if err := functions.JoinNetwork(commsCfg, "", true); err != nil {
-			return err
-		}
-	} else { // check if comms is currently reachable
-		if err := functions.PingServer(commsCfg); err != nil {
-			if err = Pull(commsCfg); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 // Join - join command to run from cli
 func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
-	//check if comms network exists
-	if err = JoinComms(cfg); err != nil {
-		return err
-	}
-
 	//join network
-	err = functions.JoinNetwork(cfg, privateKey, false)
+	err = functions.JoinNetwork(cfg, privateKey)
 	if err != nil && !cfg.DebugOn {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			logger.Log(1, "error installing: ", err.Error())
@@ -98,13 +67,6 @@ func Leave(cfg *config.ClientConfig, force bool) error {
 	} else {
 		logger.Log(0, "success")
 	}
-	nets, err := ncutils.GetSystemNetworks()
-	if err == nil && len(nets) == 1 {
-		if nets[0] == cfg.Node.CommID {
-			logger.Log(1, "detected comms as remaining network, removing...")
-			err = functions.LeaveNetwork(nets[0], true)
-		}
-	}
 	return err
 }
 
@@ -128,7 +90,20 @@ func Pull(cfg *config.ClientConfig) error {
 		}
 		err = nil
 	} else {
+
 		_, err = functions.Pull(cfg.Network, true)
+		_, newKey, kerr := ed25519.GenerateKey(rand.Reader)
+		if kerr == nil && err == nil {
+			if kerr := tls.SaveKey(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); kerr != nil {
+				logger.Log(0, "error saving key", kerr.Error())
+			} else {
+				if kerr = functions.RegisterWithServer(&newKey, cfg); err != nil {
+					logger.Log(0, "registration error", kerr.Error())
+				} else {
+					daemon.Restart()
+				}
+			}
+		}
 	}
 	logger.Log(1, "reset network and peer configs")
 	if err == nil {

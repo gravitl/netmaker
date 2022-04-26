@@ -7,7 +7,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/serverctl"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -285,6 +284,26 @@ func TestValidateNetworkUpdate(t *testing.T) {
 	}
 }
 
+func TestIpv6Network(t *testing.T) {
+	//these seem to work but not sure it the tests are really testing the functionality
+
+	database.InitializeDatabase()
+	os.Setenv("MASTER_KEY", "secretkey")
+	createNet()
+	createNetDualStack()
+	network, err := logic.GetNetwork("skynet6")
+	t.Run("Test Network Create IPv6", func(t *testing.T) {
+		assert.Nil(t, err)
+		assert.Equal(t, network.AddressRange6, "fde6:be04:fa5e:d076::/64")
+	})
+	node1 := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.50", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet6", OS: "linux"}
+	nodeErr := logic.CreateNode(&node1)
+	t.Run("Test node on network IPv6", func(t *testing.T) {
+		assert.Nil(t, nodeErr)
+		assert.Equal(t, node1.Address6, "fde6:be04:fa5e:d076::1")
+	})
+}
+
 func deleteAllNetworks() {
 	deleteAllNodes()
 	nets, _ := logic.GetNetworks()
@@ -301,5 +320,17 @@ func createNet() {
 	if err != nil {
 		logic.CreateNetwork(network)
 	}
-	serverctl.InitializeCommsNetwork()
+}
+
+func createNetDualStack() {
+	var network models.Network
+	network.NetID = "skynet6"
+	network.AddressRange = "10.1.2.0/24"
+	network.AddressRange6 = "fde6:be04:fa5e:d076::/64"
+	network.IsIPv4 = "yes"
+	network.IsIPv6 = "yes"
+	_, err := logic.GetNetwork("skynet6")
+	if err != nil {
+		logic.CreateNetwork(network)
+	}
 }

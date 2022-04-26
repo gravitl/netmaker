@@ -51,13 +51,29 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 			ListenPort: &nodeport,
 		}
 	}
-
-	netmaskArr := strings.Split(node.NetworkSettings.AddressRange, "/")
-	var netmask = "32"
-	if len(netmaskArr) == 2 {
-		netmask = netmaskArr[1]
+	var address4 string
+	var address6 string
+	var mask4 string
+	var mask6 string
+	if node.Address != "" {
+		netmaskArr := strings.Split(node.NetworkSettings.AddressRange, "/")
+		var netmask = "32"
+		if len(netmaskArr) == 2 {
+			netmask = netmaskArr[1]
+		}
+		mask4 = netmask
+		address4 = node.Address
 	}
-	setKernelDevice(ifacename, node.Address, netmask)
+	if node.Address6 != "" {
+		netmaskArr := strings.Split(node.NetworkSettings.AddressRange6, "/")
+		var netmask = "128"
+		if len(netmaskArr) == 2 {
+			netmask = netmaskArr[1]
+		}
+		mask6 = netmask
+		address6 = node.Address
+	}
+	setKernelDevice(ifacename, address4, mask4, address6, mask6)
 
 	_, err = wgclient.Device(ifacename)
 	if err != nil {
@@ -88,9 +104,14 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 		runcmds := strings.Split(node.PostUp, "; ")
 		_ = ncutils.RunCmds(runcmds, true)
 	}
-	if node.Address6 != "" && node.IsDualStack == "yes" {
+	if node.Address6 != "" {
 		logger.Log(1, "adding address: ", node.Address6)
-		_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
+		netmaskArr := strings.Split(node.NetworkSettings.AddressRange6, "/")
+		var netmask = "64"
+		if len(netmaskArr) == 2 {
+			netmask = netmaskArr[1]
+		}
+		ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/"+netmask, true)
 	}
 	return nil
 }
@@ -120,7 +141,7 @@ func RemoveWithoutWGQuick(ifacename string) error {
 	return err
 }
 
-func setKernelDevice(ifacename, address, mask string) error {
+func setKernelDevice(ifacename, address4, mask4, address6, mask6 string) error {
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {
 		return err
@@ -129,7 +150,11 @@ func setKernelDevice(ifacename, address, mask string) error {
 	// == best effort ==
 	ncutils.RunCmd("ip link delete dev "+ifacename, false)
 	ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
-	ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address+"/"+mask, true) // this was a bug waiting to happen
-
+	if address4 != "" {
+		ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address4+"/"+mask4, true)
+	}
+	if address6 != "" {
+		ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address6+"/"+mask6, true)
+	}
 	return nil
 }

@@ -2,6 +2,7 @@ package models
 
 import (
 	jwt "github.com/golang-jwt/jwt/v4"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
@@ -101,9 +102,7 @@ type DisplayKey struct {
 
 // GlobalConfig - global config
 type GlobalConfig struct {
-	Name       string `json:"name" bson:"name"`
-	PortGRPC   string `json:"portgrpc" bson:"portgrpc"`
-	ServerGRPC string `json:"servergrpc" bson:"servergrpc"`
+	Name string `json:"name" bson:"name"`
 }
 
 // CheckInResponse - checkin response
@@ -124,6 +123,7 @@ type PeersResponse struct {
 	Address             string `json:"address" bson:"address"`
 	Address6            string `json:"address6" bson:"address6"`
 	LocalAddress        string `json:"localaddress" bson:"localaddress"`
+	LocalListenPort     int32  `json:"locallistenport" bson:"locallistenport"`
 	IsEgressGateway     string `json:"isegressgateway" bson:"isegressgateway"`
 	EgressGatewayRanges string `json:"egressgatewayrange" bson:"egressgatewayrange"`
 	ListenPort          int32  `json:"listenport" bson:"listenport"`
@@ -132,13 +132,14 @@ type PeersResponse struct {
 
 // ExtPeersResponse - ext peers response
 type ExtPeersResponse struct {
-	PublicKey    string `json:"publickey" bson:"publickey"`
-	Endpoint     string `json:"endpoint" bson:"endpoint"`
-	Address      string `json:"address" bson:"address"`
-	Address6     string `json:"address6" bson:"address6"`
-	LocalAddress string `json:"localaddress" bson:"localaddress"`
-	ListenPort   int32  `json:"listenport" bson:"listenport"`
-	KeepAlive    int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
+	PublicKey       string `json:"publickey" bson:"publickey"`
+	Endpoint        string `json:"endpoint" bson:"endpoint"`
+	Address         string `json:"address" bson:"address"`
+	Address6        string `json:"address6" bson:"address6"`
+	LocalAddress    string `json:"localaddress" bson:"localaddress"`
+	LocalListenPort int32  `json:"locallistenport" bson:"locallistenport"`
+	ListenPort      int32  `json:"listenport" bson:"listenport"`
+	KeepAlive       int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
 // EgressGatewayRequest - egress gateway request
@@ -185,4 +186,10 @@ type ServerAddr struct {
 type TrafficKeys struct {
 	Mine   []byte `json:"mine" bson:"mine" yaml:"mine"`
 	Server []byte `json:"server" bson:"server" yaml:"server"`
+}
+
+// NodeGet - struct for a single node get response
+type NodeGet struct {
+	Node  Node                 `json:"node" bson:"node" yaml:"node"`
+	Peers []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 }

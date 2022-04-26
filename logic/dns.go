@@ -50,7 +50,6 @@ func SetDNS() error {
 // GetDNS - gets the DNS of a current network
 func GetDNS(network string) ([]models.DNSEntry, error) {
 
-	var dns []models.DNSEntry
 	dns, err := GetNodeDNS(network)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return dns, err

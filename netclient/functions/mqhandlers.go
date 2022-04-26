@@ -33,7 +33,6 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	var network = parseNetworkFromTopic(msg.Topic())
 	nodeCfg.Network = network
 	nodeCfg.ReadConfig()
-	var commsCfg = getCommsCfgByNode(&nodeCfg.Node)
 
 	data, dataErr := decryptMsg(&nodeCfg, msg.Payload())
 	if dataErr != nil {
@@ -88,6 +87,8 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 		}
 		ifaceDelta = true
+	case models.NODE_FORCE_UPDATE:
+		ifaceDelta = true
 	case models.NODE_NOOP:
 	default:
 	}
@@ -131,14 +132,14 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//			}
 		//		}
 		//	}
-		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
+		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
 		if doneErr != nil {
 			logger.Log(0, "could not notify server to update peers after interface change")
 		} else {
 			logger.Log(0, "signalled finished interface update to server")
 		}
 	} else if hubChange {
-		doneErr := publishSignal(&commsCfg, &nodeCfg, ncutils.DONE)
+		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
 		if doneErr != nil {
 			logger.Log(0, "could not notify server to update peers after hub change")
 		} else {
@@ -156,6 +157,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//			logger.Log(0, "error applying dns" + err.Error())
 		//		}
 	}
+	_ = UpdateLocalListenPort(&nodeCfg)
 }
 
 // UpdatePeers -- mqtt message handler for peers/<Network>/<NodeID> topic
@@ -188,10 +190,12 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		logger.Log(0, "error updating wireguard peers"+err.Error())
 		return
 	}
+	queryAddr := cfg.Node.PrimaryAddress()
+
 	//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
 	var iface = cfg.Node.Interface
 	if ncutils.IsMac() {
-		iface, err = local.GetMacIface(cfg.Node.Address)
+		iface, err = local.GetMacIface(queryAddr)
 		if err != nil {
 			logger.Log(0, "error retrieving mac iface: "+err.Error())
 			return
@@ -203,10 +207,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	logger.Log(0, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
-	//skip dns updates if this is a peer update for comms network
-	if cfg.Node.NetworkSettings.IsComms == "yes" {
-		return
-	}
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Network, ncutils.IsWindows()); err != nil {
 			logger.Log(0, "error updating /etc/hosts "+err.Error())
@@ -218,6 +218,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	}
+	_ = UpdateLocalListenPort(&cfg)
 }
 
 func setHostDNS(dns, iface string, windows bool) error {

@@ -113,18 +113,6 @@ func GetFlags(hostname string) []cli.Flag {
 			Usage:   "Address + API Port (e.g. 1.2.3.4:8081) of Netmaker server.",
 		},
 		&cli.StringFlag{
-			Name:    "grpcserver",
-			EnvVars: []string{"NETCLIENT_GRPC_SERVER"},
-			Value:   "",
-			Usage:   "Address + GRPC Port (e.g. 1.2.3.4:50051) of Netmaker server.",
-		},
-		&cli.StringFlag{
-			Name:    "grpcssl",
-			EnvVars: []string{"NETCLIENT_GRPCSSL"},
-			Value:   "",
-			Usage:   "Tells clients to use SSL to connect to GRPC if 'on'. Disable if 'off'. Off by default.",
-		},
-		&cli.StringFlag{
 			Name:    "key",
 			Aliases: []string{"k"},
 			EnvVars: []string{"NETCLIENT_ACCESSKEY"},
@@ -155,12 +143,6 @@ func GetFlags(hostname string) []cli.Flag {
 			EnvVars: []string{"NETCLIENT_IS_LOCAL"},
 			Value:   "",
 			Usage:   "Sets endpoint to local address if 'yes'. Ignores if 'no'. Will retrieve from network if unset.",
-		},
-		&cli.StringFlag{
-			Name:    "isdualstack",
-			EnvVars: []string{"NETCLIENT_IS_DUALSTACK"},
-			Value:   "",
-			Usage:   "Sets ipv6 address if 'yes'. Ignores if 'no'. Will retrieve from network if unset.",
 		},
 		&cli.StringFlag{
 			Name:    "udpholepunch",

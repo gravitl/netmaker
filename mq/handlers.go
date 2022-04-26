@@ -48,7 +48,7 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 
-		logger.Log(3, "ping processed for node", node.ID)
+		logger.Log(3, "ping processed for node", node.Name, node.ID)
 		// --TODO --set client version once feature is implemented.
 		//node.SetClientVersion(msg.Payload())
 	}()

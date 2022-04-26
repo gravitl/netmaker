@@ -139,6 +139,8 @@ wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmak
 
 echo "setting docker-compose..."
 
+mkdir -p /etc/netmaker
+
 wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.contained.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml

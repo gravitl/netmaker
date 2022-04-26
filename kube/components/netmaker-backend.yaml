@@ -25,26 +25,16 @@ spec:
         env:
         - name: SERVER_API_CONN_STRING
           value: "api.nm.k8s.gravitl.com:443"
-        - name: SERVER_GRPC_CONN_STRING
-          value: "grpc.nm.k8s.gravitl.com:443"
         - name: COREDNS_ADDR
           value: "10.152.183.53"
-        - name: GRPC_SSL
-          value: "on"
         - name: SERVER_HTTP_HOST
           value: "api.k8s.gravitl.com"
-        - name: SERVER_GRPC_HOST
-          value: "grpc.k8s.gravitl.com"
         - name: API_PORT
           value: "8081"
-        - name: GRPC_PORT
-          value: "443"
         - name: CLIENT_MODE
           value: "off"
         - name: MASTER_KEY
           value: "Unkn0wn!"
-        - name: SERVER_GRPC_WIREGUARD
-          value: "off"
         - name: MASTER_KEY
           value: "secretkey"
         - name: CORS_ALLOWED_ORIGIN
@@ -97,7 +87,6 @@ kind: Service
 metadata:
   labels:
     app: netmaker-backend
-  name: netmaker-grpc
 spec:
   ports:
   - port: 443

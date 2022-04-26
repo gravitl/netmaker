@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 // ALL_NETWORK_ACCESS - represents all networks
@@ -84,10 +83,6 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	if isCommsEdit(w, r, netname) {
-		return
-	}
-
 	network, err := logic.GetNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -105,10 +100,6 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	if isCommsEdit(w, r, netname) {
-		return
-	}
-
 	network, err := logic.KeyUpdate(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -161,11 +152,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-
-	// if newNetwork.IsDualStack != currentNetwork.IsDualStack && newNetwork.IsDualStack == "no" {
-	// 	// Remove IPv6 address from network nodes
-	// 	RemoveNetworkNodeIPv6Addresses(currentNetwork.NetID)
-	// }
 
 	if rangeupdate {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
@@ -295,10 +281,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	if isCommsEdit(w, r, network) {
-		return
-	}
-
 	err := logic.DeleteNetwork(network)
 	if err != nil {
 		errtype := "badrequest"
@@ -326,6 +308,11 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if network.AddressRange == "" && network.AddressRange6 == "" {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("IPv4 or IPv6 CIDR required"), "badrequest"))
+		return
+	}
+
 	network, err = logic.CreateNetwork(network)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
@@ -333,8 +320,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsClientMode() != "off" {
-		var node models.Node
-		node, err = logic.ServerJoin(&network)
+		_, err := logic.ServerJoin(&network)
 		if err != nil {
 			logic.DeleteNetwork(network.NetID)
 			if err == nil {
@@ -343,7 +329,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
-		getServerAddrs(&node)
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
@@ -358,9 +343,6 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	var accesskey models.AccessKey
 	//start here
 	netname := params["networkname"]
-	if isCommsEdit(w, r, netname) {
-		return
-	}
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
@@ -412,22 +394,4 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
 	w.WriteHeader(http.StatusOK)
-}
-
-func isCommsEdit(w http.ResponseWriter, r *http.Request, netname string) bool {
-	if netname == serverctl.COMMS_NETID {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot access comms network"), "internal"))
-		return true
-	}
-	return false
-}
-
-func filterCommsNetwork(networks []models.Network) []models.Network {
-	var filterdNets []models.Network
-	for i := range networks {
-		if networks[i].IsComms != "yes" && networks[i].NetID != servercfg.GetCommsID() {
-			filterdNets = append(filterdNets, networks[i])
-		}
-	}
-	return filterdNets
 }

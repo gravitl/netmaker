@@ -23,7 +23,7 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	}
 	for _, node := range networkNodes {
 
-		if node.IsServer == "yes" || node.ID == newNode.ID {
+		if node.IsServer == "yes" {
 			continue
 		}
 		peerUpdate, err := logic.GetPeerUpdate(&node)
@@ -39,9 +39,7 @@ func PublishPeerUpdate(newNode *models.Node) error {
 		if err = publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 			logger.Log(1, "failed to publish peer update for node", node.ID)
 		} else {
-			if node.Network != servercfg.GetCommsID() {
-				logger.Log(1, "sent peer update for node", node.Name, "on network:", node.Network)
-			}
+			logger.Log(1, "sent peer update for node", node.Name, "on network:", node.Network)
 		}
 	}
 	return nil
@@ -142,4 +140,19 @@ func sendPeers() {
 			continue
 		}
 	}
+}
+
+// ServerStartNotify - notifies all non server nodes to pull changes after a restart
+func ServerStartNotify() error {
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		return err
+	}
+	for i := range nodes {
+		nodes[i].Action = models.NODE_FORCE_UPDATE
+		if err = NodeUpdate(&nodes[i]); err != nil {
+			logger.Log(1, "error when notifying node", nodes[i].Name, " - ", nodes[i].ID, "of a server startup")
+		}
+	}
+	return nil
 }
