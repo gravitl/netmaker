@@ -120,12 +120,13 @@ func initialize() { // Client Mode Prereq Check
 		}
 	}
 
+	genCerts()
+
 	if servercfg.IsMessageQueueBackend() {
 		if err = mq.ServerStartNotify(); err != nil {
 			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
 		}
 	}
-	genCerts()
 }
 
 func startControllers() {
