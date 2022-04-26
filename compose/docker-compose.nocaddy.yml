@@ -7,6 +7,7 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
+      - /root/certs:/etc/netmaker/
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -17,6 +18,7 @@ services:
       - net.ipv6.conf.all.disable_ipv6=0
     restart: always
     environment:
+      SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
@@ -32,6 +34,7 @@ services:
       MQ_HOST: "mq"
       HOST_NETWORK: "off"
       VERBOSITY: "1"
+      MANAGE_IPTABLES: "off"
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
@@ -60,11 +63,12 @@ services:
     volumes:
       - dnsconfig:/root/dnsconfig
   mq:
-    image: eclipse-mosquitto:2.0.14
+    image: eclipse-mosquitto:2.0.11-openssl
     container_name: mq
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
+      - "8883:8883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
@@ -74,4 +78,3 @@ volumes:
   dnsconfig: {}
   mosquitto_data: {}
   mosquitto_logs: {}
-
