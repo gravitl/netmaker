@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.13.0-dev
+    image: gravitl/netmaker:v0.13.0
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -33,17 +33,16 @@ services:
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
       HOST_NETWORK: "off"
-      MANAGE_IPTABLES: "on"
       VERBOSITY: "1"
+      MANAGE_IPTABLES: "off"
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
-      - "50051:50051"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.13.0-dev
+    image: gravitl/netmaker-ui:v0.13.0
     links:
       - "netmaker:api"
     ports:
@@ -91,4 +90,3 @@ volumes:
   dnsconfig: {}
   mosquitto_data: {}
   mosquitto_logs: {}
-

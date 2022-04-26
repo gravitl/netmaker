@@ -3,12 +3,13 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.12.2
+    image: gravitl/netmaker:v0.13.0
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - /usr/bin/wg:/usr/bin/wg
       - sqldata:/root/data
       - /run/xtables.lock:/run/xtables.lock
+      - /root/certs:/etc/netmaker/
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -16,6 +17,7 @@ services:
     network_mode: host
     restart: always
     environment:
+      SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
@@ -29,13 +31,13 @@ services:
       DATABASE: "sqlite"
       HOST_NETWORK: "on"
       NODE_ID: "netmaker-server-1"
-      MANAGE_IPTABLES: "on"
       VERBOSITY: "1"
+      MANAGE_IPTABLES: "off"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:0.12.2
+    image: gravitl/netmaker-ui:v0.13.0
     links:
       - "netmaker:api"
     ports:
@@ -66,13 +68,15 @@ services:
       - caddy_data:/data
       - caddy_conf:/config
   mq:
-    image: eclipse-mosquitto:2.0.14
+    image: eclipse-mosquitto:2.0.11-openssl
     container_name: mq
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
+      - "8883:8883"    
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/certs/:/mosquitto/certs/
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
 volumes:
