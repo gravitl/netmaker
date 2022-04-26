@@ -435,12 +435,14 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	}
 	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
 	wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))
-	if node.Address != "" {
-		wireguard.Section(section_interface).Key("Address").SetValue(node.Address)
-	}
+	addrString := node.Address
 	if node.Address6 != "" {
-		wireguard.Section(section_interface).Key("Address").SetValue(node.Address6)
+		if addrString != "" {
+			addrString += ","
+		}
+		addrString += node.Address6
 	}
+	wireguard.Section(section_interface).Key("Address").SetValue(addrString)
 	//if node.DNSOn == "yes" {
 	//	wireguard.Section(section_interface).Key("DNS").SetValue(nameserver)
 	//}
