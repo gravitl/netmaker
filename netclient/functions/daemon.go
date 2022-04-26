@@ -188,7 +188,7 @@ func NewTLSConfig(server string) *tls.Config {
 	if !ok {
 		logger.Log(0, "failed to append cert")
 	}
-	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+ncutils.GetSeparator()+"client.pem", ncutils.GetNetclientPath()+"/client.key")
+	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+ncutils.GetSeparator()+"client.pem", ncutils.GetNetclientPath()+ncutils.GetSeparator()+"client.key")
 	if err != nil {
 		log.Fatalf("could not read client cert/key %v \n", err)
 	}

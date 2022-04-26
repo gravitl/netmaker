@@ -50,6 +50,10 @@ func Register(cfg *config.ClientConfig, key string) error {
 
 // RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate
 func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) error {
+	cfg, err := config.ReadConfig(cfg.Network)
+	if err != nil {
+		return err
+	}
 	data := config.RegisterRequest{
 		Key:        *private,
 		CommonName: tls.NewCName(cfg.Node.Name),

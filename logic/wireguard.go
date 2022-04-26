@@ -233,9 +233,13 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 				_, _ = ncutils.RunCmd(ipExec+" -4 route add "+gateway+" dev "+ifacename, true)
 			}
 		}
+		if node.Address != "" {
+			logger.Log(1, "adding address:", node.Address)
+			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address+"/32", true)
+		}
 		if node.Address6 != "" {
-			logger.Log(1, "adding address:", node.Address6)
-			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/64", true)
+			logger.Log(1, "adding address6:", node.Address6)
+			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/128", true)
 		}
 		wireguard.SetPeers(ifacename, node, peers)
 	}
