@@ -93,8 +93,8 @@ func Pull(cfg *config.ClientConfig) error {
 
 		_, err = functions.Pull(cfg.Network, true)
 		_, newKey, kerr := ed25519.GenerateKey(rand.Reader)
-		if kerr == nil {
-			if kerr := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", newKey); err != nil {
+		if kerr == nil && err == nil {
+			if kerr := tls.SaveKey(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); kerr != nil {
 				logger.Log(0, "error saving key", kerr.Error())
 			} else {
 				if kerr = functions.RegisterWithServer(&newKey, cfg); err != nil {

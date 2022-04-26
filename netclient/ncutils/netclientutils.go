@@ -298,6 +298,15 @@ func GetNetclientPath() string {
 	}
 }
 
+// GetSeparator - gets the separator for OS
+func GetSeparator() string {
+	if IsWindows() {
+		return "\\"
+	} else {
+		return "/"
+	}
+}
+
 // GetFileWithRetry - retry getting file X number of times before failing
 func GetFileWithRetry(path string, retryCount int) ([]byte, error) {
 	var data []byte
