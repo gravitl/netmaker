@@ -201,7 +201,7 @@ func genCerts() error {
 	} else if err != nil {
 		return err
 	}
-	ca, err := tls.ReadCert(functions.GetNetmakerPath() + "/root.pem")
+	ca, err := tls.ReadCert(functions.GetNetmakerPath() + ncutils.GetSeparator() + "root.pem")
 	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
 	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 	if errors.Is(err, os.ErrNotExist) {
@@ -215,7 +215,7 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveCert(functions.GetNetmakerPath(), "/root.pem", rootCA); err != nil {
+		if err := tls.SaveCert(functions.GetNetmakerPath(), ncutils.GetSeparator()+"root.pem", rootCA); err != nil {
 			return err
 		}
 		ca = rootCA

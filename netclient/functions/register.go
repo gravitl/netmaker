@@ -25,19 +25,19 @@ func Register(cfg *config.ClientConfig, key string) error {
 	//generate new key if one doesn' exist
 	var private *ed25519.PrivateKey
 	var err error
-	private, err = tls.ReadKey(ncutils.GetNetclientPath() + "/client.key")
+	private, err = tls.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
 	if err != nil {
 		_, newKey, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveKey(ncutils.GetNetclientPath(), "/client.key", newKey); err != nil {
+		if err := tls.SaveKey(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); err != nil {
 			return err
 		}
 		private = &newKey
 	}
 	//check if cert exists
-	_, err = tls.ReadCert(ncutils.GetNetclientServerPath(cfg.Server.Server) + "/client.pem")
+	_, err = tls.ReadCert(ncutils.GetNetclientServerPath(cfg.Server.Server) + ncutils.GetSeparator() + "client.pem")
 	if errors.Is(err, os.ErrNotExist) {
 		if err := RegisterWithServer(private, cfg); err != nil {
 			return err
@@ -50,6 +50,10 @@ func Register(cfg *config.ClientConfig, key string) error {
 
 // RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate
 func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) error {
+	cfg, err := config.ReadConfig(cfg.Network)
+	if err != nil {
+		return err
+	}
 	data := config.RegisterRequest{
 		Key:        *private,
 		CommonName: tls.NewCName(cfg.Node.Name),
@@ -76,10 +80,10 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	//the pubkeys are included in the response so the values in the certificate can be updated appropriately
 	resp.CA.PublicKey = resp.CAPubKey
 	resp.Cert.PublicKey = resp.CertPubKey
-	if err := tls.SaveCert(ncutils.GetNetclientServerPath(cfg.Server.Server)+"/", "root.pem", &resp.CA); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientServerPath(cfg.Server.Server)+ncutils.GetSeparator(), "root.pem", &resp.CA); err != nil {
 		return err
 	}
-	if err := tls.SaveCert(ncutils.GetNetclientServerPath(cfg.Server.Server)+"/", "client.pem", &resp.Cert); err != nil {
+	if err := tls.SaveCert(ncutils.GetNetclientServerPath(cfg.Server.Server)+ncutils.GetSeparator(), "client.pem", &resp.Cert); err != nil {
 		return err
 	}
 	logger.Log(0, "certificates/key saved ")

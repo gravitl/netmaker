@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"runtime"
@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	//homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -39,7 +40,7 @@ func Pull(network string, iface bool) (*models.Node, error) {
 		return nil, err
 	}
 	if response.StatusCode != http.StatusOK {
-		bytes, err := ioutil.ReadAll(response.Body)
+		bytes, err := io.ReadAll(response.Body)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -53,6 +54,10 @@ func Pull(network string, iface bool) (*models.Node, error) {
 	resNode := nodeGET.Node
 	// ensure that the OS never changes
 	resNode.OS = runtime.GOOS
+	if nodeGET.Peers == nil {
+		nodeGET.Peers = []wgtypes.PeerConfig{}
+	}
+
 	if iface {
 		if err = config.ModConfig(&resNode); err != nil {
 			return nil, err

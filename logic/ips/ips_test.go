@@ -45,6 +45,6 @@ func TestIp4(t *testing.T) {
 	t.Run("First IPv6", func(t *testing.T) {
 		first, err := ips.GetFirstAddr6(ipv6Cidr)
 		assert.Nil(t, err)
-		assert.Equal(t, first.GetNetIPAddr().IP.String(), "fde6:be04:fa5e:d076::")
+		assert.Equal(t, first.GetNetIPAddr().IP.String(), "fde6:be04:fa5e:d076::1")
 	})
 }
