@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 
@@ -56,7 +55,7 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 		CommonName: tls.NewCName(cfg.Node.Name),
 	}
 	url := "https://" + cfg.Server.API + "/api/server/register"
-	log.Println("register at ", url)
+	logger.Log(1, "register at "+url)
 
 	token, err := Authenticate(cfg)
 	if err != nil {
