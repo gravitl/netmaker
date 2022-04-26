@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.12.2
+    image: gravitl/netmaker:v0.13.0
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -14,6 +14,7 @@ services:
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
     restart: always
     environment:
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -30,17 +31,15 @@ services:
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
       HOST_NETWORK: "off"
-      MANAGE_IPTABLES: "on"
       VERBOSITY: "1"
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
-      - "50051:50051"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.12.2
+    image: gravitl/netmaker-ui:v0.13.0
     links:
       - "netmaker:api"
     ports:

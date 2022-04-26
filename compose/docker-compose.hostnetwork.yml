@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.12.2
+    image: gravitl/netmaker:v0.13.0
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - /usr/bin/wg:/usr/bin/wg
@@ -29,13 +29,12 @@ services:
       DATABASE: "sqlite"
       HOST_NETWORK: "on"
       NODE_ID: "netmaker-server-1"
-      MANAGE_IPTABLES: "on"
       VERBOSITY: "1"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:0.12.2
+    image: gravitl/netmaker-ui:v0.13.0
     links:
       - "netmaker:api"
     ports:
@@ -70,7 +69,8 @@ services:
     container_name: mq
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
+      - "8883:8883"    
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
