@@ -15,13 +15,13 @@ import (
 
 // Peer - the peer struct for list
 type Peer struct {
-	Name           string `json:"name,omitempty"`
-	Interface      string `json:"interface,omitempty"`
-	PrivateIPv4    string `json:"private_ipv4,omitempty"`
-	PrivateIPv6    string `json:"private_ipv6,omitempty"`
-	PublicKey      string `json:"public_key,omitempty"`
-	PublicEndpoint string `json:"public_endpoint,omitempty"`
-	Addresses      string `json:"addresses,omitempty"`
+	Name           string    `json:"name,omitempty"`
+	Interface      string    `json:"interface,omitempty"`
+	PrivateIPv4    string    `json:"private_ipv4,omitempty"`
+	PrivateIPv6    string    `json:"private_ipv6,omitempty"`
+	PublicKey      string    `json:"public_key,omitempty"`
+	PublicEndpoint string    `json:"public_endpoint,omitempty"`
+	Addresses      []address `json:"addresses,omitempty"`
 }
 
 // Network - the local node network representation for list command
@@ -30,6 +30,11 @@ type Network struct {
 	ID          string `json:"node_id"`
 	CurrentNode Peer   `json:"current_node"`
 	Peers       []Peer `json:"peers"`
+}
+
+type address struct {
+	CIDR string `json:"cidr,omitempty"`
+	IP   string `json:"ip,omitempty"`
 }
 
 // List - lists the current peers for the local node with name and node ID
@@ -123,12 +128,13 @@ func getPeers(network string) ([]Peer, error) {
 
 	peers := []Peer{}
 	for _, peer := range nodeGET.Peers {
-		var addresses = ""
+		var addresses = []address{}
 		for j := range peer.AllowedIPs {
-			addresses += peer.AllowedIPs[j].String()
-			if j < len(peer.AllowedIPs)-1 {
-				addresses += ","
+			newAddress := address{
+				CIDR: peer.AllowedIPs[j].String(),
+				IP:   peer.AllowedIPs[j].IP.String(),
 			}
+			addresses = append(addresses, newAddress)
 		}
 		peers = append(peers, Peer{
 			PublicKey:      peer.PublicKey.String(),
