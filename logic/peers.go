@@ -83,7 +83,7 @@ func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, i
 			if node.UDPHolePunch == "yes" && node.IsStatic != "yes" && peer.ListenPort == node.ListenPort {
 				peer.ListenPort = node.LocalListenPort
 			}
-			if node.IsRelay == "yes" {
+			if node.IsRelay == "yes" { // TODO, check if addressrange6 needs to be appended
 				peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
 				for _, egressNode := range egressNetworkNodes {
 					if egressNode.IsRelayed == "yes" && StringSliceContains(node.RelayAddrs, egressNode.Address) {
@@ -139,7 +139,7 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 		if relayNode.Address != "" {
 			var peerNode = setPeerInfo(&relayNode)
 			network, err := GetNetwork(networkName)
-			if err == nil {
+			if err == nil { // TODO: check if addressrange6 needs to be appended
 				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
 				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
 				if err == nil {
