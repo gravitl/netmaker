@@ -112,12 +112,10 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 
 // PingServer -- checks if server is reachable
 func PingServer(cfg *config.ClientConfig) error {
-	//pinger, err := ping.NewPinger(cfg.Server.Server)
-	pinger, err := ping.NewPinger("broker.nusak.ca")
+	pinger, err := ping.NewPinger(cfg.Server.Server)
 	if err != nil {
 		return err
 	}
-	log.Println("pinging server ", cfg.Server.Server)
 	pinger.Timeout = 2 * time.Second
 	pinger.Count = 3
 	pinger.Run()
