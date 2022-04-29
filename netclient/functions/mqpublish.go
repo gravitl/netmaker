@@ -76,7 +76,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 					}
 				}
 				if err := PingServer(&nodeCfg); err != nil {
-					logger.Log(0, "could not ping server for , ", nodeCfg.Network, "\n", err.Error())
+					logger.Log(0, "could not ping server for", nodeCfg.Network, nodeCfg.Server.Server+"\n", err.Error())
 				} else {
 					Hello(&nodeCfg)
 				}
@@ -128,17 +128,25 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		return err
 	}
 
-	client := setupMQTT(nodeCfg, "", true)
+	client := setupMQTT(nodeCfg, true)
 	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
 		return err
 	}
 
-	if token := client.Publish(dest, qos, false, encrypted); token.Wait() && token.Error() != nil {
-		return token.Error()
+	if token := client.Publish(dest, qos, false, encrypted); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+		logger.Log(0, "could not connect to broker at "+nodeCfg.Server.Server+":8883")
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		if err != nil {
+			return token.Error()
+		}
 	}
-
 	return nil
 }
 
