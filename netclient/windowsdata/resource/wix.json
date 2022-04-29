@@ -1,0 +1,19 @@
+{
+    "product": "netclient",
+    "company": "Gravitl",
+    "license": "https://github.com/gravitl/netmaker/blob/master/LICENSE.txt",
+    "upgrade-code": "",
+    "files": {
+      "guid": "",
+      "items": [
+        "netclient.exe"
+      ]
+    },
+    "shortcuts": {},
+    "choco": {
+      "description": "netclient: the netmaker agent",
+      "project-url": "https://github.com/gravitl/netmaker",
+      "tags": "netclient",
+      "license-url": "https://github.com/gravitl/netmaker/blob/master/LICENSE.txt"
+    }
+}
