@@ -73,31 +73,44 @@ func Leave(cfg *config.ClientConfig, force bool) error {
 // Pull - runs pull command from cli
 func Pull(cfg *config.ClientConfig) error {
 	var err error
+	var networks = []string{}
 	if cfg.Network == "all" {
 		logger.Log(0, "No network selected. Running Pull for all networks.")
-		networks, err := ncutils.GetSystemNetworks()
+		networks, err = ncutils.GetSystemNetworks()
 		if err != nil {
 			logger.Log(1, "Error retrieving networks. Exiting.")
 			return err
 		}
-		for _, network := range networks {
-			_, err = functions.Pull(network, true)
-			if err != nil {
-				logger.Log(1, "Error pulling network config for network: ", network, "\n", err.Error())
-			} else {
-				logger.Log(1, "pulled network config for "+network)
-			}
-		}
-		err = nil
 	} else {
+		networks = append(networks, cfg.Network)
+	}
 
-		_, err = functions.Pull(cfg.Network, true)
+	var currentServers = make(map[string]config.ClientConfig)
+
+	for _, network := range networks {
+		currCfg, err := config.ReadConfig(network)
+		if err != nil {
+			logger.Log(1, "could not read config when pulling for network", network)
+			continue
+		}
+
+		_, err = functions.Pull(network, true)
+		if err != nil {
+			logger.Log(1, "Error pulling network config for network: ", network, "\n", err.Error())
+		} else {
+			logger.Log(1, "pulled network config for "+network)
+		}
+
+		currentServers[currCfg.Server.Server] = *currCfg
+	}
+
+	for _, clientCfg := range currentServers {
 		_, newKey, kerr := ed25519.GenerateKey(rand.Reader)
 		if kerr == nil && err == nil {
 			if kerr := tls.SaveKey(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); kerr != nil {
 				logger.Log(0, "error saving key", kerr.Error())
 			} else {
-				if kerr = functions.RegisterWithServer(&newKey, cfg); err != nil {
+				if kerr = functions.RegisterWithServer(&newKey, &clientCfg); err != nil {
 					logger.Log(0, "registration error", kerr.Error())
 				} else {
 					daemon.Restart()
@@ -106,12 +119,7 @@ func Pull(cfg *config.ClientConfig) error {
 		}
 	}
 	logger.Log(1, "reset network and peer configs")
-	if err == nil {
-		logger.Log(1, "reset network and peer configs")
-		logger.Log(1, "success")
-	} else {
-		logger.Log(0, "error occurred pulling configs from server")
-	}
+
 	return err
 }
 
