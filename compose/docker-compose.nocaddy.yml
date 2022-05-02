@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.13.0
+    image: gravitl/netmaker:v0.13.1
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -42,7 +42,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.13.0
+    image: gravitl/netmaker-ui:v0.13.1
     links:
       - "netmaker:api"
     ports:
