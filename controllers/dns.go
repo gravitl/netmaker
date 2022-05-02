@@ -9,6 +9,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 func dnsHandlers(r *mux.Router) {
@@ -115,6 +117,20 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	logger.Log(1, "new DNS record added:", entry.Name)
+	if servercfg.IsMessageQueueBackend() {
+		serverNode, err := logic.GetNetworkServerLocal(entry.Network)
+		if err != nil {
+			logger.Log(1, "failed to find server node after DNS update on", entry.Network)
+		} else {
+			if err = logic.ServerUpdate(&serverNode, false); err != nil {
+				logger.Log(1, "failed to update server node after DNS update on", entry.Network)
+			}
+			if err = mq.PublishPeerUpdate(&serverNode); err != nil {
+				logger.Log(0, "failed to publish peer update after ACL update on", entry.Network)
+			}
+		}
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(entry)

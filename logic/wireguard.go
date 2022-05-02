@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -257,6 +259,10 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		wireguard.SetPeers(ifacename, node, peers)
 	}
 
+	if node.IsServer == "yes" {
+		setServerRoutes(node.Interface, node.Network)
+	}
+
 	return err
 }
 
@@ -386,4 +392,22 @@ func removeLocalServer(node *models.Node) error {
 		_ = os.Remove(home + "nm-" + node.Network + ".conf")
 	}
 	return err
+}
+
+func setServerRoutes(iface, network string) {
+	parentNetwork, err := GetParentNetwork(network)
+	if err == nil {
+		if parentNetwork.AddressRange != "" {
+			ip, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
+			if err == nil {
+				local.SetCIDRRoute(iface, ip.String(), cidr)
+			}
+		}
+		if parentNetwork.AddressRange6 != "" {
+			ip, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
+			if err == nil {
+				local.SetCIDRRoute(iface, ip.String(), cidr)
+			}
+		}
+	}
 }
