@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -397,10 +398,16 @@ func setServerRoutes(iface, network string) {
 	parentNetwork, err := GetParentNetwork(network)
 	if err == nil {
 		if parentNetwork.AddressRange != "" {
-			local.SetCIDRRoute(iface, parentNetwork.AddressRange, nil)
+			ip, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
+			if err == nil {
+				local.SetCIDRRoute(iface, ip.String(), cidr)
+			}
 		}
 		if parentNetwork.AddressRange6 != "" {
-			local.SetCIDRRoute(iface, parentNetwork.AddressRange6, nil)
+			ip, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
+			if err == nil {
+				local.SetCIDRRoute(iface, ip.String(), cidr)
+			}
 		}
 	}
 }

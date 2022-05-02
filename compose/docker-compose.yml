@@ -16,6 +16,7 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
       - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.all.forwarding=1
     restart: always
     environment:
       SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
