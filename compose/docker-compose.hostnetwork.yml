@@ -32,7 +32,8 @@ services:
       HOST_NETWORK: "on"
       NODE_ID: "netmaker-server-1"
       VERBOSITY: "1"
-      MANAGE_IPTABLES: "off"
+      MANAGE_IPTABLES: "on"
+      PORT_FORWARD_SERVICES: "dns"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
