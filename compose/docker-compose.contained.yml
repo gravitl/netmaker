@@ -35,7 +35,8 @@ services:
       MQ_HOST: "mq"
       HOST_NETWORK: "off"
       VERBOSITY: "1"
-      MANAGE_IPTABLES: "off"
+      MANAGE_IPTABLES: "on"
+      PORT_FORWARD_SERVICES: "dns"
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"

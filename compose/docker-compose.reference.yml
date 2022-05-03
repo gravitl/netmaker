@@ -37,7 +37,8 @@ services:
       TELEMETRY: "on" # Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.
       MQ_HOST: "mq" # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
       HOST_NETWORK: "off" # whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables.
-      MANAGE_IPTABLES: "off" # deprecated
+      MANAGE_IPTABLES: "on" # deprecated
+      PORT_FORWARD_SERVICES: "dns" # decide which services to port forward ("dns","ssh", or "mq")
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
