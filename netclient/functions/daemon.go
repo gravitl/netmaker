@@ -17,7 +17,6 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -107,23 +106,6 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 
 	nodeCfg.Node.PublicKey = key.PublicKey().String()
 	PublishNodeUpdate(nodeCfg)
-	return nil
-}
-
-// PingServer -- checks if server is reachable
-func PingServer(cfg *config.ClientConfig) error {
-	pinger, err := ping.NewPinger(cfg.Server.Server)
-	if err != nil {
-		return err
-	}
-	pinger.Timeout = 2 * time.Second
-	pinger.Count = 3
-	pinger.Run()
-	stats := pinger.Statistics()
-	if stats.PacketLoss == 100 {
-		return errors.New("ping error " + fmt.Sprintf("%f", stats.PacketLoss))
-	}
-	logger.Log(3, "ping of server", cfg.Server.Server, "was successful")
 	return nil
 }
 
