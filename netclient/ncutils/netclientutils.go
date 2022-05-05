@@ -24,8 +24,10 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// Version - version of the netclient
-var Version = "dev"
+var (
+	// Version - version of the netclient
+	Version = "dev"
+)
 
 // MAX_NAME_LENGTH - maximum node name length
 const MAX_NAME_LENGTH = 62

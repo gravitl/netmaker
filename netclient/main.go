@@ -3,12 +3,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"runtime/debug"
 
 	"github.com/gravitl/netmaker/netclient/cli_options"
-	"github.com/gravitl/netmaker/netclient/gui"
+	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/ncwindows"
 	"github.com/urfave/cli/v2"
@@ -36,12 +37,10 @@ func main() {
 		ncutils.CheckWG()
 	}
 
-	if len(os.Args) <= 1 {
-		networks, err := ncutils.GetSystemNetworks()
-		if err != nil {
-			networks = []string{}
-		}
-		gui.Run(networks)
+	fmt.Printf("%d \n %v \n", len(os.Args), config.GuiActive)
+
+	if len(os.Args) <= 1 && config.GuiActive {
+		config.GuiRun.(func())()
 	} else {
 		err := app.Run(os.Args)
 		if err != nil {

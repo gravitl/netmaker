@@ -8,6 +8,13 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+var (
+	// GuiActive - indicates if gui is active or not
+	GuiActive = false
+	// GuiRun - holds function for main to call
+	GuiRun interface{}
+)
+
 // ParseAccessToken - used to parse the base64 encoded access token
 func ParseAccessToken(token string) (*models.AccessToken, error) {
 	tokenbytes, err := base64.StdEncoding.DecodeString(token)
