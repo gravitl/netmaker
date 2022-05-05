@@ -21,6 +21,10 @@ jobs:
          env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build main.go
          env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build main.go
          env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build main.go
+         env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=gui main.go 
+         env CGO_ENABLED=1 GOOS=freebsd GOARCH=amd64 go build -tags=gui main.go 
+         env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -tags=gui main.go 
+         env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui main.go 
   tests:
     env:
       DATABASE: sqlite
