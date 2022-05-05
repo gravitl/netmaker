@@ -28,7 +28,7 @@ jobs:
          #env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui main.go 
   test-linux:
     env:
-    DATABASE: sqlite
+      DATABASE: sqlite
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,7 +46,7 @@ jobs:
           CLIENT_MODE: "off"
   test-darwin:
     env:
-    DATABASE: sqlite
+      DATABASE: sqlite
     runs-on: macos-latest
     steps:
       - name: Checkout
