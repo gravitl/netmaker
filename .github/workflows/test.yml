@@ -45,7 +45,6 @@ jobs:
           go-version: 1.18
       - name: Build mac
         run: |
-          xcode-select --install
           env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -tags=gui main.go
   tests:
     env:
