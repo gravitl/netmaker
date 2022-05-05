@@ -15,7 +15,6 @@ jobs:
             go-version: 1.18
       - name: Build
         run: |
-         apt-get install -y gcc libgl1-mesa-dev xorg-dev
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build main.go
          cd netclient
          env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build main.go
