@@ -1,9 +1,9 @@
 //go:generate goversioninfo -icon=windowsdata/resource/netmaker.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso
+// -build gui
 
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"runtime/debug"
@@ -36,8 +36,6 @@ func main() {
 		ncutils.CheckUID()
 		ncutils.CheckWG()
 	}
-
-	fmt.Printf("%d \n %v \n", len(os.Args), config.GuiActive)
 
 	if len(os.Args) <= 1 && config.GuiActive {
 		config.GuiRun.(func())()
