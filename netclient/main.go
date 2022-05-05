@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 
 	"github.com/gravitl/netmaker/netclient/cli_options"
+	"github.com/gravitl/netmaker/netclient/gui"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/ncwindows"
 	"github.com/urfave/cli/v2"
@@ -35,9 +36,17 @@ func main() {
 		ncutils.CheckWG()
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
+	if len(os.Args) <= 1 {
+		networks, err := ncutils.GetSystemNetworks()
+		if err != nil {
+			networks = []string{}
+		}
+		gui.Run(networks)
+	} else {
+		err := app.Run(os.Args)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

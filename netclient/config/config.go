@@ -6,8 +6,6 @@ import (
 	"crypto/ed25519"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -185,14 +183,8 @@ func ReplaceWithBackup(network string) error {
 func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 	var cfg ClientConfig
 	if c.String("token") != "" {
-		tokenbytes, err := base64.StdEncoding.DecodeString(c.String("token"))
+		accesstoken, err := ParseAccessToken(c.String("token"))
 		if err != nil {
-			log.Println("error decoding token")
-			return cfg, "", err
-		}
-		var accesstoken models.AccessToken
-		if err := json.Unmarshal(tokenbytes, &accesstoken); err != nil {
-			log.Println("error converting token json to object", tokenbytes)
 			return cfg, "", err
 		}
 		cfg.Network = accesstoken.ClientConfig.Network
@@ -217,7 +209,6 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("apiserver") != "" {
 			cfg.Server.API = c.String("apiserver")
 		}
-
 	} else {
 		cfg.Server.AccessKey = c.String("key")
 		cfg.Network = c.String("network")
