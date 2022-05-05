@@ -87,10 +87,12 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.18
-      - name: Build
+
+      - name: Build cli
         run: |
           cd netclient
           env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient main.go
+
       - name: Upload netclient x86 to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -102,6 +104,21 @@ jobs:
           prerelease: true
           asset_name: netclient
 
+      - name: build gui
+        run: |
+          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
+          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=gui ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient main.go
+
+      - name: Upload netclient x86 gui to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-gui
       - name: Package x86 deb
         continue-on-error: true
         uses: gravitl/github-action-fpm@master
@@ -355,7 +372,7 @@ jobs:
           asset_name: netclient-freebsd-arm64
 
   netclient-darwin:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs: version
     steps:
       - name: Checkout
@@ -375,7 +392,8 @@ jobs:
           cd netclient                              
           env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient main.go
           env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
-      - name: Upload darwin-arm64 to Release
+          env CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-gui/netclient main.go
+      - name: Upload darwin-amd64 to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -395,8 +413,18 @@ jobs:
           prerelease: true
           asset_name: netclient-darwin-arm64
 
+      - name: Upload darwin-gui to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-darwin-gui/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-darwin-gui
+
   netclient-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: version
     steps:
       - name: Checkout
@@ -411,10 +439,18 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.18
+      - name: Mysys2 setup
+        uses: msys2/setup-msys2@v2
+        with:
+          install: >-
+            git
+            mingw-w64-x86_64-toolchain
       - name: Build
         run: |
           cd netclient
           env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
+          env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-gui.exe main.go
+
       - name: Upload netclient windows to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -425,3 +461,14 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient.exe
+
+      - name: Upload netclient windows gui to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-gui.exe
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-gui.exe
