@@ -1,11 +1,7 @@
-//go:build gui
-// +build gui
-
 package gui
 
 import (
 	"embed"
-	"fmt"
 	"image/color"
 
 	"fyne.io/fyne/v2"
@@ -14,7 +10,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/gui/components"
 	"github.com/gravitl/netmaker/netclient/gui/components/views"
@@ -23,19 +18,6 @@ import (
 
 //go:embed nm-logo-sm.png
 var logoContent embed.FS
-
-func init() {
-	fmt.Println("got in here")
-	config.GuiActive = true
-
-	config.GuiRun = func() {
-		networks, err := ncutils.GetSystemNetworks()
-		if err != nil {
-			networks = []string{}
-		}
-		Run(networks)
-	}
-}
 
 // Run - run's the netclient GUI
 func Run(networks []string) error {
