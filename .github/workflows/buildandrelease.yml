@@ -107,7 +107,7 @@ jobs:
       - name: build gui
         run: |
           sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
-          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=gui ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient main.go
+          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient main.go
 
       - name: Upload netclient x86 gui to Release
         continue-on-error: true
@@ -392,7 +392,7 @@ jobs:
           cd netclient                              
           env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient main.go
           env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
-          env CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-gui/netclient main.go
+          env CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-gui/netclient main.go
       - name: Upload darwin-amd64 to Release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -426,6 +426,7 @@ jobs:
   netclient-windows:
     runs-on: windows-latest
     needs: version
+    shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v2
