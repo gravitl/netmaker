@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
+	"github.com/gravitl/netmaker/netclient/gui"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/tls"
 )
@@ -141,4 +142,13 @@ func Uninstall() error {
 func Daemon() error {
 	err := functions.Daemon()
 	return err
+}
+
+// Gui - runs the netclient gui
+func Gui() error {
+	currNets, err := ncutils.GetSystemNetworks()
+	if err != nil {
+		return err
+	}
+	return gui.Run(currNets)
 }

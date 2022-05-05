@@ -1,14 +1,14 @@
 package views
 
 import (
-	"fmt"
-	"time"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/gui/components"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // GetJoinView - get's the join screen where a user inputs an access token
@@ -18,11 +18,33 @@ func GetJoinView() fyne.CanvasObject {
 	input.SetPlaceHolder("access token here...")
 
 	submitBtn := components.ColoredIconButton("Submit", theme.UploadIcon(), func() {
-		fmt.Printf("got text %s \n", input.Text)
 		// ErrorNotify("Could not process token")
 		LoadingNotify()
-		time.Sleep(time.Second)
-		SuccessNotify("Joined!")
+		var cfg config.ClientConfig
+		accesstoken, err := config.ParseAccessToken(input.Text)
+		if err != nil {
+			ErrorNotify("Failed to parse access token!")
+			return
+		}
+		cfg.Network = accesstoken.ClientConfig.Network
+		cfg.Node.Network = accesstoken.ClientConfig.Network
+		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
+		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
+		cfg.Server.Server = accesstoken.ServerConfig.Server
+		cfg.Server.API = accesstoken.ServerConfig.APIConnString
+		err = functions.JoinNetwork(&cfg, "")
+		if err != nil {
+			ErrorNotify("Failed to join " + cfg.Network + "!")
+			return
+		}
+		networks, err := ncutils.GetSystemNetworks()
+		if err != nil {
+			ErrorNotify("Failed to read local networks!")
+			return
+		}
+		SuccessNotify("Joined " + cfg.Network + "!")
+		RefreshComponent(Networks, GetNetworksView(networks))
+		ShowView(Networks)
 		// TODO
 		// - call join
 		// - display loading

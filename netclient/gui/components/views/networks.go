@@ -9,8 +9,10 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/gui/components"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 var currentNetwork *string
@@ -62,25 +64,39 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 	if network == "" || len(network) == 0 {
 		return container.NewCenter(widget.NewLabel("No valid network selected"))
 	}
-	nodeID := "somenodeid"
-	health := "healthy"
-	privateAddr := "10.10.10.10"
-	privateAddr6 := "23:23:23:23"
-	endpoint := "182.3.4.4:55555"
+
+	// == read node values ==
+	var nodecfg config.ClientConfig
+	nodecfg.Network = network
+	nodecfg.ReadConfig()
+	nodeID := nodecfg.Node.ID
+	lastCheckInTime := time.Unix(nodecfg.Node.LastCheckIn, 0)
+	lastCheckIn := lastCheckInTime.Format("2006-01-02 15:04:05")
+	privateAddr := nodecfg.Node.Address
+	privateAddr6 := nodecfg.Node.Address6
+	endpoint := nodecfg.Node.Endpoint
+	health := " (HEALTHY)"
+	if time.Now().After(lastCheckInTime.Add(time.Minute * 5)) {
+		health = " (WARNING)"
+	} else if time.Now().After(lastCheckInTime.Add(time.Minute * 30)) {
+		health = " (ERROR)"
+	}
+	lastCheckIn += health
+	version := nodecfg.Node.Version
 
 	pullBtn := components.ColoredButton("pull "+network, func() { pull(network) }, components.Blue_color)
 	pullBtn.Resize(fyne.NewSize(pullBtn.Size().Width, 50))
 	LoadingNotify()
-	time.Sleep(time.Second)
 	netDetailsView := container.NewCenter(
 		// components.ColoredText("Selected "+network, components.Orange_color),
 		container.NewGridWithColumns(1, widget.NewRichTextFromMarkdown(fmt.Sprintf(`### %s
 - ID: %s
-- Health: %s
+- Last Check In: %s
 - Endpoint: %s
 - Address (IPv4): %s
 - Address6 (IPv6): %s
-`, network, nodeID, health, endpoint, privateAddr, privateAddr6)),
+- Version: %s
+`, network, nodeID, lastCheckIn, endpoint, privateAddr, privateAddr6, version)),
 			container.NewCenter(pullBtn),
 		))
 	ClearNotification()
@@ -110,6 +126,12 @@ func leave(network string) {
 		} else {
 			SuccessNotify("Left " + network)
 		}
+		networks, err := ncutils.GetSystemNetworks()
+		if err != nil {
+			networks = []string{}
+			ErrorNotify("Failed to read local networks!")
+		}
+		RefreshComponent(Networks, GetNetworksView(networks))
 		ShowView(Networks)
 	})
 	RefreshComponent(Confirm, confirmView)

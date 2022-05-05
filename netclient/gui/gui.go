@@ -3,27 +3,29 @@ package gui
 import (
 	"embed"
 	"image/color"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/gui/components"
 	"github.com/gravitl/netmaker/netclient/gui/components/views"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 //go:embed nm-logo-sm.png
 var logoContent embed.FS
 
-func run(networks []string) error {
+func Run(networks []string) error {
 	a := app.New()
 	window := a.NewWindow("Netclient")
 
-	img, err := logoContent.ReadFile("nm-logo.png")
+	img, err := logoContent.ReadFile("nm-logo-sm.png")
 	if err != nil {
+		logger.Log(0, "failed to read logo", err.Error())
 		return err
 	}
 
@@ -53,13 +55,16 @@ func run(networks []string) error {
 			}, func() {
 				views.LoadingNotify()
 				err := functions.Uninstall()
-				time.Sleep(time.Second >> 1)
 				if err != nil {
 					views.ErrorNotify("Failed to uninstall: \n" + err.Error())
 				} else {
 					views.SuccessNotify("Uninstalled Netclient!")
 				}
-				time.Sleep(time.Second >> 1)
+				networks, err := ncutils.GetSystemNetworks()
+				if err != nil {
+					networks = []string{}
+				}
+				views.RefreshComponent(views.Networks, views.GetNetworksView(networks))
 				views.ShowView(views.Networks)
 			})
 			views.RefreshComponent(views.Confirm, confirmView)
