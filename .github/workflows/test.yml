@@ -46,6 +46,23 @@ jobs:
       - name: Build mac
         run: |
           env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -tags=gui main.go
+  win-gui:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+      - name: Build windows gui
+        uses: mysys2/setup-mysys2@v2
+        with:
+          install: >-
+            git
+            mingw-w64-x86_64-toolchain
+        run: |
+          env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui main.go
   tests:
     env:
       DATABASE: sqlite
