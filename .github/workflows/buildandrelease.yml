@@ -426,7 +426,6 @@ jobs:
   netclient-windows:
     runs-on: windows-latest
     needs: version
-    shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -436,6 +435,7 @@ jobs:
           VERSION=${{needs.version.outputs.version}}
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+        shell: bash
       - name: Setup go
         uses: actions/setup-go@v2
         with:
