@@ -107,16 +107,19 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 	peerView := container.NewVBox()
 
 	for _, p := range nets[0].Peers {
-		peerString := fmt.Sprintf("Endpoint: %s, Addresses:", p.PublicEndpoint)
+		peerString := ""
+		endpointEntry := widget.NewEntry()
+		endpointEntry.Text = fmt.Sprintf("Endpoint: %s", p.PublicEndpoint)
 		newEntry := widget.NewEntry()
 		for i, addr := range p.Addresses {
 			if i > 0 && i < len(p.Addresses) {
 				peerString += ", "
 			}
-			peerString += fmt.Sprintf("%s                    ", addr.IP)
+			peerString += fmt.Sprintf("%s", addr.IP)
 		}
 		newEntry.Text = peerString
-		peerView.AddObject(container.NewVBox(newEntry))
+		peerView.AddObject(widget.NewLabel(fmt.Sprintf("Peer: %s", p.PublicKey)))
+		peerView.AddObject(container.NewVBox(container.NewVBox(endpointEntry), container.NewVBox(newEntry)))
 	}
 	peerScroller := container.NewVScroll(peerView)
 	view.AddObject(peerScroller)
