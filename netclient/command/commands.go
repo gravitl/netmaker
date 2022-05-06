@@ -125,7 +125,7 @@ func Pull(cfg *config.ClientConfig) error {
 
 // List - runs list command from cli
 func List(cfg config.ClientConfig) error {
-	err := functions.List(cfg.Network)
+	_, err := functions.List(cfg.Network)
 	return err
 }
 

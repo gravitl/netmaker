@@ -46,7 +46,7 @@ func Run(networks []string) error {
 	netDetailsViews := container.NewVScroll(views.GetSingleNetworkView(""))
 	netDetailsViews.SetMinSize(fyne.NewSize(400, 300))
 	views.SetView(views.NetDetails, netDetailsViews)
-	window.SetFixedSize(true)
+	window.SetFixedSize(false)
 
 	toolbar := container.NewCenter(widget.NewToolbar(
 		components.NewToolbarLabelButton("Networks", theme.HomeIcon(), func() {
