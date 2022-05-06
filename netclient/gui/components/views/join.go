@@ -43,6 +43,7 @@ func GetJoinView() fyne.CanvasObject {
 			return
 		}
 		SuccessNotify("Joined " + cfg.Network + "!")
+		input.Text = ""
 		RefreshComponent(Networks, GetNetworksView(networks))
 		ShowView(Networks)
 		// TODO
