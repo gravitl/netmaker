@@ -37,7 +37,7 @@ func Run(networks []string) error {
 	}
 
 	window.SetIcon(&fyne.StaticResource{StaticName: "Netmaker logo", StaticContent: img})
-	window.Resize(fyne.NewSize(600, 500))
+	window.Resize(fyne.NewSize(600, 450))
 
 	networkView := container.NewVScroll(views.GetNetworksView(networks))
 	networkView.SetMinSize(fyne.NewSize(400, 300))
