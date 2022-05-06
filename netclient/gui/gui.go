@@ -22,6 +22,11 @@ var logoContent embed.FS
 
 // Run - run's the netclient GUI
 func Run(networks []string) error {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log(0, "No monitor detected, please use CLI commands; use -help for more info.")
+		}
+	}()
 	a := app.New()
 	window := a.NewWindow("Netclient - " + ncutils.Version)
 
@@ -100,11 +105,7 @@ func Run(networks []string) error {
 	views.CurrentContent.Add(views.GetView(views.Join))
 
 	window.SetContent(views.CurrentContent)
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Log(0, "No monitor detected, please use CLI commands; use -help for more info.")
-		}
-	}()
 	window.ShowAndRun()
+
 	return nil
 }
