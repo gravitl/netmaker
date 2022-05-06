@@ -449,6 +449,7 @@ jobs:
         run: |
           cd netclient
           go install goversioninfo
+          export PATH=$PATH:~/go/bin
           go generate
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
 
