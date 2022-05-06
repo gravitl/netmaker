@@ -86,19 +86,11 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 	}
 	lastCheckIn += health
 	version := nodecfg.Node.Version
-	peerString := ""
-	for _, peer := range nets[0].Peers {
-		peerString += fmt.Sprintf("- Endpoint: %s, Addresses:", peer.PublicEndpoint)
-		for _, addr := range peer.Addresses {
-			peerString += fmt.Sprintf(", %s", addr.IP)
-		}
-		peerString += "\n"
-	}
+
 	pullBtn := components.ColoredButton("pull "+network, func() { pull(network) }, components.Blue_color)
 	pullBtn.Resize(fyne.NewSize(pullBtn.Size().Width, 50))
-	netDetailsView := container.NewCenter(
-		// components.ColoredText("Selected "+network, components.Orange_color),
-		container.NewGridWithColumns(1, widget.NewRichTextFromMarkdown(fmt.Sprintf(`### %s
+
+	view := container.NewGridWithColumns(1, widget.NewRichTextFromMarkdown(fmt.Sprintf(`### %s
 - ID: %s
 - Last Check In: %s
 - Endpoint: %s
@@ -106,10 +98,30 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 - Address6 (IPv6): %s
 - Version: %s
 ### Peers
-%s
-`, network, nodeID, lastCheckIn, endpoint, privateAddr, privateAddr6, version, peerString)),
-			container.NewCenter(pullBtn),
-		))
+	`, network, nodeID, lastCheckIn, endpoint, privateAddr, privateAddr6, version)),
+	)
+	netDetailsView := container.NewCenter(
+		view,
+	)
+
+	peerView := container.NewVBox()
+
+	for _, p := range nets[0].Peers {
+		peerString := fmt.Sprintf("Endpoint: %s, Addresses:", p.PublicEndpoint)
+		newEntry := widget.NewEntry()
+		for i, addr := range p.Addresses {
+			if i > 0 && i < len(p.Addresses) {
+				peerString += ", "
+			}
+			peerString += fmt.Sprintf("%s                    ", addr.IP)
+		}
+		newEntry.Text = peerString
+		peerView.AddObject(container.NewVBox(newEntry))
+	}
+	peerScroller := container.NewVScroll(peerView)
+	view.AddObject(peerScroller)
+	view.AddObject(container.NewVBox(pullBtn))
+	netDetailsView.Refresh()
 	ClearNotification()
 	return netDetailsView
 }
