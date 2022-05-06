@@ -445,10 +445,10 @@ jobs:
           install: >-
             git
             mingw-w64-x86_64-toolchain
-            goversioninfo
       - name: Build
         run: |
           cd netclient
+          go install goversioninfo
           go generate
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
 
