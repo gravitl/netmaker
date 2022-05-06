@@ -15,7 +15,7 @@ func ColoredText(text string, color color.Color) *fyne.Container {
 	btn := widget.NewLabel(text)
 	bgColor := canvas.NewRectangle(color)
 	return container.New(
-		layout.NewMaxLayout(),
+		layout.NewGridWrapLayout(fyne.NewSize(400, 100)),
 		bgColor,
 		btn,
 	)
