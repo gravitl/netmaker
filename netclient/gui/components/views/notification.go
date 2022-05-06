@@ -4,13 +4,12 @@ import (
 	"image/color"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"github.com/gravitl/netmaker/netclient/gui/components"
 )
 
 // GenerateNotification - generates a notification
 func GenerateNotification(text string, c color.Color) fyne.CanvasObject {
-	return container.NewCenter(components.ColoredText(text, c))
+	return components.ColoredText(text, c)
 }
 
 // ChangeNotification - changes the current notification in the view
