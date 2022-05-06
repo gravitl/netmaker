@@ -119,12 +119,14 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-gui
+
       - name: Package x86 deb
         continue-on-error: true
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
           fpm_opts: '-s dir -t deb --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+
       - name: Upload x86 deb to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -142,6 +144,7 @@ jobs:
         with:
           fpm_args: './netclient/build/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/system/netclient.service'
           fpm_opts: '-s dir -t rpm --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+          
       - name: Upload x86 rpm to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -160,6 +163,7 @@ jobs:
           # arch has particular path requirements --- cannot write to a symbolic link e.g. /sbin and /lib
           fpm_args: './netclient/build/netclient=/usr/bin/netclient ./netclient/build/netclient.service=/usr/lib/systemd/system/netclient.service'
           fpm_opts: '-s dir -t pacman --architecture amd64 --version ${{ env.PACKAGE_VERSION }}'
+
       - name: Upload x86 pacman to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -194,6 +198,7 @@ jobs:
           env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm6/netclient main.go
           env CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm7/netclient main.go
           env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-arm64/netclient main.go
+
       - name: Upload arm5 to Release
         uses: svenstaro/upload-release-action@v2
         with: 
@@ -213,6 +218,7 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-arm6
+
       - name: Upload arm7 to Release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -233,6 +239,7 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-arm64
+
       - name: Package arm64 deb
         continue-on-error: true
         uses: gravitl/github-action-fpm@master
@@ -249,12 +256,14 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient_${{ env.PACKAGE_VERSION }}_arm64.deb
+
       - name: Package arm64 rpm
         continue-on-error: true
         uses: gravitl/github-action-fpm@master
         with:
           fpm_args: './netclient/build/netclient-arm64/netclient=/sbin/netclient ./netclient/build/netclient.service=/lib/systemd/netclient.service'
           fpm_opts: '-s dir -t rpm --architecture arm64 --version ${{ env.PACKAGE_VERSION }}'
+
       - name: Upload arm64 rpm to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
@@ -286,6 +295,7 @@ jobs:
         run: |
           cd netclient
           env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
+          
       - name: Upload mipsle to Release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -390,9 +400,8 @@ jobs:
       - name: Build                                   
         run: |                                       
           cd netclient                              
-          env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient main.go
-          env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
-          env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-gui/netclient main.go
+          env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient main.go
+          env CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
       - name: Upload darwin-amd64 to Release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -412,16 +421,6 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient-darwin-arm64
-
-      - name: Upload darwin-gui to Release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient/build/netclient-darwin-gui/netclient
-          tag: ${{ env.NETMAKER_VERSION }}
-          overwrite: true
-          prerelease: true
-          asset_name: netclient-darwin-gui
 
   netclient-windows:
     runs-on: windows-latest
@@ -449,8 +448,8 @@ jobs:
       - name: Build
         run: |
           cd netclient
-          env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
-          env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-gui.exe main.go
+          go generate
+          env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
 
       - name: Upload netclient windows to Release
         continue-on-error: true
