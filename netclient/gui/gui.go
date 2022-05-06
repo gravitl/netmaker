@@ -3,6 +3,7 @@ package gui
 import (
 	"embed"
 	"image/color"
+	"os"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -22,7 +23,7 @@ var logoContent embed.FS
 // Run - run's the netclient GUI
 func Run(networks []string) error {
 	a := app.New()
-	window := a.NewWindow("Netclient")
+	window := a.NewWindow("Netclient - " + ncutils.Version)
 
 	img, err := logoContent.ReadFile("nm-logo-sm.png")
 	if err != nil {
@@ -71,6 +72,9 @@ func Run(networks []string) error {
 			views.RefreshComponent(views.Confirm, confirmView)
 			views.ShowView(views.Confirm)
 		}, components.Red_color),
+		components.NewToolbarLabelButton("Close", theme.ContentClearIcon(), func() {
+			os.Exit(0)
+		}, components.Purple_color),
 	))
 
 	joinView := views.GetJoinView()
