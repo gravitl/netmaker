@@ -57,8 +57,6 @@ func GetNetworksView(networks []string) fyne.CanvasObject {
 	return container.NewCenter(grid)
 }
 
-const fakeData = `{"networks":[{"name":"devops","node_id":"5aeb3e18-1236-46d8-8415-8699bfe5d44e","current_node":{"name":"ingress","interface":"nm-devops","private_ipv4":"10.10.10.1","public_endpoint":"167.71.106.39"},"peers":[{"public_key":"QlLJlQKy6C7XirHdnkXiMcCSCed2ieDt6qL3DSzjSxo=","public_endpoint":"167.71.100.69:51821","addresses":[{"cidr":"10.10.10.3/32","ip":"10.10.10.3"},{"cidr":"10.10.10.0/24","ip":"10.10.10.0"}]},{"public_key":"WnU5t2Rl9kD7lzASe8nH7VyS+jhTLUCigMJKKt+UrnU=","public_endpoint":"167.71.98.164:51821","addresses":[{"cidr":"10.10.10.2/32","ip":"10.10.10.2"},{"cidr":"165.227.116.94/32","ip":"165.227.116.94"}]},{"public_key":"rRI9qNHIiSQsIyZgGBvyZML98bZ6z8iZYfZLWPSZJ1k=","public_endpoint":"167.71.100.25:51821","addresses":[{"cidr":"10.10.10.5/32","ip":"10.10.10.5"}]},{"public_key":"R7JoXHCj9q/yXizr9q7p3xW5dxAX+l6Hg17k/98T0GI=","public_endpoint":"167.71.164.7:51821","addresses":[{"cidr":"10.10.10.254/32","ip":"10.10.10.254"}]},{"public_key":"M5gwhvr1Qrg55gGrPrkd3NbLJoDqTsjiEPvvf1yyaiQ=","public_endpoint":"\u003cnil\u003e","addresses":[{"cidr":"10.10.10.6/32","ip":"10.10.10.6"}]}]}]}`
-
 // GetSingleNetworkView - returns details and option to pull a network
 func GetSingleNetworkView(network string) fyne.CanvasObject {
 	if network == "" || len(network) == 0 {
