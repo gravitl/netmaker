@@ -295,7 +295,7 @@ jobs:
         run: |
           cd netclient
           env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
-          
+
       - name: Upload mipsle to Release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -445,6 +445,7 @@ jobs:
           install: >-
             git
             mingw-w64-x86_64-toolchain
+            goversioninfo
       - name: Build
         run: |
           cd netclient
