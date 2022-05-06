@@ -1,4 +1,4 @@
-//go:generate goversioninfo -icon=windowsdata/resource/netmaker.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso
+//go:generate goversioninfo -icon=windowsdata/resource/netclient.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso
 // -build gui
 
 package main
