@@ -13,9 +13,10 @@ import (
 // ColoredText - renders a colored label
 func ColoredText(text string, color color.Color) *fyne.Container {
 	btn := widget.NewLabel(text)
+	btn.Wrapping = fyne.TextWrapWord
 	bgColor := canvas.NewRectangle(color)
 	return container.New(
-		layout.NewGridWrapLayout(fyne.NewSize(400, 100)),
+		layout.NewMaxLayout(),
 		bgColor,
 		btn,
 	)
