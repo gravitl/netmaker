@@ -27,7 +27,7 @@ func ColoredIconButton(text string, icon fyne.Resource, tapped func(), color col
 	bgColor := canvas.NewRectangle(color)
 	return container.New(
 		layout.NewMaxLayout(),
-		bgColor,
 		btn,
+		bgColor,
 	)
 }

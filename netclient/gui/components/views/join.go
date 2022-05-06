@@ -28,6 +28,7 @@ func GetJoinView() fyne.CanvasObject {
 		}
 		cfg.Network = accesstoken.ClientConfig.Network
 		cfg.Node.Network = accesstoken.ClientConfig.Network
+		cfg.Node.Name = ncutils.GetHostname()
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
 		cfg.Server.Server = accesstoken.ServerConfig.Server

@@ -66,6 +66,11 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 	}
 
 	// == read node values ==
+	LoadingNotify()
+	nets, err := functions.List(network)
+	if err != nil || len(nets) < 1 {
+		return container.NewCenter(widget.NewLabel("No data retrieved."))
+	}
 	var nodecfg config.ClientConfig
 	nodecfg.Network = network
 	nodecfg.ReadConfig()
@@ -83,10 +88,16 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 	}
 	lastCheckIn += health
 	version := nodecfg.Node.Version
-
+	peerString := ""
+	for _, peer := range nets[0].Peers {
+		peerString += fmt.Sprintf("- Endpoint: %s, Addresses:", peer.PublicEndpoint)
+		for _, addr := range peer.Addresses {
+			peerString += fmt.Sprintf(", %s", addr.IP)
+		}
+		peerString += "\n"
+	}
 	pullBtn := components.ColoredButton("pull "+network, func() { pull(network) }, components.Blue_color)
 	pullBtn.Resize(fyne.NewSize(pullBtn.Size().Width, 50))
-	LoadingNotify()
 	netDetailsView := container.NewCenter(
 		// components.ColoredText("Selected "+network, components.Orange_color),
 		container.NewGridWithColumns(1, widget.NewRichTextFromMarkdown(fmt.Sprintf(`### %s
@@ -96,7 +107,9 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 - Address (IPv4): %s
 - Address6 (IPv6): %s
 - Version: %s
-`, network, nodeID, lastCheckIn, endpoint, privateAddr, privateAddr6, version)),
+### Peers
+%s
+`, network, nodeID, lastCheckIn, endpoint, privateAddr, privateAddr6, version, peerString)),
 			container.NewCenter(pullBtn),
 		))
 	ClearNotification()
