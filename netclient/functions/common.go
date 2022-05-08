@@ -136,7 +136,7 @@ func Uninstall() error {
 	err = nil
 	// clean up OS specific stuff
 	if ncutils.IsWindows() {
-		daemon.CleanupWindows()
+		// daemon.CleanupWindows()
 	} else if ncutils.IsMac() {
 		daemon.CleanupMac()
 	} else if ncutils.IsLinux() {

@@ -25,8 +25,3 @@ func RunCmd(command string, printerr bool) (string, error) {
 func RunCmdFormatted(command string, printerr bool) (string, error) {
 	return "", nil
 }
-
-// GetEmbedded - if files required for linux, put here
-func GetEmbedded() error {
-	return nil
-}

@@ -15,7 +15,7 @@ func InstallDaemon(cfg *config.ClientConfig) error {
 
 	switch os {
 	case "windows":
-		err = SetupWindowsDaemon()
+		//err = SetupWindowsDaemon()
 	case "darwin":
 		err = SetupMacDaemon()
 	case "linux":
