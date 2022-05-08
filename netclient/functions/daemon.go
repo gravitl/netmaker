@@ -16,8 +16,10 @@ import (
 	"syscall"
 	"time"
 
+	tcping "github.com/cloverstd/tcping/ping"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/go-ping/ping"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -25,7 +27,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	ssl "github.com/gravitl/netmaker/tls"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var messageCache = new(sync.Map)
@@ -112,16 +113,23 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 
 // PingServer -- checks if server is reachable
 func PingServer(cfg *config.ClientConfig) error {
-	pinger, err := ping.NewPinger(cfg.Server.Server)
-	if err != nil {
-		return err
+	pinger := tcping.NewTCPing()
+	pinger.SetTarget(&tcping.Target{
+		Protocol: tcping.TCP,
+		Host:     cfg.Server.Server,
+		Port:     8883,
+		Counter:  3,
+		Interval: 1 * time.Second,
+		Timeout:  2 * time.Second,
+	})
+	pingerDone := pinger.Start()
+	select {
+	case <-pingerDone:
+		break
 	}
-	pinger.Timeout = 2 * time.Second
-	pinger.Count = 3
-	pinger.Run()
-	stats := pinger.Statistics()
-	if stats.PacketLoss == 100 {
-		return errors.New("ping error " + fmt.Sprintf("%f", stats.PacketLoss))
+
+	if pinger.Result().SuccessCounter == 0 {
+		return errors.New("ping error")
 	}
 	logger.Log(3, "ping of server", cfg.Server.Server, "was successful")
 	return nil
