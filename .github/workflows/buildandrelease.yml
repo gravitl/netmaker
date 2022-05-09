@@ -452,7 +452,7 @@ jobs:
           go get -v github.com/josephspurrier/goversioninfo
           go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
           go generate
-          env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
+          env CGO_ENABLED=1 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
         shell: bash
 
       - name: Upload netclient windows to Release
