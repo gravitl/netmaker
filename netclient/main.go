@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/cli_options"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/netclient/ncwindows"
 	"github.com/urfave/cli/v2"
 )
 
@@ -30,9 +29,7 @@ func main() {
 
 	setGarbageCollection()
 
-	if ncutils.IsWindows() {
-		ncwindows.InitWindows()
-	} else {
+	if !ncutils.IsWindows() {
 		ncutils.CheckUID()
 		ncutils.CheckWG()
 	}
