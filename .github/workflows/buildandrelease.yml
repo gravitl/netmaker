@@ -59,12 +59,12 @@ jobs:
         run: |
           go env
           cd netclient
-          export PATH=$PATH:$(go env GOPATH)/bin
+          export PATH=$PATH:$(go env GOPATH)\bin
           go get -u -x -v github.com/josephspurrier/goversioninfo
           ls "C:\Users\runneradmin"
           ls "C:\Users\runneradmin\go"
           ls "C:\Users\runneradmin\go\bin"
-          ls
+          ls "D:\a"
           go generate
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
         shell: powershell
