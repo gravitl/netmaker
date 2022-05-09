@@ -445,11 +445,16 @@ jobs:
           install: >-
             git
             mingw-w64-x86_64-toolchain
+      - name: set env
+        run:
+          echo "::set-env name=GOPATH::$(go env GOPATH)"
+          echo "::add-path::$(go env GOPATH)/bin"
+        shell: bash
       - name: Build
         run: |
+          echo $PATH
           cd netclient
           go get github.com/josephspurrier/goversioninfo
-          PATH=$PATH:$GOPATH
           go generate
           dir
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
