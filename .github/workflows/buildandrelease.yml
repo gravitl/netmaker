@@ -59,7 +59,7 @@ jobs:
         run: |
           go env
           cd ~
-          go get -u -x -v github.com/josephspurrier/goversioninfo
+          go install github.com/josephspurrier/goversioninfo
           ls "C:\Users\runneradmin"
           ls "C:\Users\runneradmin\go"
           ls "C:\Users\runneradmin\go\bin"
