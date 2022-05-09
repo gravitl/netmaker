@@ -448,12 +448,15 @@ jobs:
       - name: Build
         run: |
           echo $(go env GOPATH)/bin >> $GITHUB_PATH
+          echo $(go env GOPATH)/bin >> $PATH
           echo $PATH
           go env
           cd netclient
+          which go
           go get github.com/josephspurrier/goversioninfo
+          find . -name goversioninfo 
           go generate
-          dir
+          ls
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
         shell: bash
 
