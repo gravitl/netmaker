@@ -445,14 +445,14 @@ jobs:
           install: >-
             git
             mingw-w64-x86_64-toolchain
-      - name: set env
-        run:
-          echo "::set-env name=GOPATH::$(go env GOPATH)"
-          echo "::add-path::$(go env GOPATH)/bin"
-        shell: bash
       - name: Build
         run: |
+          go env
+          which go
           echo $PATH
+          SET $PATH=$PATH:$GOBIN
+          echo $PATH
+          echo ~
           cd netclient
           go get github.com/josephspurrier/goversioninfo
           go generate
