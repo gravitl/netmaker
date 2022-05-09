@@ -33,7 +33,6 @@ server:
   displaykeys: ""
   azuretenant: ""
   rce: "off"
-  debug: ""
   telemetry: ""
   manageiptables: "off"
   portforwardservices: ""

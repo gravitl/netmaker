@@ -31,12 +31,6 @@ func SetupMQTT(publish bool) mqtt.Client {
 	opts.SetWriteTimeout(time.Minute)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		if !publish {
-			if servercfg.GetDebug() {
-				if token := client.Subscribe("#", 2, mqtt.MessageHandler(DefaultHandler)); token.Wait() && token.Error() != nil {
-					client.Disconnect(240)
-					logger.Log(0, "default subscription failed")
-				}
-			}
 			if token := client.Subscribe("ping/#", 2, mqtt.MessageHandler(Ping)); token.Wait() && token.Error() != nil {
 				client.Disconnect(240)
 				logger.Log(0, "ping subscription failed")

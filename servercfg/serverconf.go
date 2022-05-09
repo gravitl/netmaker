@@ -78,7 +78,6 @@ func GetServerConfig() config.ServerConfig {
 	} else {
 		cfg.RCE = "off"
 	}
-	cfg.Debug = GetDebug()
 	cfg.Telemetry = Telemetry()
 	cfg.ManageIPTables = ManageIPTables()
 	services := strings.Join(GetPortForwardServiceList(), ",")
@@ -545,9 +544,4 @@ func GetAzureTenant() string {
 // GetRce - sees if Rce is enabled, off by default
 func GetRce() bool {
 	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
-}
-
-// GetDebug -- checks if debugging is enabled, off by default
-func GetDebug() bool {
-	return os.Getenv("DEBUG") == "on" || config.Config.Server.Debug == true
 }

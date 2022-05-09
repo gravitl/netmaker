@@ -114,13 +114,6 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 // sets MQ client subscriptions for a specific node config
 // should be called for each node belonging to a given server
 func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
-	if nodeCfg.DebugOn {
-		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
-			logger.Log(0, token.Error().Error())
-			return
-		}
-		logger.Log(0, "subscribed to all topics for debugging purposes")
-	}
 	if token := client.Subscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
 		logger.Log(0, token.Error().Error())
 		return
