@@ -55,7 +55,7 @@ func Daemon() error {
 		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
 			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
 		}
-		go initialPull(cfg.Network)
+		//initialPull(cfg.Network)
 	}
 
 	// == subscribe to all nodes for each on machine ==
