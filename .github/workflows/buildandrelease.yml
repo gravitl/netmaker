@@ -439,6 +439,12 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: 1.18
+      - name: Mysys2 setup
+        uses: msys2/setup-msys2@v2
+        with:
+          install: >-
+            git
+            mingw-w64-x86_64-toolchain
       - name: Build
         run: |
           echo $(go env GOPATH)/bin >> $GITHUB_PATH
