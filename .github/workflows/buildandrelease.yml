@@ -59,6 +59,7 @@ jobs:
         run: |
           go env
           cd netclient
+          export PATH=$PATH:$(go env GOPATH)/bin
           go get -u -x -v github.com/josephspurrier/goversioninfo
           ls "C:\Users\runneradmin"
           ls "C:\Users\runneradmin\go"
