@@ -60,8 +60,9 @@ jobs:
           go env
           cd netclient
           go get -u -x -v github.com/josephspurrier/goversioninfo
-          ls /c/Users/runneradmin/go/bin/
-          ls /c/Users/runneradmin/go/bin/
+          ls "C:\Users\runneradmin"
+          ls "C:\Users\runneradmin\go"
+          ls "C:\Users\runneradmin\go\bin"
           ls
           go generate
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
