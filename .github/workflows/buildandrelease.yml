@@ -446,8 +446,8 @@ jobs:
           go env
           cd netclient
           which go
-          go get github.com/josephspurrier/goversioninfo
-          go install github.com/josephspurrier/goversioninfo
+          go get -v github.com/josephspurrier/goversioninfo
+          go install -v github.com/josephspurrier/goversioninfo
           ls /c/Users/runneradmin/go/bin/
           /c/Users/runneradmin/go/bin/goversioninfo -icon=windowsdata/resource/netclient.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso 
           ls
