@@ -447,12 +447,9 @@ jobs:
             mingw-w64-x86_64-toolchain
       - name: Build
         run: |
+          echo $(go env GOPATH)/bin >> $GITHUB_PATH
+          echo $PATH
           go env
-          which go
-          echo $PATH
-          SET $PATH=$PATH:$GOBIN
-          echo $PATH
-          echo ~
           cd netclient
           go get github.com/josephspurrier/goversioninfo
           go generate
