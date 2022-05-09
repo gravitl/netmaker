@@ -8,6 +8,7 @@ netclient/build
 netclient/build/
 !netclient/build/netclient.service
 netclient/files/netclient
+netclient/netclient.syso
 netclient/netclient-amd64
 netclient/netclient-arm
 netclient/netclient-arm64
