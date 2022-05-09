@@ -178,25 +178,15 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	if err != nil {
 		return models.PeerUpdate{}, err
 	}
-	// begin translating netclient logic
-	/*
 
-
-		Go through netclient code and put below
-
-
-
-	*/
 	// #1 Set Keepalive values: set_keepalive
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
-	var dns string
 	for _, peer := range currentPeers {
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
 		}
-		dns = dns + fmt.Sprintf("%s %s.%s\n", peer.Address, peer.Name, peer.Network)
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return models.PeerUpdate{}, err
@@ -245,23 +235,11 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
 		}
 	}
+
 	peerUpdate.Network = node.Network
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
-	/*
-
-
-		End translation of netclient code
-
-
-	*/
-	if customDNSEntries, err := GetCustomDNS(peerUpdate.Network); err == nil {
-		for _, entry := range customDNSEntries {
-			// TODO - filter entries based on ACLs / given peers vs nodes in network
-			dns = dns + fmt.Sprintf("%s %s.%s\n", entry.Address, entry.Name, entry.Network)
-		}
-	}
-	peerUpdate.DNS = dns
+	peerUpdate.DNS = getPeerDNS(node.Network)
 	return peerUpdate, nil
 }
 
@@ -386,4 +364,21 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 		}
 	}
 	return allowedips
+}
+
+func getPeerDNS(network string) string {
+	var dns string
+	if nodes, err := GetNetworkNodes(network); err == nil {
+		for i := range nodes {
+			dns = dns + fmt.Sprintf("%s %s.%s\n", nodes[i].Address, nodes[i].Name, nodes[i].Network)
+		}
+	}
+
+	if customDNSEntries, err := GetCustomDNS(network); err == nil {
+		for _, entry := range customDNSEntries {
+			// TODO - filter entries based on ACLs / given peers vs nodes in network
+			dns = dns + fmt.Sprintf("%s %s.%s\n", entry.Address, entry.Name, entry.Network)
+		}
+	}
+	return dns
 }
