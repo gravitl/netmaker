@@ -62,24 +62,10 @@ jobs:
           go env
           cd netclient
           which go
-          go get -v github.com/josephspurrier/goversioninfo
-          go install -v github.com/josephspurrier/goversioninfo
+          go get -u -x -v github.com/josephspurrier/goversioninfo
+          which goversioninfo
           ls /c/Users/runneradmin/go/bin/
-          /c/Users/runneradmin/go/bin/goversioninfo -icon=windowsdata/resource/netclient.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso 
           ls
           go generate
-          ls
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
         shell: bash
-
-      - name: Upload netclient windows to Release
-        continue-on-error: true
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient/build/netclient.exe
-          tag: ${{ env.NETMAKER_VERSION }}
-          overwrite: true
-          prerelease: true
-          asset_name: netclient.exe
-
