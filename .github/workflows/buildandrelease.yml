@@ -447,9 +447,10 @@ jobs:
           cd netclient
           which go
           go get github.com/josephspurrier/goversioninfo
-          ls /c/Users/runneradmin/go/bin
-          ls c/hostedtoolcache/windows/go/1.18.1/x64/bin
-          find . -name goversioninfo 
+          go install github.com/josephspurrier/goversioninfo
+          ls /c/Users/runneradmin/go/bin/
+          /c/Users/runneradmin/go/bin/goversioninfo -icon=windowsdata/resource/netclient.ico -manifest=netclient.exe.manifest.xml -64=true -o=netclient.syso 
+          ls
           go generate
           ls
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
