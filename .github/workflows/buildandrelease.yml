@@ -447,6 +447,8 @@ jobs:
           cd netclient
           which go
           go get github.com/josephspurrier/goversioninfo
+          ls /c/Users/runneradmin/go/bin
+          ls c/hostedtoolcache/windows/go/1.18.1/x64/bin
           find . -name goversioninfo 
           go generate
           ls
