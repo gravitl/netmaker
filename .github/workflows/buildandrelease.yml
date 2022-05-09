@@ -59,11 +59,14 @@ jobs:
         run: |
           go env
           cd ~
-          go install github.com/josephspurrier/goversioninfo
+          go install github.com/josephspurrier/goversioninfo@latest
           ls "C:\Users\runneradmin"
           ls "C:\Users\runneradmin\go"
           ls "C:\Users\runneradmin\go\bin"
+          ls "C:\Users\runneradmin"
           ls "D:\a"
+          ls netmaker
+          ls netmaker/netclient
           cd netmaker/netclient
           go generate
           env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
