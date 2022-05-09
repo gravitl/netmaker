@@ -16,7 +16,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.7.1
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.5.1
+	github.com/urfave/cli/v2 v2.6.0
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
@@ -31,7 +31,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1
-	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
 	github.com/guumaster/hostctl v1.1.2
 	github.com/kr/pretty v0.3.0
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
