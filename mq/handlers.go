@@ -11,7 +11,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-// DefaultHandler default message queue handler - only called when GetDebug == true
+// DefaultHandler default message queue handler  -- NOT USED
 func DefaultHandler(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "MQTT Message: Topic: ", string(msg.Topic()), " Message: ", string(msg.Payload()))
 }
