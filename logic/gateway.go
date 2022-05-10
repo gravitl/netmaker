@@ -17,7 +17,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
-	if node.OS != "linux" { // add in darwin later
+	if node.OS != "linux" && node.OS != "freebsd" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
 	err = ValidateEgressGateway(gateway)
@@ -26,8 +26,30 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	node.IsEgressGateway = "yes"
 	node.EgressGatewayRanges = gateway.Ranges
-	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -A FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -D FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	postUpCmd := ""
+	postDownCmd := ""
+	if node.OS == "linux" {
+		postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
+		postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
+		postUpCmd += "iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+		postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
+		postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
+		postDownCmd += "iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+	}
+	if node.OS == "freebsd" {
+		postUpCmd = "kldload ipfw ipfw_nat ; "
+		postUpCmd += "ipfw disable one_pass ; "
+		postUpCmd += "ipfw nat 1 config if " + gateway.Interface + " same_ports unreg_only reset ; "
+		postUpCmd += "ipfw add 64000 reass all from any to any in ; "
+		postUpCmd += "ipfw add 64000 nat 1 ip from any to any in via " + gateway.Interface + " ; "
+		postUpCmd += "ipfw add 64000 check-state ; "
+		postUpCmd += "ipfw add 64000 nat 1 ip from any to any out via " + gateway.Interface + " ; "
+		postUpCmd += "ipfw add 65534 allow ip from any to any ; "
+		postDownCmd = "ipfw delete 64000 ; "
+		postDownCmd += "ipfw delete 65534 ; "
+		postDownCmd += "kldunload ipfw_nat ipfw"
+
+	}
 	if gateway.PostUp != "" {
 		postUpCmd = gateway.PostUp
 	}
@@ -89,8 +111,20 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node.PostUp = ""
 	node.PostDown = ""
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
-		node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -A FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-		node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -D FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+		if node.OS == "linux" {
+			node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
+			node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
+			node.PostUp += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+			node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
+			node.PostDown += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
+			node.PostDown += "iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+		}
+		if node.OS == "freebsd" {
+			node.PostUp = ""
+			node.PostDown = "ipfw delete 64000 ; "
+			node.PostDown += "ipfw delete 65534 ; "
+			node.PostDown += "kldunload ipfw_nat ipfw"
+		}
 	}
 	node.SetLastModified()
 
@@ -125,8 +159,12 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	}
 	node.IsIngressGateway = "yes"
 	node.IngressGatewayRange = network.AddressRange
-	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; iptables -A FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; iptables -D FORWARD -o " + node.Interface + " -j ACCEPT; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
+	postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
+	postUpCmd += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
+	postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
+	postDownCmd += "iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
 			postUpCmd = node.PostUp + "; " + postUpCmd
