@@ -114,9 +114,11 @@ func getSystemPeers(node *models.Node) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, peer := range device.Peers {
-		if IsBase64(peer.PublicKey.String()) && peer.Endpoint != nil && CheckEndpoint(peer.Endpoint.String()) {
-			peers[peer.PublicKey.String()] = peer.Endpoint.String()
+	if len(device.Peers) > 0 {
+		for _, peer := range device.Peers {
+			if IsBase64(peer.PublicKey.String()) && peer.Endpoint != nil && CheckEndpoint(peer.Endpoint.String()) {
+				peers[peer.PublicKey.String()] = peer.Endpoint.String()
+			}
 		}
 	}
 	return peers, nil

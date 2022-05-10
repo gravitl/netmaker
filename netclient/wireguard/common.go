@@ -58,7 +58,9 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 				iparr = append(iparr, ipaddr.String())
 			}
 		}
-		allowedips = strings.Join(iparr, ",")
+		if iparr != nil && len(iparr) > 0 {
+			allowedips = strings.Join(iparr, ",")
+		}
 		keepAliveString := strconv.Itoa(int(keepalive))
 		if keepAliveString == "0" {
 			keepAliveString = "15"
@@ -78,30 +80,36 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		}
 	}
 
-	for _, currentPeer := range devicePeers {
-		shouldDelete := true
-		for _, peer := range peers {
-			if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
-				shouldDelete = false
-			}
-			// re-check this if logic is not working, added in case of allowedips not working
-			if peer.PublicKey.String() == currentPeer.PublicKey.String() {
-				shouldDelete = false
+	if len(devicePeers) > 0 {
+		for _, currentPeer := range devicePeers {
+			shouldDelete := true
+			if len(peers) > 0 {
+				for _, peer := range peers {
+					if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
+						shouldDelete = false
+					}
+					// re-check this if logic is not working, added in case of allowedips not working
+					if peer.PublicKey.String() == currentPeer.PublicKey.String() {
+						shouldDelete = false
+					}
+				}
+				if shouldDelete {
+					output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
+					if err != nil {
+						log.Println(output, "error removing peer", currentPeer.PublicKey.String())
+					}
+				}
+				oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
 			}
 		}
-		if shouldDelete {
-			output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
-			if err != nil {
-				log.Println(output, "error removing peer", currentPeer.PublicKey.String())
-			}
-		}
-		oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
 	}
 	if ncutils.IsMac() {
 		err = SetMacPeerRoutes(iface)
 		return err
 	} else if ncutils.IsLinux() {
-		local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
+		if len(peers) > 0 {
+			local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
+		}
 	}
 
 	return nil
