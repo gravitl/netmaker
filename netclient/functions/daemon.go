@@ -52,10 +52,10 @@ func Daemon() error {
 		cfg.Network = network
 		cfg.ReadConfig()
 		serverSet[cfg.Server.Server] = cfg
-		//temporary code --- remove in version v0.13.0
-		removeHostDNS(network, ncutils.IsWindows())
-		// end of code to be removed in version v0.13.0
-		initialPull(cfg.Network)
+		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
+			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
+		}
+		//initialPull(cfg.Network)
 	}
 
 	// == subscribe to all nodes for each on machine ==
