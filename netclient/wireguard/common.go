@@ -80,10 +80,10 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		}
 	}
 
-	if len(devicePeers) > 0 {
+	if devicePeers != nil && len(devicePeers) > 0 {
 		for _, currentPeer := range devicePeers {
 			shouldDelete := true
-			if len(peers) > 0 {
+			if peers != nil && len(peers) > 0 {
 				for _, peer := range peers {
 					if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
 						shouldDelete = false
