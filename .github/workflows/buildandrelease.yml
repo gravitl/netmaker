@@ -106,8 +106,9 @@ jobs:
 
       - name: build gui
         run: |
+          cd netclient
           sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
-          go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient main.go
+          go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient .
 
       - name: Upload netclient x86 gui to Release
         continue-on-error: true
@@ -400,8 +401,8 @@ jobs:
       - name: Build
         run: |
           cd netclient
-          env GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient main.go
-          env GOARCH=arm64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
+          env GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient .
+          env GOARCH=arm64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient .
       - name: Upload darwin-amd64 to Release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -452,7 +453,7 @@ jobs:
           go get -v github.com/josephspurrier/goversioninfo
           go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
           go generate
-          go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe main.go
+          go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe .
 
       - name: Upload netclient windows to Release
         continue-on-error: true
