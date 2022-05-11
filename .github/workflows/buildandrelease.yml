@@ -471,7 +471,7 @@ jobs:
     needs: |
       version
       netclient-x86
-      netclien-arm
+      netclient-arm
     steps:
       - name: Repository Dispatch
         uses: peter-evans/repository-dispatch@v2.0.0
