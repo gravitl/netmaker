@@ -31,7 +31,7 @@ func TestCreateEgressGateway(t *testing.T) {
 		gateway.NodeID = createnode.ID
 		node, err := logic.CreateEgressGateway(gateway)
 		assert.Equal(t, models.Node{}, node)
-		assert.EqualError(t, err, "freebsd is unsupported for egress gateways")
+		assert.EqualError(t, err, "windows is unsupported for egress gateways")
 	})
 	t.Run("Success", func(t *testing.T) {
 		deleteAllNodes()
