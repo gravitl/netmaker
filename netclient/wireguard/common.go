@@ -107,7 +107,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		err = SetMacPeerRoutes(iface)
 		return err
 	} else if ncutils.IsLinux() {
-		if len(peers) > 0 {
+		if peers != nil && len(peers) > 0 {
 			local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
 		}
 	}
