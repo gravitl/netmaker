@@ -133,6 +133,7 @@ func Uninstall() error {
 			}
 		}
 	}
+	err = nil
 	// clean up OS specific stuff
 	if ncutils.IsWindows() {
 		daemon.CleanupWindows()
@@ -159,19 +160,21 @@ func LeaveNetwork(network string, force bool) error {
 	if node.IsServer != "yes" {
 		token, err := Authenticate(cfg)
 		if err != nil {
-			return fmt.Errorf("unable to authenticate %w", err)
-		}
-		url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
-		response, err := API("", http.MethodDelete, url, token)
-		if err != nil {
-			return fmt.Errorf("error deleting node on server %w", err)
-		}
-		if response.StatusCode == http.StatusOK {
-			logger.Log(0, "deleted node", cfg.Node.Name, " on network ", cfg.Network)
+			logger.Log(0, "unable to authenticate: "+err.Error())
 		} else {
-			bodybytes, _ := io.ReadAll(response.Body)
-			defer response.Body.Close()
-			return fmt.Errorf("error deleting node on server %s %s", response.Status, string(bodybytes))
+			url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
+			response, err := API("", http.MethodDelete, url, token)
+			if err != nil {
+				logger.Log(0, "error deleting node on server: "+err.Error())
+			} else {
+				if response.StatusCode == http.StatusOK {
+					logger.Log(0, "deleted node", cfg.Node.Name, " on network ", cfg.Network)
+				} else {
+					bodybytes, _ := io.ReadAll(response.Body)
+					defer response.Body.Close()
+					logger.Log(0, fmt.Sprintf("error deleting node on server %s %s", response.Status, string(bodybytes)))
+				}
+			}
 		}
 	}
 	wgClient, wgErr := wgctrl.New()
