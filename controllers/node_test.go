@@ -25,7 +25,7 @@ func TestCreateEgressGateway(t *testing.T) {
 		assert.EqualError(t, err, "could not find any records")
 	})
 	t.Run("Non-linux node", func(t *testing.T) {
-		createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "freebsd"}
+		createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "windows"}
 		err := logic.CreateNode(&createnode)
 		assert.Nil(t, err)
 		gateway.NodeID = createnode.ID
