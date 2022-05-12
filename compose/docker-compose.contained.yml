@@ -39,7 +39,6 @@ services:
       PORT_FORWARD_SERVICES: "dns"
     ports:
       - "51821-51830:51821-51830/udp"
-      - "8081:8081"
   netmaker-ui:
     container_name: netmaker-ui
     depends_on:
@@ -47,8 +46,6 @@ services:
     image: gravitl/netmaker-ui:v0.13.1
     links:
       - "netmaker:api"
-    ports:
-      - "8082:80"
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
     restart: always
@@ -65,7 +62,9 @@ services:
     image: caddy:latest
     container_name: caddy
     restart: unless-stopped
-    network_mode: host # Wants ports 80 and 443!
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
       # - $PWD/site:/srv # you could also serve a static site in site folder
@@ -78,7 +77,6 @@ services:
     container_name: mq
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1883:1883"
       - "8883:8883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
