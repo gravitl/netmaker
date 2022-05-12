@@ -21,6 +21,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	ssl "github.com/gravitl/netmaker/tls"
@@ -56,6 +57,11 @@ func Daemon() error {
 			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
 		}
 		//initialPull(cfg.Network)
+	}
+	// set ipforwarding on startup
+	err := local.SetIPForwarding()
+	if err != nil {
+		logger.Log(0, err.Error())
 	}
 
 	// == subscribe to all nodes for each on machine ==

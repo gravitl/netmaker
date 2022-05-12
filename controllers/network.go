@@ -147,14 +147,21 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		newNetwork.DefaultPostUp = network.DefaultPostUp
 	}
 
-	rangeupdate, localrangeupdate, holepunchupdate, err := logic.UpdateNetwork(&network, &newNetwork)
+	rangeupdate4, rangeupdate6, localrangeupdate, holepunchupdate, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
-	if rangeupdate {
+	if rangeupdate4 {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
+		if err != nil {
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+	}
+	if rangeupdate6 {
+		err = logic.UpdateNetworkNodeAddresses6(network.NetID)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
@@ -174,7 +181,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if rangeupdate || localrangeupdate || holepunchupdate {
+	if rangeupdate4 || rangeupdate6 || localrangeupdate || holepunchupdate {
 		nodes, err := logic.GetNetworkNodes(network.NetID)
 		if err != nil {
 			returnErrorResponse(w, r, formatError(err, "internal"))

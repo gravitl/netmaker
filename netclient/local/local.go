@@ -32,6 +32,8 @@ func SetIPForwarding() error {
 
 // SetIPForwardingLinux - sets the ipforwarding for linux
 func SetIPForwardingUnix() error {
+
+	// ipv4
 	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
 	if err != nil {
 		log.Println("WARNING: Error encountered setting ip forwarding. This can break functionality.")
@@ -46,6 +48,23 @@ func SetIPForwardingUnix() error {
 			}
 		}
 	}
+
+	// ipv6
+	out, err = ncutils.RunCmd("sysctl net.ipv6.conf.all.forwarding", true)
+	if err != nil {
+		log.Println("WARNING: Error encountered setting ipv6 forwarding. This can break functionality.")
+		return err
+	} else {
+		s := strings.Fields(string(out))
+		if s[2] != "1" {
+			_, err = ncutils.RunCmd("sysctl -w  net.ipv6.conf.all.forwarding=1", true)
+			if err != nil {
+				log.Println("WARNING: Error encountered setting ipv6 forwarding. You may want to investigate this.")
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
