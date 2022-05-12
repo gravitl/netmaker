@@ -81,6 +81,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error saving node", err.Error())
 			return
 		}
+		updateNodePeers(&currentNode)
 		logger.Log(1, "updated node", id, newNode.Name)
 	}()
 }
@@ -114,20 +115,25 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		case ncutils.DONE:
-			currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
-			if err != nil {
-				return
-			}
-			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
-				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
-				return
-			}
-			if err := PublishPeerUpdate(&currentNode); err != nil {
-				logger.Log(1, "error publishing peer update ", err.Error())
-				return
-			}
+			updateNodePeers(&currentNode)
 		}
 
 		logger.Log(1, "sent peer updates after signal received from", id, currentNode.Name)
 	}()
+}
+
+func updateNodePeers(currentNode *models.Node) {
+	currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
+	if err != nil {
+		logger.Log(1, "failed to get server node failed update\n", err.Error())
+		return
+	}
+	if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
+		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
+		return
+	}
+	if err := PublishPeerUpdate(currentNode); err != nil {
+		logger.Log(1, "error publishing peer update ", err.Error())
+		return
+	}
 }
