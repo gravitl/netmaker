@@ -130,7 +130,10 @@ func GetPublicIP() (string, error) {
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {
-		resp, err := http.Get(ipserver)
+		client := &http.Client{
+			Timeout: time.Second * 10,
+		}
+		resp, err := client.Get(ipserver)
 		if err != nil {
 			continue
 		}
