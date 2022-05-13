@@ -108,14 +108,6 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		}
 	}
 
-	//	if ncutils.IsLinux() {
-	//		_, err := exec.LookPath("resolvectl")
-	//		if err != nil {
-	//			logger.Log("resolvectl not present", 2)
-	//			logger.Log("unable to configure DNS automatically, disabling automated DNS management", 2)
-	//			cfg.Node.DNSOn = "no"
-	//		}
-	//	}
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
 	}
@@ -195,14 +187,14 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 
 	_ = UpdateLocalListenPort(cfg)
 
-	if cfg.Daemon != "off" {
+	if cfg.Daemon == "install" || ncutils.IsFreeBSD() {
 		err = daemon.InstallDaemon(cfg)
 		if err != nil {
 			return err
-		} else {
-			daemon.Restart()
 		}
 	}
+
+	daemon.Restart()
 	return nil
 }
 
