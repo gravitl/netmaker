@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/config"
 )
@@ -411,7 +412,10 @@ func GetPublicIP() (string, error) {
 
 	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	for _, ipserver := range iplist {
-		resp, err := http.Get(ipserver)
+		client := &http.Client{
+			Timeout: time.Second * 10,
+		}
+		resp, err := client.Get(ipserver)
 		if err != nil {
 			continue
 		}
