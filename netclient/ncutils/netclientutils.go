@@ -42,7 +42,7 @@ const NO_DB_RECORDS = "could not find any records"
 const LINUX_APP_DATA_PATH = "/etc/netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
-const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
+const WINDOWS_APP_DATA_PATH = "C:\\Program Files (x86)\\Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 //const WINDOWS_WG_DPAPI_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"

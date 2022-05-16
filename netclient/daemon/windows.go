@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -27,19 +28,19 @@ func SetupWindowsDaemon() error {
 		}
 		logger.Log(0, "finished daemon setup")
 	}
-	// install daemon, will not overwrite
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe install`, false)
-	// start daemon, will not restart or start another
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
-	logger.Log(0, strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`)
+	//get exact formatted commands
+	RunWinSWCMD("install")
+	time.Sleep(1)
+	RunWinSWCMD("start")
+
 	return nil
 }
 
 // RestartWindowsDaemon - restarts windows service
 func RestartWindowsDaemon() {
-	StopWindowsDaemon()
-	// start daemon, will not restart or start another
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe start`, false)
+	RunWinSWCMD("stop")
+	time.Sleep(1)
+	RunWinSWCMD("start")
 }
 
 // CleanupWindows - cleans up windows files
@@ -47,8 +48,8 @@ func CleanupWindows() {
 	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.xml") {
 		writeServiceConfig()
 	}
-	StopWindowsDaemon()
-	RemoveWindowsDaemon()
+	RunWinSWCMD("stop")
+	RunWinSWCMD("uninstall")
 	os.RemoveAll(ncutils.GetNetclientPath())
 	log.Println("Netclient on Windows, uninstalled")
 }
@@ -74,73 +75,31 @@ func writeServiceConfig() error {
 	return nil
 }
 
-// == Daemon ==
+// RunWinSWCMD - Run a command with the winsw.exe tool (start, stop, install, uninstall)
+func RunWinSWCMD(command string) {
 
-// StopWindowsDaemon - stops the Windows daemon
-func StopWindowsDaemon() {
-	logger.Log(0, "stopping Windows, Netclient daemon")
-	// stop daemon, will not overwrite
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe stop`, true)
+	// check if command allowed
+	allowedCommands := map[string]bool{
+		"start":     true,
+		"stop":      true,
+		"install":   true,
+		"uninstall": true,
+	}
+	if !allowedCommands[command] {
+		logger.Log(0, "command "+command+" unsupported by winsw")
+		return
+	}
+
+	// format command
+	dirPath := strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)
+	winCmd := fmt.Sprintf(`"%swinsw.exe" "%s"`, dirPath, command)
+	logger.Log(0, "running "+command+" of Windows Netclient daemon")
+
+	// run command and log for success/failure
+	out, err := ncutils.RunCmdFormatted(winCmd, true)
+	if err != nil {
+		logger.Log(0, "error with "+command+" of Windows Netclient daemon: "+err.Error()+" : "+out)
+	} else {
+		logger.Log(0, "successfully ran "+command+" of Windows Netclient daemon")
+	}
 }
-
-// RemoveWindowsDaemon - removes the Windows daemon
-func RemoveWindowsDaemon() {
-	// uninstall daemon, will not restart or start another
-	ncutils.RunCmd(strings.Replace(ncutils.GetNetclientPathSpecific(), `\\`, `\`, -1)+`winsw.exe uninstall`, true)
-	logger.Log(0, "uninstalled Windows, Netclient daemon")
-}
-
-// func copyWinswOver() error {
-
-// 	input, err := ioutil.ReadFile(".\\winsw.exe")
-// 	if err != nil {
-// 		logger.Log(0, "failed to find winsw.exe")
-// 		return err
-// 	}
-// 	if err = ioutil.WriteFile(ncutils.GetNetclientPathSpecific()+"winsw.exe", input, 0644); err != nil {
-// 		logger.Log(0, "failed to copy winsw.exe to " + ncutils.GetNetclientPath())
-// 		return err
-// 	}
-// 	if err = os.Remove(".\\winsw.exe"); err != nil {
-// 		logger.Log(0, "failed to cleanup local winsw.exe, feel free to delete it")
-// 		return err
-// 	}
-// 	logger.Log(0, "finished copying winsw.exe")
-// 	return nil
-// }
-
-// func downloadWinsw() error {
-// 	fullURLFile := "https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe"
-// 	fileName := "winsw.exe"
-
-// 	// Create the file
-// 	file, err := os.Create(fileName)
-// 	if err != nil {
-// 		logger.Log(0, "could not create file on OS for Winsw")
-// 		return err
-// 	}
-// 	defer file.Close()
-
-// 	client := http.Client{
-// 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-// 			r.URL.Opaque = r.URL.Path
-// 			return nil
-// 		},
-// 	}
-// 	// Put content on file
-// 	logger.Log(0, "downloading service tool...")
-// 	resp, err := client.Get(fullURLFile)
-// 	if err != nil {
-// 		logger.Log(0, "could not GET Winsw")
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	_, err = io.Copy(file, resp.Body)
-// 	if err != nil {
-// 		logger.Log(0, "could not mount winsw.exe")
-// 		return err
-// 	}
-// 	logger.Log(0, "finished downloading Winsw")
-// 	return nil
-// }
