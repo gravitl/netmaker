@@ -49,13 +49,7 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 		return err
 	}
 	logger.Log(1, "joined ", cfg.Network)
-	/*
-		if ncutils.IsWindows() {
-			logger.Log("setting up WireGuard app", 0)
-			time.Sleep(time.Second >> 1)
-			functions.Pull(cfg.Network, true)
-		}
-	*/
+
 	return err
 }
 
