@@ -304,6 +304,10 @@ func WipeLocal(network string) error {
 			log.Println(err.Error())
 		}
 	}
+	err = removeHostDNS(ifacename, ncutils.IsWindows())
+	if err != nil {
+		logger.Log(0, "failed to delete dns entries for", ifacename, err.Error())
+	}
 	return err
 }
 
