@@ -16,6 +16,9 @@ const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
 // MQ_DISCONNECT - disconnects MQ
 const MQ_DISCONNECT = 250
 
+// MQ_TIMEOUT - timeout for MQ
+const MQ_TIMEOUT = 30
+
 var peer_force_send = 0
 
 // SetupMQTT creates a connection to broker and return client
@@ -31,21 +34,15 @@ func SetupMQTT(publish bool) mqtt.Client {
 	opts.SetWriteTimeout(time.Minute)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		if !publish {
-			if servercfg.GetDebug() {
-				if token := client.Subscribe("#", 2, mqtt.MessageHandler(DefaultHandler)); token.Wait() && token.Error() != nil {
-					client.Disconnect(240)
-					logger.Log(0, "default subscription failed")
-				}
-			}
-			if token := client.Subscribe("ping/#", 2, mqtt.MessageHandler(Ping)); token.Wait() && token.Error() != nil {
+			if token := client.Subscribe("ping/#", 2, mqtt.MessageHandler(Ping)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 				client.Disconnect(240)
 				logger.Log(0, "ping subscription failed")
 			}
-			if token := client.Subscribe("update/#", 0, mqtt.MessageHandler(UpdateNode)); token.Wait() && token.Error() != nil {
+			if token := client.Subscribe("update/#", 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 				client.Disconnect(240)
 				logger.Log(0, "node update subscription failed")
 			}
-			if token := client.Subscribe("signal/#", 0, mqtt.MessageHandler(ClientPeerUpdate)); token.Wait() && token.Error() != nil {
+			if token := client.Subscribe("signal/#", 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 				client.Disconnect(240)
 				logger.Log(0, "node client subscription failed")
 			}
@@ -57,10 +54,14 @@ func SetupMQTT(publish bool) mqtt.Client {
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
+		if token := client.Connect(); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			logger.Log(2, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
-				log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
+				if token.Error() == nil {
+					log.Fatal(0, "could not connect to broker, token timeout, exiting ...")
+				} else {
+					log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
+				}
 			}
 		} else {
 			break

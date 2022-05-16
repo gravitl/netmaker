@@ -2,7 +2,7 @@ services:
   netmaker: # The Primary Server for running Netmaker
     privileged: true # Necessary to run sudo/root level commands on host system. Likely using this if running with host networking on.
     container_name: netmaker
-    image: gravitl/netmaker:v0.13.1
+    image: gravitl/netmaker:v0.14.0
     volumes: # Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
       - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
       - sqldata:/root/data
@@ -37,7 +37,8 @@ services:
       TELEMETRY: "on" # Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.
       MQ_HOST: "mq" # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
       HOST_NETWORK: "off" # whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables.
-      MANAGE_IPTABLES: "off" # deprecated
+      MANAGE_IPTABLES: "on" # deprecated
+      PORT_FORWARD_SERVICES: "dns" # decide which services to port forward ("dns","ssh", or "mq")
     ports:
       - "51821-51830:51821-51830/udp"
       - "8081:8081"
@@ -45,7 +46,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.13.1
+    image: gravitl/netmaker-ui:v0.14.0
     links:
       - "netmaker:api"
     ports:

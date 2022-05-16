@@ -4,6 +4,7 @@ netmaker-arm64
 netmaker-32
 netmaker-amd64
 netclient/netclient
+netclient/netclient.syso
 netclient/build
 netclient/build/
 !netclient/build/netclient.service
@@ -20,4 +21,4 @@ controllers/data/
 data/
 .vscode/
 .idea/
-
+netmaker.exe

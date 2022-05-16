@@ -24,8 +24,10 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// Version - version of the netclient
-var Version = "dev"
+var (
+	// Version - version of the netclient
+	Version = "dev"
+)
 
 // MAX_NAME_LENGTH - maximum node name length
 const MAX_NAME_LENGTH = 62
@@ -40,7 +42,7 @@ const NO_DB_RECORDS = "could not find any records"
 const LINUX_APP_DATA_PATH = "/etc/netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
-const WINDOWS_APP_DATA_PATH = "C:\\ProgramData\\Netclient"
+const WINDOWS_APP_DATA_PATH = "C:\\Program Files (x86)\\Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 //const WINDOWS_WG_DPAPI_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
@@ -128,7 +130,10 @@ func GetPublicIP() (string, error) {
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {
-		resp, err := http.Get(ipserver)
+		client := &http.Client{
+			Timeout: time.Second * 10,
+		}
+		resp, err := client.Get(ipserver)
 		if err != nil {
 			continue
 		}

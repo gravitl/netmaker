@@ -75,11 +75,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 						}
 					}
 				}
-				if err := PingServer(&nodeCfg); err != nil {
-					logger.Log(0, "could not ping server for", nodeCfg.Network, nodeCfg.Server.Server+"\n", err.Error())
-				} else {
-					Hello(&nodeCfg)
-				}
+				Hello(&nodeCfg)
 				checkCertExpiry(&nodeCfg)
 			}
 		}

@@ -202,6 +202,9 @@ func StringSliceContains(slice []string, item string) bool {
 // sets the network server peers of a given node
 func setNetworkServerPeers(serverNode *models.Node) {
 	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
+		if currentPeersList == nil {
+			currentPeersList = make(map[string]string)
+		}
 		if database.SetPeers(currentPeersList, serverNode.Network) {
 			logger.Log(1, "set new peers on network", serverNode.Network)
 		}

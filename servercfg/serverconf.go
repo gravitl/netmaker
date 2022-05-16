@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/config"
 )
@@ -78,7 +79,6 @@ func GetServerConfig() config.ServerConfig {
 	} else {
 		cfg.RCE = "off"
 	}
-	cfg.Debug = GetDebug()
 	cfg.Telemetry = Telemetry()
 	cfg.ManageIPTables = ManageIPTables()
 	services := strings.Join(GetPortForwardServiceList(), ",")
@@ -412,7 +412,10 @@ func GetPublicIP() (string, error) {
 
 	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	for _, ipserver := range iplist {
-		resp, err := http.Get(ipserver)
+		client := &http.Client{
+			Timeout: time.Second * 10,
+		}
+		resp, err := client.Get(ipserver)
 		if err != nil {
 			continue
 		}
@@ -545,9 +548,4 @@ func GetAzureTenant() string {
 // GetRce - sees if Rce is enabled, off by default
 func GetRce() bool {
 	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
-}
-
-// GetDebug -- checks if debugging is enabled, off by default
-func GetDebug() bool {
-	return os.Getenv("DEBUG") == "on" || config.Config.Server.Debug == true
 }

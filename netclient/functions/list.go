@@ -38,14 +38,14 @@ type address struct {
 }
 
 // List - lists the current peers for the local node with name and node ID
-func List(network string) error {
+func List(network string) ([]Network, error) {
 	nets := []Network{}
 	var err error
 	var networks []string
 	if network == "all" {
 		networks, err = ncutils.GetSystemNetworks()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		networks = append(networks, network)
@@ -55,7 +55,7 @@ func List(network string) error {
 		net, err := getNetwork(network)
 		if err != nil {
 			logger.Log(1, network+": Could not retrieve network configuration.")
-			return err
+			return nil, err
 		}
 		peers, err := getPeers(network)
 		if err == nil && len(peers) > 0 {
@@ -69,7 +69,7 @@ func List(network string) error {
 	}{nets})
 	fmt.Println(string(jsoncfg))
 
-	return nil
+	return nets, nil
 }
 
 func getNetwork(network string) (Network, error) {

@@ -59,7 +59,7 @@ func Stop() error {
 
 	switch os {
 	case "windows":
-		StopWindowsDaemon()
+		RunWinSWCMD("stop")
 	case "darwin":
 		StopLaunchD()
 	case "linux":

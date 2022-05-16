@@ -18,7 +18,7 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
 	//join network
 	err = functions.JoinNetwork(cfg, privateKey)
-	if err != nil && !cfg.DebugOn {
+	if err != nil {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			logger.Log(1, "error installing: ", err.Error())
 			err = functions.LeaveNetwork(cfg.Network, true)
@@ -49,13 +49,7 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 		return err
 	}
 	logger.Log(1, "joined ", cfg.Network)
-	/*
-		if ncutils.IsWindows() {
-			logger.Log("setting up WireGuard app", 0)
-			time.Sleep(time.Second >> 1)
-			functions.Pull(cfg.Network, true)
-		}
-	*/
+
 	return err
 }
 
@@ -125,7 +119,7 @@ func Pull(cfg *config.ClientConfig) error {
 
 // List - runs list command from cli
 func List(cfg config.ClientConfig) error {
-	err := functions.List(cfg.Network)
+	_, err := functions.List(cfg.Network)
 	return err
 }
 

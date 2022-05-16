@@ -17,11 +17,12 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
+	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	ssl "github.com/gravitl/netmaker/tls"
@@ -53,10 +54,15 @@ func Daemon() error {
 		cfg.Network = network
 		cfg.ReadConfig()
 		serverSet[cfg.Server.Server] = cfg
-		//temporary code --- remove in version v0.13.0
-		removeHostDNS(network, ncutils.IsWindows())
-		// end of code to be removed in version v0.13.0
-		initialPull(cfg.Network)
+		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
+			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
+		}
+		//initialPull(cfg.Network)
+	}
+	// set ipforwarding on startup
+	err := local.SetIPForwarding()
+	if err != nil {
+		logger.Log(0, err.Error())
 	}
 
 	// == subscribe to all nodes for each on machine ==
@@ -110,37 +116,17 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 	return nil
 }
 
-// PingServer -- checks if server is reachable
-func PingServer(cfg *config.ClientConfig) error {
-	pinger, err := ping.NewPinger(cfg.Server.Server)
-	if err != nil {
-		return err
-	}
-	pinger.Timeout = 2 * time.Second
-	pinger.Count = 3
-	pinger.Run()
-	stats := pinger.Statistics()
-	if stats.PacketLoss == 100 {
-		return errors.New("ping error " + fmt.Sprintf("%f", stats.PacketLoss))
-	}
-	logger.Log(3, "ping of server", cfg.Server.Server, "was successful")
-	return nil
-}
-
 // == Private ==
 
 // sets MQ client subscriptions for a specific node config
 // should be called for each node belonging to a given server
 func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
-	if nodeCfg.DebugOn {
-		if token := client.Subscribe("#", 0, nil); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token.Error() == nil {
+			logger.Log(0, "connection timeout")
+		} else {
 			logger.Log(0, token.Error().Error())
-			return
 		}
-		logger.Log(0, "subscribed to all topics for debugging purposes")
-	}
-	if token := client.Subscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.Wait() && token.Error() != nil {
-		logger.Log(0, token.Error().Error())
 		return
 	}
 	logger.Log(3, fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", nodeCfg.Node.Name, nodeCfg.Node.Network, nodeCfg.Node.ID))
@@ -156,12 +142,20 @@ func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 	client.Unsubscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID))
 	var ok = true
-	if token := client.Unsubscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID)); token.Wait() && token.Error() != nil {
-		logger.Log(1, "unable to unsubscribe from updates for node ", nodeCfg.Node.Name, "\n", token.Error().Error())
+	if token := client.Unsubscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token.Error() == nil {
+			logger.Log(1, "unable to unsubscribe from updates for node ", nodeCfg.Node.Name, "\n", "connection timeout")
+		} else {
+			logger.Log(1, "unable to unsubscribe from updates for node ", nodeCfg.Node.Name, "\n", token.Error().Error())
+		}
 		ok = false
 	}
-	if token := client.Unsubscribe(fmt.Sprintf("peers/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID)); token.Wait() && token.Error() != nil {
-		logger.Log(1, "unable to unsubscribe from peer updates for node ", nodeCfg.Node.Name, "\n", token.Error().Error())
+	if token := client.Unsubscribe(fmt.Sprintf("peers/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token.Error() == nil {
+			logger.Log(1, "unable to unsubscribe from peer updates for node ", nodeCfg.Node.Name, "\n", "connection timeout")
+		} else {
+			logger.Log(1, "unable to unsubscribe from peer updates for node ", nodeCfg.Node.Name, "\n", token.Error().Error())
+		}
 		ok = false
 	}
 	if ok {

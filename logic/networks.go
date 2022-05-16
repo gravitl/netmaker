@@ -447,7 +447,7 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 		var node models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			fmt.Println("error in node address assignment!")
+			logger.Log(1, "error in node ipv4 address assignment!")
 			return err
 		}
 		if node.Network == networkName {
@@ -459,11 +459,52 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 				ipaddr, iperr = UniqueAddress(networkName, false)
 			}
 			if iperr != nil {
-				fmt.Println("error in node  address assignment!")
+				logger.Log(1, "error in node ipv4 address assignment!")
 				return iperr
 			}
 
 			node.Address = ipaddr
+			data, err := json.Marshal(&node)
+			if err != nil {
+				return err
+			}
+			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+		}
+	}
+
+	return nil
+}
+
+// UpdateNetworkNodeAddresses6 - updates network node addresses
+func UpdateNetworkNodeAddresses6(networkName string) error {
+
+	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range collections {
+
+		var node models.Node
+		err := json.Unmarshal([]byte(value), &node)
+		if err != nil {
+			logger.Log(1, "error in node ipv6 address assignment!")
+			return err
+		}
+		if node.Network == networkName {
+			var ipaddr string
+			var iperr error
+			if node.IsServer == "yes" {
+				ipaddr, iperr = UniqueAddress6(networkName, true)
+			} else {
+				ipaddr, iperr = UniqueAddress6(networkName, false)
+			}
+			if iperr != nil {
+				logger.Log(1, "error in node ipv6 address assignment!")
+				return iperr
+			}
+
+			node.Address6 = ipaddr
 			data, err := json.Marshal(&node)
 			if err != nil {
 				return err
@@ -497,24 +538,25 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, bool, error) {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, err
+		return false, false, false, false, err
 	}
 	if newNetwork.NetID == currentNetwork.NetID {
-		hasrangeupdate := newNetwork.AddressRange != currentNetwork.AddressRange
+		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
+		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
 		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
 		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
-			return false, false, false, err
+			return false, false, false, false, err
 		}
 		newNetwork.SetNetworkLastModified()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		return hasrangeupdate, localrangeupdate, hasholepunchupdate, err
+		return hasrangeupdate4, hasrangeupdate6, localrangeupdate, hasholepunchupdate, err
 	}
 	// copy values
-	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	return false, false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
 // GetNetwork - gets a network from database

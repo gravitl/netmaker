@@ -61,7 +61,6 @@ type ServerConfig struct {
 	DisplayKeys           string `yaml:"displaykeys"`
 	AzureTenant           string `yaml:"azuretenant"`
 	RCE                   string `yaml:"rce"`
-	Debug                 bool   `yaml:"debug"`
 	Telemetry             string `yaml:"telemetry"`
 	ManageIPTables        string `yaml:"manageiptables"`
 	PortForwardServices   string `yaml:"portforwardservices"`

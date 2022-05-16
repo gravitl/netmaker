@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.3.5
-	github.com/go-playground/validator/v10 v10.10.1
+	github.com/go-playground/validator/v10 v10.11.0
 	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.3.0
@@ -16,7 +16,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.7.1
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.4.8
+	github.com/urfave/cli/v2 v2.6.0
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
@@ -31,7 +31,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1
-	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
+	fyne.io/fyne/v2 v2.1.4
 	github.com/guumaster/hostctl v1.1.2
 	github.com/kr/pretty v0.3.0
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
@@ -48,9 +48,15 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/fredbi/uri v0.0.0-20181227131451-3dcfdacbaaf3 // indirect
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/go-gl/gl v0.0.0-20210813123233-e4099ee2221f // indirect
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20211024062804-40e447a793be // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
+	github.com/godbus/dbus/v5 v5.0.4 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/goki/freetype v0.0.0-20181231101311-fa8a33aabaff // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/josharian/native v1.0.0 // indirect
@@ -67,7 +73,11 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/seancfoley/bintree v1.0.1 // indirect
 	github.com/spf13/afero v1.3.2 // indirect
+	github.com/srwiley/oksvg v0.0.0-20200311192757-870daf9aa564 // indirect
+	github.com/srwiley/rasterx v0.0.0-20200120212402-85cb7272f5e9 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
+	github.com/yuin/goldmark v1.3.8 // indirect
+	golang.org/x/image v0.0.0-20200430140353-33d19683fad8 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	google.golang.org/appengine v1.4.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
