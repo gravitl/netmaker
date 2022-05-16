@@ -174,36 +174,31 @@ echo "visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
 sleep 2
 
 setup_mesh() {
-echo "creating default network (10.101.0.0/16)"
+echo "creating netmaker network (10.101.0.0/16)"
 
-curl -s -o /dev/null -d '{"addressrange":"10.101.0.0/16","netid":"default"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
+curl -s -o /dev/null -d '{"addressrange":"10.101.0.0/16","netid":"netmaker"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
 
 sleep 2
 
-echo "creating default key"
+echo "creating netmaker access key"
 
-curlresponse=$(curl -s -d '{"uses":99999,"name":"defaultkey"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks/default/keys)
+curlresponse=$(curl -s -d '{"uses":99999,"name":"netmaker-key"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks/netmaker/keys)
 ACCESS_TOKEN=$(jq -r '.accessstring' <<< ${curlresponse})
 
 sleep 2
 
 echo "configuring netmaker server as ingress gateway"
 
-curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/default)
+curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker)
 SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
-curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/default/$SERVER_ID/createingress
+curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
 
 echo "finished configuring server and network. You can now add clients."
 echo ""
-echo "For Linux and Mac clients, install with the following command:"
-echo "        curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/netclient-install.sh | sudo KEY=$ACCESS_TOKEN sh -"
-echo ""
-echo "For Windows clients, perform the following from powershell, as administrator:"
-echo "        1. Make sure WireGuardNT is installed - https://download.wireguard.com/windows-client/wireguard-installer.exe"
-echo "        2. Download netclient.exe - wget https://github.com/gravitl/netmaker/releases/download/latest/netclient.exe"
-echo "        3. Install Netclient - powershell.exe .\\netclient.exe join -t $ACCESS_TOKEN"
-echo "        4. Whitelist C:\ProgramData\Netclient in Windows Defender"
+echo "For Linux, Mac, Windows, and FreeBSD:"
+echo "        1. Install the netclient: https://docs.netmaker.org/netclient.html#installation"
+echo "        2. Join the network: netclient join -t $ACCESS_TOKEN"
 echo ""
 echo "For Android and iOS clients, perform the following steps:"
 echo "        1. Log into UI at dashboard.$NETMAKER_BASE_DOMAIN"
