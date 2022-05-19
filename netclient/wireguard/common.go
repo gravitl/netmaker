@@ -40,9 +40,14 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		return err
 	}
 	for _, peer := range peers {
-
+		// make sure peer has AllowedIP's before comparison
+		hasPeerIP := len(peer.AllowedIPs) > 0
 		for _, currentPeer := range devicePeers {
-			if currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
+			// make sure currenPeer has AllowedIP's before comparison
+			hascurrentPeerIP := len(currentPeer.AllowedIPs) > 0
+
+			if hasPeerIP && hascurrentPeerIP &&
+				currentPeer.AllowedIPs[0].String() == peer.AllowedIPs[0].String() &&
 				currentPeer.PublicKey.String() != peer.PublicKey.String() {
 				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
 				if err != nil {
@@ -54,7 +59,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		var allowedips string
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
-			if len(peer.AllowedIPs) > 0 && (&ipaddr) != nil {
+			if hasPeerIP && (&ipaddr) != nil {
 				iparr = append(iparr, ipaddr.String())
 			}
 		}
@@ -85,7 +90,9 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			shouldDelete := true
 			if peers != nil && len(peers) > 0 {
 				for _, peer := range peers {
-					if peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
+
+					if len(peer.AllowedIPs) > 0 && len(currentPeer.AllowedIPs) > 0 &&
+						peer.AllowedIPs[0].String() == currentPeer.AllowedIPs[0].String() {
 						shouldDelete = false
 					}
 					// re-check this if logic is not working, added in case of allowedips not working
