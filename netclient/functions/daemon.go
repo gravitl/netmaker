@@ -204,7 +204,11 @@ func NewTLSConfig(server string) *tls.Config {
 func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
-	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	port := "8883"
+	if server.MQPort != "" {
+		port = server.MQPort
+	}
+	opts.AddBroker("ssl://" + server + ":" + port) // TODO get the appropriate port of the comms mq server
 	opts.SetTLSConfig(NewTLSConfig(server))
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
