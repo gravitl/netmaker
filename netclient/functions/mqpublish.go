@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/cloverstd/tcping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -140,7 +142,16 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 			err = token.Error()
 		}
 		if err != nil {
-			return token.Error()
+			if brokerErr := checkBroker(nodeCfg.Server.Server); brokerErr != nil {
+				if brokerErr.Error() == "dns" {
+					logger.Log(0, "dns lookup failed for", nodeCfg.Server.Server, "... update dns records")
+				} else if brokerErr.Error() == "ping" {
+					logger.Log(0, "unable to connect to broker ... check firewalls")
+				} else {
+					logger.Log(0, "unknown broker connection error")
+				}
+			}
+			return err
 		}
 	}
 	return nil
@@ -158,6 +169,28 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 	}
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func checkBroker(broker string) error {
+	_, err := net.LookupIP(broker)
+	if err != nil {
+		return errors.New("dns")
+	}
+	pinger := ping.NewTCPing()
+	pinger.SetTarget(&ping.Target{
+		Protocol: ping.TCP,
+		Host:     broker,
+		Port:     8883,
+		Counter:  3,
+		Interval: 1 * time.Second,
+		Timeout:  2 * time.Second,
+	})
+	pingerDone := pinger.Start()
+	<-pingerDone
+	if pinger.Result().SuccessCounter == 0 {
+		return errors.New("ping")
 	}
 	return nil
 }
