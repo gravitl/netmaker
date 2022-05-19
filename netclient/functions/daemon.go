@@ -242,6 +242,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 		} else {
 			err = token.Error()
 		}
+		checkBroker(cfg.Server.Server)
 		logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
 		if strings.Contains(err.Error(), "connectex") || strings.Contains(err.Error(), "connect timeout") {
 			logger.Log(0, "connection issue detected.. attempt connection with new certs")

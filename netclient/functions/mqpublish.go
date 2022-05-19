@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/cloverstd/tcping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -140,7 +142,8 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 			err = token.Error()
 		}
 		if err != nil {
-			return token.Error()
+			checkBroker(nodeCfg.Server.Server)
+			return err
 		}
 	}
 	return nil
@@ -160,4 +163,25 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 		return err
 	}
 	return nil
+}
+
+func checkBroker(broker string) {
+	_, err := net.LookupIP(broker)
+	if err != nil {
+		logger.FatalLog("nslookup failed for broker ... check dns records")
+	}
+	pinger := ping.NewTCPing()
+	pinger.SetTarget(&ping.Target{
+		Protocol: ping.TCP,
+		Host:     broker,
+		Port:     8883,
+		Counter:  3,
+		Interval: 1 * time.Second,
+		Timeout:  2 * time.Second,
+	})
+	pingerDone := pinger.Start()
+	<-pingerDone
+	if pinger.Result().SuccessCounter == 0 {
+		logger.FatalLog("unable to connect to broker port ... check firewalls")
+	}
 }
