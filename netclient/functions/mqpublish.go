@@ -142,15 +142,7 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 			err = token.Error()
 		}
 		if err != nil {
-			if brokerErr := checkBroker(nodeCfg.Server.Server); brokerErr != nil {
-				if brokerErr.Error() == "dns" {
-					logger.Log(0, "dns lookup failed for", nodeCfg.Server.Server, "... update dns records")
-				} else if brokerErr.Error() == "ping" {
-					logger.Log(0, "unable to connect to broker ... check firewalls")
-				} else {
-					logger.Log(0, "unknown broker connection error")
-				}
-			}
+			checkBroker(nodeCfg.Server.Server)
 			return err
 		}
 	}
@@ -173,10 +165,10 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 	return nil
 }
 
-func checkBroker(broker string) error {
+func checkBroker(broker string) {
 	_, err := net.LookupIP(broker)
 	if err != nil {
-		return errors.New("dns")
+		logger.FatalLog("nslookup failed for broker ... check dns records")
 	}
 	pinger := ping.NewTCPing()
 	pinger.SetTarget(&ping.Target{
@@ -190,7 +182,6 @@ func checkBroker(broker string) error {
 	pingerDone := pinger.Start()
 	<-pingerDone
 	if pinger.Result().SuccessCounter == 0 {
-		return errors.New("ping")
+		logger.FatalLog("unable to connect to broker port ... check firewalls")
 	}
-	return nil
 }

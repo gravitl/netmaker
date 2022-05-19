@@ -242,14 +242,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 		} else {
 			err = token.Error()
 		}
-		brokerErr := checkBroker(cfg.Server.Server)
-		if brokerErr.Error() == "dns" {
-			logger.FatalLog("dns lookup failed for broker ... update dns records")
-		} else if brokerErr.Error() == "ping" {
-			logger.FatalLog("unable to connect to broker ... check firewalls")
-		} else if brokerErr != nil {
-			logger.Log(0, "unable to conncet to broker")
-		}
+		checkBroker(cfg.Server.Server)
 		logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
 		if strings.Contains(err.Error(), "connectex") || strings.Contains(err.Error(), "connect timeout") {
 			logger.Log(0, "connection issue detected.. attempt connection with new certs")
