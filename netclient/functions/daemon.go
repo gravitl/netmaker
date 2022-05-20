@@ -167,7 +167,11 @@ func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 // the client should subscribe to ALL nodes that exist on server locally
 func messageQueue(ctx context.Context, cfg *config.ClientConfig) {
 	logger.Log(0, "netclient daemon started for server: ", cfg.Server.Server)
-	client := setupMQTT(cfg, false)
+	client, err := setupMQTT(cfg, false)
+	if err != nil {
+		logger.Log(0, "unable to connect to broker", err.Error())
+		return
+	}
 	defer client.Disconnect(250)
 	<-ctx.Done()
 	logger.Log(0, "shutting down daemon for server ", cfg.Server.Server)
@@ -201,7 +205,7 @@ func NewTLSConfig(server string) *tls.Config {
 
 // setupMQTT creates a connection to broker and returns client
 // this function is primarily used to create a connection to publish to the broker
-func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
+func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
@@ -242,7 +246,9 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 		} else {
 			err = token.Error()
 		}
-		checkBroker(cfg.Server.Server)
+		if err := checkBroker(cfg.Server.Server); err != nil {
+			return nil, err
+		}
 		logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
 		if strings.Contains(err.Error(), "connectex") || strings.Contains(err.Error(), "connect timeout") {
 			logger.Log(0, "connection issue detected.. attempt connection with new certs")
@@ -257,7 +263,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 			daemon.Restart()
 		}
 	}
-	return client
+	return client, nil
 }
 
 // publishes a message to server to update peers on this peer's behalf
