@@ -170,7 +170,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 	logger.Log(1, "node created on remote server...updating configs")
 	cfg.Node = node
-	logger.Log(0, "UDP Hole Punch: "+cfg.Node.UDPHolePunch)
+	logger.Log(1, "turn on UDP hole punching (dynamic port setting)? "+cfg.Node.UDPHolePunch)
 	if !manualPort && (cfg.Node.UDPHolePunch == "no") {
 		setListenPort(cfg)
 	}
