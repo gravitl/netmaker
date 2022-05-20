@@ -40,8 +40,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 	nodeport := int(node.ListenPort)
 	if node.UDPHolePunch == "yes" &&
 		node.IsServer == "no" &&
-		node.IsIngressGateway != "yes" &&
-		node.IsStatic != "yes" {
+		node.IsIngressGateway != "yes" {
 		conf = wgtypes.Config{
 			PrivateKey: &key,
 		}
