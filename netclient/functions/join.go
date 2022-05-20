@@ -42,6 +42,11 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if cfg.Node.Password == "" {
 		cfg.Node.Password = logic.GenKey()
 	}
+	manualPort := false
+	if cfg.Node.ListenPort != 0 {
+		cfg.Node.UDPHolePunch = "no"
+		manualPort = true
+	}
 	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
 	if errT != nil {
 		return errT
@@ -164,10 +169,11 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		}
 	}
 	logger.Log(1, "node created on remote server...updating configs")
-	// keep track of the old listenport value
-	oldListenPort := node.ListenPort
 	cfg.Node = node
-	setListenPort(oldListenPort, cfg)
+	logger.Log(1, "turn on UDP hole punching (dynamic port setting)? "+cfg.Node.UDPHolePunch)
+	if !manualPort && (cfg.Node.UDPHolePunch == "no") {
+		setListenPort(cfg)
+	}
 	err = config.ModConfig(&cfg.Node)
 	if err != nil {
 		return err
@@ -215,22 +221,19 @@ func formatName(node models.Node) string {
 	return node.Name
 }
 
-func setListenPort(oldListenPort int32, cfg *config.ClientConfig) {
+func setListenPort(cfg *config.ClientConfig) {
 	// keep track of the returned listenport value
 	newListenPort := cfg.Node.ListenPort
+	var errN error
+	// get free port based on returned default listen port
+	cfg.Node.ListenPort, errN = ncutils.GetFreePort(cfg.Node.ListenPort)
+	if errN != nil {
+		cfg.Node.ListenPort = newListenPort
+		logger.Log(1, "Error retrieving port: ", errN.Error())
+	}
 
-	if newListenPort != oldListenPort {
-		var errN error
-		// get free port based on returned default listen port
-		cfg.Node.ListenPort, errN = ncutils.GetFreePort(cfg.Node.ListenPort)
-		if errN != nil {
-			cfg.Node.ListenPort = newListenPort
-			logger.Log(1, "Error retrieving port: ", errN.Error())
-		}
-
-		// if newListenPort has been modified to find an available port, publish to server
-		if cfg.Node.ListenPort != newListenPort {
-			PublishNodeUpdate(cfg)
-		}
+	// if newListenPort has been modified to find an available port, publish to server
+	if cfg.Node.ListenPort != newListenPort {
+		PublishNodeUpdate(cfg)
 	}
 }
