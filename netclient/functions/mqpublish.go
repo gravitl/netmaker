@@ -111,7 +111,7 @@ func Hello(nodeCfg *config.ClientConfig) {
 			logger.Log(0, "could not run pull on "+nodeCfg.Node.Network+", error: "+err.Error())
 		}
 	}
-	logger.Log(3, "server checkin complete")
+	logger.Log(3, "checkin for", nodeCfg.Network, "complete")
 }
 
 // node cfg is required  in order to fetch the traffic keys of that node for encryption
@@ -126,7 +126,10 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		return err
 	}
 
-	client := setupMQTT(nodeCfg, true)
+	client, err := setupMQTT(nodeCfg, true)
+	if err != nil {
+		return fmt.Errorf("mq setup error %w", err)
+	}
 	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
@@ -142,7 +145,6 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 			err = token.Error()
 		}
 		if err != nil {
-			checkBroker(nodeCfg.Server.Server)
 			return err
 		}
 	}
@@ -165,10 +167,10 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 	return nil
 }
 
-func checkBroker(broker string) {
+func checkBroker(broker string) error {
 	_, err := net.LookupIP(broker)
 	if err != nil {
-		logger.FatalLog("nslookup failed for broker ... check dns records")
+		return errors.New("nslookup failed for broker ... check dns records")
 	}
 	pinger := ping.NewTCPing()
 	pinger.SetTarget(&ping.Target{
@@ -182,6 +184,7 @@ func checkBroker(broker string) {
 	pingerDone := pinger.Start()
 	<-pingerDone
 	if pinger.Result().SuccessCounter == 0 {
-		logger.FatalLog("unable to connect to broker port ... check firewalls")
+		return errors.New("unable to connect to broker port ... check netmaker server and firewalls")
 	}
+	return nil
 }
