@@ -80,7 +80,9 @@ func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, i
 				}
 			}
 			// if udp hole punching is on, but port is still set to default (e.g. 51821), use the LocalListenPort
-			if node.UDPHolePunch == "yes" && node.IsStatic != "yes" && peer.ListenPort == node.ListenPort {
+			// removing IsStatic check. IsStatic will now ONLY refer to endpoint.
+			//if node.UDPHolePunch == "yes" && node.IsStatic != "yes" && peer.ListenPort == node.ListenPort {
+			if node.UDPHolePunch == "yes" && peer.ListenPort == node.ListenPort {
 				peer.ListenPort = node.LocalListenPort
 			}
 			if node.IsRelay == "yes" { // TODO, check if addressrange6 needs to be appended

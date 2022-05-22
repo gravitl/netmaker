@@ -406,8 +406,7 @@ func isDeleteError(err error) bool {
 }
 
 func checkNodeActions(node *models.Node) string {
-	if (node.Action == models.NODE_UPDATE_KEY) &&
-		node.IsStatic != "yes" {
+	if node.Action == models.NODE_UPDATE_KEY {
 		err := setWGKeyConfig(node)
 		if err != nil {
 			logger.Log(1, "unable to process reset keys request:", err.Error())
