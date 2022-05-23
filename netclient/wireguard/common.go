@@ -245,7 +245,7 @@ func SetWGConfig(network string, peerupdate bool, peers []wgtypes.PeerConfig) er
 	if err != nil {
 		return err
 	}
-	servercfg := cfg.Server
+
 	nodecfg := cfg.Node
 
 	privkey, err := RetrievePrivKey(network)
@@ -267,9 +267,7 @@ func SetWGConfig(network string, peerupdate bool, peers []wgtypes.PeerConfig) er
 	} else {
 		err = InitWireguard(&nodecfg, privkey, peers, false)
 	}
-	if nodecfg.DNSOn == "yes" {
-		_ = local.UpdateDNS(nodecfg.Interface, nodecfg.Network, servercfg.CoreDNSAddr)
-	}
+
 	return err
 }
 
