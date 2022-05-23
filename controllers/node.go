@@ -38,9 +38,6 @@ func nodeHandlers(r *mux.Router) {
 
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
-	var params = mux.Vars(request)
-	networkname := params["network"]
-
 	var authRequest models.AuthParams
 	var result models.Node
 	var errorResponse = models.ErrorResponse{
@@ -58,8 +55,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		return
 	} else {
 		errorResponse.Code = http.StatusBadRequest
-		if authRequest.MacAddress == "" {
-			errorResponse.Message = "W1R3: MacAddress can't be empty"
+		if authRequest.ID == "" {
+			errorResponse.Message = "W1R3: ID can't be empty"
 			returnErrorResponse(response, request, errorResponse)
 			return
 		} else if authRequest.Password == "" {
@@ -67,22 +64,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			returnErrorResponse(response, request, errorResponse)
 			return
 		} else {
-
-			collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				returnErrorResponse(response, request, errorResponse)
-				return
-			}
-			for _, value := range collection {
-				if err := json.Unmarshal([]byte(value), &result); err != nil {
-					continue
-				}
-				if (result.ID == authRequest.ID || result.MacAddress == authRequest.MacAddress) && result.IsPending != "yes" && result.Network == networkname {
-					break
-				}
-			}
+			var err error
+			result, err = logic.GetNodeByID(authRequest.ID)
 
 			if err != nil {
 				errorResponse.Code = http.StatusBadRequest
@@ -109,10 +92,10 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 
 				var successResponse = models.SuccessResponse{
 					Code:    http.StatusOK,
-					Message: "W1R3: Device " + authRequest.MacAddress + " Authorized",
+					Message: "W1R3: Device " + authRequest.ID + " Authorized",
 					Response: models.SuccessfulLoginResponse{
-						AuthToken:  tokenString,
-						MacAddress: authRequest.MacAddress,
+						AuthToken: tokenString,
+						ID:        authRequest.ID,
 					},
 				}
 				successJSONResponse, jsonError := json.Marshal(successResponse)

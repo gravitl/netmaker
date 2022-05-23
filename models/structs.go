@@ -61,8 +61,8 @@ type Claims struct {
 
 // SuccessfulLoginResponse is struct to send the request response
 type SuccessfulLoginResponse struct {
-	MacAddress string
-	AuthToken  string
+	ID        string
+	AuthToken string
 }
 
 // ErrorResponse is struct for error
