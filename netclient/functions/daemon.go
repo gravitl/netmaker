@@ -66,10 +66,11 @@ func Daemon() error {
 	}
 
 	// == subscribe to all nodes for each on machine ==
-	for server, config := range serverSet {
+	for server := range serverSet {
 		logger.Log(1, "started daemon for server ", server)
 		ctx, cancel := context.WithCancel(context.Background())
 		networkcontext.Store(server, cancel)
+		config := serverSet[server]
 		go messageQueue(ctx, &config)
 	}
 
