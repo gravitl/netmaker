@@ -67,6 +67,7 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 	LoadingNotify()
 	nets, err := functions.List(network)
 	if err != nil || len(nets) < 1 {
+		ClearNotification()
 		return container.NewCenter(widget.NewLabel("No data retrieved."))
 	}
 	var nodecfg config.ClientConfig
@@ -79,10 +80,10 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 	privateAddr6 := nodecfg.Node.Address6
 	endpoint := nodecfg.Node.Endpoint
 	health := " (HEALTHY)"
-	if time.Now().After(lastCheckInTime.Add(time.Minute * 5)) {
-		health = " (WARNING)"
-	} else if time.Now().After(lastCheckInTime.Add(time.Minute * 30)) {
+	if time.Now().After(lastCheckInTime.Add(time.Minute * 30)) {
 		health = " (ERROR)"
+	} else if time.Now().After(lastCheckInTime.Add(time.Minute * 5)) {
+		health = " (WARNING)"
 	}
 	lastCheckIn += health
 	version := nodecfg.Node.Version
