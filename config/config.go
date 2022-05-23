@@ -66,6 +66,7 @@ type ServerConfig struct {
 	PortForwardServices   string `yaml:"portforwardservices"`
 	HostNetwork           string `yaml:"hostnetwork"`
 	MQPort                string `yaml:"mqport"`
+	MQPublicPort          string `yaml:"mqpublicport"`
 	Server                string `yaml:"server"`
 }
 

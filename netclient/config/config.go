@@ -30,10 +30,11 @@ type ClientConfig struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
-	AccessKey   string `yaml:"accesskey"`
-	Server      string `yaml:"server"`
-	API         string `yaml:"api"`
+	CoreDNSAddr  string `yaml:"corednsaddr"`
+	AccessKey    string `yaml:"accesskey"`
+	Server       string `yaml:"server"`
+	MQPublicPort string `yaml:"mqpublicport"`
+	API          string `yaml:"api"`
 }
 
 // RegisterRequest - struct for registation with netmaker server

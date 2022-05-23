@@ -35,6 +35,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.APIPort = GetAPIPort()
 	cfg.APIPort = GetAPIPort()
 	cfg.MQPort = GetMQPort()
+	cfg.MQPublicPort = GetMQPublicPort()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
@@ -205,6 +206,17 @@ func GetMQPort() string {
 	return mqport
 }
 
+// GetMQPort - gets the mq port
+func GetMQPublicPort() string {
+	mqport := "8883"
+	if os.Getenv("MQ_PUBLIC_PORT") != "" {
+		mqport = os.Getenv("MQ_PUBLIC_PORT")
+	} else if config.Config.Server.MQPublicPort != "" {
+		mqport = config.Config.Server.MQPublicPort
+	}
+	return mqport
+}
+
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint() string {
 	host, _ := GetPublicIP()
@@ -213,8 +225,9 @@ func GetMessageQueueEndpoint() string {
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
+
 	//Do we want MQ port configurable???
-	return host + ":1883"
+	return host + GetMQPort()
 }
 
 // GetMasterKey - gets the configured master key of server

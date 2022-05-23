@@ -33,6 +33,7 @@ services:
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
+      MQ_PUBLIC_PORT: "8883"
       HOST_NETWORK: "off"
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
