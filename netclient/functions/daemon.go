@@ -48,6 +48,7 @@ func Daemon() error {
 	if len(networks) == 0 {
 		return errors.New("no networks")
 	}
+	pubNetworks = append(pubNetworks, networks...)
 	// set ipforwarding on startup
 	err := local.SetIPForwarding()
 	if err != nil {
