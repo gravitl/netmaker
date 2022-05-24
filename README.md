@@ -48,7 +48,7 @@ a platform for modern, blazing fast virtual networks
 
 `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash`
 
-<img src="./img/visit-website.gif" width="49%" /><img src="./img/graph-readme.gif" width="49%" />
+<img src="./img/visit-website.gif" width="40%" /><img src="./img/graph-readme.gif" width="40%" />
 
 Upon completion, the logs will display the instructions to connect various devices. These can also be retrieved from the UI under "Access Keys."
 
