@@ -18,6 +18,9 @@ import (
 	"github.com/gravitl/netmaker/tls"
 )
 
+// pubNetworks hold the currently publishable networks
+var pubNetworks []string
+
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
@@ -29,13 +32,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-time.After(time.Second * 60):
-			// logger.Log(0, "Checkin running")
-			//read latest config
-			networks, err := ncutils.GetSystemNetworks()
-			if err != nil {
-				return
-			}
-			for _, network := range networks {
+			for _, network := range pubNetworks {
 				var nodeCfg config.ClientConfig
 				nodeCfg.Network = network
 				nodeCfg.ReadConfig()
