@@ -680,7 +680,7 @@ func networkNodesUpdateAction(networkName string, action string) error {
 			fmt.Println("error in node address assignment!")
 			return err
 		}
-		if action == models.NODE_UPDATE_KEY && node.IsStatic == "yes" {
+		if action == models.NODE_UPDATE_KEY {
 			continue
 		}
 		if node.Network == networkName {

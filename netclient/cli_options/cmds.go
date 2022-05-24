@@ -1,8 +1,6 @@
 package cli_options
 
 import (
-	"errors"
-
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/command"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -20,10 +18,6 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				parseVerbosity(c)
 				cfg, pvtKey, err := config.GetCLIConfig(c)
 				if err != nil {
-					return err
-				}
-				if cfg.Network == "all" {
-					err = errors.New("no network provided")
 					return err
 				}
 				err = command.Join(&cfg, pvtKey)

@@ -10,13 +10,13 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
-	github.com/lib/pq v1.10.5
+	github.com/lib/pq v1.10.6
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.7.1
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.6.0
+	github.com/urfave/cli/v2 v2.8.0
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
@@ -32,6 +32,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1
 	fyne.io/fyne/v2 v2.1.4
+	github.com/cloverstd/tcping v0.1.1
 	github.com/guumaster/hostctl v1.1.2
 	github.com/kr/pretty v0.3.0
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
@@ -41,6 +42,7 @@ require (
 require (
 	cloud.google.com/go v0.34.0 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/antzucaro/matchr v0.0.0-20210222213004-b04723ef80f0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect

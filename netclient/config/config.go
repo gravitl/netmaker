@@ -10,12 +10,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
+)
+
+var (
+	configLock sync.Mutex
 )
 
 // ClientConfig - struct for dealing with client configuration
@@ -52,6 +57,8 @@ type RegisterResponse struct {
 
 // Write - writes the config of a client to disk
 func Write(config *ClientConfig, network string) error {
+	configLock.Lock()
+	defer configLock.Unlock()
 	if network == "" {
 		err := errors.New("no network provided - exiting")
 		return err
@@ -140,7 +147,7 @@ func ModConfig(node *models.Node) error {
 	return Write(&modconfig, network)
 }
 
-// ModConfig - overwrites the node inside client config on disk
+// SaveBackup - saves a backup file of a given network
 func SaveBackup(network string) error {
 
 	var configPath = ncutils.GetNetclientPathSpecific() + "netconfig-" + network

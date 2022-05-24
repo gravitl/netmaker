@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.14.0
+    image: gravitl/netmaker:v0.14.1
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -44,7 +44,7 @@ services:
     container_name: netmaker-ui
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.14.0
+    image: gravitl/netmaker-ui:v0.14.1
     links:
       - "netmaker:api"
     ports:
@@ -73,6 +73,7 @@ services:
       - "8883:8883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/certs/:/mosquitto/certs/
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
 volumes:

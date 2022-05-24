@@ -5,16 +5,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/cloverstd/tcping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/tls"
 )
+
+// pubNetworks hold the currently publishable networks
+var pubNetworks []string
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
@@ -27,13 +32,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-time.After(time.Second * 60):
-			// logger.Log(0, "Checkin running")
-			//read latest config
-			networks, err := ncutils.GetSystemNetworks()
-			if err != nil {
-				return
-			}
-			for _, network := range networks {
+			for _, network := range pubNetworks {
 				var nodeCfg config.ClientConfig
 				nodeCfg.Network = network
 				nodeCfg.ReadConfig()
@@ -109,7 +108,7 @@ func Hello(nodeCfg *config.ClientConfig) {
 			logger.Log(0, "could not run pull on "+nodeCfg.Node.Network+", error: "+err.Error())
 		}
 	}
-	logger.Log(3, "server checkin complete")
+	logger.Log(3, "checkin for", nodeCfg.Network, "complete")
 }
 
 // node cfg is required  in order to fetch the traffic keys of that node for encryption
@@ -124,7 +123,10 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		return err
 	}
 
-	client := setupMQTT(nodeCfg, true)
+	client, err := setupMQTT(nodeCfg, true)
+	if err != nil {
+		return fmt.Errorf("mq setup error %w", err)
+	}
 	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
@@ -140,7 +142,7 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 			err = token.Error()
 		}
 		if err != nil {
-			return token.Error()
+			return err
 		}
 	}
 	return nil
@@ -158,6 +160,28 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 	}
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func checkBroker(broker string) error {
+	_, err := net.LookupIP(broker)
+	if err != nil {
+		return errors.New("nslookup failed for broker ... check dns records")
+	}
+	pinger := ping.NewTCPing()
+	pinger.SetTarget(&ping.Target{
+		Protocol: ping.TCP,
+		Host:     broker,
+		Port:     8883,
+		Counter:  3,
+		Interval: 1 * time.Second,
+		Timeout:  2 * time.Second,
+	})
+	pingerDone := pinger.Start()
+	<-pingerDone
+	if pinger.Result().SuccessCounter == 0 {
+		return errors.New("unable to connect to broker port ... check netmaker server and firewalls")
 	}
 	return nil
 }

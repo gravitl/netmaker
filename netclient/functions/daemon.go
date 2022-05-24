@@ -42,35 +42,36 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
-	serverSet := make(map[string]config.ClientConfig)
+	serverSet := make(map[string]bool)
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
 	if len(networks) == 0 {
 		return errors.New("no networks")
 	}
-	for _, network := range networks {
-		logger.Log(3, "initializing network", network)
-		cfg := config.ClientConfig{}
-		cfg.Network = network
-		cfg.ReadConfig()
-		serverSet[cfg.Server.Server] = cfg
-		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
-			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
-		}
-		//initialPull(cfg.Network)
-	}
+	pubNetworks = append(pubNetworks, networks...)
 	// set ipforwarding on startup
 	err := local.SetIPForwarding()
 	if err != nil {
 		logger.Log(0, err.Error())
 	}
 
-	// == subscribe to all nodes for each on machine ==
-	for server, config := range serverSet {
-		logger.Log(1, "started daemon for server ", server)
-		ctx, cancel := context.WithCancel(context.Background())
-		networkcontext.Store(server, cancel)
-		go messageQueue(ctx, &config)
+	for _, network := range networks {
+		logger.Log(3, "initializing network", network)
+		cfg := config.ClientConfig{}
+		cfg.Network = network
+		cfg.ReadConfig()
+		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
+			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
+		}
+		server := cfg.Server.Server
+		if !serverSet[server] {
+			// == subscribe to all nodes for each on machine ==
+			serverSet[server] = true
+			logger.Log(1, "started daemon for server ", server)
+			ctx, cancel := context.WithCancel(context.Background())
+			networkcontext.Store(server, cancel)
+			go messageQueue(ctx, &cfg)
+		}
 	}
 
 	// == add waitgroup and cancel for checkin routine ==
@@ -167,7 +168,11 @@ func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 // the client should subscribe to ALL nodes that exist on server locally
 func messageQueue(ctx context.Context, cfg *config.ClientConfig) {
 	logger.Log(0, "netclient daemon started for server: ", cfg.Server.Server)
-	client := setupMQTT(cfg, false)
+	client, err := setupMQTT(cfg, false)
+	if err != nil {
+		logger.Log(0, "unable to connect to broker", err.Error())
+		return
+	}
 	defer client.Disconnect(250)
 	<-ctx.Done()
 	logger.Log(0, "shutting down daemon for server ", cfg.Server.Server)
@@ -201,7 +206,7 @@ func NewTLSConfig(server string) *tls.Config {
 
 // setupMQTT creates a connection to broker and returns client
 // this function is primarily used to create a connection to publish to the broker
-func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
+func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
@@ -242,6 +247,9 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 		} else {
 			err = token.Error()
 		}
+		if err := checkBroker(cfg.Server.Server); err != nil {
+			return nil, err
+		}
 		logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
 		if strings.Contains(err.Error(), "connectex") || strings.Contains(err.Error(), "connect timeout") {
 			logger.Log(0, "connection issue detected.. attempt connection with new certs")
@@ -256,7 +264,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) mqtt.Client {
 			daemon.Restart()
 		}
 	}
-	return client
+	return client, nil
 }
 
 // publishes a message to server to update peers on this peer's behalf
