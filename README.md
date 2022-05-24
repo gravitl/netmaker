@@ -21,8 +21,8 @@ a platform for modern, blazing fast virtual networks
   <a href="https://github.com/gravitl/netmaker/graphs/contributors">
     <img src="https://img.shields.io/github/commit-activity/m/gravitl/netmaker?color=blue" />
   </a>
-  <a href="https://twitter.com/intent/follow?screen_name=gravitlcorp">
-    <img src="https://img.shields.io/twitter/follow/gravitlcorp?style=social" />
+  <a href="https://twitter.com/intent/follow?screen_name=netmaker_io">
+    <img src="https://img.shields.io/twitter/follow/netmaker_io?style=social" />
   </a>
   <a href="https://www.youtube.com/channel/UCach3lJY_xBV7rGrbUSvkZQ">
     <img src="https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social" />
@@ -48,7 +48,9 @@ a platform for modern, blazing fast virtual networks
 
 `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash`
 
-<img src="./img/visit-website.gif" width="50%" /><img src="./img/graph-readme.gif" width="50%" />
+<p float="left" align="middle">
+<img src="./img/readme.gif" />
+</p>
 
 Upon completion, the logs will display the instructions to connect various devices. These can also be retrieved from the UI under "Access Keys."
 
@@ -106,6 +108,9 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 - [Terraform Provider](https://github.com/madacluster/netmaker-terraform-provider)
 
+- [VyOS Integration](https://github.com/kylechase/vyos-netmaker)
+
+- [Netmaker K3S](https://github.com/geragcp/netmaker-k3s)
 
 ## Disclaimer
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
