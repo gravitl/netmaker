@@ -42,22 +42,11 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
-	serverSet := make(map[string]config.ClientConfig)
+	serverSet := make(map[string]bool)
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
 	if len(networks) == 0 {
 		return errors.New("no networks")
-	}
-	for _, network := range networks {
-		logger.Log(3, "initializing network", network)
-		cfg := config.ClientConfig{}
-		cfg.Network = network
-		cfg.ReadConfig()
-		serverSet[cfg.Server.Server] = cfg
-		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
-			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
-		}
-		//initialPull(cfg.Network)
 	}
 	// set ipforwarding on startup
 	err := local.SetIPForwarding()
@@ -65,13 +54,23 @@ func Daemon() error {
 		logger.Log(0, err.Error())
 	}
 
-	// == subscribe to all nodes for each on machine ==
-	for server := range serverSet {
-		logger.Log(1, "started daemon for server ", server)
-		ctx, cancel := context.WithCancel(context.Background())
-		networkcontext.Store(server, cancel)
-		config := serverSet[server]
-		go messageQueue(ctx, &config)
+	for _, network := range networks {
+		logger.Log(3, "initializing network", network)
+		cfg := config.ClientConfig{}
+		cfg.Network = network
+		cfg.ReadConfig()
+		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
+			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
+		}
+		server := cfg.Server.Server
+		if !serverSet[server] {
+			// == subscribe to all nodes for each on machine ==
+			serverSet[server] = true
+			logger.Log(1, "started daemon for server ", server)
+			ctx, cancel := context.WithCancel(context.Background())
+			networkcontext.Store(server, cancel)
+			go messageQueue(ctx, &cfg)
+		}
 	}
 
 	// == add waitgroup and cancel for checkin routine ==
