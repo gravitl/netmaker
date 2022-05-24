@@ -346,7 +346,7 @@ func API(data any, method, url, authorization string) (*http.Response, error) {
 // Authenticate authenticates with api to permit subsequent interactions with the api
 func Authenticate(cfg *config.ClientConfig) (string, error) {
 
-	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "/secret-" + cfg.Network)
+	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + cfg.Network)
 	if err != nil {
 		return "", fmt.Errorf("could not read secrets file %w", err)
 	}
