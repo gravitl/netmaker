@@ -210,7 +210,7 @@ func NewTLSConfig(server string) *tls.Config {
 func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
-	opts.AddBroker("ssl://" + server + servercfg.GetMQPort())
+	opts.AddBroker("ssl://" + server + ":" + servercfg.GetMQPort())
 	opts.SetTLSConfig(NewTLSConfig(server))
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)

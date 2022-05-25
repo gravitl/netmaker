@@ -224,8 +224,7 @@ func GetMessageQueueEndpoint() string {
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	//Do we want MQ port configurable???
-	return host + GetMQServerPort()
+	return host + ":" + GetMQServerPort()
 }
 
 // GetMasterKey - gets the configured master key of server
