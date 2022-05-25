@@ -50,6 +50,8 @@ func Dump() string {
 	if program != "netmaker" {
 		return ""
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	var dumpString = ""
 	type keyVal struct {
 		Key   string
@@ -118,7 +120,5 @@ func FatalLog(message ...string) {
 
 // resetLogs - reallocates logs map
 func resetLogs() {
-	mu.Lock()
-	defer mu.Unlock()
 	currentLogs = make(map[string]entry)
 }
