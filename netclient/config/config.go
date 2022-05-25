@@ -39,6 +39,7 @@ type ServerConfig struct {
 	AccessKey   string `yaml:"accesskey"`
 	Server      string `yaml:"server"`
 	API         string `yaml:"api"`
+	Version     string `yaml:"version"`
 }
 
 // RegisterRequest - struct for registation with netmaker server

@@ -2,6 +2,7 @@ package functions
 
 import (
 	"encoding/json"
+	"log"
 	"runtime"
 	"strings"
 	"time"
@@ -183,6 +184,17 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	insert(peerUpdate.Network, lastPeerUpdate, string(data))
+	// check version
+	log.Println(peerUpdate.ServerVersion)
+	if peerUpdate.ServerVersion != ncutils.Version {
+		logger.Log(0, "server/client version mismatch server: ", peerUpdate.ServerVersion, " client: ", ncutils.Version)
+	}
+	log.Println(cfg.Server.Version)
+	if peerUpdate.ServerVersion != cfg.Server.Version {
+		logger.Log(1, "updating server version")
+		cfg.Server.Version = peerUpdate.ServerVersion
+		config.Write(&cfg, cfg.Network)
+	}
 
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 	err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
