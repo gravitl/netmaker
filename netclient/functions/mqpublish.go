@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/tls"
 )
 
@@ -170,10 +172,14 @@ func checkBroker(broker string) error {
 		return errors.New("nslookup failed for broker ... check dns records")
 	}
 	pinger := ping.NewTCPing()
+	port, err := strconv.Atoi(servercfg.GetMQPort())
+	if err != nil {
+		port = 8883
+	}
 	pinger.SetTarget(&ping.Target{
 		Protocol: ping.TCP,
 		Host:     broker,
-		Port:     8883,
+		Port:     port,
 		Counter:  3,
 		Interval: 1 * time.Second,
 		Timeout:  2 * time.Second,
