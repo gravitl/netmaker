@@ -25,6 +25,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/gravitl/netmaker/servercfg"
 	ssl "github.com/gravitl/netmaker/tls"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -209,7 +210,7 @@ func NewTLSConfig(server string) *tls.Config {
 func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
-	opts.AddBroker("ssl://" + server + ":8883") // TODO get the appropriate port of the comms mq server
+	opts.AddBroker("ssl://" + server + ":" + servercfg.GetMQPort())
 	opts.SetTLSConfig(NewTLSConfig(server))
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
