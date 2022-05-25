@@ -50,6 +50,8 @@ func Dump() string {
 	if program != "netmaker" {
 		return ""
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	var dumpString = ""
 	type keyVal struct {
 		Key   string
