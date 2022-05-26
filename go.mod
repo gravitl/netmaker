@@ -32,6 +32,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1
 	fyne.io/fyne/v2 v2.1.4
+	github.com/c-robinson/iplib v1.0.3
 	github.com/cloverstd/tcping v0.1.1
 	github.com/guumaster/hostctl v1.1.2
 	github.com/kr/pretty v0.3.0
