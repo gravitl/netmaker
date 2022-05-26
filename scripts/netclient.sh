@@ -1,4 +1,16 @@
-#!/bin/sh
+#!/bin/bash
+
+#Define cleanup
+cleanup() {
+    nets=($(wg show interfaces))
+    for net in ${nets[@]}; do
+        echo "deleting interface" $net
+        ip link del $net
+    done
+}
+
+#Trap SigTerm
+trap 'cleanup' SIGTERM
 
 echo "[netclient] joining network"
 
@@ -11,11 +23,12 @@ if [ "$TOKEN" != "" ]; then
     TOKEN_CMD="-t $TOKEN"
 fi
 
-/root/netclient join $TOKEN_CMD -daemon off -dnson no -udpholepunch no
+/root/netclient join $TOKEN_CMD -dnson no -udpholepunch no
 if [ $? -ne 0 ]; then { echo "Failed to join, quitting." ; exit 1; } fi
 
 echo "[netclient] Starting netclient daemon"
 
-/root/netclient daemon
+/root/netclient daemon &
 
+wait $!
 echo "[netclient] exiting"
