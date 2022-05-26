@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -261,8 +261,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 
 		// handle manually set peers
 		for _, allowedIp := range node.AllowedIPs {
-			currentIP := ipaddr.NewIPAddressString(allowedIp).GetAddress()
-			if currentIP.IsIPv4() {
+			if iplib.Version(net.ParseIP(allowedIp)) == 4 {
 				if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
 					nodeEndpointArr := strings.Split(node.Endpoint, ":")
 					if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != node.Address { // don't need to add an allowed ip that already exists..
@@ -275,9 +274,10 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 					}
 					allowedips = append(allowedips, ipnet)
 				}
-			} else if currentIP.IsIPv6() {
+			} else if iplib.Version(net.ParseIP(allowedIp)) == 6 {
+				//ipnet : = iplib.Net6FromStr(allowedIp).IP()
 				ipnet := net.IPNet{
-					IP:   currentIP.GetNetIP(),
+					IP:   iplib.Net6FromStr(allowedIp).IP(),
 					Mask: net.CIDRMask(128, 128),
 				}
 				allowedips = append(allowedips, ipnet)
