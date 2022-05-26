@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -239,6 +240,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	}
 
 	peerUpdate.Network = node.Network
+	peerUpdate.ServerVersion = servercfg.Version
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
 	peerUpdate.DNS = getPeerDNS(node.Network)
