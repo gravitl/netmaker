@@ -103,6 +103,7 @@ func sendPeers() {
 		if servercfg.ManageIPTables() != "off" {
 			serverctl.InitIPTables(false)
 		}
+		servercfg.SetHost()
 
 		force = true
 		peer_force_send = 0

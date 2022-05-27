@@ -84,27 +84,6 @@ func SyncServerNetwork(network string) error {
 			}
 		}
 	}
-
-	// remove networks locally that do not exist in database
-	/*
-		for _, localnet := range localnets {
-			if strings.Contains(localnet.Name, "nm-") {
-				var exists = ""
-				if serverNetworkSettings.DefaultInterface == localnet.Name {
-					exists = serverNetworkSettings.NetID
-				}
-				if exists == "" {
-					err := logic.DeleteNodeByID(serverNode, true)
-					if err != nil {
-						if err == nil {
-							err = errors.New("network delete failed for " + exists)
-						}
-						logger.Log(1, "error removing network", exists, "during sync", err.Error())
-					}
-				}
-			}
-		}
-	*/
 	return nil
 }
 
