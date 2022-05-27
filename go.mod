@@ -32,11 +32,11 @@ require (
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1
 	fyne.io/fyne/v2 v2.1.4
+	github.com/c-robinson/iplib v1.0.3
 	github.com/cloverstd/tcping v0.1.1
 	github.com/guumaster/hostctl v1.1.2
 	github.com/kr/pretty v0.3.0
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
-	github.com/seancfoley/ipaddress-go v1.1.2
 )
 
 require (
@@ -73,7 +73,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/seancfoley/bintree v1.0.1 // indirect
 	github.com/spf13/afero v1.3.2 // indirect
 	github.com/srwiley/oksvg v0.0.0-20200311192757-870daf9aa564 // indirect
 	github.com/srwiley/rasterx v0.0.0-20200120212402-85cb7272f5e9 // indirect

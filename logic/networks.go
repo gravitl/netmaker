@@ -8,11 +8,11 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/c-robinson/iplib"
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/logic/ips"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/validation"
@@ -185,29 +185,30 @@ func UniqueAddress(networkName string, reverse bool) (string, error) {
 	if network.IsIPv4 == "no" {
 		return "", fmt.Errorf("IPv4 not active on network " + networkName)
 	}
-
-	newAddr, err := ips.GetFirstAddr(network.AddressRange)
-	if err != nil {
+	//ensure AddressRange is valid
+	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
 		logger.Log(0, "UniqueAddress encountered  an error")
 		return "666", err
 	}
+	net4 := iplib.Net4FromStr(network.AddressRange)
+	newAddrs := net4.FirstAddress()
 
-	incVal := 1
 	if reverse {
-		incVal = -1
-		newAddr, err = ips.GetLastAddr(network.AddressRange)
-		if err != nil {
-			if err != nil {
-				logger.Log(0, "UniqueAddressServer encountered  an error")
-				return "666", err
-			}
-		}
+		newAddrs = net4.LastAddress()
 	}
 
-	for ; newAddr.ToAddressString().IsValid(); newAddr = newAddr.Increment(int64(incVal)) {
-		if IsIPUnique(networkName, newAddr.GetNetIPAddr().IP.String(), database.NODES_TABLE_NAME, false) &&
-			IsIPUnique(networkName, newAddr.GetNetIPAddr().IP.String(), database.EXT_CLIENT_TABLE_NAME, false) {
-			return newAddr.GetNetIPAddr().IP.String(), nil
+	for {
+		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
+			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
+			return newAddrs.String(), nil
+		}
+		if reverse {
+			newAddrs, err = net4.PreviousIP(newAddrs)
+		} else {
+			newAddrs, err = net4.NextIP(newAddrs)
+		}
+		if err != nil {
+			break
 		}
 	}
 
@@ -256,27 +257,30 @@ func UniqueAddress6(networkName string, reverse bool) (string, error) {
 		return "", fmt.Errorf("IPv6 not active on network " + networkName)
 	}
 
-	newAddr6, err := ips.GetFirstAddr6(network.AddressRange6)
-	if err != nil {
+	//ensure AddressRange is valid
+	if _, _, err := net.ParseCIDR(network.AddressRange6); err != nil {
 		return "666", err
 	}
+	net6 := iplib.Net6FromStr(network.AddressRange6)
+	newAddrs := net6.FirstAddress()
 
-	incVal := 1
 	if reverse {
-		incVal = -1
-		newAddr6, err = ips.GetLastAddr6(network.AddressRange6)
-		if err != nil {
-			if err != nil {
-				logger.Log(0, "UniqueAddress6Server encountered  an error")
-				return "666", err
-			}
-		}
+		newAddrs = net6.LastAddress()
 	}
 
-	for ; newAddr6.ToAddressString().IsValid(); newAddr6 = newAddr6.Increment(int64(incVal)) {
-		if IsIPUnique(networkName, newAddr6.GetNetIPAddr().IP.String(), database.NODES_TABLE_NAME, true) &&
-			IsIPUnique(networkName, newAddr6.GetNetIPAddr().IP.String(), database.EXT_CLIENT_TABLE_NAME, true) {
-			return newAddr6.GetNetIPAddr().IP.String(), nil
+	for {
+
+		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
+			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
+			return newAddrs.String(), nil
+		}
+		if reverse {
+			newAddrs, err = net6.PreviousIP(newAddrs)
+		} else {
+			newAddrs, err = net6.NextIP(newAddrs)
+		}
+		if err != nil {
+			break
 		}
 	}
 

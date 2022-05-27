@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -318,8 +318,7 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 
 	// handle manually set peers
 	for _, allowedIp := range peer.AllowedIPs {
-		currentAddr := ipaddr.NewIPAddressString(allowedIp).GetAddress()
-		if currentAddr.IsIPv4() {
+		if iplib.Version(net.ParseIP(allowedIp)) == 4 {
 			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
 				nodeEndpointArr := strings.Split(node.Endpoint, ":")
 				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address { // don't need to add an allowed ip that already exists..
@@ -332,7 +331,7 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 				}
 				allowedips = append(allowedips, ipnet)
 			}
-		} else if currentAddr.IsIPv6() {
+		} else if iplib.Version(net.ParseIP(allowedIp)) == 6 {
 			ipnet := net.IPNet{
 				IP:   net.ParseIP(allowedIp),
 				Mask: net.CIDRMask(128, 128),
