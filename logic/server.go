@@ -95,7 +95,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		if node.IsLocal == "yes" && node.LocalAddress != "" {
 			node.Endpoint = node.LocalAddress
 		} else {
-			node.Endpoint, err = ncutils.GetPublicIP()
+			node.Endpoint, err = servercfg.GetPublicIP()
 		}
 		if err != nil || node.Endpoint == "" {
 			logger.Log(0, "Error setting server node Endpoint.")
