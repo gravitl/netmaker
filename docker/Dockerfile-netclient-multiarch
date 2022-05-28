@@ -19,4 +19,4 @@ COPY --from=builder /app/scripts/netclient.sh .
 RUN chmod 0755 netclient && chmod 0755 netclient.sh
 
 
-ENTRYPOINT ["/bin/sh", "./netclient.sh"]
+ENTRYPOINT ["/bin/bash", "./netclient.sh"]
