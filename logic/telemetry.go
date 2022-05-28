@@ -95,7 +95,7 @@ func getClientCount(nodes []models.Node) clientCount {
 	var count clientCount
 	for _, node := range nodes {
 		switch node.OS {
-		case "macos":
+		case "darwin":
 			count.MacOS += 1
 		case "windows":
 			count.Windows += 1
