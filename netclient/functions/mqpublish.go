@@ -22,9 +22,6 @@ import (
 // pubNetworks hold the currently publishable networks
 var pubNetworks []string
 
-// EMPTY_BROKER_ERR is the error to return if no broker address is provided
-var EMPTY_BROKER_ERR = "error: broker address is blank"
-
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
@@ -170,7 +167,7 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 
 func checkBroker(broker string, port string) error {
 	if broker == "" {
-		return errors.New(EMPTY_BROKER_ERR)
+		return errors.New("error: broker address is blank")
 	}
 	_, err := net.LookupIP(broker)
 	if err != nil {
