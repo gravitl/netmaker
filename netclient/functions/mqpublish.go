@@ -169,6 +169,9 @@ func checkBroker(broker string, port string) error {
 	if broker == "" {
 		return errors.New("error: broker address is blank")
 	}
+	if port == "" {
+		return errors.New("error: broker port is blank")
+	}
 	_, err := net.LookupIP(broker)
 	if err != nil {
 		return errors.New("nslookup failed for broker ... check dns records")
@@ -177,10 +180,6 @@ func checkBroker(broker string, port string) error {
 	intPort, err := strconv.Atoi(port)
 	if err != nil {
 		logger.Log(1, "error converting port to int: "+err.Error())
-	}
-	if intPort == 0 {
-		logger.Log(1, "port unset in config. Using default of 8883, which may be incorrect.")
-		intPort = 8883
 	}
 	pinger.SetTarget(&ping.Target{
 		Protocol: ping.TCP,
