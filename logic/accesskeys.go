@@ -54,7 +54,7 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	var accessToken models.AccessToken
 	s := servercfg.GetServerConfig()
 	servervals := models.ServerConfig{
-		Server:        s.Server,
+		//Server:        s.Server,
 		APIConnString: s.APIConnString,
 	}
 	accessToken.ServerConfig = servervals

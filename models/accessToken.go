@@ -12,6 +12,5 @@ type ClientConfig struct {
 }
 
 type ServerConfig struct {
-	Server        string `json:"server"`
 	APIConnString string `json:"apiconnstring"`
 }

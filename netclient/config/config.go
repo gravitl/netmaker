@@ -38,6 +38,7 @@ type ServerConfig struct {
 	CoreDNSAddr string `yaml:"corednsaddr"`
 	AccessKey   string `yaml:"accesskey"`
 	Server      string `yaml:"server"`
+	BrokerPort  string `yaml:"brokerport"`
 	API         string `yaml:"api"`
 	Version     string `yaml:"version"`
 }
@@ -54,6 +55,8 @@ type RegisterResponse struct {
 	CAPubKey   ed25519.PublicKey
 	Cert       x509.Certificate
 	CertPubKey ed25519.PublicKey
+	Broker     string
+	Port       string
 }
 
 // Write - writes the config of a client to disk
@@ -198,7 +201,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Node.Network = accesstoken.ClientConfig.Network
 		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
-		cfg.Server.Server = accesstoken.ServerConfig.Server
+		//cfg.Server.Server = accesstoken.ServerConfig.Server
 		cfg.Server.API = accesstoken.ServerConfig.APIConnString
 		if c.String("key") != "" {
 			cfg.Server.AccessKey = c.String("key")

@@ -190,6 +190,9 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err := Register(cfg, privateKey); err != nil {
 		return err
 	}
+	if cfg.Server.Server == "" {
+		return errors.New("did not recieve broker address from registration")
+	}
 
 	_ = UpdateLocalListenPort(cfg)
 

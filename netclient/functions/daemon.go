@@ -248,11 +248,10 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 		} else {
 			err = token.Error()
 		}
-		if err := checkBroker(cfg.Server.Server); err != nil {
-			return nil, err
-		}
-		logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
-		if strings.Contains(err.Error(), "connectex") || strings.Contains(err.Error(), "connect timeout") {
+		if err = checkBroker(cfg.Server.Server, cfg.Server.BrokerPort); err != nil &&
+			(strings.Contains(err.Error(), "connectex") ||
+				strings.Contains(err.Error(), "connect timeout")) ||
+			strings.Contains(err.Error(), EMPTY_BROKER_ERR) {
 			logger.Log(0, "connection issue detected.. attempt connection with new certs")
 			key, err := ssl.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
 			if err != nil {

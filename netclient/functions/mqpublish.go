@@ -16,12 +16,14 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/tls"
 )
 
 // pubNetworks hold the currently publishable networks
 var pubNetworks []string
+
+// EMPTY_BROKER_ERR is the error to return if no broker address is provided
+var EMPTY_BROKER_ERR = "error: broker address is blank"
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
@@ -166,20 +168,27 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 	return nil
 }
 
-func checkBroker(broker string) error {
+func checkBroker(broker string, port string) error {
+	if broker == "" {
+		return errors.New(EMPTY_BROKER_ERR)
+	}
 	_, err := net.LookupIP(broker)
 	if err != nil {
 		return errors.New("nslookup failed for broker ... check dns records")
 	}
 	pinger := ping.NewTCPing()
-	port, err := strconv.Atoi(servercfg.GetMQPort())
+	intPort, err := strconv.Atoi(port)
 	if err != nil {
-		port = 8883
+		logger.Log(1, "error converting port to int: "+err.Error())
+	}
+	if intPort == 0 {
+		logger.Log(1, "port unset in config. Using default of 8883, which may be incorrect.")
+		intPort = 8883
 	}
 	pinger.SetTarget(&ping.Target{
 		Protocol: ping.TCP,
 		Host:     broker,
-		Port:     port,
+		Port:     intPort,
 		Counter:  3,
 		Interval: 1 * time.Second,
 		Timeout:  2 * time.Second,

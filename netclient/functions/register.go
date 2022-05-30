@@ -76,6 +76,14 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
 		return errors.New("unmarshal cert error " + err.Error())
 	}
+
+	// set broker information on register
+	cfg.Server.Server = resp.Broker
+	cfg.Server.BrokerPort = resp.Port
+	if err = config.Write(cfg, cfg.Node.Network); err != nil {
+		logger.Log(0, "error overwriting config with broker information: "+err.Error())
+	}
+
 	//x509.Certificate.PublicKey is an interface so json encoding/decoding results in a string rather that []byte
 	//the pubkeys are included in the response so the values in the certificate can be updated appropriately
 	resp.CA.PublicKey = resp.CAPubKey

@@ -141,6 +141,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 		CAPubKey:   (ca.PublicKey).(ed25519.PublicKey),
 		Cert:       *cert,
 		CertPubKey: (cert.PublicKey).(ed25519.PublicKey),
+		Broker:     servercfg.GetServer(),
+		Port:       servercfg.GetMQPort(),
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
