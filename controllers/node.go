@@ -373,8 +373,9 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.NodeGet{
-		Node:  node,
-		Peers: peerUpdate.Peers,
+		Node:         node,
+		Peers:        peerUpdate.Peers,
+		ServerConfig: servercfg.GetServerInfo(),
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
@@ -492,8 +493,9 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.NodeGet{
-		Node:  node,
-		Peers: peerUpdate.Peers,
+		Node:         node,
+		Peers:        peerUpdate.Peers,
+		ServerConfig: servercfg.GetServerInfo(),
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)

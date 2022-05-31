@@ -220,16 +220,12 @@ func IsNodeIDUnique(node *models.Node) (bool, error) {
 // ValidateNode - validates node values
 func ValidateNode(node *models.Node, isUpdate bool) error {
 	v := validator.New()
-	_ = v.RegisterValidation("macaddress_unique", func(fl validator.FieldLevel) bool {
+	_ = v.RegisterValidation("id_unique", func(fl validator.FieldLevel) bool {
 		if isUpdate {
 			return true
 		}
-		var unique = true
-		if !(node.MacAddress == "") {
-			unique, _ = isMacAddressUnique(node.MacAddress, node.Network)
-		}
 		isFieldUnique, _ := IsNodeIDUnique(node)
-		return isFieldUnique && unique
+		return isFieldUnique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := GetNetworkByNode(node)

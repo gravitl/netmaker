@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/models"
 )
 
 var (
@@ -88,11 +89,10 @@ func GetServerConfig() config.ServerConfig {
 }
 
 // GetServerConfig - gets the server config into memory from file or env
-func GetServerInfo() config.ServerConfig {
-	var cfg config.ServerConfig
-	cfg.APIConnString = GetAPIConnString()
+func GetServerInfo() models.ServerConfig {
+	var cfg models.ServerConfig
+	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
-	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
 	cfg.MQPort = GetMQPort()
 	cfg.DNSMode = "off"

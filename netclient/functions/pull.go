@@ -57,9 +57,13 @@ func Pull(network string, iface bool) (*models.Node, error) {
 	if nodeGET.Peers == nil {
 		nodeGET.Peers = []wgtypes.PeerConfig{}
 	}
-
+	if nodeGET.ServerConfig.API != "" && nodeGET.ServerConfig.MQPort != "" {
+		if err = config.ModServerConfig(&nodeGET.ServerConfig, resNode.Network); err != nil {
+			logger.Log(0, "unable to update server config: "+err.Error())
+		}
+	}
 	if iface {
-		if err = config.ModConfig(&resNode); err != nil {
+		if err = config.ModNodeConfig(&resNode); err != nil {
 			return nil, err
 		}
 		if err = wireguard.SetWGConfig(network, false, nodeGET.Peers[:]); err != nil {
@@ -77,9 +81,6 @@ func Pull(network string, iface bool) (*models.Node, error) {
 	var bkupErr = config.SaveBackup(network)
 	if bkupErr != nil {
 		logger.Log(0, "unable to update backup file")
-	}
-	if err = SetServerInfo(cfg); err != nil {
-		logger.Log(0, "error pulling server info: "+err.Error())
 	}
 
 	return &resNode, err

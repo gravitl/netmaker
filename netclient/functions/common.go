@@ -394,7 +394,7 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 	if response.StatusCode != http.StatusOK {
 		return errors.New(response.Status)
 	}
-	var resp config.ServerConfig
+	var resp models.ServerConfig
 	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
 		return errors.New("unmarshal cert error " + err.Error())
 	}
@@ -403,7 +403,7 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 	cfg.Server.Server = resp.Server
 	cfg.Server.MQPort = resp.MQPort
 
-	if err = config.Write(cfg, cfg.Node.Network); err != nil {
+	if err = config.ModServerConfig(&cfg.Server, cfg.Node.Network); err != nil {
 		logger.Log(0, "error overwriting config with broker information: "+err.Error())
 	}
 

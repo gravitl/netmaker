@@ -40,9 +40,6 @@ func Register(cfg *config.ClientConfig, key string) error {
 	} else if err != nil {
 		return err
 	}
-	if cfg.Server.Server == "" || cfg.Server.MQPort == "" {
-		return SetServerInfo(cfg)
-	}
 	return nil
 }
 
@@ -72,10 +69,19 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	}
 
 	// set broker information on register
-	cfg.Server.Server = resp.Broker
-	cfg.Server.MQPort = resp.Port
-	if err = config.Write(cfg, cfg.Node.Network); err != nil {
-		logger.Log(0, "error overwriting config with broker information: "+err.Error())
+	var modServer bool
+	if resp.Broker != "" && resp.Broker != cfg.Server.Server {
+		cfg.Server.Server = resp.Broker
+		modServer = true
+	}
+	if resp.Port != "" && resp.Port != cfg.Server.MQPort {
+		cfg.Server.MQPort = resp.Port
+		modServer = true
+	}
+	if modServer {
+		if err = config.ModServerConfig(&cfg.Server, cfg.Node.Network); err != nil {
+			logger.Log(0, "error overwriting config with broker information: "+err.Error())
+		}
 	}
 
 	//x509.Certificate.PublicKey is an interface so json encoding/decoding results in a string rather that []byte

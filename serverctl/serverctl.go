@@ -79,9 +79,11 @@ func SyncServerNetwork(network string) error {
 			if err == nil {
 				err = errors.New("network add failed for " + serverNetworkSettings.NetID)
 			}
-			if !strings.Contains(err.Error(), "macaddress_unique") { // ignore macaddress unique error throws
-				logger.Log(1, "error adding network", serverNetworkSettings.NetID, "during sync:", err.Error())
-			}
+			/*
+				if !strings.Contains(err.Error(), "macaddress_unique") { // ignore macaddress unique error throws
+					logger.Log(1, "error adding network", serverNetworkSettings.NetID, "during sync:", err.Error())
+				}
+			*/
 		}
 	}
 	return nil

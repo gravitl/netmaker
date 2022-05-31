@@ -208,12 +208,6 @@ func NewTLSConfig(server string) *tls.Config {
 // this function is primarily used to create a connection to publish to the broker
 func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
-	if cfg.Server.Server == "" || cfg.Server.MQPort == "" {
-		logger.Log(0, "server info looks incomplete - broker="+cfg.Server.Server+", port="+cfg.Server.MQPort+" - pulling latest server details")
-		if err := SetServerInfo(cfg); err != nil {
-			logger.Log(0, "error pulling server info: "+err.Error())
-		}
-	}
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
 	opts.AddBroker("ssl://" + server + ":" + port)

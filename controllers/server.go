@@ -88,19 +88,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	scfg := servercfg.GetServerInfo()
-	returnConf := config.ServerConfig{
-		CoreDNSAddr: scfg.CoreDNSAddr,
-		API:         scfg.APIConnString,
-		APIPort:     scfg.APIPort,
-		ClientMode:  scfg.ClientMode,
-		DNSMode:     scfg.DNSMode,
-		Version:     scfg.Version,
-		MQPort:      scfg.MQPort,
-		Server:      scfg.Server,
-	}
-
-	json.NewEncoder(w).Encode(returnConf)
+	json.NewEncoder(w).Encode(servercfg.GetServerInfo())
 	//w.WriteHeader(http.StatusOK)
 }
 
