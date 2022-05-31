@@ -25,21 +25,13 @@ var (
 
 // ClientConfig - struct for dealing with client configuration
 type ClientConfig struct {
-	Server          ServerConfig   `yaml:"server"`
-	Node            models.Node    `yaml:"node"`
-	NetworkSettings models.Network `yaml:"networksettings"`
-	Network         string         `yaml:"network"`
-	Daemon          string         `yaml:"daemon"`
-	OperatingSystem string         `yaml:"operatingsystem"`
-}
-
-// ServerConfig - struct for dealing with the server information for a netclient
-type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
-	AccessKey   string `yaml:"accesskey"`
-	Server      string `yaml:"server"`
-	API         string `yaml:"api"`
-	Version     string `yaml:"version"`
+	Server          models.ServerConfig `yaml:"server"`
+	Node            models.Node         `yaml:"node"`
+	NetworkSettings models.Network      `yaml:"networksettings"`
+	Network         string              `yaml:"network"`
+	Daemon          string              `yaml:"daemon"`
+	OperatingSystem string              `yaml:"operatingsystem"`
+	AccessKey       string              `yaml:"accesskey"`
 }
 
 // RegisterRequest - struct for registation with netmaker server
@@ -54,6 +46,8 @@ type RegisterResponse struct {
 	CAPubKey   ed25519.PublicKey
 	Cert       x509.Certificate
 	CertPubKey ed25519.PublicKey
+	Broker     string
+	Port       string
 }
 
 // Write - writes the config of a client to disk
@@ -128,8 +122,8 @@ func (config *ClientConfig) ReadConfig() {
 	}
 }
 
-// ModConfig - overwrites the node inside client config on disk
-func ModConfig(node *models.Node) error {
+// ModNodeConfig - overwrites the node inside client config on disk
+func ModNodeConfig(node *models.Node) error {
 	network := node.Network
 	if network == "" {
 		return errors.New("no network provided")
@@ -145,6 +139,21 @@ func ModConfig(node *models.Node) error {
 
 	modconfig.Node = (*node)
 	modconfig.NetworkSettings = node.NetworkSettings
+	return Write(&modconfig, network)
+}
+
+// ModNodeConfig - overwrites the server settings inside client config on disk
+func ModServerConfig(scfg *models.ServerConfig, network string) error {
+	var modconfig ClientConfig
+	if FileExists(ncutils.GetNetclientPathSpecific() + "netconfig-" + network) {
+		useconfig, err := ReadConfig(network)
+		if err != nil {
+			return err
+		}
+		modconfig = *useconfig
+	}
+
+	modconfig.Server = (*scfg)
 	return Write(&modconfig, network)
 }
 
@@ -196,12 +205,12 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		}
 		cfg.Network = accesstoken.ClientConfig.Network
 		cfg.Node.Network = accesstoken.ClientConfig.Network
-		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
+		cfg.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
-		cfg.Server.Server = accesstoken.ServerConfig.Server
-		cfg.Server.API = accesstoken.ServerConfig.APIConnString
+		//cfg.Server.Server = accesstoken.ServerConfig.Server
+		cfg.Server.API = accesstoken.APIConnString
 		if c.String("key") != "" {
-			cfg.Server.AccessKey = c.String("key")
+			cfg.AccessKey = c.String("key")
 		}
 		if c.String("network") != "all" {
 			cfg.Network = c.String("network")
@@ -217,7 +226,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 			cfg.Server.API = c.String("apiserver")
 		}
 	} else {
-		cfg.Server.AccessKey = c.String("key")
+		cfg.AccessKey = c.String("key")
 		cfg.Network = c.String("network")
 		cfg.Node.Network = c.String("network")
 		cfg.Node.LocalRange = c.String("localrange")

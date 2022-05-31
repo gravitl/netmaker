@@ -16,12 +16,7 @@ import (
 
 // Register - the function responsible for registering with the server and acquiring certs
 func Register(cfg *config.ClientConfig, key string) error {
-	if cfg.Server.Server == "" {
-		return errors.New("no server provided")
-	}
-	if cfg.Server.AccessKey == "" {
-		return errors.New("no access key provided")
-	}
+
 	//generate new key if one doesn' exist
 	var private *ed25519.PrivateKey
 	var err error
@@ -50,10 +45,6 @@ func Register(cfg *config.ClientConfig, key string) error {
 
 // RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate
 func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) error {
-	cfg, err := config.ReadConfig(cfg.Network)
-	if err != nil {
-		return err
-	}
 	data := config.RegisterRequest{
 		Key:        *private,
 		CommonName: tls.NewCName(cfg.Node.Name),
@@ -76,6 +67,23 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
 		return errors.New("unmarshal cert error " + err.Error())
 	}
+
+	// set broker information on register
+	var modServer bool
+	if resp.Broker != "" && resp.Broker != cfg.Server.Server {
+		cfg.Server.Server = resp.Broker
+		modServer = true
+	}
+	if resp.Port != "" && resp.Port != cfg.Server.MQPort {
+		cfg.Server.MQPort = resp.Port
+		modServer = true
+	}
+	if modServer {
+		if err = config.ModServerConfig(&cfg.Server, cfg.Node.Network); err != nil {
+			logger.Log(0, "error overwriting config with broker information: "+err.Error())
+		}
+	}
+
 	//x509.Certificate.PublicKey is an interface so json encoding/decoding results in a string rather that []byte
 	//the pubkeys are included in the response so the values in the certificate can be updated appropriately
 	resp.CA.PublicKey = resp.CAPubKey

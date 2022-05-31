@@ -25,7 +25,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/gravitl/netmaker/servercfg"
 	ssl "github.com/gravitl/netmaker/tls"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -210,7 +209,8 @@ func NewTLSConfig(server string) *tls.Config {
 func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
-	opts.AddBroker("ssl://" + server + ":" + servercfg.GetMQPort())
+	port := cfg.Server.MQPort
+	opts.AddBroker("ssl://" + server + ":" + port)
 	opts.SetTLSConfig(NewTLSConfig(server))
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
@@ -248,24 +248,28 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 		} else {
 			err = token.Error()
 		}
-		if err := checkBroker(cfg.Server.Server); err != nil {
+		if err := checkBroker(cfg.Server.Server, cfg.Server.MQPort); err != nil {
 			return nil, err
 		}
 		logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
 		if strings.Contains(err.Error(), "connectex") || strings.Contains(err.Error(), "connect timeout") {
-			logger.Log(0, "connection issue detected.. attempt connection with new certs")
-			key, err := ssl.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
-			if err != nil {
-				_, *key, err = ed25519.GenerateKey(rand.Reader)
-				if err != nil {
-					log.Fatal("could not generate new key")
-				}
-			}
-			RegisterWithServer(key, cfg)
-			daemon.Restart()
+			reRegisterWithServer(cfg)
 		}
 	}
 	return client, nil
+}
+
+func reRegisterWithServer(cfg *config.ClientConfig) {
+	logger.Log(0, "connection issue detected.. attempt connection with new certs and broker information")
+	key, err := ssl.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
+	if err != nil {
+		_, *key, err = ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			log.Fatal("could not generate new key")
+		}
+	}
+	RegisterWithServer(key, cfg)
+	daemon.Restart()
 }
 
 // publishes a message to server to update peers on this peer's behalf

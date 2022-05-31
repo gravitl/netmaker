@@ -38,7 +38,7 @@ func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 	} else if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
 		logger.Log(1, "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
 		nodeCfg.Node.LocalListenPort = localPort
-		err = config.ModConfig(&nodeCfg.Node)
+		err = config.ModNodeConfig(&nodeCfg.Node)
 		if err != nil {
 			return err
 		}

@@ -190,6 +190,19 @@ type TrafficKeys struct {
 
 // NodeGet - struct for a single node get response
 type NodeGet struct {
-	Node  Node                 `json:"node" bson:"node" yaml:"node"`
-	Peers []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	Node         Node                 `json:"node" bson:"node" yaml:"node"`
+	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
+}
+
+// ServerConfig - struct for dealing with the server information for a netclient
+type ServerConfig struct {
+	CoreDNSAddr string `yaml:"corednsaddr"`
+	API         string `yaml:"apihost"`
+	APIPort     string `yaml:"apiport"`
+	ClientMode  string `yaml:"clientmode"`
+	DNSMode     string `yaml:"dnsmode"`
+	Version     string `yaml:"version"`
+	MQPort      string `yaml:"mqport"`
+	Server      string `yaml:"server"`
 }
