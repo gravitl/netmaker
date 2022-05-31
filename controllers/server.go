@@ -23,6 +23,7 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
 	r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
 	r.HandleFunc("/api/server/register", authorize(true, false, "node", http.HandlerFunc(register))).Methods("POST")
+	r.HandleFunc("/api/server/getserverinfo", authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods("GET")
 }
 
 //Security check is middleware for every function and just checks to make sure that its the master calling
@@ -81,6 +82,28 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode("Server removed from network " + params["network"])
 }
 
+func getServerInfo(w http.ResponseWriter, r *http.Request) {
+	// Set header
+	w.Header().Set("Content-Type", "application/json")
+
+	// get params
+
+	scfg := servercfg.GetServerInfo()
+	returnConf := config.ServerConfig{
+		CoreDNSAddr: scfg.CoreDNSAddr,
+		API:         scfg.APIConnString,
+		APIPort:     scfg.APIPort,
+		ClientMode:  scfg.ClientMode,
+		DNSMode:     scfg.DNSMode,
+		Version:     scfg.Version,
+		MQPort:      scfg.MQPort,
+		Server:      scfg.Server,
+	}
+
+	json.NewEncoder(w).Encode(returnConf)
+	//w.WriteHeader(http.StatusOK)
+}
+
 func getConfig(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -91,25 +114,6 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(scfg)
 	//w.WriteHeader(http.StatusOK)
 }
-
-// func addNetwork(w http.ResponseWriter, r *http.Request) {
-// 	// Set header
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	// get params
-// 	var params = mux.Vars(r)
-// 	var networkName = params["network"]
-// 	var networkSettings, err := logic.GetNetwork(netwnetworkName)
-
-// 	success, err := serverctl.AddNetwork(params["network"])
-
-// 	if err != nil || !success {
-// 		json.NewEncoder(w).Encode("Could not add server to network " + params["network"])
-// 		return
-// 	}
-
-// 	json.NewEncoder(w).Encode("Server added to network " + params["network"])
-// }
 
 // register - registers a client with the server and return the CA and cert
 func register(w http.ResponseWriter, r *http.Request) {

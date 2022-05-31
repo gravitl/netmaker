@@ -78,5 +78,9 @@ func Pull(network string, iface bool) (*models.Node, error) {
 	if bkupErr != nil {
 		logger.Log(0, "unable to update backup file")
 	}
+	if err = SetServerInfo(cfg); err != nil {
+		logger.Log(0, "error pulling server info: "+err.Error())
+	}
+
 	return &resNode, err
 }

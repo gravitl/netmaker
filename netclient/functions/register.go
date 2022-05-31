@@ -16,12 +16,7 @@ import (
 
 // Register - the function responsible for registering with the server and acquiring certs
 func Register(cfg *config.ClientConfig, key string) error {
-	if cfg.Server.Server == "" {
-		return errors.New("no server provided")
-	}
-	if cfg.Server.AccessKey == "" {
-		return errors.New("no access key provided")
-	}
+
 	//generate new key if one doesn' exist
 	var private *ed25519.PrivateKey
 	var err error
@@ -45,15 +40,14 @@ func Register(cfg *config.ClientConfig, key string) error {
 	} else if err != nil {
 		return err
 	}
+	if cfg.Server.Server == "" || cfg.Server.MQPort == "" {
+		return SetServerInfo(cfg)
+	}
 	return nil
 }
 
 // RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate
 func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) error {
-	cfg, err := config.ReadConfig(cfg.Network)
-	if err != nil {
-		return err
-	}
 	data := config.RegisterRequest{
 		Key:        *private,
 		CommonName: tls.NewCName(cfg.Node.Name),
@@ -79,7 +73,7 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 
 	// set broker information on register
 	cfg.Server.Server = resp.Broker
-	cfg.Server.BrokerPort = resp.Port
+	cfg.Server.MQPort = resp.Port
 	if err = config.Write(cfg, cfg.Node.Network); err != nil {
 		logger.Log(0, "error overwriting config with broker information: "+err.Error())
 	}
