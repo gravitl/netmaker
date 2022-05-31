@@ -163,30 +163,39 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 	} else if network.IsPointToSite == "yes" && refnode.IsHub != "yes" {
 		isP2S = true
 	}
-	if relayedNodeAddr == "" {
+	if refnode.IsRelayed != "yes" {
+		// if the node is not being relayed, retrieve peers as normal
 		peers, err = GetNodePeers(&network, refnode.ID, excludeRelayed, isP2S)
 	} else {
 		var relayNode models.Node
+		// If this node IS being relayed node, we must first retrieve its relay
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
-		if relayNode.Address != "" {
+		if relayNode.Address != "" && err == nil {
+			// we must cleanse sensitive info from the relay node
 			var peerNode = setPeerInfo(&relayNode)
-			network, err := GetNetwork(networkName)
-			if err == nil { // TODO: check if addressrange6 needs to be appended
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
-				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
-				if err == nil {
-					for _, egress := range egressNetworkNodes {
-						if egress.Address != relayedNodeAddr {
-							peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
-						}
+
+			// we must append the CIDR to the relay so the relayed node can reach the network
+			peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
+
+			// we must append the egress ranges to the relay so the relayed node can reach egress
+			var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
+			if err == nil {
+				for _, egress := range egressNetworkNodes {
+					if egress.Address != relayedNodeAddr {
+						peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
 					}
 				}
-			} else {
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
+
+			// get the other peers that are behind the Relay
+			// we dont want to go through the relay to reach them
+			// I'm not sure if this is actually a good call to have this here
+			// may want to test without it, I think it may return bad info
 			nodepeers, err := GetNodePeers(&network, refnode.ID, false, isP2S)
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
+
+					// im not sure if this is good either
 					if nodepeer.Address == peerNode.Address {
 						// peerNode.Endpoint = nodepeer.Endpoint
 						peerNode.ListenPort = nodepeer.ListenPort
