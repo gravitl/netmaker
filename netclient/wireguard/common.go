@@ -135,14 +135,14 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		return err
 	}
 	defer wgclient.Close()
-	modcfg, err := config.ReadConfig(node.Network)
+	cfg, err := config.ReadConfig(node.Network)
 	if err != nil {
 		return err
 	}
-	nodecfg := modcfg.Node
+	//nodecfg := modcfg.Node
 	var ifacename string
-	if nodecfg.Interface != "" {
-		ifacename = nodecfg.Interface
+	if cfg.Node.Interface != "" {
+		ifacename = cfg.Node.Interface
 	} else if node.Interface != "" {
 		ifacename = node.Interface
 	} else {
@@ -151,11 +151,14 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.PrimaryAddress() == "" {
 		return fmt.Errorf("no address to configure")
 	}
-
+	logger.Log(1, "turn on UDP hole punching (dynamic port setting)? "+cfg.Node.UDPHolePunch)
 	if node.UDPHolePunch == "yes" {
 		node.ListenPort = 0
+	} else {
+		//get available port based on current default
+		node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
 	}
-	if err := WriteWgConfig(&modcfg.Node, key.String(), peers); err != nil {
+	if err := WriteWgConfig(&cfg.Node, key.String(), peers); err != nil {
 		logger.Log(1, "error writing wg conf file: ", err.Error())
 		return err
 	}
@@ -216,7 +219,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	//ipv4
 	if node.Address != "" {
-		_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange)
+		_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
 		if cidrErr == nil {
 			local.SetCIDRRoute(ifacename, node.Address, cidr)
 		} else {
@@ -226,7 +229,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	if node.Address6 != "" {
 		//ipv6
-		_, cidr, cidrErr := net.ParseCIDR(modcfg.NetworkSettings.AddressRange6)
+		_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange6)
 		if cidrErr == nil {
 			local.SetCIDRRoute(ifacename, node.Address6, cidr)
 		} else {
