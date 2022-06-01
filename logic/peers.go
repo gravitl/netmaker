@@ -18,74 +18,100 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// GetHubPeer - in HubAndSpoke networks, if not the hub, return the hub
-/*
-func GetHubPeer(networkName string) []models.Node {
-	var hubpeer = make([]models.Node, 0)
-	servernodes, err := GetNetworkNodes(networkName)
-	if err != nil {
-		return hubpeer
-	}
-	for i := range servernodes {
-		if servernodes[i].IsHub == "yes" {
-			return []models.Node{servernodes[i]}
-		}
-	}
-	return hubpeer
-}
-*/
-
 // GetNodePeers - fetches peers for a given node
 func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, isP2S bool) ([]models.Node, error) {
 	var peers []models.Node
+
+	// networkNodes = all nodes in network
+	// egressNetworkNodes = all egress gateways in network
 	var networkNodes, egressNetworkNodes, err = getNetworkEgressAndNodes(network.NetID)
 	if err != nil {
 		return peers, nil
 	}
 
+	// udppeers = the peers parsed from the local interface
+	// gives us correct port to reach
 	udppeers, errN := database.GetPeers(network.NetID)
 	if errN != nil {
 		logger.Log(2, errN.Error())
 	}
 
+	// gets all the ACL rules
 	currentNetworkACLs, aclErr := nodeacls.FetchAllACLs(nodeacls.NetworkID(network.NetID))
 	if aclErr != nil {
 		return peers, aclErr
 	}
 
+	/*
+		at this point we have 4 lists of node information:
+		- networkNodes: all nodes in network (models.Node)
+		- egressNetworkNodes: all egress gateways in network (models.Node)
+		- udppeers: all peers in database (parsed by server off of active WireGuard interface)
+		- currentNetworkACLs: all ACL rules associated with the network
+		- peers: a currently empty list that will be filled and returned
+
+	*/
+
+	// we now parse through all networkNodes and format properly to set as "peers"
 	for _, node := range networkNodes {
+
+		// skip over any node that is disallowed by ACL rules
 		if !currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
 			continue
 		}
 
+		// create an empty model to fill with peer info
 		var peer = models.Node{}
+
+		// set egress gateway information if it's an egress gateway
 		if node.IsEgressGateway == "yes" { // handle egress stuff
 			peer.EgressGatewayRanges = node.EgressGatewayRanges
 			peer.IsEgressGateway = node.IsEgressGateway
 		}
 
+		// set ingress gateway information
 		peer.IsIngressGateway = node.IsIngressGateway
+
+		/*
+			- similar to ACLs, we must determine if peer is allowed based on Relay information
+			- if the nodes is "not relayed" (not behind a relay), it is ok
+			- if the node IS relayed, but excludeRelay has not been marked, it is ok
+			- excludeRelayed is marked for any node that is NOT a Relay Server
+			- therefore, the peer is allowed as long as it is not "relayed", or the node it is being sent to is its relay server
+		*/
 		allow := node.IsRelayed != "yes" || !excludeRelayed
 
+		// confirm conditions allow node to be added as peer
+		// node should be in same network, not pending, and "allowed" based on above logic
 		if node.Network == network.NetID && node.IsPending != "yes" && allow {
+
+			// node info is cleansed to remove sensitive info using setPeerInfo
 			peer = setPeerInfo(&node)
+
+			// Sets ListenPort to UDP Hole Punching Port assuming:
+			// - UDP Hole Punching is enabled
+			// - udppeers retrieval did not return an error
+			// - the endpoint is valid
 			if node.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[node.PublicKey]) {
 				endpointstring := udppeers[node.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
 				if len(endpointarr) == 2 {
 					port, err := strconv.Atoi(endpointarr[1])
 					if err == nil {
-						// peer.Endpoint = endpointarr[0]
 						peer.ListenPort = int32(port)
 					}
 				}
 			}
-			// if udp hole punching is on, but port is still set to default (e.g. 51821), use the LocalListenPort
-			// removing IsStatic check. IsStatic will now ONLY refer to endpoint.
-			//if node.UDPHolePunch == "yes" && node.IsStatic != "yes" && peer.ListenPort == node.ListenPort {
-			if node.UDPHolePunch == "yes" && peer.ListenPort == node.ListenPort {
+
+			// if udp hole punching is on, but the node's port is still set to default (e.g. 51821), use the LocalListenPort
+			// or, if port is for some reason zero use the LocalListenPort
+			// but only do this if LocalListenPort is not zero
+			if node.UDPHolePunch == "yes" &&
+				((peer.ListenPort == node.ListenPort || peer.ListenPort == 0) && node.LocalListenPort != 0) {
 				peer.ListenPort = node.LocalListenPort
 			}
+
+			// if the node is a relay, append the network cidr and any relayed egress ranges
 			if node.IsRelay == "yes" { // TODO, check if addressrange6 needs to be appended
 				peer.AllowedIPs = append(peer.AllowedIPs, network.AddressRange)
 				for _, egressNode := range egressNetworkNodes {
@@ -94,6 +120,8 @@ func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, i
 					}
 				}
 			}
+
+			// if the node is an ingress gateway, append all the extclient allowedips
 			if peer.IsIngressGateway == "yes" { // handle ingress stuff
 				if currentExtClients, err := GetExtPeersList(&node); err == nil {
 					for i := range currentExtClients {
@@ -107,6 +135,7 @@ func GetNodePeers(network *models.Network, nodeid string, excludeRelayed bool, i
 				}
 			}
 
+			// dont appent if this isn't a p2p network or if ACLs disallow
 			if (!isP2S || peer.IsHub == "yes") && currentNetworkACLs.IsAllowed(acls.AclID(nodeid), acls.AclID(node.ID)) {
 				peers = append(peers, peer)
 			}
@@ -134,30 +163,39 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 	} else if network.IsPointToSite == "yes" && refnode.IsHub != "yes" {
 		isP2S = true
 	}
-	if relayedNodeAddr == "" {
+	if refnode.IsRelayed != "yes" {
+		// if the node is not being relayed, retrieve peers as normal
 		peers, err = GetNodePeers(&network, refnode.ID, excludeRelayed, isP2S)
 	} else {
 		var relayNode models.Node
+		// If this node IS being relayed node, we must first retrieve its relay
 		relayNode, err = GetNodeRelay(networkName, relayedNodeAddr)
-		if relayNode.Address != "" {
+		if relayNode.Address != "" && err == nil {
+			// we must cleanse sensitive info from the relay node
 			var peerNode = setPeerInfo(&relayNode)
-			network, err := GetNetwork(networkName)
-			if err == nil { // TODO: check if addressrange6 needs to be appended
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
-				var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
-				if err == nil {
-					for _, egress := range egressNetworkNodes {
-						if egress.Address != relayedNodeAddr {
-							peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
-						}
+
+			// we must append the CIDR to the relay so the relayed node can reach the network
+			peerNode.AllowedIPs = append(peerNode.AllowedIPs, network.AddressRange)
+
+			// we must append the egress ranges to the relay so the relayed node can reach egress
+			var _, egressNetworkNodes, err = getNetworkEgressAndNodes(networkName)
+			if err == nil {
+				for _, egress := range egressNetworkNodes {
+					if egress.Address != relayedNodeAddr {
+						peerNode.AllowedIPs = append(peerNode.AllowedIPs, egress.EgressGatewayRanges...)
 					}
 				}
-			} else {
-				peerNode.AllowedIPs = append(peerNode.AllowedIPs, peerNode.RelayAddrs...)
 			}
+
+			// get the other peers that are behind the Relay
+			// we dont want to go through the relay to reach them
+			// I'm not sure if this is actually a good call to have this here
+			// may want to test without it, I think it may return bad info
 			nodepeers, err := GetNodePeers(&network, refnode.ID, false, isP2S)
 			if err == nil && peerNode.UDPHolePunch == "yes" {
 				for _, nodepeer := range nodepeers {
+
+					// im not sure if this is good either
 					if nodepeer.Address == peerNode.Address {
 						// peerNode.Endpoint = nodepeer.Endpoint
 						peerNode.ListenPort = nodepeer.ListenPort
@@ -315,28 +353,30 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 		}
 		allowedips = append(allowedips, addr6)
 	}
-
 	// handle manually set peers
 	for _, allowedIp := range peer.AllowedIPs {
-		if iplib.Version(net.ParseIP(allowedIp)) == 4 {
-			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
-				nodeEndpointArr := strings.Split(node.Endpoint, ":")
-				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address { // don't need to add an allowed ip that already exists..
-					allowedips = append(allowedips, *ipnet)
-				}
-			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != peer.Address {
+
+		// parsing as a CIDR first. If valid CIDR, append
+		if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
+			nodeEndpointArr := strings.Split(node.Endpoint, ":")
+			if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address { // don't need to add an allowed ip that already exists..
+				allowedips = append(allowedips, *ipnet)
+			}
+
+		} else { // parsing as an IP second. If valid IP, check if ipv4 or ipv6, then append
+			if iplib.Version(net.ParseIP(allowedIp)) == 4 && allowedIp != peer.Address {
 				ipnet := net.IPNet{
 					IP:   net.ParseIP(allowedIp),
 					Mask: net.CIDRMask(32, 32),
 				}
 				allowedips = append(allowedips, ipnet)
+			} else if iplib.Version(net.ParseIP(allowedIp)) == 6 && allowedIp != peer.Address6 {
+				ipnet := net.IPNet{
+					IP:   net.ParseIP(allowedIp),
+					Mask: net.CIDRMask(128, 128),
+				}
+				allowedips = append(allowedips, ipnet)
 			}
-		} else if iplib.Version(net.ParseIP(allowedIp)) == 6 {
-			ipnet := net.IPNet{
-				IP:   net.ParseIP(allowedIp),
-				Mask: net.CIDRMask(128, 128),
-			}
-			allowedips = append(allowedips, ipnet)
 		}
 	}
 	// handle egress gateway peers

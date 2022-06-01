@@ -115,6 +115,7 @@ func RandomString(length int) string {
 
 // == Private Methods ==
 
+// getNetworkEgressAndNodes - returns two slices, #1 is all nodes in the network, #2 is the egress nodes in the network
 func getNetworkEgressAndNodes(networkName string) ([]models.Node, []models.Node, error) {
 	var networkNodes, egressNetworkNodes []models.Node
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
