@@ -187,21 +187,36 @@ func GetPeersList(refnode *models.Node) ([]models.Node, error) {
 				}
 			}
 
-			// get the other peers that are behind the Relay
-			// we dont want to go through the relay to reach them
-			// I'm not sure if this is actually a good call to have this here
-			// may want to test without it, I think it may return bad info
-			nodepeers, err := GetNodePeers(&network, refnode.ID, false, isP2S)
-			if err == nil && peerNode.UDPHolePunch == "yes" {
-				for _, nodepeer := range nodepeers {
+			// all of this logic is to traverse and get the port of relay server
+			/*
+				nodepeers, err := GetNodePeers(&network, refnode.ID, false, isP2S)
+				if err == nil && peerNode.UDPHolePunch == "yes" {
+					for _, nodepeer := range nodepeers {
 
-					// im not sure if this is good either
-					if nodepeer.Address == peerNode.Address {
-						// peerNode.Endpoint = nodepeer.Endpoint
-						peerNode.ListenPort = nodepeer.ListenPort
+						// im not sure if this is good either
+						if nodepeer.Address == peerNode.Address {
+							// peerNode.Endpoint = nodepeer.Endpoint
+							peerNode.ListenPort = nodepeer.ListenPort
+						}
+					}
+				}
+			*/
+			if peerNode.UDPHolePunch == "yes" {
+				udppeers, errN := database.GetPeers(network.NetID)
+				if errN != nil {
+					logger.Log(2, errN.Error())
+				} else if CheckEndpoint(udppeers[peerNode.PublicKey]) {
+					endpointstring := udppeers[peerNode.PublicKey]
+					endpointarr := strings.Split(endpointstring, ":")
+					if len(endpointarr) == 2 {
+						port, err := strconv.Atoi(endpointarr[1])
+						if err == nil {
+							peerNode.ListenPort = int32(port)
+						}
 					}
 				}
 			}
+
 			if !isP2S || peerNode.IsHub == "yes" {
 				peers = append(peers, peerNode)
 			}
