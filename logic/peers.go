@@ -353,28 +353,30 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 		}
 		allowedips = append(allowedips, addr6)
 	}
-
 	// handle manually set peers
 	for _, allowedIp := range peer.AllowedIPs {
-		if iplib.Version(net.ParseIP(allowedIp)) == 4 {
-			if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
-				nodeEndpointArr := strings.Split(node.Endpoint, ":")
-				if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address { // don't need to add an allowed ip that already exists..
-					allowedips = append(allowedips, *ipnet)
-				}
-			} else if appendip := net.ParseIP(allowedIp); appendip != nil && allowedIp != peer.Address {
+
+		// parsing as a CIDR first. If valid CIDR, append
+		if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
+			nodeEndpointArr := strings.Split(node.Endpoint, ":")
+			if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address { // don't need to add an allowed ip that already exists..
+				allowedips = append(allowedips, *ipnet)
+			}
+
+		} else { // parsing as an IP second. If valid IP, check if ipv4 or ipv6, then append
+			if iplib.Version(net.ParseIP(allowedIp)) == 4 && allowedIp != peer.Address {
 				ipnet := net.IPNet{
 					IP:   net.ParseIP(allowedIp),
 					Mask: net.CIDRMask(32, 32),
 				}
 				allowedips = append(allowedips, ipnet)
+			} else if iplib.Version(net.ParseIP(allowedIp)) == 6 && allowedIp != peer.Address6 {
+				ipnet := net.IPNet{
+					IP:   net.ParseIP(allowedIp),
+					Mask: net.CIDRMask(128, 128),
+				}
+				allowedips = append(allowedips, ipnet)
 			}
-		} else if iplib.Version(net.ParseIP(allowedIp)) == 6 {
-			ipnet := net.IPNet{
-				IP:   net.ParseIP(allowedIp),
-				Mask: net.CIDRMask(128, 128),
-			}
-			allowedips = append(allowedips, ipnet)
 		}
 	}
 	// handle egress gateway peers

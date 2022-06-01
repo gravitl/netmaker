@@ -1,8 +1,6 @@
 package config
 
 import (
-	//"github.com/davecgh/go-spew/spew"
-
 	"crypto/ed25519"
 	"crypto/x509"
 	"crypto/x509/pkix"
