@@ -90,9 +90,6 @@ services:
       - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
       - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.http.acme.tlschallenge=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.websecure.http.tls=true"
       - "--entrypoints.websecure.http.tls.certResolver=http"
@@ -105,7 +102,6 @@ services:
       - ${TRAEFIK_DOCKER_HOST}:/var/run/docker.sock:ro
       - traefik_certs:/letsencrypt
     ports:
-      - "80:80"
       - "443:443"
   mq:
     container_name: mq
