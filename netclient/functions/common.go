@@ -373,3 +373,39 @@ func Authenticate(cfg *config.ClientConfig) (string, error) {
 	token := tokenData["AuthToken"]
 	return token.(string), nil
 }
+
+// RegisterWithServer calls the register endpoint with privatekey and commonname - api returns ca and client certificate
+func SetServerInfo(cfg *config.ClientConfig) error {
+	cfg, err := config.ReadConfig(cfg.Network)
+	if err != nil {
+		return err
+	}
+	url := "https://" + cfg.Server.API + "/api/server/getserverinfo"
+	logger.Log(1, "server at "+url)
+
+	token, err := Authenticate(cfg)
+	if err != nil {
+		return err
+	}
+	response, err := API("", http.MethodGet, url, token)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		return errors.New(response.Status)
+	}
+	var resp models.ServerConfig
+	if err := json.NewDecoder(response.Body).Decode(&resp); err != nil {
+		return errors.New("unmarshal cert error " + err.Error())
+	}
+
+	// set broker information on register
+	cfg.Server.Server = resp.Server
+	cfg.Server.MQPort = resp.MQPort
+
+	if err = config.ModServerConfig(&cfg.Server, cfg.Node.Network); err != nil {
+		logger.Log(0, "error overwriting config with broker information: "+err.Error())
+	}
+
+	return nil
+}

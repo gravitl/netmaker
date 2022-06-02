@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/models"
 )
 
 var (
@@ -33,14 +34,12 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
-	cfg.APIPort = GetAPIPort()
 	cfg.MQPort = GetMQPort()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
-	cfg.MQPort = GetMQPort()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -85,6 +84,23 @@ func GetServerConfig() config.ServerConfig {
 	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
+
+	return cfg
+}
+
+// GetServerConfig - gets the server config into memory from file or env
+func GetServerInfo() models.ServerConfig {
+	var cfg models.ServerConfig
+	cfg.API = GetAPIConnString()
+	cfg.CoreDNSAddr = GetCoreDNSAddr()
+	cfg.APIPort = GetAPIPort()
+	cfg.MQPort = GetMQPort()
+	cfg.DNSMode = "off"
+	if IsDNSMode() {
+		cfg.DNSMode = "on"
+	}
+	cfg.Version = GetVersion()
+	cfg.Server = GetServer()
 
 	return cfg
 }
@@ -196,13 +212,24 @@ func GetCoreDNSAddr() string {
 
 // GetMQPort - gets the mq port
 func GetMQPort() string {
-	mqport := "1883"
+	port := "8883" //default
 	if os.Getenv("MQ_PORT") != "" {
-		mqport = os.Getenv("MQ_PORT")
+		port = os.Getenv("MQ_PORT")
 	} else if config.Config.Server.MQPort != "" {
-		mqport = config.Config.Server.MQPort
+		port = config.Config.Server.MQPort
 	}
-	return mqport
+	return port
+}
+
+// GetMQServerPort - get mq port for server
+func GetMQServerPort() string {
+	port := "1883" //default
+	if os.Getenv("MQ_SERVER_PORT") != "" {
+		port = os.Getenv("MQ_SERVER_PORT")
+	} else if config.Config.Server.MQServerPort != "" {
+		port = config.Config.Server.MQServerPort
+	}
+	return port
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
@@ -213,8 +240,7 @@ func GetMessageQueueEndpoint() string {
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	//Do we want MQ port configurable???
-	return host + ":1883"
+	return host + ":" + GetMQServerPort()
 }
 
 // GetMasterKey - gets the configured master key of server

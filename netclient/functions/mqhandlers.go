@@ -149,7 +149,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
 		logger.Log(0, "settng DNS off")
-		if err := removeHostDNS(nodeCfg.Network, ncutils.IsWindows()); err != nil {
+		if err := removeHostDNS(nodeCfg.Node.Interface, ncutils.IsWindows()); err != nil {
 			logger.Log(0, "error removing netmaker profile from /etc/hosts "+err.Error())
 		}
 		//		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
@@ -183,6 +183,15 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	insert(peerUpdate.Network, lastPeerUpdate, string(data))
+	// check version
+	if peerUpdate.ServerVersion != ncutils.Version {
+		logger.Log(0, "server/client version mismatch server: ", peerUpdate.ServerVersion, " client: ", ncutils.Version)
+	}
+	if peerUpdate.ServerVersion != cfg.Server.Version {
+		logger.Log(1, "updating server version")
+		cfg.Server.Version = peerUpdate.ServerVersion
+		config.Write(&cfg, cfg.Network)
+	}
 
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 	err = wireguard.UpdateWgPeers(file, peerUpdate.Peers)
@@ -208,12 +217,12 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	}
 	logger.Log(0, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
 	if cfg.Node.DNSOn == "yes" {
-		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Network, ncutils.IsWindows()); err != nil {
+		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Interface, ncutils.IsWindows()); err != nil {
 			logger.Log(0, "error updating /etc/hosts "+err.Error())
 			return
 		}
 	} else {
-		if err := removeHostDNS(cfg.Node.Network, ncutils.IsWindows()); err != nil {
+		if err := removeHostDNS(cfg.Node.Interface, ncutils.IsWindows()); err != nil {
 			logger.Log(0, "error removing profile from /etc/hosts "+err.Error())
 			return
 		}

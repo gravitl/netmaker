@@ -46,7 +46,7 @@ func portForwardServices(force bool) error {
 	for _, service := range services {
 		switch service {
 		case "mq":
-			err = iptablesPortForward("mq", "1883", "1883", false, force)
+			err = iptablesPortForward("mq", servercfg.GetMQServerPort(), servercfg.GetMQServerPort(), false, force)
 		case "dns":
 			err = iptablesPortForward("coredns", "53", "53", false, force)
 		case "ssh":

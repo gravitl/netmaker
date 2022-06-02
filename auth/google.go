@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -91,7 +92,7 @@ func getGoogleUserInfo(state string, code string) (*googleOauthUser, error) {
 	if state != oauth_state_string {
 		return nil, fmt.Errorf("invalid OAuth state")
 	}
-	var token, err = auth_provider.Exchange(oauth2.NoContext, code)
+	var token, err = auth_provider.Exchange(context.Background(), code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}

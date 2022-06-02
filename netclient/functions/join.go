@@ -42,10 +42,9 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if cfg.Node.Password == "" {
 		cfg.Node.Password = logic.GenKey()
 	}
-	manualPort := false
+	//check if ListenPort was set on command line
 	if cfg.Node.ListenPort != 0 {
 		cfg.Node.UDPHolePunch = "no"
-		manualPort = true
 	}
 	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
 	if errT != nil {
@@ -120,12 +119,12 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	cfg.Node.Name = formatName(cfg.Node)
 	cfg.Node.OS = runtime.GOOS
 	cfg.Node.Version = ncutils.Version
-	cfg.Node.AccessKey = cfg.Server.AccessKey
+	cfg.Node.AccessKey = cfg.AccessKey
 	//not sure why this is needed ... setnode defaults should take care of this on server
 	cfg.Node.IPForwarding = "yes"
 	logger.Log(0, "joining "+cfg.Network+" at "+cfg.Server.API)
 	url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network
-	response, err := API(cfg.Node, http.MethodPost, url, cfg.Server.AccessKey)
+	response, err := API(cfg.Node, http.MethodPost, url, cfg.AccessKey)
 	if err != nil {
 		return fmt.Errorf("error creating node %w", err)
 	}
@@ -144,6 +143,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if nodeGET.Peers == nil {
 		nodeGET.Peers = []wgtypes.PeerConfig{}
 	}
+
 	// safety check. If returned node from server is local, but not currently configured as local, set to local addr
 	if cfg.Node.IsLocal != "yes" && node.IsLocal == "yes" && node.LocalRange != "" {
 		node.LocalAddress, err = ncutils.GetLocalIP(node.LocalRange)
@@ -156,6 +156,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		node.UDPHolePunch = "no"
 		cfg.Node.IsStatic = "yes"
 	}
+	cfg.Server = nodeGET.ServerConfig
 
 	err = wireguard.StorePrivKey(privateKey, cfg.Network)
 	if err != nil {
@@ -170,11 +171,11 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 	logger.Log(1, "node created on remote server...updating configs")
 	cfg.Node = node
-	logger.Log(1, "turn on UDP hole punching (dynamic port setting)? "+cfg.Node.UDPHolePunch)
-	if !manualPort && (cfg.Node.UDPHolePunch == "no") {
-		setListenPort(cfg)
+	err = config.ModNodeConfig(&cfg.Node)
+	if err != nil {
+		return err
 	}
-	err = config.ModConfig(&cfg.Node)
+	err = config.ModServerConfig(&cfg.Server, node.Network)
 	if err != nil {
 		return err
 	}
@@ -190,8 +191,13 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err := Register(cfg, privateKey); err != nil {
 		return err
 	}
-
-	_ = UpdateLocalListenPort(cfg)
+	if cfg.Server.Server == "" {
+		return errors.New("did not recieve broker address from registration")
+	}
+	// update server with latest data
+	if err := PublishNodeUpdate(cfg); err != nil {
+		logger.Log(0, "failed to publish update for join", err.Error())
+	}
 
 	if cfg.Daemon == "install" || ncutils.IsFreeBSD() {
 		err = daemon.InstallDaemon(cfg)
@@ -219,21 +225,4 @@ func formatName(node models.Node) string {
 		node.Name = ""
 	}
 	return node.Name
-}
-
-func setListenPort(cfg *config.ClientConfig) {
-	// keep track of the returned listenport value
-	newListenPort := cfg.Node.ListenPort
-	var errN error
-	// get free port based on returned default listen port
-	cfg.Node.ListenPort, errN = ncutils.GetFreePort(cfg.Node.ListenPort)
-	if errN != nil {
-		cfg.Node.ListenPort = newListenPort
-		logger.Log(1, "Error retrieving port: ", errN.Error())
-	}
-
-	// if newListenPort has been modified to find an available port, publish to server
-	if cfg.Node.ListenPort != newListenPort {
-		PublishNodeUpdate(cfg)
-	}
 }

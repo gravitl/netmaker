@@ -188,7 +188,7 @@ func TestNodeACLs(t *testing.T) {
 		currentACL.Save(acls.ContainerID(node1.Network))
 	})
 	t.Run("node acls correct after add new node not allowed", func(t *testing.T) {
-		node3 := models.Node{PublicKey: "DM5qhLAE20FG7BbfBCger+Ac9D2NDOwCtY1rbYDXv24=", Name: "testnode3", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
+		node3 := models.Node{PublicKey: "this-is-not-valid", Name: "testnode3", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
 		logic.CreateNode(&node3)
 		var currentACL, err = nodeacls.FetchAllACLs(nodeacls.NetworkID(node3.Network))
 		assert.Nil(t, err)

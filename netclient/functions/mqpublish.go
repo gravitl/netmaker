@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/tls"
 )
@@ -106,6 +108,8 @@ func Hello(nodeCfg *config.ClientConfig) {
 		_, err := Pull(nodeCfg.Node.Network, true)
 		if err != nil {
 			logger.Log(0, "could not run pull on "+nodeCfg.Node.Network+", error: "+err.Error())
+		} else {
+			daemon.Restart()
 		}
 	}
 	logger.Log(3, "checkin for", nodeCfg.Network, "complete")
@@ -164,16 +168,26 @@ func checkCertExpiry(cfg *config.ClientConfig) error {
 	return nil
 }
 
-func checkBroker(broker string) error {
+func checkBroker(broker string, port string) error {
+	if broker == "" {
+		return errors.New("error: broker address is blank")
+	}
+	if port == "" {
+		return errors.New("error: broker port is blank")
+	}
 	_, err := net.LookupIP(broker)
 	if err != nil {
 		return errors.New("nslookup failed for broker ... check dns records")
 	}
 	pinger := ping.NewTCPing()
+	intPort, err := strconv.Atoi(port)
+	if err != nil {
+		logger.Log(1, "error converting port to int: "+err.Error())
+	}
 	pinger.SetTarget(&ping.Target{
 		Protocol: ping.TCP,
 		Host:     broker,
-		Port:     8883,
+		Port:     intPort,
 		Counter:  3,
 		Interval: 1 * time.Second,
 		Timeout:  2 * time.Second,

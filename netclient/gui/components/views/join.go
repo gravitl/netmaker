@@ -29,10 +29,9 @@ func GetJoinView() fyne.CanvasObject {
 		cfg.Network = accesstoken.ClientConfig.Network
 		cfg.Node.Network = accesstoken.ClientConfig.Network
 		cfg.Node.Name = ncutils.GetHostname()
-		cfg.Server.AccessKey = accesstoken.ClientConfig.Key
+		cfg.AccessKey = accesstoken.ClientConfig.Key
 		cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
-		cfg.Server.Server = accesstoken.ServerConfig.Server
-		cfg.Server.API = accesstoken.ServerConfig.APIConnString
+		cfg.Server.API = accesstoken.APIConnString
 		err = functions.JoinNetwork(&cfg, "")
 		if err != nil {
 			ErrorNotify("Failed to join " + cfg.Network + "!")

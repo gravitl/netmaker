@@ -16,7 +16,7 @@ const TimeFormatDay = "2006-01-02"
 const TimeFormat = "2006-01-02 15:04:05"
 
 // == fields ==
-var currentLogs = make(map[string]string)
+var currentLogs = make(map[string]entry)
 var mu sync.Mutex
 var program string
 
@@ -38,7 +38,10 @@ func Log(verbosity int, message ...string) {
 		fmt.Printf("[%s] %s %s \n", program, currentTime.Format(TimeFormat), currentMessage)
 	}
 	if program == "netmaker" {
-		currentLogs[currentMessage] = currentTime.Format("2006-01-02 15:04:05.999999999")
+		currentLogs[currentMessage] = entry{
+			Time:  currentTime.Format("2006-01-02 15:04:05.999999999"),
+			Count: currentLogs[currentMessage].Count + 1,
+		}
 	}
 }
 
@@ -47,21 +50,23 @@ func Dump() string {
 	if program != "netmaker" {
 		return ""
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	var dumpString = ""
 	type keyVal struct {
 		Key   string
 		Value time.Time
+		Count int
 	}
-	var mu sync.Mutex
-	mu.Lock()
-	defer mu.Unlock()
 	var dumpLogs = make([]keyVal, 0, len(currentLogs))
-	for key, value := range currentLogs {
-		parsedTime, err := time.Parse(TimeFormat, value)
+	for key := range currentLogs {
+		currentEntry := currentLogs[key]
+		parsedTime, err := time.Parse(TimeFormat, currentEntry.Time)
 		if err == nil {
 			dumpLogs = append(dumpLogs, keyVal{
 				Key:   key,
 				Value: parsedTime,
+				Count: currentEntry.Count,
 			})
 		}
 	}
@@ -71,7 +76,7 @@ func Dump() string {
 
 	for i := range dumpLogs {
 		var currLog = dumpLogs[i]
-		dumpString += MakeString(" ", "[netmaker]", currLog.Value.Format(TimeFormat), currLog.Key, "\n")
+		dumpString += MakeString(" ", "[netmaker]", currLog.Value.Format(TimeFormat), currLog.Key, fmt.Sprintf("(%d)", currLog.Count), "\n")
 	}
 
 	resetLogs()
@@ -107,9 +112,6 @@ func Retrieve(filePath string) string {
 
 // FatalLog - exits os after logging
 func FatalLog(message ...string) {
-	var mu sync.Mutex
-	mu.Lock()
-	defer mu.Unlock()
 	fmt.Printf("[netmaker] Fatal: %s \n", MakeString(" ", message...))
 	os.Exit(2)
 }
@@ -118,5 +120,5 @@ func FatalLog(message ...string) {
 
 // resetLogs - reallocates logs map
 func resetLogs() {
-	currentLogs = make(map[string]string)
+	currentLogs = make(map[string]entry)
 }

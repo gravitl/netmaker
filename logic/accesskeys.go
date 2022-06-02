@@ -52,12 +52,8 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	netID := network.NetID
 
 	var accessToken models.AccessToken
-	s := servercfg.GetServerConfig()
-	servervals := models.ServerConfig{
-		Server:        s.Server,
-		APIConnString: s.APIConnString,
-	}
-	accessToken.ServerConfig = servervals
+
+	accessToken.APIConnString = servercfg.GetAPIConnString()
 	accessToken.ClientConfig.Network = netID
 	accessToken.ClientConfig.Key = accesskey.Value
 	accessToken.ClientConfig.LocalRange = privAddr
