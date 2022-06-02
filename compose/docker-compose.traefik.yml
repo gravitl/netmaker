@@ -34,7 +34,7 @@ services:
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
       # uncomment once netmaker supports changing MQ port
-      #MQ_PORT: "443"
+      MQ_PORT: "443"
       HOST_NETWORK: "off"
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
@@ -121,10 +121,10 @@ services:
     ports:
       - "127.0.0.1:1883:1883"
     # comment once netmaker supports changing MQ port
-      - "8883:8883"
+    #  - "8883:8883"
     # uncomment once netmaker supports changing MQ port
-    #expose:
-    #  - "8883"
+    expose:
+      - "8883"
     labels:
       - traefik.enable=true
       - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
