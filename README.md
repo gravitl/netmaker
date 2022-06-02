@@ -10,23 +10,26 @@ a platform for modern, blazing fast virtual networks
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.14.1-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.14.2-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
-    <img src="https://img.shields.io/docker/pulls/gravitl/netmaker" />
+    <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
   </a>  
   <a href="https://goreportcard.com/report/github.com/gravitl/netmaker">
     <img src="https://goreportcard.com/badge/github.com/gravitl/netmaker" />
   </a>
-  <a href="https://github.com/gravitl/netmaker/graphs/contributors">
-    <img src="https://img.shields.io/github/commit-activity/m/gravitl/netmaker?color=blue" />
-  </a>
   <a href="https://twitter.com/intent/follow?screen_name=netmaker_io">
-    <img src="https://img.shields.io/twitter/follow/netmaker_io?style=social" />
+    <img src="https://img.shields.io/twitter/follow/netmaker_io?label=follow&style=social" />
   </a>
   <a href="https://www.youtube.com/channel/UCach3lJY_xBV7rGrbUSvkZQ">
     <img src="https://img.shields.io/youtube/channel/views/UCach3lJY_xBV7rGrbUSvkZQ?style=social" />
   </a>
+  <a href="https://reddit.com/r/netmaker">
+    <img src="https://img.shields.io/reddit/subreddit-subscribers/netmaker?label=%2Fr%2Fnetmaker&style=social" />
+  </a>  
+  <a href="https://discord.gg/zRb9Vfhk8A">
+    <img src="https://img.shields.io/discord/825071750290210916?color=%09%237289da&label=chat" />
+  </a> 
 </p>
 
 # WireGuard® Automation from Homelab to Enterprise
@@ -89,6 +92,9 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 # Get Support
 
 - [Community (Discord)](https://discord.gg/zRb9Vfhk8A)
+
+- [Community (Reddit)](https://reddit.com/r/netmaker)
+
 
 - [Business (Subscription)](https://gravitl.com/plans/business)
 

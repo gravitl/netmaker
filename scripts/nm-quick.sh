@@ -125,14 +125,6 @@ echo "   ----------------------------"
 
 sleep 5
 
-
-echo "setting caddyfile..."
-
-
-wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile
-sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
-sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
-
 echo "setting mosquitto.conf..."
 
 wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
@@ -141,11 +133,12 @@ echo "setting docker-compose..."
 
 mkdir -p /etc/netmaker
 
-wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.contained.yml
+wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.traefik.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/COREDNS_IP/$COREDNS_IP/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
+sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/docker-compose.yml
 
 echo "starting containers..."
 
@@ -178,14 +171,14 @@ echo "creating netmaker network (10.101.0.0/16)"
 
 curl -s -o /dev/null -d '{"addressrange":"10.101.0.0/16","netid":"netmaker"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
 
-sleep 2
+sleep 5
 
 echo "creating netmaker access key"
 
 curlresponse=$(curl -s -d '{"uses":99999,"name":"netmaker-key"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks/netmaker/keys)
 ACCESS_TOKEN=$(jq -r '.accessstring' <<< ${curlresponse})
 
-sleep 2
+sleep 5
 
 echo "configuring netmaker server as ingress gateway"
 
@@ -193,6 +186,8 @@ curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: 
 SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
+
+sleep 5
 
 echo "finished configuring server and network. You can now add clients."
 echo ""
@@ -214,7 +209,7 @@ echo "creating vpn network (10.201.0.0/16)"
 
 curl -s -o /dev/null -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"8.8.8.8"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
 
-sleep 2
+sleep 5
 
 echo "configuring netmaker server as vpn inlet..."
 
