@@ -163,8 +163,8 @@ cat << "EOF"
 EOF
 
 
-echo "visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
-sleep 2
+echo "visit https://dashboard.$NETMAKER_BASE_DOMAIN to log in"
+sleep 7
 
 setup_mesh() {
 echo "creating netmaker network (10.101.0.0/16)"

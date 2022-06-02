@@ -99,7 +99,7 @@ services:
       - "--serverstransport.insecureskipverify=true"
     restart: always
     volumes:
-      - ${TRAEFIK_DOCKER_HOST}:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_certs:/letsencrypt
     ports:
       - "443:443"
