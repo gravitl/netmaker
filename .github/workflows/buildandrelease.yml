@@ -273,7 +273,7 @@ jobs:
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
-          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.aarch4.rpm
+          asset_name: netclient-${{ env.PACKAGE_VERSION }}-1.aarch64.rpm
 
   netclient-mipsle:
     runs-on: ubuntu-latest
