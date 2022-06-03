@@ -198,7 +198,7 @@ type NodeGet struct {
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
 	CoreDNSAddr string `yaml:"corednsaddr"`
-	API         string `yaml:"apihost"`
+	API         string `yaml:"api"`
 	APIPort     string `yaml:"apiport"`
 	ClientMode  string `yaml:"clientmode"`
 	DNSMode     string `yaml:"dnsmode"`
