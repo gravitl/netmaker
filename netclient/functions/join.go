@@ -192,7 +192,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		return err
 	}
 	if cfg.Server.Server == "" {
-		return errors.New("did not recieve broker address from registration")
+		return errors.New("did not receive broker address from registration")
 	}
 	// update server with latest data
 	if err := PublishNodeUpdate(cfg); err != nil {
