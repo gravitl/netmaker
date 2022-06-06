@@ -14,7 +14,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.7.2
 	github.com/txn2/txeh v1.3.0
 	github.com/urfave/cli/v2 v2.8.1
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
@@ -26,7 +26,7 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.6
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
