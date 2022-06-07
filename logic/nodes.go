@@ -180,6 +180,12 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 func DeleteNodeByID(node *models.Node, exterminate bool) error {
 	var err error
 	var key = node.ID
+	//delete any ext clients as required
+	if node.IsIngressGateway == "yes" {
+		if err := DeleteGatewayExtClients(node.ID, node.Network); err != nil {
+			logger.Log(0, "failed to deleted ext clients", err.Error())
+		}
+	}
 	if !exterminate {
 		node.Action = models.NODE_DELETE
 		nodedata, err := json.Marshal(&node)
