@@ -215,7 +215,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 	if err != nil {
 		logger.Log(1, "could not fetch current ACL list, proceeding with all peers")
 	}
-
+	git
 	for _, node := range nodes {
 		pubkey, err := wgtypes.ParseKey(node.PublicKey)
 		if err != nil {
@@ -233,7 +233,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 				continue
 			}
 		}
-		if currentNetworkACL != nil && currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID)) {
+		if currentNetworkACL != nil && !(currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID))) {
 			continue
 		}
 
