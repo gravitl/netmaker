@@ -37,7 +37,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	returnnodes, err = SetRelayedNodes("yes", node.Network, node.RelayAddrs)
+	returnnodes, err = SetRelayedNodes(true, node.Network, node.RelayAddrs)
 	if err != nil {
 		return returnnodes, node, err
 	}
@@ -48,7 +48,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 }
 
 // SetRelayedNodes- set relayed nodes
-func SetRelayedNodes(yesOrno string, networkName string, addrs []string) ([]models.Node, error) {
+func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]models.Node, error) {
 	var returnnodes []models.Node
 	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
@@ -69,9 +69,9 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) ([]mode
 		if node.Network == networkName && !(node.IsServer == "yes") {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
-					node.IsRelayed = yesOrno
-					if yesOrno == "yes" {
+					if setRelayed {
 						node.UDPHolePunch = "no"
+						node.IsRelayed = "yes"
 					} else {
 						node.UDPHolePunch = network.DefaultUDPHolePunch
 					}
@@ -135,11 +135,11 @@ func ValidateRelay(relay models.RelayRequest) error {
 func UpdateRelay(network string, oldAddrs []string, newAddrs []string) []models.Node {
 	var returnnodes []models.Node
 	time.Sleep(time.Second / 4)
-	returnnodes, err := SetRelayedNodes("no", network, oldAddrs)
+	_, err := SetRelayedNodes(false, network, oldAddrs)
 	if err != nil {
 		logger.Log(1, err.Error())
 	}
-	returnnodes, err = SetRelayedNodes("yes", network, newAddrs)
+	returnnodes, err = SetRelayedNodes(true, network, newAddrs)
 	if err != nil {
 		logger.Log(1, err.Error())
 	}
@@ -153,7 +153,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	_, err = SetRelayedNodes("no", node.Network, node.RelayAddrs)
+	_, err = SetRelayedNodes(false, node.Network, node.RelayAddrs)
 	if err != nil {
 		return returnnodes, node, err
 	}
