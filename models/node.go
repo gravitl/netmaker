@@ -396,6 +396,7 @@ func (newNode *Node) Fill(currentNode *Node) {
 	if newNode.Server == "" {
 		newNode.Server = currentNode.Server
 	}
+	newNode.TrafficKeys = currentNode.TrafficKeys
 }
 
 // StringWithCharset - returns random string inside defined charset
