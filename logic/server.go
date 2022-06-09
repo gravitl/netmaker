@@ -233,7 +233,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 				continue
 			}
 		}
-		if currentNetworkACL != nil && currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID)) {
+		if currentNetworkACL != nil && !(currentNetworkACL.IsAllowed(acls.AclID(serverNode.ID), acls.AclID(node.ID))) {
 			continue
 		}
 
