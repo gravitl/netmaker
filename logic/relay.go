@@ -50,7 +50,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 // SetRelayedNodes- set relayed nodes
 func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]models.Node, error) {
 	var returnnodes []models.Node
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	networkNodes, err := GetNetworkNodes(networkName)
 	if err != nil {
 		return returnnodes, err
 	}
@@ -58,15 +58,8 @@ func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]mod
 	if err != nil {
 		return returnnodes, err
 	}
-
-	for _, value := range collections {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			return returnnodes, err
-		}
-		if node.Network == networkName && !(node.IsServer == "yes") {
+	for _, node := range networkNodes {
+		if !(node.IsServer == "yes") {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
 					if setRelayed {
@@ -74,6 +67,7 @@ func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]mod
 						node.IsRelayed = "yes"
 					} else {
 						node.UDPHolePunch = network.DefaultUDPHolePunch
+						node.IsRelayed = "no"
 					}
 					data, err := json.Marshal(&node)
 					if err != nil {
