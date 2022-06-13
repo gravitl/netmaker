@@ -681,3 +681,25 @@ func unsetHub(networkName string) error {
 	}
 	return nil
 }
+
+// FindRelay - returns the node that is the relay for a relayed node
+func FindRelay(node *models.Node) *models.Node {
+	if node.IsRelayed == "no" {
+		return nil
+	}
+	peers, err := GetNetworkNodes(node.Network)
+	if err != nil {
+		return nil
+	}
+	for _, peer := range peers {
+		if peer.IsRelay == "no" {
+			continue
+		}
+		for _, ip := range peer.RelayAddrs {
+			if ip == node.Address || ip == node.Address6 {
+				return &peer
+			}
+		}
+	}
+	return nil
+}
