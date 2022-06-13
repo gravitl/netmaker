@@ -84,6 +84,9 @@ func InitalizeZombies() {
 			continue
 		}
 		for _, othernode := range othernodes {
+			if node.ID == othernode.ID {
+				continue
+			}
 			if node.MacAddress == othernode.MacAddress {
 				if node.LastCheckIn > othernode.LastCheckIn {
 					zombies = append(zombies, othernode.ID)
