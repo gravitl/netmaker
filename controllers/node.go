@@ -768,6 +768,7 @@ func isServer(node *models.Node) bool {
 func updateRelay(oldnode, newnode *models.Node) {
 	relay := logic.FindRelay(oldnode)
 	newrelay := relay
+	//check if node's address has been updated and if so, update the relayAddrs of the relay node with the updated address of the relayed node
 	if oldnode.Address != newnode.Address {
 		for i, ip := range newrelay.RelayAddrs {
 			if ip == oldnode.Address {
@@ -776,6 +777,7 @@ func updateRelay(oldnode, newnode *models.Node) {
 			}
 		}
 	}
+	//check if node's address(v6) has been updated and if so, update the relayAddrs of the relay node with the updated address(v6) of the relayed node
 	if oldnode.Address6 != newnode.Address6 {
 		for i, ip := range newrelay.RelayAddrs {
 			if ip == oldnode.Address {
