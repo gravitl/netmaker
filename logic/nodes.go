@@ -213,7 +213,7 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		// ignoring for now, could hit a nil pointer if delete called twice
 		logger.Log(2, "attempted to remove node ACL for node", node.Name, node.ID)
 	}
-
+	removeZombie <- node.ID
 	return removeLocalServer(node)
 }
 
@@ -313,6 +313,7 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	CheckZombies(node)
 
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
