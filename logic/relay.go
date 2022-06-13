@@ -59,7 +59,7 @@ func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]mod
 		return returnnodes, err
 	}
 	for _, node := range networkNodes {
-		if !(node.IsServer == "yes") {
+		if node.IsServer != "yes" {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
 					if setRelayed {
