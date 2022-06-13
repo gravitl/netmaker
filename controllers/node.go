@@ -635,6 +635,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	relayedUpdate := false
+	if node.IsRelayed == "yes" && (node.Address != newNode.Address || node.Address6 != newNode.Address6) {
+		relayedUpdate = true
+	}
 
 	if !servercfg.GetRce() {
 		newNode.PostDown = node.PostDown
@@ -659,7 +663,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
+	if relayedUpdate {
+		updateRelay(&node, &newNode)
+	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
 	}
@@ -757,4 +763,26 @@ func runForceServerUpdate(node *models.Node) {
 
 func isServer(node *models.Node) bool {
 	return node.IsServer == "yes"
+}
+
+func updateRelay(oldnode, newnode *models.Node) {
+	relay := logic.FindRelay(oldnode)
+	newrelay := relay
+	if oldnode.Address != newnode.Address {
+		for i, ip := range newrelay.RelayAddrs {
+			if ip == oldnode.Address {
+				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], relay.RelayAddrs[i+1:]...)
+				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address)
+			}
+		}
+	}
+	if oldnode.Address6 != newnode.Address6 {
+		for i, ip := range newrelay.RelayAddrs {
+			if ip == oldnode.Address {
+				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], newrelay.RelayAddrs[i+1:]...)
+				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address6)
+			}
+		}
+	}
+	logic.UpdateNode(relay, newrelay)
 }
