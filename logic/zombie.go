@@ -77,7 +77,7 @@ func ManageZombies(ctx context.Context) {
 	}
 }
 
-//InitializeZombies - populates the zombie quarantine list (should be called from initialization)
+// InitializeZombies - populates the zombie quarantine list (should be called from initialization)
 func InitalizeZombies() {
 	nodes, err := GetAllNodes()
 	if err != nil {
