@@ -46,10 +46,15 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			//skip yourself
 			continue
 		}
+		if peer.IsRelayed == "yes" {
+			//skip -- willl be added to relay
+			continue
+		}
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(peer.ID)) {
 			//skip if not permitted by acl
 			continue
 		}
+
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return models.PeerUpdate{}, err
