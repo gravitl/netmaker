@@ -286,6 +286,8 @@ func getPeerDNS(network string) string {
 	return dns
 }
 
+// GetPeerUpdateForRelayedNode - calculates peer update for a relayed node by getting the relay
+// copying the relay node's allowed ips and making appropriate substitutions
 func GetPeerUpdateForRelayedNode(node *models.Node) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate
 	var peers []wgtypes.PeerConfig
