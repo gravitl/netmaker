@@ -105,15 +105,6 @@ func SetNodeIsRelayed(yesOrno string, id string) (models.Node, error) {
 	return node, database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 }
 
-// PeerListUnRelay - call this function if a relayed node fails to get its relay: unrelays node and gets new peer list
-func PeerListUnRelay(id string, network string) ([]models.Node, error) {
-	node, err := SetNodeIsRelayed("no", id)
-	if err != nil {
-		return nil, err
-	}
-	return GetPeersList(&node)
-}
-
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest) error {
 	var err error
