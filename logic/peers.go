@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
@@ -28,6 +29,13 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	}
 	if node.IsRelayed == "yes" {
 		return GetPeerUpdateForRelayedNode(node)
+	}
+
+	// udppeers = the peers parsed from the local interface
+	// gives us correct port to reach
+	udppeers, errN := database.GetPeers(node.Network)
+	if errN != nil {
+		logger.Log(2, errN.Error())
 	}
 
 	// #1 Set Keepalive values: set_keepalive
@@ -62,6 +70,29 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 				continue
 			}
 		}
+		// Sets ListenPort to UDP Hole Punching Port assuming:
+		// - UDP Hole Punching is enabled
+		// - udppeers retrieval did not return an error
+		// - the endpoint is valid
+		var setUDPPort = false
+		if peer.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[peer.PublicKey]) {
+			endpointstring := udppeers[peer.PublicKey]
+			endpointarr := strings.Split(endpointstring, ":")
+			if len(endpointarr) == 2 {
+				port, err := strconv.Atoi(endpointarr[1])
+				if err == nil {
+					setUDPPort = true
+					peer.ListenPort = int32(port)
+				}
+			}
+		}
+		// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
+		// or, if port is for some reason zero use the LocalListenPort
+		// but only do this if LocalListenPort is not zero
+		if ((peer.UDPHolePunch == "yes" && !setUDPPort) || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
+			peer.ListenPort = peer.LocalListenPort
+		}
+
 		endpoint := peer.Endpoint + ":" + strconv.FormatInt(int64(peer.ListenPort), 10)
 		address, err := net.ResolveUDPAddr("udp", endpoint)
 		if err != nil {
