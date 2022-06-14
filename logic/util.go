@@ -115,61 +115,6 @@ func RandomString(length int) string {
 
 // == Private Methods ==
 
-// getNetworkEgressAndNodes - returns two slices, #1 is all nodes in the network, #2 is the egress nodes in the network
-func getNetworkEgressAndNodes(networkName string) ([]models.Node, []models.Node, error) {
-	var networkNodes, egressNetworkNodes []models.Node
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return networkNodes, egressNetworkNodes, nil
-		}
-		logger.Log(2, err.Error())
-		return nil, nil, err
-	}
-
-	for _, value := range collection {
-		var node = models.Node{}
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			logger.Log(2, err.Error())
-			continue
-		}
-		if node.Network == networkName {
-			networkNodes = append(networkNodes, node)
-			if node.IsEgressGateway == "yes" {
-				egressNetworkNodes = append(egressNetworkNodes, node)
-			}
-		}
-	}
-	return networkNodes, egressNetworkNodes, nil
-}
-
-func setPeerInfo(node *models.Node) models.Node {
-	var peer models.Node
-	peer.RelayAddrs = node.RelayAddrs
-	peer.IsRelay = node.IsRelay
-	peer.IsServer = node.IsServer
-	peer.IsRelayed = node.IsRelayed
-	peer.PublicKey = node.PublicKey
-	peer.Endpoint = node.Endpoint
-	peer.Name = node.Name
-	peer.Network = node.Network
-	peer.LocalAddress = node.LocalAddress
-	peer.LocalListenPort = node.LocalListenPort
-	peer.ListenPort = node.ListenPort
-	peer.AllowedIPs = node.AllowedIPs
-	peer.UDPHolePunch = node.UDPHolePunch
-	peer.Address = node.Address
-	peer.Address6 = node.Address6
-	peer.IsHub = node.IsHub
-	peer.EgressGatewayRanges = node.EgressGatewayRanges
-	peer.IsEgressGateway = node.IsEgressGateway
-	peer.IngressGatewayRange = node.IngressGatewayRange
-	peer.IsIngressGateway = node.IsIngressGateway
-	peer.IsPending = node.IsPending
-	return peer
-}
-
 func setIPForwardingLinux() error {
 	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
 	if err != nil {

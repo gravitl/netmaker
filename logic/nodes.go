@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -94,25 +93,6 @@ func UncordonNode(nodeid string) (models.Node, error) {
 
 	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	return node, err
-}
-
-// GetPeers - gets the peers of a given server node
-func GetPeers(node *models.Node) ([]models.Node, error) {
-	if IsLeader(node) {
-		setNetworkServerPeers(node)
-	}
-	peers, err := GetPeersList(node)
-	if err != nil {
-		if strings.Contains(err.Error(), RELAY_NODE_ERR) {
-			peers, err = PeerListUnRelay(node.ID, node.Network)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-	return peers, nil
 }
 
 // SetIfLeader - gets the peers of a given server node
@@ -703,4 +683,20 @@ func FindRelay(node *models.Node) *models.Node {
 		}
 	}
 	return nil
+}
+
+func findNode(ip string) (*models.Node, error) {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range nodes {
+		if node.Address == ip {
+			return &node, nil
+		}
+		if node.Address6 == ip {
+			return &node, nil
+		}
+	}
+	return nil, errors.New("node not found")
 }
