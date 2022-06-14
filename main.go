@@ -127,6 +127,7 @@ func initialize() { // Client Mode Prereq Check
 			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
 		}
 	}
+	logic.InitalizeZombies()
 }
 
 func startControllers() {
@@ -169,6 +170,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	var client = mq.SetupMQTT(false) // Set up the subscription listener
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
+	go logic.ManageZombies(ctx)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit
