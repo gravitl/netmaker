@@ -8,11 +8,11 @@ import (
 )
 
 func TestCheckOverlap(t *testing.T) {
-	_, err := ncutils.RunCmd("ip link add nm-0 type wireguard", false)
+	_, err := ncutils.RunCmd("sudo ip link add nm-0 type wireguard", false)
 	assert.Nil(t, err)
-	_, err = ncutils.RunCmd("ip a add 10.0.255.254/16 dev nm-0", false)
+	_, err = ncutils.RunCmd("sudo ip a add 10.0.255.254/16 dev nm-0", false)
 	assert.Nil(t, err)
-	_, err = ncutils.RunCmd("ip -6 a add 2001:db8::/64 dev nm-0", false)
+	_, err = ncutils.RunCmd("sudo ip -6 a add 2001:db8::/64 dev nm-0", false)
 	assert.Nil(t, err)
 	t.Run("4Good", func(t *testing.T) {
 		err = CheckOverlap("10.10.10.0/24", "")
@@ -30,6 +30,6 @@ func TestCheckOverlap(t *testing.T) {
 		err = CheckOverlap("", "2001:db8::1:0/64")
 		assert.NotNil(t, err)
 	})
-	_, err = ncutils.RunCmd("ip link del nm-0", false)
+	_, err = ncutils.RunCmd("sudo ip link del nm-0", false)
 
 }
