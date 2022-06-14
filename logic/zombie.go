@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	ZOMBIE_TIMEOUT     = 60 // timeout in seconds
-	ZOMBIE_DELETE_TIME = 10 // minutes
+	// ZOMBIE_TIMEOUT - timeout in seconds for checking zombie status
+	ZOMBIE_TIMEOUT = 60
+	// ZOMBIE_DELETE_TIME - timeout in minutes for zombie node deletion
+	ZOMBIE_DELETE_TIME = 10
 )
 
 var (
@@ -44,13 +46,17 @@ func ManageZombies(ctx context.Context) {
 			logger.Log(1, "adding", id, "to zombie quaratine list")
 			zombies = append(zombies, id)
 		case id := <-removeZombie:
+			found := false
 			for i, zombie := range zombies {
 				if zombie == id {
 					logger.Log(1, "removing zombie from quaratine list", zombie)
 					zombies = append(zombies[:i], zombies[i+1:]...)
+					found = true
 				}
 			}
-			logger.Log(3, "no zombies found")
+			if !found {
+				logger.Log(3, "no zombies found")
+			}
 		case <-time.After(time.Second * ZOMBIE_TIMEOUT):
 			for i, zombie := range zombies {
 				node, err := GetNodeByID(zombie)
@@ -61,6 +67,7 @@ func ManageZombies(ctx context.Context) {
 				if time.Since(time.Unix(node.LastCheckIn, 0)) > time.Minute*ZOMBIE_DELETE_TIME {
 					if err := DeleteNodeByID(&node, true); err != nil {
 						logger.Log(1, "error deleting zombie node", zombie, err.Error())
+						continue
 					}
 					logger.Log(1, "deleting zombie node", node.Name)
 					zombies = append(zombies[:i], zombies[i+1:]...)
