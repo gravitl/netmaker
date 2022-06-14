@@ -42,10 +42,6 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			//skip if not permitted by acl
 			continue
 		}
-		if peer.IsRelayed == "yes" {
-			//skip -- willl be added to relay
-			continue
-		}
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return models.PeerUpdate{}, err
@@ -241,6 +237,10 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 			relayedPeer, err := findNode(ip)
 			if err != nil {
 				logger.Log(0, "failed to find node for ip ", ip, err.Error())
+				continue
+			}
+			if relayedPeer == nil {
+				continue
 			}
 			if relayedPeer.ID == node.ID {
 				//skip self
@@ -327,6 +327,10 @@ func GetPeerUpdateForRelayedNode(node *models.Node) (models.PeerUpdate, error) {
 		target, err := findNode(ip.IP.String())
 		if err != nil {
 			logger.Log(0, "failed to find node for ip", ip.IP.String(), err.Error())
+			continue
+		}
+		if target == nil {
+			logger.Log(0, "failed to find node for ip", ip.IP.String())
 			continue
 		}
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(target.ID)) {
