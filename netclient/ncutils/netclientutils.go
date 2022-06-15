@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -592,4 +593,29 @@ func MakeRandomString(n int) string {
 		result[i] = validChars[b%byte(len(validChars))]
 	}
 	return string(result)
+}
+
+func GetIPNetFromString(ip string) (net.IPNet, error) {
+	var ipnet *net.IPNet
+	var err error
+	// parsing as a CIDR first. If valid CIDR, append
+	if _, cidr, err := net.ParseCIDR(ip); err == nil {
+		ipnet = cidr
+	} else { // parsing as an IP second. If valid IP, check if ipv4 or ipv6, then append
+		if iplib.Version(net.ParseIP(ip)) == 4 {
+			ipnet = &net.IPNet{
+				IP:   net.ParseIP(ip),
+				Mask: net.CIDRMask(32, 32),
+			}
+		} else if iplib.Version(net.ParseIP(ip)) == 6 {
+			ipnet = &net.IPNet{
+				IP:   net.ParseIP(ip),
+				Mask: net.CIDRMask(128, 128),
+			}
+		}
+	}
+	if ipnet == nil {
+		err = errors.New(ip + " is not a valid ip or cidr")
+	}
+	return *ipnet, err
 }

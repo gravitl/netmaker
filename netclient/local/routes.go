@@ -11,41 +11,26 @@ import (
 // TODO handle ipv6 in future
 
 // SetPeerRoutes - sets/removes ip routes for each peer on a network
-func SetPeerRoutes(iface string, oldPeers map[string][]net.IPNet, newPeers []wgtypes.PeerConfig) {
+func SetPeerRoutes(iface string, oldPeers map[string]bool, newPeers []wgtypes.PeerConfig) {
 	// traverse through all recieved peers
 	for _, peer := range newPeers {
-		// if pubkey found in existing peers, check against existing peer
-		currPeerAllowedIPs := oldPeers[peer.PublicKey.String()]
-		if currPeerAllowedIPs != nil {
-			// traverse IPs, check to see if old peer contains each IP
-			for _, allowedIP := range peer.AllowedIPs { // compare new ones (if any) to old ones
-				if !ncutils.IPNetSliceContains(currPeerAllowedIPs, allowedIP) {
-					if err := setRoute(iface, &allowedIP, allowedIP.IP.String()); err != nil {
-						logger.Log(1, err.Error())
-					}
-				}
-			}
-			for _, allowedIP := range currPeerAllowedIPs { // compare old ones (if any) to new ones
-				if !ncutils.IPNetSliceContains(peer.AllowedIPs, allowedIP) {
-					if err := deleteRoute(iface, &allowedIP, allowedIP.IP.String()); err != nil {
-						logger.Log(1, err.Error())
-					}
-				}
-			}
-			delete(oldPeers, peer.PublicKey.String()) // remove peer as it was found and processed
-		} else {
-			for _, allowedIP := range peer.AllowedIPs { // add all routes as peer doesn't exist
-				if err := setRoute(iface, &allowedIP, allowedIP.String()); err != nil {
+		for _, allowedIP := range peer.AllowedIPs {
+			if !oldPeers[allowedIP.String()] {
+				if err := setRoute(iface, &allowedIP, allowedIP.IP.String()); err != nil {
 					logger.Log(1, err.Error())
 				}
+			} else {
+				delete(oldPeers, allowedIP.String())
 			}
 		}
 	}
-
 	// traverse through all remaining existing peers
-	for _, allowedIPs := range oldPeers {
-		for _, allowedIP := range allowedIPs {
-			deleteRoute(iface, &allowedIP, allowedIP.IP.String())
+	for i, _ := range oldPeers {
+		ip, err := ncutils.GetIPNetFromString(i)
+		if err != nil {
+			logger.Log(1, err.Error())
+		} else {
+			deleteRoute(iface, &ip, ip.IP.String())
 		}
 	}
 }
