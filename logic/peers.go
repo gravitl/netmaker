@@ -43,14 +43,21 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
 	for _, peer := range currentPeers {
+
+		// if the node is not a server, set the endpoint
+		var setEndpoint = !(node.IsServer == "yes")
+
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
 		}
 		if peer.IsRelayed == "yes" {
 			if !(node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
-				//skip -- willl be added to relay
+				//skip -- will be added to relay
 				continue
+			} else if node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress()) {
+				// dont set peer endpoint if it's relayed by node
+				setEndpoint = false
 			}
 		}
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(peer.ID)) {
@@ -73,33 +80,41 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 				continue
 			}
 		}
+
+		// set address if setEndpoint is true
+		// otherwise, will get inserted as empty value
+		var address *net.UDPAddr
+
 		// Sets ListenPort to UDP Hole Punching Port assuming:
 		// - UDP Hole Punching is enabled
 		// - udppeers retrieval did not return an error
 		// - the endpoint is valid
-		var setUDPPort = false
-		if peer.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[peer.PublicKey]) {
-			endpointstring := udppeers[peer.PublicKey]
-			endpointarr := strings.Split(endpointstring, ":")
-			if len(endpointarr) == 2 {
-				port, err := strconv.Atoi(endpointarr[1])
-				if err == nil {
-					setUDPPort = true
-					peer.ListenPort = int32(port)
+		if setEndpoint {
+
+			var setUDPPort = false
+			if peer.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[peer.PublicKey]) {
+				endpointstring := udppeers[peer.PublicKey]
+				endpointarr := strings.Split(endpointstring, ":")
+				if len(endpointarr) == 2 {
+					port, err := strconv.Atoi(endpointarr[1])
+					if err == nil {
+						setUDPPort = true
+						peer.ListenPort = int32(port)
+					}
 				}
 			}
-		}
-		// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
-		// or, if port is for some reason zero use the LocalListenPort
-		// but only do this if LocalListenPort is not zero
-		if ((peer.UDPHolePunch == "yes" && !setUDPPort) || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
-			peer.ListenPort = peer.LocalListenPort
-		}
+			// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
+			// or, if port is for some reason zero use the LocalListenPort
+			// but only do this if LocalListenPort is not zero
+			if ((peer.UDPHolePunch == "yes" && !setUDPPort) || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
+				peer.ListenPort = peer.LocalListenPort
+			}
 
-		endpoint := peer.Endpoint + ":" + strconv.FormatInt(int64(peer.ListenPort), 10)
-		address, err := net.ResolveUDPAddr("udp", endpoint)
-		if err != nil {
-			return models.PeerUpdate{}, err
+			endpoint := peer.Endpoint + ":" + strconv.FormatInt(int64(peer.ListenPort), 10)
+			address, err = net.ResolveUDPAddr("udp", endpoint)
+			if err != nil {
+				return models.PeerUpdate{}, err
+			}
 		}
 		// set_allowedips
 		allowedips := GetAllowedIPs(node, &peer)
@@ -115,6 +130,11 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			AllowedIPs:                  allowedips,
 			PersistentKeepaliveInterval: &keepalive,
 		}
+
+		if !setEndpoint {
+			peerData.Endpoint = nil
+		}
+
 		peers = append(peers, peerData)
 		if peer.IsServer == "yes" {
 			serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(&peer), Address: peer.Address})
