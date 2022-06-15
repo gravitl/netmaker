@@ -389,13 +389,21 @@ func GetPeerUpdateForRelayedNode(node *models.Node) (models.PeerUpdate, error) {
 		}
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(target.ID)) {
 			logger.Log(0, "deleting node from relayednode per acl", node.Name, target.Name)
-			allowedips = append(allowedips[:i], allowedips[i+1:]...)
+			if i+1 == len(allowedips) {
+				allowedips = allowedips[:i]
+			} else {
+				allowedips = append(allowedips[:i], allowedips[i+1:]...)
+			}
 		}
 	}
 	//delete self from allowed ips
 	for i, ip := range allowedips {
 		if ip.IP.String() == node.Address || ip.IP.String() == node.Address6 {
-			allowedips = append(allowedips[:i], allowedips[i+1:]...)
+			if i+1 == len(allowedips) {
+				allowedips = allowedips[:i]
+			} else {
+				allowedips = append(allowedips[:i], allowedips[i+1:]...)
+			}
 		}
 	}
 
