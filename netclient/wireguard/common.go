@@ -28,7 +28,8 @@ const (
 func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error {
 	var devicePeers []wgtypes.Peer
 	var keepalive = node.PersistentKeepalive
-	var oldPeerAllowedIps = make(map[string][]net.IPNet, len(peers))
+	var oldPeerAllowedIps = make(map[string]bool, len(peers))
+
 	var err error
 	devicePeers, err = GetDevicePeers(iface)
 	if err != nil {
@@ -106,7 +107,9 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 						log.Println(output, "error removing peer", currentPeer.PublicKey.String())
 					}
 				}
-				oldPeerAllowedIps[currentPeer.PublicKey.String()] = currentPeer.AllowedIPs
+				for _, ip := range currentPeer.AllowedIPs {
+					oldPeerAllowedIps[ip.String()] = true
+				}
 			}
 		}
 	}
