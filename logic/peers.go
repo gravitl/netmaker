@@ -131,10 +131,6 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			PersistentKeepaliveInterval: &keepalive,
 		}
 
-		if !setEndpoint {
-			peerData.Endpoint = nil
-		}
-
 		peers = append(peers, peerData)
 		if peer.IsServer == "yes" {
 			serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(&peer), Address: peer.Address})
