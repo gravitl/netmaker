@@ -377,33 +377,25 @@ func GetPeerUpdateForRelayedNode(node *models.Node) (models.PeerUpdate, error) {
 		allowedips = append(allowedips, peer.AllowedIPs...)
 	}
 	//delete any ips not permitted by acl
-	for i, ip := range allowedips {
-		target, err := findNode(ip.IP.String())
+	for i := len(allowedips) - 1; i >= 0; i-- {
+		target, err := findNode(allowedips[i].IP.String())
 		if err != nil {
-			logger.Log(0, "failed to find node for ip", ip.IP.String(), err.Error())
+			logger.Log(0, "failed to find node for ip", allowedips[i].IP.String(), err.Error())
 			continue
 		}
 		if target == nil {
-			logger.Log(0, "failed to find node for ip", ip.IP.String())
+			logger.Log(0, "failed to find node for ip", allowedips[i].IP.String())
 			continue
 		}
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(target.ID)) {
 			logger.Log(0, "deleting node from relayednode per acl", node.Name, target.Name)
-			if i+1 == len(allowedips) {
-				allowedips = allowedips[:i]
-			} else {
-				allowedips = append(allowedips[:i], allowedips[i+1:]...)
-			}
+			allowedips = append(allowedips[:i], allowedips[i+1:]...)
 		}
 	}
 	//delete self from allowed ips
-	for i, ip := range allowedips {
-		if ip.IP.String() == node.Address || ip.IP.String() == node.Address6 {
-			if i+1 == len(allowedips) {
-				allowedips = allowedips[:i]
-			} else {
-				allowedips = append(allowedips[:i], allowedips[i+1:]...)
-			}
+	for i := len(allowedips) - 1; i >= 0; i-- {
+		if allowedips[i].IP.String() == node.Address || allowedips[i].IP.String() == node.Address6 {
+			allowedips = append(allowedips[:i], allowedips[i+1:]...)
 		}
 	}
 
