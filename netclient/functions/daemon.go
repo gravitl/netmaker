@@ -280,34 +280,6 @@ func publishSignal(nodeCfg *config.ClientConfig, signal byte) error {
 	return nil
 }
 
-func initialPull(network string) {
-	logger.Log(0, "pulling latest config for ", network)
-	var configPath = fmt.Sprintf("%snetconfig-%s", ncutils.GetNetclientPathSpecific(), network)
-	fileInfo, err := os.Stat(configPath)
-	if err != nil {
-		logger.Log(0, "could not stat config file: ", configPath)
-		return
-	}
-	// speed up UDP rest
-	if !fileInfo.ModTime().IsZero() && time.Now().After(fileInfo.ModTime().Add(time.Minute)) {
-		sleepTime := 2
-		for {
-			_, err := Pull(network, true)
-			if err == nil {
-				break
-			}
-			if sleepTime > 3600 {
-				sleepTime = 3600
-			}
-			logger.Log(0, "failed to pull for network ", network)
-			logger.Log(0, fmt.Sprintf("waiting %d seconds to retry...", sleepTime))
-			time.Sleep(time.Second * time.Duration(sleepTime))
-			sleepTime = sleepTime * 2
-		}
-		time.Sleep(time.Second << 1)
-	}
-}
-
 func parseNetworkFromTopic(topic string) string {
 	return strings.Split(topic, "/")[1]
 }
