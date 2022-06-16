@@ -37,7 +37,7 @@ func TestReturnSuccessResponse(t *testing.T) {
 	assert.Equal(t, "This is a test message", response.Message)
 }
 
-func testReturnErrorResponse(t *testing.T) {
+func TestReturnErrorResponse(t *testing.T) {
 	var response, errMessage models.ErrorResponse
 	errMessage.Code = http.StatusUnauthorized
 	errMessage.Message = "You are not authorized to access this endpoint"
