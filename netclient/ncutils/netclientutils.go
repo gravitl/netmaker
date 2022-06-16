@@ -22,7 +22,6 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var (
@@ -61,7 +60,6 @@ const DEFAULT_GC_PERCENT = 10
 const KEY_SIZE = 2048
 
 // constants for random strings
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
@@ -168,37 +166,6 @@ func GetMacAddr() ([]string, error) {
 		}
 	}
 	return as, nil
-}
-
-func parsePeers(keepalive int32, peers []wgtypes.PeerConfig) (string, error) {
-	peersString := ""
-	if keepalive <= 0 {
-		keepalive = 0
-	}
-
-	for _, peer := range peers {
-		endpointString := ""
-		if peer.Endpoint != nil && peer.Endpoint.String() != "" {
-			endpointString += "Endpoint = " + peer.Endpoint.String()
-		}
-		newAllowedIps := []string{}
-		for _, allowedIP := range peer.AllowedIPs {
-			newAllowedIps = append(newAllowedIps, allowedIP.String())
-		}
-		peersString += fmt.Sprintf(`[Peer]
-PublicKey = %s
-AllowedIps = %s
-PersistentKeepAlive = %s
-%s
-
-`,
-			peer.PublicKey.String(),
-			strings.Join(newAllowedIps, ","),
-			strconv.Itoa(int(keepalive)),
-			endpointString,
-		)
-	}
-	return peersString, nil
 }
 
 // GetLocalIP - gets local ip of machine
@@ -472,19 +439,6 @@ func GetSystemNetworks() ([]string, error) {
 	return networks, nil
 }
 
-func stringAfter(original string, substring string) string {
-	position := strings.LastIndex(original, substring)
-	if position == -1 {
-		return ""
-	}
-	adjustedPosition := position + len(substring)
-
-	if adjustedPosition >= len(original) {
-		return ""
-	}
-	return original[adjustedPosition:]
-}
-
 // ShortenString - Brings string down to specified length. Stops names from being too long
 func ShortenString(input string, length int) string {
 	output := input
@@ -616,6 +570,7 @@ func GetIPNetFromString(ip string) (net.IPNet, error) {
 	}
 	if ipnet == nil {
 		err = errors.New(ip + " is not a valid ip or cidr")
+		return net.IPNet{}, err
 	}
 	return *ipnet, err
 }

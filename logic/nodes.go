@@ -618,29 +618,6 @@ func validateServer(currentNode, newNode *models.Node) bool {
 		newNode.IsServer == "yes")
 }
 
-// isMacAddressUnique - checks if mac is unique
-func isMacAddressUnique(macaddress string, networkName string) (bool, error) {
-
-	isunique := true
-
-	nodes, err := GetNetworkNodes(networkName)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return true, nil
-		}
-		return false, err
-	}
-
-	for _, node := range nodes {
-
-		if node.MacAddress == macaddress {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
-}
-
 // unsetHub - unset hub on network nodes
 func unsetHub(networkName string) error {
 
