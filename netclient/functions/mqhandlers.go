@@ -244,7 +244,7 @@ func setHostDNS(dns, iface string, windows bool) error {
 	if err != nil {
 		return err
 	}
-	profile.Name = iface
+	profile.Name = strings.ToLower(iface)
 	profile.Status = types.Enabled
 	if err := hosts.ReplaceProfile(profile); err != nil {
 		return err
@@ -264,7 +264,7 @@ func removeHostDNS(iface string, windows bool) error {
 	if err != nil {
 		return err
 	}
-	if err := hosts.RemoveProfile(iface); err != nil {
+	if err := hosts.RemoveProfile(strings.ToLower(iface)); err != nil {
 		if err == types.ErrUnknownProfile {
 			return nil
 		}

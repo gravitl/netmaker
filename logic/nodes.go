@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -96,25 +95,6 @@ func UncordonNode(nodeid string) (models.Node, error) {
 	return node, err
 }
 
-// GetPeers - gets the peers of a given server node
-func GetPeers(node *models.Node) ([]models.Node, error) {
-	if IsLeader(node) {
-		setNetworkServerPeers(node)
-	}
-	peers, err := GetPeersList(node)
-	if err != nil {
-		if strings.Contains(err.Error(), RELAY_NODE_ERR) {
-			peers, err = PeerListUnRelay(node.ID, node.Network)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-	return peers, nil
-}
-
 // SetIfLeader - gets the peers of a given server node
 func SetPeersIfLeader(node *models.Node) {
 	if IsLeader(node) {
@@ -180,6 +160,12 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 func DeleteNodeByID(node *models.Node, exterminate bool) error {
 	var err error
 	var key = node.ID
+	//delete any ext clients as required
+	if node.IsIngressGateway == "yes" {
+		if err := DeleteGatewayExtClients(node.ID, node.Network); err != nil {
+			logger.Log(0, "failed to deleted ext clients", err.Error())
+		}
+	}
 	if !exterminate {
 		node.Action = models.NODE_DELETE
 		nodedata, err := json.Marshal(&node)
@@ -207,7 +193,7 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		// ignoring for now, could hit a nil pointer if delete called twice
 		logger.Log(2, "attempted to remove node ACL for node", node.Name, node.ID)
 	}
-
+	removeZombie <- node.ID
 	return removeLocalServer(node)
 }
 
@@ -307,6 +293,7 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	CheckZombies(node)
 
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
@@ -674,4 +661,42 @@ func unsetHub(networkName string) error {
 		}
 	}
 	return nil
+}
+
+// FindRelay - returns the node that is the relay for a relayed node
+func FindRelay(node *models.Node) *models.Node {
+	if node.IsRelayed == "no" {
+		return nil
+	}
+	peers, err := GetNetworkNodes(node.Network)
+	if err != nil {
+		return nil
+	}
+	for _, peer := range peers {
+		if peer.IsRelay == "no" {
+			continue
+		}
+		for _, ip := range peer.RelayAddrs {
+			if ip == node.Address || ip == node.Address6 {
+				return &peer
+			}
+		}
+	}
+	return nil
+}
+
+func findNode(ip string) (*models.Node, error) {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range nodes {
+		if node.Address == ip {
+			return &node, nil
+		}
+		if node.Address6 == ip {
+			return &node, nil
+		}
+	}
+	return nil, errors.New("node not found")
 }

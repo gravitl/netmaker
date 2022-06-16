@@ -37,7 +37,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	returnnodes, err = SetRelayedNodes("yes", node.Network, node.RelayAddrs)
+	returnnodes, err = SetRelayedNodes(true, node.Network, node.RelayAddrs)
 	if err != nil {
 		return returnnodes, node, err
 	}
@@ -48,32 +48,20 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 }
 
 // SetRelayedNodes- set relayed nodes
-func SetRelayedNodes(yesOrno string, networkName string, addrs []string) ([]models.Node, error) {
+func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]models.Node, error) {
 	var returnnodes []models.Node
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	networkNodes, err := GetNetworkNodes(networkName)
 	if err != nil {
 		return returnnodes, err
 	}
-	network, err := GetNetworkSettings(networkName)
-	if err != nil {
-		return returnnodes, err
-	}
-
-	for _, value := range collections {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			return returnnodes, err
-		}
-		if node.Network == networkName && !(node.IsServer == "yes") {
+	for _, node := range networkNodes {
+		if node.IsServer != "yes" {
 			for _, addr := range addrs {
 				if addr == node.Address || addr == node.Address6 {
-					node.IsRelayed = yesOrno
-					if yesOrno == "yes" {
-						node.UDPHolePunch = "no"
+					if setRelayed {
+						node.IsRelayed = "yes"
 					} else {
-						node.UDPHolePunch = network.DefaultUDPHolePunch
+						node.IsRelayed = "no"
 					}
 					data, err := json.Marshal(&node)
 					if err != nil {
@@ -86,38 +74,6 @@ func SetRelayedNodes(yesOrno string, networkName string, addrs []string) ([]mode
 		}
 	}
 	return returnnodes, nil
-}
-
-// SetNodeIsRelayed - Sets IsRelayed to on or off for relay
-func SetNodeIsRelayed(yesOrno string, id string) (models.Node, error) {
-	node, err := GetNodeByID(id)
-	if err != nil {
-		return node, err
-	}
-	network, err := GetNetworkByNode(&node)
-	if err != nil {
-		return node, err
-	}
-	node.IsRelayed = yesOrno
-	if yesOrno == "yes" {
-		node.UDPHolePunch = "no"
-	} else {
-		node.UDPHolePunch = network.DefaultUDPHolePunch
-	}
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return node, err
-	}
-	return node, database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
-}
-
-// PeerListUnRelay - call this function if a relayed node fails to get its relay: unrelays node and gets new peer list
-func PeerListUnRelay(id string, network string) ([]models.Node, error) {
-	node, err := SetNodeIsRelayed("no", id)
-	if err != nil {
-		return nil, err
-	}
-	return GetPeersList(&node)
 }
 
 // ValidateRelay - checks if relay is valid
@@ -135,11 +91,11 @@ func ValidateRelay(relay models.RelayRequest) error {
 func UpdateRelay(network string, oldAddrs []string, newAddrs []string) []models.Node {
 	var returnnodes []models.Node
 	time.Sleep(time.Second / 4)
-	returnnodes, err := SetRelayedNodes("no", network, oldAddrs)
+	_, err := SetRelayedNodes(false, network, oldAddrs)
 	if err != nil {
 		logger.Log(1, err.Error())
 	}
-	returnnodes, err = SetRelayedNodes("yes", network, newAddrs)
+	returnnodes, err = SetRelayedNodes(true, network, newAddrs)
 	if err != nil {
 		logger.Log(1, err.Error())
 	}
@@ -153,7 +109,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	_, err = SetRelayedNodes("no", node.Network, node.RelayAddrs)
+	returnnodes, err = SetRelayedNodes(false, node.Network, node.RelayAddrs)
 	if err != nil {
 		return returnnodes, node, err
 	}

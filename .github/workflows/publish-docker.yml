@@ -76,5 +76,5 @@ jobs:
           context: .
           platforms: linux/amd64, linux/arm64
           push: true
-          tags: ${{ github.repository }}:${{ env.TAG }}
+          tags: ${{ github.repository }}:${{ env.TAG }}, ${{ github.repository }}:latest
           build-args: version=${{ env.TAG }}

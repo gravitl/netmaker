@@ -583,7 +583,7 @@ func NetIDInNetworkCharSet(network *models.Network) bool {
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
 
 	for _, char := range network.NetID {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
+		if !strings.Contains(charset, string(char)) {
 			return false
 		}
 	}
