@@ -25,7 +25,7 @@ func SetPeerRoutes(iface string, oldPeers map[string]bool, newPeers []wgtypes.Pe
 		}
 	}
 	// traverse through all remaining existing peers
-	for i, _ := range oldPeers {
+	for i := range oldPeers {
 		ip, err := ncutils.GetIPNetFromString(i)
 		if err != nil {
 			logger.Log(1, err.Error())

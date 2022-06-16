@@ -1,7 +1,6 @@
 package serverctl
 
 import (
-	"errors"
 	"net"
 	"os"
 	"strings"
@@ -76,14 +75,7 @@ func SyncServerNetwork(network string) error {
 	} else if !ifaceExists {
 		_, err := logic.ServerJoin(&serverNetworkSettings)
 		if err != nil {
-			if err == nil {
-				err = errors.New("network add failed for " + serverNetworkSettings.NetID)
-			}
-			/*
-				if !strings.Contains(err.Error(), "macaddress_unique") { // ignore macaddress unique error throws
-					logger.Log(1, "error adding network", serverNetworkSettings.NetID, "during sync:", err.Error())
-				}
-			*/
+			logger.Log(0, "network add failed for "+serverNetworkSettings.NetID)
 		}
 	}
 	return nil

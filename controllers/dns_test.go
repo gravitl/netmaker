@@ -150,6 +150,7 @@ func TestGetDNS(t *testing.T) {
 	t.Run("NodeAndCustomDNS", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "", "newhost", "skynet"}
 		_, err := CreateDNS(entry)
+		assert.Nil(t, err)
 		dns, err := logic.GetDNS("skynet")
 		t.Log(dns)
 		assert.Nil(t, err)

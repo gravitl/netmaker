@@ -56,7 +56,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
-		returnErrorResponse(response, request, formatError(errors.New("No token returned"), "internal"))
+		returnErrorResponse(response, request, formatError(errors.New("no token returned"), "internal"))
 		return
 	}
 
@@ -280,7 +280,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else if !success {
-		returnErrorResponse(w, r, formatError(errors.New("delete unsuccessful."), "badrequest"))
+		returnErrorResponse(w, r, formatError(errors.New("delete unsuccessful"), "badrequest"))
 		return
 	}
 

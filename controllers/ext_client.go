@@ -68,7 +68,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clients := []models.ExtClient{}
-	err := errors.New("Networks Error")
+	var err error
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
 		clients, err = functions.GetAllExtClients()
 		if err != nil && !database.IsEmptyRecord(err) {
