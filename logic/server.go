@@ -192,7 +192,23 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 	if err != nil {
 		return []wgtypes.PeerConfig{}, false, []string{}, err
 	}
-	return update.Peers, false, []string{}, nil
+
+	// this is temporary code, should be removed by 0.14.4
+	// refactor server routing to use client-side routing code
+	var hasGateways = false
+	var gateways = []string{}
+	nodes, err := GetNetworkNodes(serverNode.Network)
+	if err == nil {
+		for _, node := range nodes {
+			if node.IsEgressGateway == "yes" {
+				gateways = append(gateways, node.EgressGatewayRanges...)
+			}
+		}
+		hasGateways = len(gateways) > 0
+	}
+	// end temporary code
+
+	return update.Peers, hasGateways, gateways, nil
 }
 
 // == Private ==
