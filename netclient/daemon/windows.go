@@ -30,7 +30,7 @@ func SetupWindowsDaemon() error {
 	}
 	//get exact formatted commands
 	RunWinSWCMD("install")
-	time.Sleep(1)
+	time.Sleep(time.Millisecond)
 	RunWinSWCMD("start")
 
 	return nil
@@ -39,7 +39,7 @@ func SetupWindowsDaemon() error {
 // RestartWindowsDaemon - restarts windows service
 func RestartWindowsDaemon() {
 	RunWinSWCMD("stop")
-	time.Sleep(1)
+	time.Sleep(time.Millisecond)
 	RunWinSWCMD("start")
 }
 
