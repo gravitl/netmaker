@@ -24,6 +24,13 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate
 	var peers []wgtypes.PeerConfig
 	var serverNodeAddresses = []models.ServerAddr{}
+	var isP2S bool
+	network, err := GetNetwork(node.Network)
+	if err != nil {
+		return peerUpdate, err
+	} else if network.IsPointToSite == "yes" && node.IsHub != "yes" {
+		isP2S = true
+	}
 
 	// udppeers = the peers parsed from the local interface
 	// gives us correct port to reach
@@ -66,6 +73,10 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			//skip if not permitted by acl
 			continue
 		}
+		if isP2S && peer.IsHub != "yes" {
+			continue
+		}
+
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return models.PeerUpdate{}, err
