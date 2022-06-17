@@ -15,12 +15,10 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-var currentNetwork *string
-
 // GetNetworksView - displays the view of all networks
 func GetNetworksView(networks []string) fyne.CanvasObject {
 	// renders := []fyne.CanvasObject{}
-	if networks == nil || len(networks) == 0 {
+	if len(networks) == 0 {
 		return container.NewCenter(widget.NewLabel("No networks present"))
 	}
 	grid := container.New(layout.NewGridLayout(4),
@@ -31,22 +29,22 @@ func GetNetworksView(networks []string) fyne.CanvasObject {
 	)
 	for i := range networks {
 		network := &networks[i]
-		grid.AddObject(
+		grid.Add(
 			container.NewCenter(widget.NewLabel(*network)),
 		)
-		grid.AddObject(
+		grid.Add(
 			components.ColoredIconButton("info", theme.InfoIcon(), func() {
 				RefreshComponent(NetDetails, GetSingleNetworkView(*network))
 				ShowView(NetDetails)
 			}, components.Gold_color),
 		)
-		grid.AddObject(
+		grid.Add(
 			components.ColoredIconButton("pull", theme.DownloadIcon(), func() {
 				// TODO call pull with network name
 				pull(*network)
 			}, components.Blue_color),
 		)
-		grid.AddObject(
+		grid.Add(
 			components.ColoredIconButton("leave", theme.DeleteIcon(), func() {
 				leave(*network)
 			}, components.Danger_color),
@@ -59,7 +57,7 @@ func GetNetworksView(networks []string) fyne.CanvasObject {
 
 // GetSingleNetworkView - returns details and option to pull a network
 func GetSingleNetworkView(network string) fyne.CanvasObject {
-	if network == "" || len(network) == 0 {
+	if len(network) == 0 {
 		return container.NewCenter(widget.NewLabel("No valid network selected"))
 	}
 
@@ -117,16 +115,16 @@ func GetSingleNetworkView(network string) fyne.CanvasObject {
 			if i > 0 && i < len(p.Addresses) {
 				peerString += ", "
 			}
-			peerString += fmt.Sprintf("%s", addr.IP)
+			peerString += addr.IP
 		}
 		newEntry.Text = peerString
 		newEntry.Disable()
-		peerView.AddObject(widget.NewLabel(fmt.Sprintf("Peer: %s", p.PublicKey)))
-		peerView.AddObject(container.NewVBox(container.NewVBox(endpointEntry), container.NewVBox(newEntry)))
+		peerView.Add(widget.NewLabel(fmt.Sprintf("Peer: %s", p.PublicKey)))
+		peerView.Add(container.NewVBox(container.NewVBox(endpointEntry), container.NewVBox(newEntry)))
 	}
 	peerScroller := container.NewVScroll(peerView)
-	view.AddObject(peerScroller)
-	view.AddObject(container.NewVBox(pullBtn))
+	view.Add(peerScroller)
+	view.Add(container.NewVBox(pullBtn))
 	netDetailsView.Refresh()
 	ClearNotification()
 	return netDetailsView
