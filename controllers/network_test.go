@@ -291,7 +291,7 @@ func TestIpv6Network(t *testing.T) {
 	os.Setenv("MASTER_KEY", "secretkey")
 	deleteAllNetworks()
 	createNet()
-	createNetDualStack()
+	createNetDualStack(t)
 	network, err := logic.GetNetwork("skynet6")
 	t.Run("Test Network Create IPv6", func(t *testing.T) {
 		assert.Nil(t, err)
@@ -323,7 +323,7 @@ func createNet() {
 	}
 }
 
-func createNetDualStack() {
+func createNetDualStack(t *testing.T) {
 	var network models.Network
 	network.NetID = "skynet6"
 	network.AddressRange = "10.1.2.0/24"
@@ -332,6 +332,7 @@ func createNetDualStack() {
 	network.IsIPv6 = "yes"
 	_, err := logic.GetNetwork("skynet6")
 	if err != nil {
-		logic.CreateNetwork(network)
+		_, err = logic.CreateNetwork(network)
+		assert.Nil(t, err)
 	}
 }
