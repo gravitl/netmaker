@@ -147,7 +147,7 @@ func leave(network string) {
 		ShowView(Networks)
 	}, func() {
 		LoadingNotify()
-		err := functions.LeaveNetwork(network, true)
+		err := functions.LeaveNetwork(network)
 		if err != nil {
 			ErrorNotify("Failed to leave " + network + " : " + err.Error())
 		} else {
