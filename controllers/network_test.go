@@ -295,13 +295,13 @@ func TestIpv6Network(t *testing.T) {
 	network, err := logic.GetNetwork("skynet6")
 	t.Run("Test Network Create IPv6", func(t *testing.T) {
 		assert.Nil(t, err)
-		assert.Equal(t, network.AddressRange6, "fde6:be04:fa5e:d076::/64")
+		assert.Equal(t, "2001:db8::1:0/64", network.AddressRange6)
 	})
 	node1 := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.50", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet6", OS: "linux"}
 	nodeErr := logic.CreateNode(&node1)
 	t.Run("Test node on network IPv6", func(t *testing.T) {
 		assert.Nil(t, nodeErr)
-		assert.Equal(t, "fde6:be04:fa5e:d076::", node1.Address6)
+		assert.Equal(t, "2001:db8::", node1.Address6)
 	})
 }
 
@@ -327,7 +327,7 @@ func createNetDualStack(t *testing.T) {
 	var network models.Network
 	network.NetID = "skynet6"
 	network.AddressRange = "10.1.2.0/24"
-	network.AddressRange6 = "fde6:be04:fa5e:d076::/64"
+	network.AddressRange6 = "2001:db8::1:0/64"
 	network.IsIPv4 = "yes"
 	network.IsIPv6 = "yes"
 	_, err := logic.GetNetwork("skynet6")
