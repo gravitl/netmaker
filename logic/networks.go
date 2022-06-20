@@ -74,7 +74,11 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
 
-	err := ValidateNetwork(&network, false)
+	err := CheckOverlap(network.AddressRange, network.AddressRange6)
+	if err != nil {
+		return models.Network{}, err
+	}
+	err = ValidateNetwork(&network, false)
 	if err != nil {
 		//returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return models.Network{}, err
@@ -757,4 +761,42 @@ func isInterfacePresent(iface string, address string) (string, bool) {
 	interfaces = nil
 	// logger.Log(2, "failed to find iface", iface)
 	return "", true
+}
+
+// CheckOverlap check if new network overlaps with existing networks
+func CheckOverlap(network4, network6 string) error {
+	var net4, net6 *net.IPNet
+	locals, err := net.InterfaceAddrs()
+	if err != nil {
+		return errors.New("unable to parse local interfaces")
+	}
+	if network4 != "" {
+		_, net4, err = net.ParseCIDR(network4)
+		if err != nil {
+			return errors.New("invalid network range" + network4)
+		}
+	}
+	if network6 != "" {
+		_, net6, err = net.ParseCIDR(network6)
+		if err != nil {
+			return errors.New("invalid network range" + network6)
+		}
+	}
+	for _, local := range locals {
+		_, net, err := net.ParseCIDR(local.String())
+		if err != nil {
+			return errors.New("invalid local address")
+		}
+		if network4 != "" {
+			if net4.Contains(net.IP) || net.Contains(net4.IP) {
+				return errors.New("overlapping networks")
+			}
+		}
+		if network6 != "" {
+			if net6.Contains(net.IP) || net.Contains(net6.IP) {
+				return errors.New("overlapping networks")
+			}
+		}
+	}
+	return nil
 }
