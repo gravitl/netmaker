@@ -7,6 +7,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -334,5 +335,11 @@ func createNetDualStack(t *testing.T) {
 	if err != nil {
 		_, err = logic.CreateNetwork(network)
 		assert.Nil(t, err)
+		if err != nil {
+			if assert.Contains(t, err, "overlapping network") {
+				out, _ := ncutils.RunCmd("ip a", true)
+				t.Log(out)
+			}
+		}
 	}
 }
