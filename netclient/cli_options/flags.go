@@ -180,12 +180,6 @@ func GetFlags(hostname string) []cli.Flag {
 			Value:   "yes",
 			Usage:   "Checks for IP changes if 'yes'. Ignores if 'no'. Yes by default.",
 		},
-		&cli.StringFlag{
-			Name:    "force",
-			EnvVars: []string{"NETCLIENT_FORCE"},
-			Value:   "no",
-			Usage:   "Allows to run the command with force, if otherwise prevented.",
-		},
 		&cli.BoolFlag{
 			Name:    "verbosity-level-1",
 			Aliases: []string{"v"},
