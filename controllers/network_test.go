@@ -336,7 +336,7 @@ func createNetDualStack(t *testing.T) {
 		_, err = logic.CreateNetwork(network)
 		assert.Nil(t, err)
 		if err != nil {
-			if assert.Contains(t, err, "overlapping network") {
+			if assert.Contains(t, err.Error(), "overlapping network") {
 				out, _ := ncutils.RunCmd("ip a", true)
 				t.Log(out)
 			}
