@@ -41,11 +41,11 @@
 
 # WireGuard<sup>®</sup> automation from homelab to enterprise
 
-|:heavy_check_mark: Automate WireGuard networks|:heavy_check_mark: Create the fastest possible mesh VPNs|
-|:heavy_check_mark: Connect your distributed infrastructure|:heavy_check_mark: Provide secure remote access|
-|:heavy_check_mark: Use private DNS|:heavy_check_mark: Secure permissions with ACLs|    
-|:heavy_check_mark: Administrate networks with a fully featured admin UI|hello|
-
+| :heavy_check_mark: Automate WireGuard networks                          | :heavy_check_mark: Create the fastest possible mesh VPNs |
+|-------------------------------------------------------------------------|----------------------------------------------------------|
+| :heavy_check_mark: Connect your distributed infrastructure              | :heavy_check_mark: Provide secure remote access          |
+| :heavy_check_mark: Use private DNS                                      | :heavy_check_mark: Secure permissions with ACLs          |
+| :heavy_check_mark: Administrate networks with a fully featured admin UI |                                                          |
 # Get Started in 5 Minutes  
 
 **For DigitalOcean, use the 1-Click App:** <a href="https://marketplace.digitalocean.com/apps/netmaker?refcode=496ffcf1e252"><img src="https://www.deploytodo.com/do-btn-blue.svg" width="15%" /></a>  
