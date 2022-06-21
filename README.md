@@ -30,6 +30,9 @@ a platform for modern, blazing fast virtual networks
   <a href="https://discord.gg/zRb9Vfhk8A">
     <img src="https://img.shields.io/discord/825071750290210916?color=%09%237289da&label=chat" />
   </a> 
+<a href="https://runacap.com/ross-index/q1-2022/" target="_blank" rel="noopener">
+    <img src="https://runacap.com/wp-content/uploads/2022/06/ROSS_badge_white_Q1_2022.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q1 2022 | Runa Capital" />
+</a>  
 </p>
 
 # WireGuard® Automation from Homelab to Enterprise
