@@ -41,11 +41,10 @@
 
 # WireGuard<sup>®</sup> automation from homelab to enterprise
 
-:------------ | :-------------
-:heavy_check_mark: Automate WireGuard networks | :heavy_check_mark: Create the fastest possible mesh VPNs  
-:heavy_check_mark: Connect your distributed infrastructure |  :heavy_check_mark: Provide secure remote access  
-:heavy_check_mark: Use private DNS |:heavy_check_mark: Secure permissions with ACLs    
-:heavy_check_mark: Administrate networks with a fully featured admin UI  
+|:heavy_check_mark: Automate WireGuard networks|:heavy_check_mark: Create the fastest possible mesh VPNs|
+|:heavy_check_mark: Connect your distributed infrastructure|:heavy_check_mark: Provide secure remote access|
+|:heavy_check_mark: Use private DNS|:heavy_check_mark: Secure permissions with ACLs|    
+|:heavy_check_mark: Administrate networks with a fully featured admin UI|hello|
 
 # Get Started in 5 Minutes  
 
