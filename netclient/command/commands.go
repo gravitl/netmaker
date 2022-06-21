@@ -20,13 +20,10 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 	err = functions.JoinNetwork(cfg, privateKey)
 	if err != nil {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
-			logger.Log(1, "error installing: ", err.Error())
-			err = functions.LeaveNetwork(cfg.Network, true)
+			logger.Log(0, "error installing: ", err.Error())
+			err = functions.WipeLocal(cfg.Network)
 			if err != nil {
-				err = functions.WipeLocal(cfg.Network)
-				if err != nil {
-					logger.Log(1, "error removing artifacts: ", err.Error())
-				}
+				logger.Log(1, "error removing artifacts: ", err.Error())
 			}
 			if cfg.Daemon != "off" {
 				if ncutils.IsLinux() {
@@ -39,8 +36,6 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 					daemon.RemoveFreebsdDaemon()
 				}
 			}
-		} else {
-			logger.Log(0, "success")
 		}
 		if err != nil && strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			logger.Log(0, err.Error())
@@ -54,8 +49,8 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 }
 
 // Leave - runs the leave command from cli
-func Leave(cfg *config.ClientConfig, force bool) error {
-	err := functions.LeaveNetwork(cfg.Network, force)
+func Leave(cfg *config.ClientConfig) error {
+	err := functions.LeaveNetwork(cfg.Network)
 	if err != nil {
 		logger.Log(1, "error attempting to leave network "+cfg.Network)
 	} else {

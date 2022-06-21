@@ -36,7 +36,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				if err != nil {
 					return err
 				}
-				err = command.Leave(&cfg, c.String("force") == "yes")
+				err = command.Leave(&cfg)
 				return err
 			},
 		},
