@@ -52,14 +52,18 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
 	for _, peer := range currentPeers {
-
-		// if the node is not a server, set the endpoint
-		var setEndpoint = !(node.IsServer == "yes")
-
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
 		}
+		// on point to site networks -- get peers regularily if you are the hub --- otherwise the only peer is the hub
+		if node.NetworkSettings.IsPointToSite == "yes" && node.IsHub == "no" && peer.IsHub == "no" {
+			continue
+		}
+
+		// if the node is not a server, set the endpoint
+		var setEndpoint = !(node.IsServer == "yes")
+
 		if peer.IsRelayed == "yes" {
 			if !(node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
 				//skip -- will be added to relay
