@@ -214,6 +214,9 @@ if [ "${KEY}" != "nokey" ]; then
   fi
 fi
 
+if [ "${OS}" = "FreeBSD" ]; then
+  mv netclient /usr/sbin  
+fi
 
 if [ "${OS}" = "OpenWRT" ]; then
 	mv ./netclient /sbin/netclient
