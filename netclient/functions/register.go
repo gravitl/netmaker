@@ -15,7 +15,7 @@ import (
 )
 
 // Register - the function responsible for registering with the server and acquiring certs
-func Register(cfg *config.ClientConfig, key string) error {
+func Register(cfg *config.ClientConfig) error {
 
 	//generate new key if one doesn' exist
 	var private *ed25519.PrivateKey
