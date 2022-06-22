@@ -206,10 +206,12 @@ if [  "${OS}" = "OpenWRT" ]; then
 	EXTRA_ARGS="--daemon=off"
 fi
 
-if [ -z "${NAME}" ]; then
-  ./netclient join -t $KEY $EXTRA_ARGS
-else
-  ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
+if [ "${KEY}" != "nokey" ]; then
+  if [ -z "${NAME}" ]; then
+    ./netclient join -t $KEY $EXTRA_ARGS
+  else
+    ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
+  fi
 fi
 
 
