@@ -170,7 +170,7 @@ func messageQueue(ctx context.Context, cfg *config.ClientConfig) {
 	logger.Log(0, "netclient daemon started for server: ", cfg.Server.Server)
 	client, err := setupMQTT(cfg, false)
 	if err != nil {
-		logger.Log(0, "unable to connect to broker", err.Error())
+		logger.Log(0, "unable to connect to broker", cfg.Server.Server, err.Error())
 		return
 	}
 	defer client.Disconnect(250)
@@ -179,7 +179,7 @@ func messageQueue(ctx context.Context, cfg *config.ClientConfig) {
 }
 
 // NewTLSConf sets up tls configuration to connect to broker securely
-func NewTLSConfig(server string) *tls.Config {
+func NewTLSConfig(server string) (*tls.Config, error) {
 	file := ncutils.GetNetclientServerPath(server) + ncutils.GetSeparator() + "root.pem"
 	certpool := x509.NewCertPool()
 	ca, err := os.ReadFile(file)
@@ -192,7 +192,8 @@ func NewTLSConfig(server string) *tls.Config {
 	}
 	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+ncutils.GetSeparator()+"client.pem", ncutils.GetNetclientPath()+ncutils.GetSeparator()+"client.key")
 	if err != nil {
-		log.Fatalf("could not read client cert/key %v \n", err)
+		logger.Log(0, "could not read client cert/key ", err.Error())
+		return nil, err
 	}
 	certs := []tls.Certificate{clientKeyPair}
 	return &tls.Config{
@@ -201,7 +202,8 @@ func NewTLSConfig(server string) *tls.Config {
 		ClientCAs:          nil,
 		Certificates:       certs,
 		InsecureSkipVerify: false,
-	}
+	}, nil
+
 }
 
 // setupMQTT creates a connection to broker and returns client
@@ -211,7 +213,12 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
 	opts.AddBroker("ssl://" + server + ":" + port)
-	opts.SetTLSConfig(NewTLSConfig(server))
+	tlsConfig, err := NewTLSConfig(server)
+	if err != nil {
+		logger.Log(0, "failed to get TLS config for", server, err.Error())
+		return nil, err
+	}
+	opts.SetTLSConfig(tlsConfig)
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)

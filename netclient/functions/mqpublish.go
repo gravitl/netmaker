@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/tls"
 )
@@ -108,11 +107,10 @@ func Hello(nodeCfg *config.ClientConfig) {
 		_, err := Pull(nodeCfg.Node.Network, true)
 		if err != nil {
 			logger.Log(0, "could not run pull on "+nodeCfg.Node.Network+", error: "+err.Error())
-		} else {
-			daemon.Restart()
 		}
+	} else {
+		logger.Log(3, "checkin for", nodeCfg.Network, "complete")
 	}
-	logger.Log(3, "checkin for", nodeCfg.Network, "complete")
 }
 
 // node cfg is required  in order to fetch the traffic keys of that node for encryption

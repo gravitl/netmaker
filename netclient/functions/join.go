@@ -188,7 +188,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
-	if err := Register(cfg, privateKey); err != nil {
+	if err := Register(cfg); err != nil {
 		return err
 	}
 	if cfg.Server.Server == "" {
