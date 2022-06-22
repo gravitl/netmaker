@@ -215,8 +215,12 @@ if [ "${KEY}" != "nokey" ]; then
 fi
 
 if [ "${OS}" = "FreeBSD" ]; then
-  echo "Moving netclient executable to \"/usr/sbin/netclient\""
-  mv netclient /usr/sbin  
+  if ! [ -f /usr/sbin/netclient ]; then
+    echo "Moving netclient executable to \"/usr/sbin/netclient\""
+    mv netclient /usr/sbin  
+  else
+    echo "Netclient already present."
+  fi
 fi
 
 if [ "${OS}" = "OpenWRT" ]; then
