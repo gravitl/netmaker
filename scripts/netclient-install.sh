@@ -34,7 +34,7 @@ elif [ -f /etc/arch-release ]; then
 	update_cmd='pacman -Sy'
 	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
-	dependencies="wireguard"
+	dependencies="wireguard wget"
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/openwrt_release ]; then
