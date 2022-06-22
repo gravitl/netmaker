@@ -215,7 +215,7 @@ if [ "${KEY}" != "nokey" ]; then
 fi
 
 if [ "${OS}" = "FreeBSD" ]; then
-  if ! [ -x /usr/sbin/netclient ]; then
+  if ! [ -f /usr/sbin/netclient ]; then
     echo "Moving netclient executable to \"/usr/sbin/netclient\""
     mv netclient /usr/sbin  
   else
