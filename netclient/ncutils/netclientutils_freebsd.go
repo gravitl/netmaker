@@ -20,7 +20,7 @@ func RunCmdFormatted(command string, printerr bool) (string, error) {
 	out, err := cmd.CombinedOutput()
 	if err != nil && printerr {
 		logger.Log(0, "error running command: ", command)
-		logger.Log(0, strings.TrimSuffix(string(out), "\n"))
+		logger.Log(0, strings.TrimSuffix(string(err), "\n"))
 	}
 	return string(out), err
 }
