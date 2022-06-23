@@ -346,9 +346,6 @@ func setWGKeyConfig(node *models.Node) error {
 }
 
 func removeLocalServer(node *models.Node) error {
-	if !IsLocalServer(node) {
-		return nil
-	}
 
 	var err error
 	var ifacename = node.Interface
