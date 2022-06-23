@@ -34,7 +34,7 @@ elif [ -f /etc/arch-release ]; then
 	update_cmd='pacman -Sy'
 	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
-	dependencies="wireguard"
+	dependencies="wireguard wget"
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/openwrt_release ]; then
@@ -206,12 +206,22 @@ if [  "${OS}" = "OpenWRT" ]; then
 	EXTRA_ARGS="--daemon=off"
 fi
 
-if [ -z "${NAME}" ]; then
-  ./netclient join -t $KEY $EXTRA_ARGS
-else
-  ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
+if [ "${KEY}" != "nokey" ]; then
+  if [ -z "${NAME}" ]; then
+    ./netclient join -t $KEY $EXTRA_ARGS
+  else
+    ./netclient join -t $KEY --name $NAME $EXTRA_ARGS
+  fi
 fi
 
+if [ "${OS}" = "FreeBSD" ]; then
+  if ! [ -x /usr/sbin/netclient ]; then
+    echo "Moving netclient executable to \"/usr/sbin/netclient\""
+    mv netclient /usr/sbin  
+  else
+    echo "Netclient already present."
+  fi
+fi
 
 if [ "${OS}" = "OpenWRT" ]; then
 	mv ./netclient /sbin/netclient
