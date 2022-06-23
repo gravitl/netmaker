@@ -14,20 +14,21 @@ import (
 // SetupWindowsDaemon - sets up the Windows daemon service
 func SetupWindowsDaemon() error {
 
-	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.xml") {
-		if err := writeServiceConfig(); err != nil {
-			return err
-		}
+	if ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.xml") {
+		logger.Log(0, "updating netclient service")
+	}
+	if err := writeServiceConfig(); err != nil {
+		return err
 	}
 
-	if !ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.exe") {
-		logger.Log(0, "performing first time daemon setup")
-		err := ncutils.GetEmbedded()
-		if err != nil {
-			return err
-		}
-		logger.Log(0, "finished daemon setup")
+	if ncutils.FileExists(ncutils.GetNetclientPathSpecific() + "winsw.exe") {
+		logger.Log(0, "updating netclient binary")
 	}
+	err := ncutils.GetEmbedded()
+	if err != nil {
+		return err
+	}
+	logger.Log(0, "finished daemon setup")
 	//get exact formatted commands
 	RunWinSWCMD("install")
 	time.Sleep(time.Millisecond)
