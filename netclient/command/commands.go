@@ -137,3 +137,8 @@ func Daemon() error {
 	err := functions.Daemon()
 	return err
 }
+
+// Install - installs binary and daemon
+func Install() error {
+	return functions.Install()
+}
