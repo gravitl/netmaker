@@ -55,10 +55,6 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 		return err
 	}
 	var ips = append(node.AllowedIPs, node.Address, node.Address6)
-	peerIPs := getPeerIPs(realIface)
-	if len(peerIPs) > 0 {
-		ips = append(ips, peerIPs...)
-	}
 	for _, i := range ips {
 		if i != "" {
 			err = addAddress(realIface, i)
@@ -74,7 +70,8 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 		logger.Log(1, "error turning on interface ", iface)
 		return err
 	}
-	for _, i := range ips {
+	peerIPs := getPeerIPs(realIface)
+	for _, i := range peerIPs {
 		if i != "" {
 			err = addRoute(i, realIface)
 			if err != nil {
