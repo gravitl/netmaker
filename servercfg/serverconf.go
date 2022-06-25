@@ -542,18 +542,31 @@ func GetServerCheckinInterval() int64 {
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
-func GetAuthProviderInfo() []string {
+func GetAuthProviderInfo() (pi []string) {
 	var authProvider = ""
+
+	defer func() {
+		if authProvider == "oidc" {
+			if os.Getenv("OIDC_ISSUER") != "" {
+				pi = append(pi, os.Getenv("OIDC_ISSUER"))
+			} else if config.Config.Server.OIDCIssuer != "" {
+				pi = append(pi, config.Config.Server.OIDCIssuer)
+			} else {
+				pi = []string{"", "", ""}
+			}
+		}
+	}()
+
 	if os.Getenv("AUTH_PROVIDER") != "" && os.Getenv("CLIENT_ID") != "" && os.Getenv("CLIENT_SECRET") != "" {
 		authProvider = strings.ToLower(os.Getenv("AUTH_PROVIDER"))
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
 			return []string{authProvider, os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET")}
 		} else {
 			authProvider = ""
 		}
 	} else if config.Config.Server.AuthProvider != "" && config.Config.Server.ClientID != "" && config.Config.Server.ClientSecret != "" {
 		authProvider = strings.ToLower(config.Config.Server.AuthProvider)
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
 			return []string{authProvider, config.Config.Server.ClientID, config.Config.Server.ClientSecret}
 		}
 	}

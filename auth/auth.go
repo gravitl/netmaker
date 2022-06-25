@@ -24,6 +24,7 @@ const (
 	google_provider_name   = "google"
 	azure_ad_provider_name = "azure-ad"
 	github_provider_name   = "github"
+	oidc_provider_name     = "oidc"
 	verify_user            = "verifyuser"
 	auth_key               = "netmaker_auth"
 )
@@ -41,6 +42,8 @@ func getCurrentAuthFunctions() map[string]interface{} {
 		return azure_ad_functions
 	case github_provider_name:
 		return github_functions
+	case oidc_provider_name:
+		return oidc_functions
 	default:
 		return nil
 	}
@@ -69,6 +72,11 @@ func InitializeAuthProvider() string {
 	} else {
 		serverConn = "https://" + serverConn
 		logger.Log(1, "external OAuth detected, proceeding with https redirect: ("+serverConn+")")
+	}
+
+	if authInfo[0] == "oidc" {
+		functions[init_provider].(func(string, string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2], authInfo[3])
+		return authInfo[0]
 	}
 
 	functions[init_provider].(func(string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2])
