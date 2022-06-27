@@ -677,18 +677,6 @@ func networkNodesUpdateAction(networkName string, action string) error {
 	return nil
 }
 
-func nameInNetworkCharSet(name string) bool {
-
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
-
-	for _, char := range name {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
-			return false
-		}
-	}
-	return true
-}
-
 func deleteInterface(ifacename string, postdown string) error {
 	var err error
 	if !ncutils.IsKernel() {
