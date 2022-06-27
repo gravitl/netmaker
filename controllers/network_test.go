@@ -182,24 +182,24 @@ func TestSecurityCheck(t *testing.T) {
 	database.InitializeDatabase()
 	os.Setenv("MASTER_KEY", "secretkey")
 	t.Run("NoNetwork", func(t *testing.T) {
-		err, networks, username := SecurityCheck(false, "", "Bearer secretkey")
+		networks, username, err := SecurityCheck(false, "", "Bearer secretkey")
 		assert.Nil(t, err)
 		t.Log(networks, username)
 	})
 	t.Run("WithNetwork", func(t *testing.T) {
-		err, networks, username := SecurityCheck(false, "skynet", "Bearer secretkey")
+		networks, username, err := SecurityCheck(false, "skynet", "Bearer secretkey")
 		assert.Nil(t, err)
 		t.Log(networks, username)
 	})
 	t.Run("BadNet", func(t *testing.T) {
 		t.Skip()
-		err, networks, username := SecurityCheck(false, "badnet", "Bearer secretkey")
+		networks, username, err := SecurityCheck(false, "badnet", "Bearer secretkey")
 		assert.NotNil(t, err)
 		t.Log(err)
 		t.Log(networks, username)
 	})
 	t.Run("BadToken", func(t *testing.T) {
-		err, networks, username := SecurityCheck(false, "skynet", "Bearer badkey")
+		networks, username, err := SecurityCheck(false, "skynet", "Bearer badkey")
 		assert.NotNil(t, err)
 		t.Log(err)
 		t.Log(networks, username)
