@@ -31,7 +31,7 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			return
 		}
 
-		err, networks, username := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
+		networks, username, err := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
 		if err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
 				errorResponse.Code = http.StatusNotFound
@@ -53,7 +53,7 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 }
 
 // SecurityCheck - checks token stuff
-func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string, string) {
+func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, string, error) {
 
 	var hasBearer = true
 	var tokenSplit = strings.Split(token, " ")
@@ -72,10 +72,10 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 		userName, networks, isadmin, err := logic.VerifyUserToken(authToken)
 		username = userName
 		if err != nil {
-			return errors.New("error verifying user token"), nil, username
+			return nil, username, errors.New("error verifying user token")
 		}
 		if !isadmin && reqAdmin {
-			return errors.New("you are unauthorized to access this endpoint"), nil, username
+			return nil, username, errors.New("you are unauthorized to access this endpoint")
 		}
 		userNetworks = networks
 		if isadmin {
@@ -83,10 +83,10 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 		} else {
 			networkexists, err := functions.NetworkExists(netname)
 			if err != nil && !database.IsEmptyRecord(err) {
-				return err, nil, ""
+				return nil, "", err
 			}
 			if netname != "" && !networkexists {
-				return errors.New("this network does not exist"), nil, ""
+				return nil, "", errors.New("this network does not exist")
 			}
 		}
 	} else if isMasterAuthenticated {
@@ -95,7 +95,7 @@ func SecurityCheck(reqAdmin bool, netname string, token string) (error, []string
 	if len(userNetworks) == 0 {
 		userNetworks = append(userNetworks, NO_NETWORKS_PRESENT)
 	}
-	return nil, userNetworks, username
+	return userNetworks, username, nil
 }
 
 // Consider a more secure way of setting master key
