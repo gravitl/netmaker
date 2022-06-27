@@ -1,11 +1,18 @@
 
 <p align="center">
-  <a href="https://netmaker.org">
-  <img src="./img/netmaker.png" width="75%"><break/>
+  <a href="https://netmaker.io">
+  <img src="./img/netmaker-teal.png" width="50%"><break/>
   </a>
 </p>
+
 <p align="center">
-a platform for modern, blazing fast virtual networks 
+<a href="https://runacap.com/ross-index/q1-2022/" target="_blank" rel="noopener">
+    <img src="https://runacap.com/wp-content/uploads/2022/06/ROSS_badge_white_Q1_2022.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q1 2022 | Runa Capital"  width="15%"/>
+</a>  
+<a href="https://www.ycombinator.com/companies/netmaker/" target="_blank" rel="noopener">
+    <img src="./img/y-combinator.png" alt="Y-Combinator" width="16%" />
+</a>  
+
 </p>
 
 <p align="center">
@@ -32,13 +39,14 @@ a platform for modern, blazing fast virtual networks
   </a> 
 </p>
 
-# WireGuard® Automation from Homelab to Enterprise
-- [x] Peer-to-Peer Mesh Networks
-- [x] Kubernetes and Multi-Cloud Enablement
-- [x] Remote Site Access via Gateway
-- [x] OAuth and Private DNS Features
-- [x] Fine-grained access controls 
-- [x] Support for Linux, Mac, Windows, FreeBSD, iPhone, and Android
+# WireGuard<sup>®</sup> automation from homelab to enterprise
+
+| Create & Automate                         | Manage                                  |
+|-------------------------------------------|-----------------------------------------|
+| :heavy_check_mark: WireGuard Networks     | :heavy_check_mark: Admin UI             |
+| :heavy_check_mark: Remote Access Gateways | :heavy_check_mark: OAuth                |
+| :heavy_check_mark: Mesh VPNs              | :heavy_check_mark: Private DNS          |
+| :heavy_check_mark: Site-to-Site           | :heavy_check_mark: Access Control Lists |
 
 # Get Started in 5 Minutes  
 
