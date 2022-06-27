@@ -229,6 +229,10 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 func ValidateUser(user models.User) error {
 
 	v := validator.New()
+	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
+		isgood := user.NameInCharSet()
+		return isgood
+	})
 	err := v.Struct(user)
 
 	if err != nil {
