@@ -1,6 +1,8 @@
 package models
 
 import (
+	"strings"
+
 	jwt "github.com/golang-jwt/jwt/v4"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -17,7 +19,7 @@ type AuthParams struct {
 
 // User struct - struct for Users
 type User struct {
-	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
+	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
 	Password string   `json:"password" bson:"password" validate:"required,min=5"`
 	Networks []string `json:"networks" bson:"networks"`
 	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
@@ -25,7 +27,7 @@ type User struct {
 
 // ReturnUser - return user struct
 type ReturnUser struct {
-	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,regexp=^(([a-zA-Z,\-,\.]*)|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})){3,40}$"`
+	UserName string   `json:"username" bson:"username"`
 	Networks []string `json:"networks" bson:"networks"`
 	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
 }
@@ -205,4 +207,15 @@ type ServerConfig struct {
 	Version     string `yaml:"version"`
 	MQPort      string `yaml:"mqport"`
 	Server      string `yaml:"server"`
+}
+
+// User.NameInCharset - returns if name is in charset below or not
+func (user *User) NameInCharSet() bool {
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+	for _, char := range user.UserName {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
 }
