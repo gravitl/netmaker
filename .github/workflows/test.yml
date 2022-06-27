@@ -87,12 +87,5 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-      - name: static checks
-        run: |
-            go install honnef.co/go/tools/cmd/staticcheck
-            go mod download honnef.co/go/tools
-            staticcheck ./...
+      - name: static check
+        uses: dominikh/staticcheck-action@v1.2.0
