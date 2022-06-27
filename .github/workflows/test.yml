@@ -94,4 +94,5 @@ jobs:
       - name: static checks
         run: |
             go install honnef.co/go/tools/cmd/staticcheck
+            go mod download honnef.co/go/tools
             staticcheck ./...
