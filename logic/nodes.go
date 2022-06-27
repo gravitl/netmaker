@@ -186,7 +186,10 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		logger.Log(2, "attempted to remove node ACL for node", node.Name, node.ID)
 	}
 	removeZombie <- node.ID
-	return removeLocalServer(node)
+	if node.IsServer == "yes" {
+		return removeLocalServer(node)
+	}
+	return nil
 }
 
 // IsNodeIDUnique - checks if node id is unique
