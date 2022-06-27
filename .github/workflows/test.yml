@@ -82,3 +82,15 @@ jobs:
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"
+  staticcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+      - name: static checks
+        run: |
+            staticcheck ./...
