@@ -54,7 +54,7 @@ func SetupMQTT(publish bool) mqtt.Client {
 	client := mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
-		if token := client.Connect(); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token := client.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 			logger.Log(2, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				if token.Error() == nil {
