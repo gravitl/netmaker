@@ -41,7 +41,7 @@ type UserClaims struct {
 	IsAdmin  bool
 	UserName string
 	Networks []string
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // SuccessfulUserLoginResponse - successlogin struct
@@ -56,7 +56,7 @@ type Claims struct {
 	ID         string
 	MacAddress string
 	Network    string
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // SuccessfulLoginResponse is struct to send the request response
