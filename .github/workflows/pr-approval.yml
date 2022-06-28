@@ -1,0 +1,11 @@
+name: Manual PR Testing
+on: [pull_request]
+
+jobs:  
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.DEVOPS_API_TOKEN }}
+          approvers: theguy951357,afeiszli,mattkasun,0xdcarns
