@@ -1,0 +1,107 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+  name: 'netmaker-wireguard'
+spec:
+  externalTrafficPolicy: Local
+  type: NodePort
+  ports:
+  - port: 31821
+    nodePort: 31821
+    protocol: UDP
+    targetPort: 31821
+    name: wg-iface-31821
+  - port: 31822
+    nodePort: 31822
+    protocol: UDP
+    targetPort: 31822
+    name: wg-iface-31822
+  - port: 31823
+    nodePort: 31823
+    protocol: UDP
+    targetPort: 31823
+    name: wg-iface-31823
+  - port: 31824
+    nodePort: 31824
+    protocol: UDP
+    targetPort: 31824
+    name: wg-iface-31824
+  - port: 31825
+    nodePort: 31825
+    protocol: UDP
+    targetPort: 31825
+    name: wg-iface-31825
+  selector:
+    app: 'netmaker'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: 'netmaker-rest'
+spec:
+  ports:
+  - name: rest
+    port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: 'netmaker'
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: netmaker
+  labels:
+    app: netmaker
+  name: netmaker-ui
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: netmaker
+  sessionAffinity: None
+  type: ClusterIP
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: mq
+#   namespace: netmaker
+# spec:
+#   ports:
+#   - name: mqtt
+#     port: 1883
+#     protocol: TCP
+#     targetPort: mqtt
+#   - name: mqtt2
+#     port: 8883
+#     protocol: TCP
+#     targetPort: mqtt2    
+#   selector:
+#     app.kubernetes.io/instance: mosquitto
+#     app.kubernetes.io/name: mosquitto
+#   sessionAffinity: None
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   labels:
+#   name: 'netmaker-mqtt'
+# spec:
+#   externalTrafficPolicy: Local
+#   type: NodePort
+#   selector:
+#     app.kubernetes.io/instance: mosquitto
+#     app.kubernetes.io/name: mosquitto
+#   ports:
+#   - port: 31883
+#     nodePort: 31883
+#     protocol: TCP
+#     targetPort: 8883
+#     name: nm-mqtt

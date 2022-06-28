@@ -1,0 +1,26 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nm-sqldata
+  namespace: netmaker
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: STORAGE_CLASS_RWO
+  resources:
+    requests:
+      storage: 500Mi
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nm-mq-certs
+  namespace: netmaker
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: STORAGE_CLASS_RWX
+  resources:
+    requests:
+      storage: 50Mi
