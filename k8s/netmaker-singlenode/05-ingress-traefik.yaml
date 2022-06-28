@@ -1,0 +1,75 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: secheaders
+  namespace: netmaker
+spec:
+  headers:
+    stsIncludeSubdomains: true
+    stsPreload: true
+    stsSeconds: 31536000
+    forceSTSHeader: true
+    sslRedirect: true
+    referrerPolicy: "same-origin"
+    frameDeny: true
+    contentTypeNosniff: true
+    browserXssFilter: true
+    accessControlAllowMethods: ["GET", "OPTIONS", "PUT"]
+    accessControlMaxAge: 100
+    customFrameOptionsValue: SAMEORIGIN
+    contentSecurityPolicy: frame-ancestors 'self'
+    permissionsPolicy: geolocation=(), microphone=()
+    referrerPolicy: no-referrer
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nm-api-ingress-tls
+  namespace: netmaker
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`api.BASE_DOMAIN`)
+    kind: Rule
+    services:
+    - name: netmaker-api
+      port: 8081
+  tls:
+    certResolver: CERT_PROVIDER
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nm-ui-ingress-tls
+  namespace: netmaker
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`dashboard.BASE_DOMAIN`)
+    kind: Rule
+    services:
+    - name: netmaker-ui
+      port: 80
+    middlewares:
+    - name: secheaders
+  tls:
+    certResolver:  CERT_PROVIDER
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  namespace: netmaker
+  name: nm-mq-ingress-tls
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: HostSNI(`broker.BASE_DOMAIN`)
+    services:
+      - name: netmaker-mq
+        port: 8883
+  tls:
+    passthrough: true

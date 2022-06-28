@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels: &labels
+    app: netmaker-backend
+    part-of: netmaker
+  name: netmaker-api
+spec:
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: backend
+  selector: *labels
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels: &labels
+    app: netmaker-backend
+    part-of: netmaker
+  name: netmaker-grpc
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: backend-grpc
+  selector: *labels
+  sessionAffinity: None
+  type: ClusterIP
