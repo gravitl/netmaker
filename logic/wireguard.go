@@ -166,7 +166,7 @@ func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		if network.AddressRange6 != "" {
 			net := strings.Split(network.AddressRange6, "/")
 			mask6 = net[len(net)-1]
-			address6 = node.Address
+			address6 = node.Address6
 		}
 
 		setKernelDevice(ifacename, address4, mask4, address6, mask6)
@@ -346,9 +346,6 @@ func setWGKeyConfig(node *models.Node) error {
 }
 
 func removeLocalServer(node *models.Node) error {
-	if !IsLocalServer(node) {
-		return nil
-	}
 
 	var err error
 	var ifacename = node.Interface

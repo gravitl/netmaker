@@ -23,13 +23,13 @@ func SetupFreebsdDaemon() error {
 		return err
 	}
 	//install binary
-	//should check if the existing binary is the corect version -- for now only copy if file doesn't exist
-	if !ncutils.FileExists(EXEC_DIR + "netclient") {
-		err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+	if ncutils.FileExists(EXEC_DIR + "netclient") {
+		logger.Log(0, "updating netclient binary in ", EXEC_DIR)
+	}
+	err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 
 	rcFile := `#!/bin/sh

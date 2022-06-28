@@ -166,7 +166,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		logger.Log(0, "Node is marked as PENDING.")
 		logger.Log(0, "Awaiting approval from Admin before configuring WireGuard.")
 		if cfg.Daemon != "off" {
-			return daemon.InstallDaemon(cfg)
+			return daemon.InstallDaemon()
 		}
 	}
 	logger.Log(1, "node created on remote server...updating configs")
@@ -188,7 +188,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
-	if err := Register(cfg, privateKey); err != nil {
+	if err := Register(cfg); err != nil {
 		return err
 	}
 	if cfg.Server.Server == "" {
@@ -200,7 +200,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	if cfg.Daemon == "install" || ncutils.IsFreeBSD() {
-		err = daemon.InstallDaemon(cfg)
+		err = daemon.InstallDaemon()
 		if err != nil {
 			return err
 		}

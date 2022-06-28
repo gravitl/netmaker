@@ -95,6 +95,15 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				return err
 			},
 		},
+		{
+			Name:  "install",
+			Usage: "install binary and daemon",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				parseVerbosity(c)
+				return command.Install()
+			},
+		},
 	}
 }
 

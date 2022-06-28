@@ -20,12 +20,13 @@ func SetupMacDaemon() error {
 		return err
 	}
 
-	if !ncutils.FileExists(MAC_EXEC_DIR + "netclient") {
-		err = ncutils.Copy(binarypath, MAC_EXEC_DIR+"netclient")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+	if ncutils.FileExists(MAC_EXEC_DIR + "netclient") {
+		logger.Log(0, "updating netclient binary in", MAC_EXEC_DIR)
+	}
+	err = ncutils.Copy(binarypath, MAC_EXEC_DIR+"netclient")
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 
 	_, errN := os.Stat("~/Library/LaunchAgents")
