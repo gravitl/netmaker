@@ -9,3 +9,4 @@ jobs:
         with:
           secret: ${{ secrets.DEVOPS_API_TOKEN }}
           approvers: theguy951357,afeiszli,mattkasun,0xdcarns
+          minimum-approvals: 1
