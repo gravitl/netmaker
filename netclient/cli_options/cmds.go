@@ -36,7 +36,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				if err != nil {
 					return err
 				}
-				err = command.Leave(&cfg, c.String("force") == "yes")
+				err = command.Leave(&cfg)
 				return err
 			},
 		},
@@ -93,6 +93,15 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				logger.Verbosity = 3
 				err := command.Daemon()
 				return err
+			},
+		},
+		{
+			Name:  "install",
+			Usage: "install binary and daemon",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				parseVerbosity(c)
+				return command.Install()
 			},
 		},
 	}

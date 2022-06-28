@@ -16,10 +16,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-const (
-	charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-)
-
 // CreateAccessKey - create access key
 func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models.AccessKey, error) {
 
@@ -228,16 +224,4 @@ func genKeyName() string {
 func GenKey() string {
 	entropy, _ := rand.Int(rand.Reader, maxentropy)
 	return entropy.Text(16)[:16]
-}
-
-func getAllAccessKeys() []models.AccessKey {
-	var accesskeys = make([]models.AccessKey, 0)
-	networks, err := GetNetworks()
-	if err != nil {
-		return accesskeys
-	}
-	for i := range networks {
-		accesskeys = append(accesskeys, networks[i].AccessKeys...)
-	}
-	return accesskeys
 }

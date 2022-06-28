@@ -121,13 +121,6 @@ func IsLeader(node *models.Node) bool {
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
-	var err error
-	if newNode.IsHub == "yes" && currentNode.IsHub != "yes" {
-		if err = unsetHub(newNode.Network); err != nil {
-			return err
-		}
-	}
-
 	if newNode.Address != currentNode.Address {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
 			if !IsAddressInCIDR(newNode.Address, network.AddressRange) {
@@ -140,7 +133,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if currentNode.IsServer == "yes" && !validateServer(currentNode, newNode) {
 		return fmt.Errorf("this operation is not supported on server nodes")
 	}
-
 	// check for un-settable server values
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
@@ -194,7 +186,10 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		logger.Log(2, "attempted to remove node ACL for node", node.Name, node.ID)
 	}
 	removeZombie <- node.ID
-	return removeLocalServer(node)
+	if node.IsServer == "yes" {
+		return removeLocalServer(node)
+	}
+	return nil
 }
 
 // IsNodeIDUnique - checks if node id is unique
@@ -381,6 +376,7 @@ func SetNodeDefaults(node *models.Node) {
 
 	//TODO: Maybe I should make Network a part of the node struct. Then we can just query the Network object for stuff.
 	parentNetwork, _ := GetNetworkByNode(node)
+	node.NetworkSettings = parentNetwork
 
 	node.ExpirationDateTime = time.Now().Unix() + models.TEN_YEARS_IN_SECONDS
 
@@ -618,49 +614,27 @@ func validateServer(currentNode, newNode *models.Node) bool {
 		newNode.IsServer == "yes")
 }
 
-// isMacAddressUnique - checks if mac is unique
-func isMacAddressUnique(macaddress string, networkName string) (bool, error) {
-
-	isunique := true
-
-	nodes, err := GetNetworkNodes(networkName)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return true, nil
-		}
-		return false, err
-	}
-
-	for _, node := range nodes {
-
-		if node.MacAddress == macaddress {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
-}
-
 // unsetHub - unset hub on network nodes
-func unsetHub(networkName string) error {
-
+func UnsetHub(networkName string) (*models.Node, error) {
+	var nodesToUpdate models.Node
 	nodes, err := GetNetworkNodes(networkName)
 	if err != nil {
-		return err
+		return &nodesToUpdate, err
 	}
 
 	for i := range nodes {
 		if nodes[i].IsHub == "yes" {
 			nodes[i].IsHub = "no"
+			nodesToUpdate = nodes[i]
 			newNodeData, err := json.Marshal(&nodes[i])
 			if err != nil {
 				logger.Log(1, "error on node during hub update")
-				return err
+				return &nodesToUpdate, err
 			}
 			database.Insert(nodes[i].ID, string(newNodeData), database.NODES_TABLE_NAME)
 		}
 	}
-	return nil
+	return &nodesToUpdate, nil
 }
 
 // FindRelay - returns the node that is the relay for a relayed node

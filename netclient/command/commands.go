@@ -20,13 +20,10 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 	err = functions.JoinNetwork(cfg, privateKey)
 	if err != nil {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
-			logger.Log(1, "error installing: ", err.Error())
-			err = functions.LeaveNetwork(cfg.Network, true)
+			logger.Log(0, "error installing: ", err.Error())
+			err = functions.WipeLocal(cfg.Network)
 			if err != nil {
-				err = functions.WipeLocal(cfg.Network)
-				if err != nil {
-					logger.Log(1, "error removing artifacts: ", err.Error())
-				}
+				logger.Log(1, "error removing artifacts: ", err.Error())
 			}
 			if cfg.Daemon != "off" {
 				if ncutils.IsLinux() {
@@ -39,8 +36,6 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 					daemon.RemoveFreebsdDaemon()
 				}
 			}
-		} else {
-			logger.Log(0, "success")
 		}
 		if err != nil && strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			logger.Log(0, err.Error())
@@ -54,8 +49,8 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 }
 
 // Leave - runs the leave command from cli
-func Leave(cfg *config.ClientConfig, force bool) error {
-	err := functions.LeaveNetwork(cfg.Network, force)
+func Leave(cfg *config.ClientConfig) error {
+	err := functions.LeaveNetwork(cfg.Network)
 	if err != nil {
 		logger.Log(1, "error attempting to leave network "+cfg.Network)
 	} else {
@@ -97,19 +92,25 @@ func Pull(cfg *config.ClientConfig) error {
 
 		currentServers[currCfg.Server.Server] = *currCfg
 	}
-
+	//generate new client key if one doesn' exist
+	var private *ed25519.PrivateKey
+	private, err = tls.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
+	if err != nil {
+		_, newKey, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		if err := tls.SaveKey(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); err != nil {
+			return err
+		}
+		private = &newKey
+	}
+	// re-register with server -- get new certs for broker
 	for _, clientCfg := range currentServers {
-		_, newKey, kerr := ed25519.GenerateKey(rand.Reader)
-		if kerr == nil && err == nil {
-			if kerr := tls.SaveKey(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); kerr != nil {
-				logger.Log(0, "error saving key", kerr.Error())
-			} else {
-				if kerr = functions.RegisterWithServer(&newKey, &clientCfg); err != nil {
-					logger.Log(0, "registration error", kerr.Error())
-				} else {
-					daemon.Restart()
-				}
-			}
+		if err = functions.RegisterWithServer(private, &clientCfg); err != nil {
+			logger.Log(0, "registration error", err.Error())
+		} else {
+			daemon.Restart()
 		}
 	}
 	logger.Log(1, "reset network and peer configs")
@@ -135,4 +136,9 @@ func Uninstall() error {
 func Daemon() error {
 	err := functions.Daemon()
 	return err
+}
+
+// Install - installs binary and daemon
+func Install() error {
+	return functions.Install()
 }

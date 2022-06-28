@@ -60,18 +60,18 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		var allowedips string
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
-			if hasPeerIP && (&ipaddr) != nil {
+			if hasPeerIP {
 				iparr = append(iparr, ipaddr.String())
 			}
 		}
-		if iparr != nil && len(iparr) > 0 {
+		if len(iparr) > 0 {
 			allowedips = strings.Join(iparr, ",")
 		}
 		keepAliveString := strconv.Itoa(int(keepalive))
 		if keepAliveString == "0" {
 			keepAliveString = "15"
 		}
-		if node.IsHub == "yes" || node.IsServer == "yes" || peer.Endpoint == nil {
+		if node.IsServer == "yes" || peer.Endpoint == nil {
 			_, err = ncutils.RunCmd("wg set "+iface+" peer "+peer.PublicKey.String()+
 				" persistent-keepalive "+keepAliveString+
 				" allowed-ips "+allowedips, true)
@@ -86,10 +86,10 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		}
 	}
 
-	if devicePeers != nil && len(devicePeers) > 0 {
+	if len(devicePeers) > 0 {
 		for _, currentPeer := range devicePeers {
 			shouldDelete := true
-			if peers != nil && len(peers) > 0 {
+			if len(peers) > 0 {
 				for _, peer := range peers {
 
 					if len(peer.AllowedIPs) > 0 && len(currentPeer.AllowedIPs) > 0 &&
@@ -117,7 +117,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		err = SetMacPeerRoutes(iface)
 		return err
 	} else if ncutils.IsLinux() {
-		if peers != nil && len(peers) > 0 {
+		if len(peers) > 0 {
 			local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
 		}
 	}

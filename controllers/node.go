@@ -646,6 +646,23 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ifaceDelta := logic.IfaceDelta(&node, &newNode)
+	// for a hub change also need to update the existing hub
+	if newNode.IsHub == "yes" && node.IsHub != "yes" {
+		nodeToUpdate, err := logic.UnsetHub(newNode.Network)
+		if err != nil {
+			logger.Log(2, "failed to unset hubs", err.Error())
+		}
+		if err := mq.NodeUpdate(nodeToUpdate); err != nil {
+			logger.Log(2, "failed to update hub node", nodeToUpdate.Name, err.Error())
+		}
+		if nodeToUpdate.IsServer == "yes" {
+			// set ifacdelta true to force server to update peeers
+			if err := logic.ServerUpdate(nodeToUpdate, true); err != nil {
+				logger.Log(2, "failed to update server node on hub change", err.Error())
+			}
+
+		}
+	}
 
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {

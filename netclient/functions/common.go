@@ -127,7 +127,7 @@ func Uninstall() error {
 		logger.Log(1, "continuing uninstall without leaving networks")
 	} else {
 		for _, network := range networks {
-			err = LeaveNetwork(network, true)
+			err = LeaveNetwork(network)
 			if err != nil {
 				logger.Log(1, "Encounter issue leaving network ", network, ": ", err.Error())
 			}
@@ -151,7 +151,7 @@ func Uninstall() error {
 }
 
 // LeaveNetwork - client exits a network
-func LeaveNetwork(network string, force bool) error {
+func LeaveNetwork(network string) error {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return err

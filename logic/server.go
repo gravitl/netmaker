@@ -56,18 +56,19 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		}
 	}
 	var node = &models.Node{
-		IsServer:     "yes",
-		DNSOn:        "no",
-		IsStatic:     "yes",
-		Name:         fmt.Sprintf("%s-%d", models.NODE_SERVER_NAME, serverCount),
-		MacAddress:   servercfg.GetNodeID(),
-		ID:           "", // will be set to new uuid
-		UDPHolePunch: "no",
-		IsLocal:      networkSettings.IsLocal,
-		LocalRange:   networkSettings.LocalRange,
-		OS:           runtime.GOOS,
-		Version:      servercfg.Version,
-		IsHub:        ishub,
+		IsServer:        "yes",
+		DNSOn:           "no",
+		IsStatic:        "yes",
+		Name:            fmt.Sprintf("%s-%d", models.NODE_SERVER_NAME, serverCount),
+		MacAddress:      servercfg.GetNodeID(),
+		ID:              "", // will be set to new uuid
+		UDPHolePunch:    "no",
+		IsLocal:         networkSettings.IsLocal,
+		LocalRange:      networkSettings.LocalRange,
+		OS:              runtime.GOOS,
+		Version:         servercfg.Version,
+		IsHub:           ishub,
+		NetworkSettings: *networkSettings,
 	}
 
 	SetNodeDefaults(node)
