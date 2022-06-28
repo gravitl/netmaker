@@ -1,0 +1,76 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: &app "netmaker"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/secure-backends: "true"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: netmaker.<path:apps-kv/data/general#DN>
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: *app
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - netmaker.<path:apps-kv/data/general#DN>
+    secretName: netmaker-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netmaker-api
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: api.netmaker.<path:apps-kv/data/general#DN>
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: netmaker-api
+            port:
+              number: 8081
+  tls:
+  - hosts:
+    - api.netmaker.<path:apps-kv/data/general#DN>
+    secretName: netmaker-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netmaker-grpc
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+spec:
+  rules:
+  - host: grpc.netmaker.<path:apps-kv/data/general#DN>
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: netmaker-grpc
+            port:
+              number: 443
+  tls:
+  - hosts:
+    - grpc.netmaker.<path:apps-kv/data/general#DN>
+    secretName: netmaker-tls
