@@ -82,3 +82,10 @@ jobs:
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"
+  staticcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: static check
+        uses: dominikh/staticcheck-action@v1.2.0
