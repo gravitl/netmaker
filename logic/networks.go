@@ -580,7 +580,7 @@ func GetNetwork(networkname string) (models.Network, error) {
 // NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
 func NetIDInNetworkCharSet(network *models.Network) bool {
 
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
 
 	for _, char := range network.NetID {
 		if !strings.Contains(charset, string(char)) {
