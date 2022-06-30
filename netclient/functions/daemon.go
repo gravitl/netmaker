@@ -42,10 +42,7 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
-<<<<<<< HEAD
 	UpdateClientConfig()
-=======
->>>>>>> 38f51c55 (revert tls changes)
 	if err := ncutils.SavePID(); err != nil {
 		return err
 	}
@@ -60,28 +57,42 @@ func Daemon() error {
 	if err != nil {
 		logger.Log(0, err.Error())
 	}
-
-	// == add waitgroup and cancel for checkin routine ==
-	wg := sync.WaitGroup{}
-	quit := make(chan os.Signal, 1)
-	reset := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
-	signal.Notify(reset, syscall.SIGHUP)
-	cancel := startServerGoRoutines(&wg)
-	for {
-		select {
-		case <-quit:
-			cancel()
-			logger.Log(0, "shutting down netclient daemon")
-			wg.Wait()
-			logger.Log(0, "shutdown complete")
-			return nil
-		case <-reset:
-			logger.Log(0, "received reset")
-			cancel()
-			wg.Wait()
-			logger.Log(0, "restarting daemon")
-			cancel = startServerGoRoutines(&wg)
+	UpdateClientConfig()
+	if err := ncutils.SavePID(); err != nil {
+		return err
+		serverSet := make(map[string]bool)
+		// == initial pull of all networks ==
+		networks, _ := ncutils.GetSystemNetworks()
+		if len(networks) == 0 {
+			return errors.New("no networks")
+		}
+		// set ipforwarding on startup
+		err := local.SetIPForwarding()
+		if err != nil {
+			logger.Log(0, err.Error())
+		}
+		// == add waitgroup and cancel for checkin routine ==
+		wg := sync.WaitGroup{}
+		quit := make(chan os.Signal, 1)
+		reset := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+		signal.Notify(reset, syscall.SIGHUP)
+		cancel := startServerGoRoutines(&wg)
+		for {
+			select {
+			case <-quit:
+				cancel()
+				logger.Log(0, "shutting down netclient daemon")
+				wg.Wait()
+				logger.Log(0, "shutdown complete")
+				return nil
+			case <-reset:
+				logger.Log(0, "received reset")
+				cancel()
+				wg.Wait()
+				logger.Log(0, "restarting daemon")
+				cancel = startServerGoRoutines(&wg)
+			}
 		}
 	}
 }
