@@ -87,6 +87,68 @@ const FETCH_ALL = "fetchall"
 // CLOSE_DB - graceful close of db const
 const CLOSE_DB = "closedb"
 
+// MigrationTable - maps function to update database table to new schema
+type MigrationTable struct {
+	Name string
+	Op   UpdateTable
+}
+
+//UpdateTable - func to migrate a database table to new schema
+type UpdateTable func(string)
+
+// MigrationTables - schema update functions for database tables
+// Usage:  declare new UpdateTable func and update operation in table
+// Example:  To add new field to UsersTable (models.User has been updated with NewField)
+//func UserTableMigration (table string) {
+//	var data models.User
+//	collection, err := FetchRecords(table)
+//	if err != nil {
+//		logger.Log(0, "could not update table", table, err.Error())
+//		return
+//	}
+//	for key, value := range collection {
+//		if err := json.Unmarshal([]byte(value), &data); err != nil {
+//			logger.Log(0, "failed to unmarshal database table", table, err.Error())
+//		}
+//		if data.NewField == "" {
+//			data.NewFied = defaultvalue
+//			newRecord, err := json.Marshal(data)
+//			if err != nil {
+//				logger.Log(0, "failed to marshal new data for table", table, err.Error())
+//				continue
+//			}
+//			if err := Insert(key, string(newRecord), table); err != nil {
+//				logger.Log(0, "failed to update", table, ".NewField", err.Error())
+//				continue
+//			}
+//		}
+//	}
+//}
+//var Tables []MigrationTable = []MigrationTable{
+//	...
+//	{Name: SERVER_UUID_TABLE_NAME, Op: NilUpdate},
+//	{Name: USERS_TABLE_NAME, Op: UserTableMigration},
+//}
+
+var MigrationTables []MigrationTable = []MigrationTable{
+	{Name: DELETED_NODES_TABLE_NAME, Op: NilUpdate},
+	{Name: DNS_TABLE_NAME, Op: NilUpdate},
+	{Name: EXT_CLIENT_TABLE_NAME, Op: NilUpdate},
+	{Name: GENERATED_TABLE_NAME, Op: NilUpdate},
+	{Name: NETWORKS_TABLE_NAME, Op: NilUpdate},
+	{Name: NODES_TABLE_NAME, Op: NilUpdate},
+	{Name: NODE_ACLS_TABLE_NAME, Op: NilUpdate},
+	{Name: PEERS_TABLE_NAME, Op: NilUpdate},
+	{Name: SERVERCONF_TABLE_NAME, Op: NilUpdate},
+	{Name: SERVER_UUID_TABLE_NAME, Op: NilUpdate},
+	{Name: USERS_TABLE_NAME, Op: NilUpdate},
+}
+
+// NilUpdate - function to be called when table schema is not being updated
+func NilUpdate(string) {
+	return
+}
+
 func getCurrentDB() map[string]interface{} {
 	switch servercfg.GetDB() {
 	case "rqlite":

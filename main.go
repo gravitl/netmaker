@@ -72,6 +72,7 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database")
 	}
 	logger.Log(0, "database successfully connected")
+	updateDatabase()
 	logic.SetJWTSecret()
 
 	err = logic.TimerCheckpoint()
@@ -252,4 +253,10 @@ func genCerts() error {
 		return err
 	}
 	return nil
+}
+
+func updateDatabase() {
+	for _, table := range database.MigrationTables {
+		table.Op(table.Name)
+	}
 }
