@@ -622,28 +622,6 @@ func ParseNetwork(value string) (models.Network, error) {
 	return network, err
 }
 
-// ValidateNetworkUpdate - checks if network is valid to update
-func ValidateNetworkUpdate(network models.Network) error {
-	v := validator.New()
-
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		if fl.Field().String() == "" {
-			return true
-		}
-		inCharSet := nameInNetworkCharSet(fl.Field().String())
-		return inCharSet
-	})
-
-	err := v.Struct(network)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			logger.Log(1, "validator", e.Error())
-		}
-	}
-	return err
-}
-
 // KeyUpdate - updates keys on network
 func KeyUpdate(netname string) (models.Network, error) {
 	err := networkNodesUpdateAction(netname, models.NODE_UPDATE_KEY)
@@ -697,18 +675,6 @@ func networkNodesUpdateAction(networkName string, action string) error {
 		}
 	}
 	return nil
-}
-
-func nameInNetworkCharSet(name string) bool {
-
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_."
-
-	for _, char := range name {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
-			return false
-		}
-	}
-	return true
 }
 
 func deleteInterface(ifacename string, postdown string) error {
