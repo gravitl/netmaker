@@ -164,6 +164,10 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 // ServerUpdate - updates the server
 // replaces legacy Checkin code
 func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
+	if !IsLocalServer(serverNode) {
+		return nil
+	}
+
 	var err = ServerPull(serverNode, ifaceDelta)
 	if isDeleteError(err) {
 		return DeleteNodeByID(serverNode, true)
