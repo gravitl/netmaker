@@ -268,7 +268,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 
 func reRegisterWithServer(cfg *config.ClientConfig) {
 	logger.Log(0, "connection issue detected.. attempt connection with new certs and broker information")
-	key, err := ssl.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
+	key, err := ssl.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
 	if err != nil {
 		_, *key, err = ed25519.GenerateKey(rand.Reader)
 		if err != nil {

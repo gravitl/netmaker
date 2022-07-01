@@ -17,8 +17,23 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// CERTTIFICAT_VALIDITY duration of certificate validity in days
-const CERTIFICATE_VALIDITY = 365
+const (
+
+	// CERTTIFICATE_VALIDITY duration of certificate validity in days
+	CERTIFICATE_VALIDITY = 365
+
+	// SERVER_KEY_NAME - name of server cert private key
+	SERVER_KEY_NAME = "server.key"
+
+	// ROOT_KEY_NAME - name of root cert private key
+	ROOT_KEY_NAME = "root.key"
+
+	// SERVER_PEM_NAME - name of server pem
+	SERVER_PEM_NAME = "server.pem"
+
+	// ROOT_PEM_NAME - name of root pem
+	ROOT_PEM_NAME = "root.pem"
+)
 
 type (
 	// Key is the struct for an edwards representation point
@@ -189,8 +204,8 @@ func SaveRequest(path, name string, csr *x509.CertificateRequest) error {
 	return nil
 }
 
-// SaveCert save a certificate to the specified path
-func SaveCert(path, name string, cert *x509.Certificate) error {
+// SaveCertToFile save a certificate to the specified path
+func SaveCertToFile(path, name string, cert *x509.Certificate) error {
 	//certbytes, err := x509.ParseCertificate(cert)
 	if err := os.MkdirAll(path, 0600); err != nil {
 		return fmt.Errorf("failed to create dir %s %w", path, err)
@@ -209,8 +224,8 @@ func SaveCert(path, name string, cert *x509.Certificate) error {
 	return nil
 }
 
-// SaveKey save a private key (ed25519) to the specified path
-func SaveKey(path, name string, key ed25519.PrivateKey) error {
+// SaveKeyToFile save a private key (ed25519) to the certs database
+func SaveKeyToFile(path, name string, key ed25519.PrivateKey) error {
 	//func SaveKey(name string, key *ecdsa.PrivateKey) error {
 	if err := os.MkdirAll(path, 0600); err != nil {
 		return fmt.Errorf("failed to create dir %s %w", path, err)
@@ -233,8 +248,8 @@ func SaveKey(path, name string, key ed25519.PrivateKey) error {
 	return nil
 }
 
-// ReadCert reads a certificate from disk
-func ReadCert(name string) (*x509.Certificate, error) {
+// ReadCertFromFile reads a certificate from disk
+func ReadCertFromFile(name string) (*x509.Certificate, error) {
 	contents, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read file %w", err)
@@ -250,8 +265,8 @@ func ReadCert(name string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// ReadKey reads a private key (ed25519) from disk
-func ReadKey(name string) (*ed25519.PrivateKey, error) {
+// ReadKeyFromFile reads a private key (ed25519) from disk
+func ReadKeyFromFile(name string) (*ed25519.PrivateKey, error) {
 	bytes, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read file %w", err)
