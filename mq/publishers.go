@@ -119,7 +119,7 @@ func sendPeers() {
 
 	for _, network := range networks {
 		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
-		if errN == nil {
+		if errN == nil && logic.IsLocalServer(&serverNode) {
 			serverNode.SetLastCheckIn()
 			logic.UpdateNode(&serverNode, &serverNode)
 			if network.DefaultUDPHolePunch == "yes" {
@@ -137,7 +137,9 @@ func sendPeers() {
 		} else {
 			logger.Log(1, "unable to retrieve leader for network ", network.NetID)
 			serverctl.SyncServerNetwork(network.NetID)
-			logger.Log(1, errN.Error())
+			if errN != nil {
+				logger.Log(1, errN.Error())
+			}
 			continue
 		}
 	}
