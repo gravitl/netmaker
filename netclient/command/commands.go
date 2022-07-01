@@ -94,13 +94,13 @@ func Pull(cfg *config.ClientConfig) error {
 	}
 	//generate new client key if one doesn' exist
 	var private *ed25519.PrivateKey
-	private, err = tls.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
+	private, err = tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
 	if err != nil {
 		_, newKey, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveKey(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); err != nil {
+		if err := tls.SaveKeyToFile(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); err != nil {
 			return err
 		}
 		private = &newKey

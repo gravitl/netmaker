@@ -26,6 +26,9 @@ const DELETED_NODES_TABLE_NAME = "deletednodes"
 // USERS_TABLE_NAME - users table
 const USERS_TABLE_NAME = "users"
 
+// CERTS_TABLE_NAME - certificates table
+const CERTS_TABLE_NAME = "certs"
+
 // DNS_TABLE_NAME - dns table
 const DNS_TABLE_NAME = "dns"
 
@@ -122,6 +125,7 @@ func InitializeDatabase() error {
 func createTables() {
 	createTable(NETWORKS_TABLE_NAME)
 	createTable(NODES_TABLE_NAME)
+	createTable(CERTS_TABLE_NAME)
 	createTable(DELETED_NODES_TABLE_NAME)
 	createTable(USERS_TABLE_NAME)
 	createTable(DNS_TABLE_NAME)
