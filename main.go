@@ -190,21 +190,21 @@ func genCerts() error {
 	logger.Log(0, "checking keys and certificates")
 	var private *ed25519.PrivateKey
 	var err error
-	private, err = tls.ReadKeyFromFile(functions.GetNetmakerPath() + "/root.key")
+	private, err = serverctl.ReadKeyFromDB(tls.ROOT_KEY_NAME)
 	if errors.Is(err, os.ErrNotExist) {
 		logger.Log(0, "generating new root key")
 		_, newKey, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveKeyToFile(functions.GetNetmakerPath(), "/root.key", newKey); err != nil {
+		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_KEY_NAME, newKey); err != nil {
 			return err
 		}
 		private = &newKey
 	} else if err != nil {
 		return err
 	}
-	ca, err := tls.ReadCertFromFile(functions.GetNetmakerPath() + ncutils.GetSeparator() + "root.pem")
+	ca, err := serverctl.ReadCertFromDB(tls.ROOT_PEM_NAME)
 	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
 	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 	if errors.Is(err, os.ErrNotExist) {
@@ -218,14 +218,14 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveCertToFile(functions.GetNetmakerPath(), ncutils.GetSeparator()+"root.pem", rootCA); err != nil {
+		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_PEM_NAME, rootCA); err != nil {
 			return err
 		}
 		ca = rootCA
 	} else if err != nil {
 		return err
 	}
-	cert, err := tls.ReadCertFromFile(functions.GetNetmakerPath() + "/server.pem")
+	cert, err := serverctl.ReadCertFromDB(tls.SERVER_PEM_NAME)
 	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		//gen new key
 		logger.Log(0, "generating new server key/certificate")
@@ -242,10 +242,10 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		if err := tls.SaveKeyToFile(functions.GetNetmakerPath(), "/server.key", key); err != nil {
+		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_KEY_NAME, key); err != nil {
 			return err
 		}
-		if err := tls.SaveCertToFile(functions.GetNetmakerPath(), "/server.pem", cert); err != nil {
+		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_PEM_NAME, cert); err != nil {
 			return err
 		}
 	} else if err != nil {

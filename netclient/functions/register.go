@@ -88,7 +88,7 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	//the pubkeys are included in the response so the values in the certificate can be updated appropriately
 	resp.CA.PublicKey = resp.CAPubKey
 	resp.Cert.PublicKey = resp.CertPubKey
-	if err := tls.SaveCertToFile(ncutils.GetNetclientServerPath(cfg.Server.Server)+ncutils.GetSeparator(), "root.pem", &resp.CA); err != nil {
+	if err := tls.SaveCertToFile(ncutils.GetNetclientServerPath(cfg.Server.Server)+ncutils.GetSeparator(), tls.ROOT_PEM_NAME, &resp.CA); err != nil {
 		return err
 	}
 	if err := tls.SaveCertToFile(ncutils.GetNetclientServerPath(cfg.Server.Server)+ncutils.GetSeparator(), "client.pem", &resp.Cert); err != nil {
