@@ -151,10 +151,10 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 }
 
 func checkCertExpiry(cfg *config.ClientConfig) error {
-	cert, err := tls.ReadCert(ncutils.GetNetclientServerPath(cfg.Server.Server) + ncutils.GetSeparator() + "client.pem")
+	cert, err := tls.ReadCertFromFile(ncutils.GetNetclientServerPath(cfg.Server.Server) + ncutils.GetSeparator() + "client.pem")
 	//if cert doesn't exist or will expire within 10 days
 	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
-		key, err := tls.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
+		key, err := tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
 		if err != nil {
 			return err
 		}

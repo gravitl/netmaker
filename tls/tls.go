@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -14,11 +15,21 @@ import (
 	"time"
 
 	"filippo.io/edwards25519"
+	"github.com/gravitl/netmaker/database"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// CERTTIFICAT_VALIDITY duration of certificate validity in days
-const CERTIFICATE_VALIDITY = 365
+const (
+
+	// CERTTIFICATE_VALIDITY duration of certificate validity in days
+	CERTIFICATE_VALIDITY = 365
+
+	// SERVER_KEY_NAME - name of server cert private key
+	SERVER_KEY_NAME = "serverkey"
+
+	// ROOT_KEY_NAME - name of root cert private key
+	ROOT_KEY_NAME = "rootkey"
+)
 
 type (
 	// Key is the struct for an edwards representation point
@@ -189,8 +200,8 @@ func SaveRequest(path, name string, csr *x509.CertificateRequest) error {
 	return nil
 }
 
-// SaveCert save a certificate to the specified path
-func SaveCert(path, name string, cert *x509.Certificate) error {
+// SaveCertToFile save a certificate to the specified path
+func SaveCertToFile(path, name string, cert *x509.Certificate) error {
 	//certbytes, err := x509.ParseCertificate(cert)
 	if err := os.MkdirAll(path, 0600); err != nil {
 		return fmt.Errorf("failed to create dir %s %w", path, err)
@@ -209,8 +220,24 @@ func SaveCert(path, name string, cert *x509.Certificate) error {
 	return nil
 }
 
-// SaveKey save a private key (ed25519) to the specified path
-func SaveKey(path, name string, key ed25519.PrivateKey) error {
+// SaveCertToDB - save a certificate to the certs database
+func SaveCertToDB(name string, cert *x509.Certificate) error {
+	if certBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	}); len(certBytes) > 0 {
+		data, err := json.Marshal(&certBytes)
+		if err != nil {
+			return fmt.Errorf("failed to marshal certificate - %v ", err)
+		}
+		return database.Insert(name, string(data), database.CERTS_TABLE_NAME)
+	} else {
+		return fmt.Errorf("failed to write cert to DB - %s ", name)
+	}
+}
+
+// SaveKeyToFile save a private key (ed25519) to the certs database
+func SaveKeyToFile(path, name string, key ed25519.PrivateKey) error {
 	//func SaveKey(name string, key *ecdsa.PrivateKey) error {
 	if err := os.MkdirAll(path, 0600); err != nil {
 		return fmt.Errorf("failed to create dir %s %w", path, err)
@@ -233,8 +260,28 @@ func SaveKey(path, name string, key ed25519.PrivateKey) error {
 	return nil
 }
 
-// ReadCert reads a certificate from disk
-func ReadCert(name string) (*x509.Certificate, error) {
+// SaveKeyToDB - save a private key (ed25519) to the specified path
+func SaveKeyToDB(name string, key ed25519.PrivateKey) error {
+	privBytes, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return fmt.Errorf("failed to marshal key %v ", err)
+	}
+	if pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privBytes,
+	}); len(pemBytes) > 0 {
+		data, err := json.Marshal(&pemBytes)
+		if err != nil {
+			return fmt.Errorf("failed to marshal key %v ", err)
+		}
+		return database.Insert(name, string(data), database.CERTS_TABLE_NAME)
+	} else {
+		return fmt.Errorf("failed to write key to DB - %v ", err)
+	}
+}
+
+// ReadCertFromFile reads a certificate from disk
+func ReadCertFromFile(name string) (*x509.Certificate, error) {
 	contents, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read file %w", err)
@@ -250,8 +297,29 @@ func ReadCert(name string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// ReadKey reads a private key (ed25519) from disk
-func ReadKey(name string) (*ed25519.PrivateKey, error) {
+// ReadCertFromDB - reads a certificate from the database
+func ReadCertFromDB(name string) (*x509.Certificate, error) {
+	certString, err := database.FetchRecord(database.CERTS_TABLE_NAME, name)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read file %w", err)
+	}
+	var certBytes []byte
+	if err = json.Unmarshal([]byte(certString), &certBytes); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal db cert %w", err)
+	}
+	block, _ := pem.Decode(certBytes)
+	if block == nil || block.Type != "CERTIFICATE" {
+		return nil, errors.New("not a cert " + block.Type)
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse cert %w", err)
+	}
+	return cert, nil
+}
+
+// ReadKeyFromFile reads a private key (ed25519) from disk
+func ReadKeyFromFile(name string) (*ed25519.PrivateKey, error) {
 	bytes, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read file %w", err)
@@ -260,6 +328,25 @@ func ReadKey(name string) (*ed25519.PrivateKey, error) {
 	key, err := x509.ParsePKCS8PrivateKey(keyBytes.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse file %w", err)
+	}
+	private := key.(ed25519.PrivateKey)
+	return &private, nil
+}
+
+// ReadKeyFromDB - reads a private key (ed25519) from the database
+func ReadKeyFromDB(name string) (*ed25519.PrivateKey, error) {
+	keyString, err := database.FetchRecord(database.CERTS_TABLE_NAME, name)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read key value from db - %w", err)
+	}
+	var bytes []byte
+	if err = json.Unmarshal([]byte(keyString), &bytes); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal db key - %w", err)
+	}
+	keyBytes, _ := pem.Decode(bytes)
+	key, err := x509.ParsePKCS8PrivateKey(keyBytes.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse key from DB -  %w", err)
 	}
 	private := key.(ed25519.PrivateKey)
 	return &private, nil
