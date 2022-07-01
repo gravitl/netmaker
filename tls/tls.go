@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	"time"
 
 	"filippo.io/edwards25519"
-	"github.com/gravitl/netmaker/database"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -25,10 +23,16 @@ const (
 	CERTIFICATE_VALIDITY = 365
 
 	// SERVER_KEY_NAME - name of server cert private key
-	SERVER_KEY_NAME = "serverkey"
+	SERVER_KEY_NAME = "server.key"
 
 	// ROOT_KEY_NAME - name of root cert private key
-	ROOT_KEY_NAME = "rootkey"
+	ROOT_KEY_NAME = "root.key"
+
+	// SERVER_PEM_NAME - name of server pem
+	SERVER_PEM_NAME = "server.pem"
+
+	// ROOT_PEM_NAME - name of root pem
+	ROOT_PEM_NAME = "root.pem"
 )
 
 type (
@@ -220,22 +224,6 @@ func SaveCertToFile(path, name string, cert *x509.Certificate) error {
 	return nil
 }
 
-// SaveCertToDB - save a certificate to the certs database
-func SaveCertToDB(name string, cert *x509.Certificate) error {
-	if certBytes := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: cert.Raw,
-	}); len(certBytes) > 0 {
-		data, err := json.Marshal(&certBytes)
-		if err != nil {
-			return fmt.Errorf("failed to marshal certificate - %v ", err)
-		}
-		return database.Insert(name, string(data), database.CERTS_TABLE_NAME)
-	} else {
-		return fmt.Errorf("failed to write cert to DB - %s ", name)
-	}
-}
-
 // SaveKeyToFile save a private key (ed25519) to the certs database
 func SaveKeyToFile(path, name string, key ed25519.PrivateKey) error {
 	//func SaveKey(name string, key *ecdsa.PrivateKey) error {
@@ -260,26 +248,6 @@ func SaveKeyToFile(path, name string, key ed25519.PrivateKey) error {
 	return nil
 }
 
-// SaveKeyToDB - save a private key (ed25519) to the specified path
-func SaveKeyToDB(name string, key ed25519.PrivateKey) error {
-	privBytes, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		return fmt.Errorf("failed to marshal key %v ", err)
-	}
-	if pemBytes := pem.EncodeToMemory(&pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: privBytes,
-	}); len(pemBytes) > 0 {
-		data, err := json.Marshal(&pemBytes)
-		if err != nil {
-			return fmt.Errorf("failed to marshal key %v ", err)
-		}
-		return database.Insert(name, string(data), database.CERTS_TABLE_NAME)
-	} else {
-		return fmt.Errorf("failed to write key to DB - %v ", err)
-	}
-}
-
 // ReadCertFromFile reads a certificate from disk
 func ReadCertFromFile(name string) (*x509.Certificate, error) {
 	contents, err := os.ReadFile(name)
@@ -287,27 +255,6 @@ func ReadCertFromFile(name string) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("unable to read file %w", err)
 	}
 	block, _ := pem.Decode(contents)
-	if block == nil || block.Type != "CERTIFICATE" {
-		return nil, errors.New("not a cert " + block.Type)
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse cert %w", err)
-	}
-	return cert, nil
-}
-
-// ReadCertFromDB - reads a certificate from the database
-func ReadCertFromDB(name string) (*x509.Certificate, error) {
-	certString, err := database.FetchRecord(database.CERTS_TABLE_NAME, name)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read file %w", err)
-	}
-	var certBytes []byte
-	if err = json.Unmarshal([]byte(certString), &certBytes); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal db cert %w", err)
-	}
-	block, _ := pem.Decode(certBytes)
 	if block == nil || block.Type != "CERTIFICATE" {
 		return nil, errors.New("not a cert " + block.Type)
 	}
@@ -328,25 +275,6 @@ func ReadKeyFromFile(name string) (*ed25519.PrivateKey, error) {
 	key, err := x509.ParsePKCS8PrivateKey(keyBytes.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse file %w", err)
-	}
-	private := key.(ed25519.PrivateKey)
-	return &private, nil
-}
-
-// ReadKeyFromDB - reads a private key (ed25519) from the database
-func ReadKeyFromDB(name string) (*ed25519.PrivateKey, error) {
-	keyString, err := database.FetchRecord(database.CERTS_TABLE_NAME, name)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read key value from db - %w", err)
-	}
-	var bytes []byte
-	if err = json.Unmarshal([]byte(keyString), &bytes); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal db key - %w", err)
-	}
-	keyBytes, _ := pem.Decode(bytes)
-	key, err := x509.ParsePKCS8PrivateKey(keyBytes.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse key from DB -  %w", err)
 	}
 	private := key.(ed25519.PrivateKey)
 	return &private, nil
