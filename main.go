@@ -209,7 +209,7 @@ func genCerts() error {
 	ca, err := serverctl.ReadCertFromDB(tls.ROOT_PEM_NAME)
 	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
 	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
-	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) {
+	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || ca.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		logger.Log(0, "generating new root CA")
 		caName := tls.NewName("CA Root", "US", "Gravitl")
 		csr, err := tls.NewCSR(*private, caName)
@@ -254,6 +254,8 @@ func genCerts() error {
 		return err
 	}
 
+	logger.Log(2, "ensure the root.pem, root.key, server.pem, and server.key files are updated on your broker")
+
 	serverClientCert, err := serverctl.ReadCertFromDB(tls.SERVER_CLIENT_PEM)
 	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || serverClientCert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		//gen new key
@@ -280,6 +282,18 @@ func genCerts() error {
 		}
 	} else if err != nil {
 		return err
+	} else if err == nil {
+		logger.Log(0, "detected valid server client cert, re-saving for future consumption")
+		key, err := serverctl.ReadKeyFromDB(tls.SERVER_CLIENT_KEY)
+		if err != nil {
+			return err
+		}
+		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, *key); err != nil {
+			return err
+		}
+		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
+			return err
+		}
 	}
 
 	return serverctl.SetClientTLSConf(
