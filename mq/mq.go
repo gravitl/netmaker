@@ -2,7 +2,6 @@ package mq
 
 import (
 	"context"
-	"log"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -28,11 +27,7 @@ func SetupMQTT(publish bool) mqtt.Client {
 	opts.AddBroker(servercfg.GetMessageQueueEndpoint())
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
-	tlsConfig, err := serverctl.ReadClientCertFromDB()
-	if err != nil {
-		logger.Log(0, "failed to get TLS config for server to broker connection", err.Error())
-	}
-	opts.SetTLSConfig(tlsConfig)
+	opts.SetTLSConfig(&serverctl.TlsConfig)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(time.Second << 2)
@@ -64,9 +59,9 @@ func SetupMQTT(publish bool) mqtt.Client {
 			logger.Log(2, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				if token.Error() == nil {
-					log.Fatal(0, "could not connect to broker, token timeout, exiting ...")
+					logger.FatalLog("could not connect to broker, token timeout, exiting ...")
 				} else {
-					log.Fatal(0, "could not connect to broker, exiting ...", token.Error())
+					logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
 				}
 			}
 		} else {

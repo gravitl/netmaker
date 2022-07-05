@@ -254,9 +254,8 @@ func genCerts() error {
 		return err
 	}
 
-	_, scErr := serverctl.ReadClientCertFromDB()
 	serverClientCert, err := serverctl.ReadCertFromDB(tls.SERVER_CLIENT_PEM)
-	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || database.IsEmptyRecord(scErr) || serverClientCert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || serverClientCert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		//gen new key
 		logger.Log(0, "generating new server client key/certificate")
 		_, key, err := ed25519.GenerateKey(rand.Reader)
@@ -279,14 +278,13 @@ func genCerts() error {
 		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
 			return err
 		}
-		return serverctl.SaveClientCertToDB(
-			functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_PEM,
-			functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_KEY,
-			ca,
-		)
 	} else if err != nil {
 		return err
 	}
 
-	return nil
+	return serverctl.SetClientTLSConf(
+		functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_PEM,
+		functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_KEY,
+		ca,
+	)
 }

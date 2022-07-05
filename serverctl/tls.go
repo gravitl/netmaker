@@ -13,6 +13,9 @@ import (
 	"github.com/gravitl/netmaker/tls"
 )
 
+// TlsConfig - holds this servers TLS conf in memory
+var TlsConfig ssl.Config
+
 // SaveCert - save a certificate to file and DB
 func SaveCert(path, name string, cert *x509.Certificate) error {
 	if err := SaveCertToDB(name, cert); err != nil {
@@ -105,41 +108,33 @@ func ReadKeyFromDB(name string) (*ed25519.PrivateKey, error) {
 	return &private, nil
 }
 
-// SaveClientCertToDB - saves client cert for servers to connect to MQ broker with
-func SaveClientCertToDB(serverClientPemPath, serverClientKeyPath string, ca *x509.Certificate) error {
+// SetClientTLSConf - saves client cert for servers to connect to MQ broker with
+func SetClientTLSConf(serverClientPemPath, serverClientKeyPath string, ca *x509.Certificate) error {
 	certpool := x509.NewCertPool()
-	ok := certpool.AppendCertsFromPEM(ca.Raw)
-	if !ok {
-		return fmt.Errorf("failed to append root cert to server client cert")
+	if caData := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: ca.Raw,
+	}); len(caData) <= 0 {
+		return fmt.Errorf("could not encode CA cert to memory for server client")
+	} else {
+		ok := certpool.AppendCertsFromPEM(caData)
+		if !ok {
+			return fmt.Errorf("failed to append root cert to server client cert")
+		}
 	}
 	clientKeyPair, err := ssl.LoadX509KeyPair(serverClientPemPath, serverClientKeyPath)
 	if err != nil {
 		return err
 	}
 	certs := []ssl.Certificate{clientKeyPair}
-	netmakerClientCert := ssl.Config{
+
+	TlsConfig = ssl.Config{
 		RootCAs:            certpool,
 		ClientAuth:         ssl.NoClientCert,
 		ClientCAs:          nil,
 		Certificates:       certs,
 		InsecureSkipVerify: false,
 	}
-	data, err := json.Marshal(netmakerClientCert)
-	if err != nil {
-		return err
-	}
-	return database.Insert(tls.SERVER_CLIENT_ENTRY, string(data), database.CERTS_TABLE_NAME)
-}
 
-// ReadClientCertFromDB - reads the client cert from the DB
-func ReadClientCertFromDB() (*ssl.Config, error) {
-	var netmakerClientCert ssl.Config
-	record, err := database.FetchRecord(database.CERTS_TABLE_NAME, tls.SERVER_CLIENT_ENTRY)
-	if err != nil {
-		return nil, err
-	}
-	if err = json.Unmarshal([]byte(record), &netmakerClientCert); err != nil {
-		return nil, err
-	}
-	return &netmakerClientCert, err
+	return nil
 }
