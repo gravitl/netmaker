@@ -2,6 +2,7 @@ package serverctl
 
 import (
 	"crypto/ed25519"
+	ssl "crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -102,4 +103,43 @@ func ReadKeyFromDB(name string) (*ed25519.PrivateKey, error) {
 	}
 	private := key.(ed25519.PrivateKey)
 	return &private, nil
+}
+
+// SaveClientCertToDB - saves client cert for servers to connect to MQ broker with
+func SaveClientCertToDB(serverClientPemPath, serverClientKeyPath string, ca *x509.Certificate) error {
+	certpool := x509.NewCertPool()
+	ok := certpool.AppendCertsFromPEM(ca.Raw)
+	if !ok {
+		return fmt.Errorf("failed to append root cert to server client cert")
+	}
+	clientKeyPair, err := ssl.LoadX509KeyPair(serverClientPemPath, serverClientKeyPath)
+	if err != nil {
+		return err
+	}
+	certs := []ssl.Certificate{clientKeyPair}
+	netmakerClientCert := ssl.Config{
+		RootCAs:            certpool,
+		ClientAuth:         ssl.NoClientCert,
+		ClientCAs:          nil,
+		Certificates:       certs,
+		InsecureSkipVerify: false,
+	}
+	data, err := json.Marshal(netmakerClientCert)
+	if err != nil {
+		return err
+	}
+	return database.Insert(tls.SERVER_CLIENT_ENTRY, string(data), database.CERTS_TABLE_NAME)
+}
+
+// ReadClientCertFromDB - reads the client cert from the DB
+func ReadClientCertFromDB() (*ssl.Config, error) {
+	var netmakerClientCert ssl.Config
+	record, err := database.FetchRecord(database.CERTS_TABLE_NAME, tls.SERVER_CLIENT_ENTRY)
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal([]byte(record), &netmakerClientCert); err != nil {
+		return nil, err
+	}
+	return &netmakerClientCert, err
 }

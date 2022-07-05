@@ -120,7 +120,9 @@ func initialize() { // Client Mode Prereq Check
 		}
 	}
 
-	genCerts()
+	if err = genCerts(); err != nil {
+		logger.Log(0, "something went wrong when generating broker certs", err.Error())
+	}
 
 	if servercfg.IsMessageQueueBackend() {
 		if err = mq.ServerStartNotify(); err != nil {
@@ -251,5 +253,40 @@ func genCerts() error {
 	} else if err != nil {
 		return err
 	}
+
+	_, scErr := serverctl.ReadClientCertFromDB()
+	serverClientCert, err := serverctl.ReadCertFromDB(tls.SERVER_CLIENT_PEM)
+	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || database.IsEmptyRecord(scErr) || serverClientCert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+		//gen new key
+		logger.Log(0, "generating new server client key/certificate")
+		_, key, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		serverName := tls.NewCName(servercfg.GetServer())
+		csr, err := tls.NewCSR(key, serverName)
+		if err != nil {
+			return err
+		}
+		serverClientCert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
+		if err != nil {
+			return err
+		}
+
+		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, key); err != nil {
+			return err
+		}
+		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
+			return err
+		}
+		return serverctl.SaveClientCertToDB(
+			functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_PEM,
+			functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_KEY,
+			ca,
+		)
+	} else if err != nil {
+		return err
+	}
+
 	return nil
 }

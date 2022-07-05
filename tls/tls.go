@@ -18,7 +18,6 @@ import (
 )
 
 const (
-
 	// CERTTIFICATE_VALIDITY duration of certificate validity in days
 	CERTIFICATE_VALIDITY = 365
 
@@ -33,6 +32,15 @@ const (
 
 	// ROOT_PEM_NAME - name of root pem
 	ROOT_PEM_NAME = "root.pem"
+
+	// SERVER_CLIENT_PEM - the name of server client cert
+	SERVER_CLIENT_PEM = "serverclient.pem"
+
+	// SERVER_CLIENT_KEY - the name of server client key
+	SERVER_CLIENT_KEY = "serverclient.key"
+
+	// SERVER_CLIENT_ENTRY - the server client cert key for DB
+	SERVER_CLIENT_ENTRY = "servercliententry"
 )
 
 type (
