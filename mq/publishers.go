@@ -119,9 +119,11 @@ func sendPeers() {
 
 	for _, network := range networks {
 		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
-		if errN == nil && logic.IsLocalServer(&serverNode) {
+		if errN == nil {
 			serverNode.SetLastCheckIn()
 			logic.UpdateNode(&serverNode, &serverNode)
+		}
+		if errN == nil && logic.IsLocalServer(&serverNode) {
 			if network.DefaultUDPHolePunch == "yes" {
 				if logic.ShouldPublishPeerPorts(&serverNode) || force {
 					if force {
