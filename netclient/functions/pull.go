@@ -63,10 +63,12 @@ func Pull(network string, iface bool) (*models.Node, error) {
 			logger.Log(0, "unable to update server config: "+err.Error())
 		}
 	}
-	err = ncutils.ModPort(&resNode)
-	logger.Log(0, "port is now", strconv.Itoa(int(resNode.ListenPort)))
-	if err != nil {
-		return nil, err
+	if nodeGET.Node.ListenPort != cfg.Node.ListenPort {
+		err = ncutils.ModPort(&resNode)
+		if err != nil {
+			return nil, err
+		}
+		logger.Log(0, "port is now", strconv.Itoa(int(resNode.ListenPort)))
 	}
 	if err = config.ModNodeConfig(&resNode); err != nil {
 		return nil, err
