@@ -2,6 +2,7 @@ package serverctl
 
 import (
 	"crypto/ed25519"
+	ssl "crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -11,6 +12,9 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/tls"
 )
+
+// TlsConfig - holds this servers TLS conf in memory
+var TlsConfig ssl.Config
 
 // SaveCert - save a certificate to file and DB
 func SaveCert(path, name string, cert *x509.Certificate) error {
@@ -102,4 +106,35 @@ func ReadKeyFromDB(name string) (*ed25519.PrivateKey, error) {
 	}
 	private := key.(ed25519.PrivateKey)
 	return &private, nil
+}
+
+// SetClientTLSConf - saves client cert for servers to connect to MQ broker with
+func SetClientTLSConf(serverClientPemPath, serverClientKeyPath string, ca *x509.Certificate) error {
+	certpool := x509.NewCertPool()
+	if caData := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: ca.Raw,
+	}); len(caData) <= 0 {
+		return fmt.Errorf("could not encode CA cert to memory for server client")
+	} else {
+		ok := certpool.AppendCertsFromPEM(caData)
+		if !ok {
+			return fmt.Errorf("failed to append root cert to server client cert")
+		}
+	}
+	clientKeyPair, err := ssl.LoadX509KeyPair(serverClientPemPath, serverClientKeyPath)
+	if err != nil {
+		return err
+	}
+	certs := []ssl.Certificate{clientKeyPair}
+
+	TlsConfig = ssl.Config{
+		RootCAs:            certpool,
+		ClientAuth:         ssl.NoClientCert,
+		ClientCAs:          nil,
+		Certificates:       certs,
+		InsecureSkipVerify: false,
+	}
+
+	return nil
 }

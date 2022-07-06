@@ -120,7 +120,9 @@ func initialize() { // Client Mode Prereq Check
 		}
 	}
 
-	genCerts()
+	if err = genCerts(); err != nil {
+		logger.Log(0, "something went wrong when generating broker certs", err.Error())
+	}
 
 	if servercfg.IsMessageQueueBackend() {
 		if err = mq.ServerStartNotify(); err != nil {
@@ -207,7 +209,7 @@ func genCerts() error {
 	ca, err := serverctl.ReadCertFromDB(tls.ROOT_PEM_NAME)
 	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
 	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
-	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) {
+	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || ca.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		logger.Log(0, "generating new root CA")
 		caName := tls.NewName("CA Root", "US", "Gravitl")
 		csr, err := tls.NewCSR(*private, caName)
@@ -251,5 +253,52 @@ func genCerts() error {
 	} else if err != nil {
 		return err
 	}
-	return nil
+
+	logger.Log(2, "ensure the root.pem, root.key, server.pem, and server.key files are updated on your broker")
+
+	serverClientCert, err := serverctl.ReadCertFromDB(tls.SERVER_CLIENT_PEM)
+	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || serverClientCert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
+		//gen new key
+		logger.Log(0, "generating new server client key/certificate")
+		_, key, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		serverName := tls.NewCName(servercfg.GetServer())
+		csr, err := tls.NewCSR(key, serverName)
+		if err != nil {
+			return err
+		}
+		serverClientCert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
+		if err != nil {
+			return err
+		}
+
+		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, key); err != nil {
+			return err
+		}
+		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if err == nil {
+		logger.Log(0, "detected valid server client cert, re-saving for future consumption")
+		key, err := serverctl.ReadKeyFromDB(tls.SERVER_CLIENT_KEY)
+		if err != nil {
+			return err
+		}
+		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, *key); err != nil {
+			return err
+		}
+		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
+			return err
+		}
+	}
+
+	return serverctl.SetClientTLSConf(
+		functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_PEM,
+		functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_KEY,
+		ca,
+	)
 }

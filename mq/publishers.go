@@ -119,9 +119,14 @@ func sendPeers() {
 
 	for _, network := range networks {
 		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
-		if errN == nil && logic.IsLocalServer(&serverNode) {
+		if errN == nil {
 			serverNode.SetLastCheckIn()
-			logic.UpdateNode(&serverNode, &serverNode)
+			if err := logic.UpdateNode(&serverNode, &serverNode); err != nil {
+				logger.Log(0, "failed checkin for server node", serverNode.Name, "on network", network.NetID, err.Error())
+			}
+		}
+		isLeader := logic.IsLocalServer(&serverNode)
+		if errN == nil && isLeader {
 			if network.DefaultUDPHolePunch == "yes" {
 				if logic.ShouldPublishPeerPorts(&serverNode) || force {
 					if force {
@@ -135,12 +140,14 @@ func sendPeers() {
 				}
 			}
 		} else {
-			logger.Log(1, "unable to retrieve leader for network ", network.NetID)
+			if isLeader {
+				logger.Log(1, "unable to retrieve leader for network ", network.NetID)
+			}
+			logger.Log(2, "server checkin complete for server", serverNode.Name, "on network", network.NetID)
 			serverctl.SyncServerNetwork(network.NetID)
 			if errN != nil {
 				logger.Log(1, errN.Error())
 			}
-			continue
 		}
 	}
 }
