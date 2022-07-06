@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.14.4
+    image: gravitl/netmaker:v0.14.5
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -51,7 +51,7 @@ services:
       - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.14.4
+    image: gravitl/netmaker-ui:v0.14.5
     depends_on:
       - netmaker
     links:
@@ -114,11 +114,6 @@ services:
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
       - shared_certs:/mosquitto/certs
-    ports:
-      - "127.0.0.1:1883:1883"
-    # comment once netmaker supports changing MQ port
-    #  - "8883:8883"
-    # uncomment once netmaker supports changing MQ port
     expose:
       - "8883"
     labels:
