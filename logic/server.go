@@ -206,7 +206,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 	nodes, err := GetNetworkNodes(serverNode.Network)
 	if err == nil {
 		for _, node := range nodes {
-			if node.IsEgressGateway == "yes" {
+			if node.IsEgressGateway == "yes" && !IsLocalServer(&node) {
 				gateways = append(gateways, node.EgressGatewayRanges...)
 			}
 		}
