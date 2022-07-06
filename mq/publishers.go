@@ -148,7 +148,6 @@ func sendPeers() {
 			if errN != nil {
 				logger.Log(1, errN.Error())
 			}
-			continue
 		}
 	}
 }
