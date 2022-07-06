@@ -138,15 +138,9 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		return err
 	}
 	defer wgclient.Close()
-	cfg, err := config.ReadConfig(node.Network)
-	if err != nil {
-		return err
-	}
 	//nodecfg := modcfg.Node
 	var ifacename string
-	if cfg.Node.Interface != "" {
-		ifacename = cfg.Node.Interface
-	} else if node.Interface != "" {
+	if node.Interface != "" {
 		ifacename = node.Interface
 	} else {
 		return fmt.Errorf("no interface to configure")
@@ -154,14 +148,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	if node.PrimaryAddress() == "" {
 		return fmt.Errorf("no address to configure")
 	}
-	logger.Log(1, "turn on UDP hole punching (dynamic port setting)? "+cfg.Node.UDPHolePunch)
-	if node.UDPHolePunch == "yes" {
-		node.ListenPort = 0
-	} else {
-		//get available port based on current default
-		node.ListenPort, err = ncutils.GetFreePort(node.ListenPort)
-	}
-	if err := WriteWgConfig(&cfg.Node, key.String(), peers); err != nil {
+	if err := WriteWgConfig(node, key.String(), peers); err != nil {
 		logger.Log(1, "error writing wg conf file: ", err.Error())
 		return err
 	}
@@ -222,7 +209,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 
 	//ipv4
 	if node.Address != "" {
-		_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
+		_, cidr, cidrErr := net.ParseCIDR(node.NetworkSettings.AddressRange)
 		if cidrErr == nil {
 			local.SetCIDRRoute(ifacename, node.Address, cidr)
 		} else {
@@ -232,13 +219,12 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 	}
 	if node.Address6 != "" {
 		//ipv6
-		_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange6)
+		_, cidr, cidrErr := net.ParseCIDR(node.NetworkSettings.AddressRange6)
 		if cidrErr == nil {
 			local.SetCIDRRoute(ifacename, node.Address6, cidr)
 		} else {
 			logger.Log(1, "could not set cidr route properly: ", cidrErr.Error())
 		}
-
 		local.SetCurrentPeerRoutes(ifacename, node.Address6, peers)
 	}
 	return err
@@ -251,27 +237,24 @@ func SetWGConfig(network string, peerupdate bool, peers []wgtypes.PeerConfig) er
 	if err != nil {
 		return err
 	}
-
-	nodecfg := cfg.Node
-
 	privkey, err := RetrievePrivKey(network)
 	if err != nil {
 		return err
 	}
 	if peerupdate && !ncutils.IsFreeBSD() && !(ncutils.IsLinux() && !ncutils.IsKernel()) {
 		var iface string
-		iface = nodecfg.Interface
+		iface = cfg.Node.Interface
 		if ncutils.IsMac() {
-			iface, err = local.GetMacIface(nodecfg.PrimaryAddress())
+			iface, err = local.GetMacIface(cfg.Node.PrimaryAddress())
 			if err != nil {
 				return err
 			}
 		}
-		err = SetPeers(iface, &nodecfg, peers)
+		err = SetPeers(iface, &cfg.Node, peers)
 	} else if peerupdate {
-		err = InitWireguard(&nodecfg, privkey, peers, true)
+		err = InitWireguard(&cfg.Node, privkey, peers, true)
 	} else {
-		err = InitWireguard(&nodecfg, privkey, peers, false)
+		err = InitWireguard(&cfg.Node, privkey, peers, false)
 	}
 
 	return err

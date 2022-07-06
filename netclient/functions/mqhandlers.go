@@ -113,17 +113,22 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		wireguard.UpdateKeepAlive(file, newNode.PersistentKeepalive)
 	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
+		err = ncutils.ModPort(&nodeCfg.Node)
+		if err != nil {
+			logger.Log(0, "error modifying node port on", nodeCfg.Node.Name, "-", err.Error())
+			return
+		}
 		logger.Log(0, "applying WG conf to "+file)
 		if ncutils.IsWindows() {
 			wireguard.RemoveConfGraceful(nodeCfg.Node.Interface)
 		}
 		err = wireguard.ApplyConf(&nodeCfg.Node, nodeCfg.Node.Interface, file)
 		if err != nil {
-			logger.Log(0, "error restarting wg after node update "+err.Error())
+			logger.Log(0, "error restarting wg after node update -", err.Error())
 			return
 		}
 
-		time.Sleep(time.Second >> 0)
+		time.Sleep(time.Second)
 		//	if newNode.DNSOn == "yes" {
 		//		for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
 		//			if server.IsLeader {
