@@ -23,7 +23,7 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	}
 	for _, node := range networkNodes {
 
-		if node.IsServer == "yes" {
+		if node.IsServer == "yes" || newNode.ID == node.ID { // skip servers and self
 			continue
 		}
 		peerUpdate, err := logic.GetPeerUpdate(&node)
