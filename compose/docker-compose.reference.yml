@@ -4,7 +4,11 @@ services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
     image: gravitl/netmaker:v0.14.5
-    cap_add: 
+    volumes: # Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
+      - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
+      - sqldata:/root/data
+      - /root/certs:/etc/netmaker/ # cert management location
+    cap_add: # Necessary capabilities to set iptables when running in container
       - NET_ADMIN
       - NET_RAW
       - SYS_MODULE
@@ -65,6 +69,10 @@ services:
     image: gravitl/netmaker-ui:v0.14.5
     depends_on:
       - netmaker
+<<<<<<< HEAD
+=======
+    image: gravitl/netmaker-ui:v0.14.5
+>>>>>>> 159545ff (added v0.14.5 and removed MQ_SERVER_PORT)
     links:
       - "netmaker:api"
     restart: always

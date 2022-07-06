@@ -33,8 +33,8 @@ services:
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
+      # uncomment once netmaker supports changing MQ port
       MQ_PORT: "443"
-      MQ_SERVER_PORT: "1883"
       HOST_NETWORK: "off"
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
@@ -54,10 +54,6 @@ services:
     image: gravitl/netmaker-ui:v0.14.5
     depends_on:
       - netmaker
-<<<<<<< HEAD
-=======
-    image: gravitl/netmaker-ui:v0.14.5
->>>>>>> 159545ff (added v0.14.5 and removed MQ_SERVER_PORT)
     links:
       - "netmaker:api"
     restart: always
