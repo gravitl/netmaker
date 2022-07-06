@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -62,10 +63,15 @@ func Pull(network string, iface bool) (*models.Node, error) {
 			logger.Log(0, "unable to update server config: "+err.Error())
 		}
 	}
+	err = ncutils.ModPort(&resNode)
+	logger.Log(0, "port is now", strconv.Itoa(int(resNode.ListenPort)))
+	if err != nil {
+		return nil, err
+	}
+	if err = config.ModNodeConfig(&resNode); err != nil {
+		return nil, err
+	}
 	if iface {
-		if err = config.ModNodeConfig(&resNode); err != nil {
-			return nil, err
-		}
 		if err = wireguard.SetWGConfig(network, false, nodeGET.Peers[:]); err != nil {
 			return nil, err
 		}

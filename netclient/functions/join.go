@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"strconv"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -170,8 +171,12 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		}
 	}
 	logger.Log(1, "node created on remote server...updating configs")
-	cfg.Node = node
-	err = config.ModNodeConfig(&cfg.Node)
+	err = ncutils.ModPort(&node)
+	logger.Log(0, "using port", strconv.Itoa(int(node.ListenPort)))
+	if err != nil {
+		return err
+	}
+	err = config.ModNodeConfig(&node)
 	if err != nil {
 		return err
 	}
@@ -188,6 +193,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
+	cfg.Node = node
 	if err := Register(cfg); err != nil {
 		return err
 	}
