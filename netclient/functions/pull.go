@@ -63,7 +63,6 @@ func Pull(network string, iface bool) (*models.Node, error) {
 			logger.Log(0, "unable to update server config: "+err.Error())
 		}
 	}
-<<<<<<< HEAD
 	if nodeGET.Node.ListenPort != cfg.Node.LocalListenPort {
 		if err := wireguard.RemoveConf(resNode.Interface, false); err != nil {
 			logger.Log(0, "error remove interface", resNode.Interface, err.Error())
@@ -73,12 +72,7 @@ func Pull(network string, iface bool) (*models.Node, error) {
 			return nil, err
 		}
 		informPortChange(&resNode)
-=======
-	err = ncutils.ModPort(&resNode)
-	logger.Log(0, "port is now", strconv.Itoa(int(resNode.ListenPort)))
-	if err != nil {
-		return nil, err
->>>>>>> b1b376b0 (moving port check logic)
+		logger.Log(0, "port is now", strconv.Itoa(int(resNode.ListenPort)))
 	}
 	if err = config.ModNodeConfig(&resNode); err != nil {
 		return nil, err
