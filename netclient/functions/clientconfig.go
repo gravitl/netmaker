@@ -36,6 +36,7 @@ func UpdateClientConfig() {
 			if logic.StringSliceContains(u.RequiredVersions, cfg.Node.Version) {
 				logger.Log(0, "updating ", cfg.Network)
 				u.OP(&cfg)
+				logger.Log(0, "updated", cfg.Node.Version, "to", u.NewVersion, "for node", cfg.Node.Name)
 				cfg.Node.Version = u.NewVersion
 				configChanged = true
 			}
