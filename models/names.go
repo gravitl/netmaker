@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// 4-7 chars only
+// NAMES - list of names 4-7 chars in length
 var NAMES = []string{
 	"logic",
 	"warrant",
@@ -145,7 +145,7 @@ var NAMES = []string{
 	"tesla",
 }
 
-// must be 4 chars or less
+// SMALL_NAMES - list of small (4 char or less) names
 var SMALL_NAMES = []string{
 	"ace",
 	"odd",
@@ -231,19 +231,15 @@ var SMALL_NAMES = []string{
 	"cold",
 }
 
+// GenerateNodeName - generates a random node name
 func GenerateNodeName() string {
 	rand.Seed(time.Now().UnixNano())
 	return SMALL_NAMES[rand.Intn(len(SMALL_NAMES))] + "-" + NAMES[seededRand.Intn(len(NAMES))]
 }
 
+// RetrieveLogo - retrieves the ascii art logo for Netmaker
 func RetrieveLogo() string {
-	return `
-    ______     ______     ______     __   __   __     ______   __                        
-   /\  ___\   /\  == \   /\  __ \   /\ \ / /  /\ \   /\__  _\ /\ \                       
-   \ \ \__ \  \ \  __<   \ \  __ \  \ \ \'/   \ \ \  \/_/\ \/ \ \ \____                  
-    \ \_____\  \ \_\ \_\  \ \_\ \_\  \ \__|    \ \_\    \ \_\  \ \_____\                 
-     \/_____/   \/_/ /_/   \/_/\/_/   \/_/      \/_/     \/_/   \/_____/                 
-                                                                                         
+	return `              
  __   __     ______     ______   __    __     ______     __  __     ______     ______    
 /\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \   
 \ \ \-.  \  \ \  __\   \/_/\ \/ \ \ \-./\ \  \ \  __ \  \ \  _"-.  \ \  __\   \ \  __<   
