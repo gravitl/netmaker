@@ -7,6 +7,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 )
 
+// WHITESPACE_PLACEHOLDER - used with RunCMD - if a path has whitespace, use this to avoid running path as 2 args in RunCMD
 const WHITESPACE_PLACEHOLDER = "+-+-+-+"
 
 // RunCmd - runs a local command
