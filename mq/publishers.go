@@ -121,7 +121,9 @@ func sendPeers() {
 		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
 		if errN == nil {
 			serverNode.SetLastCheckIn()
-			logic.UpdateNode(&serverNode, &serverNode)
+			if err := logic.UpdateNode(&serverNode, &serverNode); err != nil {
+				logger.Log(0, "failed checkin for server node", serverNode.Name, "on network", network.NetID, err.Error())
+			}
 		}
 		isLeader := logic.IsLocalServer(&serverNode)
 		if errN == nil && isLeader {
