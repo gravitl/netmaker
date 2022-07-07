@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -24,6 +25,9 @@ import (
 
 // LINUX_APP_DATA_PATH - linux path
 const LINUX_APP_DATA_PATH = "/etc/netmaker"
+
+// HTTP_TIMEOUT - timeout in seconds for http requests
+const HTTP_TIMEOUT = 30
 
 // ListPorts - lists ports of WireGuard devices
 func ListPorts() error {
@@ -339,7 +343,9 @@ func API(data any, method, url, authorization string) (*http.Response, error) {
 	if authorization != "" {
 		request.Header.Set("authorization", "Bearer "+authorization)
 	}
-	client := http.Client{}
+	client := http.Client{
+		Timeout: HTTP_TIMEOUT * time.Second,
+	}
 	return client.Do(request)
 }
 
