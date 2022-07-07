@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -414,4 +415,12 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 	}
 
 	return nil
+}
+
+func informPortChange(node *models.Node) {
+	if node.ListenPort == 0 {
+		logger.Log(0, "UDP hole punching enabled")
+	} else {
+		logger.Log(0, "using port", strconv.Itoa(int(node.ListenPort)))
+	}
 }

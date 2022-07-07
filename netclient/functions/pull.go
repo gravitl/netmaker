@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strconv"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -68,7 +67,7 @@ func Pull(network string, iface bool) (*models.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		logger.Log(0, "port is now", strconv.Itoa(int(resNode.ListenPort)))
+		informPortChange(&resNode)
 	}
 	if err = config.ModNodeConfig(&resNode); err != nil {
 		return nil, err
