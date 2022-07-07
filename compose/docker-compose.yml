@@ -54,10 +54,6 @@ services:
     image: gravitl/netmaker-ui:v0.14.5
     depends_on:
       - netmaker
-<<<<<<< HEAD
-=======
-    image: gravitl/netmaker-ui:v0.14.5
->>>>>>> 159545ff (added v0.14.5 and removed MQ_SERVER_PORT)
     links:
       - "netmaker:api"
     restart: always
