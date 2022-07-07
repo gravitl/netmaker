@@ -222,14 +222,15 @@ func GetMQPort() string {
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
-func GetMessageQueueEndpoint() string {
+func GetMessageQueueEndpoint() (string, bool) {
 	host, _ := GetPublicIP()
 	if os.Getenv("MQ_HOST") != "" {
 		host = os.Getenv("MQ_HOST")
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	return "ssl://" + host + ":" + GetMQServerPort()
+	secure := strings.Contains(host, "mqtts") || strings.Contains(host, "ssl")
+	return host + ":" + GetMQServerPort(), secure
 }
 
 // GetMasterKey - gets the configured master key of server

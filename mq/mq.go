@@ -24,10 +24,13 @@ var peer_force_send = 0
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT(publish bool) mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(servercfg.GetMessageQueueEndpoint())
+	broker, secure := servercfg.GetMessageQueueEndpoint()
+	opts.AddBroker(broker)
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
-	opts.SetTLSConfig(&serverctl.TlsConfig)
+	if secure {
+		opts.SetTLSConfig(&serverctl.TlsConfig)
+	}
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(time.Second << 2)
