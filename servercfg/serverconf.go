@@ -221,17 +221,6 @@ func GetMQPort() string {
 	return port
 }
 
-// GetMQServerPort - get mq port for server
-func GetMQServerPort() string {
-	port := "1883" //default
-	if os.Getenv("MQ_SERVER_PORT") != "" {
-		port = os.Getenv("MQ_SERVER_PORT")
-	} else if config.Config.Server.MQServerPort != "" {
-		port = config.Config.Server.MQServerPort
-	}
-	return port
-}
-
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint() string {
 	host, _ := GetPublicIP()
@@ -240,7 +229,7 @@ func GetMessageQueueEndpoint() string {
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	return host + ":" + GetMQServerPort()
+	return host + ":" + GetMQPort()
 }
 
 // GetMasterKey - gets the configured master key of server
