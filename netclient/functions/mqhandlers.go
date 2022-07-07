@@ -128,6 +128,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, "error modifying node port on", newNode.Name, "-", err.Error())
 			return
 		}
+		informPortChange(&newNode)
 		if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, newNode); err != nil {
 			logger.Log(0, "error updating wireguard config "+err.Error())
 			return

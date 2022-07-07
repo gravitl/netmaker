@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"runtime"
-	"strconv"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -172,18 +171,11 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 	logger.Log(1, "node created on remote server...updating configs")
 	err = ncutils.ModPort(&node)
-<<<<<<< HEAD
 	if err != nil {
 		return err
 	}
 	informPortChange(&node)
 
-=======
-	logger.Log(0, "using port", strconv.Itoa(int(node.ListenPort)))
-	if err != nil {
-		return err
-	}
->>>>>>> b1b376b0 (moving port check logic)
 	err = config.ModNodeConfig(&node)
 	if err != nil {
 		return err
