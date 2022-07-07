@@ -328,7 +328,7 @@ func read(network, which string) string {
 		if readMessage.LastSeen.IsZero() {
 			return ""
 		}
-		if time.Now().After(readMessage.LastSeen.Add(time.Minute * 10)) { // check if message has been there over a minute
+		if time.Now().After(readMessage.LastSeen.Add(time.Hour * 24)) { // check if message has been there over a minute
 			messageCache.Delete(fmt.Sprintf("%s%s", network, which)) // remove old message if expired
 			return ""
 		}
