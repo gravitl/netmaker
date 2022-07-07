@@ -78,7 +78,7 @@ spec:
         - name: MQ_PORT
           value: "31883"
         - name: MQ_SERVER_PORT
-          value: "8883"
+          value: "1883"
         - name: PLATFORM
           value: "Kubernetes"
         - name: VERBOSITY
