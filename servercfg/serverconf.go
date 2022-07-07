@@ -229,7 +229,7 @@ func GetMessageQueueEndpoint() string {
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	return host + ":" + GetMQPort()
+	return host + ":" + GetMQServerPort()
 }
 
 // GetMasterKey - gets the configured master key of server
@@ -576,4 +576,15 @@ func GetAzureTenant() string {
 // GetRce - sees if Rce is enabled, off by default
 func GetRce() bool {
 	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
+}
+
+// GetMQServerPort - get mq port for server
+func GetMQServerPort() string {
+	port := "8883" //default
+	if os.Getenv("MQ_SERVER_PORT") != "" {
+		port = os.Getenv("MQ_SERVER_PORT")
+	} else if config.Config.Server.MQServerPort != "" {
+		port = config.Config.Server.MQServerPort
+	}
+	return port
 }
