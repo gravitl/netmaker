@@ -286,7 +286,7 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		serverName := tls.NewCName(servercfg.GetServer())
+		serverName := tls.NewCName(tls.SERVER_CLIENT_ENTRY)
 		csr, err := tls.NewCSR(key, serverName)
 		if err != nil {
 			return err
