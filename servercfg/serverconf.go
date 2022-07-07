@@ -581,7 +581,7 @@ func GetRce() bool {
 
 // GetMQServerPort - get mq port for server
 func GetMQServerPort() string {
-	port := "8883" //default
+	port := "1883" //default
 	if os.Getenv("MQ_SERVER_PORT") != "" {
 		port = os.Getenv("MQ_SERVER_PORT")
 	} else if config.Config.Server.MQServerPort != "" {
