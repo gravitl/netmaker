@@ -133,7 +133,7 @@ func updateNodePeers(currentNode *models.Node) {
 		return
 	}
 	if logic.IsLeader(&currentServerNode) {
-		if err := PublishPeerUpdate(currentNode); err != nil {
+		if err := PublishPeerUpdate(currentNode, false); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 			return
 		}

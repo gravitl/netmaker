@@ -501,7 +501,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-	runForceServerUpdate(&node)
+	runForceServerUpdate(&node, true)
 }
 
 // Takes node out of pending state
@@ -722,7 +722,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)
-	runForceServerUpdate(&node)
+	runForceServerUpdate(&node, false)
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
@@ -751,7 +751,7 @@ func runServerUpdate(node *models.Node, ifaceDelta bool) error {
 	}
 
 	if ifaceDelta && logic.IsLeader(&currentServerNode) {
-		if err := mq.PublishPeerUpdate(&currentServerNode); err != nil {
+		if err := mq.PublishPeerUpdate(&currentServerNode, false); err != nil {
 			logger.Log(1, "failed to publish peer update "+err.Error())
 		}
 	}
@@ -763,9 +763,9 @@ func runServerUpdate(node *models.Node, ifaceDelta bool) error {
 	return nil
 }
 
-func runForceServerUpdate(node *models.Node) {
+func runForceServerUpdate(node *models.Node, publishPeerUpdateToNode bool) {
 	go func() {
-		if err := mq.PublishPeerUpdate(node); err != nil {
+		if err := mq.PublishPeerUpdate(node, publishPeerUpdateToNode); err != nil {
 			logger.Log(1, "failed a peer update after creation of node", node.Name)
 		}
 

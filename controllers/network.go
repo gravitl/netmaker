@@ -255,7 +255,7 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 			if err = logic.ServerUpdate(&serverNode, false); err != nil {
 				logger.Log(1, "failed to update server node after ACL update on", netname)
 			}
-			if err = mq.PublishPeerUpdate(&serverNode); err != nil {
+			if err = mq.PublishPeerUpdate(&serverNode, false); err != nil {
 				logger.Log(0, "failed to publish peer update after ACL update on", netname)
 			}
 		}
