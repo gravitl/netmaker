@@ -206,6 +206,9 @@ func genCerts() error {
 	} else if err != nil {
 		return err
 	}
+
+	// == ROOT cert handling ==
+
 	ca, err := serverctl.ReadCertFromDB(tls.ROOT_PEM_NAME)
 	//if cert doesn't exist or will expire within 10 days --- but can't do this as clients won't be able to connect
 	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
@@ -223,10 +226,23 @@ func genCerts() error {
 		ca = rootCA
 	} else if err != nil {
 		return err
+	} else if err == nil {
+		if serverKey, err := serverctl.ReadKeyFromDB(tls.ROOT_KEY_NAME); err == nil {
+			logger.Log(2, "re-saving root.key")
+			if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_KEY_NAME, *serverKey); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
+	logger.Log(2, "re-saving root.pem")
 	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_PEM_NAME, ca); err != nil {
 		return err
 	}
+
+	// == SERVER cert handling ==
+
 	cert, err := serverctl.ReadCertFromDB(tls.SERVER_PEM_NAME)
 	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		//gen new key
@@ -250,12 +266,22 @@ func genCerts() error {
 		cert = newCert
 	} else if err != nil {
 		return err
+	} else if err == nil {
+		if serverKey, err := serverctl.ReadKeyFromDB(tls.SERVER_KEY_NAME); err == nil {
+			logger.Log(2, "re-saving server.key")
+			if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_KEY_NAME, *serverKey); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
+	logger.Log(2, "re-saving server.pem")
 	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_PEM_NAME, cert); err != nil {
 		return err
 	}
 
-	logger.Log(2, "ensure the root.pem, root.key, server.pem, and server.key files are updated on your broker")
+	// == SERVER-CLIENT connection cert handling ==
 
 	serverClientCert, err := serverctl.ReadCertFromDB(tls.SERVER_CLIENT_PEM)
 	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || serverClientCert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
@@ -281,10 +307,23 @@ func genCerts() error {
 		serverClientCert = newServerClientCert
 	} else if err != nil {
 		return err
+	} else if err == nil {
+		logger.Log(2, "re-saving serverclient.key")
+		if serverClientKey, err := serverctl.ReadKeyFromDB(tls.SERVER_CLIENT_KEY); err == nil {
+			if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, *serverClientKey); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
+
+	logger.Log(2, "re-saving serverclient.pem")
 	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
 		return err
 	}
+
+	logger.Log(1, "ensure the root.pem, root.key, server.pem, and server.key files are updated on your broker")
 
 	return serverctl.SetClientTLSConf(
 		functions.GetNetmakerPath()+ncutils.GetSeparator()+tls.SERVER_CLIENT_PEM,
