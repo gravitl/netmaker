@@ -44,13 +44,13 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	logger.Log(0, "received message to update node "+newNode.Name)
 	// see if cache hit, if so skip
 	var currentMessage = read(newNode.Network, lastNodeUpdate)
 	if currentMessage == string(data) {
 		return
 	}
 	insert(newNode.Network, lastNodeUpdate, string(data)) // store new message in cache
+	logger.Log(0, "received message to update node "+newNode.Name)
 
 	// ensure that OS never changes
 	newNode.OS = runtime.GOOS
