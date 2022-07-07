@@ -168,7 +168,8 @@ func startControllers() {
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
-	logger.Log(0, "connecting to mq broker at", servercfg.GetMessageQueueEndpoint())
+	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
+	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
 	var client = mq.SetupMQTT(false) // Set up the subscription listener
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
