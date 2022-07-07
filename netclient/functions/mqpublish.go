@@ -136,7 +136,7 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 	}
 
 	if token := client.Publish(dest, qos, false, encrypted); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
-		logger.Log(0, "could not connect to broker at "+nodeCfg.Server.Server+":8883")
+		logger.Log(0, "could not connect to broker at "+nodeCfg.Server.Server+":"+nodeCfg.Server.MQPort)
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")
