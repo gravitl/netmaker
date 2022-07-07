@@ -4,10 +4,6 @@ services:
   netmaker:
     container_name: netmaker
     image: gravitl/netmaker:v0.14.5
-    volumes:
-      - dnsconfig:/root/config/dnsconfig
-      - sqldata:/root/data
-      - /root/certs:/etc/netmaker/
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -18,6 +14,10 @@ services:
       - net.ipv6.conf.all.disable_ipv6=0
       - net.ipv6.conf.all.forwarding=1
     restart: always
+    volumes:
+      - dnsconfig:/root/config/dnsconfig
+      - sqldata:/root/data
+      - shared_certs:/etc/netmaker
     environment:
       SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -33,59 +33,98 @@ services:
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
+      MQ_PORT: "443"
       HOST_NETWORK: "off"
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
     ports:
       - "51821-51830:51821-51830/udp"
+    expose:
+      - "8081"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.netmaker-api.entrypoints=websecure
+      - traefik.http.routers.netmaker-api.rule=Host(`api.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.netmaker-api.service=netmaker-api
+      - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
   netmaker-ui:
     container_name: netmaker-ui
+    image: gravitl/netmaker-ui:v0.14.5
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.14.5
     links:
       - "netmaker:api"
+    restart: always
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
-    restart: always
+    expose:
+      - "80"
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.nmui-security.headers.accessControlAllowOriginList=*.NETMAKER_BASE_DOMAIN
+      - traefik.http.middlewares.nmui-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.nmui-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.nmui-security.headers.customFrameOptionsValue=SAMEORIGIN
+      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.X-Robots-Tag=none
+      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.Server= # Remove the server name
+      - traefik.http.routers.netmaker-ui.entrypoints=websecure
+      - traefik.http.routers.netmaker-ui.middlewares=nmui-security@docker
+      - traefik.http.routers.netmaker-ui.rule=Host(`dashboard.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.netmaker-ui.service=netmaker-ui
+      - traefik.http.services.netmaker-ui.loadbalancer.server.port=80
   coredns:
-    depends_on:
-      - netmaker 
+    container_name: coredns
     image: coredns/coredns
     command: -conf /root/dnsconfig/Corefile
-    container_name: coredns
+    depends_on:
+      - netmaker
     restart: always
     volumes:
       - dnsconfig:/root/dnsconfig
-  caddy:
-    image: caddy:latest
-    container_name: caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+  traefik:
+    image: traefik:v2.6
+    container_name: traefik
+    command:
+      - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
+      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.http.acme.tlschallenge=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certResolver=http"
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--serverstransport.insecureskipverify=true"
+    restart: always
     volumes:
-      - /root/Caddyfile:/etc/caddy/Caddyfile
-      # - $PWD/site:/srv # you could also serve a static site in site folder
-      - caddy_data:/data
-      - caddy_conf:/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
+    ports:
+      - "443:443"
   mq:
+    container_name: mq
     image: eclipse-mosquitto:2.0.11-openssl
     depends_on:
       - netmaker
-    container_name: mq
     restart: unless-stopped
-    ports:
-      - "8883:8883"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /root/certs/:/mosquitto/certs/
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
+      - shared_certs:/mosquitto/certs
+    expose:
+      - "8883"
+    labels:
+      - traefik.enable=true
+      - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
+      - traefik.tcp.routers.mqtts.tls.passthrough=true
+      - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
+      - traefik.tcp.routers.mqtts.service=mqtts-svc
+      - traefik.tcp.routers.mqtts.entrypoints=websecure
 volumes:
-  caddy_data: {}
-  caddy_conf: {}
+  traefik_certs: {}
+  shared_certs: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_data: {}
