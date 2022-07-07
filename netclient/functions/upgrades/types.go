@@ -7,7 +7,7 @@ type UpgradeFunction func(*config.ClientConfig)
 
 // UpgradeInfo - struct for holding upgrade info
 type UpgradeInfo struct {
-	RequiredVersion string
-	NewVersion      string
-	OP              UpgradeFunction
+	RequiredVersions []string
+	NewVersion       string
+	OP               UpgradeFunction
 }

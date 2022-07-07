@@ -24,7 +24,8 @@ func UpdateClientConfig() {
 		//update any new fields
 		configChanged := false
 		for _, u := range upgrades.Upgrades {
-			if cfg.Node.Version == u.RequiredVersion {
+			if ncutils.StringSliceContains(u.RequiredVersions, cfg.Node.Version) {
+				logger.Log(0, "upgrading node", cfg.Node.Name, "on network", cfg.Node.Network, "from", cfg.Node.Version, "to", u.NewVersion)
 				upgrades.UpgradeFunction(u.OP)(&cfg)
 				cfg.Node.Version = u.NewVersion
 				configChanged = true
