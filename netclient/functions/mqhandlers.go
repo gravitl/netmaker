@@ -105,25 +105,31 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	}
 	file := ncutils.GetNetclientPathSpecific() + nodeCfg.Node.Interface + ".conf"
 
-	if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, newNode); err != nil {
-		logger.Log(0, "error updating wireguard config "+err.Error())
-		return
-	}
-	if keepaliveChange {
-		wireguard.UpdateKeepAlive(file, newNode.PersistentKeepalive)
-	}
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
+		err = ncutils.ModPort(&newNode)
+		if err != nil {
+			logger.Log(0, "error modifying node port on", newNode.Name, "-", err.Error())
+			return
+		}
+		informPortChange(&newNode)
+		if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, newNode); err != nil {
+			logger.Log(0, "error updating wireguard config "+err.Error())
+			return
+		}
+		if keepaliveChange {
+			wireguard.UpdateKeepAlive(file, newNode.PersistentKeepalive)
+		}
 		logger.Log(0, "applying WG conf to "+file)
 		if ncutils.IsWindows() {
 			wireguard.RemoveConfGraceful(nodeCfg.Node.Interface)
 		}
 		err = wireguard.ApplyConf(&nodeCfg.Node, nodeCfg.Node.Interface, file)
 		if err != nil {
-			logger.Log(0, "error restarting wg after node update "+err.Error())
+			logger.Log(0, "error restarting wg after node update -", err.Error())
 			return
 		}
 
-		time.Sleep(time.Second >> 0)
+		time.Sleep(time.Second)
 		//	if newNode.DNSOn == "yes" {
 		//		for _, server := range newNode.NetworkSettings.DefaultServerAddrs {
 		//			if server.IsLeader {

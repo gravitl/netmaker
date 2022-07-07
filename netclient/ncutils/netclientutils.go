@@ -574,3 +574,14 @@ func GetIPNetFromString(ip string) (net.IPNet, error) {
 	}
 	return *ipnet, err
 }
+
+// ModPort - Change Node Port if UDP Hole Punching or ListenPort is not free
+func ModPort(node *models.Node) error {
+	var err error
+	if node.UDPHolePunch == "yes" {
+		node.ListenPort = 0
+	} else {
+		node.ListenPort, err = GetFreePort(node.ListenPort)
+	}
+	return err
+}
