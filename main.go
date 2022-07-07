@@ -192,6 +192,9 @@ func genCerts() error {
 	logger.Log(0, "checking keys and certificates")
 	var private *ed25519.PrivateKey
 	var err error
+
+	// == ROOT key handling ==
+
 	private, err = serverctl.ReadKeyFromDB(tls.ROOT_KEY_NAME)
 	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) {
 		logger.Log(0, "generating new root key")
@@ -199,11 +202,12 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_KEY_NAME, newKey); err != nil {
-			return err
-		}
 		private = &newKey
 	} else if err != nil {
+		return err
+	}
+	logger.Log(2, "saving root.key")
+	if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_KEY_NAME, *private); err != nil {
 		return err
 	}
 
@@ -226,17 +230,8 @@ func genCerts() error {
 		ca = rootCA
 	} else if err != nil {
 		return err
-	} else if err == nil {
-		if serverKey, err := serverctl.ReadKeyFromDB(tls.ROOT_KEY_NAME); err == nil {
-			logger.Log(2, "re-saving root.key")
-			if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_KEY_NAME, *serverKey); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
 	}
-	logger.Log(2, "re-saving root.pem")
+	logger.Log(2, "saving root.pem")
 	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_PEM_NAME, ca); err != nil {
 		return err
 	}
@@ -268,7 +263,7 @@ func genCerts() error {
 		return err
 	} else if err == nil {
 		if serverKey, err := serverctl.ReadKeyFromDB(tls.SERVER_KEY_NAME); err == nil {
-			logger.Log(2, "re-saving server.key")
+			logger.Log(2, "saving server.key")
 			if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_KEY_NAME, *serverKey); err != nil {
 				return err
 			}
@@ -276,7 +271,7 @@ func genCerts() error {
 			return err
 		}
 	}
-	logger.Log(2, "re-saving server.pem")
+	logger.Log(2, "saving server.pem")
 	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_PEM_NAME, cert); err != nil {
 		return err
 	}
@@ -308,7 +303,7 @@ func genCerts() error {
 	} else if err != nil {
 		return err
 	} else if err == nil {
-		logger.Log(2, "re-saving serverclient.key")
+		logger.Log(2, "saving serverclient.key")
 		if serverClientKey, err := serverctl.ReadKeyFromDB(tls.SERVER_CLIENT_KEY); err == nil {
 			if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, *serverClientKey); err != nil {
 				return err
@@ -318,7 +313,7 @@ func genCerts() error {
 		}
 	}
 
-	logger.Log(2, "re-saving serverclient.pem")
+	logger.Log(2, "saving serverclient.pem")
 	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
 		return err
 	}
