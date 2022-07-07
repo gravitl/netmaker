@@ -23,7 +23,11 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 	}
 	for _, node := range networkNodes {
 
-		if node.IsServer == "yes" || newNode.ID == node.ID { // skip servers and self
+		if node.IsServer == "yes" {
+			continue
+		}
+		if !publishToSelf && newNode.ID == node.ID {
+			//skip self
 			continue
 		}
 		if !publishToSelf && newNode.ID == node.ID {
