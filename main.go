@@ -220,11 +220,11 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_PEM_NAME, rootCA); err != nil {
-			return err
-		}
 		ca = rootCA
 	} else if err != nil {
+		return err
+	}
+	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.ROOT_PEM_NAME, ca); err != nil {
 		return err
 	}
 	cert, err := serverctl.ReadCertFromDB(tls.SERVER_PEM_NAME)
@@ -240,17 +240,18 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		cert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
+		newCert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
 		if err != nil {
 			return err
 		}
 		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_KEY_NAME, key); err != nil {
 			return err
 		}
-		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_PEM_NAME, cert); err != nil {
-			return err
-		}
+		cert = newCert
 	} else if err != nil {
+		return err
+	}
+	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_PEM_NAME, cert); err != nil {
 		return err
 	}
 
@@ -269,7 +270,7 @@ func genCerts() error {
 		if err != nil {
 			return err
 		}
-		serverClientCert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
+		newServerClientCert, err := tls.NewEndEntityCert(*private, csr, ca, tls.CERTIFICATE_VALIDITY)
 		if err != nil {
 			return err
 		}
@@ -277,23 +278,12 @@ func genCerts() error {
 		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, key); err != nil {
 			return err
 		}
-		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
-			return err
-		}
+		serverClientCert = newServerClientCert
 	} else if err != nil {
 		return err
-	} else if err == nil {
-		logger.Log(0, "detected valid server client cert, re-saving for future consumption")
-		key, err := serverctl.ReadKeyFromDB(tls.SERVER_CLIENT_KEY)
-		if err != nil {
-			return err
-		}
-		if err := serverctl.SaveKey(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_KEY, *key); err != nil {
-			return err
-		}
-		if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
-			return err
-		}
+	}
+	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_CLIENT_PEM, serverClientCert); err != nil {
+		return err
 	}
 
 	return serverctl.SetClientTLSConf(
