@@ -276,6 +276,9 @@ func genCerts() error {
 	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_PEM_NAME, cert); err != nil {
 		return err
 	}
+	if err := serverctl.SaveCert(functions.GetNetmakerPath()+ncutils.GetSeparator(), tls.SERVER_PEM_NAME, cert); err != nil {
+		return err
+	}
 
 	// == SERVER-CLIENT connection cert handling ==
 
