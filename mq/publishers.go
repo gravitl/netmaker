@@ -12,7 +12,7 @@ import (
 )
 
 // PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
-func PublishPeerUpdate(newNode *models.Node) error {
+func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -24,6 +24,10 @@ func PublishPeerUpdate(newNode *models.Node) error {
 	for _, node := range networkNodes {
 
 		if node.IsServer == "yes" {
+			continue
+		}
+		if !publishToSelf && newNode.ID == node.ID {
+			//skip self
 			continue
 		}
 		peerUpdate, err := logic.GetPeerUpdate(&node)
@@ -70,7 +74,7 @@ func PublishExtPeerUpdate(node *models.Node) error {
 	if err = publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 		return err
 	}
-	go PublishPeerUpdate(node)
+	go PublishPeerUpdate(node, false)
 	return nil
 }
 
@@ -132,7 +136,7 @@ func sendPeers() {
 					if force {
 						logger.Log(2, "sending scheduled peer update (5 min)")
 					}
-					err = PublishPeerUpdate(&serverNode)
+					err = PublishPeerUpdate(&serverNode, false)
 					if err != nil {
 						logger.Log(1, "error publishing udp port updates for network", network.NetID)
 						logger.Log(1, errN.Error())
