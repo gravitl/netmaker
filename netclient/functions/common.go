@@ -419,8 +419,8 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 
 func informPortChange(node *models.Node) {
 	if node.ListenPort == 0 {
-		logger.Log(0, "UDP hole punching enabled")
+		logger.Log(0, "UDP hole punching enabled for node", node.Name)
 	} else {
-		logger.Log(0, "using port", strconv.Itoa(int(node.ListenPort)))
+		logger.Log(0, "node", node.Name, "is using port", strconv.Itoa(int(node.ListenPort)))
 	}
 }
