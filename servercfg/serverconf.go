@@ -229,7 +229,7 @@ func GetMessageQueueEndpoint() string {
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	return host + ":" + GetMQServerPort()
+	return "ssl://" + host + ":" + GetMQServerPort()
 }
 
 // GetMasterKey - gets the configured master key of server
