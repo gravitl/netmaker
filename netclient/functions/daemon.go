@@ -248,22 +248,29 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 		logger.Log(0, "detected broker connection lost for", cfg.Server.Server)
 	})
 	client := mqtt.NewClient(opts)
-	for token := client.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil; token = client.Connect() {
-		logger.Log(0, "unable to connect to broker, retrying ...")
-		var err error
-		if token.Error() == nil {
-			err = errors.New("connect timeout")
-		} else {
-			err = token.Error()
-		}
-		if err := checkBroker(cfg.Server.Server, cfg.Server.MQPort); err != nil {
-			return nil, err
-		}
-		logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
-		if strings.Contains(err.Error(), "connectex") || strings.Contains(err.Error(), "connect timeout") {
-			reRegisterWithServer(cfg)
+	for count := 0; count < 3; count++ {
+		if token := client.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+			logger.Log(0, "unable to connect to broker, retrying ...")
+			var err error = nil
+			if token.Error() == nil {
+				err = errors.New("connect timeout")
+			} else {
+				err = token.Error()
+			}
+			if err != nil {
+				err = checkBroker(cfg.Server.Server, cfg.Server.MQPort)
+			}
+			logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
 		}
 	}
+	if err != nil {
+		reRegisterWithServer(cfg)
+	}
+	//try after re-registering
+	if token := client.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+		return client, errors.New("unable to connect to broker")
+	}
+
 	return client, nil
 }
 
