@@ -86,14 +86,14 @@ metadata:
   namespace: netmaker
 spec:
   ports:
-  - name: mqtt2
+  - name: mqtt
     port: 1883
     protocol: TCP
-    targetPort: mqtt2
-  - name: mqtt
+    targetPort: mqtt
+  - name: mqtt2
     port: 8883
     protocol: TCP
-    targetPort: mqtt    
+    targetPort: mqtt2    
   selector:
     app.kubernetes.io/instance: mosquitto
     app.kubernetes.io/name: mosquitto
