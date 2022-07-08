@@ -62,10 +62,17 @@ func Pull(network string, iface bool) (*models.Node, error) {
 			logger.Log(0, "unable to update server config: "+err.Error())
 		}
 	}
-	if iface {
-		if err = config.ModNodeConfig(&resNode); err != nil {
+	if nodeGET.Node.ListenPort != cfg.Node.ListenPort {
+		err = ncutils.ModPort(&resNode)
+		if err != nil {
 			return nil, err
 		}
+		informPortChange(&resNode)
+	}
+	if err = config.ModNodeConfig(&resNode); err != nil {
+		return nil, err
+	}
+	if iface {
 		if err = wireguard.SetWGConfig(network, false, nodeGET.Peers[:]); err != nil {
 			return nil, err
 		}

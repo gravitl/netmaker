@@ -221,26 +221,16 @@ func GetMQPort() string {
 	return port
 }
 
-// GetMQServerPort - get mq port for server
-func GetMQServerPort() string {
-	port := "1883" //default
-	if os.Getenv("MQ_SERVER_PORT") != "" {
-		port = os.Getenv("MQ_SERVER_PORT")
-	} else if config.Config.Server.MQServerPort != "" {
-		port = config.Config.Server.MQServerPort
-	}
-	return port
-}
-
 // GetMessageQueueEndpoint - gets the message queue endpoint
-func GetMessageQueueEndpoint() string {
+func GetMessageQueueEndpoint() (string, bool) {
 	host, _ := GetPublicIP()
 	if os.Getenv("MQ_HOST") != "" {
 		host = os.Getenv("MQ_HOST")
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	return host + ":" + GetMQServerPort()
+	secure := strings.Contains(host, "mqtts") || strings.Contains(host, "ssl")
+	return host + ":" + GetMQServerPort(), secure
 }
 
 // GetMasterKey - gets the configured master key of server
@@ -542,18 +532,31 @@ func GetServerCheckinInterval() int64 {
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
-func GetAuthProviderInfo() []string {
+func GetAuthProviderInfo() (pi []string) {
 	var authProvider = ""
+
+	defer func() {
+		if authProvider == "oidc" {
+			if os.Getenv("OIDC_ISSUER") != "" {
+				pi = append(pi, os.Getenv("OIDC_ISSUER"))
+			} else if config.Config.Server.OIDCIssuer != "" {
+				pi = append(pi, config.Config.Server.OIDCIssuer)
+			} else {
+				pi = []string{"", "", ""}
+			}
+		}
+	}()
+
 	if os.Getenv("AUTH_PROVIDER") != "" && os.Getenv("CLIENT_ID") != "" && os.Getenv("CLIENT_SECRET") != "" {
 		authProvider = strings.ToLower(os.Getenv("AUTH_PROVIDER"))
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
 			return []string{authProvider, os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET")}
 		} else {
 			authProvider = ""
 		}
 	} else if config.Config.Server.AuthProvider != "" && config.Config.Server.ClientID != "" && config.Config.Server.ClientSecret != "" {
 		authProvider = strings.ToLower(config.Config.Server.AuthProvider)
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
 			return []string{authProvider, config.Config.Server.ClientID, config.Config.Server.ClientSecret}
 		}
 	}
@@ -574,4 +577,15 @@ func GetAzureTenant() string {
 // GetRce - sees if Rce is enabled, off by default
 func GetRce() bool {
 	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
+}
+
+// GetMQServerPort - get mq port for server
+func GetMQServerPort() string {
+	port := "1883" //default
+	if os.Getenv("MQ_SERVER_PORT") != "" {
+		port = os.Getenv("MQ_SERVER_PORT")
+	} else if config.Config.Server.MQServerPort != "" {
+		port = config.Config.Server.MQServerPort
+	}
+	return port
 }

@@ -164,6 +164,11 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 // ServerUpdate - updates the server
 // replaces legacy Checkin code
 func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
+	if !IsLocalServer(serverNode) {
+		logger.Log(1, "skipping server update as not the leader")
+		return nil
+	}
+
 	var err = ServerPull(serverNode, ifaceDelta)
 	if isDeleteError(err) {
 		return DeleteNodeByID(serverNode, true)
@@ -201,7 +206,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 	nodes, err := GetNetworkNodes(serverNode.Network)
 	if err == nil {
 		for _, node := range nodes {
-			if node.IsEgressGateway == "yes" {
+			if node.IsEgressGateway == "yes" && !IsLocalServer(&node) {
 				gateways = append(gateways, node.EgressGatewayRanges...)
 			}
 		}

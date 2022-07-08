@@ -1,13 +1,10 @@
+version: "3.4"
+
 services:
   netmaker: # The Primary Server for running Netmaker
-    privileged: true # Necessary to run sudo/root level commands on host system. Likely using this if running with host networking on.
     container_name: netmaker
-    image: gravitl/netmaker:v0.14.4
-    volumes: # Volume mounts necessary for CLIENT_MODE to control wireguard networking on host (except dnsconfig, which is where dns config files are stored for use by CoreDNS)
-      - dnsconfig:/root/config/dnsconfig # Netmaker writes Corefile to this location, which gets mounted by CoreDNS for DNS configuration.
-      - sqldata:/root/data
-      - /root/certs:/etc/netmaker/ # cert management location
-    cap_add: # Necessary capabilities to set iptables when running in container
+    image: gravitl/netmaker:v0.14.5
+    cap_add: 
       - NET_ADMIN
       - NET_RAW
       - SYS_MODULE
@@ -17,77 +14,129 @@ services:
       - net.ipv6.conf.all.disable_ipv6=0
       - net.ipv6.conf.all.forwarding=1
     restart: always
-    network_mode: host # Must configure with very particular settngs for host networking to work. Do not just set on!
-    environment:
-      SERVER_NAME: "" # The domain/host IP indicating the mq broker address
-      SERVER_HOST: "" # All the Docker Compose files pre-populate this with HOST_IP, which you replace as part of the install instructions. This will set the HTTP host.
-      SERVER_HTTP_HOST: "127.0.0.1" # Overrides SERVER_HOST if set. Useful for making HTTP available via different interfaces/networks.
-      API_PORT: 8081 # The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.
-      CLIENT_MODE: "on" # on if netmaker should run its own client, off if not.
-      MASTER_KEY: "secretkey" # The admin master key for accessing the API. Change this in any production installation.
-      CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from.
+    volumes: # Volume mounts necessary for sql, coredns, and mqtt
+      - dnsconfig:/root/config/dnsconfig
+      - sqldata:/root/data
+      - shared_certs:/etc/netmaker
+    environment: # Necessary capabilities to set iptables when running in container
+      SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN" # The domain/host IP indicating the mq broker address
+      SERVER_HOST: "SERVER_PUBLIC_IP" # Set to public IP of machine.
+      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN" # Overrides SERVER_HOST if set. Useful for making HTTP available via different interfaces/networks.
+      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP" # Address of the CoreDNS server. Defaults to SERVER_HOST
+      DNS_MODE: "on" # Enables DNS Mode, meaning all nodes will set hosts file for private dns settings.
+      API_PORT: "8081" # The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.
+      CLIENT_MODE: "on" # Depricated. CLIENT_MODE should always be ON
       REST_BACKEND: "on" # Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.
-      DNS_MODE: "on" # Enables DNS Mode, meaning config files will be generated for CoreDNS. Note, turning "off" does not remove CoreDNS. You still need to remove CoreDNS from compose file.
       DISABLE_REMOTE_IP_CHECK: "off" # If turned "on", Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned "off" by default.
-      COREDNS_ADDR: "" # Address of the CoreDNS server. Defaults to SERVER_HOST
-      DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
-      SERVER_API_CONN_STRING: "" # Changes the api connection string. IP:PORT format. By default is empty and uses SERVER_HOST:API_PORT
-      RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.
-      NODE_ID: "" # Sets the name/id of the nodes that the server creates. Necessary for HA configurations to identify between servers (for instance, netmaker-1, netmaker-2, etc). For non-HA deployments, is not necessary.
       TELEMETRY: "on" # Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.
-      MQ_HOST: "mq" # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
+      RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.
+      MASTER_KEY: "REPLACE_MASTER_KEY" # The admin master key for accessing the API. Change this in any production installation.
+      CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from.
+      DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
+      DATABASE: "sqlite" # Database to use - sqlite, postgres, or rqlite
+      NODE_ID: "netmaker-server-1" # used for HA - identifies this server vs other servers
+      MQ_HOST: "mq"  # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
+      MQ_SERVER_PORT: "1883" # the reachable port of MQ by the server - change if internal MQ port changes (or use external port if MQ is not on the same machine)
+      MQ_PORT: "443" # the reachable port of MQ - change if external MQ port changes (port on proxy, not necessarily the one exposed in docker-compose)
       HOST_NETWORK: "off" # whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables.
+      VERBOSITY: "1" # logging verbosity level - 1, 2, or 3
       MANAGE_IPTABLES: "on" # deprecated
       PORT_FORWARD_SERVICES: "dns" # decide which services to port forward ("dns","ssh", or "mq")
+      # this section is for OAuth
+      AUTH_PROVIDER: "" # "<azure-ad|github|google|oidc>"
+      CLIENT_ID: "" # "<client id of your oauth provider>"
+      CLIENT_SECRET: "" # "<client secret of your oauth provider>"
+      FRONTEND_URL: "" # "https://dashboard.<netmaker base domain>"
+      AZURE_TENANT: "" # "<only for azure, you may optionally specify the tenant for the OAuth>"
+      OIDC_ISSUER: "" # https://oidc.yourprovider.com - URL of oidc provider
     ports:
-      - "51821-51830:51821-51830/udp"
-      - "8081:8081"
-  netmaker-ui: # The Netmaker UI Component
+      - "51821-51830:51821-51830/udp" # wireguard ports
+    expose:
+      - "8081" # api port
+    labels: # only for use with traefik proxy (default)
+      - traefik.enable=true
+      - traefik.http.routers.netmaker-api.entrypoints=websecure
+      - traefik.http.routers.netmaker-api.rule=Host(`api.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.netmaker-api.service=netmaker-api
+      - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
+  netmaker-ui:  # The Netmaker UI Component
     container_name: netmaker-ui
+    image: gravitl/netmaker-ui:v0.14.5
     depends_on:
       - netmaker
-    image: gravitl/netmaker-ui:v0.14.4
     links:
       - "netmaker:api"
-    ports:
-      - "8082:80"
+    restart: always
     environment:
-      BACKEND_URL: "http://HOST_IP:8081" # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
-  restart: always
-  coredns: # The DNS Server. Remove this section if DNS_MODE="off"
-    depends_on:
-      - netmaker 
+      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN" # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
+    expose:
+      - "80"
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.nmui-security.headers.accessControlAllowOriginList=*.NETMAKER_BASE_DOMAIN
+      - traefik.http.middlewares.nmui-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.nmui-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.nmui-security.headers.customFrameOptionsValue=SAMEORIGIN
+      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.X-Robots-Tag=none
+      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.Server= # Remove the server name
+      - traefik.http.routers.netmaker-ui.entrypoints=websecure
+      - traefik.http.routers.netmaker-ui.middlewares=nmui-security@docker
+      - traefik.http.routers.netmaker-ui.rule=Host(`dashboard.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.netmaker-ui.service=netmaker-ui
+      - traefik.http.services.netmaker-ui.loadbalancer.server.port=80
+  coredns: # The DNS Server. CoreDNS can be removed unless doing special advanced use cases
+    container_name: coredns
     image: coredns/coredns
     command: -conf /root/dnsconfig/Corefile
-    container_name: coredns
+    depends_on:
+      - netmaker
     restart: always
     volumes:
       - dnsconfig:/root/dnsconfig
-  caddy:
-    image: caddy:latest
-    container_name: caddy
-    restart: unless-stopped
-    network_mode: host # Wants ports 80 and 443!
+  traefik: # the default proxy - can be replaced with caddy or nginx, but requires careful configuration
+    image: traefik:v2.6
+    container_name: traefik
+    command:
+      - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
+      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.http.acme.tlschallenge=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certResolver=http"
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--serverstransport.insecureskipverify=true"
+    restart: always
     volumes:
-      - /root/Caddyfile:/etc/caddy/Caddyfile
-      # - $PWD/site:/srv # you could also serve a static site in site folder
-      - caddy_data:/data
-      - caddy_conf:/config  
-  mq: # the MQTT broker for netmaker
-    image: eclipse-mosquitto:2.0.11-openssl
-    container_name: mq
-    restart: unless-stopped
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
     ports:
-      - "127.0.0.1:1883:1883"
-      - "8883:8883" 
+      - "443:443"
+  mq: # the MQTT broker for netmaker
+    container_name: mq
+    image: eclipse-mosquitto:2.0.11-openssl
+    depends_on:
+      - netmaker
+    restart: unless-stopped
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf # need to pull conf file from github before running (under docker/mosquitto.conf)
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-      - /root/certs/:/mosquitto/certs/
+      - shared_certs:/mosquitto/certs
+    expose:
+      - "8883"
+    labels:
+      - traefik.enable=true
+      - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
+      - traefik.tcp.routers.mqtts.tls.passthrough=true
+      - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
+      - traefik.tcp.routers.mqtts.service=mqtts-svc
+      - traefik.tcp.routers.mqtts.entrypoints=websecure
 volumes:
-  caddy_data: {} # storage for caddy data
-  caddy_conf: {} # storage for caddy configuration file
+  traefik_certs: {} # ssl certificates - auto generated
+  shared_certs: {} # netmaker certs generated for MQ comms - used by nodes/servers
   sqldata: {} # storage for embedded sqlite
   dnsconfig: {} # storage for coredns
   mosquitto_data: {} # storage for mqtt data

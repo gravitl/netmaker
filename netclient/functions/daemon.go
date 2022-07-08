@@ -42,6 +42,7 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
+	UpdateClientConfig()
 	serverSet := make(map[string]bool)
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
@@ -268,7 +269,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 
 func reRegisterWithServer(cfg *config.ClientConfig) {
 	logger.Log(0, "connection issue detected.. attempt connection with new certs and broker information")
-	key, err := ssl.ReadKey(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
+	key, err := ssl.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
 	if err != nil {
 		_, *key, err = ed25519.GenerateKey(rand.Reader)
 		if err != nil {
@@ -328,7 +329,7 @@ func read(network, which string) string {
 		if readMessage.LastSeen.IsZero() {
 			return ""
 		}
-		if time.Now().After(readMessage.LastSeen.Add(time.Minute * 10)) { // check if message has been there over a minute
+		if time.Now().After(readMessage.LastSeen.Add(time.Hour * 24)) { // check if message has been there over a minute
 			messageCache.Delete(fmt.Sprintf("%s%s", network, which)) // remove old message if expired
 			return ""
 		}

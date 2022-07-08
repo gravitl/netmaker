@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: netclient
+  labels:
+    app: netclient
+spec:
+  selector:
+    matchLabels:
+      app: netclient
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: netclient
+    spec:
+      hostNetwork: true
+      containers:
+      - name: netclient
+        image: gravitl/netclient:v0.14.5
+        env:
+        - name: TOKEN
+          value: "TOKEN_VALUE"
+        volumeMounts:
+        - mountPath: /etc/netclient
+          name: etc-netclient
+        securityContext:
+          privileged: true
+  volumes:
+  - hostPath:
+      path: /etc/netclient
+      type: DirectoryOrCreate
+    name: etc-netclient

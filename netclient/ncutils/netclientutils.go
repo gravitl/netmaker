@@ -41,6 +41,9 @@ const NO_DB_RECORDS = "could not find any records"
 // LINUX_APP_DATA_PATH - linux path
 const LINUX_APP_DATA_PATH = "/etc/netclient"
 
+// MAC_APP_DATA_PATH - linux path
+const MAC_APP_DATA_PATH = "/Applications/Netclient"
+
 // WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\Program Files (x86)\\Netclient"
 
@@ -265,7 +268,7 @@ func GetNetclientPath() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH
 	} else if IsMac() {
-		return "/etc/netclient/"
+		return MAC_APP_DATA_PATH
 	} else {
 		return LINUX_APP_DATA_PATH
 	}
@@ -301,7 +304,7 @@ func GetNetclientServerPath(server string) string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH + "\\" + server + "\\"
 	} else if IsMac() {
-		return "/etc/netclient/" + server + "/"
+		return MAC_APP_DATA_PATH + "/" + server + "/"
 	} else {
 		return LINUX_APP_DATA_PATH + "/" + server
 	}
@@ -312,7 +315,7 @@ func GetNetclientPathSpecific() string {
 	if IsWindows() {
 		return WINDOWS_APP_DATA_PATH + "\\"
 	} else if IsMac() {
-		return "/etc/netclient/config/"
+		return MAC_APP_DATA_PATH + "/config/"
 	} else {
 		return LINUX_APP_DATA_PATH + "/config/"
 	}
@@ -491,17 +494,21 @@ func CheckUID() {
 
 // CheckWG - Checks if WireGuard is installed. If not, exit
 func CheckWG() {
-	var _, err = exec.LookPath("wg")
 	uspace := GetWireGuard()
-	if err != nil {
+	if !HasWG() {
 		if uspace == "wg" {
-			logger.Log(0, err.Error())
 			log.Fatal("WireGuard not installed. Please install WireGuard (wireguard-tools) and try again.")
 		}
 		logger.Log(0, "running with userspace wireguard: ", uspace)
 	} else if uspace != "wg" {
 		logger.Log(0, "running userspace WireGuard with ", uspace)
 	}
+}
+
+// HasWG - returns true if wg command exists
+func HasWG() bool {
+	var _, err = exec.LookPath("wg")
+	return err == nil
 }
 
 // ConvertKeyToBytes - util to convert a key to bytes to use elsewhere
@@ -573,4 +580,15 @@ func GetIPNetFromString(ip string) (net.IPNet, error) {
 		return net.IPNet{}, err
 	}
 	return *ipnet, err
+}
+
+// ModPort - Change Node Port if UDP Hole Punching or ListenPort is not free
+func ModPort(node *models.Node) error {
+	var err error
+	if node.UDPHolePunch == "yes" {
+		node.ListenPort = 0
+	} else {
+		node.ListenPort, err = GetFreePort(node.ListenPort)
+	}
+	return err
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/serverctl"
 	"github.com/gravitl/netmaker/tls"
 )
 
@@ -142,12 +143,12 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 // genCerts generates a client certificate and returns the certificate and root CA
 func genCerts(clientKey *ed25519.PrivateKey, name *pkix.Name) (*x509.Certificate, *x509.Certificate, error) {
-	ca, err := tls.ReadCert("/etc/netmaker/root.pem")
+	ca, err := serverctl.ReadCertFromDB(tls.ROOT_PEM_NAME)
 	if err != nil {
 		logger.Log(2, "root ca not found ", err.Error())
 		return nil, nil, fmt.Errorf("root ca not found %w", err)
 	}
-	key, err := tls.ReadKey("/etc/netmaker/root.key")
+	key, err := serverctl.ReadKeyFromDB(tls.ROOT_KEY_NAME)
 	if err != nil {
 		logger.Log(2, "root key not found ", err.Error())
 		return nil, nil, fmt.Errorf("root key not found %w", err)

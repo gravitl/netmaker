@@ -55,6 +55,7 @@ type ServerConfig struct {
 	Verbosity             int32  `yaml:"verbosity"`
 	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
 	AuthProvider          string `yaml:"authprovider"`
+	OIDCIssuer            string `yaml:"oidcissuer"`
 	ClientID              string `yaml:"clientid"`
 	ClientSecret          string `yaml:"clientsecret"`
 	FrontendURL           string `yaml:"frontendurl"`

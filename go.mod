@@ -14,7 +14,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/stretchr/testify v1.7.5
+	github.com/stretchr/testify v1.8.0
 	github.com/txn2/txeh v1.3.0
 	github.com/urfave/cli/v2 v2.10.3
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
@@ -31,7 +31,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0
-	fyne.io/fyne/v2 v2.2.1
+	fyne.io/fyne/v2 v2.2.2
 	github.com/c-robinson/iplib v1.0.3
 	github.com/cloverstd/tcping v0.1.1
 	github.com/guumaster/hostctl v1.1.2
@@ -41,8 +41,9 @@ require (
 
 require (
 	cloud.google.com/go v0.81.0 // indirect
-	fyne.io/systray v1.10.0 // indirect
+	fyne.io/systray v1.10.1-0.20220621085403-9a2652634e93 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
+	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
@@ -89,6 +90,7 @@ require (
 	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	google.golang.org/appengine v1.6.7 // indirect
+	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	honnef.co/go/js/dom v0.0.0-20210725211120-f030747120f2 // indirect
 )

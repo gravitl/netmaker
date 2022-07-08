@@ -170,8 +170,13 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		}
 	}
 	logger.Log(1, "node created on remote server...updating configs")
-	cfg.Node = node
-	err = config.ModNodeConfig(&cfg.Node)
+	err = ncutils.ModPort(&node)
+	if err != nil {
+		return err
+	}
+	informPortChange(&node)
+
+	err = config.ModNodeConfig(&node)
 	if err != nil {
 		return err
 	}
@@ -188,6 +193,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		return err
 	}
+	cfg.Node = node
 	if err := Register(cfg); err != nil {
 		return err
 	}

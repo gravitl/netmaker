@@ -37,11 +37,11 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 		ID:         uuid,
 		Network:    network,
 		MacAddress: macAddress,
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("node|%s", uuid),
-			IssuedAt:  time.Now().Unix(),
-			ExpiresAt: expirationTime.Unix(),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
 
@@ -60,11 +60,11 @@ func CreateUserJWT(username string, networks []string, isadmin bool) (response s
 		UserName: username,
 		Networks: networks,
 		IsAdmin:  isadmin,
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
-			IssuedAt:  time.Now().Unix(),
 			Subject:   fmt.Sprintf("user|%s", username),
-			ExpiresAt: expirationTime.Unix(),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
 

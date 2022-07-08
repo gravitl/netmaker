@@ -29,10 +29,6 @@ func SetupMacDaemon() error {
 		return err
 	}
 
-	_, errN := os.Stat("~/Library/LaunchAgents")
-	if os.IsNotExist(errN) {
-		os.Mkdir("~/Library/LaunchAgents", 0755)
-	}
 	err = CreateMacService(MAC_SERVICE_NAME)
 	if err != nil {
 		return err
@@ -64,7 +60,7 @@ func RestartLaunchD() {
 
 // StopLaunchD - stop launch daemon
 func StopLaunchD() {
-	ncutils.RunCmd("launchctl unload  /System/Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
+	ncutils.RunCmd("launchctl unload  /Library/LaunchDaemons/"+MAC_SERVICE_NAME+".plist", true)
 }
 
 // CreateMacService - Creates the mac service file for LaunchDaemons

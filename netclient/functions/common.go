@@ -10,7 +10,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -24,6 +26,9 @@ import (
 
 // LINUX_APP_DATA_PATH - linux path
 const LINUX_APP_DATA_PATH = "/etc/netmaker"
+
+// HTTP_TIMEOUT - timeout in seconds for http requests
+const HTTP_TIMEOUT = 30
 
 // ListPorts - lists ports of WireGuard devices
 func ListPorts() error {
@@ -339,7 +344,9 @@ func API(data any, method, url, authorization string) (*http.Response, error) {
 	if authorization != "" {
 		request.Header.Set("authorization", "Bearer "+authorization)
 	}
-	client := http.Client{}
+	client := http.Client{
+		Timeout: HTTP_TIMEOUT * time.Second,
+	}
 	return client.Do(request)
 }
 
@@ -408,4 +415,12 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 	}
 
 	return nil
+}
+
+func informPortChange(node *models.Node) {
+	if node.ListenPort == 0 {
+		logger.Log(0, "UDP hole punching enabled for node", node.Name)
+	} else {
+		logger.Log(0, "node", node.Name, "is using port", strconv.Itoa(int(node.ListenPort)))
+	}
 }
