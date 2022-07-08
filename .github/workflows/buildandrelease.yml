@@ -325,11 +325,11 @@ jobs:
       - name: Build
         run: |
           cd netclient
-          env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags="-X 'main.Version=${NETMAKER_VERSION}'" -o build/netclient-freebsd/netclient main.go
-          env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=5 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm5/netclient main.go
-          env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=6 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm6/netclient main.go
-          env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm7/netclient main.go
-          env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm64/netclient main.go
+          env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd/netclient .
+          env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=5 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm5/netclient .
+          env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=6 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm6/netclient .
+          env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm GOARM=7 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm7/netclient .
+            env CGO_ENABLED=0 GOOS=freebsd GOARCH=arm64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-freebsd-arm64/netclient .
 
       - name: Upload freebsd to Release
         uses: svenstaro/upload-release-action@v2
