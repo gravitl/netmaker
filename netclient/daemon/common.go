@@ -2,8 +2,13 @@ package daemon
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"runtime"
+	"syscall"
 	"time"
+
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // InstallDaemon - Calls the correct function to install the netclient as a daemon service on the given operating system.
@@ -28,25 +33,39 @@ func InstallDaemon() error {
 
 // Restart - restarts a system daemon
 func Restart() error {
-	os := runtime.GOOS
-	var err error
-
-	time.Sleep(time.Second)
-
-	switch os {
-	case "windows":
-		RestartWindowsDaemon()
-	case "darwin":
-		RestartLaunchD()
-	case "linux":
-		RestartSystemD()
-	case "freebsd":
-		FreebsdDaemon("restart")
-	default:
-		err = errors.New("this os is not yet supported for daemon mode. Run join cmd with flag '--daemon off'")
+	pid, err := ncutils.ReadPID()
+	if err != nil {
+		return fmt.Errorf("failed to find pid %w", err)
 	}
-	return err
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return fmt.Errorf("failed to find running process for pid %d -- %w", pid, err)
+	}
+	if err := p.Signal(syscall.SIGHUP); err != nil {
+		return fmt.Errorf("SIGHUG failed -- %w", err)
+	}
+	return nil
 }
+
+//	os := runtime.GOOS
+//	var err error
+//
+//	time.Sleep(time.Second)
+//
+//	switch os {
+//	case "windows":
+//		RestartWindowsDaemon()
+//	case "darwin":
+//		RestartLaunchD()
+//	case "linux":
+//		RestartSystemD()
+//	case "freebsd":
+//		FreebsdDaemon("restart")
+//	default:
+//		err = errors.New("this os is not yet supported for daemon mode. Run join cmd with flag '--daemon off'")
+//	}
+//	return err
+//}
 
 // Stop - stops a system daemon
 func Stop() error {
