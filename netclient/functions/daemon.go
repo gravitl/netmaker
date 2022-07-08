@@ -42,7 +42,10 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
+<<<<<<< HEAD
 	UpdateClientConfig()
+=======
+>>>>>>> 38f51c55 (revert tls changes)
 	if err := ncutils.SavePID(); err != nil {
 		return err
 	}
