@@ -41,7 +41,6 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
-	log.Println("saving pid")
 	if err := ncutils.SavePID(); err != nil {
 		return err
 	}
@@ -54,9 +53,9 @@ func Daemon() error {
 	// == add waitgroup and cancel for checkin routine ==
 	wg := sync.WaitGroup{}
 	quit := make(chan os.Signal, 1)
-	hup := make(chan os.Signal, 1)
+	reset := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
-	signal.Notify(hup, syscall.SIGHUP)
+	signal.Notify(reset, syscall.SIGHUP)
 	cancel := startServerGoRoutines(&wg)
 	for {
 		select {
@@ -66,7 +65,7 @@ func Daemon() error {
 			wg.Wait()
 			logger.Log(0, "shutdown complete")
 			return nil
-		case <-hup:
+		case <-reset:
 			logger.Log(0, "received reset")
 			cancel()
 			wg.Wait()
