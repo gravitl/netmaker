@@ -120,13 +120,11 @@ func NewCName(commonName string) pkix.Name {
 }
 
 // NewCSR creates a new certificate signing request for a
-func NewCSR(key ed25519.PrivateKey, names ...pkix.Name) (*x509.CertificateRequest, error) {
+func NewCSR(key ed25519.PrivateKey, name pkix.Name) (*x509.CertificateRequest, error) {
 	dnsnames := []string{}
-	for _, name := range names {
-		dnsnames = append(dnsnames, name.CommonName)
-	}
+	dnsnames = append(dnsnames, name.CommonName)
 	derCertRequest, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
-		Subject:            names[0],
+		Subject:            name,
 		PublicKey:          key.Public(),
 		DNSNames:           dnsnames,
 		PublicKeyAlgorithm: x509.Ed25519,
