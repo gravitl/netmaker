@@ -106,12 +106,17 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	file := ncutils.GetNetclientPathSpecific() + nodeCfg.Node.Interface + ".conf"
 
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
-		err = ncutils.ModPort(&newNode)
-		if err != nil {
-			logger.Log(0, "error modifying node port on", newNode.Name, "-", err.Error())
-			return
+		if newNode.ListenPort != nodeCfg.Node.LocalListenPort {
+			if err := wireguard.RemoveConf(newNode.Interface, false); err != nil {
+				logger.Log(0, "error remove interface", newNode.Interface, err.Error())
+			}
+			err = ncutils.ModPort(&newNode)
+			if err != nil {
+				logger.Log(0, "error modifying node port on", newNode.Name, "-", err.Error())
+				return
+			}
+			informPortChange(&newNode)
 		}
-		informPortChange(&newNode)
 		if err := wireguard.UpdateWgInterface(file, privateKey, nameserver, newNode); err != nil {
 			logger.Log(0, "error updating wireguard config "+err.Error())
 			return
