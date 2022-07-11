@@ -548,7 +548,7 @@ func GetDevicePeers(iface string) ([]wgtypes.Peer, error) {
 		defer client.Close()
 		device, err := client.Device(iface)
 		if err != nil {
-			logger.Log(0, "failed to parse interface")
+			logger.Log(0, "failed to parse interface", iface)
 			return nil, err
 		}
 		return device.Peers, nil
