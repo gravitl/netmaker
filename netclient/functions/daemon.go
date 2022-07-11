@@ -30,6 +30,7 @@ import (
 )
 
 var messageCache = new(sync.Map)
+var serverSet map[string]bool
 
 const lastNodeUpdate = "lnu"
 const lastPeerUpdate = "lpu"
@@ -45,7 +46,7 @@ func Daemon() error {
 	if err := ncutils.SavePID(); err != nil {
 		return err
 	}
-	serverSet := make(map[string]bool)
+	serverSet = make(map[string]bool)
 	// == initial pull of all networks ==
 	networks, _ := ncutils.GetSystemNetworks()
 	if len(networks) == 0 {

@@ -42,7 +42,7 @@ func Restart() error {
 		return fmt.Errorf("failed to find running process for pid %d -- %w", pid, err)
 	}
 	if err := p.Signal(syscall.SIGHUP); err != nil {
-		return fmt.Errorf("SIGHUG failed -- %w", err)
+		return fmt.Errorf("SIGHUP failed -- %w", err)
 	}
 	return nil
 }
