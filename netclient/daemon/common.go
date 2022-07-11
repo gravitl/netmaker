@@ -47,26 +47,6 @@ func Restart() error {
 	return nil
 }
 
-//	os := runtime.GOOS
-//	var err error
-//
-//	time.Sleep(time.Second)
-//
-//	switch os {
-//	case "windows":
-//		RestartWindowsDaemon()
-//	case "darwin":
-//		RestartLaunchD()
-//	case "linux":
-//		RestartSystemD()
-//	case "freebsd":
-//		FreebsdDaemon("restart")
-//	default:
-//		err = errors.New("this os is not yet supported for daemon mode. Run join cmd with flag '--daemon off'")
-//	}
-//	return err
-//}
-
 // Stop - stops a system daemon
 func Stop() error {
 	os := runtime.GOOS
