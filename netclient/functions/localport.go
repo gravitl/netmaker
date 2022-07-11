@@ -23,7 +23,7 @@ func GetLocalListenPort(ifacename string) (int32, error) {
 	defer client.Close()
 	device, err := client.Device(ifacename)
 	if err != nil {
-		logger.Log(0, "failed to parse interface")
+		logger.Log(0, "failed to parse interface", ifacename)
 		return 0, err
 	}
 	return int32(device.ListenPort), nil
@@ -35,7 +35,7 @@ func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 	ifacename := getRealIface(nodeCfg.Node.Interface, nodeCfg.Node.Address)
 	localPort, err := GetLocalListenPort(ifacename)
 	if err != nil {
-		logger.Log(1, "error encountered checking local listen port: ", err.Error())
+		logger.Log(1, "error encountered checking local listen port: ", ifacename, err.Error())
 	} else if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
 		logger.Log(1, "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
 		nodeCfg.Node.LocalListenPort = localPort
