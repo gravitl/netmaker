@@ -460,7 +460,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&node)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
@@ -576,7 +576,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&gateway)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	gateway.NetID = params["network"]
