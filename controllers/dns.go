@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -24,67 +25,69 @@ func dnsHandlers(r *mux.Router) {
 	r.HandleFunc("/api/dns/{network}/{domain}", securityCheck(false, http.HandlerFunc(deleteDNS))).Methods("DELETE")
 }
 
-//Gets all nodes associated with network, including pending nodes
+//Gets node DNS entries associated with a network
 func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
-
-	dns, err := logic.GetNodeDNS(params["network"])
+	network := params["network"]
+	dns, err := logic.GetNodeDNS(network)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get node DNS entries for network [%s]: %v", network, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	//Returns all the nodes in JSON format
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(dns)
 }
 
-//Gets all nodes associated with network, including pending nodes
+//Gets all DNS entries.
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	dns, err := logic.GetAllDNS()
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get all DNS entries: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	//Returns all the nodes in JSON format
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(dns)
 }
 
-//Gets all nodes associated with network, including pending nodes
+//Gets custom DNS entries associated with a network
 func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
-
-	dns, err := logic.GetCustomDNS(params["network"])
+	network := params["network"]
+	dns, err := logic.GetCustomDNS(network)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get custom DNS entries for network [%s]: %v", network, err.Error()))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-
-	//Returns all the nodes in JSON format
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(dns)
 }
 
-// Gets all nodes associated with network, including pending nodes
+// Gets all DNS entries associated with the network
 func getDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
-
-	dns, err := logic.GetDNS(params["network"])
+	network := params["network"]
+	dns, err := logic.GetDNS(network)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get all DNS entries for network [%s]: %v", network, err.Error()))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -98,23 +101,28 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	var entry models.DNSEntry
 	var params = mux.Vars(r)
 
-	//get node from body of request
 	_ = json.NewDecoder(r.Body).Decode(&entry)
 	entry.Network = params["network"]
 
 	err := logic.ValidateDNSCreate(entry)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("invalid DNS entry %+v: %v", entry, err))
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
 	entry, err = CreateDNS(entry)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("Failed to create DNS entry %+v: %v", entry, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	err = logic.SetDNS()
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("Failed to set DNS entries on file: %v", err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -132,6 +140,8 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	logger.Log(2, r.Header.Get("user"),
+		fmt.Sprintf("DNS entry is set: %+v", entry))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(entry)
 }
@@ -142,17 +152,19 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
-
+	entrytext := params["domain"] + "." + params["network"]
 	err := logic.DeleteDNS(params["domain"], params["network"])
 
 	if err != nil {
+		logger.Log(0, "failed to delete dns entry: ", entrytext)
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	entrytext := params["domain"] + "." + params["network"]
 	logger.Log(1, "deleted dns entry: ", entrytext)
 	err = logic.SetDNS()
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("Failed to set DNS entries on file: %v", err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -197,6 +209,8 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 	err := logic.SetDNS()
 
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("Failed to set DNS entries on file: %v", err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
