@@ -182,7 +182,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		logger.Log(0, "error decoding request body: ",
+		logger.Log(0, user.UserName, "error decoding request body: ",
 			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -215,7 +215,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		logger.Log(0, "error decoding request body: ",
+		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -254,7 +254,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		logger.Log(0, "error decoding request body: ",
+		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
@@ -292,9 +292,9 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		logger.Log(0, "error decoding request body: ",
+		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	if !user.IsAdmin {
