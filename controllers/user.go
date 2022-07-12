@@ -298,7 +298,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !user.IsAdmin {
-		logger.Log(0, username, "not a admin user")
+		logger.Log(0, username, "not an admin user")
 		returnErrorResponse(w, r, formatError(errors.New("not a admin user"), "badrequest"))
 	}
 	user, err = logic.UpdateUser(userchange, user)
