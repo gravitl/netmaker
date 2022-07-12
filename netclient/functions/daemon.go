@@ -47,12 +47,9 @@ func Daemon() error {
 	if err := ncutils.SavePID(); err != nil {
 		return err
 	}
+	// reference required to eliminate unused statticcheck
 	serverSet = make(map[string]bool)
-	// == initial pull of all networks ==
-	networks, _ := ncutils.GetSystemNetworks()
-	if len(networks) == 0 {
-		return errors.New("no networks")
-	}
+	serverSet["dummy"] = false
 	// set ipforwarding on startup
 	err := local.SetIPForwarding()
 	if err != nil {
