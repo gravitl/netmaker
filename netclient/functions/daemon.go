@@ -30,6 +30,7 @@ import (
 )
 
 var messageCache = new(sync.Map)
+
 var serverSet map[string]bool
 
 const lastNodeUpdate = "lnu"
@@ -103,6 +104,7 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 			// == subscribe to all nodes for each on machine ==
 			serverSet[server] = true
 			logger.Log(1, "started daemon for server ", server)
+			wg.Add(1)
 			go messageQueue(ctx, wg, &cfg)
 		}
 	}
