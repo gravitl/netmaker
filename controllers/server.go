@@ -73,14 +73,17 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
-
-	err := logic.DeleteNetwork(params["network"])
+	network := params["network"]
+	err := logic.DeleteNetwork(network)
 	if err != nil {
-		json.NewEncoder(w).Encode("Could not remove server from network " + params["network"])
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete network [%s]: %v", network, err))
+		json.NewEncoder(w).Encode(fmt.Sprintf("could not remove network %s from server", network))
 		return
 	}
-
-	json.NewEncoder(w).Encode("Server removed from network " + params["network"])
+	logger.Log(1, r.Header.Get("user"),
+		fmt.Sprintf("deleted network [%s]: %v", network, err))
+	json.NewEncoder(w).Encode(fmt.Sprintf("network %s removed from server", network))
 }
 
 func getServerInfo(w http.ResponseWriter, r *http.Request) {
@@ -137,6 +140,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 		Broker:     servercfg.GetServer(),
 		Port:       servercfg.GetMQPort(),
 	}
+	logger.Log(2, r.Header.Get("user"),
+		fmt.Sprintf("registered client [%+v] with server", request))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
