@@ -273,12 +273,22 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	var networkACLChange acls.ACLContainer
 	networkACLChange, err := networkACLChange.Get(acls.ContainerID(netname))
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	_ = json.NewDecoder(r.Body).Decode(&networkACLChange)
+	err = json.NewDecoder(r.Body).Decode(&networkACLChange)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
 	newNetACL, err := networkACLChange.Save(acls.ContainerID(netname))
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to update ACLs for network [%s]: %v", netname, err))
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -310,6 +320,8 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	var networkACL acls.ACLContainer
 	networkACL, err := networkACL.Get(acls.ContainerID(netname))
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
