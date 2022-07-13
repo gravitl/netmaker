@@ -33,6 +33,9 @@ func InstallDaemon() error {
 
 // Restart - restarts a system daemon
 func Restart() error {
+	if ncutils.IsWindows() {
+		RestartWindowsDaemon()
+	}
 	pid, err := ncutils.ReadPID()
 	if err != nil {
 		return fmt.Errorf("failed to find pid %w", err)
