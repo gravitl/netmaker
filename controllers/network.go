@@ -46,7 +46,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	networksSlice := []string{}
 	marshalErr := json.Unmarshal([]byte(headerNetworks), &networksSlice)
 	if marshalErr != nil {
-		logger.Log(0, "error unmarshalling networks: ",
+		logger.Log(0, r.Header.Get("user"), "error unmarshalling networks: ",
 			marshalErr.Error())
 		returnErrorResponse(w, r, formatError(marshalErr, "badrequest"))
 		return
@@ -56,7 +56,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
 		allnetworks, err = logic.GetNetworks()
 		if err != nil && !database.IsEmptyRecord(err) {
-			logger.Log(0, "failed to fetch networks: ", err.Error())
+			logger.Log(0, r.Header.Get("user"), "failed to fetch networks: ", err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
