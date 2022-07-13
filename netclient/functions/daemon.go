@@ -26,6 +26,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	ssl "github.com/gravitl/netmaker/tls"
+	"github.com/kr/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -43,6 +44,7 @@ type cachedMessage struct {
 
 // Daemon runs netclient daemon from command line
 func Daemon() error {
+	logger.Log(0, "netclient daemon started -- version:", ncutils.Version)
 	UpdateClientConfig()
 	if err := ncutils.SavePID(); err != nil {
 		return err
@@ -97,6 +99,14 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
 		}
 		server := cfg.Server.Server
+		pretty.Println(serverSet, server, serverSet[server], !serverSet[server])
+
+		if val, ok := serverSet[server]; ok {
+			pretty.Println(val, ok)
+		} else {
+			pretty.Println("not ok", val, ok)
+		}
+
 		if !serverSet[server] {
 			// == subscribe to all nodes for each on machine ==
 			serverSet[server] = true
@@ -182,7 +192,7 @@ func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 // the client should subscribe to ALL nodes that exist on server locally
 func messageQueue(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientConfig) {
 	defer wg.Done()
-	logger.Log(0, "netclient daemon started for server: ", cfg.Server.Server)
+	logger.Log(0, "netclient message queue started for server: ", cfg.Server.Server)
 	client, err := setupMQTT(cfg, false)
 	if err != nil {
 		logger.Log(0, "unable to connect to broker", cfg.Server.Server, err.Error())
@@ -190,7 +200,7 @@ func messageQueue(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientCon
 	}
 	defer client.Disconnect(250)
 	<-ctx.Done()
-	logger.Log(0, "shutting down daemon for server ", cfg.Server.Server)
+	logger.Log(0, "shutting down message queue for server ", cfg.Server.Server)
 }
 
 // NewTLSConf sets up tls configuration to connect to broker securely
