@@ -8,7 +8,6 @@ spec:
   selector:
     matchLabels:
       app: netclient
-  replicas: 1
   template:
     metadata:
       labels:
@@ -17,7 +16,7 @@ spec:
       hostNetwork: true
       containers:
       - name: netclient
-        image: gravitl/netclient:v0.14.5
+        image: gravitl/netclient-go:v0.14.5
         env:
         - name: TOKEN
           value: "TOKEN_VALUE"
@@ -26,8 +25,10 @@ spec:
           name: etc-netclient
         securityContext:
           privileged: true
-  volumes:
-  - hostPath:
-      path: /etc/netclient
-      type: DirectoryOrCreate
-    name: etc-netclient
+      volumes:
+      - hostPath:
+          # change path for every netclient deployed, e.g. /etc/netclient-1, /etc/netclient-2, etc.
+          # alternatively "netclient join" can be run from inside the container for new networks
+          path: /etc/netclient
+          type: DirectoryOrCreate
+        name: etc-netclient
