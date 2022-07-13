@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -117,7 +118,7 @@ func sendPeers() {
 		}
 	}
 	networks, err := logic.GetNetworks()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
 
