@@ -8,16 +8,22 @@ import (
 
 // PIDFILE - path/name of pid file
 const PIDFILE = "/var/run/netclient.pid"
-const WIN_PIDFILE = "C:\\Windows\\Temp\\netclient.pid"
+
+// WindowsPIDError - error returned from pid function on windows
+type WindowsPIDError struct{}
+
+// Error generates error for windows os
+func (*WindowsPIDError) Error() string {
+	return "pid tracking not supported on windows"
+}
 
 // SavePID - saves the pid of running program to disk
 func SavePID() error {
-	pidfile := PIDFILE
 	if IsWindows() {
-		pidfile = WIN_PIDFILE
+		return &WindowsPIDError{}
 	}
 	pid := os.Getpid()
-	if err := os.WriteFile(pidfile, []byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
+	if err := os.WriteFile(PIDFILE, []byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
 		return fmt.Errorf("could not write to pid file %w", err)
 	}
 	return nil
@@ -25,11 +31,10 @@ func SavePID() error {
 
 // ReadPID - reads a previously saved pid from disk
 func ReadPID() (int, error) {
-	pidfile := PIDFILE
 	if IsWindows() {
-		pidfile = WIN_PIDFILE
+		return 0, &WindowsPIDError{}
 	}
-	bytes, err := os.ReadFile(pidfile)
+	bytes, err := os.ReadFile(PIDFILE)
 	if err != nil {
 		return 0, fmt.Errorf("could not read pid file %w", err)
 	}
