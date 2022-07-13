@@ -26,7 +26,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	ssl "github.com/gravitl/netmaker/tls"
-	"github.com/kr/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -84,7 +83,6 @@ func Daemon() error {
 }
 
 func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
-	defer wg.Done()
 	ctx, cancel := context.WithCancel(context.Background())
 	wg.Add(1)
 	go Checkin(ctx, wg)
@@ -99,14 +97,6 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
 		}
 		server := cfg.Server.Server
-		pretty.Println(serverSet, server, serverSet[server], !serverSet[server])
-
-		if val, ok := serverSet[server]; ok {
-			pretty.Println(val, ok)
-		} else {
-			pretty.Println("not ok", val, ok)
-		}
-
 		if !serverSet[server] {
 			// == subscribe to all nodes for each on machine ==
 			serverSet[server] = true
