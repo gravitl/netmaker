@@ -22,7 +22,7 @@ func MakeString(delimeter string, message ...string) string {
 }
 
 func getVerbose() int32 {
-	if Verbosity >= 1 && Verbosity <= 3 {
+	if Verbosity >= 1 && Verbosity <= 4 {
 		return int32(Verbosity)
 	}
 	Verbosity = int(servercfg.GetVerbosity())

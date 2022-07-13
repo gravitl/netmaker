@@ -37,7 +37,7 @@ func Log(verbosity int, message ...string) {
 	var currentTime = time.Now()
 	var currentMessage = MakeString(" ", message...)
 
-	if int32(verbosity) >= 4 {
+	if getVerbose() >= 4 {
 		pc, file, line, ok := runtime.Caller(1)
 		if !ok {
 			file = "?"
