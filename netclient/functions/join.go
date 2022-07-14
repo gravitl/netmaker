@@ -212,7 +212,12 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		}
 	}
 
-	daemon.Restart()
+	if err := daemon.Restart(); err != nil {
+		log.Println("daemon restart failed ", err)
+		if err := daemon.Start(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
