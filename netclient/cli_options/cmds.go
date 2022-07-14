@@ -90,7 +90,7 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 			Flags: cliFlags,
 			Action: func(c *cli.Context) error {
 				// set max verbosity for daemon regardless
-				logger.Verbosity = 3
+				logger.Verbosity = 4
 				err := command.Daemon()
 				return err
 			},
@@ -116,5 +116,7 @@ func parseVerbosity(c *cli.Context) {
 		logger.Verbosity = 2
 	} else if c.Bool("vvv") {
 		logger.Verbosity = 3
+	} else if c.Bool("vvvv") {
+		logger.Verbosity = 4
 	}
 }
