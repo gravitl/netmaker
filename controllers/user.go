@@ -44,23 +44,27 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	decoderErr := decoder.Decode(&authRequest)
 	defer request.Body.Close()
 	if decoderErr != nil {
+		logger.Log(0, "error decoding request body: ",
+			decoderErr.Error())
 		returnErrorResponse(response, request, errorResponse)
 		return
 	}
-
+	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
+		logger.Log(0, username, "user validation failed: ",
+			err.Error())
 		returnErrorResponse(response, request, formatError(err, "badrequest"))
 		return
 	}
 
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
+		logger.Log(0, username, "jwt token is empty")
 		returnErrorResponse(response, request, formatError(errors.New("no token returned"), "internal"))
 		return
 	}
 
-	username := authRequest.UserName
 	var successResponse = models.SuccessResponse{
 		Code:    http.StatusOK,
 		Message: "W1R3: Device " + username + " Authorized",
@@ -73,6 +77,8 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	successJSONResponse, jsonError := json.Marshal(successResponse)
 
 	if jsonError != nil {
+		logger.Log(0, username,
+			"error marshalling resp: ", err.Error())
 		returnErrorResponse(response, request, errorResponse)
 		return
 	}
@@ -87,6 +93,7 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	hasadmin, err := logic.HasAdmin()
 	if err != nil {
+		logger.Log(0, "failed to check for admin: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -109,7 +116,7 @@ func GetUserInternal(username string) (models.User, error) {
 	return user, err
 }
 
-// Get an individual node. Nothin fancy here folks.
+// Get an individual user. Nothin fancy here folks.
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -119,6 +126,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	user, err := logic.GetUser(usernameFetched)
 
 	if err != nil {
+		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -126,7 +134,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// Get an individual node. Nothin fancy here folks.
+// Get all users. Nothin fancy here folks.
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -134,6 +142,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := logic.GetUsers()
 
 	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -146,12 +155,20 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var admin models.User
-	// get node from body of request
-	_ = json.NewDecoder(r.Body).Decode(&admin)
 
-	admin, err := logic.CreateAdmin(admin)
+	err := json.NewDecoder(r.Body).Decode(&admin)
+	if err != nil {
+
+		logger.Log(0, admin.UserName, "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	admin, err = logic.CreateAdmin(admin)
 
 	if err != nil {
+		logger.Log(0, admin.UserName, "failed to create admin: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -163,12 +180,17 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var user models.User
-	// get node from body of request
-	_ = json.NewDecoder(r.Body).Decode(&user)
-
-	user, err := logic.CreateUser(user)
-
+	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
+		logger.Log(0, user.UserName, "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
+	user, err = logic.CreateUser(user)
+	if err != nil {
+		logger.Log(0, user.UserName, "error creating new user: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -184,6 +206,8 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	username := params["username"]
 	user, err := GetUserInternal(username)
 	if err != nil {
+		logger.Log(0, username,
+			"failed to update user networks: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -191,11 +215,15 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, username, "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	err = logic.UpdateUserNetworks(userchange.Networks, userchange.IsAdmin, &user)
 	if err != nil {
+		logger.Log(0, username,
+			"failed to update user networks: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -211,23 +239,31 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	username := params["username"]
 	user, err := GetUserInternal(username)
 	if err != nil {
+		logger.Log(0, username,
+			"failed to update user info: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	if auth.IsOauthUser(&user) == nil {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("can not update user info for oauth user %s", username), "forbidden"))
+		err := fmt.Errorf("cannot update user info for oauth user %s", username)
+		logger.Log(0, err.Error())
+		returnErrorResponse(w, r, formatError(err, "forbidden"))
 		return
 	}
 	var userchange models.User
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, username, "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	userchange.Networks = nil
 	user, err = logic.UpdateUser(userchange, user)
 	if err != nil {
+		logger.Log(0, username,
+			"failed to update user info: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -247,18 +283,28 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if auth.IsOauthUser(&user) != nil {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("can not update user info for oauth user"), "forbidden"))
+		err := fmt.Errorf("cannot update user info for oauth user %s", username)
+		logger.Log(0, err.Error())
+		returnErrorResponse(w, r, formatError(err, "forbidden"))
 		return
 	}
 	var userchange models.User
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, username, "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
+	}
+	if !user.IsAdmin {
+		logger.Log(0, username, "not an admin user")
+		returnErrorResponse(w, r, formatError(errors.New("not a admin user"), "badrequest"))
 	}
 	user, err = logic.UpdateUser(userchange, user)
 	if err != nil {
+		logger.Log(0, username,
+			"failed to update user (admin) info: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -274,13 +320,17 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 
 	username := params["username"]
-	success, err := logic.DeleteUser(username)
 
+	success, err := logic.DeleteUser(username)
 	if err != nil {
+		logger.Log(0, username,
+			"failed to delete user: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else if !success {
-		returnErrorResponse(w, r, formatError(errors.New("delete unsuccessful"), "badrequest"))
+		err := errors.New("delete unsuccessful")
+		logger.Log(0, username, err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 

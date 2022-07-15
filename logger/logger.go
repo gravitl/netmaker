@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -34,9 +36,29 @@ func Log(verbosity int, message ...string) {
 	defer mu.Unlock()
 	var currentTime = time.Now()
 	var currentMessage = MakeString(" ", message...)
+
+	if getVerbose() >= 4 {
+		pc, file, line, ok := runtime.Caller(1)
+		if !ok {
+			file = "?"
+			line = 0
+		}
+
+		fn := runtime.FuncForPC(pc)
+		var fnName string
+		if fn == nil {
+			fnName = "?()"
+		} else {
+			fnName = strings.TrimLeft(filepath.Ext(fn.Name()), ".") + "()"
+		}
+		currentMessage = fmt.Sprintf("[%s-%d] %s: %s",
+			filepath.Base(file), line, fnName, currentMessage)
+	}
+
 	if int32(verbosity) <= getVerbose() && getVerbose() >= 0 {
 		fmt.Printf("[%s] %s %s \n", program, currentTime.Format(TimeFormat), currentMessage)
 	}
+
 	if program == "netmaker" {
 		currentLogs[currentMessage] = entry{
 			Time:  currentTime.Format("2006-01-02 15:04:05.999999999"),
