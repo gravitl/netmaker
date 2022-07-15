@@ -108,6 +108,7 @@ func FreebsdDaemon(command string) {
 
 // CleanupFreebsd - removes config files and netclient binary
 func CleanupFreebsd() {
+	RemoveFreebsdDaemon()
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
 		logger.Log(1, "Removing netclient configs: ", err.Error())
 	}

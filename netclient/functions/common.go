@@ -139,6 +139,7 @@ func Uninstall() error {
 		}
 	}
 	err = nil
+
 	// clean up OS specific stuff
 	if ncutils.IsWindows() {
 		daemon.CleanupWindows()
@@ -213,29 +214,7 @@ func LeaveNetwork(network string) error {
 		logger.Log(1, "removed ", node.Network, " network locally")
 	}
 
-	currentNets, err := ncutils.GetSystemNetworks()
-	if err != nil || len(currentNets) <= 1 {
-		daemon.Stop() // stop system daemon if last network
-		return RemoveLocalInstance(cfg, network)
-	}
 	return daemon.Restart()
-}
-
-// RemoveLocalInstance - remove all netclient files locally for a network
-func RemoveLocalInstance(cfg *config.ClientConfig, networkName string) error {
-
-	if cfg.Daemon != "off" {
-		if ncutils.IsWindows() {
-			// TODO: Remove job?
-		} else if ncutils.IsMac() {
-			//TODO: Delete mac daemon
-		} else if ncutils.IsFreeBSD() {
-			daemon.RemoveFreebsdDaemon()
-		} else {
-			daemon.RemoveSystemDServices()
-		}
-	}
-	return nil
 }
 
 // DeleteInterface - delete an interface of a network

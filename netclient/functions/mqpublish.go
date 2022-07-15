@@ -19,12 +19,10 @@ import (
 	"github.com/gravitl/netmaker/tls"
 )
 
-// pubNetworks hold the currently publishable networks
-var pubNetworks []string
-
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
 //   if there are no updates, simply "pings" the server as a checkin
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
+	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
 	for {
 		select {
@@ -33,52 +31,58 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-time.After(time.Second * 60):
-			for _, network := range pubNetworks {
-				var nodeCfg config.ClientConfig
-				nodeCfg.Network = network
-				nodeCfg.ReadConfig()
-				if nodeCfg.Node.IsStatic != "yes" {
-					extIP, err := ncutils.GetPublicIP()
-					if err != nil {
-						logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
-					}
-					if nodeCfg.Node.Endpoint != extIP && extIP != "" {
-						logger.Log(1, "endpoint has changed from ", nodeCfg.Node.Endpoint, " to ", extIP)
-						nodeCfg.Node.Endpoint = extIP
-						if err := PublishNodeUpdate(&nodeCfg); err != nil {
-							logger.Log(0, "could not publish endpoint change")
-						}
-					}
-					intIP, err := getPrivateAddr()
-					if err != nil {
-						logger.Log(1, "error encountered checking private ip addresses: ", err.Error())
-					}
-					if nodeCfg.Node.LocalAddress != intIP && intIP != "" {
-						logger.Log(1, "local Address has changed from ", nodeCfg.Node.LocalAddress, " to ", intIP)
-						nodeCfg.Node.LocalAddress = intIP
-						if err := PublishNodeUpdate(&nodeCfg); err != nil {
-							logger.Log(0, "could not publish local address change")
-						}
-					}
-					_ = UpdateLocalListenPort(&nodeCfg)
+			checkin()
+		}
+	}
+}
 
-				} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {
-					localIP, err := ncutils.GetLocalIP(nodeCfg.Node.LocalRange)
-					if err != nil {
-						logger.Log(1, "error encountered checking local ip addresses: ", err.Error())
-					}
-					if nodeCfg.Node.Endpoint != localIP && localIP != "" {
-						logger.Log(1, "endpoint has changed from "+nodeCfg.Node.Endpoint+" to ", localIP)
-						nodeCfg.Node.Endpoint = localIP
-						if err := PublishNodeUpdate(&nodeCfg); err != nil {
-							logger.Log(0, "could not publish localip change")
-						}
-					}
+func checkin() {
+	networks, _ := ncutils.GetSystemNetworks()
+	logger.Log(3, "checkin with server(s) for all networks")
+	for _, network := range networks {
+		var nodeCfg config.ClientConfig
+		nodeCfg.Network = network
+		nodeCfg.ReadConfig()
+		if nodeCfg.Node.IsStatic != "yes" {
+			extIP, err := ncutils.GetPublicIP()
+			if err != nil {
+				logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
+			}
+			if nodeCfg.Node.Endpoint != extIP && extIP != "" {
+				logger.Log(1, "endpoint has changed from ", nodeCfg.Node.Endpoint, " to ", extIP)
+				nodeCfg.Node.Endpoint = extIP
+				if err := PublishNodeUpdate(&nodeCfg); err != nil {
+					logger.Log(0, "could not publish endpoint change")
 				}
-				Hello(&nodeCfg)
-				checkCertExpiry(&nodeCfg)
+			}
+			intIP, err := getPrivateAddr()
+			if err != nil {
+				logger.Log(1, "error encountered checking private ip addresses: ", err.Error())
+			}
+			if nodeCfg.Node.LocalAddress != intIP && intIP != "" {
+				logger.Log(1, "local Address has changed from ", nodeCfg.Node.LocalAddress, " to ", intIP)
+				nodeCfg.Node.LocalAddress = intIP
+				if err := PublishNodeUpdate(&nodeCfg); err != nil {
+					logger.Log(0, "could not publish local address change")
+				}
+			}
+			_ = UpdateLocalListenPort(&nodeCfg)
+
+		} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {
+			localIP, err := ncutils.GetLocalIP(nodeCfg.Node.LocalRange)
+			if err != nil {
+				logger.Log(1, "error encountered checking local ip addresses: ", err.Error())
+			}
+			if nodeCfg.Node.Endpoint != localIP && localIP != "" {
+				logger.Log(1, "endpoint has changed from "+nodeCfg.Node.Endpoint+" to ", localIP)
+				nodeCfg.Node.Endpoint = localIP
+				if err := PublishNodeUpdate(&nodeCfg); err != nil {
+					logger.Log(0, "could not publish localip change")
+				}
 			}
 		}
+		Hello(&nodeCfg)
+		checkCertExpiry(&nodeCfg)
 	}
 }
 
