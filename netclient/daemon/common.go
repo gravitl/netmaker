@@ -35,6 +35,7 @@ func InstallDaemon() error {
 func Restart() error {
 	if ncutils.IsWindows() {
 		RestartWindowsDaemon()
+		return nil
 	}
 	pid, err := ncutils.ReadPID()
 	if err != nil {
