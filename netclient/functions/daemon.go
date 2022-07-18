@@ -272,10 +272,9 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 			} else {
 				connecterr = token.Error()
 			}
-			if connecterr != nil {
-				connecterr = checkBroker(cfg.Server.Server, cfg.Server.MQPort)
+			if err := checkBroker(cfg.Server.Server, cfg.Server.MQPort); err != nil {
+				logger.Log(0, "could not connect to broker", cfg.Server.Server, err.Error())
 			}
-			logger.Log(0, "could not connect to broker", cfg.Server.Server)
 		}
 	}
 	if connecterr != nil {
