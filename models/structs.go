@@ -149,7 +149,7 @@ type EgressGatewayRequest struct {
 	NodeID      string   `json:"nodeid" bson:"nodeid"`
 	NetID       string   `json:"netid" bson:"netid"`
 	RangeString string   `json:"rangestring" bson:"rangestring"`
-	NatEnabled  bool     `josn:"natEnabled" bson:"natEnabled"`
+	NatEnabled  bool     `json:"natEnabled" bson:"natEnabled"`
 	Ranges      []string `json:"ranges" bson:"ranges"`
 	Interface   string   `json:"interface" bson:"interface"`
 	PostUp      string   `json:"postup" bson:"postup"`
