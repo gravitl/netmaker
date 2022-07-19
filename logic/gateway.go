@@ -26,15 +26,19 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	node.IsEgressGateway = "yes"
 	node.EgressGatewayRanges = gateway.Ranges
+	node.EgressGatewayNatEnabled = gateway.NatEnabled
 	postUpCmd := ""
 	postDownCmd := ""
 	if node.OS == "linux" {
-		postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
-		postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
-		postUpCmd += "iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-		postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
-		postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
-		postDownCmd += "iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+		postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
+		postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
+		postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
+		postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT"
+
+		if node.EgressGatewayNatEnabled {
+			postUpCmd += "; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+			postDownCmd += "; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+		}
 	}
 	if node.OS == "freebsd" {
 		postUpCmd = "kldload ipfw ipfw_nat ; "
