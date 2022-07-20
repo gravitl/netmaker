@@ -20,6 +20,9 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if node.OS != "linux" && node.OS != "freebsd" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
+	if gateway.NatEnabled == "" {
+		gateway.NatEnabled = "yes"
+	}
 	err = ValidateEgressGateway(gateway)
 	if err != nil {
 		return models.Node{}, err
@@ -35,7 +38,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
 		postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT"
 
-		if node.EgressGatewayNatEnabled {
+		if node.EgressGatewayNatEnabled == "yes" {
 			postUpCmd += "; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 			postDownCmd += "; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
 		}
