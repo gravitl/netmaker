@@ -247,9 +247,10 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 func setHostDNS(dns, iface string, windows bool) error {
 	etchosts := "/etc/hosts"
 	temp := os.TempDir()
-	lockfile := temp + "netclient-lock"
+	lockfile := temp + "/netclient-lock"
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
+		lockfile = temp + "\\netclient-lock"
 	}
 	if _, err := os.Stat(lockfile); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("/etc/hosts file is locked .... aborting")
