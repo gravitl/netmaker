@@ -7,8 +7,8 @@ import (
 // Network Struct - contains info for a given unique network
 //At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
-	AddressRange        string      `json:"addressrange" bson:"addressrange" validate:"omitempty,cidr"`
-	AddressRange6       string      `json:"addressrange6" bson:"addressrange6"`
+	AddressRange        string      `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
+	AddressRange6       string      `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
 	NetID               string      `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
 	NodesLastModified   int64       `json:"nodeslastmodified" bson:"nodeslastmodified"`
 	NetworkLastModified int64       `json:"networklastmodified" bson:"networklastmodified"`
