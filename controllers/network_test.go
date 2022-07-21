@@ -223,16 +223,16 @@ func TestValidateNetwork(t *testing.T) {
 				NetID:        "skynet",
 				AddressRange: "10.0.0.256",
 			},
-			errMessage: "Field validation for 'AddressRange' failed on the 'cidr' tag",
+			errMessage: "Field validation for 'AddressRange' failed on the 'cidrv4' tag",
 		},
-		//{
-		//	testname: "InvalidAddress6",
-		//	network: models.Network{
-		//		NetID:         "skynet1",
-		//		AddressRange6: "2607::ffff/130",
-		//	},
-		//	errMessage: "Field validation for 'AddressRange6' failed on the 'cidr' tag",
-		//},
+		{
+			testname: "InvalidAddress6",
+			network: models.Network{
+				NetID:         "skynet1",
+				AddressRange6: "2607::ffff/130",
+			},
+			errMessage: "Field validation for 'AddressRange6' failed on the 'cidrv6' tag",
+		},
 		{
 			testname: "InvalidNetID",
 			network: models.Network{
@@ -287,7 +287,7 @@ func TestValidateNetwork(t *testing.T) {
 			network.SetDefaults()
 			err := logic.ValidateNetwork(&network, false)
 			assert.NotNil(t, err)
-			assert.Contains(t, err.Error(), tc.errMessage)
+			assert.Contains(t, err.Error(), tc.errMessage) // test passes if err.Error() contains the expected errMessage.
 		})
 	}
 }
