@@ -70,7 +70,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 			netmask = netmaskArr[1]
 		}
 		mask6 = netmask
-		address6 = node.Address
+		address6 = node.Address6
 	}
 	setKernelDevice(ifacename, address4, mask4, address6, mask6)
 
