@@ -141,6 +141,8 @@ sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/COREDNS_IP/$COREDNS_IP/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
+sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/docker-compose.yml
+
 
 echo "Starting containers..."
 
