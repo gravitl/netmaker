@@ -33,7 +33,39 @@ func TestCreateEgressGateway(t *testing.T) {
 		assert.Equal(t, models.Node{}, node)
 		assert.EqualError(t, err, "windows is unsupported for egress gateways")
 	})
+	t.Run("Success-Nat-Enabled", func(t *testing.T) {
+		deleteAllNodes()
+		testnode := createTestNode()
+		gateway.NodeID = testnode.ID
+		gateway.NatEnabled = "yes"
+
+		node, err := logic.CreateEgressGateway(gateway)
+		t.Log(node.EgressGatewayNatEnabled)
+		t.Log(node.PostUp)
+		t.Log(node.PostDown)
+		assert.Nil(t, err)
+		assert.Contains(t, node.PostUp, "-j MASQUERADE")
+		assert.Contains(t, node.PostDown, "-j MASQUERADE")
+	})
+	t.Run("Success-Nat-Disabled", func(t *testing.T) {
+		deleteAllNodes()
+		testnode := createTestNode()
+		gateway.NodeID = testnode.ID
+		gateway.NatEnabled = "no"
+
+		node, err := logic.CreateEgressGateway(gateway)
+		t.Log(node.EgressGatewayNatEnabled)
+		t.Log(node.PostUp)
+		t.Log(node.PostDown)
+		assert.Nil(t, err)
+		assert.NotContains(t, node.PostUp, "-j MASUERADE")
+		assert.NotContains(t, node.PostDown, "-j MASUERADE")
+	})
 	t.Run("Success", func(t *testing.T) {
+		var gateway models.EgressGatewayRequest
+		gateway.Interface = "eth0"
+		gateway.Ranges = []string{"10.100.100.0/24"}
+		gateway.NetID = "skynet"
 		deleteAllNodes()
 		testnode := createTestNode()
 		gateway.NodeID = testnode.ID
@@ -41,6 +73,8 @@ func TestCreateEgressGateway(t *testing.T) {
 		node, err := logic.CreateEgressGateway(gateway)
 		t.Log(node)
 		assert.Nil(t, err)
+		assert.Contains(t, node.PostUp, "-j MASQUERADE")
+		assert.Contains(t, node.PostDown, "-j MASQUERADE")
 		assert.Equal(t, "yes", node.IsEgressGateway)
 		assert.Equal(t, gateway.Ranges, node.EgressGatewayRanges)
 	})
