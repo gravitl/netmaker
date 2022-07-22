@@ -166,19 +166,19 @@ func LeaveNetwork(network string) error {
 	if node.IsServer != "yes" {
 		token, err := Authenticate(cfg)
 		if err != nil {
-			logger.Log(0, "unable to authenticate: "+err.Error())
+			logger.Log(0, "Network: ", cfg.Network, ". Interface: ", cfg.Node.Interface, ". Unable to authenticate: "+err.Error())
 		} else {
 			url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
 			response, err := API("", http.MethodDelete, url, token)
 			if err != nil {
-				logger.Log(0, "error deleting node on server: "+err.Error())
+				logger.Log(0, "Network: ", cfg.Network, ". Interface: ", cfg.Node.Interface, ". Error deleting node on server: "+err.Error())
 			} else {
 				if response.StatusCode == http.StatusOK {
-					logger.Log(0, "deleted node", cfg.Node.Name, " on network ", cfg.Network)
+					logger.Log(0, "Network: ", cfg.Network, ". Interface: ", cfg.Node.Interface, ". deleted node", cfg.Node.Name, ".")
 				} else {
 					bodybytes, _ := io.ReadAll(response.Body)
 					defer response.Body.Close()
-					logger.Log(0, fmt.Sprintf("error deleting node on server %s %s", response.Status, string(bodybytes)))
+					logger.Log(0, fmt.Sprintf("Network: %s. Interface: %s . error deleting node on server %s %s", cfg.Network, cfg.Node.Interface, response.Status, string(bodybytes)))
 				}
 			}
 		}
