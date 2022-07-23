@@ -203,13 +203,13 @@ func LeaveNetwork(network string) error {
 				local.RemoveCIDRRoute(removeIface, queryAddr, cidr)
 			}
 		} else {
-			logger.Log(1, "could not flush peer routes when leaving network, ", cfg.Node.Network)
+			logger.Log(1, "Could not flush peer routes when leaving network, ", cfg.Node.Network)
 		}
 	}
 
 	err = WipeLocal(node.Network)
 	if err != nil {
-		logger.Log(1, "unable to wipe local config")
+		logger.Log(1, "Network: ", node.Network, " unable to wipe local config")
 	} else {
 		logger.Log(1, "removed ", node.Network, " network locally")
 	}
@@ -232,7 +232,7 @@ func WipeLocal(network string) error {
 	ifacename := nodecfg.Interface
 	if ifacename != "" {
 		if err = wireguard.RemoveConf(ifacename, true); err == nil {
-			logger.Log(1, "removed WireGuard interface: ", ifacename)
+			logger.Log(1, "Network: ", nodecfg.Network, " removed WireGuard interface: ", ifacename)
 		} else if strings.Contains(err.Error(), "does not exist") {
 			err = nil
 		}
@@ -398,8 +398,8 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 
 func informPortChange(node *models.Node) {
 	if node.ListenPort == 0 {
-		logger.Log(0, "UDP hole punching enabled for node", node.Name)
+		logger.Log(0, "Network: ", node.Network, ". Interface: ", node.Interface, ". UDP hole punching enabled for node", node.Name)
 	} else {
-		logger.Log(0, "node", node.Name, "is using port", strconv.Itoa(int(node.ListenPort)))
+		logger.Log(0, "Network: ", node.Network, ". Interface: ", node.Interface, "node", node.Name, "is using port", strconv.Itoa(int(node.ListenPort)))
 	}
 }

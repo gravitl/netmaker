@@ -34,16 +34,16 @@ func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 	var err error
 	localPort, err := GetLocalListenPort(nodeCfg.Node.Interface)
 	if err != nil {
-		logger.Log(1, "error encountered checking local listen port for interface : ", nodeCfg.Node.Interface, err.Error())
+		logger.Log(1, "Network: ", nodeCfg.Node.Network, ". ", "error encountered checking local listen port for interface : ", nodeCfg.Node.Interface, err.Error())
 	} else if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
-		logger.Log(1, "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
+		logger.Log(1, "Network: ", nodeCfg.Node.Network, ". ", "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
 		nodeCfg.Node.LocalListenPort = localPort
 		err = config.ModNodeConfig(&nodeCfg.Node)
 		if err != nil {
 			return err
 		}
 		if err := PublishNodeUpdate(nodeCfg); err != nil {
-			logger.Log(0, "could not publish local port change")
+			logger.Log(0, "Network: ", nodeCfg.Node.Network, ". ", "could not publish local port change")
 		}
 	}
 	return err
