@@ -53,7 +53,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	insert(newNode.Network, lastNodeUpdate, string(data)) // store new message in cache
-	logger.Log(0,"Network: ", newNode.Network, "received message to update node "+newNode.Name)
+	logger.Log(0, "Network: ", newNode.Network, "received message to update node "+newNode.Name)
 
 	// ensure that OS never changes
 	newNode.OS = runtime.GOOS
@@ -98,7 +98,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	// Save new config
 	nodeCfg.Node.Action = models.NODE_NOOP
 	if err := config.Write(&nodeCfg, nodeCfg.Network); err != nil {
-		logger.Log(0, nodeCfg.Node.Network "error updating node configuration: ", err.Error())
+		logger.Log(0, nodeCfg.Node.Network, " error updating node configuration: ", err.Error())
 	}
 	nameserver := nodeCfg.Server.CoreDNSAddr
 	privateKey, err := wireguard.RetrievePrivKey(newNode.Network)
@@ -115,7 +115,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 			err = ncutils.ModPort(&newNode)
 			if err != nil {
-				logger.Log(0,"Network: ", nodeCfg.Node.Network, " error modifying node port on", newNode.Name, "-", err.Error())
+				logger.Log(0, "Network: ", nodeCfg.Node.Network, " error modifying node port on", newNode.Name, "-", err.Error())
 				return
 			}
 			informPortChange(&newNode)
@@ -150,7 +150,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		if doneErr != nil {
 			logger.Log(0, "Network: ", nodeCfg.Node.Network, " could not notify server to update peers after interface change")
 		} else {
-			logger.Log(0,"Network: ", nodeCfg.Node.Network " signalled finished interface update to server")
+			logger.Log(0, "Network: ", nodeCfg.Node.Network, " signalled finished interface update to server")
 		}
 	} else if hubChange {
 		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
@@ -162,7 +162,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	}
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
-		logger.Log(0, "Network: ", nodeCfg.Node>network, " settng DNS off")
+		logger.Log(0, "Network: ", nodeCfg.Node > network, " settng DNS off")
 		if err := removeHostDNS(nodeCfg.Node.Interface, ncutils.IsWindows()); err != nil {
 			logger.Log(0, "Network: ", nodeCfg.Node.Network, " error removing netmaker profile from /etc/hosts "+err.Error())
 		}
