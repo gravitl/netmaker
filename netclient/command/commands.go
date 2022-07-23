@@ -113,7 +113,7 @@ func Pull(cfg *config.ClientConfig) error {
 			daemon.Restart()
 		}
 	}
-	logger.Log(1, "reset network and peer configs")
+	logger.Log(1, "reset network", cfg.Network, " and peer configs")
 
 	return err
 }
