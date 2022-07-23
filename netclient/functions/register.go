@@ -94,7 +94,7 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	if err := tls.SaveCertToFile(ncutils.GetNetclientServerPath(cfg.Server.Server)+ncutils.GetSeparator(), "client.pem", &resp.Cert); err != nil {
 		return err
 	}
-	logger.Log(0, "Network: ", cfg.Network, "certificates/key saved ")
+	logger.Log(0, "network:", cfg.Network, "certificates/key saved ")
 	//join the network defined in the token
 	return nil
 }

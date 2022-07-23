@@ -49,18 +49,18 @@ func checkin() {
 				logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
 			}
 			if nodeCfg.Node.Endpoint != extIP && extIP != "" {
-				logger.Log(1, "Network: ", nodeCfg.Node.Network, " endpoint has changed from ", nodeCfg.Node.Endpoint, " to ", extIP)
+				logger.Log(1, "network:", nodeCfg.Node.Network, "endpoint has changed from ", nodeCfg.Node.Endpoint, " to ", extIP)
 				nodeCfg.Node.Endpoint = extIP
 				if err := PublishNodeUpdate(&nodeCfg); err != nil {
-					logger.Log(0, "Network: ", nodeCfg.Node.Network, " could not publish endpoint change")
+					logger.Log(0, "network:", nodeCfg.Node.Network, "could not publish endpoint change")
 				}
 			}
 			intIP, err := getPrivateAddr()
 			if err != nil {
-				logger.Log(1, "Network: ", nodeCfg.Node.Network, " error encountered checking private ip addresses: ", err.Error())
+				logger.Log(1, "network:", nodeCfg.Node.Network, "error encountered checking private ip addresses: ", err.Error())
 			}
 			if nodeCfg.Node.LocalAddress != intIP && intIP != "" {
-				logger.Log(1, "Network: ", nodeCfg.Node.Network, " local Address has changed from ", nodeCfg.Node.LocalAddress, " to ", intIP)
+				logger.Log(1, "network:", nodeCfg.Node.Network, "local Address has changed from ", nodeCfg.Node.LocalAddress, " to ", intIP)
 				nodeCfg.Node.LocalAddress = intIP
 				if err := PublishNodeUpdate(&nodeCfg); err != nil {
 					logger.Log(0, "Network: ", nodeCfg.Node.Network, " could not publish local address change")
@@ -71,13 +71,13 @@ func checkin() {
 		} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {
 			localIP, err := ncutils.GetLocalIP(nodeCfg.Node.LocalRange)
 			if err != nil {
-				logger.Log(1, "Network: ", nodeCfg.Node.Network, " error encountered checking local ip addresses: ", err.Error())
+				logger.Log(1, "network:", nodeCfg.Node.Network, "error encountered checking local ip addresses: ", err.Error())
 			}
 			if nodeCfg.Node.Endpoint != localIP && localIP != "" {
-				logger.Log(1, "Network: ", nodeCfg.Node.Network, " endpoint has changed from "+nodeCfg.Node.Endpoint+" to ", localIP)
+				logger.Log(1, "network:", nodeCfg.Node.Network, "endpoint has changed from "+nodeCfg.Node.Endpoint+" to ", localIP)
 				nodeCfg.Node.Endpoint = localIP
 				if err := PublishNodeUpdate(&nodeCfg); err != nil {
-					logger.Log(0, "Network: ", nodeCfg.Node.Network, " could not publish localip change")
+					logger.Log(0, "network:", nodeCfg.Node.Network, "could not publish localip change")
 				}
 			}
 		}
@@ -99,7 +99,7 @@ func PublishNodeUpdate(nodeCfg *config.ClientConfig) error {
 		return err
 	}
 
-	logger.Log(0, "Network: ", nodeCfg.Node.Network, " sent a node update to server for node", nodeCfg.Node.Name, ", ", nodeCfg.Node.ID)
+	logger.Log(0, "network:", nodeCfg.Node.Network, "sent a node update to server for node", nodeCfg.Node.Name, ", ", nodeCfg.Node.ID)
 	return nil
 }
 

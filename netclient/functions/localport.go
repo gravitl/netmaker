@@ -35,9 +35,9 @@ func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 	ifacename := getRealIface(nodeCfg.Node.Interface, nodeCfg.Node.Address)
 	localPort, err := GetLocalListenPort(ifacename)
 	if err != nil {
-		logger.Log(1, "Network: ", nodeCfg.Node.Network, "error encountered checking local listen port: ", ifacename, err.Error())
+		logger.Log(1, "network:", nodeCfg.Node.Network, "error encountered checking local listen port: ", ifacename, err.Error())
 	} else if nodeCfg.Node.LocalListenPort != localPort && localPort != 0 {
-		logger.Log(1, "Network: ", nodeCfg.Node.Network, "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
+		logger.Log(1, "network:", nodeCfg.Node.Network, "local port has changed from ", strconv.Itoa(int(nodeCfg.Node.LocalListenPort)), " to ", strconv.Itoa(int(localPort)))
 		nodeCfg.Node.LocalListenPort = localPort
 		err = config.ModNodeConfig(&nodeCfg.Node)
 		if err != nil {

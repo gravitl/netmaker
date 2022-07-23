@@ -134,7 +134,7 @@ func Uninstall() error {
 		for _, network := range networks {
 			err = LeaveNetwork(network)
 			if err != nil {
-				logger.Log(1, "Encounter issue leaving network ", network, ": ", err.Error())
+				logger.Log(1, "encounter issue leaving network", network, ":", err.Error())
 			}
 		}
 	}
@@ -166,19 +166,19 @@ func LeaveNetwork(network string) error {
 	if node.IsServer != "yes" {
 		token, err := Authenticate(cfg)
 		if err != nil {
-			logger.Log(0, "Network: ", cfg.Network, "Unable to authenticate: "+err.Error())
+			logger.Log(0, "network:", cfg.Network, "Unable to authenticate: "+err.Error())
 		} else {
 			url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
 			response, err := API("", http.MethodDelete, url, token)
 			if err != nil {
-				logger.Log(0, "Network: ", cfg.Network, "Error deleting node on server: "+err.Error())
+				logger.Log(0, "network:", cfg.Network, "Error deleting node on server: "+err.Error())
 			} else {
 				if response.StatusCode == http.StatusOK {
-					logger.Log(0, "Network: ", cfg.Network, "deleted node", cfg.Node.Name, ".")
+					logger.Log(0, "network:", cfg.Network, "deleted node", cfg.Node.Name, ".")
 				} else {
 					bodybytes, _ := io.ReadAll(response.Body)
 					defer response.Body.Close()
-					logger.Log(0, fmt.Sprintf("Network: %s error deleting node on server %s %s", cfg.Network, response.Status, string(bodybytes)))
+					logger.Log(0, fmt.Sprintf("network: %s error deleting node on server %s %s", cfg.Network, response.Status, string(bodybytes)))
 				}
 			}
 		}
@@ -203,15 +203,15 @@ func LeaveNetwork(network string) error {
 				local.RemoveCIDRRoute(removeIface, queryAddr, cidr)
 			}
 		} else {
-			logger.Log(1, "Could not flush peer routes when leaving network, ", cfg.Node.Network)
+			logger.Log(1, "could not flush peer routes when leaving network,", cfg.Node.Network)
 		}
 	}
 
 	err = WipeLocal(node.Network)
 	if err != nil {
-		logger.Log(1, "Network: ", node.Network, " unable to wipe local config")
+		logger.Log(1, "network:", node.Network, "unable to wipe local config")
 	} else {
-		logger.Log(1, "removed ", node.Network, " network locally")
+		logger.Log(1, "removed", node.Network, "network locally")
 	}
 
 	return daemon.Restart()
@@ -232,7 +232,7 @@ func WipeLocal(network string) error {
 	ifacename := nodecfg.Interface
 	if ifacename != "" {
 		if err = wireguard.RemoveConf(ifacename, true); err == nil {
-			logger.Log(1, "Network: ", nodecfg.Network, "removed WireGuard interface: ", ifacename)
+			logger.Log(1, "network:", nodecfg.Network, "removed WireGuard interface: ", ifacename)
 		} else if strings.Contains(err.Error(), "does not exist") {
 			err = nil
 		}
@@ -398,8 +398,8 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 
 func informPortChange(node *models.Node) {
 	if node.ListenPort == 0 {
-		logger.Log(0, "Network: ", node.Network, "UDP hole punching enabled for node", node.Name)
+		logger.Log(0, "network:", node.Network, "UDP hole punching enabled for node", node.Name)
 	} else {
-		logger.Log(0, "Network: ", node.Network, "node", node.Name, "is using port", strconv.Itoa(int(node.ListenPort)))
+		logger.Log(0, "network:", node.Network, "node", node.Name, "is using port", strconv.Itoa(int(node.ListenPort)))
 	}
 }

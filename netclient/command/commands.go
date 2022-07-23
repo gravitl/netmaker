@@ -43,7 +43,7 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 		}
 		return err
 	}
-	logger.Log(1, "joined ", cfg.Network)
+	logger.Log(1, "joined", cfg.Network)
 
 	return err
 }
@@ -85,7 +85,7 @@ func Pull(cfg *config.ClientConfig) error {
 
 		_, err = functions.Pull(network, true)
 		if err != nil {
-			logger.Log(1, "Error pulling network config for network: ", network, "\n", err.Error())
+			logger.Log(1, "error pulling network config for network: ", network, "\n", err.Error())
 		} else {
 			logger.Log(1, "pulled network config for "+network)
 		}
@@ -113,7 +113,7 @@ func Pull(cfg *config.ClientConfig) error {
 			daemon.Restart()
 		}
 	}
-	logger.Log(1, "reset network", cfg.Network, " and peer configs")
+	logger.Log(1, "reset network", cfg.Network, "and peer configs")
 
 	return err
 }

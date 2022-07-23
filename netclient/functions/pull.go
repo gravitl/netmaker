@@ -90,7 +90,7 @@ func Pull(network string, iface bool) (*models.Node, error) {
 	}
 	var bkupErr = config.SaveBackup(network)
 	if bkupErr != nil {
-		logger.Log(0, "unable to update backup file for ", network)
+		logger.Log(0, "unable to update backup file for", network)
 	}
 
 	return &resNode, err
