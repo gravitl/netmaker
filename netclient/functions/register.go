@@ -80,7 +80,7 @@ func RegisterWithServer(private *ed25519.PrivateKey, cfg *config.ClientConfig) e
 	}
 	if modServer {
 		if err = config.ModServerConfig(&cfg.Server, cfg.Node.Network); err != nil {
-			logger.Log(0, "Network: ", cfg.Node.Network, "error overwriting config with broker information: "+err.Error())
+			logger.Log(0, "network:", cfg.Node.Network, "error overwriting config with broker information: "+err.Error())
 		}
 	}
 

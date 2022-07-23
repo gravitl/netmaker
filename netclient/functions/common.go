@@ -166,12 +166,12 @@ func LeaveNetwork(network string) error {
 	if node.IsServer != "yes" {
 		token, err := Authenticate(cfg)
 		if err != nil {
-			logger.Log(0, "network:", cfg.Network, "Unable to authenticate: "+err.Error())
+			logger.Log(0, "network:", cfg.Network, "unable to authenticate: "+err.Error())
 		} else {
 			url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
 			response, err := API("", http.MethodDelete, url, token)
 			if err != nil {
-				logger.Log(0, "network:", cfg.Network, "Error deleting node on server: "+err.Error())
+				logger.Log(0, "network:", cfg.Network, "error deleting node on server: "+err.Error())
 			} else {
 				if response.StatusCode == http.StatusOK {
 					logger.Log(0, "network:", cfg.Network, "deleted node", cfg.Node.Name, ".")
