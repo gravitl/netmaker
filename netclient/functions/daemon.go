@@ -110,19 +110,19 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 
 // UpdateKeys -- updates private key and returns new publickey
 func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
-	logger.Log(0, "received message to update wireguard keys for network ", nodeCfg.Network)
+	logger.Log(0, "interface:", nodeCfg.Node.Interface, "received message to update wireguard keys for network ", nodeCfg.Network)
 	key, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
-		logger.Log(0, "error generating privatekey ", err.Error())
+		logger.Log(0, "network:", nodeCfg.Node.Network, "error generating privatekey ", err.Error())
 		return err
 	}
 	file := ncutils.GetNetclientPathSpecific() + nodeCfg.Node.Interface + ".conf"
 	if err := wireguard.UpdatePrivateKey(file, key.String()); err != nil {
-		logger.Log(0, "error updating wireguard key ", err.Error())
+		logger.Log(0, "network:", nodeCfg.Node.Network, "error updating wireguard key ", err.Error())
 		return err
 	}
 	if storeErr := wireguard.StorePrivKey(key.String(), nodeCfg.Network); storeErr != nil {
-		logger.Log(0, "failed to save private key", storeErr.Error())
+		logger.Log(0, "network:", nodeCfg.Network, "failed to save private key", storeErr.Error())
 		return storeErr
 	}
 
@@ -138,15 +138,15 @@ func UpdateKeys(nodeCfg *config.ClientConfig, client mqtt.Client) error {
 func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 	if token := client.Subscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(NodeUpdate)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
 		if token.Error() == nil {
-			logger.Log(0, "connection timeout")
+			logger.Log(0, "network:", nodeCfg.Node.Network, "connection timeout")
 		} else {
-			logger.Log(0, token.Error().Error())
+			logger.Log(0, "network:", nodeCfg.Node.Network, token.Error().Error())
 		}
 		return
 	}
 	logger.Log(3, fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", nodeCfg.Node.Name, nodeCfg.Node.Network, nodeCfg.Node.ID))
 	if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
-		logger.Log(0, token.Error().Error())
+		logger.Log(0, "network", nodeCfg.Node.Network, token.Error().Error())
 		return
 	}
 	logger.Log(3, fmt.Sprintf("subscribed to peer updates for node %s peers/%s/%s", nodeCfg.Node.Name, nodeCfg.Node.Network, nodeCfg.Node.ID))
@@ -159,22 +159,22 @@ func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 	var ok = true
 	if token := client.Unsubscribe(fmt.Sprintf("update/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
 		if token.Error() == nil {
-			logger.Log(1, "unable to unsubscribe from updates for node ", nodeCfg.Node.Name, "\n", "connection timeout")
+			logger.Log(1, "network:", nodeCfg.Node.Network, "unable to unsubscribe from updates for node ", nodeCfg.Node.Name, "\n", "connection timeout")
 		} else {
-			logger.Log(1, "unable to unsubscribe from updates for node ", nodeCfg.Node.Name, "\n", token.Error().Error())
+			logger.Log(1, "network:", nodeCfg.Node.Network, "unable to unsubscribe from updates for node ", nodeCfg.Node.Name, "\n", token.Error().Error())
 		}
 		ok = false
 	}
 	if token := client.Unsubscribe(fmt.Sprintf("peers/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
 		if token.Error() == nil {
-			logger.Log(1, "unable to unsubscribe from peer updates for node ", nodeCfg.Node.Name, "\n", "connection timeout")
+			logger.Log(1, "network:", nodeCfg.Node.Network, "unable to unsubscribe from peer updates for node", nodeCfg.Node.Name, "\n", "connection timeout")
 		} else {
-			logger.Log(1, "unable to unsubscribe from peer updates for node ", nodeCfg.Node.Name, "\n", token.Error().Error())
+			logger.Log(1, "network:", nodeCfg.Node.Network, "unable to unsubscribe from peer updates for node", nodeCfg.Node.Name, "\n", token.Error().Error())
 		}
 		ok = false
 	}
 	if ok {
-		logger.Log(1, "successfully unsubscribed node ", nodeCfg.Node.ID, " : ", nodeCfg.Node.Name)
+		logger.Log(1, "network:", nodeCfg.Node.Network, "successfully unsubscribed node ", nodeCfg.Node.ID, " : ", nodeCfg.Node.Name)
 	}
 }
 
@@ -182,7 +182,7 @@ func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 // the client should subscribe to ALL nodes that exist on server locally
 func messageQueue(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientConfig) {
 	defer wg.Done()
-	logger.Log(0, "netclient message queue started for server: ", cfg.Server.Server)
+	logger.Log(0, "network:", cfg.Node.Network, "netclient message queue started for server:", cfg.Server.Server)
 	client, err := setupMQTT(cfg, false)
 	if err != nil {
 		logger.Log(0, "unable to connect to broker", cfg.Server.Server, err.Error())
@@ -190,7 +190,7 @@ func messageQueue(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientCon
 	}
 	defer client.Disconnect(250)
 	<-ctx.Done()
-	logger.Log(0, "shutting down message queue for server ", cfg.Server.Server)
+	logger.Log(0, "shutting down message queue for server", cfg.Server.Server)
 }
 
 // NewTLSConf sets up tls configuration to connect to broker securely
@@ -199,7 +199,7 @@ func NewTLSConfig(server string) (*tls.Config, error) {
 	certpool := x509.NewCertPool()
 	ca, err := os.ReadFile(file)
 	if err != nil {
-		logger.Log(0, "could not read CA file ", err.Error())
+		logger.Log(0, "could not read CA file", err.Error())
 	}
 	ok := certpool.AppendCertsFromPEM(ca)
 	if !ok {
@@ -207,7 +207,7 @@ func NewTLSConfig(server string) (*tls.Config, error) {
 	}
 	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+ncutils.GetSeparator()+"client.pem", ncutils.GetNetclientPath()+ncutils.GetSeparator()+"client.key")
 	if err != nil {
-		logger.Log(0, "could not read client cert/key ", err.Error())
+		logger.Log(0, "could not read client cert/key", err.Error())
 		return nil, err
 	}
 	certs := []tls.Certificate{clientKeyPair}
@@ -246,7 +246,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 		if !publish {
 			networks, err := ncutils.GetSystemNetworks()
 			if err != nil {
-				logger.Log(0, "error retriving networks ", err.Error())
+				logger.Log(0, "error retriving networks", err.Error())
 			}
 			for _, network := range networks {
 				var currNodeCfg config.ClientConfig
@@ -259,7 +259,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts.SetOrderMatters(true)
 	opts.SetResumeSubs(true)
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		logger.Log(0, "detected broker connection lost for", cfg.Server.Server)
+		logger.Log(0, "network:", cfg.Node.Network, "detected broker connection lost for", cfg.Server.Server)
 	})
 	client := mqtt.NewClient(opts)
 	var connecterr error
