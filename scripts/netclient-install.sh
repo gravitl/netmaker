@@ -116,7 +116,7 @@ dist=netclient
 echo "OS Version = $(uname)"
 echo "Netclient Version = $VERSION"
 
-case $(uname | tr '[:upper:]' '[:lower:]') in
+case $(uname | tr A-Z a-z) in
 	linux*)
 		if [ -z "$CPU_ARCH" ]; then
 			CPU_ARCH=$(uname -m)
