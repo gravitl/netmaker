@@ -6,7 +6,7 @@ token=$1
 
 token_json=$(echo $token | base64 -d)
 
-api_addr=$(echo $token_json | jq -r '.apiconn')
+api_addr=$(echo $token_json | jq -r '.apiconnstring')
 network=$(echo $token_json | jq -r '.network')
 key=$(echo $token_json | jq -r '.key')
 
