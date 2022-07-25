@@ -38,7 +38,7 @@ elif [ "${OS}" = "FreeBSD" ]; then
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/openwrt_release ]; then
-	dependencies="wireguard-tools"
+	dependencies="wireguard-tools bash"
 	OS="OpenWRT"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
