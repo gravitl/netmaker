@@ -79,7 +79,7 @@ NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-EMAIL="fake@email.com"
+EMAIL="$(echo $RANDOM | md5sum  | head -c 32)@email.com"
 
 if [ -n "$domain" ]; then
   NETMAKER_BASE_DOMAIN=$domain
@@ -146,12 +146,6 @@ docker-compose -f /root/docker-compose.yml up -d
 
 cat << "EOF"
 
-
-    ______     ______     ______     __   __   __     ______   __                        
-   /\  ___\   /\  == \   /\  __ \   /\ \ / /  /\ \   /\__  _\ /\ \                       
-   \ \ \__ \  \ \  __<   \ \  __ \  \ \ \'/   \ \ \  \/_/\ \/ \ \ \____                  
-    \ \_____\  \ \_\ \_\  \ \_\ \_\  \ \__|    \ \_\    \ \_\  \ \_____\                 
-     \/_____/   \/_/ /_/   \/_/\/_/   \/_/      \/_/     \/_/   \/_____/                 
                                                                                          
  __   __     ______     ______   __    __     ______     __  __     ______     ______    
 /\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \   
@@ -234,8 +228,7 @@ SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 EGRESS_JSON=$( jq -n \
                   --arg gw "$GATEWAY_IFACE" \
-                  '{ranges: ["0.0.0.0/0"], interface: $gw}' )
-
+                  '{ranges: ["0.0.0.0/5","8.0.0.0/7","11.0.0.0/8","12.0.0.0/6","16.0.0.0/4","32.0.0.0/3","64.0.0.0/2","128.0.0.0/3","160.0.0.0/5","168.0.0.0/6","172.0.0.0/12","172.32.0.0/11","172.64.0.0/10","172.128.0.0/9","173.0.0.0/8","174.0.0.0/7","176.0.0.0/4","192.0.0.0/9","192.128.0.0/11","192.160.0.0/13","192.169.0.0/16","192.170.0.0/15","192.172.0.0/14","192.176.0.0/12","192.192.0.0/10","193.0.0.0/8","194.0.0.0/7","196.0.0.0/6","200.0.0.0/5","208.0.0.0/4"], interface: $gw}' )
 
 echo "egress json: $EGRESS_JSON"
 curl -s -o /dev/null -X POST -d "$EGRESS_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn/$SERVER_ID/creategateway

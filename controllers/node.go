@@ -51,16 +51,20 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	if decoderErr != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = decoderErr.Error()
+		logger.Log(0, request.Header.Get("user"), "error decoding request body: ",
+			decoderErr.Error())
 		returnErrorResponse(response, request, errorResponse)
 		return
 	} else {
 		errorResponse.Code = http.StatusBadRequest
 		if authRequest.ID == "" {
 			errorResponse.Message = "W1R3: ID can't be empty"
+			logger.Log(0, request.Header.Get("user"), errorResponse.Message)
 			returnErrorResponse(response, request, errorResponse)
 			return
 		} else if authRequest.Password == "" {
 			errorResponse.Message = "W1R3: Password can't be empty"
+			logger.Log(0, request.Header.Get("user"), errorResponse.Message)
 			returnErrorResponse(response, request, errorResponse)
 			return
 		} else {
@@ -70,6 +74,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			if err != nil {
 				errorResponse.Code = http.StatusBadRequest
 				errorResponse.Message = err.Error()
+				logger.Log(0, request.Header.Get("user"),
+					fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
 				returnErrorResponse(response, request, errorResponse)
 				return
 			}
@@ -78,14 +84,18 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			if err != nil {
 				errorResponse.Code = http.StatusBadRequest
 				errorResponse.Message = err.Error()
+				logger.Log(0, request.Header.Get("user"),
+					"error validating user password: ", err.Error())
 				returnErrorResponse(response, request, errorResponse)
 				return
 			} else {
-				tokenString, _ := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
+				tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
 
 				if tokenString == "" {
 					errorResponse.Code = http.StatusBadRequest
 					errorResponse.Message = "Could not create Token"
+					logger.Log(0, request.Header.Get("user"),
+						fmt.Sprintf("%s: %v", errorResponse.Message, err))
 					returnErrorResponse(response, request, errorResponse)
 					return
 				}
@@ -103,6 +113,8 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				if jsonError != nil {
 					errorResponse.Code = http.StatusBadRequest
 					errorResponse.Message = err.Error()
+					logger.Log(0, request.Header.Get("user"),
+						"error marshalling resp: ", err.Error())
 					returnErrorResponse(response, request, errorResponse)
 					return
 				}
@@ -301,6 +313,8 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	nodes, err := logic.GetNetworkNodes(networkName)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching nodes on network %s: %v", networkName, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -317,6 +331,8 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil && r.Header.Get("ismasterkey") != "yes" {
+		logger.Log(0, r.Header.Get("user"),
+			"error fetching user info: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -324,12 +340,15 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	if user.IsAdmin || r.Header.Get("ismasterkey") == "yes" {
 		nodes, err = logic.GetAllNodes()
 		if err != nil {
+			logger.Log(0, "error fetching all nodes info: ", err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
 	} else {
 		nodes, err = getUsersNodes(user)
 		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				"error fetching nodes: ", err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -359,15 +378,19 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-
-	node, err := logic.GetNodeByID(params["nodeid"])
+	nodeid := params["nodeid"]
+	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	peerUpdate, err := logic.GetPeerUpdate(&node)
 	if err != nil && !database.IsEmptyRecord(err) {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -392,8 +415,11 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-	network, err := logic.GetNetwork(params["network"])
+	networkName := params["network"]
+	network, err := logic.GetNetwork(networkName)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching network [%s] info: %v", networkName, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -414,12 +440,16 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	networkexists, err := functions.NetworkExists(networkName)
 
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to fetch network [%s] info: %v", networkName, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	} else if !networkexists {
 		errorResponse = models.ErrorResponse{
 			Code: http.StatusNotFound, Message: "W1R3: Network does not exist! ",
 		}
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("network [%s] does not exist", networkName))
 		returnErrorResponse(w, r, errorResponse)
 		return
 	}
@@ -429,7 +459,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	//get node from body of request
 	err = json.NewDecoder(r.Body).Decode(&node)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
@@ -437,11 +468,15 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	network, err := logic.GetNetworkByNode(&node)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get network [%s] info: %v", node.Network, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get network [%s] settings: %v", node.Network, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -455,6 +490,9 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			errorResponse = models.ErrorResponse{
 				Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
 			}
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to create node on network [%s]: %s",
+					node.Network, errorResponse.Message))
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
@@ -482,12 +520,17 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 
 	err = logic.CreateNode(&node)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create node on network [%s]: %s",
+				node.Network, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	peerUpdate, err := logic.GetPeerUpdate(&node)
 	if err != nil && !database.IsEmptyRecord(err) {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", node.ID, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -512,6 +555,8 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 	var nodeid = params["nodeid"]
 	node, err := logic.UncordonNode(nodeid)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to uncordon node [%s]: %v", node.Name, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -530,13 +575,17 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewDecoder(r.Body).Decode(&gateway)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["nodeid"]
 	node, err := logic.CreateEgressGateway(gateway)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
+				gateway.NodeID, gateway.NetID, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -555,11 +604,14 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	netid := params["network"]
 	node, err := logic.DeleteEgressGateway(netid, nodeid)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete egress gateway on node [%s] on network [%s]: %v",
+				nodeid, netid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
-	logger.Log(1, r.Header.Get("user"), "deleted egress gateway", nodeid, "on network", netid)
+	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)
 
@@ -575,6 +627,9 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	netid := params["network"]
 	node, err := logic.CreateIngressGateway(netid, nodeid)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create ingress gateway on node [%s] on network [%s]: %v",
+				nodeid, netid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -590,8 +645,12 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
-	node, err := logic.DeleteIngressGateway(params["network"], nodeid)
+	netid := params["network"]
+	node, err := logic.DeleteIngressGateway(netid, nodeid)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
+				nodeid, netid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -610,8 +669,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	var node models.Node
 	//start here
-	node, err := logic.GetNodeByID(params["nodeid"])
+	nodeid := params["nodeid"]
+	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -620,6 +682,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&newNode)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -666,6 +729,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	err = logic.UpdateNode(&node, &newNode)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -703,11 +768,16 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	var nodeid = params["nodeid"]
 	var node, err = logic.GetNodeByID(nodeid)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	if isServer(&node) {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot delete server node"), "badrequest"))
+		err := fmt.Errorf("cannot delete server node")
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete node [ %s ]: %v", nodeid, err))
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent

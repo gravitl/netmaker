@@ -2,6 +2,9 @@ package functions
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -22,7 +25,7 @@ import (
 // All -- mqtt message hander for all ('#') topics
 var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "default message handler -- received message but not handling")
-	logger.Log(0, "Topic: "+string(msg.Topic()))
+	logger.Log(0, "topic: "+string(msg.Topic()))
 	//logger.Log(0, "Message: " + string(msg.Payload()))
 }
 
@@ -50,7 +53,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	insert(newNode.Network, lastNodeUpdate, string(data)) // store new message in cache
-	logger.Log(0, "received message to update node "+newNode.Name)
+	logger.Log(0, "network:", newNode.Network, "received message to update node "+newNode.Name)
 
 	// ensure that OS never changes
 	newNode.OS = runtime.GOOS
@@ -63,7 +66,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	nodeCfg.Node = newNode
 	switch newNode.Action {
 	case models.NODE_DELETE:
-		logger.Log(0, "received delete request for %s", nodeCfg.Node.Name)
+		logger.Log(0, "network:", nodeCfg.Node.Network, " received delete request for %s", nodeCfg.Node.Name)
 		unsubscribeNode(client, &nodeCfg)
 		if err = LeaveNetwork(nodeCfg.Node.Network); err != nil {
 			if !strings.Contains("rpc error", err.Error()) {
@@ -71,7 +74,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		}
-		logger.Log(0, nodeCfg.Node.Name, " was removed")
+		logger.Log(0, nodeCfg.Node.Name, "was removed from network", nodeCfg.Node.Network)
 		return
 	case models.NODE_UPDATE_KEY:
 		// == get the current key for node ==
@@ -95,7 +98,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	// Save new config
 	nodeCfg.Node.Action = models.NODE_NOOP
 	if err := config.Write(&nodeCfg, nodeCfg.Network); err != nil {
-		logger.Log(0, "error updating node configuration: ", err.Error())
+		logger.Log(0, nodeCfg.Node.Network, "error updating node configuration: ", err.Error())
 	}
 	nameserver := nodeCfg.Server.CoreDNSAddr
 	privateKey, err := wireguard.RetrievePrivKey(newNode.Network)
@@ -112,7 +115,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 			}
 			err = ncutils.ModPort(&newNode)
 			if err != nil {
-				logger.Log(0, "error modifying node port on", newNode.Name, "-", err.Error())
+				logger.Log(0, "network:", nodeCfg.Node.Network, "error modifying node port on", newNode.Name, "-", err.Error())
 				return
 			}
 			informPortChange(&newNode)
@@ -145,23 +148,23 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 		//	}
 		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
 		if doneErr != nil {
-			logger.Log(0, "could not notify server to update peers after interface change")
+			logger.Log(0, "network:", nodeCfg.Node.Network, "could not notify server to update peers after interface change")
 		} else {
-			logger.Log(0, "signalled finished interface update to server")
+			logger.Log(0, "network:", nodeCfg.Node.Network, "signalled finished interface update to server")
 		}
 	} else if hubChange {
 		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
 		if doneErr != nil {
-			logger.Log(0, "could not notify server to update peers after hub change")
+			logger.Log(0, "network:", nodeCfg.Node.Network, "could not notify server to update peers after hub change")
 		} else {
-			logger.Log(0, "signalled finished hub update to server")
+			logger.Log(0, "network:", nodeCfg.Node.Network, "signalled finished hub update to server")
 		}
 	}
 	//deal with DNS
 	if newNode.DNSOn != "yes" && shouldDNSChange && nodeCfg.Node.Interface != "" {
-		logger.Log(0, "settng DNS off")
+		logger.Log(0, "network:", nodeCfg.Node.Network, "settng DNS off")
 		if err := removeHostDNS(nodeCfg.Node.Interface, ncutils.IsWindows()); err != nil {
-			logger.Log(0, "error removing netmaker profile from /etc/hosts "+err.Error())
+			logger.Log(0, "network:", nodeCfg.Node.Network, "error removing netmaker profile from /etc/hosts "+err.Error())
 		}
 		//		_, err := ncutils.RunCmd("/usr/bin/resolvectl revert "+nodeCfg.Node.Interface, true)
 		//		if err != nil {
@@ -226,15 +229,15 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		logger.Log(0, "error syncing wg after peer update: "+err.Error())
 		return
 	}
-	logger.Log(0, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
+	logger.Log(0, "network:", cfg.Node.Network, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Interface, ncutils.IsWindows()); err != nil {
-			logger.Log(0, "error updating /etc/hosts "+err.Error())
+			logger.Log(0, "network:", cfg.Node.Network, "error updating /etc/hosts "+err.Error())
 			return
 		}
 	} else {
 		if err := removeHostDNS(cfg.Node.Interface, ncutils.IsWindows()); err != nil {
-			logger.Log(0, "error removing profile from /etc/hosts "+err.Error())
+			logger.Log(0, "network:", cfg.Node.Network, "error removing profile from /etc/hosts "+err.Error())
 			return
 		}
 	}
@@ -243,9 +246,21 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 
 func setHostDNS(dns, iface string, windows bool) error {
 	etchosts := "/etc/hosts"
+	temp := os.TempDir()
+	lockfile := temp + "/netclient-lock"
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
+		lockfile = temp + "\\netclient-lock"
 	}
+	if _, err := os.Stat(lockfile); !errors.Is(err, os.ErrNotExist) {
+		return errors.New("/etc/hosts file is locked .... aborting")
+	}
+	lock, err := os.Create(lockfile)
+	if err != nil {
+		return fmt.Errorf("could not create lock file %w", err)
+	}
+	lock.Close()
+	defer os.Remove(lockfile)
 	dnsdata := strings.NewReader(dns)
 	profile, err := parser.ParseProfile(dnsdata)
 	if err != nil {
@@ -268,9 +283,21 @@ func setHostDNS(dns, iface string, windows bool) error {
 
 func removeHostDNS(iface string, windows bool) error {
 	etchosts := "/etc/hosts"
+	temp := os.TempDir()
+	lockfile := temp + "/netclient-lock"
 	if windows {
 		etchosts = "c:\\windows\\system32\\drivers\\etc\\hosts"
+		lockfile = temp + "\\netclient-lock"
 	}
+	if _, err := os.Stat(lockfile); !errors.Is(err, os.ErrNotExist) {
+		return errors.New("/etc/hosts file is locked .... aborting")
+	}
+	lock, err := os.Create(lockfile)
+	if err != nil {
+		return fmt.Errorf("could not create lock file %w", err)
+	}
+	lock.Close()
+	defer os.Remove(lockfile)
 	hosts, err := file.NewFile(etchosts)
 	if err != nil {
 		return err

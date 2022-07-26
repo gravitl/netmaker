@@ -46,7 +46,9 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	networksSlice := []string{}
 	marshalErr := json.Unmarshal([]byte(headerNetworks), &networksSlice)
 	if marshalErr != nil {
-		returnErrorResponse(w, r, formatError(marshalErr, "internal"))
+		logger.Log(0, r.Header.Get("user"), "error unmarshalling networks: ",
+			marshalErr.Error())
+		returnErrorResponse(w, r, formatError(marshalErr, "badrequest"))
 		return
 	}
 	allnetworks := []models.Network{}
@@ -54,6 +56,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	if networksSlice[0] == ALL_NETWORK_ACCESS {
 		allnetworks, err = logic.GetNetworks()
 		if err != nil && !database.IsEmptyRecord(err) {
+			logger.Log(0, r.Header.Get("user"), "failed to fetch networks: ", err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -85,6 +88,8 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	netname := params["networkname"]
 	network, err := logic.GetNetwork(netname)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to fetch network [%s] info: %v",
+			netname, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -102,6 +107,8 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	netname := params["networkname"]
 	network, err := logic.KeyUpdate(netname)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to update keys for network [%s]: %v",
+			netname, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -110,7 +117,7 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 	nodes, err := logic.GetNetworkNodes(netname)
 	if err != nil {
-		logger.Log(2, "failed to retrieve network nodes for network", netname, err.Error())
+		logger.Log(0, "failed to retrieve network nodes for network", netname, err.Error())
 		return
 	}
 	for _, node := range nodes {
@@ -132,12 +139,16 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get network info: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	var newNetwork models.Network
 	err = json.NewDecoder(r.Body).Decode(&newNetwork)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -149,6 +160,8 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	rangeupdate4, rangeupdate6, localrangeupdate, holepunchupdate, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update network: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -156,6 +169,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if rangeupdate4 {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
 		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to update network [%s] ipv4 addresses: %v",
+					network.NetID, err.Error()))
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -163,6 +179,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if rangeupdate6 {
 		err = logic.UpdateNetworkNodeAddresses6(network.NetID)
 		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to update network [%s] ipv6 addresses: %v",
+					network.NetID, err.Error()))
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -170,6 +189,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if localrangeupdate {
 		err = logic.UpdateNetworkLocalAddresses(network.NetID)
 		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to update network [%s] local addresses: %v",
+					network.NetID, err.Error()))
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -177,6 +199,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if holepunchupdate {
 		err = logic.UpdateNetworkHolePunching(network.NetID, newNetwork.DefaultUDPHolePunch)
 		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to update network [%s] hole punching: %v",
+					network.NetID, err.Error()))
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -184,6 +209,9 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	if rangeupdate4 || rangeupdate6 || localrangeupdate || holepunchupdate {
 		nodes, err := logic.GetNetworkNodes(network.NetID)
 		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to get network [%s] nodes: %v",
+					network.NetID, err.Error()))
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -206,18 +234,28 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	netname := params["networkname"]
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get network [%s] nodes: %v",
+				network.NetID, err.Error()))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 
 	var networkChange models.Network
 
-	_ = json.NewDecoder(r.Body).Decode(&networkChange)
-
+	err = json.NewDecoder(r.Body).Decode(&networkChange)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
 	if networkChange.NodeLimit != 0 {
 		network.NodeLimit = networkChange.NodeLimit
 		data, err := json.Marshal(&network)
 		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				"error marshalling resp: ", err.Error())
 			returnErrorResponse(w, r, formatError(err, "badrequest"))
 			return
 		}
@@ -235,12 +273,22 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	var networkACLChange acls.ACLContainer
 	networkACLChange, err := networkACLChange.Get(acls.ContainerID(netname))
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	_ = json.NewDecoder(r.Body).Decode(&networkACLChange)
+	err = json.NewDecoder(r.Body).Decode(&networkACLChange)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		return
+	}
 	newNetACL, err := networkACLChange.Save(acls.ContainerID(netname))
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to update ACLs for network [%s]: %v", netname, err))
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -272,6 +320,8 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	var networkACL acls.ACLContainer
 	networkACL, err := networkACL.Get(acls.ContainerID(netname))
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -294,6 +344,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(), "Node check failed") {
 			errtype = "forbidden"
 		}
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete network [%s]: %v", network, err))
 		returnErrorResponse(w, r, formatError(err, errtype))
 		return
 	}
@@ -311,17 +363,24 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err := json.NewDecoder(r.Body).Decode(&network)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
 	if network.AddressRange == "" && network.AddressRange6 == "" {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("IPv4 or IPv6 CIDR required"), "badrequest"))
+		err := errors.New("IPv4 or IPv6 CIDR required")
+		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 
 	network, err = logic.CreateNetwork(network)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -333,6 +392,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				err = errors.New("Failed to add server to network " + network.NetID)
 			}
+			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+				err.Error())
 			returnErrorResponse(w, r, formatError(err, "internal"))
 			return
 		}
@@ -352,16 +413,22 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	netname := params["networkname"]
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get network info: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
 	err = json.NewDecoder(r.Body).Decode(&accesskey)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
+			err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	key, err := logic.CreateAccessKey(accesskey, network)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to create access key: ",
+			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
@@ -377,6 +444,8 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	network := params["networkname"]
 	keys, err := logic.GetKeys(network)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to get keys for network [%s]: %v",
+			network, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -396,6 +465,8 @@ func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	netname := params["networkname"]
 	err := logic.DeleteKey(keyname, netname)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to delete key [%s] for network [%s]: %v",
+			keyname, netname, err))
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}

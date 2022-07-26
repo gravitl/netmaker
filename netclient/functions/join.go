@@ -76,7 +76,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		if err == nil {
 			cfg.Node.LocalAddress = intIP
 		} else {
-			logger.Log(1, "error retrieving private address: ", err.Error())
+			logger.Log(1, "network:", cfg.Network, "error retrieving private address: ", err.Error())
 		}
 	}
 
@@ -88,7 +88,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 			cfg.Node.Endpoint, err = ncutils.GetPublicIP()
 		}
 		if err != nil || cfg.Node.Endpoint == "" {
-			logger.Log(0, "Error setting cfg.Node.Endpoint.")
+			logger.Log(0, "network:", cfg.Network, "error setting cfg.Node.Endpoint.")
 			return err
 		}
 	}
@@ -163,13 +163,13 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		return err
 	}
 	if node.IsPending == "yes" {
-		logger.Log(0, "Node is marked as PENDING.")
-		logger.Log(0, "Awaiting approval from Admin before configuring WireGuard.")
+		logger.Log(0, "network:", cfg.Network, "node is marked as PENDING.")
+		logger.Log(0, "network:", cfg.Network, "awaiting approval from Admin before configuring WireGuard.")
 		if cfg.Daemon != "off" {
 			return daemon.InstallDaemon()
 		}
 	}
-	logger.Log(1, "node created on remote server...updating configs")
+	logger.Log(1, "network:", cfg.Node.Network, "node created on remote server...updating configs")
 	err = ncutils.ModPort(&node)
 	if err != nil {
 		return err
@@ -186,7 +186,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 	// attempt to make backup
 	if err = config.SaveBackup(node.Network); err != nil {
-		logger.Log(0, "failed to make backup, node will not auto restore if config is corrupted")
+		logger.Log(0, "network:", node.Network, "failed to make backup, node will not auto restore if config is corrupted")
 	}
 	logger.Log(0, "starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:], false)
@@ -202,7 +202,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 	// update server with latest data
 	if err := PublishNodeUpdate(cfg); err != nil {
-		logger.Log(0, "failed to publish update for join", err.Error())
+		logger.Log(0, "network:", cfg.Network, "failed to publish update for join", err.Error())
 	}
 
 	if cfg.Daemon == "install" || ncutils.IsFreeBSD() {
@@ -212,7 +212,12 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		}
 	}
 
-	daemon.Restart()
+	if err := daemon.Restart(); err != nil {
+		log.Println("daemon restart failed ", err)
+		if err := daemon.Start(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -226,8 +231,8 @@ func formatName(node models.Node) string {
 		node.Name = ncutils.ShortenString(node.Name, models.MAX_NAME_LENGTH)
 	}
 	if !node.NameInNodeCharSet() || len(node.Name) > models.MAX_NAME_LENGTH {
-		logger.Log(1, "could not properly format name: "+node.Name)
-		logger.Log(1, "setting name to blank")
+		logger.Log(1, "network:", node.Network, "could not properly format name: "+node.Name)
+		logger.Log(1, "network:", node.Network, "setting name to blank")
 		node.Name = ""
 	}
 	return node.Name

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -117,19 +118,19 @@ func sendPeers() {
 		}
 	}
 	networks, err := logic.GetNetworks()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
 
 	for _, network := range networks {
-		serverNode, errN := logic.GetNetworkServerLeader(network.NetID)
+		serverNode, errN := logic.GetNetworkServerLocal(network.NetID)
 		if errN == nil {
 			serverNode.SetLastCheckIn()
 			if err := logic.UpdateNode(&serverNode, &serverNode); err != nil {
 				logger.Log(0, "failed checkin for server node", serverNode.Name, "on network", network.NetID, err.Error())
 			}
 		}
-		isLeader := logic.IsLocalServer(&serverNode)
+		isLeader := logic.IsLeader(&serverNode)
 		if errN == nil && isLeader {
 			if network.DefaultUDPHolePunch == "yes" {
 				if logic.ShouldPublishPeerPorts(&serverNode) || force {

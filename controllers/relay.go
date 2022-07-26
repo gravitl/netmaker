@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -17,13 +18,16 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewDecoder(r.Body).Decode(&relay)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	relay.NetID = params["network"]
 	relay.NodeID = params["nodeid"]
 	updatenodes, node, err := logic.CreateRelay(relay)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create relay on node [%s] on network [%s]: %v", relay.NodeID, relay.NetID, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
@@ -46,7 +50,8 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	netid := params["network"]
 	updatenodes, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)

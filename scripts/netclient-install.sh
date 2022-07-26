@@ -38,7 +38,7 @@ elif [ "${OS}" = "FreeBSD" ]; then
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/openwrt_release ]; then
-	dependencies="wireguard-tools"
+	dependencies="wireguard-tools bash"
 	OS="OpenWRT"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
@@ -50,6 +50,8 @@ if [ -z "${install_cmd}" ]; then
         echo "OS unsupported for automatic dependency install"
 	exit 1
 fi
+
+${update_cmd}
 
 set -- $dependencies
 while [ -n "$1" ]; do
@@ -114,7 +116,7 @@ dist=netclient
 echo "OS Version = $(uname)"
 echo "Netclient Version = $VERSION"
 
-case $(uname | tr '[:upper:]' '[:lower:]') in
+case $(uname | tr A-Z a-z) in
 	linux*)
 		if [ -z "$CPU_ARCH" ]; then
 			CPU_ARCH=$(uname -m)
@@ -130,29 +132,29 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 				dist=netclient-arm64
 			;;
 			aarch64)
-                                dist=netclient-arm64
+                dist=netclient-arm64
 			;;
 			armv6l)
-                                dist=netclient-arm6
+                dist=netclient-arm6
 			;;
 			armv7l)
-                                dist=netclient-arm7
+                dist=netclient-arm7
 			;;
 			arm*)
 				dist=netclient-$CPU_ARCH
 			;;
-                        mipsle)
-                                dist=netclient-mipsle
+            mipsle)
+                dist=netclient-mipsle
 			;;
 			*)
 				fatal "$CPU_ARCH : cpu architecture not supported"
     		esac
 	;;
 	darwin)
-        	dist=netclient-darwin
+        dist=netclient-darwin
 	;;
 	Darwin)
-        	dist=netclient-darwin
+        dist=netclient-darwin
 	;;
 	freebsd*)
 		if [ -z "$CPU_ARCH" ]; then
@@ -169,14 +171,14 @@ case $(uname | tr '[:upper:]' '[:lower:]') in
 				dist=netclient-freebsd-arm64
 			;;
 			aarch64)
-                                dist=netclient-freebsd-arm64
+                dist=netclient-freebsd-arm64
 			;;
 			armv7l)
-                                dist=netclient-freebsd-arm7
+                dist=netclient-freebsd-arm7
 			;;
 			arm*)
 				dist=netclient-freebsd-$CPU_ARCH
-            		;;
+            ;;
 			*)
 				fatal "$CPU_ARCH : cpu architecture not supported"
     		esac

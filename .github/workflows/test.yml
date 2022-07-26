@@ -1,7 +1,8 @@
 name: Integration Test
 
 on:
-  push:
+  pull_request:
+    types: [opened, reopened]
 
 jobs:
   build:

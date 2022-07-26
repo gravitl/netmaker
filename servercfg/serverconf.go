@@ -369,7 +369,7 @@ func GetVerbosity() int32 {
 	} else if config.Config.Server.Verbosity != 0 {
 		verbosity = int(config.Config.Server.Verbosity)
 	}
-	if verbosity < 0 || verbosity > 3 {
+	if verbosity < 0 || verbosity > 4 {
 		verbosity = 0
 	}
 	return int32(verbosity)
