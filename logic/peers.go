@@ -413,6 +413,14 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 			}
 		}
 	}
+	//delete extclients from allowedip if we are ingress gateway
+	if node.IsIngressGateway == "yes" {
+		for i := len(allowedips) - 1; i >= 0; i-- {
+			if strings.Contains(node.IngressGatewayRange, allowedips[i].IP.String()) {
+				allowedips = append(allowedips[:i], allowedips[i+1:]...)
+			}
+		}
+	}
 
 	pubkey, err := wgtypes.ParseKey(relay.PublicKey)
 	if err != nil {
@@ -457,6 +465,15 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	peers = append(peers, peerData)
 	if relay.IsServer == "yes" {
 		serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(relay), Address: relay.Address})
+	}
+	//if ingress add extclients
+	if node.IsIngressGateway == "yes" {
+		extPeers, err := getExtPeers(node)
+		if err == nil {
+			peers = append(peers, extPeers...)
+		} else {
+			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
+		}
 	}
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version
