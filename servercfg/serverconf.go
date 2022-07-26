@@ -2,6 +2,7 @@ package servercfg
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -427,7 +428,16 @@ func GetPublicIP() (string, error) {
 	var err error
 
 	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	publicIpService := os.Getenv("PUBLIC_IP_SERVICE")
+	if publicIpService != "" {
+		fmt.Println("User provided public IP service is", publicIpService)
+
+		// prepend the user-specified service so it's checked first
+		iplist = append([]string{publicIpService}, iplist...)
+	}
+
 	for _, ipserver := range iplist {
+		fmt.Println("Running public IP check with service", ipserver)
 		client := &http.Client{
 			Timeout: time.Second * 10,
 		}
@@ -442,6 +452,7 @@ func GetPublicIP() (string, error) {
 				continue
 			}
 			endpoint = string(bodyBytes)
+			fmt.Println("Public IP address is", endpoint)
 			break
 		}
 	}
