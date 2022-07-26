@@ -12,8 +12,9 @@ var upgrade0145 = UpgradeInfo{
 		"v0.14.2",
 		"v0.14.3",
 		"v0.14.4",
+		"v0.14.5",
 	},
-	NewVersion: "v0.14.5",
+	NewVersion: "v0.14.6",
 	OP:         update0145,
 }
 
