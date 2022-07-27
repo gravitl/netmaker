@@ -126,12 +126,20 @@ func IsEmptyRecord(err error) bool {
 }
 
 // GetPublicIP - gets public ip
-func GetPublicIP() (string, error) {
+func GetPublicIP(publicIpService string) (string, error) {
 
-	iplist := []string{"https://ip.client.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	if publicIpService != "" {
+		logger.Log(3, "User (config file) provided public IP service is", publicIpService)
+
+		// prepend the user-specified service so it's checked first
+		iplist = append([]string{publicIpService}, iplist...)
+	}
+
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {
+		logger.Log(3, "Running public IP check with service", ipserver)
 		client := &http.Client{
 			Timeout: time.Second * 10,
 		}
@@ -146,6 +154,7 @@ func GetPublicIP() (string, error) {
 				continue
 			}
 			endpoint = string(bodyBytes)
+			logger.Log(3, "Public IP address is", endpoint)
 			break
 		}
 	}
