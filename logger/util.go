@@ -2,8 +2,6 @@ package logger
 
 import (
 	"strings"
-
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // Verbosity - current logging verbosity level (optionally set)
@@ -25,6 +23,5 @@ func getVerbose() int32 {
 	if Verbosity >= 1 && Verbosity <= 4 {
 		return int32(Verbosity)
 	}
-	Verbosity = int(servercfg.GetVerbosity())
 	return int32(Verbosity)
 }

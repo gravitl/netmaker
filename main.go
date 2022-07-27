@@ -42,6 +42,7 @@ func main() {
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls; gen cert if required
 	setGarbageCollection()
+	setVerbosity()
 	defer database.CloseDB()
 	startControllers() // start the api endpoint and mq
 }
@@ -180,6 +181,11 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	cancel()
 	logger.Log(0, "Message Queue shutting down")
 	client.Disconnect(250)
+}
+
+func setVerbosity() {
+	verbose := int(servercfg.GetVerbosity())
+	logger.Verbosity = verbose
 }
 
 func setGarbageCollection() {
