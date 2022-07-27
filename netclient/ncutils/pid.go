@@ -20,7 +20,7 @@ func (*WindowsPIDError) Error() string {
 // SavePID - saves the pid of running program to disk
 func SavePID() error {
 	if IsWindows() {
-		return &WindowsPIDError{}
+		return nil
 	}
 	pid := os.Getpid()
 	if err := os.WriteFile(PIDFILE, []byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
@@ -32,7 +32,7 @@ func SavePID() error {
 // ReadPID - reads a previously saved pid from disk
 func ReadPID() (int, error) {
 	if IsWindows() {
-		return 0, &WindowsPIDError{}
+		return 0, nil
 	}
 	bytes, err := os.ReadFile(PIDFILE)
 	if err != nil {
