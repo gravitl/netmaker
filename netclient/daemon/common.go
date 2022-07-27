@@ -36,19 +36,20 @@ func Restart() error {
 	if ncutils.IsWindows() {
 		RestartWindowsDaemon()
 		return nil
+	} else {
+		pid, err := ncutils.ReadPID()
+		if err != nil {
+			return fmt.Errorf("failed to find pid %w", err)
+		}
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			return fmt.Errorf("failed to find running process for pid %d -- %w", pid, err)
+		}
+		if err := p.Signal(syscall.SIGHUP); err != nil {
+			return fmt.Errorf("SIGHUP failed -- %w", err)
+		}
+		return nil
 	}
-	pid, err := ncutils.ReadPID()
-	if err != nil {
-		return fmt.Errorf("failed to find pid %w", err)
-	}
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return fmt.Errorf("failed to find running process for pid %d -- %w", pid, err)
-	}
-	if err := p.Signal(syscall.SIGHUP); err != nil {
-		return fmt.Errorf("SIGHUP failed -- %w", err)
-	}
-	return nil
 }
 
 // Start - starts system daemon
