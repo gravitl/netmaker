@@ -33,14 +33,15 @@ func SavePID() error {
 func ReadPID() (int, error) {
 	if IsWindows() {
 		return 0, &WindowsPIDError{}
+	} else {
+		bytes, err := os.ReadFile(PIDFILE)
+		if err != nil {
+			return 0, fmt.Errorf("could not read pid file %w", err)
+		}
+		pid, err := strconv.Atoi(string(bytes))
+		if err != nil {
+			return 0, fmt.Errorf("pid file contents invalid %w", err)
+		}
+		return pid, nil
 	}
-	bytes, err := os.ReadFile(PIDFILE)
-	if err != nil {
-		return 0, fmt.Errorf("could not read pid file %w", err)
-	}
-	pid, err := strconv.Atoi(string(bytes))
-	if err != nil {
-		return 0, fmt.Errorf("pid file contents invalid %w", err)
-	}
-	return pid, nil
 }

@@ -151,7 +151,7 @@ func deleteInterface(iface string, realIface string) error {
 		os.Remove("/var/run/wireguard/" + iface + ".name")
 	}
 	out, err = ncutils.RunCmd("ifconfig "+realIface+" down", false)
-	if strings.Contains(err.Error(), "does not exist") {
+	if err != nil && strings.Contains(err.Error(), "does not exist") {
 		err = nil
 	} else if err != nil && out != "" {
 		err = errors.New(out)
