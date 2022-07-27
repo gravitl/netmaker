@@ -324,6 +324,16 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 				extAllowedIPs := getEgressIPs(node, relayedNode)
 				allowedips = append(allowedips, extAllowedIPs...)
 			}
+			if relayedNode.IsIngressGateway == "yes" {
+				extPeers, err := getExtPeers(relayedNode)
+				if err == nil {
+					for _, extPeer := range extPeers {
+						allowedips = append(allowedips, extPeer.AllowedIPs...)
+					}
+				} else {
+					logger.Log(0, "failed to retrieve extclients from relayed ingress", err.Error())
+				}
+			}
 		}
 	}
 	return allowedips
