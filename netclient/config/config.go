@@ -6,13 +6,14 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"log"
 	"os"
 	"sync"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
@@ -233,6 +234,9 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Server.API = c.String("apiserver")
 	}
 	cfg.PublicIPService = c.String("publicipservice")
+	// populate the map as we're not running as a daemon so won't be building the map otherwise
+	// (and the map will be used by GetPublicIP()).
+	global_settings.PublicIPServices[cfg.Network] = cfg.PublicIPService
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")
 	cfg.Node.Password = c.String("password")
