@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 	"io"
 	"log"
 	"net"
@@ -126,14 +127,15 @@ func IsEmptyRecord(err error) bool {
 }
 
 // GetPublicIP - gets public ip
-func GetPublicIP(publicIpService string) (string, error) {
+func GetPublicIP() (string, error) {
 
 	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
-	if publicIpService != "" {
-		logger.Log(3, "User (config file) provided public IP service is", publicIpService)
+
+	for network, ipService := range global_settings.PublicIPServices {
+		logger.Log(3, "User provided public IP service defined for network", network, "is", ipService)
 
 		// prepend the user-specified service so it's checked first
-		iplist = append([]string{publicIpService}, iplist...)
+		iplist = append([]string{ipService}, iplist...)
 	}
 
 	endpoint := ""

@@ -97,6 +97,9 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
 		}
 		server := cfg.Server.Server
+		if cfg.PublicIPService != "" {
+			config.PublicIPServices[server] = cfg.PublicIPService
+		}
 		if !serverSet[server] {
 			// == subscribe to all nodes for each on machine ==
 			serverSet[server] = true
