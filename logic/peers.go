@@ -482,7 +482,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
+			logger.Log(2, "could not retrieve ext peers for ", node.Name, err.Error())
 		}
 	}
 	peerUpdate.Network = node.Network
