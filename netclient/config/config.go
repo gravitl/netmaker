@@ -26,16 +26,11 @@ type ClientConfig struct {
 	Server          models.ServerConfig `yaml:"server"`
 	Node            models.Node         `yaml:"node"`
 	NetworkSettings models.Network      `yaml:"networksettings"`
-	GlobalSettings  GlobalSettings      `yaml:"globalSettings"`
 	Network         string              `yaml:"network"`
 	Daemon          string              `yaml:"daemon"`
 	OperatingSystem string              `yaml:"operatingsystem"`
 	AccessKey       string              `yaml:"accesskey"`
-}
-
-// GlobalSettings - settings that apply for the netclient across networks
-type GlobalSettings struct {
-	PublicIPService string `yaml:"publicIPService"`
+	PublicIPService string              `yaml:"publicipservice"`
 }
 
 // RegisterRequest - struct for registation with netmaker server
@@ -237,7 +232,7 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Server.CoreDNSAddr = c.String("corednsaddr")
 		cfg.Server.API = c.String("apiserver")
 	}
-	cfg.GlobalSettings.PublicIPService = c.String("publicipservice")
+	cfg.PublicIPService = c.String("publicipservice")
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")
 	cfg.Node.Password = c.String("password")
