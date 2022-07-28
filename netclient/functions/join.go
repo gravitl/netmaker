@@ -85,7 +85,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		if cfg.Node.IsLocal == "yes" && cfg.Node.LocalAddress != "" {
 			cfg.Node.Endpoint = cfg.Node.LocalAddress
 		} else {
-			cfg.Node.Endpoint, err = ncutils.GetPublicIP(cfg.GlobalSettings.PublicIPService)
+			cfg.Node.Endpoint, err = ncutils.GetPublicIP(cfg.PublicIPService)
 		}
 		if err != nil || cfg.Node.Endpoint == "" {
 			logger.Log(0, "network:", cfg.Network, "error setting cfg.Node.Endpoint.")

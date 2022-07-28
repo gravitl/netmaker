@@ -44,7 +44,7 @@ func checkin() {
 		nodeCfg.Network = network
 		nodeCfg.ReadConfig()
 		if nodeCfg.Node.IsStatic != "yes" {
-			extIP, err := ncutils.GetPublicIP(nodeCfg.GlobalSettings.PublicIPService)
+			extIP, err := ncutils.GetPublicIP(nodeCfg.PublicIPService)
 			if err != nil {
 				logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
 			}
