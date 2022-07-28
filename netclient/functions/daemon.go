@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 	"log"
 	"os"
 	"os/signal"
@@ -98,7 +99,7 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 		}
 		server := cfg.Server.Server
 		if cfg.PublicIPService != "" {
-			config.PublicIPServices[server] = cfg.PublicIPService
+			global_settings.PublicIPServices[server] = cfg.PublicIPService
 		}
 		if !serverSet[server] {
 			// == subscribe to all nodes for each on machine ==
