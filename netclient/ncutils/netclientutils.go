@@ -45,7 +45,7 @@ const LINUX_APP_DATA_PATH = "/etc/netclient"
 const MAC_APP_DATA_PATH = "/Applications/Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
-const WINDOWS_APP_DATA_PATH = "C:\\Program Files (x86)\\Netclient"
+const WINDOWS_APP_DATA_PATH = "C:\\Program Files\\Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 //const WINDOWS_WG_DPAPI_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
