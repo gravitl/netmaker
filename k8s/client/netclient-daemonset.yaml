@@ -25,6 +25,10 @@ spec:
           name: etc-netclient
         securityContext:
           privileged: true
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/root/netclient","uninstall"]
       volumes:
       - hostPath:
           # change path for every netclient deployed, e.g. /etc/netclient-1, /etc/netclient-2, etc.
