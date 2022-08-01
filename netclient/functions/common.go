@@ -193,7 +193,6 @@ func LeaveNetwork(network string) error {
 			if wgErr == nil && removeIface != "" {
 				removeIface = macIface
 			}
-			wgErr = nil
 		}
 		dev, devErr := wgClient.Device(removeIface)
 		if devErr == nil {
@@ -224,18 +223,24 @@ func DeleteInterface(ifacename string, postdown string) error {
 
 // WipeLocal - wipes local instance
 func WipeLocal(network string) error {
-	cfg, err := config.ReadConfig(network)
-	if err != nil {
-		return err
+	var ifacename string
+
+	if network == "" {
+		return errors.New("no network provided")
 	}
-	nodecfg := cfg.Node
-	ifacename := nodecfg.Interface
-	if ifacename != "" {
-		if err = wireguard.RemoveConf(ifacename, true); err == nil {
-			logger.Log(1, "network:", nodecfg.Network, "removed WireGuard interface: ", ifacename)
-		} else if strings.Contains(err.Error(), "does not exist") {
-			err = nil
+	cfg, err := config.ReadConfig(network)
+	if err == nil {
+		nodecfg := cfg.Node
+		ifacename = nodecfg.Interface
+		if ifacename != "" {
+			if err = wireguard.RemoveConf(ifacename, true); err == nil {
+				logger.Log(1, "network:", nodecfg.Network, "removed WireGuard interface: ", ifacename)
+			} else if strings.Contains(err.Error(), "does not exist") {
+				err = nil
+			}
 		}
+	} else {
+		logger.Log(0, "failed to read "+network+" config: ", err.Error())
 	}
 
 	home := ncutils.GetNetclientPathSpecific()
@@ -281,17 +286,20 @@ func WipeLocal(network string) error {
 			log.Println(err.Error())
 		}
 	}
-	if ncutils.FileExists(home + ifacename + ".conf") {
-		err = os.Remove(home + ifacename + ".conf")
+	if ifacename != "" {
+		if ncutils.FileExists(home + ifacename + ".conf") {
+			err = os.Remove(home + ifacename + ".conf")
+			if err != nil {
+				log.Println("error removing .conf:")
+				log.Println(err.Error())
+			}
+		}
+		err = removeHostDNS(ifacename, ncutils.IsWindows())
 		if err != nil {
-			log.Println("error removing .conf:")
-			log.Println(err.Error())
+			logger.Log(0, "failed to delete dns entries for", ifacename, err.Error())
 		}
 	}
-	err = removeHostDNS(ifacename, ncutils.IsWindows())
-	if err != nil {
-		logger.Log(0, "failed to delete dns entries for", ifacename, err.Error())
-	}
+
 	return err
 }
 
