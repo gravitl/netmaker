@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 	"log"
 	"os"
 	"os/signal"
@@ -96,6 +97,10 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
 			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
 		}
+		if cfg.PublicIPService != "" {
+			global_settings.PublicIPServices[network] = cfg.PublicIPService
+		}
+
 		server := cfg.Server.Server
 		if !serverSet[server] {
 			// == subscribe to all nodes for each on machine ==
