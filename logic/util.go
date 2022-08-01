@@ -19,6 +19,11 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
+// nfTablesPresent - returns true if nftables is present, false otherwise
+func IsNFTablesPresent() bool {
+	return FileExists("/etc/nftables.conf")
+}
+
 // IsBase64 - checks if a string is in base64 format
 // This is used to validate public keys (make sure they're base64 encoded like all public keys should be).
 func IsBase64(s string) bool {

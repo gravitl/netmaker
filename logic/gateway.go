@@ -33,14 +33,28 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	postUpCmd := ""
 	postDownCmd := ""
 	if node.OS == "linux" {
-		postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
-		postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
-		postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
-		postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT"
+		// nftables only supported on Linux
+		if IsNFTablesPresent() {
+			// assumes chains eg FORWARD and POSTROUTING already exist
+			postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+			postUpCmd += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+			postDownCmd = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+			postDownCmd += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 
-		if node.EgressGatewayNatEnabled == "yes" {
-			postUpCmd += "; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
-			postDownCmd += "; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+			if node.EgressGatewayNatEnabled == "yes" {
+				postUpCmd += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
+				postDownCmd += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
+			}
+		} else {
+			postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
+			postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
+			postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
+			postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT"
+
+			if node.EgressGatewayNatEnabled == "yes" {
+				postUpCmd += "; iptables -t nat -A POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+				postDownCmd += "; iptables -t nat -D POSTROUTING -o " + gateway.Interface + " -j MASQUERADE"
+			}
 		}
 	}
 	if node.OS == "freebsd" {
@@ -119,12 +133,23 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node.PostDown = ""
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
 		if node.OS == "linux" {
-			node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
-			node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
-			node.PostUp += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-			node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
-			node.PostDown += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
-			node.PostDown += "iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+			// nftables only supported on Linux
+			if IsNFTablesPresent() {
+				// assumes chains eg FORWARD and POSTROUTING already exist
+				node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+				node.PostUp += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+				node.PostUp += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ; "
+				node.PostDown = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ;"
+				node.PostDown += "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ;"
+				node.PostDown += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade "
+			} else {
+				node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
+				node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
+				node.PostUp += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+				node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
+				node.PostDown += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
+				node.PostDown += "iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+			}
 		}
 		if node.OS == "freebsd" {
 			node.PostUp = ""
@@ -151,6 +176,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 // CreateIngressGateway - creates an ingress gateway
 func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 
+	var postUpCmd, postDownCmd string
 	node, err := GetNodeByID(nodeid)
 	if node.OS != "linux" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
@@ -166,12 +192,23 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	}
 	node.IsIngressGateway = "yes"
 	node.IngressGatewayRange = network.AddressRange
-	postUpCmd := "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
-	postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
-	postUpCmd += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-	postDownCmd := "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
-	postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
-	postDownCmd += "iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	if IsNFTablesPresent() {
+		// assumes chains eg FORWARD and POSTROUTING already exist
+		postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+		postUpCmd += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+		postUpCmd += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade"
+		postDownCmd = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+		postDownCmd += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+		postDownCmd += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade"
+	} else {
+		postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
+		postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
+		postUpCmd += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+		postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT ; "
+		postDownCmd += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT ; "
+		postDownCmd += "iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+	}
+
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
 			postUpCmd = node.PostUp + "; " + postUpCmd
