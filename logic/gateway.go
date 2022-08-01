@@ -36,6 +36,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		// nftables only supported on Linux
 		if IsNFTablesPresent() {
 			// assumes chains eg FORWARD and POSTROUTING already exist
+			logger.Log(3, "creating egress gateway using nftables")
 			postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 			postUpCmd += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 			postDownCmd = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
@@ -46,6 +47,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 				postDownCmd += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
 			}
 		} else {
+			logger.Log(3, "creating egress gateway using iptables")
 			postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
 			postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
 			postDownCmd = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
@@ -136,6 +138,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 			// nftables only supported on Linux
 			if IsNFTablesPresent() {
 				// assumes chains eg FORWARD and POSTROUTING already exist
+				logger.Log(3, "deleting egress gateway using nftables")
 				node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 				node.PostUp += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 				node.PostUp += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ; "
@@ -143,6 +146,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 				node.PostDown += "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ;"
 				node.PostDown += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade "
 			} else {
+				logger.Log(3, "deleting egress gateway using iptables")
 				node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
 				node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
 				node.PostUp += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
@@ -194,6 +198,7 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	node.IngressGatewayRange = network.AddressRange
 	if IsNFTablesPresent() {
 		// assumes chains eg FORWARD and POSTROUTING already exist
+		logger.Log(3, "creating ingress gateway using nftables")
 		postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 		postUpCmd += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 		postUpCmd += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade"
@@ -201,6 +206,7 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 		postDownCmd += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 		postDownCmd += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade"
 	} else {
+		logger.Log(3, "creating ingress gateway using iptables")
 		postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
 		postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
 		postUpCmd += "iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"

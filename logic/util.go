@@ -21,7 +21,11 @@ import (
 
 // nfTablesPresent - returns true if nftables is present, false otherwise
 func IsNFTablesPresent() bool {
-	return FileExists("/etc/nftables.conf")
+	var nftFound bool
+
+	nftFound = FileExists("/etc/nftables.conf")
+	logger.Log(3, "nftables found:", nftFound)
+	return nftFound
 }
 
 // IsBase64 - checks if a string is in base64 format
