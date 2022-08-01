@@ -6,17 +6,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"math/rand"
-	"net"
-	"os"
-	"strings"
-	"time"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"math/big"
+	"math/rand"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // nfTablesPresent - returns true if nftables is present, false otherwise
@@ -24,7 +24,7 @@ func IsNFTablesPresent() bool {
 	var nftFound bool
 
 	nftFound = FileExists("/etc/nftables.conf")
-	logger.Log(3, "nftables found:", nftFound)
+	logger.Log(3, "nftables found:", strconv.FormatBool(nftFound))
 	return nftFound
 }
 
