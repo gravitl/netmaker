@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/c-robinson/iplib"
@@ -89,7 +90,7 @@ func IsLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
-// IsLinux - checks if is linux
+// IsFreeBSD - checks if is freebsd
 func IsFreeBSD() bool {
 	return runtime.GOOS == "freebsd"
 }
@@ -591,4 +592,24 @@ func ModPort(node *models.Node) error {
 		node.ListenPort, err = GetFreePort(node.ListenPort)
 	}
 	return err
+}
+
+func CheckIfDaemonExists() bool {
+	daemonExists := false
+	pid, err := ReadPID()
+	if err != nil {
+		logger.Log(1, "failed to get netclient PID: ", err.Error())
+		return daemonExists
+	}
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		fmt.Printf("Failed to find process: %s\n", err)
+		return daemonExists
+	}
+	err = process.Signal(syscall.Signal(0))
+	if err == nil {
+		daemonExists = true
+	}
+
+	return daemonExists
 }
