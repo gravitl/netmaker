@@ -594,6 +594,7 @@ func ModPort(node *models.Node) error {
 	return err
 }
 
+// CheckIfDaemonExists - checks if netclient daemon is up and running
 func CheckIfDaemonExists() bool {
 	daemonExists := false
 	pid, err := ReadPID()
