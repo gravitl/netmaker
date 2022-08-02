@@ -34,7 +34,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	postDownCmd := ""
 	if node.OS == "linux" {
 		// nftables only supported on Linux
-		if IsNFTablesPresent() {
+		if node.IsNFTablesPresent == "yes" {
 			// assumes chains eg FORWARD and POSTROUTING already exist
 			logger.Log(3, "creating egress gateway using nftables")
 			postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
@@ -136,7 +136,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
 		if node.OS == "linux" {
 			// nftables only supported on Linux
-			if IsNFTablesPresent() {
+			if node.IsNFTablesPresent == "yes" {
 				// assumes chains eg FORWARD and POSTROUTING already exist
 				logger.Log(3, "deleting egress gateway using nftables")
 				node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
@@ -196,7 +196,7 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	}
 	node.IsIngressGateway = "yes"
 	node.IngressGatewayRange = network.AddressRange
-	if IsNFTablesPresent() {
+	if node.IsNFTablesPresent == "yes" {
 		// assumes chains eg FORWARD and POSTROUTING already exist
 		logger.Log(3, "creating ingress gateway using nftables")
 		postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "

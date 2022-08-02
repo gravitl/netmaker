@@ -114,7 +114,17 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
+		cfg.Node.IsNFTablesPresent = "no" // nftables not supported by FreeBSD
 	}
+
+	if cfg.Node.IsNFTablesPresent == "" {
+		if ncutils.IsNFTablesPresent() {
+			cfg.Node.IsNFTablesPresent = "yes"
+		} else {
+			cfg.Node.IsNFTablesPresent = "no"
+		}
+	}
+
 	// make sure name is appropriate, if not, give blank name
 	cfg.Node.Name = formatName(cfg.Node)
 	cfg.Node.OS = runtime.GOOS

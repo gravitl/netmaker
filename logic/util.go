@@ -14,19 +14,9 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
-
-// nfTablesPresent - returns true if nftables is present, false otherwise
-func IsNFTablesPresent() bool {
-	var nftFound bool
-
-	nftFound = FileExists("/etc/nftables.conf")
-	logger.Log(3, "nftables found:", strconv.FormatBool(nftFound))
-	return nftFound
-}
 
 // IsBase64 - checks if a string is in base64 format
 // This is used to validate public keys (make sure they're base64 encoded like all public keys should be).

@@ -109,6 +109,16 @@ func GetWireGuard() string {
 	return "wg"
 }
 
+// IsNFTablesPresent - returns true if nftables is present, false otherwise.
+// Does not consider OS, up to the caller to determine if the OS supports nftables/whether this check is valid.
+func IsNFTablesPresent() bool {
+	var nftFound bool
+
+	nftFound = FileExists("/etc/nftables.conf")
+	logger.Log(3, "nftables found:", strconv.FormatBool(nftFound))
+	return nftFound
+}
+
 // IsKernel - checks if running kernel WireGuard
 func IsKernel() bool {
 	//TODO
