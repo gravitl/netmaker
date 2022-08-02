@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/c-robinson/iplib"
@@ -592,25 +591,4 @@ func ModPort(node *models.Node) error {
 		node.ListenPort, err = GetFreePort(node.ListenPort)
 	}
 	return err
-}
-
-// CheckIfDaemonExists - checks if netclient daemon is up and running
-func CheckIfDaemonExists() bool {
-	daemonExists := false
-	pid, err := ReadPID()
-	if err != nil {
-		logger.Log(1, "failed to get netclient PID: ", err.Error())
-		return daemonExists
-	}
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		fmt.Printf("Failed to find process: %s\n", err)
-		return daemonExists
-	}
-	err = process.Signal(syscall.Signal(0))
-	if err == nil {
-		daemonExists = true
-	}
-
-	return daemonExists
 }
