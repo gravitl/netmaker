@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/netclient/global_settings"
 	"io"
 	"log"
 	"net"
@@ -23,6 +22,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 )
 
 var (

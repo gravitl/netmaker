@@ -6,7 +6,6 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"log"
 	"os"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/global_settings"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
