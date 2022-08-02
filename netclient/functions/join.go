@@ -205,7 +205,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		logger.Log(0, "network:", cfg.Network, "failed to publish update for join", err.Error())
 	}
 
-	if cfg.Daemon == "install" || ncutils.IsFreeBSD() {
+	if cfg.Daemon == "on" || ncutils.IsFreeBSD() {
 		err = daemon.InstallDaemon()
 		if err != nil {
 			return err
