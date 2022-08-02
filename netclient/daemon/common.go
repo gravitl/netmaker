@@ -13,6 +13,7 @@ import (
 
 // InstallDaemon - Calls the correct function to install the netclient as a daemon service on the given operating system.
 func InstallDaemon() error {
+
 	os := runtime.GOOS
 	var err error
 

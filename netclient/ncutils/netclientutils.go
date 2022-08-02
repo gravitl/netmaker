@@ -89,7 +89,7 @@ func IsLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
-// IsLinux - checks if is linux
+// IsFreeBSD - checks if is freebsd
 func IsFreeBSD() bool {
 	return runtime.GOOS == "freebsd"
 }

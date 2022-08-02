@@ -264,32 +264,28 @@ func ReadConfig(network string) (*ClientConfig, error) {
 		err := errors.New("no network provided - exiting")
 		return nil, err
 	}
-	nofile := false
 	home := ncutils.GetNetclientPathSpecific()
 	file := fmt.Sprintf(home + "netconfig-" + network)
 	f, err := os.Open(file)
-
 	if err != nil {
 		if err = ReplaceWithBackup(network); err != nil {
-			nofile = true
+			return nil, err
 		}
 		f, err = os.Open(file)
 		if err != nil {
-			nofile = true
+			return nil, err
 		}
 	}
 	defer f.Close()
 
 	var cfg ClientConfig
-
-	if !nofile {
-		decoder := yaml.NewDecoder(f)
-		err = decoder.Decode(&cfg)
-		if err != nil {
-			fmt.Println("trouble decoding file")
-			return nil, err
-		}
+	decoder := yaml.NewDecoder(f)
+	err = decoder.Decode(&cfg)
+	if err != nil {
+		logger.Log(2, "trouble decoding file", err.Error())
+		return nil, err
 	}
+
 	return &cfg, err
 }
 
