@@ -35,7 +35,10 @@ require (
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
-require github.com/coreos/go-oidc/v3 v3.2.0
+require (
+	github.com/coreos/go-oidc/v3 v3.2.0
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
+)
 
 require (
 	cloud.google.com/go v0.81.0 // indirect
@@ -61,7 +64,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/goki/freetype v0.0.0-20181231101311-fa8a33aabaff // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-cmp v0.5.7 // indirect
+	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/josharian/native v1.0.0 // indirect
