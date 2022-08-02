@@ -43,6 +43,16 @@ func checkin() {
 		var nodeCfg config.ClientConfig
 		nodeCfg.Network = network
 		nodeCfg.ReadConfig()
+		// check for nftables present if on Linux
+		if ncutils.IsLinux() {
+			if ncutils.IsNFTablesPresent() {
+				nodeCfg.Node.IsNFTablesPresent = "yes"
+			} else {
+				nodeCfg.Node.IsNFTablesPresent = "no"
+			}
+		} else {
+			nodeCfg.Node.IsNFTablesPresent = "no"
+		}
 		if nodeCfg.Node.IsStatic != "yes" {
 			extIP, err := ncutils.GetPublicIP()
 			if err != nil {
