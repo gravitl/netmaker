@@ -23,7 +23,7 @@ NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-EMAIL="fake@email.com"
+EMAIL="$(echo $RANDOM | md5sum  | head -c 32)@email.com"
 
 echo "Default Base Domain: $NETMAKER_BASE_DOMAIN"
 echo "To Override, add a Wildcard (*.netmaker.example.com) DNS record pointing to $SERVER_PUBLIC_IP"
