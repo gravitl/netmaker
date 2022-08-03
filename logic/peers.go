@@ -324,6 +324,16 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 				extAllowedIPs := getEgressIPs(node, relayedNode)
 				allowedips = append(allowedips, extAllowedIPs...)
 			}
+			if relayedNode.IsIngressGateway == "yes" {
+				extPeers, err := getExtPeers(relayedNode)
+				if err == nil {
+					for _, extPeer := range extPeers {
+						allowedips = append(allowedips, extPeer.AllowedIPs...)
+					}
+				} else {
+					logger.Log(0, "failed to retrieve extclients from relayed ingress", err.Error())
+				}
+			}
 		}
 	}
 	return allowedips
@@ -413,6 +423,14 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 			}
 		}
 	}
+	//delete extclients from allowedip if we are ingress gateway
+	if node.IsIngressGateway == "yes" {
+		for i := len(allowedips) - 1; i >= 0; i-- {
+			if strings.Contains(node.IngressGatewayRange, allowedips[i].IP.String()) {
+				allowedips = append(allowedips[:i], allowedips[i+1:]...)
+			}
+		}
+	}
 
 	pubkey, err := wgtypes.ParseKey(relay.PublicKey)
 	if err != nil {
@@ -457,6 +475,15 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	peers = append(peers, peerData)
 	if relay.IsServer == "yes" {
 		serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(relay), Address: relay.Address})
+	}
+	//if ingress add extclients
+	if node.IsIngressGateway == "yes" {
+		extPeers, err := getExtPeers(node)
+		if err == nil {
+			peers = append(peers, extPeers...)
+		} else {
+			logger.Log(2, "could not retrieve ext peers for ", node.Name, err.Error())
+		}
 	}
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version

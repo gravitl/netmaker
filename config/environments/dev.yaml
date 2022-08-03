@@ -11,3 +11,4 @@ server:
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)
   version: "" # version of server
   rce: "" # defaults to "off"
+  publicipservice: "" # defaults to "" or PUBLIC_IP_SERVICE (if set)
