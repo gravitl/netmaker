@@ -121,6 +121,22 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
 		}
 	}
+	//check if internet gateway
+	internetGateway := false
+	gateway := wgtypes.PeerConfig{}
+	for _, peer := range peers {
+		for _, allowedip := range peer.AllowedIPs {
+			if allowedip.String() == "0.0.0.0/0" || allowedip.String() == "::/0" {
+				internetGateway = true
+				gateway = peer
+			}
+		}
+	}
+	if internetGateway {
+		if err := local.SetDefaultRoute(iface, gateway); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

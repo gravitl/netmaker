@@ -10,6 +10,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func setRoute(iface string, addr *net.IPNet, address string) error {
@@ -41,4 +42,15 @@ func setCidr(iface, address string, addr *net.IPNet) {
 
 func removeCidr(iface string, addr *net.IPNet, address string) {
 	ncutils.RunCmd("ip route delete "+addr.String()+" dev "+iface, false)
+}
+
+func setDefaultRoute(iface string, peer wgtypes.PeerConfig) error {
+	cmd := "wg set " + iface + " fwmark 1234"
+	cmd += ";ip route add default dev " + iface + " table 2468"
+	cmd += ";ip rule add not fwmark 1234 table 2468"
+	cmd += ";ip rule add table main suppress_prefixlength 0"
+	if _, err := ncutils.RunCmd(cmd, true); err != nil {
+		return err
+	}
+	return nil
 }

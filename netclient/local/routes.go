@@ -62,3 +62,11 @@ func SetCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
 func RemoveCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
 	removeCidr(iface, cidr, currentAddr)
 }
+
+// SetDefaultRoute - sets the default route when peer is internet gateway
+func SetDefaultRoute(iface string, peer wgtypes.PeerConfig) error {
+	if err := setDefaultRoute(iface, peer); err != nil {
+		return err
+	}
+	return nil
+}
