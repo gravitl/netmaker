@@ -43,7 +43,7 @@ const NO_DB_RECORDS = "could not find any records"
 const LINUX_APP_DATA_PATH = "/etc/netclient"
 
 // MAC_APP_DATA_PATH - linux path
-const MAC_APP_DATA_PATH = "/Applications/Netclient"
+const MAC_APP_DATA_PATH = "/Library/Applications\\ Support/Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\Program Files (x86)\\Netclient"
