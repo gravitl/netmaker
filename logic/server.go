@@ -209,6 +209,7 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 		for _, node := range nodes {
 			//if egress ranges is internet (0.0.0.0/0 or ::/0) remove as don't want server to use internet gateway
 			if node.IsEgressGateway == "yes" && (slices.Contains(node.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(node.EgressGatewayRanges, "::/0")) {
+				logger.Log(0, "skipping internet gateway for server")
 				continue
 			}
 			if node.IsEgressGateway == "yes" && !IsLocalServer(&node) {

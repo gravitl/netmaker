@@ -132,7 +132,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			}
 		}
 	}
-	if internetGateway {
+	if internetGateway && node.IsServer != "yes" {
 		if err := local.SetDefaultRoute(iface, gateway); err != nil {
 			return err
 		}
