@@ -114,14 +114,14 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 
 	if ncutils.IsFreeBSD() {
 		cfg.Node.UDPHolePunch = "no"
-		cfg.Node.IsNFTablesPresent = "no" // nftables not supported by FreeBSD
+		cfg.Node.FirewallInUse = models.FIREWALL_IPTABLES // nftables not supported by FreeBSD
 	}
 
-	if cfg.Node.IsNFTablesPresent == "" {
+	if cfg.Node.FirewallInUse == "" {
 		if ncutils.IsNFTablesPresent() {
-			cfg.Node.IsNFTablesPresent = "yes"
+			cfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
 		} else {
-			cfg.Node.IsNFTablesPresent = "no"
+			cfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
 		}
 	}
 

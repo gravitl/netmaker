@@ -28,6 +28,10 @@ const (
 	NODE_NOOP = "noop"
 	// NODE_FORCE_UPDATE - indicates a node should pull all changes
 	NODE_FORCE_UPDATE = "force"
+	// FIREWALL_IPTABLES - indicates that iptables is the firewall in use
+	FIREWALL_IPTABLES = "iptables"
+	// FIREWALL_NFTABLES - indicates nftables is in use (Linux only)
+	FIREWALL_NFTABLES = "nftables"
 )
 
 var seededRand *rand.Rand = rand.New(
@@ -71,20 +75,20 @@ type Node struct {
 	RelayAddrs              []string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	IngressGatewayRange     string   `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	// IsStatic - refers to if the Endpoint is set manually or dynamically
-	IsStatic          string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
-	UDPHolePunch      string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
-	DNSOn             string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
-	IsServer          string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Action            string      `json:"action" bson:"action" yaml:"action"`
-	IsLocal           string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange        string      `json:"localrange" bson:"localrange" yaml:"localrange"`
-	IPForwarding      string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
-	OS                string      `json:"os" bson:"os" yaml:"os"`
-	MTU               int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
-	Version           string      `json:"version" bson:"version" yaml:"version"`
-	Server            string      `json:"server" bson:"server" yaml:"server"`
-	TrafficKeys       TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
-	IsNFTablesPresent string      `json:"isnftablespresent" bson:"isnftablespresent" yaml:"isnftablespresent"`
+	IsStatic      string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
+	UDPHolePunch  string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
+	DNSOn         string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	IsServer      string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Action        string      `json:"action" bson:"action" yaml:"action"`
+	IsLocal       string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
+	LocalRange    string      `json:"localrange" bson:"localrange" yaml:"localrange"`
+	IPForwarding  string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	OS            string      `json:"os" bson:"os" yaml:"os"`
+	MTU           int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
+	Version       string      `json:"version" bson:"version" yaml:"version"`
+	Server        string      `json:"server" bson:"server" yaml:"server"`
+	TrafficKeys   TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
+	FirewallInUse string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 }
 
 // NodesArray - used for node sorting
@@ -122,8 +126,8 @@ func (node *Node) SetDefaultMTU() {
 
 // Node.SetDefaultNFTablesPresent - sets default for nftables check
 func (node *Node) SetDefaultNFTablesPresent() {
-	if node.IsNFTablesPresent == "" {
-		node.IsNFTablesPresent = "no"
+	if node.FirewallInUse == "" {
+		node.FirewallInUse = FIREWALL_IPTABLES // default to iptables
 	}
 }
 

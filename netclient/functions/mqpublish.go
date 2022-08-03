@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/models"
 	"net"
 	"os"
 	"strconv"
@@ -46,12 +47,13 @@ func checkin() {
 		// check for nftables present if on Linux
 		if ncutils.IsLinux() {
 			if ncutils.IsNFTablesPresent() {
-				nodeCfg.Node.IsNFTablesPresent = "yes"
+				nodeCfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
 			} else {
-				nodeCfg.Node.IsNFTablesPresent = "no"
+				nodeCfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
 			}
 		} else {
-			nodeCfg.Node.IsNFTablesPresent = "no"
+			// defaults to iptables for now, may need another default for non-Linux OSes
+			nodeCfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
 		}
 		if nodeCfg.Node.IsStatic != "yes" {
 			extIP, err := ncutils.GetPublicIP()

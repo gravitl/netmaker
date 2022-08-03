@@ -33,8 +33,9 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	postUpCmd := ""
 	postDownCmd := ""
 	if node.OS == "linux" {
-		// nftables only supported on Linux
-		if node.IsNFTablesPresent == "yes" {
+		switch node.FirewallInUse {
+		case models.FIREWALL_NFTABLES:
+			// nftables only supported on Linux
 			// assumes chains eg FORWARD and POSTROUTING already exist
 			logger.Log(3, "creating egress gateway using nftables")
 			postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
@@ -46,7 +47,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 				postUpCmd += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
 				postDownCmd += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
 			}
-		} else {
+		default: // iptables assumed
 			logger.Log(3, "creating egress gateway using iptables")
 			postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
 			postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
@@ -136,8 +137,9 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
 		// still have an ingress gateway so preserve it
 		if node.OS == "linux" {
-			// nftables only supported on Linux
-			if node.IsNFTablesPresent == "yes" {
+			switch node.FirewallInUse {
+			case models.FIREWALL_NFTABLES:
+				// nftables only supported on Linux
 				// assumes chains eg FORWARD and POSTROUTING already exist
 				logger.Log(3, "deleting egress gateway using nftables")
 				node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
@@ -146,7 +148,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 				node.PostDown = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ;"
 				node.PostDown += "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ;"
 				node.PostDown += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade "
-			} else {
+			default:
 				logger.Log(3, "deleting egress gateway using iptables")
 				node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
 				node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
@@ -192,7 +194,9 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	}
 	node.IsIngressGateway = "yes"
 	node.IngressGatewayRange = network.AddressRange
-	if node.IsNFTablesPresent == "yes" {
+	switch node.FirewallInUse {
+	case models.FIREWALL_NFTABLES:
+		// nftables only supported on Linux
 		// assumes chains eg FORWARD and POSTROUTING already exist
 		logger.Log(3, "creating ingress gateway using nftables")
 		postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
@@ -201,7 +205,7 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 		postDownCmd = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 		postDownCmd += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 		postDownCmd += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade"
-	} else {
+	default:
 		logger.Log(3, "creating ingress gateway using iptables")
 		postUpCmd = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT ; "
 		postUpCmd += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT ; "
@@ -262,33 +266,32 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 
 	if node.IsEgressGateway == "yes" { // check if node is still an egress gateway before completely deleting postdown/up rules
 		// still have an egress gateway so preserve it
-		if node.OS == "linux" {
+		switch node.FirewallInUse {
+		case models.FIREWALL_NFTABLES:
 			// nftables only supported on Linux
-			if node.IsNFTablesPresent == "yes" {
-				// preserve egress gateway via the setup that createegressgateway used
-				// assumes chains eg FORWARD and POSTROUTING already exist
-				logger.Log(3, "deleting ingress gateway: nftables in use")
-				node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
-				node.PostUp += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
-				node.PostDown = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
-				node.PostDown += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+			// preserve egress gateway via the setup that createegressgateway used
+			// assumes chains eg FORWARD and POSTROUTING already exist
+			logger.Log(3, "deleting ingress gateway: nftables in use")
+			node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+			node.PostUp += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+			node.PostDown = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+			node.PostDown += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 
-				if node.EgressGatewayNatEnabled == "yes" {
-					node.PostUp += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
-					node.PostDown += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
-				}
-			} else {
-				// preserve egress gateway via the setup that createegressgateway used
-				logger.Log(3, "deleting ingress gateway: iptables in use")
-				node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
-				node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
-				node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
-				node.PostDown += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT"
+			if node.EgressGatewayNatEnabled == "yes" {
+				node.PostUp += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
+				node.PostDown += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
+			}
+		default:
+			// preserve egress gateway via the setup that createegressgateway used
+			logger.Log(3, "deleting ingress gateway: iptables in use")
+			node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
+			node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
+			node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
+			node.PostDown += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT"
 
-				if node.EgressGatewayNatEnabled == "yes" {
-					node.PostUp += "; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-					node.PostDown += "; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
-				}
+			if node.EgressGatewayNatEnabled == "yes" {
+				node.PostUp += "; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+				node.PostDown += "; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 			}
 		}
 		// preserve egress gateway via the setup that createegressgateway used
