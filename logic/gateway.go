@@ -134,6 +134,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node.PostUp = ""
 	node.PostDown = ""
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
+		// still have an ingress gateway so preserve it
 		if node.OS == "linux" {
 			// nftables only supported on Linux
 			if node.IsNFTablesPresent == "yes" {
@@ -155,12 +156,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 				node.PostDown += "iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
 			}
 		}
-		if node.OS == "freebsd" {
-			node.PostUp = ""
-			node.PostDown = "ipfw delete 64000 ; "
-			node.PostDown += "ipfw delete 65534 ; "
-			node.PostDown += "kldunload ipfw_nat ipfw"
-		}
+		// no need to preserve ingress gateway on FreeBSD as ingress is not supported on that OS
 	}
 	node.SetLastModified()
 
@@ -257,11 +253,59 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 	if err = DeleteGatewayExtClients(node.ID, networkName); err != nil {
 		return models.Node{}, err
 	}
+	logger.Log(3, "deleting ingress gateway")
 
 	node.UDPHolePunch = network.DefaultUDPHolePunch
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
 	node.IngressGatewayRange = ""
+
+	if node.IsEgressGateway == "yes" { // check if node is still an egress gateway before completely deleting postdown/up rules
+		// still have an egress gateway so preserve it
+		if node.OS == "linux" {
+			// nftables only supported on Linux
+			if node.IsNFTablesPresent == "yes" {
+				// preserve egress gateway via the setup that createegressgateway used
+				// assumes chains eg FORWARD and POSTROUTING already exist
+				logger.Log(3, "deleting ingress gateway: nftables in use")
+				node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+				node.PostUp += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+				node.PostDown = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+				node.PostDown += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+
+				if node.EgressGatewayNatEnabled == "yes" {
+					node.PostUp += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
+					node.PostDown += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
+				}
+			} else {
+				// preserve egress gateway via the setup that createegressgateway used
+				logger.Log(3, "deleting ingress gateway: iptables in use")
+				node.PostUp = "iptables -A FORWARD -i " + node.Interface + " -j ACCEPT; "
+				node.PostUp += "iptables -A FORWARD -o " + node.Interface + " -j ACCEPT"
+				node.PostDown = "iptables -D FORWARD -i " + node.Interface + " -j ACCEPT; "
+				node.PostDown += "iptables -D FORWARD -o " + node.Interface + " -j ACCEPT"
+
+				if node.EgressGatewayNatEnabled == "yes" {
+					node.PostUp += "; iptables -t nat -A POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+					node.PostDown += "; iptables -t nat -D POSTROUTING -o " + node.Interface + " -j MASQUERADE"
+				}
+			}
+		}
+		// preserve egress gateway via the setup that createegressgateway used
+		if node.OS == "freebsd" {
+			node.PostUp = "kldload ipfw ipfw_nat ; "
+			node.PostUp += "ipfw disable one_pass ; "
+			node.PostUp += "ipfw nat 1 config if " + node.Interface + " same_ports unreg_only reset ; "
+			node.PostUp += "ipfw add 64000 reass all from any to any in ; "
+			node.PostUp += "ipfw add 64000 nat 1 ip from any to any in via " + node.Interface + " ; "
+			node.PostUp += "ipfw add 64000 check-state ; "
+			node.PostUp += "ipfw add 64000 nat 1 ip from any to any out via " + node.Interface + " ; "
+			node.PostUp += "ipfw add 65534 allow ip from any to any ; "
+			node.PostDown = "ipfw delete 64000 ; "
+			node.PostDown += "ipfw delete 65534 ; "
+			node.PostDown += "kldunload ipfw_nat ipfw"
+		}
+	}
 
 	data, err := json.Marshal(&node)
 	if err != nil {
