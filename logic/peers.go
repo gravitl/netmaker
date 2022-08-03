@@ -419,7 +419,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	//delete egressrange from allowedip if we are egress gateway
 	if node.IsEgressGateway == "yes" {
 		for i := len(allowedips) - 1; i >= 0; i-- {
-			if StringSliceContains(node.EgressGatewayRanges, allowedips[i].IP.String()) {
+			if StringSliceContains(node.EgressGatewayRanges, allowedips[i].String()) {
 				allowedips = append(allowedips[:i], allowedips[i+1:]...)
 			}
 		}
