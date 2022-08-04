@@ -29,6 +29,8 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 	var devicePeers []wgtypes.Peer
 	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string]bool, len(peers))
+	internetGateway := false
+	gateway := wgtypes.PeerConfig{}
 
 	var err error
 	devicePeers, err = GetDevicePeers(iface)
@@ -61,6 +63,15 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
 			if hasPeerIP {
+				if ipaddr.String() == "0.0.0.0/0" || ipaddr.String() == "::/0" {
+					if node.IsServer == "yes" {
+						//skip server
+						logger.Log(2, "skipping internet gateway for server")
+						continue
+					}
+					internetGateway = true
+					gateway = peer
+				}
 				iparr = append(iparr, ipaddr.String())
 			}
 		}
@@ -122,17 +133,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		}
 	}
 	//check if internet gateway
-	internetGateway := false
-	gateway := wgtypes.PeerConfig{}
-	for _, peer := range peers {
-		for _, allowedip := range peer.AllowedIPs {
-			if allowedip.String() == "0.0.0.0/0" || allowedip.String() == "::/0" {
-				internetGateway = true
-				gateway = peer
-			}
-		}
-	}
-	if internetGateway && node.IsServer != "yes" {
+	if internetGateway {
 		if err := local.SetDefaultRoute(iface, gateway); err != nil {
 			return err
 		}
@@ -335,7 +336,7 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 }
 
 // WriteWgConfig - creates a wireguard config file
-//func WriteWgConfig(cfg *config.ClientConfig, privateKey string, peers []wgtypes.PeerConfig) error {
+// func WriteWgConfig(cfg *config.ClientConfig, privateKey string, peers []wgtypes.PeerConfig) error {
 func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerConfig) error {
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
