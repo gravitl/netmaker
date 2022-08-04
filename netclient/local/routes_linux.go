@@ -44,11 +44,23 @@ func removeCidr(iface string, addr *net.IPNet, address string) {
 	ncutils.RunCmd("ip route delete "+addr.String()+" dev "+iface, false)
 }
 
-func setDefaultRoute(iface string, peer wgtypes.PeerConfig) error {
-	cmd := "wg set " + iface + " fwmark 1234"
-	cmd += ";ip route add default dev " + iface + " table 2468"
+func setInternetGatewayRoute(iface, port string, peer wgtypes.PeerConfig) error {
+	cmd := "wg set " + iface + " fwmark " + port
+	cmd += ";ip route add default dev " + iface + " table " + port
 	cmd += ";ip rule add not fwmark 1234 table 2468"
 	cmd += ";ip rule add table main suppress_prefixlength 0"
+	cmd += ";iptables-restore -n"
+	if _, err := ncutils.RunCmd(cmd, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func removeInternetGatewayRoute(iface, port string, peer wgtypes.PeerConfig) error {
+	cmd := "ip -4 rule delete table " + port
+	cmd += ";ip -4 rule delete table main suppress_prefixlength 0"
+	cmd += ":ip link del dev " + iface
+	cmd += ";iptables-restore -n"
 	if _, err := ncutils.RunCmd(cmd, true); err != nil {
 		return err
 	}

@@ -111,6 +111,11 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 					if peer.PublicKey.String() == currentPeer.PublicKey.String() {
 						shouldDelete = false
 					}
+					if shouldDeleteInternetGateway(peer.AllowedIPs, currentPeer.AllowedIPs) {
+						if local.RemoveInternetGatewayRoute(node.Interface, strconv.Itoa(int(node.ListenPort)), peer); err != nil {
+							logger.Log(0, "failed to remove internet gateways routes", err.Error())
+						}
+					}
 				}
 				if shouldDelete {
 					output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
@@ -124,6 +129,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			}
 		}
 	}
+	//TODO === why only Mac/Linux????
 	if ncutils.IsMac() {
 		err = SetMacPeerRoutes(iface)
 		return err
@@ -134,11 +140,10 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 	}
 	//check if internet gateway
 	if internetGateway {
-		if err := local.SetDefaultRoute(iface, gateway); err != nil {
+		if err := local.SetInternetGatewayRoute(node.Interface, strconv.Itoa(int(node.ListenPort)), gateway); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -570,4 +575,34 @@ func GetDevicePeers(iface string) ([]wgtypes.Peer, error) {
 		}
 		return device.Peers, nil
 	}
+}
+
+func shouldDeleteInternetGateway(new, current []net.IPNet) bool {
+	oldv4gatewayExists := false
+	newv4gatewayExists := false
+	oldv6gatewayExists := false
+	newv6gatewayExists := false
+	for _, ip := range current {
+		if ip.String() == "0.0.0.0/0" {
+			oldv4gatewayExists = true
+		}
+		if ip.String() == "::/0" {
+			oldv6gatewayExists = true
+		}
+	}
+	for _, ip := range new {
+		if ip.String() == "0.0.0.0/0" {
+			newv4gatewayExists = true
+		}
+		if ip.String() == "::/0" {
+			newv6gatewayExists = true
+		}
+	}
+	if oldv4gatewayExists && !newv4gatewayExists {
+		return false
+	}
+	if oldv6gatewayExists && !newv6gatewayExists {
+		return false
+	}
+	return true
 }
