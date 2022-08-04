@@ -29,7 +29,7 @@ const (
 	auth_key               = "netmaker_auth"
 )
 
-var oauth_state_string = "netmaker-oauth-state" // should be set randomly each provider login
+// var oauth_state_string = "netmaker-oauth-state" // should be set randomly each provider login
 var auth_provider *oauth2.Config
 
 func getCurrentAuthFunctions() map[string]interface{} {

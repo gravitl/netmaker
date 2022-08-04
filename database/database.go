@@ -56,6 +56,9 @@ const GENERATED_TABLE_NAME = "generated"
 // NODE_ACLS_TABLE_NAME - stores the node ACL rules
 const NODE_ACLS_TABLE_NAME = "nodeacls"
 
+// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
+const SSO_STATE_CACHE = "ssostatecache"
+
 // == ERROR CONSTS ==
 
 // NO_RECORD - no singular result found
@@ -135,6 +138,7 @@ func createTables() {
 	createTable(SERVER_UUID_TABLE_NAME)
 	createTable(GENERATED_TABLE_NAME)
 	createTable(NODE_ACLS_TABLE_NAME)
+	createTable(SSO_STATE_CACHE)
 }
 
 func createTable(tableName string) error {
