@@ -12,6 +12,7 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
@@ -30,6 +31,7 @@ type ClientConfig struct {
 	Daemon          string              `yaml:"daemon"`
 	OperatingSystem string              `yaml:"operatingsystem"`
 	AccessKey       string              `yaml:"accesskey"`
+	PublicIPService string              `yaml:"publicipservice"`
 }
 
 // RegisterRequest - struct for registation with netmaker server
@@ -231,6 +233,10 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		cfg.Server.CoreDNSAddr = c.String("corednsaddr")
 		cfg.Server.API = c.String("apiserver")
 	}
+	cfg.PublicIPService = c.String("publicipservice")
+	// populate the map as we're not running as a daemon so won't be building the map otherwise
+	// (and the map will be used by GetPublicIP()).
+	global_settings.PublicIPServices[cfg.Network] = cfg.PublicIPService
 	cfg.Node.Name = c.String("name")
 	cfg.Node.Interface = c.String("interface")
 	cfg.Node.Password = c.String("password")
