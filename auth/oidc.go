@@ -54,7 +54,7 @@ func initOIDC(redirectURL string, clientID string, clientSecret string, issuer s
 }
 
 func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
-	oauth_state_string = logic.RandomString(16)
+	var oauth_state_string = logic.RandomString(16)
 	if auth_provider == nil && servercfg.GetFrontendURL() != "" {
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
@@ -62,6 +62,12 @@ func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%s", []byte("no frontend URL was provided and an OAuth login was attempted\nplease reconfigure server to use OAuth or use basic credentials"))
 		return
 	}
+
+	if err := logic.SetState(oauth_state_string); err != nil {
+		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
+		return
+	}
+
 	var url = auth_provider.AuthCodeURL(oauth_state_string)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
@@ -101,7 +107,8 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func getOIDCUserInfo(state string, code string) (u *OIDCUser, e error) {
-	if state != oauth_state_string {
+	oauth_state_string, isValid := logic.IsStateValid(state)
+	if !isValid || state != oauth_state_string {
 		return nil, fmt.Errorf("invalid OAuth state")
 	}
 
