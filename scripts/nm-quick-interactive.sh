@@ -23,7 +23,7 @@ NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-EMAIL="$(echo $RANDOM | md5sum  | head -c 32)@email.com"
+EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
 
 echo "Default Base Domain: $NETMAKER_BASE_DOMAIN"
 echo "To Override, add a Wildcard (*.netmaker.example.com) DNS record pointing to $SERVER_PUBLIC_IP"
@@ -33,7 +33,7 @@ echo "         api.netmaker.example.com"
 echo "        grpc.netmaker.example.com"
 echo "-----------------------------------------------------"
 read -p "Domain (Hit 'enter' to use $NETMAKER_BASE_DOMAIN): " domain
-read -p "Contact Email: " email
+read -p "Email for LetsEncrypt (Hit 'enter' to use $EMAIL): " email
 
 if [ -n "$domain" ]; then
   NETMAKER_BASE_DOMAIN=$domain
@@ -99,6 +99,24 @@ echo "Beginning installation in 5 seconds..."
 
 sleep 5
 
+if [ -f "/root/docker-compose.yml" ]; then
+    echo "Using existing docker compose"
+else 
+    echo "Pulling docker compose"
+    wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml
+fi
+
+
+if [ -f "/root/mosquitto.conf" ]; then
+    echo "Using existing mosquitto config"
+else
+    echo "Pulling mosquitto config"
+    wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
+fi
+
+
+mkdir -p /etc/netmaker
+
 echo "Setting docker-compose..."
 
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
@@ -114,24 +132,24 @@ sleep 2
 
 test_connection() {
 
-echo "testing Traefik setup (please be patient, this may take 1-2 minutes)"
+echo "Testing Traefik setup (please be patient, this may take 1-2 minutes)"
 for i in 1 2 3 4 5 6
 do
 curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
 
 if [[ "$i" == 6 ]]; then
   echo "    Traefik is having an issue setting up certificates, please investigate (docker logs traefik)"
-  echo "    exiting..."
+  echo "    Exiting..."
   exit 1
 elif [[ "$curlresponse" == *"failed to verify the legitimacy of the server"* ]]; then
-  echo "    certificates not yet configured, retrying..."
+  echo "    Certificates not yet configured, retrying..."
 
 elif [[ "$curlresponse" == *"left intact"* ]]; then
-  echo "    certificates ok"
+  echo "    Certificates ok"
   break
 else
   secs=$(($i*5+10))
-  echo "    issue establishing connection...retrying in $secs seconds..."       
+  echo "    Issue establishing connection...retrying in $secs seconds..."       
 fi
 sleep $secs
 done
@@ -140,20 +158,20 @@ done
 
 setup_mesh() {( set -e
 sleep 5
-echo "creating netmaker network (10.101.0.0/16)"
+echo "Creating netmaker network (10.101.0.0/16)"
 
 curl -s -o /dev/null -d '{"addressrange":"10.101.0.0/16","netid":"netmaker"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
 
 sleep 5
 
-echo "creating netmaker access key"
+echo "Creating netmaker access key"
 
 curlresponse=$(curl -s -d '{"uses":99999,"name":"netmaker-key"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks/netmaker/keys)
 ACCESS_TOKEN=$(jq -r '.accessstring' <<< ${curlresponse})
 
 sleep 5
 
-echo "configuring netmaker server as ingress gateway"
+echo "Configuring netmaker server as ingress gateway"
 
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker)
 SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
@@ -199,30 +217,30 @@ sleep 5
 
 setup_vpn() {( set -e
 
-echo "creating vpn network (10.201.0.0/16)"
+echo "Creating vpn network (10.201.0.0/16)"
 
 sleep 5
 curl -s -o /dev/null -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"8.8.8.8"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
 
 sleep 5
 
-echo "configuring netmaker server as vpn inlet..."
+echo "Configuring netmaker server as vpn inlet..."
 
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn)
 SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 curl -s -o /dev/null -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn/$SERVER_ID/createingress
 
-echo "waiting 10 seconds for server to apply configuration..."
+echo "Waiting 10 seconds for server to apply configuration..."
 
 sleep 10
 
 
-echo "configuring netmaker server vpn gateway..."
+echo "Configuring netmaker server vpn gateway..."
 
 [ -z "$GATEWAY_IFACE" ] && GATEWAY_IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)')
 
-echo "gateway iface: $GATEWAY_IFACE"
+echo "Gateway iface: $GATEWAY_IFACE"
 
 curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn)
 SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
@@ -231,10 +249,10 @@ EGRESS_JSON=$( jq -n \
                   --arg gw "$GATEWAY_IFACE" \
                   '{ranges: ["0.0.0.0/5","8.0.0.0/7","11.0.0.0/8","12.0.0.0/6","16.0.0.0/4","32.0.0.0/3","64.0.0.0/2","128.0.0.0/3","160.0.0.0/5","168.0.0.0/6","172.0.0.0/12","172.32.0.0/11","172.64.0.0/10","172.128.0.0/9","173.0.0.0/8","174.0.0.0/7","176.0.0.0/4","192.0.0.0/9","192.128.0.0/11","192.160.0.0/13","192.169.0.0/16","192.170.0.0/15","192.172.0.0/14","192.176.0.0/12","192.192.0.0/10","193.0.0.0/8","194.0.0.0/7","196.0.0.0/6","200.0.0.0/5","208.0.0.0/4"], interface: $gw}' )
 
-echo "egress json: $EGRESS_JSON"
+echo "Egress json: $EGRESS_JSON"
 curl -s -o /dev/null -X POST -d "$EGRESS_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn/$SERVER_ID/creategateway
 
-echo "creating client configs..."
+echo "Creating client configs..."
 
 for ((a=1; a <= $NUM_CLIENTS; a++))
 do
