@@ -38,12 +38,18 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 			// nftables only supported on Linux
 			// assumes chains eg FORWARD and POSTROUTING already exist
 			logger.Log(3, "creating egress gateway using nftables")
-			postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+			// down commands don't remove as removal of the rules leaves an empty chain while
+			// removing the chain with rules in it would remove all rules in that section (not safe
+			// if there are remaining rules on the host that need to stay).  In practice the chain is removed
+			// when non-empty even though the removal of a non-empty chain should not be possible per nftables wiki.
+			postUpCmd = "nft add chain filter FORWARD ; "
+			postUpCmd += "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 			postUpCmd += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 			postDownCmd = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 			postDownCmd += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 
 			if node.EgressGatewayNatEnabled == "yes" {
+				postUpCmd += "nft add chain filter POSTROUTING ; "
 				postUpCmd += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
 				postDownCmd += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
 			}
@@ -142,8 +148,10 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 				// nftables only supported on Linux
 				// assumes chains eg FORWARD and POSTROUTING already exist
 				logger.Log(3, "deleting egress gateway using nftables")
-				node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+				node.PostUp = "nft add chain filter FORWARD ; "
+				node.PostUp += "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 				node.PostUp += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+				node.PostUp += "nft add chain filter POSTROUTING ; "
 				node.PostUp += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ; "
 				node.PostDown = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ;"
 				node.PostDown += "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ;"
@@ -199,8 +207,10 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 		// nftables only supported on Linux
 		// assumes chains eg FORWARD and POSTROUTING already exist
 		logger.Log(3, "creating ingress gateway using nftables")
-		postUpCmd = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+		postUpCmd = "nft add chain filter FORWARD ; "
+		postUpCmd += "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 		postUpCmd += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
+		postUpCmd += "nft add chain filter POSTROUTING ; "
 		postUpCmd += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade"
 		postDownCmd = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 		postDownCmd += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
@@ -272,12 +282,14 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 			// preserve egress gateway via the setup that createegressgateway used
 			// assumes chains eg FORWARD and POSTROUTING already exist
 			logger.Log(3, "deleting ingress gateway: nftables in use")
-			node.PostUp = "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
+			node.PostUp = "nft add chain filter FORWARD ; "
+			node.PostUp += "nft add rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 			node.PostUp += "nft add rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 			node.PostDown = "nft delete rule ip filter FORWARD iifname " + node.Interface + " counter accept ; "
 			node.PostDown += "nft delete rule ip filter FORWARD oifname " + node.Interface + " counter accept ; "
 
 			if node.EgressGatewayNatEnabled == "yes" {
+				node.PostUp += "nft add chain filter POSTROUTING ; "
 				node.PostUp += "nft add rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
 				node.PostDown += "nft delete rule ip nat POSTROUTING oifname " + node.Interface + " counter masquerade ;"
 			}
