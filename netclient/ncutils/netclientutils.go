@@ -114,7 +114,7 @@ func GetWireGuard() string {
 func IsNFTablesPresent() bool {
 	var nftFound bool
 
-	nftFound = FileExists("/etc/nftables.conf")
+	nftFound = FileExists("/usr/sbin/nft")
 	logger.Log(3, "nftables found:", strconv.FormatBool(nftFound))
 	return nftFound
 }
