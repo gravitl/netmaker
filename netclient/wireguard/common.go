@@ -29,8 +29,8 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 	var devicePeers []wgtypes.Peer
 	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string]bool, len(peers))
-	internetGateway := false
-	gateway := wgtypes.PeerConfig{}
+	internetV4Gateway := false
+	internetV6Gateway := false
 
 	var err error
 	devicePeers, err = GetDevicePeers(iface)
@@ -63,14 +63,21 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		var iparr []string
 		for _, ipaddr := range peer.AllowedIPs {
 			if hasPeerIP {
-				if ipaddr.String() == "0.0.0.0/0" || ipaddr.String() == "::/0" {
+				if ipaddr.String() == "0.0.0.0/0" {
 					if node.IsServer == "yes" {
 						//skip server
 						logger.Log(2, "skipping internet gateway for server")
 						continue
 					}
-					internetGateway = true
-					gateway = peer
+					internetV4Gateway = true
+				}
+				if ipaddr.String() == "::/0" {
+					if node.IsServer == "yes" {
+						//skip server
+						logger.Log(2, "skipping internet gateway for server")
+						continue
+					}
+					internetV6Gateway = true
 				}
 				iparr = append(iparr, ipaddr.String())
 			}
@@ -111,8 +118,9 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 					if peer.PublicKey.String() == currentPeer.PublicKey.String() {
 						shouldDelete = false
 					}
-					if shouldDeleteInternetGateway(peer.AllowedIPs, currentPeer.AllowedIPs) {
-						if local.RemoveInternetGatewayRoute(node.Interface, strconv.Itoa(int(node.ListenPort)), peer); err != nil {
+					v4, v6 := shouldDeleteInternetGateway(peer.AllowedIPs, currentPeer.AllowedIPs)
+					if v4 || v6 {
+						if local.RemoveInternetGatewayRoute(node.Interface, strconv.Itoa(int(node.ListenPort)), v4, v6); err != nil {
 							logger.Log(0, "failed to remove internet gateways routes", err.Error())
 						}
 					}
@@ -139,8 +147,8 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 		}
 	}
 	//check if internet gateway
-	if internetGateway {
-		if err := local.SetInternetGatewayRoute(node.Interface, strconv.Itoa(int(node.ListenPort)), gateway); err != nil {
+	if internetV4Gateway || internetV6Gateway {
+		if err := local.SetInternetGatewayRoute(node.Interface, strconv.Itoa(int(node.ListenPort)), internetV4Gateway, internetV6Gateway); err != nil {
 			return err
 		}
 	}
@@ -577,11 +585,13 @@ func GetDevicePeers(iface string) ([]wgtypes.Peer, error) {
 	}
 }
 
-func shouldDeleteInternetGateway(new, current []net.IPNet) bool {
+func shouldDeleteInternetGateway(new, current []net.IPNet) (bool, bool) {
 	oldv4gatewayExists := false
 	newv4gatewayExists := false
 	oldv6gatewayExists := false
 	newv6gatewayExists := false
+	v4 := false
+	v6 := false
 	for _, ip := range current {
 		if ip.String() == "0.0.0.0/0" {
 			oldv4gatewayExists = true
@@ -599,10 +609,10 @@ func shouldDeleteInternetGateway(new, current []net.IPNet) bool {
 		}
 	}
 	if oldv4gatewayExists && !newv4gatewayExists {
-		return false
+		v4 = true
 	}
 	if oldv6gatewayExists && !newv6gatewayExists {
-		return false
+		v6 = true
 	}
-	return true
+	return v4, v6
 }

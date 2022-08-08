@@ -64,11 +64,11 @@ func RemoveCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
 }
 
 // SetInternetGatewayRoute - sets the default route when peer is internet gateway
-func SetInternetGatewayRoute(iface, port string, peer wgtypes.PeerConfig) error {
-	return setInternetGatewayRoute(iface, port, peer)
+func SetInternetGatewayRoute(iface, port string, v4, v6 bool) error {
+	return setInternetGatewayRoute(iface, port, v4, v6)
 }
 
 // RemoveInternetGatewayRoute -- deletes routes when internet gateway is removed from peer
-func RemoveInternetGatewayRoute(iface, port string, peer wgtypes.PeerConfig) error {
-	return removeInternetGatewayRoute(iface, port, peer)
+func RemoveInternetGatewayRoute(iface, port string, v4, v6 bool) error {
+	return removeInternetGatewayRoute(iface, port, v4, v6)
 }
