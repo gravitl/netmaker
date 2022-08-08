@@ -125,6 +125,10 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node.IsEgressGateway = "no"
 	node.EgressGatewayRanges = []string{}
 	node.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
+	// needed in case we don't preserve a gateway (i.e., no ingress to preserve)
+	node.PostUp = ""
+	node.PostDown = ""
+
 	logger.Log(3, "deleting egress gateway firewall in use is '", node.FirewallInUse, "'")
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
 		// still have an ingress gateway so preserve it
@@ -240,6 +244,7 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 	// default to removing postup and postdown
 	node.PostUp = ""
 	node.PostDown = ""
+
 	logger.Log(3, "deleting ingress gateway firewall in use is '", node.FirewallInUse, "' and isEgressGateway is", node.IsEgressGateway)
 	if node.EgressGatewayRequest.NodeID != "" {
 		_, err := CreateEgressGateway(node.EgressGatewayRequest)
