@@ -6,16 +6,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"math/big"
 	"math/rand"
 	"net"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // IsBase64 - checks if a string is in base64 format

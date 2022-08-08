@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/models"
 	"net"
 	"os"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/cloverstd/tcping/ping"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
