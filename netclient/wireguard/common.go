@@ -319,7 +319,6 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 }
 
 // WriteWgConfig - creates a wireguard config file
-//func WriteWgConfig(cfg *config.ClientConfig, privateKey string, peers []wgtypes.PeerConfig) error {
 func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerConfig) error {
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
@@ -382,14 +381,15 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 }
 
 // UpdateWgPeers - updates the peers of a network
-func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) error {
+func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) (*net.UDPAddr, error) {
+	var internetGateway *net.UDPAddr
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
 		AllowShadows:           true,
 	}
 	wireguard, err := ini.LoadSources(options, file)
 	if err != nil {
-		return err
+		return internetGateway, err
 	}
 	//delete the peers sections as they are going to be replaced
 	wireguard.DeleteSection(section_peers)
@@ -408,6 +408,9 @@ func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) error {
 				}
 			}
 			wireguard.SectionWithIndex(section_peers, i).Key("AllowedIps").SetValue(allowedIPs)
+			if strings.Contains(allowedIPs, "0.0.0.0/0") || strings.Contains(allowedIPs, "::/0") {
+				internetGateway = peer.Endpoint
+			}
 		}
 		if peer.Endpoint != nil {
 			wireguard.SectionWithIndex(section_peers, i).Key("Endpoint").SetValue(peer.Endpoint.String())
@@ -417,9 +420,9 @@ func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) error {
 		}
 	}
 	if err := wireguard.SaveTo(file); err != nil {
-		return err
+		return internetGateway, err
 	}
-	return nil
+	return internetGateway, nil
 }
 
 // UpdateWgInterface - updates the interface section of a wireguard config file
