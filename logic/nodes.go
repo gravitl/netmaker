@@ -427,6 +427,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIngressGateway()
 	node.SetDefaulIsPending()
 	node.SetDefaultMTU()
+	node.SetDefaultNFTablesPresent()
 	node.SetDefaultIsRelayed()
 	node.SetDefaultIsRelay()
 	node.SetDefaultIsDocker()
