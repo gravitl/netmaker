@@ -144,35 +144,6 @@ echo "starting containers..."
 
 docker-compose -f /root/docker-compose.yml up -d
 
-test_connection() {
-
-echo "testing Traefik setup (please be patient, this may take 1-2 minutes)"
-for i in 1 2 3 4 5 6
-do
-curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
-
-if [[ "$i" == 6 ]]; then
-  echo "    Traefik is having an issue setting up certificates, please investigate (docker logs traefik)"
-  echo "    exiting..."
-  exit 1
-elif [[ "$curlresponse" == *"failed to verify the legitimacy of the server"* ]]; then
-  echo "    certificates not yet configured, retrying..."
-
-elif [[ "$curlresponse" == *"left intact"* ]]; then
-  echo "    certificates ok"
-  break
-else
-  secs=$(($i*5+10))
-  echo "    issue establishing connection...retrying in $secs seconds..."       
-fi
-sleep $secs
-done
-}
-
-set +e
-test_connection
-
-
 cat << "EOF"
 
                                                                                          
@@ -189,7 +160,7 @@ EOF
 echo "visit https://dashboard.$NETMAKER_BASE_DOMAIN to log in"
 sleep 7
 
-setup_mesh() {( set -e
+setup_mesh() {
 echo "creating netmaker network (10.101.0.0/16)"
 
 curl -s -o /dev/null -d '{"addressrange":"10.101.0.0/16","netid":"netmaker"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
@@ -225,9 +196,9 @@ echo "        3. Select the gateway and create clients"
 echo "        4. Scan the QR Code from WireGuard app in iOS or Android"
 echo ""
 echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
-)}
+}
 
-setup_vpn() {( set -e
+setup_vpn() {
 echo "creating vpn network (10.201.0.0/16)"
 
 curl -s -o /dev/null -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"8.8.8.8"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
@@ -282,7 +253,7 @@ echo "        3. Download or scan a client config (vpnclient-x) to the appropria
 echo "        4. Follow the steps for your system to configure WireGuard on the appropriate device"
 echo "        5. Create and delete clients as necessary. Changes to netmaker server settings require regenerating ext clients."
 
-)}
+}
 
 if [ "${MESH_SETUP}" != "false" ]; then
         setup_mesh
