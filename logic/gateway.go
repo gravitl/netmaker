@@ -294,9 +294,8 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 	postUp += "nft add rule ip nat POSTROUTING oifname " + networkInterface + " counter masquerade"
 
 	// doesn't remove potentially empty tables or chains
-	postDown := "nft delete rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
-	postDown += "nft delete rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
-	postDown += "nft delete rule ip nat POSTROUTING oifname " + networkInterface + " counter masquerade"
+	postDown := "nft flush table filter; "
+	postDown += "nft flush table nat; "
 
 	return postUp, postDown
 }
@@ -308,15 +307,14 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 	postUp += "nft add rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
 	postUp += "nft add rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
 
-	postDown := "nft delete rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
-	postDown += "nft delete rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
+	postDown := "nft flush table filter; "
 
 	if egressNatEnabled == "yes" {
 		postUp += "nft add table nat ; "
 		postUp += "nft add chain nat POSTROUTING ; "
 		postUp += "nft add rule ip nat POSTROUTING oifname " + gatewayInterface + " counter masquerade ;"
 
-		postDown += "nft delete rule ip nat POSTROUTING oifname " + gatewayInterface + " counter masquerade ;"
+		postDown += "nft flush table nat; "
 	}
 
 	return postUp, postDown
