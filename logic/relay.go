@@ -41,9 +41,6 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err != nil {
 		return returnnodes, node, err
 	}
-	if err = NetworkNodesUpdatePullChanges(node.Network); err != nil {
-		return returnnodes, models.Node{}, err
-	}
 	return returnnodes, node, nil
 }
 
@@ -123,9 +120,6 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 		return returnnodes, models.Node{}, err
 	}
 	if err = database.Insert(nodeid, string(data), database.NODES_TABLE_NAME); err != nil {
-		return returnnodes, models.Node{}, err
-	}
-	if err = NetworkNodesUpdatePullChanges(network); err != nil {
 		return returnnodes, models.Node{}, err
 	}
 	return returnnodes, node, nil

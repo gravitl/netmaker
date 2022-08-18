@@ -171,13 +171,13 @@ func nodeauth(next http.Handler) http.HandlerFunc {
 	}
 }
 
-//The middleware for most requests to the API
-//They all pass  through here first
-//This will validate the JWT (or check for master token)
-//This will also check against the authNetwork and make sure the node should be accessing that endpoint,
-//even if it's technically ok
-//This is kind of a poor man's RBAC. There's probably a better/smarter way.
-//TODO: Consider better RBAC implementations
+// The middleware for most requests to the API
+// They all pass  through here first
+// This will validate the JWT (or check for master token)
+// This will also check against the authNetwork and make sure the node should be accessing that endpoint,
+// even if it's technically ok
+// This is kind of a poor man's RBAC. There's probably a better/smarter way.
+// TODO: Consider better RBAC implementations
 func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
@@ -302,7 +302,7 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 	}
 }
 
-//Gets all nodes associated with network, including pending nodes
+// Gets all nodes associated with network, including pending nodes
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -325,8 +325,8 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(nodes)
 }
 
-//A separate function to get all nodes, not just nodes for a particular network.
-//Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
+// A separate function to get all nodes, not just nodes for a particular network.
+// Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	user, err := logic.GetUser(r.Header.Get("user"))
@@ -372,7 +372,7 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 	return nodes, err
 }
 
-//Get an individual node. Nothin fancy here folks.
+// Get an individual node. Nothin fancy here folks.
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -406,10 +406,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-//Get the time that a network of nodes was last modified.
-//TODO: This needs to be refactored
-//Potential way to do this: On UpdateNode, set a new field for "LastModified"
-//If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
+// Get the time that a network of nodes was last modified.
+// TODO: This needs to be refactored
+// Potential way to do this: On UpdateNode, set a new field for "LastModified"
+// If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
 func getLastModified(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -736,9 +736,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	if relayupdate {
 		updatenodes := logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
-		if err = logic.NetworkNodesUpdatePullChanges(node.Network); err != nil {
-			logger.Log(1, "error setting relay updates:", err.Error())
-		}
 		if len(updatenodes) > 0 {
 			for _, relayedNode := range updatenodes {
 				runUpdates(&relayedNode, false)

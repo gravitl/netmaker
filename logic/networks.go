@@ -91,36 +91,6 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	return network, nil
 }
 
-// NetworkNodesUpdatePullChanges - tells nodes on network to pull
-func NetworkNodesUpdatePullChanges(networkName string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
-		return err
-	}
-
-	for _, value := range collections {
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
-}
-
 // GetNetworkNonServerNodeCount - get number of network non server nodes
 func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 

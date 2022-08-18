@@ -93,9 +93,6 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
-	if err = NetworkNodesUpdatePullChanges(node.Network); err != nil {
-		return models.Node{}, err
-	}
 	return node, nil
 }
 
@@ -153,9 +150,6 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 		return models.Node{}, err
 	}
 	if err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME); err != nil {
-		return models.Node{}, err
-	}
-	if err = NetworkNodesUpdatePullChanges(network); err != nil {
 		return models.Node{}, err
 	}
 	return node, nil
