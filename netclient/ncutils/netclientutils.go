@@ -113,9 +113,7 @@ func GetWireGuard() string {
 // IsNFTablesPresent - returns true if nftables is present, false otherwise.
 // Does not consider OS, up to the caller to determine if the OS supports nftables/whether this check is valid.
 func IsNFTablesPresent() bool {
-	var nftFound bool
-
-	nftFound = FileExists("/usr/sbin/nft")
+	nftFound := FileExists("/usr/sbin/nft")
 	logger.Log(3, "nftables found:", strconv.FormatBool(nftFound))
 	return nftFound
 }
@@ -239,7 +237,7 @@ func GetLocalIP(localrange string) (string, error) {
 	return local, nil
 }
 
-//GetNetworkIPMask - Pulls the netmask out of the network
+// GetNetworkIPMask - Pulls the netmask out of the network
 func GetNetworkIPMask(networkstring string) (string, string, error) {
 	ip, ipnet, err := net.ParseCIDR(networkstring)
 	if err != nil {
