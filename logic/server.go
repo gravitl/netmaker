@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -206,6 +207,11 @@ func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []stri
 	nodes, err := GetNetworkNodes(serverNode.Network)
 	if err == nil {
 		for _, node := range nodes {
+			//if egress ranges is internet (0.0.0.0/0 or ::/0) remove as don't want server to use internet gateway
+			if node.IsEgressGateway == "yes" && (slices.Contains(node.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(node.EgressGatewayRanges, "::/0")) {
+				logger.Log(0, "skipping internet gateway for server")
+				continue
+			}
 			if node.IsEgressGateway == "yes" && !IsLocalServer(&node) {
 				gateways = append(gateways, node.EgressGatewayRanges...)
 			}
