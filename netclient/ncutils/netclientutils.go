@@ -135,15 +135,19 @@ func IsEmptyRecord(err error) bool {
 }
 
 // GetPublicIP - gets public ip
-func GetPublicIP() (string, error) {
+func GetPublicIP(api string) (string, error) {
 
-	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	iplist := []string{"https://ip.client.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 
 	for network, ipService := range global_settings.PublicIPServices {
 		logger.Log(3, "User provided public IP service defined for network", network, "is", ipService)
 
 		// prepend the user-specified service so it's checked first
 		iplist = append([]string{ipService}, iplist...)
+	}
+	if api != "" {
+		api = "https://" + api + "/api/getip"
+		iplist = append([]string{api}, iplist...)
 	}
 
 	endpoint := ""

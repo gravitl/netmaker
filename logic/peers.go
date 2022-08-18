@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -494,6 +495,11 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 }
 
 func getEgressIPs(node, peer *models.Node) []net.IPNet {
+	//check for internet gateway
+	internetGateway := false
+	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::0") {
+		internetGateway = true
+	}
 	allowedips := []net.IPNet{}
 	for _, iprange := range peer.EgressGatewayRanges { // go through each cidr for egress gateway
 		_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
@@ -501,13 +507,13 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 			logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
 			continue // if can't parse CIDR
 		}
-		nodeEndpointArr := strings.Split(peer.Endpoint, ":") // getting the public ip of node
-		if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain endpoint of node
+		nodeEndpointArr := strings.Split(peer.Endpoint, ":")                     // getting the public ip of node
+		if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) && !internetGateway { // ensuring egress gateway range does not contain endpoint of node
 			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.Endpoint, ", omitting")
 			continue // skip adding egress range if overlaps with node's ip
 		}
 		// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
-		if ipnet.Contains(net.ParseIP(node.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
+		if ipnet.Contains(net.ParseIP(node.LocalAddress)) && !internetGateway { // ensuring egress gateway range does not contain public ip of node
 			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.LocalAddress, ", omitting")
 			continue // skip adding egress range if overlaps with node's local ip
 		}
