@@ -56,7 +56,7 @@ func checkin() {
 			nodeCfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
 		}
 		if nodeCfg.Node.IsStatic != "yes" {
-			extIP, err := ncutils.GetPublicIP()
+			extIP, err := ncutils.GetPublicIP(nodeCfg.Server.API)
 			if err != nil {
 				logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
 			}
