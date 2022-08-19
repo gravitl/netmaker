@@ -11,8 +11,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -148,13 +148,13 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		return returnNode, err
 	}
 
-	peers, hasGateway, gateways, err := GetServerPeers(node)
+	peers, err := GetPeerUpdate(node)
 	if err != nil && !ncutils.IsEmptyRecord(err) {
 		logger.Log(1, "failed to retrieve peers")
 		return returnNode, err
 	}
 
-	err = initWireguard(node, privateKey, peers[:], hasGateway, gateways[:])
+	err = wireguard.InitWireguard(node, privateKey, peers.Peers, false)
 	if err != nil {
 		return returnNode, err
 	}
@@ -186,41 +186,6 @@ func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
 	}
 
 	return serverPush(serverNode)
-}
-
-/**
- * Below function needs major refactor
- *
- */
-
-// GetServerPeers - gets peers of server
-func GetServerPeers(serverNode *models.Node) ([]wgtypes.PeerConfig, bool, []string, error) {
-	update, err := GetPeerUpdate(serverNode)
-	if err != nil {
-		return []wgtypes.PeerConfig{}, false, []string{}, err
-	}
-
-	// this is temporary code, should be removed by 0.14.4
-	// refactor server routing to use client-side routing code
-	var hasGateways = false
-	var gateways = []string{}
-	nodes, err := GetNetworkNodes(serverNode.Network)
-	if err == nil {
-		for _, node := range nodes {
-			//if egress ranges is internet (0.0.0.0/0 or ::/0) remove as don't want server to use internet gateway
-			if node.IsEgressGateway == "yes" && (slices.Contains(node.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(node.EgressGatewayRanges, "::/0")) {
-				logger.Log(0, "skipping internet gateway for server")
-				continue
-			}
-			if node.IsEgressGateway == "yes" && !IsLocalServer(&node) {
-				gateways = append(gateways, node.EgressGatewayRanges...)
-			}
-		}
-		hasGateways = len(gateways) > 0
-	}
-	// end temporary code
-
-	return update.Peers, hasGateways, gateways, nil
 }
 
 // == Private ==

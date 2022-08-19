@@ -302,8 +302,7 @@ func removeWGQuickConf(confPath string, printlog bool) error {
 }
 
 func setWGConfig(node *models.Node, peerupdate bool) error {
-
-	peers, hasGateway, gateways, err := GetServerPeers(node)
+	peers, err := GetPeerUpdate(node)
 	if err != nil {
 		return err
 	}
@@ -312,15 +311,14 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 		return err
 	}
 	if peerupdate {
-		if err := wireguard.SetPeers(node.Interface, node, peers); err != nil {
+		if err := wireguard.SetPeers(node.Interface, node, peers.Peers); err != nil {
 			logger.Log(0, "error updating peers", err.Error())
 		}
 		logger.Log(2, "updated peers on server", node.Name)
 	} else {
-		err = initWireguard(node, privkey, peers[:], hasGateway, gateways[:])
+		err = wireguard.InitWireguard(node, privkey, peers.Peers, false)
 		logger.Log(3, "finished setting wg config on server", node.Name)
 	}
-	peers = nil
 	return err
 }
 
