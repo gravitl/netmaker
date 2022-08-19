@@ -150,7 +150,7 @@ func Connect(cfg config.ClientConfig) error {
 	if networkName == "" {
 		networkName = cfg.Node.Network
 	}
-	if networkName == "" {
+	if networkName == "all" {
 		return fmt.Errorf("no network specified")
 	}
 	return functions.Connect(networkName)
@@ -162,7 +162,7 @@ func Disconnect(cfg config.ClientConfig) error {
 	if networkName == "" {
 		networkName = cfg.Node.Network
 	}
-	if networkName == "" {
+	if networkName == "all" {
 		return fmt.Errorf("no network specified")
 	}
 	return functions.Disconnect(networkName)
