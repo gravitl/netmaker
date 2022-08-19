@@ -42,36 +42,6 @@ func ApplyMacOSConf(node *models.Node, ifacename, confPath string, isConnected b
 	return err
 }
 
-// SyncWGQuickConf - formats config file and runs sync command - DEPRECATED
-// func SyncWGQuickConf(iface string, confPath string) error {
-// 	var tmpConf = confPath + ".sync.tmp"
-// 	var confCmd = "wg-quick strip "
-// 	if ncutils.IsMac() {
-// 		confCmd = "grep -v -e Address -e MTU -e PostUp -e PostDown "
-// 	}
-// 	confRaw, err := ncutils.RunCmd(confCmd+confPath, false)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	regex := regexp.MustCompile(".*Warning.*\n")
-// 	conf := regex.ReplaceAllString(confRaw, "")
-// 	err = os.WriteFile(tmpConf, []byte(conf), 0600)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	_, err = ncutils.RunCmd("wg syncconf "+iface+" "+tmpConf, true)
-// 	if err != nil {
-// 		log.Println(err.Error())
-// 		logger.Log(0, "error syncing conf, resetting")
-// 		err = ApplyWGQuickConf(confPath, iface)
-// 	}
-// 	errN := os.Remove(tmpConf)
-// 	if errN != nil {
-// 		logger.Log(0, errN.Error())
-// 	}
-// 	return err
-// }
-
 // RemoveWGQuickConf - calls wg-quick down
 func RemoveWGQuickConf(confPath string, printlog bool) error {
 	_, err := ncutils.RunCmd(fmt.Sprintf("wg-quick down %s", confPath), printlog)
