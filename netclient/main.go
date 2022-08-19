@@ -35,6 +35,9 @@ func main() {
 	} else {
 		ncutils.CheckUID()
 		ncutils.CheckWG()
+		if ncutils.IsLinux() {
+			ncutils.CheckFirewall()
+		}
 	}
 
 	if len(os.Args) <= 1 && config.GuiActive {
