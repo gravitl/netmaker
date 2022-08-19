@@ -123,7 +123,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 }
 
 // Initializes a WireGuard interface
-func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, syncconf bool) error {
+func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig) error {
 
 	key, err := wgtypes.ParseKey(privkey)
 	if err != nil {
@@ -246,9 +246,9 @@ func SetWGConfig(network string, peerupdate bool, peers []wgtypes.PeerConfig) er
 		}
 		err = SetPeers(iface, &cfg.Node, peers)
 	} else if peerupdate {
-		err = InitWireguard(&cfg.Node, privkey, peers, true)
+		err = InitWireguard(&cfg.Node, privkey, peers)
 	} else {
-		err = InitWireguard(&cfg.Node, privkey, peers, false)
+		err = InitWireguard(&cfg.Node, privkey, peers)
 	}
 
 	return err

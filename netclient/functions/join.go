@@ -211,7 +211,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	logger.Log(0, "starting wireguard")
-	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:], false)
+	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:])
 	if err != nil {
 		return err
 	}
