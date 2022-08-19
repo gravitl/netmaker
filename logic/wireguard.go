@@ -1,18 +1,12 @@
 package logic
 
 import (
-	"errors"
-	"fmt"
-	"net"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -123,177 +117,6 @@ func getSystemPeers(node *models.Node) (map[string]string, error) {
 	}
 	return peers, nil
 }
-
-func initWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, hasGateway bool, gateways []string) error {
-
-	key, err := wgtypes.ParseKey(privkey)
-	if err != nil {
-		return err
-	}
-
-	wgclient, err := wgctrl.New()
-	if err != nil {
-		return err
-	}
-	defer wgclient.Close()
-
-	var ifacename string
-	if node.Interface != "" {
-		ifacename = node.Interface
-	} else {
-		logger.Log(2, "no server interface provided to configure")
-	}
-	if node.Address == "" {
-		logger.Log(2, "no server address to provided configure")
-	}
-
-	if ncutils.IsKernel() {
-		logger.Log(2, "setting kernel device", ifacename)
-		network, err := GetNetwork(node.Network)
-		if err != nil {
-			logger.Log(0, "failed to get network"+err.Error())
-			return err
-		}
-		var address4 string
-		var address6 string
-		var mask4 string
-		var mask6 string
-		if network.AddressRange != "" {
-			net := strings.Split(network.AddressRange, "/")
-			mask4 = net[len(net)-1]
-			address4 = node.Address
-		}
-		if network.AddressRange6 != "" {
-			net := strings.Split(network.AddressRange6, "/")
-			mask6 = net[len(net)-1]
-			address6 = node.Address6
-		}
-
-		setKernelDevice(ifacename, address4, mask4, address6, mask6)
-	}
-
-	nodeport := int(node.ListenPort)
-	var conf = wgtypes.Config{
-		PrivateKey:   &key,
-		ListenPort:   &nodeport,
-		ReplacePeers: true,
-		Peers:        peers,
-	}
-
-	if !ncutils.IsKernel() {
-		if err := wireguard.WriteWgConfig(node, key.String(), peers); err != nil {
-			logger.Log(1, "error writing wg conf file: ", err.Error())
-			return err
-		}
-		// spin up userspace + apply the conf file
-		var deviceiface = ifacename
-		confPath := ncutils.GetNetclientPathSpecific() + ifacename + ".conf"
-		d, _ := wgclient.Device(deviceiface)
-		for d != nil && d.Name == deviceiface {
-			_ = RemoveConf(ifacename, false) // remove interface first
-			time.Sleep(time.Second >> 2)
-			d, _ = wgclient.Device(deviceiface)
-		}
-		time.Sleep(time.Second >> 2)
-		err = applyWGQuickConf(confPath)
-		if err != nil {
-			logger.Log(1, "failed to create wireguard interface")
-			return err
-		}
-	} else {
-		ipExec, err := exec.LookPath("ip")
-		if err != nil {
-			return err
-		}
-
-		_, err = wgclient.Device(ifacename)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Println("Device does not exist: ")
-				fmt.Println(err)
-			} else {
-				return errors.New("Unknown config error: " + err.Error())
-			}
-		}
-
-		err = wgclient.ConfigureDevice(ifacename, conf)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Println("Device does not exist: ")
-				fmt.Println(err)
-			} else {
-				fmt.Printf("This is inconvenient: %v", err)
-			}
-		}
-
-		if _, err := ncutils.RunCmd(ipExec+" link set down dev "+ifacename, false); err != nil {
-			logger.Log(2, "attempted to remove interface before editing")
-			return err
-		}
-
-		if node.PostDown != "" {
-			runcmds := strings.Split(node.PostDown, "; ")
-			_ = ncutils.RunCmds(runcmds, false)
-		}
-		// set MTU of node interface
-		if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {
-			logger.Log(2, "failed to create interface with mtu", strconv.Itoa(int(node.MTU)), "-", ifacename)
-			return err
-		}
-
-		if node.PostUp != "" {
-			runcmds := strings.Split(node.PostUp, "; ")
-			_ = ncutils.RunCmds(runcmds, true)
-		}
-		if hasGateway {
-			for _, gateway := range gateways {
-				_, _ = ncutils.RunCmd(ipExec+" -4 route add "+gateway+" dev "+ifacename, true)
-			}
-		}
-		if node.Address != "" {
-			logger.Log(1, "adding address:", node.Address)
-			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address+"/32", true)
-		}
-		if node.Address6 != "" {
-			logger.Log(1, "adding address6:", node.Address6)
-			_, _ = ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+node.Address6+"/128", true)
-		}
-		wireguard.SetPeers(ifacename, node, peers)
-	}
-
-	if node.IsServer == "yes" {
-		setServerRoutes(node.Interface, node.Network)
-	}
-
-	return err
-}
-
-func setKernelDevice(ifacename, address4, mask4, address6, mask6 string) error {
-	ipExec, err := exec.LookPath("ip")
-	if err != nil {
-		return err
-	}
-
-	// == best effort ==
-	ncutils.RunCmd("ip link delete dev "+ifacename, false)
-	ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
-	if address4 != "" {
-		ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address4+"/"+mask4, true)
-	}
-	if address6 != "" {
-		ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address6+"/"+mask6, true)
-	}
-
-	return nil
-}
-
-func applyWGQuickConf(confPath string) error {
-	if _, err := ncutils.RunCmd("wg-quick up "+confPath, true); err != nil {
-		return err
-	}
-	return nil
-}
-
 func removeWGQuickConf(confPath string, printlog bool) error {
 	if _, err := ncutils.RunCmd("wg-quick down "+confPath, printlog); err != nil {
 		return err
@@ -389,22 +212,4 @@ func removeLocalServer(node *models.Node) error {
 		_ = os.Remove(home + "nm-" + node.Network + ".conf")
 	}
 	return err
-}
-
-func setServerRoutes(iface, network string) {
-	parentNetwork, err := GetParentNetwork(network)
-	if err == nil {
-		if parentNetwork.AddressRange != "" {
-			ip, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-			if err == nil {
-				local.SetCIDRRoute(iface, ip.String(), cidr)
-			}
-		}
-		if parentNetwork.AddressRange6 != "" {
-			ip, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
-			if err == nil {
-				local.SetCIDRRoute(iface, ip.String(), cidr)
-			}
-		}
-	}
 }
