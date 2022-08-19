@@ -15,7 +15,7 @@ var upgrade0148 = UpgradeInfo{
 }
 
 func update0148(cfg *config.ClientConfig) {
-	// do stuff for 14.X -> 14.5
+	// set connect default if not present 14.X -> 14.8
 	if cfg.Node.Connected == "" {
 		cfg.Node.SetDefaultConnected()
 	}

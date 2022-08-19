@@ -157,7 +157,7 @@ func setKernelDevice(ifacename, address4, mask4, address6, mask6 string, isConne
 	// == best effort ==
 	ncutils.RunCmd("ip link delete dev "+ifacename, false)
 	if !isConnected {
-		return fmt.Errorf("node disconnected")
+		return fmt.Errorf(disconnect_error)
 	}
 
 	ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
