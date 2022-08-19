@@ -146,6 +146,9 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 	if err != nil {
 		return err
 	}
+	if mqclient == nil {
+		return errors.New("unable to publish - no mqclient")
+	}
 
 	if token := mqclient.Publish(dest, qos, false, encrypted); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
 		logger.Log(0, "could not connect to broker at "+nodeCfg.Server.Server+":"+nodeCfg.Server.MQPort)

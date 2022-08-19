@@ -65,6 +65,9 @@ func publish(node *models.Node, dest string, msg []byte) error {
 	if encryptErr != nil {
 		return encryptErr
 	}
+	if mqclient == nil {
+		return errors.New("cannot publish mqclient not connected")
+	}
 	if token := mqclient.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
