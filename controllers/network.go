@@ -39,7 +39,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", securityCheck(true, http.HandlerFunc(getNetworkACL))).Methods("GET")
 }
 
-//simple get all networks function
+// simple get all networks function
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	headerNetworks := r.Header.Get("networks")
@@ -216,9 +216,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, node := range nodes {
-			if err = mq.NodeUpdate(&node); err != nil {
-				logger.Log(1, "failed to send update to node during a network wide update", node.Name, node.ID, err.Error())
-			}
+			runUpdates(&node, true)
 		}
 	}
 

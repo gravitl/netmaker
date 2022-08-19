@@ -89,7 +89,7 @@ type Node struct {
 	Version         string      `json:"version" bson:"version" yaml:"version"`
 	Server          string      `json:"server" bson:"server" yaml:"server"`
 	TrafficKeys     TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
-  FirewallInUse string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
+	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 }
 
