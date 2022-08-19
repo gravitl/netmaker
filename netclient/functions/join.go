@@ -120,8 +120,10 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if cfg.Node.FirewallInUse == "" {
 		if ncutils.IsNFTablesPresent() {
 			cfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
-		} else {
+		} else if ncutils.IsIPTablesPresent() {
 			cfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
+		} else {
+			cfg.Node.FirewallInUse = models.FIREWALL_NONE
 		}
 	}
 
