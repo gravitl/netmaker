@@ -118,6 +118,12 @@ func IsNFTablesPresent() bool {
 	return nftFound
 }
 
+// IsIPTablesPresent - returns true if iptables is present, false otherwise
+// Does not consider OS, up to the caller to determine if the OS supports iptables/whether this check is valid.
+func IsIPTablesPresent() bool {
+	return FileExists("/usr/sbin/iptables")
+}
+
 // IsKernel - checks if running kernel WireGuard
 func IsKernel() bool {
 	//TODO
@@ -527,7 +533,7 @@ func CheckFirewall() {
 		found = true
 	}
 	if !found {
-		log.Fatal("neither iptables nor nft is installed - please install one or the other and try again")
+		logger.Log(0, "neither iptables nor nft is installed - node cannot be used as a gateway")
 	}
 }
 

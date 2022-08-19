@@ -21,6 +21,9 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if node.OS != "linux" && node.OS != "freebsd" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
+	if node.OS == "linux" && node.FirewallInUse == models.FIREWALL_NONE {
+		return models.Node{}, errors.New("firewall is not supported for egress gateways")
+	}
 	if gateway.NatEnabled == "" {
 		gateway.NatEnabled = "yes"
 	}
@@ -162,6 +165,9 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	node, err := GetNodeByID(nodeid)
 	if node.OS != "linux" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
+	}
+	if node.OS == "linux" && node.FirewallInUse == models.FIREWALL_NONE {
+		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
 	}
 
 	if err != nil {

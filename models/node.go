@@ -32,6 +32,8 @@ const (
 	FIREWALL_IPTABLES = "iptables"
 	// FIREWALL_NFTABLES - indicates nftables is in use (Linux only)
 	FIREWALL_NFTABLES = "nftables"
+	// FIREWALL_NONE - indicates that no supported firewall in use
+	FIREWALL_NONE = "none"
 )
 
 var seededRand *rand.Rand = rand.New(
@@ -89,7 +91,7 @@ type Node struct {
 	Version         string      `json:"version" bson:"version" yaml:"version"`
 	Server          string      `json:"server" bson:"server" yaml:"server"`
 	TrafficKeys     TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
-  FirewallInUse string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
+	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 }
 
