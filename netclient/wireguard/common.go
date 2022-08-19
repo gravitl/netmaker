@@ -191,10 +191,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	logger.Log(1, "interface ready - netclient.. ENGAGE")
-	if syncconf { // should never be called really.
-		fmt.Println("why here")
-		err = SyncWGQuickConf(ifacename, confPath)
-	}
+
 	if !ncutils.HasWgQuick() && ncutils.IsLinux() {
 		err = SetPeers(ifacename, node, peers)
 		if err != nil {
@@ -284,16 +281,17 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	if ncutils.IsLinux() && !ncutils.HasWgQuick() {
 		os = "nowgquick"
 	}
+	var isConnected = node.Connected != "no"
 	var err error
 	switch os {
 	case "windows":
-		ApplyWindowsConf(confPath)
+		ApplyWindowsConf(confPath, isConnected)
 	case "darwin":
-		ApplyMacOSConf(node, ifacename, confPath)
+		ApplyMacOSConf(node, ifacename, confPath, isConnected)
 	case "nowgquick":
-		ApplyWithoutWGQuick(node, ifacename, confPath)
+		ApplyWithoutWGQuick(node, ifacename, confPath, isConnected)
 	default:
-		ApplyWGQuickConf(confPath, ifacename)
+		ApplyWGQuickConf(confPath, ifacename, isConnected)
 	}
 
 	var nodeCfg config.ClientConfig
