@@ -142,3 +142,13 @@ func Daemon() error {
 func Install() error {
 	return functions.Install()
 }
+
+// Connect - re-instates a connection of a node
+func Connect(cfg config.ClientConfig) error {
+	return nil
+}
+
+// Disconnect - disconnects a connection of a node
+func Disconnect(cfg config.ClientConfig) error {
+	return nil
+}
