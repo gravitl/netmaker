@@ -244,14 +244,9 @@ func SetWGConfig(network string, peerupdate bool, peers []wgtypes.PeerConfig) er
 				return err
 			}
 		}
-		err = SetPeers(iface, &cfg.Node, peers)
-	} else if peerupdate {
-		err = InitWireguard(&cfg.Node, privkey, peers)
-	} else {
-		err = InitWireguard(&cfg.Node, privkey, peers)
+		SetPeers(iface, &cfg.Node, peers)
 	}
-
-	return err
+	return InitWireguard(&cfg.Node, privkey, peers)
 }
 
 // RemoveConf - removes a configuration for a given WireGuard interface
