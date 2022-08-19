@@ -515,6 +515,22 @@ func CheckUID() {
 	}
 }
 
+// CheckFirewall - checks if iptables of nft install, if not exit
+func CheckFirewall() {
+	found := false
+	_, err := exec.LookPath("iptables")
+	if err == nil {
+		found = true
+	}
+	_, err = exec.LookPath("nft")
+	if err == nil {
+		found = true
+	}
+	if !found {
+		log.Fatal("neither iptables nor nft is installed - please install one or the other and try again")
+	}
+}
+
 // CheckWG - Checks if WireGuard is installed. If not, exit
 func CheckWG() {
 	uspace := GetWireGuard()
