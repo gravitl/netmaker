@@ -533,7 +533,7 @@ func CheckFirewall() {
 		found = true
 	}
 	if !found {
-		logger.Log(0, "neither iptables nor nft is installed - node cannot be used as a gateway")
+		log.Fatal("neither iptables nor nft is installed - please install one or the other and try again")
 	}
 }
 
