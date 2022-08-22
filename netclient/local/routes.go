@@ -34,6 +34,9 @@ func SetPeerRoutes(iface string, oldPeers map[string]bool, newPeers []wgtypes.Pe
 				delete(oldPeers, allowedIP.String())
 			}
 		}
+		if peer.Endpoint == nil {
+			continue
+		}
 		if hasRoute && !ncutils.IpIsPrivate(peer.Endpoint.IP) {
 			ipNet, err := ncutils.GetIPNetFromString(peer.Endpoint.IP.String())
 			if err != nil {
@@ -70,6 +73,9 @@ func SetCurrentPeerRoutes(iface, currentAddr string, peers []wgtypes.PeerConfig)
 	for _, peer := range peers {
 		for _, allowedIP := range peer.AllowedIPs {
 			setRoute(iface, &allowedIP, currentAddr)
+		}
+		if peer.Endpoint == nil {
+			continue
 		}
 		if hasRoute && !ncutils.IpIsPrivate(peer.Endpoint.IP) {
 			ipNet, err := ncutils.GetIPNetFromString(peer.Endpoint.IP.String())
