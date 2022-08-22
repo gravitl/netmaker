@@ -113,15 +113,23 @@ func GetWireGuard() string {
 // IsNFTablesPresent - returns true if nftables is present, false otherwise.
 // Does not consider OS, up to the caller to determine if the OS supports nftables/whether this check is valid.
 func IsNFTablesPresent() bool {
-	nftFound := FileExists("/usr/sbin/nft")
-	logger.Log(3, "nftables found:", strconv.FormatBool(nftFound))
-	return nftFound
+	found := false
+	_, err := exec.LookPath("nft")
+	if err == nil {
+		found = true
+	}
+	return found
 }
 
 // IsIPTablesPresent - returns true if iptables is present, false otherwise
 // Does not consider OS, up to the caller to determine if the OS supports iptables/whether this check is valid.
 func IsIPTablesPresent() bool {
-	return FileExists("/usr/sbin/iptables")
+	found := false
+	_, err := exec.LookPath("iptables")
+	if err == nil {
+		found = true
+	}
+	return found
 }
 
 // IsKernel - checks if running kernel WireGuard
@@ -523,16 +531,7 @@ func CheckUID() {
 
 // CheckFirewall - checks if iptables of nft install, if not exit
 func CheckFirewall() {
-	found := false
-	_, err := exec.LookPath("iptables")
-	if err == nil {
-		found = true
-	}
-	_, err = exec.LookPath("nft")
-	if err == nil {
-		found = true
-	}
-	if !found {
+	if !IsIPTablesPresent() && !IsNFTablesPresent() {
 		log.Fatal("neither iptables nor nft is installed - please install one or the other and try again")
 	}
 }
