@@ -44,6 +44,11 @@ func setRoute(iface string, addr *net.IPNet, address string) error {
 	return err
 }
 
+func SetExplicitRoute(iface string, destination *net.IPNet, gateway string) error {
+	_, err := ncutils.RunCmd(fmt.Sprintf("ip route add %s via %s dev %s", destination.String(), gateway, iface), false)
+	return err
+}
+
 func deleteRoute(iface string, addr *net.IPNet, address string) error {
 	var err error
 	out, _ := ncutils.RunCmd(fmt.Sprintf("ip route get %s", addr.IP.String()), false)

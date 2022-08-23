@@ -200,6 +200,12 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err = config.SaveBackup(node.Network); err != nil {
 		logger.Log(0, "network:", node.Network, "failed to make backup, node will not auto restore if config is corrupted")
 	}
+
+	err = local.SetNetmakerDomainRoute(cfg.Server.API)
+	if err != nil {
+		logger.Log(0, "error setting route for netmaker: "+err.Error())
+	}
+
 	logger.Log(0, "starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:], false)
 	if err != nil {

@@ -1,7 +1,9 @@
 package local
 
 import (
+	"fmt"
 	"net"
+	"net/url"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -42,7 +44,7 @@ func SetPeerRoutes(iface string, oldPeers map[string]bool, newPeers []wgtypes.Pe
 			if err != nil {
 				logger.Log(0, "error parsing ip:", err.Error())
 			}
-			setRoute(gwIface, &ipNet, gwIP)
+			SetExplicitRoute(gwIface, &ipNet, gwIP)
 		}
 	}
 	// traverse through all remaining existing peers
@@ -82,9 +84,10 @@ func SetCurrentPeerRoutes(iface, currentAddr string, peers []wgtypes.PeerConfig)
 			if err != nil {
 				logger.Log(0, "error parsing ip:", err.Error())
 			}
-			setRoute(gwIface, &ipNet, gwIP)
+			SetExplicitRoute(gwIface, &ipNet, gwIP)
 		}
 	}
+
 }
 
 // FlushPeerRoutes - removes all current peer routes
@@ -121,4 +124,36 @@ func SetCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
 // RemoveCIDRRoute - removes a static cidr route
 func RemoveCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
 	removeCidr(iface, cidr, currentAddr)
+}
+
+// SetNetmakerDomainRoute - sets explicit route over Gateway for a given DNS name
+func SetNetmakerDomainRoute(domainRaw string) error {
+	var address net.IPNet
+
+	domain, err := url.Parse(domainRaw)
+	if err != nil {
+		return err
+	}
+
+	gwIP, gwIface, err := GetDefaultRoute()
+	if err != nil {
+		return fmt.Errorf("error getting default route: %w", err)
+	}
+
+	ips, err := net.LookupIP(domain.Hostname())
+	if err != nil {
+		return err
+	}
+	for _, ip := range ips {
+		if ipv4 := ip.To4(); ipv4 != nil {
+			address, err = ncutils.GetIPNetFromString(ipv4.String())
+			if err == nil {
+				break
+			}
+		}
+	}
+	if err != nil || address.IP == nil {
+		return fmt.Errorf("address not found")
+	}
+	return SetExplicitRoute(gwIface, &address, gwIP)
 }
