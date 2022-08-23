@@ -30,6 +30,16 @@ const LINUX_APP_DATA_PATH = "/etc/netmaker"
 // HTTP_TIMEOUT - timeout in seconds for http requests
 const HTTP_TIMEOUT = 30
 
+// HTTPClient - http client to be reused by all
+var HTTPClient http.Client
+
+// SetHTTPClient -sets http client with sane default
+func SetHTTPClient() {
+	HTTPClient = http.Client{
+		Timeout: HTTP_TIMEOUT * time.Second,
+	}
+}
+
 // ListPorts - lists ports of WireGuard devices
 func ListPorts() error {
 	wgclient, err := wgctrl.New()
@@ -308,7 +318,7 @@ func GetNetmakerPath() string {
 	return LINUX_APP_DATA_PATH
 }
 
-//API function to interact with netmaker api endpoints. response from endpoint is returned
+// API function to interact with netmaker api endpoints. response from endpoint is returned
 func API(data any, method, url, authorization string) (*http.Response, error) {
 	var request *http.Request
 	var err error
@@ -331,10 +341,7 @@ func API(data any, method, url, authorization string) (*http.Response, error) {
 	if authorization != "" {
 		request.Header.Set("authorization", "Bearer "+authorization)
 	}
-	client := http.Client{
-		Timeout: HTTP_TIMEOUT * time.Second,
-	}
-	return client.Do(request)
+	return HTTPClient.Do(request)
 }
 
 // Authenticate authenticates with api to permit subsequent interactions with the api
