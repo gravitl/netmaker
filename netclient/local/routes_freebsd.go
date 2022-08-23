@@ -1,7 +1,9 @@
 package local
 
 import (
+	"fmt"
 	"net"
+	"strings"
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
@@ -35,8 +37,12 @@ func GetDefaultRoute() (string, string, error) {
 }
 
 func setRoute(iface string, addr *net.IPNet, address string) error {
-	var err error
-	_, _ = ncutils.RunCmd("route add -net "+addr.String()+" -interface "+iface, false)
+	_, err := ncutils.RunCmd("route add -net "+addr.String()+" -interface "+iface, false)
+	return err
+}
+
+func SetExplicitRoute(iface string, destination *net.IPNet, gateway string) error {
+	_, err := ncutils.RunCmd("route add "+destination.String()+" "+gateway, false)
 	return err
 }
 
