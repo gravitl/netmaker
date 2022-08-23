@@ -35,7 +35,7 @@ func GetDefaultRoute() (string, string, error) {
 	}
 	space := regexp.MustCompile(`\s+`)
 	outputSlice := strings.Split(strings.TrimSpace(space.ReplaceAllString(outLine, " ")), " ")
-	ipaddr = outputSlice[len(outputSlice)-2]
+	ipaddr = outputSlice[len(outputSlice)-3]
 	if err = ncutils.CheckIPAddress(ipaddr); err != nil {
 		return ipaddr, iface, fmt.Errorf("invalid output for ip address check: " + err.Error())
 	}
