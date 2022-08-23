@@ -32,19 +32,12 @@ func GetDefaultRoute() (string, string, error) {
 		return ipaddr, iface, fmt.Errorf("could not find default gateway")
 	}
 	ipaddr = outputSlice[1]
-	if err = checkIPAddress(ipaddr); err != nil {
+	if err = ncutils.CheckIPAddress(ipaddr); err != nil {
 		return ipaddr, iface, err
 	}
 	iface = outputSlice[3]
 
 	return ipaddr, iface, err
-}
-
-func checkIPAddress(ip string) error {
-	if net.ParseIP(ip) == nil {
-		return fmt.Errorf("IP Address: %s - Invalid", ip)
-	}
-	return nil
 }
 
 // route -n add -net 10.0.0.0/8 192.168.0.254
