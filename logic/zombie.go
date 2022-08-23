@@ -47,11 +47,12 @@ func ManageZombies(ctx context.Context) {
 			zombies = append(zombies, id)
 		case id := <-removeZombie:
 			found := false
-			for i, zombie := range zombies {
-				if zombie == id {
-					logger.Log(1, "removing zombie from quaratine list", zombie)
+			for i := 0; i < len(zombies); i++ {
+				if zombies[i] == id {
+					logger.Log(1, "removing zombie from quaratine list", zombies[i])
 					zombies = append(zombies[:i], zombies[i+1:]...)
 					found = true
+					i--
 				}
 			}
 			if !found {
