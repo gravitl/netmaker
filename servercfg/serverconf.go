@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -430,20 +429,16 @@ func GetPublicIP() (string, error) {
 	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	publicIpService := os.Getenv("PUBLIC_IP_SERVICE")
 	if publicIpService != "" {
-		logger.Log(4, "User (environment variable) provided public IP service is", publicIpService)
-
 		// prepend the user-specified service so it's checked first
 		iplist = append([]string{publicIpService}, iplist...)
 	} else if config.Config.Server.PublicIPService != "" {
 		publicIpService = config.Config.Server.PublicIPService
-		logger.Log(4, "User (config file) provided public IP service is", publicIpService)
 
 		// prepend the user-specified service so it's checked first
 		iplist = append([]string{publicIpService}, iplist...)
 	}
 
 	for _, ipserver := range iplist {
-		logger.Log(4, "Running public IP check with service", ipserver)
 		client := &http.Client{
 			Timeout: time.Second * 10,
 		}
@@ -458,7 +453,6 @@ func GetPublicIP() (string, error) {
 				continue
 			}
 			endpoint = string(bodyBytes)
-			logger.Log(4, "Public IP address is", endpoint)
 			break
 		}
 	}
