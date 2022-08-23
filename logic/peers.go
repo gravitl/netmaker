@@ -269,6 +269,14 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 	if peer.IsEgressGateway == "yes" {
 		//hasGateway = true
 		egressIPs := getEgressIPs(node, peer)
+		// remove internet gateway if server
+		if node.IsServer == "yes" {
+			for i, ip := range egressIPs {
+				if ip.IP.String() == "0.0.0.0/0" || ip.IP.String() == "::/0" {
+					egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+				}
+			}
+		}
 		allowedips = append(allowedips, egressIPs...)
 	}
 
