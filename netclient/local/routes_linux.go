@@ -44,6 +44,7 @@ func setRoute(iface string, addr *net.IPNet, address string) error {
 	return err
 }
 
+// SetExplicitRoute - sets route via explicit ip address
 func SetExplicitRoute(iface string, destination *net.IPNet, gateway string) error {
 	_, err := ncutils.RunCmd(fmt.Sprintf("ip route add %s via %s dev %s", destination.String(), gateway, iface), false)
 	return err
