@@ -358,6 +358,13 @@ func GetNetclientPathSpecific() string {
 	}
 }
 
+func CheckIPAddress(ip string) error {
+	if net.ParseIP(ip) == nil {
+		return fmt.Errorf("ip address %s is invalid", ip)
+	}
+	return nil
+}
+
 // GetNewIface - Gets the name of the real interface created on Mac
 func GetNewIface(dir string) (string, error) {
 	files, _ := os.ReadDir(dir)

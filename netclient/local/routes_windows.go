@@ -1,19 +1,42 @@
 package local
 
 import (
+	"fmt"
 	"net"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-// GetDefaultRoute - Gets the default route (ip and interface) on a linux machine
+// GetDefaultRoute - Gets the default route (ip and interface) on a windows machine
 func GetDefaultRoute() (string, string, error) {
 	var ipaddr string
 	var iface string
 	var err error
-
-	return ipaddr, iface, fmt.Errorf("not written yet on windows")
+	var outLine string
+	output, err := ncutils.RunCmd("netsh interface ipv4 show route", false)
+	if err != nil {
+		return ipaddr, iface, err
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(output, "\n"), "\n") {
+		if strings.Contains(line, "0.0.0.0/0") {
+			outLine = line
+			break
+		}
+	}
+	if outLine == "" {
+		return ipaddr, iface, fmt.Errorf("could not find default gateway")
+	}
+	space := regexp.MustCompile(`\s+`)
+	outputSlice := strings.Split(strings.TrimSpace(space.ReplaceAllString(outLine, " ")), " ")
+	ipaddr = outputSlice[len(outputSlice)-1]
+	if err = ncutils.CheckIPAddress(ipaddr); err != nil {
+		return ipaddr, iface, fmt.Errorf("invalid output for ip address check: " + err.Error())
+	}
+	iface = "irrelevant"
+	return ipaddr, iface, err
 }
 
 func setRoute(iface string, addr *net.IPNet, address string) error {
