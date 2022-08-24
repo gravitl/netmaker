@@ -3,7 +3,7 @@ package local
 import (
 	"fmt"
 	"net"
-	"net/url"
+	"strings"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -128,19 +128,16 @@ func RemoveCIDRRoute(iface, currentAddr string, cidr *net.IPNet) {
 
 // SetNetmakerDomainRoute - sets explicit route over Gateway for a given DNS name
 func SetNetmakerDomainRoute(domainRaw string) error {
+	parts := strings.Split(domainRaw, ":")
+	hostname := parts[0]
 	var address net.IPNet
-
-	domain, err := url.Parse(domainRaw)
-	if err != nil {
-		return err
-	}
 
 	gwIP, gwIface, err := GetDefaultRoute()
 	if err != nil {
 		return fmt.Errorf("error getting default route: %w", err)
 	}
 
-	ips, err := net.LookupIP(domain.Hostname())
+	ips, err := net.LookupIP(hostname)
 	if err != nil {
 		return err
 	}
