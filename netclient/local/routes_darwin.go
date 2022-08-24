@@ -1,12 +1,13 @@
 package local
 
 import (
-	"net"
-	"strings"
-
+	"fmt"
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"net"
+	"regexp"
+	"strings"
 )
 
 // GetDefaultRoute - Gets the default route (ip and interface) on a mac machine
@@ -57,6 +58,11 @@ func setRoute(iface string, addr *net.IPNet, address string) error {
 		_, err = ncutils.RunCmd("route -q -n add -"+inetx+" "+addr.String()+" -interface "+iface, false)
 	}
 	return err
+}
+
+// SetExplicitRoute - sets route via explicit ip address
+func SetExplicitRoute(iface string, destination *net.IPNet, gateway string) error {
+	return setRoute(iface, destination, gateway)
 }
 
 func deleteRoute(iface string, addr *net.IPNet, address string) error {
