@@ -49,6 +49,7 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 		return err
 	}
 	time.Sleep(time.Second / 2)
+
 	err = setConfig(realIface, confPath)
 	if err != nil {
 		logger.Log(1, "error setting config for ", realIface)
@@ -208,8 +209,8 @@ func addRoute(addr string, iface string) error {
 // setConfig - sets configuration of the wireguard interface from the config file
 func setConfig(realIface string, confPath string) error {
 	confString := getConfig(confPath)
-	// pathFormatted := strings.Replace(confPath, " ", "\\ ", -1)
-	err := os.WriteFile(confPath+".tmp", []byte(confString), 0600)
+	pathFormatted := strings.Replace(confPath, " ", "\\ ", -1)
+	err := os.WriteFile(pathFormatted+".tmp", []byte(confString), 0600)
 	if err != nil {
 		return err
 	}
@@ -220,9 +221,9 @@ func setConfig(realIface string, confPath string) error {
 
 // getConfig - gets config from config file and strips out incompatible fields
 func getConfig(path string) string {
-	// pathFormatted := strings.Replace(path, " ", "\\ ", -1)
+	pathFormatted := strings.Replace(path, " ", "\\ ", -1)
 	var confCmd = "grep -v -e Address -e MTU -e PostUp -e PostDown "
-	confRaw, _ := ncutils.RunCmd(confCmd+path, false)
+	confRaw, _ := ncutils.RunCmd(confCmd+pathFormatted, false)
 	return confRaw
 }
 
