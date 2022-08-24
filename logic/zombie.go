@@ -17,8 +17,8 @@ const (
 
 var (
 	zombies      []string
-	removeZombie chan string = make(chan (string))
-	newZombie    chan string = make(chan (string))
+	removeZombie chan string = make(chan (string), 10)
+	newZombie    chan string = make(chan (string), 10)
 )
 
 // CheckZombies - checks if new node has same macaddress as existing node
