@@ -42,14 +42,11 @@ const NO_DB_RECORDS = "could not find any records"
 // LINUX_APP_DATA_PATH - linux path
 const LINUX_APP_DATA_PATH = "/etc/netclient"
 
-// MAC_APP_DATA_PATH - linux path
-const MAC_APP_DATA_PATH = "/Library/Application Support/Netclient"
+// MAC_APP_DATA_PATH - mac path
+const MAC_APP_DATA_PATH = "/Applications/Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\Program Files (x86)\\Netclient"
-
-// WINDOWS_APP_DATA_PATH - windows path
-//const WINDOWS_WG_DPAPI_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
 
 // WINDOWS_SVC_NAME - service name
 const WINDOWS_SVC_NAME = "netclient"
