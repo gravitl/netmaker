@@ -341,24 +341,11 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 	//if node.DNSOn == "yes" {
 	//	wireguard.Section(section_interface).Key("DNS").SetValue(cfg.Server.CoreDNSAddr)
 	//}
-	//need to split postup/postdown because ini lib adds a ` and the ` breaks freebsd
 	if node.PostUp != "" {
-		parts := strings.Split(node.PostUp, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostUp").SetValue(part)
-			}
-			wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
-		}
+		wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostUp)
 	}
 	if node.PostDown != "" {
-		parts := strings.Split(node.PostDown, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostDown").SetValue(part)
-			}
-			wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
-		}
+		wireguard.Section(section_interface).Key("PostDown").SetValue(node.PostDown)
 	}
 	if node.MTU != 0 {
 		wireguard.Section(section_interface).Key("MTU").SetValue(strconv.FormatInt(int64(node.MTU), 10))
@@ -440,7 +427,6 @@ func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) (*net.UDPAddr, error
 
 // UpdateWgInterface - updates the interface section of a wireguard config file
 func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) error {
-	log.Println("updating conf file ", file, nameserver, node.Name)
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
 		AllowShadows:           true,
@@ -465,25 +451,11 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	//if node.DNSOn == "yes" {
 	//	wireguard.Section(section_interface).Key("DNS").SetValue(nameserver)
 	//}
-	//need to split postup/postdown because ini lib adds a quotes which breaks freebsd
 	if node.PostUp != "" {
-		log.Println("updating PostUp")
-		parts := strings.Split(node.PostUp, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostUp").SetValue(part)
-			}
-			wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
-		}
+		wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostUp)
 	}
 	if node.PostDown != "" {
-		parts := strings.Split(node.PostDown, ";")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostDown").SetValue(part)
-			}
-			wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
-		}
+		wireguard.Section(section_interface).Key("PostDown").SetValue(node.PostDown)
 	}
 	if node.MTU != 0 {
 		wireguard.Section(section_interface).Key("MTU").SetValue(strconv.FormatInt(int64(node.MTU), 10))
