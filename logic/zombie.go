@@ -17,8 +17,8 @@ const (
 
 var (
 	zombies      []string
-	removeZombie chan string = make(chan (string))
-	newZombie    chan string = make(chan (string))
+	removeZombie chan string = make(chan (string), 10)
+	newZombie    chan string = make(chan (string), 10)
 )
 
 // CheckZombies - checks if new node has same macaddress as existing node
@@ -48,7 +48,7 @@ func ManageZombies(ctx context.Context) {
 		case id := <-removeZombie:
 			found := false
 			if len(zombies) > 0 {
-				for i := len(zombies) - 1; i <= 0; i-- {
+				for i := len(zombies) - 1; i >= 0; i-- {
 					if zombies[i] == id {
 						logger.Log(1, "removing zombie from quaratine list", zombies[i])
 						zombies = append(zombies[:i], zombies[i+1:]...)
@@ -61,7 +61,7 @@ func ManageZombies(ctx context.Context) {
 			}
 		case <-time.After(time.Second * ZOMBIE_TIMEOUT):
 			if len(zombies) > 0 {
-				for i := len(zombies) - 1; i <= 0; i-- {
+				for i := len(zombies) - 1; i >= 0; i-- {
 					node, err := GetNodeByID(zombies[i])
 					if err != nil {
 						logger.Log(1, "error retrieving zombie node", zombies[i], err.Error())

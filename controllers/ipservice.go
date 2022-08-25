@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 func ipHandlers(r *mux.Router) {
@@ -38,7 +39,7 @@ func parseIP(r *http.Request) (string, error) {
 	// Get Public IP from header
 	ip := r.Header.Get("X-REAL-IP")
 	ipnet := net.ParseIP(ip)
-	if ipnet != nil && !ipIsPrivate(ipnet) {
+	if ipnet != nil && !ncutils.IpIsPrivate(ipnet) {
 		return ip, nil
 	}
 
@@ -47,7 +48,7 @@ func parseIP(r *http.Request) (string, error) {
 	iplist := strings.Split(forwardips, ",")
 	for _, ip := range iplist {
 		ipnet := net.ParseIP(ip)
-		if ipnet != nil && !ipIsPrivate(ipnet) {
+		if ipnet != nil && !ncutils.IpIsPrivate(ipnet) {
 			return ip, nil
 		}
 	}
@@ -59,14 +60,10 @@ func parseIP(r *http.Request) (string, error) {
 	}
 	ipnet = net.ParseIP(ip)
 	if ipnet != nil {
-		if ipIsPrivate(ipnet) {
+		if ncutils.IpIsPrivate(ipnet) {
 			return ip, fmt.Errorf("ip is a private address")
 		}
 		return ip, nil
 	}
 	return "", fmt.Errorf("no ip found")
-}
-
-func ipIsPrivate(ipnet net.IP) bool {
-	return ipnet.IsPrivate() || ipnet.IsLoopback()
 }

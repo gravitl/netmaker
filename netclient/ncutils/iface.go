@@ -90,3 +90,7 @@ func IfaceExists(ifacename string) bool {
 	}
 	return false
 }
+
+func IpIsPrivate(ipnet net.IP) bool {
+	return ipnet.IsPrivate() || ipnet.IsLoopback()
+}

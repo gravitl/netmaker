@@ -118,10 +118,10 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	if cfg.Node.FirewallInUse == "" {
-		if ncutils.IsNFTablesPresent() {
-			cfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
-		} else if ncutils.IsIPTablesPresent() {
+		if ncutils.IsIPTablesPresent() {
 			cfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
+		} else if ncutils.IsNFTablesPresent() {
+			cfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
 		} else {
 			cfg.Node.FirewallInUse = models.FIREWALL_NONE
 		}
@@ -200,13 +200,19 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if err = config.SaveBackup(node.Network); err != nil {
 		logger.Log(0, "network:", node.Network, "failed to make backup, node will not auto restore if config is corrupted")
 	}
-	logger.Log(0, "starting wireguard")
-	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:], false)
+
+	err = local.SetNetmakerDomainRoute(cfg.Server.API)
 	if err != nil {
-		return err
+		logger.Log(0, "error setting route for netmaker: "+err.Error())
 	}
 	cfg.Node = node
 	if err := Register(cfg); err != nil {
+		return err
+	}
+
+	logger.Log(0, "starting wireguard")
+	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:], false)
+	if err != nil {
 		return err
 	}
 	if cfg.Server.Server == "" {
