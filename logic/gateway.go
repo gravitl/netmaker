@@ -56,7 +56,6 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		}
 	}
 	if node.OS == "freebsd" {
-		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 		postUpCmd = "kldload ipfw ipfw_nat ; "
 		postUpCmd += "ipfw disable one_pass ; "
 		postUpCmd += "ipfw nat 1 config if " + gateway.Interface + " same_ports unreg_only reset ; "
@@ -286,7 +285,6 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 
 // firewallNFTCommandsCreateIngress - used to centralize firewall command maintenance for creating an ingress gateway using the nftables firewall.
 func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) {
-	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 	postUp := "nft add table ip filter ; "
 	postUp += "nft add chain ip filter FORWARD ; "
 	postUp += "nft add rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
@@ -304,7 +302,6 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 
 // firewallNFTCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the nftables firewall.
 func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled string) (string, string) {
-	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 	postUp := "nft add table ip filter ; "
 	postUp += "nft add chain ip filter FORWARD ; "
 	postUp += "nft add rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
@@ -325,7 +322,6 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 
 // firewallIPTablesCommandsCreateIngress - used to centralize firewall command maintenance for creating an ingress gateway using the iptables firewall.
 func firewallIPTablesCommandsCreateIngress(networkInterface string) (string, string) {
-	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 	postUp := "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
 	postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
 	postUp += "iptables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
@@ -340,7 +336,7 @@ func firewallIPTablesCommandsCreateIngress(networkInterface string) (string, str
 
 // firewallIPTablesCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the iptables firewall.
 func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled string) (string, string) {
-	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
+
 	postUp := "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT; "
 	postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT"
 	postDown := "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT; "
