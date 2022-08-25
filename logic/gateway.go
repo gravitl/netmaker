@@ -78,12 +78,12 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
-			postUpCmd = node.PostUp + "; " + postUpCmd
+			postUpCmd = node.PostUp + " ; " + postUpCmd
 		}
 	}
 	if node.PostDown != "" {
 		if !strings.Contains(node.PostDown, postDownCmd) {
-			postDownCmd = node.PostDown + "; " + postDownCmd
+			postDownCmd = node.PostDown + " ; " + postDownCmd
 		}
 	}
 
@@ -195,12 +195,12 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
-			postUpCmd = node.PostUp + "; " + postUpCmd
+			postUpCmd = node.PostUp + " ; " + postUpCmd
 		}
 	}
 	if node.PostDown != "" {
 		if !strings.Contains(node.PostDown, postDownCmd) {
-			postDownCmd = node.PostDown + "; " + postDownCmd
+			postDownCmd = node.PostDown + " ; " + postDownCmd
 		}
 	}
 	node.SetLastModified()
@@ -296,8 +296,8 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 	postUp += "nft add rule ip nat POSTROUTING oifname " + networkInterface + " counter masquerade"
 
 	// doesn't remove potentially empty tables or chains
-	postDown := "nft flush table filter; "
-	postDown += "nft flush table nat; "
+	postDown := "nft flush table filter ; "
+	postDown += "nft flush table nat ; "
 
 	return postUp, postDown
 }
@@ -310,14 +310,14 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 	postUp += "nft add rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
 	postUp += "nft add rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
 
-	postDown := "nft flush table filter; "
+	postDown := "nft flush table filter ; "
 
 	if egressNatEnabled == "yes" {
 		postUp += "nft add table nat ; "
 		postUp += "nft add chain nat POSTROUTING ; "
-		postUp += "nft add rule ip nat POSTROUTING oifname " + gatewayInterface + " counter masquerade ;"
+		postUp += "nft add rule ip nat POSTROUTING oifname " + gatewayInterface + " counter masquerade ; "
 
-		postDown += "nft flush table nat; "
+		postDown += "nft flush table nat ; "
 	}
 
 	return postUp, postDown
@@ -341,14 +341,14 @@ func firewallIPTablesCommandsCreateIngress(networkInterface string) (string, str
 // firewallIPTablesCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the iptables firewall.
 func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled string) (string, string) {
 	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
-	postUp := "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT; "
+	postUp := "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
 	postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT"
-	postDown := "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT; "
+	postDown := "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 	postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT"
 
 	if egressNatEnabled == "yes" {
-		postUp += "; iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
-		postDown += "; iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+		postUp += " ; iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+		postDown += " ; iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
 	}
 
 	return postUp, postDown

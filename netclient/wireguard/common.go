@@ -474,7 +474,7 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 		}
 	}
 	if node.PostDown != "" {
-		parts := strings.Split(node.PostDown, ";")
+		parts := strings.Split(node.PostDown, " ; ")
 		for i, part := range parts {
 			if i == 0 {
 				wireguard.Section(section_interface).Key("PostDown").SetValue(part)
