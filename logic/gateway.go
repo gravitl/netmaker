@@ -48,7 +48,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 			// removing the chain with rules in it would remove all rules in that section (not safe
 			// if there are remaining rules on the host that need to stay).  In practice the chain is removed
 			// when non-empty even though the removal of a non-empty chain should not be possible per nftables wiki.
-			postUpCmd, postDownCmd = firewallNFTCommandsCreateEgress(node.Interface, gateway.Interface, node.EgressGatewayNatEnabled)
+			postUpCmd, postDownCmd = firewallNFTCommandsCreateEgress(node.Interface, gateway.Interface, gateway.Ranges, node.EgressGatewayNatEnabled)
 
 		default: // iptables assumed
 			logger.Log(3, "creating egress gateway nftables is not present")
@@ -303,12 +303,19 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 }
 
 // firewallNFTCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the nftables firewall.
-func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled string) (string, string) {
+func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface string, gatewayranges []string, egressNatEnabled string) (string, string) {
 	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 	postUp := "nft add table ip filter ; "
-	postUp += "nft add chain ip filter FORWARD ; "
-	postUp += "nft add rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
-	postUp += "nft add rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
+	postUp += "nft add chain ip filter forward ; "
+	postUp += "nft add rule filter forward ct state related,established accept ; "
+	postUp += "nft add rule ip filter forward iifname " + networkInterface + " accept ; "
+	postUp += "nft add rule ip filter forward oifname " + networkInterface + " accept ; "
+	postUp += "nft add table nat ; "
+	postUp += "nft 'add chain ip nat prerouting { type nat hook prerouting priority 0 ;}' ; "
+	postUp += "nft 'add chain ip nat postrouting { type nat hook postrouting priority 0 ;}' ; "
+	for _, networkCIDR := range gatewayranges {
+		postUp += "nft add rule nat postrouting iifname " + networkInterface + " oifname " + gatewayInterface + " ip saddr " + networkCIDR + " masquerade ; "
+	}
 
 	postDown := "nft flush table filter ; "
 
