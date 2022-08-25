@@ -2,7 +2,6 @@ package wireguard
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"runtime"
 	"strconv"
@@ -52,7 +51,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 				currentPeer.PublicKey.String() != peer.PublicKey.String() {
 				_, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
 				if err != nil {
-					log.Println("error removing peer", peer.Endpoint.String())
+					logger.Log(0, "error removing peer", peer.Endpoint.String())
 				}
 			}
 		}
@@ -82,7 +81,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 				" allowed-ips "+allowedips, true)
 		}
 		if err != nil {
-			log.Println("error setting peer", peer.PublicKey.String())
+			logger.Log(0, "error setting peer", peer.PublicKey.String())
 		}
 	}
 
@@ -104,7 +103,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 				if shouldDelete {
 					output, err := ncutils.RunCmd("wg set "+iface+" peer "+currentPeer.PublicKey.String()+" remove", true)
 					if err != nil {
-						log.Println(output, "error removing peer", currentPeer.PublicKey.String())
+						logger.Log(0, output, "error removing peer", currentPeer.PublicKey.String())
 					}
 				}
 				for _, ip := range currentPeer.AllowedIPs {
@@ -440,7 +439,6 @@ func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) (*net.UDPAddr, error
 
 // UpdateWgInterface - updates the interface section of a wireguard config file
 func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) error {
-	log.Println("updating conf file ", file, nameserver, node.Name)
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
 		AllowShadows:           true,
@@ -467,7 +465,6 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	//}
 	//need to split postup/postdown because ini lib adds a quotes which breaks freebsd
 	if node.PostUp != "" {
-		log.Println("updating PostUp")
 		parts := strings.Split(node.PostUp, " ; ")
 		for i, part := range parts {
 			if i == 0 {
