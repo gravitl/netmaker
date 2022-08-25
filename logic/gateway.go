@@ -317,7 +317,7 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 		postUp += "nft add chain nat POSTROUTING ; "
 		postUp += "nft add rule ip nat POSTROUTING oifname " + gatewayInterface + " counter masquerade ; "
 
-		postDown += "nft flush table nat; "
+		postDown += "nft flush table nat ; "
 	}
 
 	return postUp, postDown
