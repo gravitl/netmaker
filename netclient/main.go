@@ -10,6 +10,7 @@ import (
 
 	"github.com/gravitl/netmaker/netclient/cli_options"
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/ncwindows"
 	"github.com/urfave/cli/v2"
@@ -29,12 +30,16 @@ func main() {
 	app.UsageText = "netclient [global options] command [command options] [arguments...]. Adjust verbosity of given command with -v, -vv or -vvv (max)."
 
 	setGarbageCollection()
+	functions.SetHTTPClient()
 
 	if ncutils.IsWindows() {
 		ncwindows.InitWindows()
 	} else {
 		ncutils.CheckUID()
 		ncutils.CheckWG()
+		if ncutils.IsLinux() {
+			ncutils.CheckFirewall()
+		}
 	}
 
 	if len(os.Args) <= 1 && config.GuiActive {

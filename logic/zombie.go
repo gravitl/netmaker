@@ -17,8 +17,8 @@ const (
 
 var (
 	zombies      []string
-	removeZombie chan string = make(chan (string))
-	newZombie    chan string = make(chan (string))
+	removeZombie chan string = make(chan (string), 10)
+	newZombie    chan string = make(chan (string), 10)
 )
 
 // CheckZombies - checks if new node has same macaddress as existing node
@@ -47,30 +47,34 @@ func ManageZombies(ctx context.Context) {
 			zombies = append(zombies, id)
 		case id := <-removeZombie:
 			found := false
-			for i, zombie := range zombies {
-				if zombie == id {
-					logger.Log(1, "removing zombie from quaratine list", zombie)
-					zombies = append(zombies[:i], zombies[i+1:]...)
-					found = true
+			if len(zombies) > 0 {
+				for i := len(zombies) - 1; i >= 0; i-- {
+					if zombies[i] == id {
+						logger.Log(1, "removing zombie from quaratine list", zombies[i])
+						zombies = append(zombies[:i], zombies[i+1:]...)
+						found = true
+					}
 				}
 			}
 			if !found {
 				logger.Log(3, "no zombies found")
 			}
 		case <-time.After(time.Second * ZOMBIE_TIMEOUT):
-			for i, zombie := range zombies {
-				node, err := GetNodeByID(zombie)
-				if err != nil {
-					logger.Log(1, "error retrieving zombie node", zombie, err.Error())
-					continue
-				}
-				if time.Since(time.Unix(node.LastCheckIn, 0)) > time.Minute*ZOMBIE_DELETE_TIME {
-					if err := DeleteNodeByID(&node, true); err != nil {
-						logger.Log(1, "error deleting zombie node", zombie, err.Error())
+			if len(zombies) > 0 {
+				for i := len(zombies) - 1; i >= 0; i-- {
+					node, err := GetNodeByID(zombies[i])
+					if err != nil {
+						logger.Log(1, "error retrieving zombie node", zombies[i], err.Error())
 						continue
 					}
-					logger.Log(1, "deleting zombie node", node.Name)
-					zombies = append(zombies[:i], zombies[i+1:]...)
+					if time.Since(time.Unix(node.LastCheckIn, 0)) > time.Minute*ZOMBIE_DELETE_TIME {
+						if err := DeleteNodeByID(&node, true); err != nil {
+							logger.Log(1, "error deleting zombie node", zombies[i], err.Error())
+							continue
+						}
+						logger.Log(1, "deleting zombie node", node.Name)
+						zombies = append(zombies[:i], zombies[i+1:]...)
+					}
 				}
 			}
 		}

@@ -427,6 +427,17 @@ func GetPublicIP() (string, error) {
 	var err error
 
 	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	publicIpService := os.Getenv("PUBLIC_IP_SERVICE")
+	if publicIpService != "" {
+		// prepend the user-specified service so it's checked first
+		iplist = append([]string{publicIpService}, iplist...)
+	} else if config.Config.Server.PublicIPService != "" {
+		publicIpService = config.Config.Server.PublicIPService
+
+		// prepend the user-specified service so it's checked first
+		iplist = append([]string{publicIpService}, iplist...)
+	}
+
 	for _, ipserver := range iplist {
 		client := &http.Client{
 			Timeout: time.Second * 10,

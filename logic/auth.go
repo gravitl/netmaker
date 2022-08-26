@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -269,4 +270,53 @@ func FetchAuthSecret(key string, secret string) (string, error) {
 		}
 	}
 	return record, nil
+}
+
+// GetState - gets an SsoState from DB, if expired returns error
+func GetState(state string) (*models.SsoState, error) {
+	var s models.SsoState
+	record, err := database.FetchRecord(database.SSO_STATE_CACHE, state)
+	if err != nil {
+		return &s, err
+	}
+
+	if err = json.Unmarshal([]byte(record), &s); err != nil {
+		return &s, err
+	}
+
+	if s.IsExpired() {
+		return &s, fmt.Errorf("state expired")
+	}
+
+	return &s, nil
+}
+
+// SetState - sets a state with new expiration
+func SetState(state string) error {
+	s := models.SsoState{
+		Value:      state,
+		Expiration: time.Now().Add(models.DefaultExpDuration),
+	}
+
+	data, err := json.Marshal(&s)
+	if err != nil {
+		return err
+	}
+
+	return database.Insert(state, string(data), database.SSO_STATE_CACHE)
+}
+
+// IsStateValid - checks if given state is valid or not
+// deletes state after call is made to clean up, should only be called once per sign-in
+func IsStateValid(state string) (string, bool) {
+	s, err := GetState(state)
+	if s.Value != "" {
+		delState(state)
+	}
+	return s.Value, err == nil
+}
+
+// delState - removes a state from cache/db
+func delState(state string) error {
+	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
 }

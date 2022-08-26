@@ -30,6 +30,16 @@ const LINUX_APP_DATA_PATH = "/etc/netmaker"
 // HTTP_TIMEOUT - timeout in seconds for http requests
 const HTTP_TIMEOUT = 30
 
+// HTTPClient - http client to be reused by all
+var HTTPClient http.Client
+
+// SetHTTPClient -sets http client with sane default
+func SetHTTPClient() {
+	HTTPClient = http.Client{
+		Timeout: HTTP_TIMEOUT * time.Second,
+	}
+}
+
 // ListPorts - lists ports of WireGuard devices
 func ListPorts() error {
 	wgclient, err := wgctrl.New()
@@ -193,7 +203,6 @@ func LeaveNetwork(network string) error {
 			if wgErr == nil && removeIface != "" {
 				removeIface = macIface
 			}
-			wgErr = nil
 		}
 		dev, devErr := wgClient.Device(removeIface)
 		if devErr == nil {
@@ -224,18 +233,24 @@ func DeleteInterface(ifacename string, postdown string) error {
 
 // WipeLocal - wipes local instance
 func WipeLocal(network string) error {
-	cfg, err := config.ReadConfig(network)
-	if err != nil {
-		return err
+	var ifacename string
+
+	if network == "" {
+		return errors.New("no network provided")
 	}
-	nodecfg := cfg.Node
-	ifacename := nodecfg.Interface
-	if ifacename != "" {
-		if err = wireguard.RemoveConf(ifacename, true); err == nil {
-			logger.Log(1, "network:", nodecfg.Network, "removed WireGuard interface: ", ifacename)
-		} else if strings.Contains(err.Error(), "does not exist") {
-			err = nil
+	cfg, err := config.ReadConfig(network)
+	if err == nil {
+		nodecfg := cfg.Node
+		ifacename = nodecfg.Interface
+		if ifacename != "" {
+			if err = wireguard.RemoveConf(ifacename, true); err == nil {
+				logger.Log(1, "network:", nodecfg.Network, "removed WireGuard interface: ", ifacename)
+			} else if strings.Contains(err.Error(), "does not exist") {
+				err = nil
+			}
 		}
+	} else {
+		logger.Log(0, "failed to read "+network+" config: ", err.Error())
 	}
 
 	home := ncutils.GetNetclientPathSpecific()
@@ -281,17 +296,20 @@ func WipeLocal(network string) error {
 			log.Println(err.Error())
 		}
 	}
-	if ncutils.FileExists(home + ifacename + ".conf") {
-		err = os.Remove(home + ifacename + ".conf")
+	if ifacename != "" {
+		if ncutils.FileExists(home + ifacename + ".conf") {
+			err = os.Remove(home + ifacename + ".conf")
+			if err != nil {
+				log.Println("error removing .conf:")
+				log.Println(err.Error())
+			}
+		}
+		err = removeHostDNS(ifacename, ncutils.IsWindows())
 		if err != nil {
-			log.Println("error removing .conf:")
-			log.Println(err.Error())
+			logger.Log(0, "failed to delete dns entries for", ifacename, err.Error())
 		}
 	}
-	err = removeHostDNS(ifacename, ncutils.IsWindows())
-	if err != nil {
-		logger.Log(0, "failed to delete dns entries for", ifacename, err.Error())
-	}
+
 	return err
 }
 
@@ -300,7 +318,7 @@ func GetNetmakerPath() string {
 	return LINUX_APP_DATA_PATH
 }
 
-//API function to interact with netmaker api endpoints. response from endpoint is returned
+// API function to interact with netmaker api endpoints. response from endpoint is returned
 func API(data any, method, url, authorization string) (*http.Response, error) {
 	var request *http.Request
 	var err error
@@ -323,10 +341,7 @@ func API(data any, method, url, authorization string) (*http.Response, error) {
 	if authorization != "" {
 		request.Header.Set("authorization", "Bearer "+authorization)
 	}
-	client := http.Client{
-		Timeout: HTTP_TIMEOUT * time.Second,
-	}
-	return client.Do(request)
+	return HTTPClient.Do(request)
 }
 
 // Authenticate authenticates with api to permit subsequent interactions with the api

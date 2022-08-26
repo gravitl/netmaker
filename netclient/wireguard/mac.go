@@ -49,6 +49,7 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 		return err
 	}
 	time.Sleep(time.Second / 2)
+
 	err = setConfig(realIface, confPath)
 	if err != nil {
 		logger.Log(1, "error setting config for ", realIface)

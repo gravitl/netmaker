@@ -22,6 +22,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 )
 
 var (
@@ -41,14 +42,11 @@ const NO_DB_RECORDS = "could not find any records"
 // LINUX_APP_DATA_PATH - linux path
 const LINUX_APP_DATA_PATH = "/etc/netclient"
 
-// MAC_APP_DATA_PATH - linux path
+// MAC_APP_DATA_PATH - mac path
 const MAC_APP_DATA_PATH = "/Applications/Netclient"
 
 // WINDOWS_APP_DATA_PATH - windows path
 const WINDOWS_APP_DATA_PATH = "C:\\Program Files (x86)\\Netclient"
-
-// WINDOWS_APP_DATA_PATH - windows path
-//const WINDOWS_WG_DPAPI_PATH = "C:\\Program Files\\WireGuard\\Data\\Configurations"
 
 // WINDOWS_SVC_NAME - service name
 const WINDOWS_SVC_NAME = "netclient"
@@ -89,7 +87,7 @@ func IsLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
-// IsLinux - checks if is linux
+// IsFreeBSD - checks if is freebsd
 func IsFreeBSD() bool {
 	return runtime.GOOS == "freebsd"
 }
@@ -109,6 +107,28 @@ func GetWireGuard() string {
 	return "wg"
 }
 
+// IsNFTablesPresent - returns true if nftables is present, false otherwise.
+// Does not consider OS, up to the caller to determine if the OS supports nftables/whether this check is valid.
+func IsNFTablesPresent() bool {
+	found := false
+	_, err := exec.LookPath("nft")
+	if err == nil {
+		found = true
+	}
+	return found
+}
+
+// IsIPTablesPresent - returns true if iptables is present, false otherwise
+// Does not consider OS, up to the caller to determine if the OS supports iptables/whether this check is valid.
+func IsIPTablesPresent() bool {
+	found := false
+	_, err := exec.LookPath("iptables")
+	if err == nil {
+		found = true
+	}
+	return found
+}
+
 // IsKernel - checks if running kernel WireGuard
 func IsKernel() bool {
 	//TODO
@@ -126,9 +146,21 @@ func IsEmptyRecord(err error) bool {
 }
 
 // GetPublicIP - gets public ip
-func GetPublicIP() (string, error) {
+func GetPublicIP(api string) (string, error) {
 
 	iplist := []string{"https://ip.client.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+
+	for network, ipService := range global_settings.PublicIPServices {
+		logger.Log(3, "User provided public IP service defined for network", network, "is", ipService)
+
+		// prepend the user-specified service so it's checked first
+		iplist = append([]string{ipService}, iplist...)
+	}
+	if api != "" {
+		api = "https://" + api + "/api/getip"
+		iplist = append([]string{api}, iplist...)
+	}
+
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {
@@ -218,7 +250,7 @@ func GetLocalIP(localrange string) (string, error) {
 	return local, nil
 }
 
-//GetNetworkIPMask - Pulls the netmask out of the network
+// GetNetworkIPMask - Pulls the netmask out of the network
 func GetNetworkIPMask(networkstring string) (string, string, error) {
 	ip, ipnet, err := net.ParseCIDR(networkstring)
 	if err != nil {
@@ -319,6 +351,13 @@ func GetNetclientPathSpecific() string {
 	} else {
 		return LINUX_APP_DATA_PATH + "/config/"
 	}
+}
+
+func CheckIPAddress(ip string) error {
+	if net.ParseIP(ip) == nil {
+		return fmt.Errorf("ip address %s is invalid", ip)
+	}
+	return nil
 }
 
 // GetNewIface - Gets the name of the real interface created on Mac
@@ -489,6 +528,13 @@ func CheckUID() {
 
 	if id != 0 {
 		log.Fatal("This program must be run with elevated privileges (sudo). This program installs a SystemD service and configures WireGuard and networking rules. Please re-run with sudo/root.")
+	}
+}
+
+// CheckFirewall - checks if iptables of nft install, if not exit
+func CheckFirewall() {
+	if !IsIPTablesPresent() && !IsNFTablesPresent() {
+		log.Fatal("neither iptables nor nft is installed - please install one or the other and try again")
 	}
 }
 

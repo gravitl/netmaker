@@ -24,6 +24,7 @@ var HttpHandlers = []interface{}{
 	fileHandlers,
 	serverHandlers,
 	extClientHandlers,
+	ipHandlers,
 }
 
 // HandleRESTRequests - handles the rest requests

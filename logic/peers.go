@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -268,6 +269,14 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 	if peer.IsEgressGateway == "yes" {
 		//hasGateway = true
 		egressIPs := getEgressIPs(node, peer)
+		// remove internet gateway if server
+		if node.IsServer == "yes" {
+			for i := len(egressIPs) - 1; i >= 0; i-- {
+				if egressIPs[i].IP.String() == "0.0.0.0/0" || egressIPs[i].IP.String() == "::/0" {
+					egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+				}
+			}
+		}
 		allowedips = append(allowedips, egressIPs...)
 	}
 
@@ -323,6 +332,16 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 			if relayedNode.IsEgressGateway == "yes" {
 				extAllowedIPs := getEgressIPs(node, relayedNode)
 				allowedips = append(allowedips, extAllowedIPs...)
+			}
+			if relayedNode.IsIngressGateway == "yes" {
+				extPeers, err := getExtPeers(relayedNode)
+				if err == nil {
+					for _, extPeer := range extPeers {
+						allowedips = append(allowedips, extPeer.AllowedIPs...)
+					}
+				} else {
+					logger.Log(0, "failed to retrieve extclients from relayed ingress", err.Error())
+				}
 			}
 		}
 	}
@@ -408,7 +427,15 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	//delete egressrange from allowedip if we are egress gateway
 	if node.IsEgressGateway == "yes" {
 		for i := len(allowedips) - 1; i >= 0; i-- {
-			if StringSliceContains(node.EgressGatewayRanges, allowedips[i].IP.String()) {
+			if StringSliceContains(node.EgressGatewayRanges, allowedips[i].String()) {
+				allowedips = append(allowedips[:i], allowedips[i+1:]...)
+			}
+		}
+	}
+	//delete extclients from allowedip if we are ingress gateway
+	if node.IsIngressGateway == "yes" {
+		for i := len(allowedips) - 1; i >= 0; i-- {
+			if strings.Contains(node.IngressGatewayRange, allowedips[i].IP.String()) {
 				allowedips = append(allowedips[:i], allowedips[i+1:]...)
 			}
 		}
@@ -458,6 +485,15 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	if relay.IsServer == "yes" {
 		serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(relay), Address: relay.Address})
 	}
+	//if ingress add extclients
+	if node.IsIngressGateway == "yes" {
+		extPeers, err := getExtPeers(node)
+		if err == nil {
+			peers = append(peers, extPeers...)
+		} else {
+			logger.Log(2, "could not retrieve ext peers for ", node.Name, err.Error())
+		}
+	}
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version
 	peerUpdate.Peers = peers
@@ -467,6 +503,11 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 }
 
 func getEgressIPs(node, peer *models.Node) []net.IPNet {
+	//check for internet gateway
+	internetGateway := false
+	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::0") {
+		internetGateway = true
+	}
 	allowedips := []net.IPNet{}
 	for _, iprange := range peer.EgressGatewayRanges { // go through each cidr for egress gateway
 		_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
@@ -474,13 +515,13 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 			logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
 			continue // if can't parse CIDR
 		}
-		nodeEndpointArr := strings.Split(peer.Endpoint, ":") // getting the public ip of node
-		if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) { // ensuring egress gateway range does not contain endpoint of node
+		nodeEndpointArr := strings.Split(peer.Endpoint, ":")                     // getting the public ip of node
+		if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) && !internetGateway { // ensuring egress gateway range does not contain endpoint of node
 			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.Endpoint, ", omitting")
 			continue // skip adding egress range if overlaps with node's ip
 		}
 		// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
-		if ipnet.Contains(net.ParseIP(node.LocalAddress)) { // ensuring egress gateway range does not contain public ip of node
+		if ipnet.Contains(net.ParseIP(node.LocalAddress)) && !internetGateway { // ensuring egress gateway range does not contain public ip of node
 			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.LocalAddress, ", omitting")
 			continue // skip adding egress range if overlaps with node's local ip
 		}

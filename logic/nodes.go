@@ -185,7 +185,7 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		// ignoring for now, could hit a nil pointer if delete called twice
 		logger.Log(2, "attempted to remove node ACL for node", node.Name, node.ID)
 	}
-	removeZombie <- node.ID
+	// removeZombie <- node.ID
 	if node.IsServer == "yes" {
 		return removeLocalServer(node)
 	}
@@ -288,7 +288,7 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	CheckZombies(node)
+	// CheckZombies(node)
 
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
@@ -427,6 +427,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIngressGateway()
 	node.SetDefaulIsPending()
 	node.SetDefaultMTU()
+	node.SetDefaultNFTablesPresent()
 	node.SetDefaultIsRelayed()
 	node.SetDefaultIsRelay()
 	node.SetDefaultIsDocker()

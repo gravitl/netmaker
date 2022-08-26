@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloverstd/tcping/ping"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -43,8 +44,19 @@ func checkin() {
 		var nodeCfg config.ClientConfig
 		nodeCfg.Network = network
 		nodeCfg.ReadConfig()
+		// check for nftables present if on Linux
+		if ncutils.IsLinux() {
+			if ncutils.IsNFTablesPresent() {
+				nodeCfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
+			} else {
+				nodeCfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
+			}
+		} else {
+			// defaults to iptables for now, may need another default for non-Linux OSes
+			nodeCfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
+		}
 		if nodeCfg.Node.IsStatic != "yes" {
-			extIP, err := ncutils.GetPublicIP()
+			extIP, err := ncutils.GetPublicIP(nodeCfg.Server.API)
 			if err != nil {
 				logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
 			}
