@@ -2,7 +2,8 @@ package upgrades
 
 func init() {
 	addUpgrades([]UpgradeInfo{
-		upgrade0147,
+		upgrade0145,
+		upgrade0146,
 	})
 }
 
