@@ -164,7 +164,6 @@ func GetPublicIP(api string) (string, error) {
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {
-		logger.Log(3, "Running public IP check with service", ipserver)
 		client := &http.Client{
 			Timeout: time.Second * 10,
 		}
@@ -179,7 +178,6 @@ func GetPublicIP(api string) (string, error) {
 				continue
 			}
 			endpoint = string(bodyBytes)
-			logger.Log(3, "Public IP address is", endpoint)
 			break
 		}
 	}
