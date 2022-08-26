@@ -207,7 +207,6 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		cfg.Server.Version = peerUpdate.ServerVersion
 		config.Write(&cfg, cfg.Network)
 	}
-
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 	internetGateway, err := wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 	if err != nil {
@@ -223,6 +222,9 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		cfg.Node.InternetGateway = internetGateway.String()
 		if err := config.ModNodeConfig(&cfg.Node); err != nil {
 			logger.Log(0, "failed to save internet gateway", err.Error())
+		}
+		if ncutils.IsWindows() {
+			wireguard.RemoveConfGraceful(cfg.Node.Interface)
 		}
 		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, file); err != nil {
 			logger.Log(0, "error applying internet gateway", err.Error())
