@@ -5,7 +5,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 )
 
-var upgrade0147 = UpgradeInfo{
+var upgrade015 = UpgradeInfo{
 	RequiredVersions: []string{
 		"v0.14.0",
 		"v0.14.1",
@@ -15,11 +15,11 @@ var upgrade0147 = UpgradeInfo{
 		"v0.14.5",
 		"v0.14.6",
 	},
-	NewVersion: "v0.14.7",
-	OP:         update0147,
+	NewVersion: "v0.15.0",
+	OP:         update015,
 }
 
-func update0147(cfg *config.ClientConfig) {
+func update015(cfg *config.ClientConfig) {
 	//do stuff for 14.X -> 14.6
 	// No-op
 	/*
