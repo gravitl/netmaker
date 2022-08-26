@@ -28,7 +28,6 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 	var devicePeers []wgtypes.Peer
 	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string]bool, len(peers))
-
 	var err error
 	devicePeers, err = GetDevicePeers(iface)
 	if err != nil {
@@ -84,7 +83,6 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			logger.Log(0, "error setting peer", peer.PublicKey.String())
 		}
 	}
-
 	if len(devicePeers) > 0 {
 		for _, currentPeer := range devicePeers {
 			shouldDelete := true
