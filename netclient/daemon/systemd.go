@@ -83,6 +83,9 @@ func RestartSystemD() {
 
 // CleanupLinux - cleans up neclient configs
 func CleanupLinux() {
+	if _, err := ncutils.RunCmd("systemctl stop netclient", false); err != nil {
+		logger.Log(0, "failed to stop netclient service", err.Error())
+	}
 	RemoveSystemDServices()
 	if err := os.RemoveAll(ncutils.GetNetclientPath()); err != nil {
 		logger.Log(1, "Removing netclient configs: ", err.Error())
