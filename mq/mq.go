@@ -55,7 +55,7 @@ func SetupMQTT() {
 		opts.SetOrderMatters(true)
 		opts.SetResumeSubs(true)
 	})
-	mqclient := mqtt.NewClient(opts)
+	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
 		if token := mqclient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {

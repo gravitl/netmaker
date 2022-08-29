@@ -271,7 +271,6 @@ func setupMQTT(cfg *config.ClientConfig) error {
 		logger.Log(0, "network:", cfg.Node.Network, "detected broker connection lost for", cfg.Server.Server)
 	})
 	mqclient = mqtt.NewClient(opts)
-	log.Println(mqclient)
 	var connecterr error
 	for count := 0; count < 3; count++ {
 		connecterr = nil
