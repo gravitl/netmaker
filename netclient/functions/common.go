@@ -173,20 +173,51 @@ func LeaveNetwork(network string) error {
 	if err != nil {
 		return err
 	}
+	logger.Log(2, "deleting node from server")
 	if err := deleteNodeFromServer(cfg); err != nil {
 		logger.Log(0, "error deleting node from server", err.Error())
 	}
+	logger.Log(2, "deleting wireguard interface")
 	if err := deleteLocalNetwork(cfg); err != nil {
-		logger.Log(0, "error deleting local network ", err.Error())
+		logger.Log(0, "error deleting wireguard interface", err.Error())
 	}
+	logger.Log(2, "deleting configuration files")
 	if err := WipeLocal(cfg); err != nil {
-		logger.Log(0, "error deleting local network ", err.Error())
+		logger.Log(0, "error deleting local network files", err.Error())
 	}
+	logger.Log(2, "removing dns entries")
 	if err := removeHostDNS(cfg.Node.Interface, ncutils.IsWindows()); err != nil {
 		logger.Log(0, "failed to delete dns entries for", cfg.Node.Interface, err.Error())
 	}
-	//TODO remove keys if last network on server
+	logger.Log(2, "deleting broker keys as required")
+	if !brokerInUse(cfg.Server.Server) {
+		if err := deleteBrokerFiles(cfg.Server.Server); err != nil {
+			logger.Log(0, "failed to deleter certs for", cfg.Server.Server, err.Error())
+		}
+	}
+	logger.Log(2, "restarting daemon")
 	return daemon.Restart()
+}
+
+func brokerInUse(broker string) bool {
+	networks, _ := ncutils.GetSystemNetworks()
+	for _, net := range networks {
+		cfg := config.ClientConfig{}
+		cfg.Network = net
+		cfg.ReadConfig()
+		if cfg.Server.Server == broker {
+			return true
+		}
+	}
+	return false
+}
+
+func deleteBrokerFiles(broker string) error {
+	dir := ncutils.GetNetclientServerPath(broker)
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	return nil
 }
 
 func deleteNodeFromServer(cfg *config.ClientConfig) error {
@@ -250,10 +281,9 @@ func WipeLocal(cfg *config.ClientConfig) error {
 	} else if strings.Contains(err.Error(), "does not exist") {
 		err = nil
 	}
-
-	home := ncutils.GetNetclientPathSpecific()
+	dir := ncutils.GetNetclientPathSpecific()
 	fail := false
-	files, err := filepath.Glob(cfg.Node.Network)
+	files, err := filepath.Glob(dir + "*" + cfg.Node.Network)
 	if err != nil {
 		logger.Log(0, "no matching files", err.Error())
 		fail = true
@@ -264,51 +294,10 @@ func WipeLocal(cfg *config.ClientConfig) error {
 			fail = true
 		}
 	}
-	//	if ncutils.FileExists(home + "netconfig-" + cfg.Node.Network) {
-	//		if err := os.Remove(home + "netconfig-" + cfg.Node.Network); err != nil {
-	//			log.Println("error removing netconfig:")
-	//			log.Println(err.Error())
-	//			fail = true
-	//		}
-	//	}
-	//	if ncutils.FileExists(home + "backup.netconfig-" + cfg.Node.Network) {
-	//		if err := os.Remove(home + "backup.netconfig-" + cfg.Node.Network); err != nil {
-	//			log.Println("error removing backup netconfig:")
-	//			log.Println(err.Error())
-	//			fail = true
-	//		}
-	//	}
-	//	if ncutils.FileExists(home + "nettoken-" + cfg.Node.Network) {
-	//		if err := os.Remove(home + "nettoken-" + cfg.Node.Network); err != nil {
-	//			log.Println("error removing nettoken:")
-	//			log.Println(err.Error())
-	//			fail = true
-	//		}
-	//	}
-	//	if ncutils.FileExists(home + "secret-" + cfg.Node.Network) {
-	//		if err := os.Remove(home + "secret-" + cfg.Node.Network); err != nil {
-	//			log.Println("error removing secret:")
-	//			log.Println(err.Error())
-	//			fail = true
-	//		}
-	//	}
-	//	if ncutils.FileExists(home + "traffic-" + cfg.Node.Network) {
-	//		if err := os.Remove(home + "traffic-" + cfg.Node.Network); err != nil {
-	//			log.Println("error removing traffic key:")
-	//			log.Println(err.Error())
-	//			fail = true
-	//		}
-	//	}
-	//	if ncutils.FileExists(home + "wgkey-" + cfg.Node.Network) {
-	//		if err := os.Remove(home + "wgkey-" + cfg.Node.Network); err != nil {
-	//			log.Println("error removing wgkey:")
-	//			log.Println(err.Error())
-	//			fail = true
-	//		}
-	//	}
+
 	if cfg.Node.Interface != "" {
-		if ncutils.FileExists(home + cfg.Node.Interface + ".conf") {
-			if err := os.Remove(home + cfg.Node.Interface + ".conf"); err != nil {
+		if ncutils.FileExists(dir + cfg.Node.Interface + ".conf") {
+			if err := os.Remove(dir + cfg.Node.Interface + ".conf"); err != nil {
 				log.Println("error removing .conf:")
 				log.Println(err.Error())
 				fail = true
