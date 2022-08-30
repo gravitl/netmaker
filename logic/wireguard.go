@@ -140,7 +140,7 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 		}
 		logger.Log(2, "updated peers on server", node.Name)
 	} else {
-		err = wireguard.InitWireguard(node, privkey, peers.Peers, false)
+		err = wireguard.InitWireguard(node, privkey, peers.Peers)
 		logger.Log(3, "finished setting wg config on server", node.Name)
 	}
 	return err

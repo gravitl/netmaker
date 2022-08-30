@@ -154,7 +154,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		return returnNode, err
 	}
 
-	err = wireguard.InitWireguard(node, privateKey, peers.Peers, false)
+	err = wireguard.InitWireguard(node, privateKey, peers.Peers)
 	if err != nil {
 		return returnNode, err
 	}
