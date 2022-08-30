@@ -21,7 +21,7 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 	if err != nil {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
 			logger.Log(0, "error installing: ", err.Error())
-			err = functions.WipeLocal(cfg.Network)
+			err = functions.WipeLocal(cfg)
 			if err != nil {
 				logger.Log(1, "error removing artifacts: ", err.Error())
 			}

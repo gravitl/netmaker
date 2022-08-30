@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -172,58 +173,100 @@ func LeaveNetwork(network string) error {
 	if err != nil {
 		return err
 	}
-	node := cfg.Node
-	if node.IsServer != "yes" {
-		token, err := Authenticate(cfg)
-		if err != nil {
-			logger.Log(0, "network:", cfg.Network, "unable to authenticate: "+err.Error())
-		} else {
-			url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
-			response, err := API("", http.MethodDelete, url, token)
-			if err != nil {
-				logger.Log(0, "network:", cfg.Network, "error deleting node on server: "+err.Error())
-			} else {
-				if response.StatusCode == http.StatusOK {
-					logger.Log(0, "network:", cfg.Network, "deleted node", cfg.Node.Name, ".")
-				} else {
-					bodybytes, _ := io.ReadAll(response.Body)
-					defer response.Body.Close()
-					logger.Log(0, fmt.Sprintf("network: %s error deleting node on server %s %s", cfg.Network, response.Status, string(bodybytes)))
-				}
-			}
+	logger.Log(2, "deleting node from server")
+	if err := deleteNodeFromServer(cfg); err != nil {
+		logger.Log(0, "error deleting node from server", err.Error())
+	}
+	logger.Log(2, "deleting wireguard interface")
+	if err := deleteLocalNetwork(cfg); err != nil {
+		logger.Log(0, "error deleting wireguard interface", err.Error())
+	}
+	logger.Log(2, "deleting configuration files")
+	if err := WipeLocal(cfg); err != nil {
+		logger.Log(0, "error deleting local network files", err.Error())
+	}
+	logger.Log(2, "removing dns entries")
+	if err := removeHostDNS(cfg.Node.Interface, ncutils.IsWindows()); err != nil {
+		logger.Log(0, "failed to delete dns entries for", cfg.Node.Interface, err.Error())
+	}
+	logger.Log(2, "deleting broker keys as required")
+	if !brokerInUse(cfg.Server.Server) {
+		if err := deleteBrokerFiles(cfg.Server.Server); err != nil {
+			logger.Log(0, "failed to deleter certs for", cfg.Server.Server, err.Error())
 		}
 	}
-	wgClient, wgErr := wgctrl.New()
-	if wgErr == nil {
-		removeIface := cfg.Node.Interface
-		queryAddr := cfg.Node.PrimaryAddress()
-		if ncutils.IsMac() {
-			var macIface string
-			macIface, wgErr = local.GetMacIface(queryAddr)
-			if wgErr == nil && removeIface != "" {
-				removeIface = macIface
-			}
-		}
-		dev, devErr := wgClient.Device(removeIface)
-		if devErr == nil {
-			local.FlushPeerRoutes(removeIface, queryAddr, dev.Peers[:])
-			_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
-			if cidrErr == nil {
-				local.RemoveCIDRRoute(removeIface, queryAddr, cidr)
-			}
-		} else {
-			logger.Log(1, "could not flush peer routes when leaving network,", cfg.Node.Network)
-		}
-	}
-
-	err = WipeLocal(node.Network)
-	if err != nil {
-		logger.Log(1, "network:", node.Network, "unable to wipe local config")
-	} else {
-		logger.Log(1, "removed", node.Network, "network locally")
-	}
-
+	logger.Log(2, "restarting daemon")
 	return daemon.Restart()
+}
+
+func brokerInUse(broker string) bool {
+	networks, _ := ncutils.GetSystemNetworks()
+	for _, net := range networks {
+		cfg := config.ClientConfig{}
+		cfg.Network = net
+		cfg.ReadConfig()
+		if cfg.Server.Server == broker {
+			return true
+		}
+	}
+	return false
+}
+
+func deleteBrokerFiles(broker string) error {
+	dir := ncutils.GetNetclientServerPath(broker)
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteNodeFromServer(cfg *config.ClientConfig) error {
+	node := cfg.Node
+	if node.IsServer == "yes" {
+		return errors.New("attempt to delete server node ... not permitted")
+	}
+	token, err := Authenticate(cfg)
+	if err != nil {
+		return fmt.Errorf("unable to authenticate %w", err)
+	}
+	url := "https://" + cfg.Server.API + "/api/nodes/" + cfg.Network + "/" + cfg.Node.ID
+	response, err := API("", http.MethodDelete, url, token)
+	if err != nil {
+		return fmt.Errorf("error deleting node on server: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		bodybytes, _ := io.ReadAll(response.Body)
+		defer response.Body.Close()
+		return fmt.Errorf("error deleting node from network %s on server %s %s", cfg.Network, response.Status, string(bodybytes))
+	}
+	return nil
+}
+
+func deleteLocalNetwork(cfg *config.ClientConfig) error {
+	wgClient, wgErr := wgctrl.New()
+	if wgErr != nil {
+		return wgErr
+	}
+	removeIface := cfg.Node.Interface
+	queryAddr := cfg.Node.PrimaryAddress()
+	if ncutils.IsMac() {
+		var macIface string
+		macIface, wgErr = local.GetMacIface(queryAddr)
+		if wgErr == nil && removeIface != "" {
+			removeIface = macIface
+		}
+	}
+	dev, devErr := wgClient.Device(removeIface)
+	if devErr != nil {
+		return fmt.Errorf("error flushing routes %w", devErr)
+	}
+	local.FlushPeerRoutes(removeIface, queryAddr, dev.Peers[:])
+	_, cidr, cidrErr := net.ParseCIDR(cfg.NetworkSettings.AddressRange)
+	if cidrErr != nil {
+		return fmt.Errorf("error flushing routes %w", cidrErr)
+	}
+	local.RemoveCIDRRoute(removeIface, queryAddr, cidr)
+	return nil
 }
 
 // DeleteInterface - delete an interface of a network
@@ -232,85 +275,39 @@ func DeleteInterface(ifacename string, postdown string) error {
 }
 
 // WipeLocal - wipes local instance
-func WipeLocal(network string) error {
-	var ifacename string
+func WipeLocal(cfg *config.ClientConfig) error {
+	if err := wireguard.RemoveConf(cfg.Node.Interface, true); err == nil {
+		logger.Log(1, "network:", cfg.Node.Network, "removed WireGuard interface: ", cfg.Node.Interface)
+	} else if strings.Contains(err.Error(), "does not exist") {
+		err = nil
+	}
+	dir := ncutils.GetNetclientPathSpecific()
+	fail := false
+	files, err := filepath.Glob(dir + "*" + cfg.Node.Network)
+	if err != nil {
+		logger.Log(0, "no matching files", err.Error())
+		fail = true
+	}
+	for _, file := range files {
+		if err := os.Remove(file); err != nil {
+			logger.Log(0, "failed to delete file", file, err.Error())
+			fail = true
+		}
+	}
 
-	if network == "" {
-		return errors.New("no network provided")
-	}
-	cfg, err := config.ReadConfig(network)
-	if err == nil {
-		nodecfg := cfg.Node
-		ifacename = nodecfg.Interface
-		if ifacename != "" {
-			if err = wireguard.RemoveConf(ifacename, true); err == nil {
-				logger.Log(1, "network:", nodecfg.Network, "removed WireGuard interface: ", ifacename)
-			} else if strings.Contains(err.Error(), "does not exist") {
-				err = nil
-			}
-		}
-	} else {
-		logger.Log(0, "failed to read "+network+" config: ", err.Error())
-	}
-
-	home := ncutils.GetNetclientPathSpecific()
-	if ncutils.FileExists(home + "netconfig-" + network) {
-		err = os.Remove(home + "netconfig-" + network)
-		if err != nil {
-			log.Println("error removing netconfig:")
-			log.Println(err.Error())
-		}
-	}
-	if ncutils.FileExists(home + "backup.netconfig-" + network) {
-		err = os.Remove(home + "backup.netconfig-" + network)
-		if err != nil {
-			log.Println("error removing backup netconfig:")
-			log.Println(err.Error())
-		}
-	}
-	if ncutils.FileExists(home + "nettoken-" + network) {
-		err = os.Remove(home + "nettoken-" + network)
-		if err != nil {
-			log.Println("error removing nettoken:")
-			log.Println(err.Error())
-		}
-	}
-	if ncutils.FileExists(home + "secret-" + network) {
-		err = os.Remove(home + "secret-" + network)
-		if err != nil {
-			log.Println("error removing secret:")
-			log.Println(err.Error())
-		}
-	}
-	if ncutils.FileExists(home + "traffic-" + network) {
-		err = os.Remove(home + "traffic-" + network)
-		if err != nil {
-			log.Println("error removing traffic key:")
-			log.Println(err.Error())
-		}
-	}
-	if ncutils.FileExists(home + "wgkey-" + network) {
-		err = os.Remove(home + "wgkey-" + network)
-		if err != nil {
-			log.Println("error removing wgkey:")
-			log.Println(err.Error())
-		}
-	}
-	if ifacename != "" {
-		if ncutils.FileExists(home + ifacename + ".conf") {
-			err = os.Remove(home + ifacename + ".conf")
-			if err != nil {
+	if cfg.Node.Interface != "" {
+		if ncutils.FileExists(dir + cfg.Node.Interface + ".conf") {
+			if err := os.Remove(dir + cfg.Node.Interface + ".conf"); err != nil {
 				log.Println("error removing .conf:")
 				log.Println(err.Error())
+				fail = true
 			}
 		}
-		err = removeHostDNS(ifacename, ncutils.IsWindows())
-		if err != nil {
-			logger.Log(0, "failed to delete dns entries for", ifacename, err.Error())
-		}
 	}
-
-	return err
+	if fail {
+		return errors.New("not all files were deleted")
+	}
+	return nil
 }
 
 // GetNetmakerPath - gets netmaker path locally
