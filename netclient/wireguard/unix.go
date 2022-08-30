@@ -2,9 +2,7 @@ package wireguard
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"regexp"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -12,9 +10,9 @@ import (
 )
 
 // ApplyWGQuickConf - applies wg-quick commands if os supports
-func ApplyWGQuickConf(confPath string, ifacename string) error {
+func ApplyWGQuickConf(confPath, ifacename string, isConnected bool) error {
 	if ncutils.IsWindows() {
-		return ApplyWindowsConf(confPath)
+		return ApplyWindowsConf(confPath, isConnected)
 	} else {
 		_, err := os.Stat(confPath)
 		if err != nil {
@@ -24,6 +22,9 @@ func ApplyWGQuickConf(confPath string, ifacename string) error {
 		if ncutils.IfaceExists(ifacename) {
 			ncutils.RunCmd("wg-quick down "+confPath, true)
 		}
+		if !isConnected {
+			return nil
+		}
 		_, err = ncutils.RunCmd("wg-quick up "+confPath, true)
 
 		return err
@@ -31,40 +32,13 @@ func ApplyWGQuickConf(confPath string, ifacename string) error {
 }
 
 // ApplyMacOSConf - applies system commands similar to wg-quick using golang for MacOS
-func ApplyMacOSConf(node *models.Node, ifacename string, confPath string) error {
+func ApplyMacOSConf(node *models.Node, ifacename, confPath string, isConnected bool) error {
 	var err error
 	_ = WgQuickDownMac(node, ifacename)
+	if !isConnected {
+		return nil
+	}
 	err = WgQuickUpMac(node, ifacename, confPath)
-	return err
-}
-
-// SyncWGQuickConf - formats config file and runs sync command
-func SyncWGQuickConf(iface string, confPath string) error {
-	var tmpConf = confPath + ".sync.tmp"
-	var confCmd = "wg-quick strip "
-	if ncutils.IsMac() {
-		confCmd = "grep -v -e Address -e MTU -e PostUp -e PostDown "
-	}
-	confRaw, err := ncutils.RunCmd(confCmd+confPath, false)
-	if err != nil {
-		return err
-	}
-	regex := regexp.MustCompile(".*Warning.*\n")
-	conf := regex.ReplaceAllString(confRaw, "")
-	err = os.WriteFile(tmpConf, []byte(conf), 0600)
-	if err != nil {
-		return err
-	}
-	_, err = ncutils.RunCmd("wg syncconf "+iface+" "+tmpConf, true)
-	if err != nil {
-		log.Println(err.Error())
-		logger.Log(0, "error syncing conf, resetting")
-		err = ApplyWGQuickConf(confPath, iface)
-	}
-	errN := os.Remove(tmpConf)
-	if errN != nil {
-		logger.Log(0, errN.Error())
-	}
 	return err
 }
 

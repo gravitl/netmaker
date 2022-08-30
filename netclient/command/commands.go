@@ -3,6 +3,7 @@ package command
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"fmt"
 	"strings"
 
 	"github.com/gravitl/netmaker/logger"
@@ -141,4 +142,28 @@ func Daemon() error {
 // Install - installs binary and daemon
 func Install() error {
 	return functions.Install()
+}
+
+// Connect - re-instates a connection of a node
+func Connect(cfg config.ClientConfig) error {
+	networkName := cfg.Network
+	if networkName == "" {
+		networkName = cfg.Node.Network
+	}
+	if networkName == "all" {
+		return fmt.Errorf("no network specified")
+	}
+	return functions.Connect(networkName)
+}
+
+// Disconnect - disconnects a connection of a node
+func Disconnect(cfg config.ClientConfig) error {
+	networkName := cfg.Network
+	if networkName == "" {
+		networkName = cfg.Node.Network
+	}
+	if networkName == "all" {
+		return fmt.Errorf("no network specified")
+	}
+	return functions.Disconnect(networkName)
 }
