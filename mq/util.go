@@ -61,13 +61,14 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 }
 
 func publish(node *models.Node, dest string, msg []byte) error {
-	client := SetupMQTT(true)
-	defer client.Disconnect(250)
 	encrypted, encryptErr := encryptMsg(node, msg)
 	if encryptErr != nil {
 		return encryptErr
 	}
-	if token := client.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+	if mqclient == nil {
+		return errors.New("cannot publish ... mqclient not connected")
+	}
+	if token := mqclient.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")
@@ -79,7 +80,7 @@ func publish(node *models.Node, dest string, msg []byte) error {
 	return nil
 }
 
-//  decodes a message queue topic and returns the embedded node.ID
+// decodes a message queue topic and returns the embedded node.ID
 func getID(topic string) (string, error) {
 	parts := strings.Split(topic, "/")
 	count := len(parts)

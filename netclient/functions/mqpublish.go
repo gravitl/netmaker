@@ -21,7 +21,8 @@ import (
 )
 
 // Checkin  -- go routine that checks for public or local ip changes, publishes changes
-//   if there are no updates, simply "pings" the server as a checkin
+//
+//	if there are no updates, simply "pings" the server as a checkin
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
@@ -141,17 +142,14 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		return err
 	}
 
-	client, err := setupMQTT(nodeCfg, true)
-	if err != nil {
-		return fmt.Errorf("mq setup error %w", err)
-	}
-	defer client.Disconnect(250)
 	encrypted, err := ncutils.Chunk(msg, serverPubKey, trafficPrivKey)
 	if err != nil {
 		return err
 	}
-
-	if token := client.Publish(dest, qos, false, encrypted); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+	if mqclient == nil {
+		return errors.New("unable to publish ... no mqclient")
+	}
+	if token := mqclient.Publish(dest, qos, false, encrypted); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
 		logger.Log(0, "could not connect to broker at "+nodeCfg.Server.Server+":"+nodeCfg.Server.MQPort)
 		var err error
 		if token.Error() == nil {

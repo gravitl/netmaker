@@ -218,11 +218,6 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	if cfg.Server.Server == "" {
 		return errors.New("did not receive broker address from registration")
 	}
-	// update server with latest data
-	if err := PublishNodeUpdate(cfg); err != nil {
-		logger.Log(0, "network:", cfg.Network, "failed to publish update for join", err.Error())
-	}
-
 	if cfg.Daemon == "install" || ncutils.IsFreeBSD() {
 		err = daemon.InstallDaemon()
 		if err != nil {
