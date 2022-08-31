@@ -20,13 +20,6 @@ const (
 )
 
 func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
-	/*
-	   1. Check master token
-	   2. Check if admin
-	   3. Check if network admin
-
-
-	*/
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
