@@ -86,9 +86,9 @@ func initialize() { // Client Mode Prereq Check
 		logger.Log(0, "no OAuth provider found or not configured, continuing without OAuth")
 	}
 
-	err = serverctl.SetDefaultACLS()
+	err = serverctl.SetDefaults()
 	if err != nil {
-		logger.FatalLog("error setting default acls: ", err.Error())
+		logger.FatalLog("error setting defaults: ", err.Error())
 	}
 
 	if servercfg.IsClientMode() != "off" {
