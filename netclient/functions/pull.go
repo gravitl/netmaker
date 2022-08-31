@@ -72,6 +72,7 @@ func Pull(network string, iface bool) (*models.Node, error) {
 		}
 		informPortChange(&resNode)
 	}
+	resNode.AccessKey = "" // don't store the access key on disk
 	if err = config.ModNodeConfig(&resNode); err != nil {
 		return nil, err
 	}
