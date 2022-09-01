@@ -37,6 +37,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	postUpCmd := ""
 	postDownCmd := ""
+	ipv4, ipv6 := getNetworkProtocols(gateway.Ranges)
 	logger.Log(3, "creating egress gateway firewall in use is '", node.FirewallInUse, "'")
 	if node.OS == "linux" {
 		switch node.FirewallInUse {
@@ -52,7 +53,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 
 		default: // iptables assumed
 			logger.Log(3, "creating egress gateway nftables is not present")
-			postUpCmd, postDownCmd = firewallIPTablesCommandsCreateEgress(node.Interface, gateway.Interface, node.EgressGatewayNatEnabled)
+			postUpCmd, postDownCmd = firewallIPTablesCommandsCreateEgress(node.Interface, gateway.Interface, node.EgressGatewayNatEnabled, ipv4, ipv6)
 		}
 	}
 	if node.OS == "freebsd" {
@@ -180,7 +181,9 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = "yes"
-	node.IngressGatewayRange = network.AddressRange
+	node.IngressGatewayRange = append(node.IngressGatewayRange, network.AddressRange)
+	node.IngressGatewayRange = append(node.IngressGatewayRange, network.AddressRange6)
+	ipv4, ipv6 = getNetworkProtocols(node.IngressGatewayRange)
 	logger.Log(3, "creating ingress gateway firewall in use is '", node.FirewallInUse, "'")
 	switch node.FirewallInUse {
 	case models.FIREWALL_NFTABLES:
@@ -190,7 +193,7 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 		postUpCmd, postDownCmd = firewallNFTCommandsCreateIngress(node.Interface)
 	default:
 		logger.Log(3, "creating ingress gateway using nftables is not present")
-		postUpCmd, postDownCmd = firewallIPTablesCommandsCreateIngress(node.Interface)
+		postUpCmd, postDownCmd = firewallIPTablesCommandsCreateIngress(node.Interface, ipv4, ipv6)
 	}
 
 	if node.PostUp != "" {
@@ -331,33 +334,61 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 }
 
 // firewallIPTablesCommandsCreateIngress - used to centralize firewall command maintenance for creating an ingress gateway using the iptables firewall.
-func firewallIPTablesCommandsCreateIngress(networkInterface string) (string, string) {
-	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
-	postUp := "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
-	postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
-	postUp += "iptables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+func firewallIPTablesCommandsCreateIngress(networkInterface string, ipv4, ipv6 bool) (string, string) {
+	postUp := ""
+	postDown := ""
+	if ipv4 {
+		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
+		postUp += "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
+		postUp += "iptables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
 
-	// doesn't remove potentially empty tables or chains
-	postDown := "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
-	postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
-	postDown += "iptables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+		// doesn't remove potentially empty tables or chains
+		postDown += "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
+		postDown += "iptables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+	}
+	if ipv6 {
+		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
+		postUp += "ip6tables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postUp += "ip6tables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
+		postUp += "ip6tables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
 
+		// doesn't remove potentially empty tables or chains
+		postDown += "ip6tables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
+		postDown += "ip6tables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+	}
 	return postUp, postDown
 }
 
 // firewallIPTablesCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the iptables firewall.
-func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled string) (string, string) {
+func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled string, ipv4, ipv6 bool) (string, string) {
 	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
-	postUp := "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
-	postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT"
-	postDown := "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
-	postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT"
+	postUp := ""
+	postDown := ""
+	if ipv4 {
+		postUp += "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT"
+		postDown += "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT"
 
-	if egressNatEnabled == "yes" {
-		postUp += " ; iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
-		postDown += " ; iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+		if egressNatEnabled == "yes" {
+			postUp += " ; iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+			postDown += " ; iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+		}
 	}
+	if ipv6 {
+		postUp += "ip6tables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postUp += "ip6tables -A FORWARD -o " + networkInterface + " -j ACCEPT"
+		postDown += "ip6tables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
+		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT"
 
+		if egressNatEnabled == "yes" {
+			postUp += " ; ip6tables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+			postDown += " ; ip6tables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+		}
+	}
 	return postUp, postDown
 
 }

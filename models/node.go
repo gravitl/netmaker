@@ -76,7 +76,7 @@ type Node struct {
 	EgressGatewayNatEnabled string               `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
-	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
+	IngressGatewayRange     []string             `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	// IsStatic - refers to if the Endpoint is set manually or dynamically
 	IsStatic        string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch    string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
