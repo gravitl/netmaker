@@ -26,7 +26,6 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(updateExtClient))).Methods("PUT")
 	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(deleteExtClient))).Methods("DELETE")
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", securityCheck(false, http.HandlerFunc(createExtClient))).Methods("POST")
-	r.HandleFunc("/api/extclients/{network}/{nodeid}/{clientid}", securityCheck(false, http.HandlerFunc(createExtClient))).Methods("POST")
 }
 
 func checkIngressExists(nodeID string) bool {
@@ -264,7 +263,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var extclient models.ExtClient
 	var CustomExtClient models.CustomExtClient
 	
-	err := json.NewDecoder(r.body).Decode(&CustomExtClient);
+	err := json.NewDecoder(r.Body).Decode(&CustomExtClient);
 
 	if err != nil {
 		logger.Log(1, "error creating CustomExtClient"+err.Error())
