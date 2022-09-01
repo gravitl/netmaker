@@ -251,7 +251,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	networkName := params["network"]
 	nodeid := params["nodeid"]
-	clientid := params["clientid"]
+	
 	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
 		err := errors.New("ingress does not exist")
@@ -262,9 +262,16 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var extclient models.ExtClient
-	if clientid != "" {// if clientid is passed from api call, create new extclient with custom clientid instead to generate a random one
-		extclient.ClientID = clientid
+	var CustomExtClient models.CustomExtClient
+	
+	err := json.NewDecoder(r.body).Decode(&CustomExtClient);
+
+	if err != nil {
+		logger.Log(1, "error creating CustomExtClient"+err.Error())
+	} else {
+		extclient.ClientID = CustomExtClient.ClientID
 	}
+	
 	extclient.Network = networkName
 	extclient.IngressGatewayID = nodeid
 	node, err := logic.GetNodeByID(nodeid)
