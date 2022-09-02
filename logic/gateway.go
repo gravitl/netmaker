@@ -43,13 +43,13 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		switch node.FirewallInUse {
 		case models.FIREWALL_NFTABLES:
 			// nftables only supported on Linux
-			// assumes chains eg FORWARD and POSTROUTING already exist
+			// assumes chains eg FORWARD and postrouting already exist
 			logger.Log(3, "creating egress gateway nftables is present")
 			// down commands don't remove as removal of the rules leaves an empty chain while
 			// removing the chain with rules in it would remove all rules in that section (not safe
 			// if there are remaining rules on the host that need to stay).  In practice the chain is removed
 			// when non-empty even though the removal of a non-empty chain should not be possible per nftables wiki.
-			postUpCmd, postDownCmd = firewallNFTCommandsCreateEgress(node.Interface, gateway.Interface, gateway.Ranges, node.EgressGatewayNatEnabled)
+			postUpCmd, postDownCmd = firewallNFTCommandsCreateEgress(node.Interface, gateway.Interface, gateway.Ranges, node.EgressGatewayNatEnabled, ipv4, ipv6)
 
 		default: // iptables assumed
 			logger.Log(3, "creating egress gateway nftables is not present")
@@ -130,7 +130,10 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	// needed in case we don't preserve a gateway (i.e., no ingress to preserve)
 	node.PostUp = ""
 	node.PostDown = ""
-
+	cidrs := []string{}
+	cidrs = append(cidrs, node.IngressGatewayRange)
+	cidrs = append(cidrs, node.IngressGatewayRange6)
+	ipv4, ipv6 := getNetworkProtocols(cidrs)
 	logger.Log(3, "deleting egress gateway firewall in use is '", node.FirewallInUse, "'")
 	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
 		// still have an ingress gateway so preserve it
@@ -138,12 +141,12 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 			switch node.FirewallInUse {
 			case models.FIREWALL_NFTABLES:
 				// nftables only supported on Linux
-				// assumes chains eg FORWARD and POSTROUTING already exist
+				// assumes chains eg FORWARD and postrouting already exist
 				logger.Log(3, "deleting egress gateway nftables is present")
 				node.PostUp, node.PostDown = firewallNFTCommandsCreateIngress(node.Interface)
 			default:
 				logger.Log(3, "deleting egress gateway nftables is not present")
-				node.PostUp, node.PostDown = firewallIPTablesCommandsCreateIngress(node.Interface)
+				node.PostUp, node.PostDown = firewallIPTablesCommandsCreateIngress(node.Interface, ipv4, ipv6)
 			}
 		}
 		// no need to preserve ingress gateway on FreeBSD as ingress is not supported on that OS
@@ -181,14 +184,17 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = "yes"
-	node.IngressGatewayRange = append(node.IngressGatewayRange, network.AddressRange)
-	node.IngressGatewayRange = append(node.IngressGatewayRange, network.AddressRange6)
-	ipv4, ipv6 = getNetworkProtocols(node.IngressGatewayRange)
+	cidrs := []string{}
+	cidrs = append(cidrs, network.AddressRange)
+	cidrs = append(cidrs, network.AddressRange6)
+	node.IngressGatewayRange = network.AddressRange
+	node.IngressGatewayRange6 = network.AddressRange6
+	ipv4, ipv6 := getNetworkProtocols(cidrs)
 	logger.Log(3, "creating ingress gateway firewall in use is '", node.FirewallInUse, "'")
 	switch node.FirewallInUse {
 	case models.FIREWALL_NFTABLES:
 		// nftables only supported on Linux
-		// assumes chains eg FORWARD and POSTROUTING already exist
+		// assumes chains eg FORWARD and postrouting already exist
 		logger.Log(3, "creating ingress gateway nftables is present")
 		postUpCmd, postDownCmd = firewallNFTCommandsCreateIngress(node.Interface)
 	default:
@@ -295,8 +301,8 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 	postUp += "nft add rule ip filter FORWARD iifname " + networkInterface + " counter accept ; "
 	postUp += "nft add rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
 	postUp += "nft add table nat ; "
-	postUp += "nft add chain nat POSTROUTING ; "
-	postUp += "nft add rule ip nat POSTROUTING oifname " + networkInterface + " counter masquerade"
+	postUp += "nft add chain nat postrouting ; "
+	postUp += "nft add rule ip nat postrouting oifname " + networkInterface + " counter masquerade"
 
 	// doesn't remove potentially empty tables or chains
 	postDown := "nft flush table filter ; "
@@ -336,24 +342,19 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 	if ipv6 {
 		postUp += "nft add table ip6 filter ; "
 		postUp += "nft add chain ip6 filter forward ; "
-		postUp += "nft add rule filter forward ct state related,established accept ; "
+		postUp += "nft add rule ip6 filter forward ct state related,established accept ; "
 		postUp += "nft add rule ip6 filter forward iifname " + networkInterface + " accept ; "
 		postUp += "nft add rule ip6 filter forward oifname " + networkInterface + " accept ; "
-		postUp += "nft add table ip6 nat ; "
-		postUp += "nft 'add chain ip6 nat prerouting { type nat hook prerouting priority 0 ;}' ; "
-		postUp += "nft 'add chain ip6 nat postrouting { type nat hook postrouting priority 0 ;}' ; "
-		for _, networkCIDR := range gatewayranges {
-			postUp += "nft add rule ip6 nat postrouting iifname " + networkInterface + " oifname " + gatewayInterface + " ip saddr " + networkCIDR + " masquerade ; "
-		}
 
-		postDown += "nft flush table filter ; "
+		postDown += "nft flush table ip6 filter ; "
 
 		if egressNatEnabled == "yes" {
 			postUp += "nft add table ip6 nat ; "
-			postUp += "nft add chain nat postrouting ; "
-			postUp += "nft add rule ip nat postrouting oifname " + gatewayInterface + " masquerade ; "
+			postUp += "nft 'add chain ip6 nat prerouting { type nat hook prerouting priority 0 ;}' ; "
+			postUp += "nft 'add chain ip6 nat postrouting { type nat hook postrouting priority 0 ;}' ; "
+			postUp += "nft add rule ip6 nat postrouting oifname " + gatewayInterface + " masquerade ; "
 
-			postDown += "nft flush table nat ; "
+			postDown += "nft flush table ip6 nat ; "
 		}
 	}
 
@@ -368,23 +369,23 @@ func firewallIPTablesCommandsCreateIngress(networkInterface string, ipv4, ipv6 b
 		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 		postUp += "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postUp += "iptables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+		postUp += "iptables -t nat -A postrouting -o " + networkInterface + " -j masquerade"
 
 		// doesn't remove potentially empty tables or chains
 		postDown += "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postDown += "iptables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+		postDown += "iptables -t nat -D postrouting -o " + networkInterface + " -j masquerade"
 	}
 	if ipv6 {
 		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 		postUp += "ip6tables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postUp += "ip6tables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postUp += "ip6tables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+		postUp += "ip6tables -t nat -A postrouting -o " + networkInterface + " -j masquerade"
 
 		// doesn't remove potentially empty tables or chains
 		postDown += "ip6tables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postDown += "ip6tables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+		postDown += "ip6tables -t nat -D postrouting -o " + networkInterface + " -j masquerade"
 	}
 	return postUp, postDown
 }
@@ -401,8 +402,8 @@ func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterf
 		postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT"
 
 		if egressNatEnabled == "yes" {
-			postUp += " ; iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
-			postDown += " ; iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+			postUp += " ; iptables -t nat -A postrouting -o " + gatewayInterface + " -j masquerade"
+			postDown += " ; iptables -t nat -D postrouting -o " + gatewayInterface + " -j masquerade"
 		}
 	}
 	if ipv6 {
@@ -412,8 +413,8 @@ func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterf
 		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT"
 
 		if egressNatEnabled == "yes" {
-			postUp += " ; ip6tables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
-			postDown += " ; ip6tables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+			postUp += " ; ip6tables -t nat -A postrouting -o " + gatewayInterface + " -j masquerade"
+			postDown += " ; ip6tables -t nat -D postrouting -o " + gatewayInterface + " -j masquerade"
 		}
 	}
 	return postUp, postDown
