@@ -247,7 +247,7 @@ SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 EGRESS_JSON=$( jq -n \
                   --arg gw "$GATEWAY_IFACE" \
-                  '{ranges: ["0.0.0.0/0",::/0], interface: $gw}' )
+                  '{ranges: ["0.0.0.0/0","::/0"], interface: $gw}' )
 
 echo "Egress json: $EGRESS_JSON"
 curl -s -o /dev/null -X POST -d "$EGRESS_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn/$SERVER_ID/creategateway
