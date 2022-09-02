@@ -87,9 +87,8 @@ func NodeUpdate(node *models.Node) error {
 	logger.Log(3, "publishing node update to "+node.Name)
 
 	if len(node.NetworkSettings.AccessKeys) > 0 {
-		node.NetworkSettings.AccessKeys = nil // not to be sent (don't need to spread access keys around the network; we need to know how to reach other nodes, not become them)
+		node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent (don't need to spread access keys around the network; we need to know how to reach other nodes, not become them)
 	}
-	node.AccessKey = "" // no need to send this node's access key to others
 
 	data, err := json.Marshal(node)
 	if err != nil {

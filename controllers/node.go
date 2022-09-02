@@ -321,7 +321,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	for _, node := range nodes {
 		if len(node.NetworkSettings.AccessKeys) > 0 {
-			node.NetworkSettings.AccessKeys = nil // not to be sent back to client; client already knows how to join the network
+			node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent back to client; client already knows how to join the network
 		}
 	}
 
@@ -402,7 +402,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(node.NetworkSettings.AccessKeys) > 0 {
-		node.NetworkSettings.AccessKeys = nil // not to be sent back to client; client already knows how to join the network
+		node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent back to client; client already knows how to join the network
 	}
 
 	response := models.NodeGet{
