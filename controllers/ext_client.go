@@ -264,12 +264,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var CustomExtClient models.CustomExtClient
 	
 	err := json.NewDecoder(r.Body).Decode(&CustomExtClient);
-
-	if err != nil {
-		logger.Log(1, "error creating CustomExtClient"+err.Error())
-	} else {
-		extclient.ClientID = CustomExtClient.ClientID
-	}
+	
+	if err == nil { extclient.ClientID = CustomExtClient.ClientID }
 	
 	extclient.Network = networkName
 	extclient.IngressGatewayID = nodeid
