@@ -319,6 +319,12 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, node := range nodes {
+		if len(node.NetworkSettings.AccessKeys) > 0 {
+			node.NetworkSettings.AccessKeys = nil // not to be sent back to client; client already knows how to join the network
+		}
+	}
+
 	//Returns all the nodes in JSON format
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
 	w.WriteHeader(http.StatusOK)
@@ -393,6 +399,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+
+	if len(node.NetworkSettings.AccessKeys) > 0 {
+		node.NetworkSettings.AccessKeys = nil // not to be sent back to client; client already knows how to join the network
 	}
 
 	response := models.NodeGet{
