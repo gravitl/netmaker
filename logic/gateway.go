@@ -306,28 +306,55 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 }
 
 // firewallNFTCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the nftables firewall.
-func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface string, gatewayranges []string, egressNatEnabled string) (string, string) {
+func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface string, gatewayranges []string, egressNatEnabled string, ipv4, ipv6 bool) (string, string) {
 	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
-	postUp := "nft add table ip filter ; "
-	postUp += "nft add chain ip filter forward ; "
-	postUp += "nft add rule filter forward ct state related,established accept ; "
-	postUp += "nft add rule ip filter forward iifname " + networkInterface + " accept ; "
-	postUp += "nft add rule ip filter forward oifname " + networkInterface + " accept ; "
-	postUp += "nft add table nat ; "
-	postUp += "nft 'add chain ip nat prerouting { type nat hook prerouting priority 0 ;}' ; "
-	postUp += "nft 'add chain ip nat postrouting { type nat hook postrouting priority 0 ;}' ; "
-	for _, networkCIDR := range gatewayranges {
-		postUp += "nft add rule nat postrouting iifname " + networkInterface + " oifname " + gatewayInterface + " ip saddr " + networkCIDR + " masquerade ; "
-	}
-
-	postDown := "nft flush table filter ; "
-
-	if egressNatEnabled == "yes" {
+	postUp := ""
+	postDown := ""
+	if ipv4 {
+		postUp += "nft add table ip filter ; "
+		postUp += "nft add chain ip filter forward ; "
+		postUp += "nft add rule filter forward ct state related,established accept ; "
+		postUp += "nft add rule ip filter forward iifname " + networkInterface + " accept ; "
+		postUp += "nft add rule ip filter forward oifname " + networkInterface + " accept ; "
 		postUp += "nft add table nat ; "
-		postUp += "nft add chain nat POSTROUTING ; "
-		postUp += "nft add rule ip nat POSTROUTING oifname " + gatewayInterface + " counter masquerade ; "
+		postUp += "nft 'add chain ip nat prerouting { type nat hook prerouting priority 0 ;}' ; "
+		postUp += "nft 'add chain ip nat postrouting { type nat hook postrouting priority 0 ;}' ; "
+		for _, networkCIDR := range gatewayranges {
+			postUp += "nft add rule nat postrouting iifname " + networkInterface + " oifname " + gatewayInterface + " ip saddr " + networkCIDR + " masquerade ; "
+		}
 
-		postDown += "nft flush table nat ; "
+		postDown += "nft flush table filter ; "
+
+		if egressNatEnabled == "yes" {
+			postUp += "nft add table nat ; "
+			postUp += "nft add chain nat postrouting ; "
+			postUp += "nft add rule ip nat postrouting oifname " + gatewayInterface + " counter masquerade ; "
+
+			postDown += "nft flush table nat ; "
+		}
+	}
+	if ipv6 {
+		postUp += "nft add table ip6 filter ; "
+		postUp += "nft add chain ip6 filter forward ; "
+		postUp += "nft add rule filter forward ct state related,established accept ; "
+		postUp += "nft add rule ip6 filter forward iifname " + networkInterface + " accept ; "
+		postUp += "nft add rule ip6 filter forward oifname " + networkInterface + " accept ; "
+		postUp += "nft add table ip6 nat ; "
+		postUp += "nft 'add chain ip6 nat prerouting { type nat hook prerouting priority 0 ;}' ; "
+		postUp += "nft 'add chain ip6 nat postrouting { type nat hook postrouting priority 0 ;}' ; "
+		for _, networkCIDR := range gatewayranges {
+			postUp += "nft add rule ip6 nat postrouting iifname " + networkInterface + " oifname " + gatewayInterface + " ip saddr " + networkCIDR + " masquerade ; "
+		}
+
+		postDown += "nft flush table filter ; "
+
+		if egressNatEnabled == "yes" {
+			postUp += "nft add table ip6 nat ; "
+			postUp += "nft add chain nat postrouting ; "
+			postUp += "nft add rule ip nat postrouting oifname " + gatewayInterface + " masquerade ; "
+
+			postDown += "nft flush table nat ; "
+		}
 	}
 
 	return postUp, postDown
