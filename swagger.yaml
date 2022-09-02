@@ -1,0 +1,28 @@
+basePath: /
+consumes:
+    - application/json
+host: netmaker.io
+info:
+    description: Documentation of the Netmaker API.
+    title: |-
+        TODO update to follow actual info..  just set up enough to try out Swagger
+        Package classification Controller.
+    version: 1.0.0
+paths:
+    /api/networks:
+        get:
+            description: simple get all networks function
+            operationId: getNetworks
+            schemes:
+                - https
+            summary: Lists all networks
+            tags:
+                - networks
+produces:
+    - application/json
+schemes:
+    - http
+securityDefinitions:
+    basic:
+        type: basic
+swagger: "2.0"

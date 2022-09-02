@@ -39,7 +39,16 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", securityCheck(true, http.HandlerFunc(getNetworkACL))).Methods("GET")
 }
 
+// swagger:route GET /api/networks networks getNetworks
+//
+// Lists all networks
+//
 // simple get all networks function
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	headerNetworks := r.Header.Get("networks")
