@@ -443,6 +443,7 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	if node.UDPHolePunch == "yes" {
 		node.ListenPort = 0
 	}
+	wireguard.DeleteSection(section_interface)
 	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
 	wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))
 	addrString := node.Address

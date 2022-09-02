@@ -23,6 +23,8 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		newNode.DNSOn != currentNode.DNSOn ||
 		newNode.Connected != currentNode.Connected ||
+		newNode.PostUp != currentNode.PostUp ||
+		newNode.PostDown != currentNode.PostDown ||
 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
 		return true
 	}
