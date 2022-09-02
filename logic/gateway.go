@@ -369,23 +369,23 @@ func firewallIPTablesCommandsCreateIngress(networkInterface string, ipv4, ipv6 b
 		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 		postUp += "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postUp += "iptables -t nat -A postrouting -o " + networkInterface + " -j masquerade"
+		postUp += "iptables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
 
 		// doesn't remove potentially empty tables or chains
 		postDown += "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postDown += "iptables -t nat -D postrouting -o " + networkInterface + " -j masquerade"
+		postDown += "iptables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
 	}
 	if ipv6 {
 		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 		postUp += "ip6tables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postUp += "ip6tables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postUp += "ip6tables -t nat -A postrouting -o " + networkInterface + " -j masquerade"
+		postUp += "ip6tables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
 
 		// doesn't remove potentially empty tables or chains
 		postDown += "ip6tables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postDown += "ip6tables -t nat -D postrouting -o " + networkInterface + " -j masquerade"
+		postDown += "ip6tables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
 	}
 	return postUp, postDown
 }
