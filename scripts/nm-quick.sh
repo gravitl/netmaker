@@ -73,6 +73,8 @@ for dependency in ${dependencies[@]}; do
     fi
 done
 
+sudo modprobe ip6table_filter
+
 set -e
 
 NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io

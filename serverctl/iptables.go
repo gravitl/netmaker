@@ -21,6 +21,10 @@ func InitIPTables(force bool) error {
 	if err != nil {
 		return err
 	}
+	_, err = exec.LookPath("ip6tables")
+	if err != nil {
+		return err
+	}
 	err = setForwardPolicy()
 	if err != nil {
 		logger.Log(0, "error setting iptables forward policy: "+err.Error())
