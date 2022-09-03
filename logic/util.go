@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -168,4 +169,20 @@ func ShouldPublishPeerPorts(serverNode *models.Node) bool {
 		}
 	}
 	return false
+}
+
+// NormalCidr - returns the first address of CIDR
+func NormalizeCIDR(address string) (string, error) {
+	ip, IPNet, err := net.ParseCIDR(address)
+	if err != nil {
+		return "", err
+	}
+	if ip.To4() == nil {
+		net6 := iplib.Net6FromStr(IPNet.String())
+		IPNet.IP = net6.FirstAddress()
+	} else {
+		net4 := iplib.Net4FromStr(IPNet.String())
+		IPNet.IP = net4.FirstAddress()
+	}
+	return IPNet.String(), nil
 }
