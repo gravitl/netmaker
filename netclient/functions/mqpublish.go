@@ -94,6 +94,11 @@ func checkin() {
 				}
 			}
 		}
+		//check version
+		if nodeCfg.Node.Version != ncutils.Version {
+			nodeCfg.Node.Version = ncutils.Version
+			config.Write(&nodeCfg, nodeCfg.Network)
+		}
 		Hello(&nodeCfg)
 		checkCertExpiry(&nodeCfg)
 	}
