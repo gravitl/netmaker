@@ -17,7 +17,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	for i, cidr := range gateway.Ranges {
 		normalized, err := NormalizeCIDR(cidr)
 		if err != nil {
-			return models.Node{}, nil
+			return models.Node{}, err
 		}
 		gateway.Ranges[i] = normalized
 
