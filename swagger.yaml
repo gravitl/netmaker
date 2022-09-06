@@ -1,7 +1,6 @@
 basePath: /
 consumes:
     - application/json
-host: netmaker.io
 info:
     description: |-
         API Usage
@@ -455,6 +454,14 @@ paths:
                 - https
             tags:
                 - nodes
+    /meshclient/files/{filename}:
+        get:
+            description: Retrieve a file from the file server
+            operationId: fileServer
+            schemes:
+                - https
+            tags:
+                - meshclient
 produces:
     - application/json
 schemes:
