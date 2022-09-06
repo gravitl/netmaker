@@ -413,8 +413,8 @@ func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterf
 		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
 
 		if egressNatEnabled == "yes" {
-			postUp += " ; ip6tables -t nat -A postrouting -o " + gatewayInterface + " -j masquerade"
-			postDown += " ; ip6tables -t nat -D postrouting -o " + gatewayInterface + " -j masquerade"
+			postUp += " ; ip6tables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+			postDown += " ; ip6tables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
 		}
 	}
 	return postUp, postDown
