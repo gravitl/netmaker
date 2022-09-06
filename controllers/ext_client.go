@@ -287,9 +287,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-
 	networkName := params["network"]
 	nodeid := params["nodeid"]
+	
 	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
 		err := errors.New("ingress does not exist")
@@ -300,6 +300,12 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var extclient models.ExtClient
+	var CustomExtClient models.CustomExtClient
+	
+	err := json.NewDecoder(r.Body).Decode(&CustomExtClient);
+	
+	if err == nil { extclient.ClientID = CustomExtClient.ClientID }
+	
 	extclient.Network = networkName
 	extclient.IngressGatewayID = nodeid
 	node, err := logic.GetNodeByID(nodeid)

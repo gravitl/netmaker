@@ -43,6 +43,9 @@ func UpdateClientConfig() {
 			if err := PublishNodeUpdate(&cfg); err != nil {
 				logger.Log(0, "error publishing node update during schema change", err.Error())
 			}
+			if err := config.ModNodeConfig(&cfg.Node); err != nil {
+				logger.Log(0, "error saving local config for node,", cfg.Node.Name, ", on network,", cfg.Node.Network)
+			}
 		}
 	}
 	logger.Log(0, "finished updates")

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -14,14 +13,23 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+const (
+	master_uname     = "masteradministrator"
+	unauthorized_msg = "unauthorized"
+	unauthorized_err = models.Error(unauthorized_msg)
+)
+
 func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "W1R3: It's not you it's me.",
+			Code: http.StatusUnauthorized, Message: unauthorized_msg,
 		}
 
 		var params = mux.Vars(r)
 		bearerToken := r.Header.Get("Authorization")
+		// to have a custom DNS service adding entries
+		// we should refactor this, but is for the special case of an external service to query the DNS api
 		if strings.Contains(r.RequestURI, "/dns") && strings.ToUpper(r.Method) == "GET" && authenticateDNSToken(bearerToken) {
 			// do dns stuff
 			r.Header.Set("user", "nameserver")
@@ -30,19 +38,17 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			next.ServeHTTP(w, r)
 			return
 		}
-
-		networks, username, err := SecurityCheck(reqAdmin, params["networkname"], bearerToken)
+		var networkName = params["networkname"]
+		if len(networkName) == 0 {
+			networkName = params["network"]
+		}
+		networks, username, err := SecurityCheck(reqAdmin, networkName, bearerToken)
 		if err != nil {
-			if strings.Contains(err.Error(), "does not exist") {
-				errorResponse.Code = http.StatusNotFound
-			}
-			errorResponse.Message = err.Error()
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
 		networksJson, err := json.Marshal(&networks)
 		if err != nil {
-			errorResponse.Message = err.Error()
 			returnErrorResponse(w, r, errorResponse)
 			return
 		}
@@ -54,46 +60,33 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 // SecurityCheck - checks token stuff
 func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, string, error) {
-
-	var hasBearer = true
 	var tokenSplit = strings.Split(token, " ")
 	var authToken = ""
+	userNetworks := []string{}
 
 	if len(tokenSplit) < 2 {
-		hasBearer = false
+		return userNetworks, "", unauthorized_err
 	} else {
 		authToken = tokenSplit[1]
 	}
-	userNetworks := []string{}
 	//all endpoints here require master so not as complicated
-	isMasterAuthenticated := authenticateMaster(authToken)
-	username := ""
-	if !hasBearer || !isMasterAuthenticated {
-		userName, networks, isadmin, err := logic.VerifyUserToken(authToken)
-		username = userName
-		if err != nil {
-			return nil, username, errors.New("error verifying user token")
-		}
-		if !isadmin && reqAdmin {
-			return nil, username, errors.New("you are unauthorized to access this endpoint")
-		}
-		userNetworks = networks
-		if isadmin {
-			userNetworks = []string{ALL_NETWORK_ACCESS}
-		} else {
-			networkexists, err := functions.NetworkExists(netname)
-			if err != nil && !database.IsEmptyRecord(err) {
-				return nil, "", err
-			}
-			if netname != "" && !networkexists {
-				return nil, "", errors.New("this network does not exist")
-			}
-		}
-	} else if isMasterAuthenticated {
-		userNetworks = []string{ALL_NETWORK_ACCESS}
+	if authenticateMaster(authToken) {
+		return []string{ALL_NETWORK_ACCESS}, master_uname, nil
 	}
-	if len(userNetworks) == 0 {
-		userNetworks = append(userNetworks, NO_NETWORKS_PRESENT)
+	username, networks, isadmin, err := logic.VerifyUserToken(authToken)
+	if err != nil {
+		return nil, username, unauthorized_err
+	}
+	if !isadmin && reqAdmin {
+		return nil, username, unauthorized_err
+	}
+	userNetworks = networks
+	if isadmin {
+		return []string{ALL_NETWORK_ACCESS}, username, nil
+	}
+	// check network admin access
+	if len(netname) > 0 && (!authenticateNetworkUser(netname, userNetworks) || len(userNetworks) == 0) {
+		return nil, username, unauthorized_err
 	}
 	return userNetworks, username, nil
 }
@@ -101,6 +94,14 @@ func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, strin
 // Consider a more secure way of setting master key
 func authenticateMaster(tokenString string) bool {
 	return tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != ""
+}
+
+func authenticateNetworkUser(network string, userNetworks []string) bool {
+	networkexists, err := functions.NetworkExists(network)
+	if (err != nil && !database.IsEmptyRecord(err)) || !networkexists {
+		return false
+	}
+	return logic.StringSliceContains(userNetworks, network)
 }
 
 //Consider a more secure way of setting master key
@@ -115,7 +116,7 @@ func authenticateDNSToken(tokenString string) bool {
 func continueIfUserMatch(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "W1R3: This doesn't look like you.",
+			Code: http.StatusUnauthorized, Message: unauthorized_msg,
 		}
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]

@@ -70,8 +70,8 @@ type Node struct {
 	IsRelay                 string               `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
 	IsDocker                string               `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
 	IsK8S                   string               `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
-	IsEgressGateway         string               `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway"`
-	IsIngressGateway        string               `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway"`
+	IsEgressGateway         string               `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway" validate:"checkyesorno"`
+	IsIngressGateway        string               `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway" validate:"checkyesorno"`
 	EgressGatewayRanges     []string             `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	EgressGatewayNatEnabled string               `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
@@ -93,6 +93,7 @@ type Node struct {
 	TrafficKeys     TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
 	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
+	Connected       string      `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
 }
 
 // NodesArray - used for node sorting
@@ -119,6 +120,16 @@ func (node *Node) PrimaryAddress() string {
 		return node.Address
 	}
 	return node.Address6
+}
+
+// Node.SetDefaultConnected
+func (node *Node) SetDefaultConnected() {
+	if node.Connected == "" {
+		node.Connected = "yes"
+	}
+	if node.IsServer == "yes" {
+		node.Connected = "yes"
+	}
 }
 
 // Node.SetDefaultMTU - sets default MTU of a node
@@ -382,6 +393,7 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	}
 	if newNode.IsServer == "yes" {
 		newNode.IsStatic = "yes"
+		newNode.Connected = "yes"
 	}
 	if newNode.MTU == 0 {
 		newNode.MTU = currentNode.MTU
@@ -412,6 +424,9 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	}
 	if newNode.Server == "" {
 		newNode.Server = currentNode.Server
+	}
+	if newNode.Connected == "" {
+		newNode.Connected = currentNode.Connected
 	}
 	newNode.TrafficKeys = currentNode.TrafficKeys
 }

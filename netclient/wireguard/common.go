@@ -123,7 +123,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 }
 
 // Initializes a WireGuard interface
-func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig, syncconf bool) error {
+func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig) error {
 
 	key, err := wgtypes.ParseKey(privkey)
 	if err != nil {
@@ -191,10 +191,7 @@ func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig
 		}
 	}
 	logger.Log(1, "interface ready - netclient.. ENGAGE")
-	if syncconf { // should never be called really.
-		fmt.Println("why here")
-		err = SyncWGQuickConf(ifacename, confPath)
-	}
+
 	if !ncutils.HasWgQuick() && ncutils.IsLinux() {
 		err = SetPeers(ifacename, node, peers)
 		if err != nil {
@@ -248,12 +245,9 @@ func SetWGConfig(network string, peerupdate bool, peers []wgtypes.PeerConfig) er
 			}
 		}
 		err = SetPeers(iface, &cfg.Node, peers)
-	} else if peerupdate {
-		err = InitWireguard(&cfg.Node, privkey, peers, true)
 	} else {
-		err = InitWireguard(&cfg.Node, privkey, peers, false)
+		err = InitWireguard(&cfg.Node, privkey, peers)
 	}
-
 	return err
 }
 
@@ -284,16 +278,17 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	if ncutils.IsLinux() && !ncutils.HasWgQuick() {
 		os = "nowgquick"
 	}
+	var isConnected = node.Connected != "no"
 	var err error
 	switch os {
 	case "windows":
-		ApplyWindowsConf(confPath)
+		ApplyWindowsConf(confPath, isConnected)
 	case "darwin":
-		ApplyMacOSConf(node, ifacename, confPath)
+		ApplyMacOSConf(node, ifacename, confPath, isConnected)
 	case "nowgquick":
-		ApplyWithoutWGQuick(node, ifacename, confPath)
+		ApplyWithoutWGQuick(node, ifacename, confPath, isConnected)
 	default:
-		ApplyWGQuickConf(confPath, ifacename)
+		ApplyWGQuickConf(confPath, ifacename, isConnected)
 	}
 
 	var nodeCfg config.ClientConfig
@@ -448,6 +443,7 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	if node.UDPHolePunch == "yes" {
 		node.ListenPort = 0
 	}
+	wireguard.DeleteSection(section_interface)
 	wireguard.Section(section_interface).Key("PrivateKey").SetValue(privateKey)
 	wireguard.Section(section_interface).Key("ListenPort").SetValue(strconv.Itoa(int(node.ListenPort)))
 	addrString := node.Address

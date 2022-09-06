@@ -189,7 +189,7 @@ func nodeauth(next http.Handler) http.HandlerFunc {
 func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+			Code: http.StatusUnauthorized, Message: unauthorized_msg,
 		}
 
 		var params = mux.Vars(r)
@@ -198,9 +198,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 		//check that the request is for a valid network
 		//if (networkCheck && !networkexists) || err != nil {
 		if networkCheck && !networkexists {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusNotFound, Message: "W1R3: This network does not exist. ",
-			}
 			returnErrorResponse(w, r, errorResponse)
 			return
 		} else {
@@ -218,9 +215,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 			if len(tokenSplit) > 1 {
 				authToken = tokenSplit[1]
 			} else {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
-				}
 				returnErrorResponse(w, r, errorResponse)
 				return
 			}
@@ -237,9 +231,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 			var nodeID = ""
 			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
 			if errN != nil {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: Unauthorized, Invalid Token Processed.",
-				}
 				returnErrorResponse(w, r, errorResponse)
 				return
 			}
@@ -272,9 +263,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 					} else {
 						node, err := logic.GetNodeByID(nodeID)
 						if err != nil {
-							errorResponse = models.ErrorResponse{
-								Code: http.StatusUnauthorized, Message: "W1R3: Missing Auth Token.",
-							}
 							returnErrorResponse(w, r, errorResponse)
 							return
 						}
@@ -293,9 +281,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 				}
 			}
 			if !isAuthorized {
-				errorResponse = models.ErrorResponse{
-					Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-				}
 				returnErrorResponse(w, r, errorResponse)
 				return
 			} else {
@@ -332,6 +317,12 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("error fetching nodes on network %s: %v", networkName, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+
+	for _, node := range nodes {
+		if len(node.NetworkSettings.AccessKeys) > 0 {
+			node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent back to client; client already knows how to join the network
+		}
 	}
 
 	//Returns all the nodes in JSON format
@@ -422,6 +413,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+
+	if len(node.NetworkSettings.AccessKeys) > 0 {
+		node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent back to client; client already knows how to join the network
 	}
 
 	response := models.NodeGet{
