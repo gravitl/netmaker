@@ -77,6 +77,7 @@ type Node struct {
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
+	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
 	// IsStatic - refers to if the Endpoint is set manually or dynamically
 	IsStatic        string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch    string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
@@ -369,6 +370,9 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	}
 	if newNode.IngressGatewayRange == "" {
 		newNode.IngressGatewayRange = currentNode.IngressGatewayRange
+	}
+	if newNode.IngressGatewayRange6 == "" {
+		newNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	}
 	if newNode.IsStatic == "" {
 		newNode.IsStatic = currentNode.IsStatic

@@ -169,3 +169,20 @@ func ShouldPublishPeerPorts(serverNode *models.Node) bool {
 	}
 	return false
 }
+
+func getNetworkProtocols(cidrs []string) (bool, bool) {
+	ipv4 := false
+	ipv6 := false
+	for _, cidr := range cidrs {
+		ip, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		if ip.To4() == nil {
+			ipv6 = true
+		} else {
+			ipv4 = true
+		}
+	}
+	return ipv4, ipv6
+}
