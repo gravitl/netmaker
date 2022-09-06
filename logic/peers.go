@@ -505,7 +505,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 func getEgressIPs(node, peer *models.Node) []net.IPNet {
 	//check for internet gateway
 	internetGateway := false
-	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::0") {
+	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::/0") {
 		internetGateway = true
 	}
 	allowedips := []net.IPNet{}
