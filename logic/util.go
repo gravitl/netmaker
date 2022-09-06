@@ -182,7 +182,7 @@ func NormalizeCIDR(address string) (string, error) {
 		IPNet.IP = net6.FirstAddress()
 	} else {
 		net4 := iplib.Net4FromStr(IPNet.String())
-		IPNet.IP = net4.FirstAddress()
+		IPNet.IP = net4.NetworkAddress()
 	}
 	return IPNet.String(), nil
 }
