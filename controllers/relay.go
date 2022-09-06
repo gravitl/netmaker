@@ -12,6 +12,14 @@ import (
 	"github.com/gravitl/netmaker/mq"
 )
 
+// swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
+//
+// Create a relay.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func createRelay(w http.ResponseWriter, r *http.Request) {
 	var relay models.RelayRequest
 	var params = mux.Vars(r)
@@ -43,6 +51,14 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	runUpdates(&node, true)
 }
 
+// swagger:route DELETE /api/nodes/{network}/{nodeid}/deleterelay nodes deleteRelay
+//
+// Remove a relay.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
