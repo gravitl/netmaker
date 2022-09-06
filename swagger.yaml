@@ -1,6 +1,7 @@
 basePath: /
 consumes:
     - application/json
+host: netmaker.io
 info:
     description: |-
         API Usage
