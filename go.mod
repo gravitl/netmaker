@@ -15,8 +15,8 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.0
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.11.2
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
+	github.com/urfave/cli/v2 v2.14.1
+	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 	golang.zx2c4.com/wireguard v0.0.0-20220318042302-193cf8d6a5d6 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
@@ -36,7 +36,7 @@ require (
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.2.0
+	github.com/coreos/go-oidc/v3 v3.3.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 )
 
@@ -92,8 +92,8 @@ require (
 	golang.org/x/image v0.0.0-20220601225756-64ec528b34cd // indirect
 	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
