@@ -44,7 +44,7 @@ func UpdateLocalListenPort(nodeCfg *config.ClientConfig) error {
 			return err
 		}
 		if err := PublishNodeUpdate(nodeCfg); err != nil {
-			logger.Log(0, "could not publish local port change")
+			logger.Log(0, "could not publish local port change", err.Error())
 		}
 	}
 	return err

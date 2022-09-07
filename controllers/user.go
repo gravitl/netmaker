@@ -30,7 +30,15 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
 }
 
+// swagger:route POST /api/users/adm/authenticate nodes authenticateUser
+//
 // Node authenticates using its password and retrieves a JWT for authorization.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
@@ -87,6 +95,14 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
+// swagger:route GET /api/users/adm/hasadmin nodes hasAdmin
+//
+// Checks whether the server has an admin.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -116,7 +132,14 @@ func GetUserInternal(username string) (models.User, error) {
 	return user, err
 }
 
-// Get an individual user. Nothin fancy here folks.
+// swagger:route GET /api/users/{username} nodes getUser
+//
+// Get an individual user.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -134,7 +157,14 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// Get all users. Nothin fancy here folks.
+// swagger:route GET /api/users nodes getUsers
+//
+// Get all users
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -151,6 +181,14 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
+// swagger:route POST /api/users/adm/createadmin nodes createAdmin
+//
+// Make a user an admin.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -176,6 +214,14 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(admin)
 }
 
+// swagger:route POST /api/users/{username} nodes createUser
+//
+// Create a user.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -198,6 +244,14 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// swagger:route PUT /api/users/networks/{username} nodes updateUserNetworks
+//
+// Updates the networks of the given user
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -231,6 +285,14 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// swagger:route PUT /api/users/{username} nodes updateUser
+//
+// Update a user.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -271,6 +333,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// swagger:route PUT /api/users/{username}/adm nodes updateUserAdm
+//
+// Updates the given admin user's info (as long as the user is an admin)
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -312,6 +382,14 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// swagger:route DELETE /api/users/{username} nodes deleteUser
+//
+// Delete a user.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

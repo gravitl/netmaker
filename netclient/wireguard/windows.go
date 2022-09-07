@@ -8,7 +8,10 @@ import (
 )
 
 // ApplyWindowsConf - applies the WireGuard configuration file on Windows
-func ApplyWindowsConf(confPath string) error {
+func ApplyWindowsConf(confPath string, isConnected bool) error {
+	if !isConnected {
+		return nil
+	}
 	var commandLine = fmt.Sprintf(`wireguard.exe /installtunnelservice "%s"`, confPath)
 	if _, err := ncutils.RunCmdFormatted(commandLine, false); err != nil {
 		return err

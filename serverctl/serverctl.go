@@ -81,14 +81,24 @@ func SyncServerNetwork(network string) error {
 	return nil
 }
 
-// SetDefaultACLS - runs through each network to see if ACL's are set. If not, goes through each node in network and adds the default ACL
-func SetDefaultACLS() error {
+func SetDefaults() error {
+	if err := setNodeDefaults(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setNodeDefaults - runs through each node and set defaults
+func setNodeDefaults() error {
 	// upgraded systems will not have ACL's set, which is why we need this function
 	nodes, err := logic.GetAllNodes()
 	if err != nil {
 		return err
 	}
 	for i := range nodes {
+		logic.SetNodeDefaults(&nodes[i])
+		logic.UpdateNode(&nodes[i], &nodes[i])
 		currentNodeACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID))
 		if (err != nil && (database.IsEmptyRecord(err) || strings.Contains(err.Error(), "no node ACL present"))) || currentNodeACL == nil {
 			if _, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID), acls.Allowed); err != nil {
