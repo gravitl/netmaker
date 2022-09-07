@@ -288,8 +288,18 @@ func ReadConfig(network string) (*ClientConfig, error) {
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(&cfg)
 	if err != nil {
-		logger.Log(2, "trouble decoding file", err.Error())
-		return nil, err
+		if err = ReplaceWithBackup(network); err != nil {
+			return nil, err
+		}
+		f.Close()
+		f, err = os.Open(file)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	return &cfg, err
