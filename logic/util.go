@@ -171,7 +171,6 @@ func ShouldPublishPeerPorts(serverNode *models.Node) bool {
 	return false
 }
 
-
 // NormalCidr - returns the first address of CIDR
 func NormalizeCIDR(address string) (string, error) {
 	ip, IPNet, err := net.ParseCIDR(address)
@@ -186,6 +185,7 @@ func NormalizeCIDR(address string) (string, error) {
 		IPNet.IP = net4.NetworkAddress()
 	}
 	return IPNet.String(), nil
+}
 
 func getNetworkProtocols(cidrs []string) (bool, bool) {
 	ipv4 := false
