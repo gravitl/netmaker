@@ -78,21 +78,22 @@ type Node struct {
 	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	// IsStatic - refers to if the Endpoint is set manually or dynamically
-	IsStatic        string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
-	UDPHolePunch    string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
-	DNSOn           string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
-	IsServer        string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Action          string      `json:"action" bson:"action" yaml:"action"`
-	IsLocal         string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange      string      `json:"localrange" bson:"localrange" yaml:"localrange"`
-	IPForwarding    string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
-	OS              string      `json:"os" bson:"os" yaml:"os"`
-	MTU             int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
-	Version         string      `json:"version" bson:"version" yaml:"version"`
-	Server          string      `json:"server" bson:"server" yaml:"server"`
-	TrafficKeys     TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
-	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
-	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
+	IsStatic         string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
+	UDPHolePunch     string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
+	DNSOn            string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	IsServer         string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Action           string      `json:"action" bson:"action" yaml:"action"`
+	IsLocal          string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
+	LocalRange       string      `json:"localrange" bson:"localrange" yaml:"localrange"`
+	IPForwarding     string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	OS               string      `json:"os" bson:"os" yaml:"os"`
+	MTU              int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
+	Version          string      `json:"version" bson:"version" yaml:"version"`
+	Server           string      `json:"server" bson:"server" yaml:"server"`
+	TrafficKeys      TrafficKeys `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
+	FirewallInUse    string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
+	InternetGateway  string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
+	PrivateNetworkID string      `json:"privatenetworkid" bson:"privatenetworkid" yaml:"privatenetworkid"`
 }
 
 // NodesArray - used for node sorting
