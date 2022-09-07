@@ -104,6 +104,32 @@ func GetCommands(cliFlags []cli.Flag) []*cli.Command {
 				return command.Install()
 			},
 		},
+		{
+			Name:  "connect",
+			Usage: "connect netclient to a given network if disconnected",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				parseVerbosity(c)
+				cfg, _, err := config.GetCLIConfig(c)
+				if err != nil {
+					return err
+				}
+				return command.Connect(cfg)
+			},
+		},
+		{
+			Name:  "disconnect",
+			Usage: "disconnect netclient from a given network if connected",
+			Flags: cliFlags,
+			Action: func(c *cli.Context) error {
+				parseVerbosity(c)
+				cfg, _, err := config.GetCLIConfig(c)
+				if err != nil {
+					return err
+				}
+				return command.Disconnect(cfg)
+			},
+		},
 	}
 }
 

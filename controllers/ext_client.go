@@ -36,7 +36,15 @@ func checkIngressExists(nodeID string) bool {
 	return node.IsIngressGateway == "yes"
 }
 
-//Gets all extclients associated with network, including pending extclients
+// swagger:route GET /api/extclients/{network} ext_client getNetworkExtClients
+//
+// Get all extclients associated with network
+// Gets all extclients associated with network, including pending extclients
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -57,8 +65,18 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclients)
 }
 
-//A separate function to get all extclients, not just extclients for a particular network.
-//Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
+// swagger:route GET /api/extclients ext_client getAllExtClients
+//
+// A separate function to get all extclients, not just extclients for a particular network.
+//
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
+// Not quite sure if this is necessary. Probably necessary based on front end but may
+// want to review after iteration 1 if it's being used or not
 func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -95,7 +113,15 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(clients)
 }
 
-//Get an individual extclient. Nothin fancy here folks.
+// swagger:route GET /api/extclients ext_client getExtClient
+//
+// Get an individual extclient.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 func getExtClient(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -116,7 +142,15 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(client)
 }
 
-//Get an individual extclient. Nothin fancy here folks.
+// swagger:route GET /api/extclients/{network}/{clientid}/{type} ext_client getExtClientConf
+//
+// Get an individual extclient.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -240,17 +274,22 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
-/**
- * To create a extclient
- * Must have valid key and be unique
- */
+// swagger:route POST /api/extclients/{network}/{nodeid} ext_client createExtClient
+//
+// Create an individual extclient.  Must have valid key and be unique.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-
 	networkName := params["network"]
 	nodeid := params["nodeid"]
+	
 	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
 		err := errors.New("ingress does not exist")
@@ -261,6 +300,12 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var extclient models.ExtClient
+	var CustomExtClient models.CustomExtClient
+	
+	err := json.NewDecoder(r.Body).Decode(&CustomExtClient);
+	
+	if err == nil { extclient.ClientID = CustomExtClient.ClientID }
+	
 	extclient.Network = networkName
 	extclient.IngressGatewayID = nodeid
 	node, err := logic.GetNodeByID(nodeid)
@@ -292,6 +337,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// swagger:route PUT /api/extclients/{network}/{clientid} ext_client updateExtClient
+//
+// Update an individual extclient.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -351,8 +405,15 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newclient)
 }
 
-//Delete a extclient
-//Pretty straightforward
+// swagger:route DELETE /api/extclients/{network}/{clientid} ext_client deleteExtClient
+//
+// Delete an individual extclient.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

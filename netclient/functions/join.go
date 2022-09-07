@@ -104,7 +104,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	// Find and set node MacAddress
 	if cfg.Node.MacAddress == "" {
 		macs, err := ncutils.GetMacAddr()
-		if err != nil {
+		if err != nil || len(macs) == 0 {
 			//if macaddress can't be found set to random string
 			cfg.Node.MacAddress = ncutils.MakeRandomString(18)
 		} else {
@@ -211,18 +211,13 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	logger.Log(0, "starting wireguard")
-	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:], false)
+	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:])
 	if err != nil {
 		return err
 	}
 	if cfg.Server.Server == "" {
 		return errors.New("did not receive broker address from registration")
 	}
-	// update server with latest data
-	if err := PublishNodeUpdate(cfg); err != nil {
-		logger.Log(0, "network:", cfg.Network, "failed to publish update for join", err.Error())
-	}
-
 	if cfg.Daemon == "install" || ncutils.IsFreeBSD() {
 		err = daemon.InstallDaemon()
 		if err != nil {
@@ -231,7 +226,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	if err := daemon.Restart(); err != nil {
-		log.Println("daemon restart failed ", err)
+		logger.Log(3, "daemon restart failed:", err.Error())
 		if err := daemon.Start(); err != nil {
 			return err
 		}

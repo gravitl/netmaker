@@ -1,0 +1,470 @@
+basePath: /
+consumes:
+    - application/json
+host: netmaker.io
+info:
+    description: |-
+        API Usage
+
+        Most actions that can be performed via API can be performed via UI. We recommend managing your networks using the official netmaker-ui project. However, Netmaker can also be run without the UI, and all functions can be achieved via API calls. If your use case requires using Netmaker without the UI or you need to do some troubleshooting/advanced configuration, using the API directly may help.
+
+
+        Authentication
+
+        API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
+    title: Netmaker
+    version: 0.15.1
+paths:
+    /api/dns:
+        get:
+            description: Gets all DNS entries
+            operationId: getAllDNS
+            schemes:
+                - https
+            tags:
+                - dns
+    /api/dns/{network}:
+        post:
+            description: Create a DNS entry
+            operationId: createDNS
+            schemes:
+                - https
+            tags:
+                - dns
+    /api/dns/{network}/{domain}:
+        delete:
+            description: Delete a DNS entry
+            operationId: deleteDNS
+            schemes:
+                - https
+            tags:
+                - dns
+    /api/dns/adm/{network}:
+        get:
+            description: Gets all DNS entries associated with the network
+            operationId: getDNS
+            schemes:
+                - https
+            tags:
+                - dns
+    /api/dns/adm/{network}/custom:
+        get:
+            description: Gets custom DNS entries associated with a network
+            operationId: getCustomDNS
+            schemes:
+                - https
+            tags:
+                - dns
+    /api/dns/adm/{network}/nodes:
+        get:
+            description: Gets node DNS entries associated with a network
+            operationId: getNodeDNS
+            schemes:
+                - https
+            tags:
+                - dns
+    /api/dns/adm/pushdns:
+        post:
+            description: Push DNS entries to nameserver
+            operationId: pushDNS
+            schemes:
+                - https
+            tags:
+                - dns
+    /api/extclients:
+        get:
+            operationId: getExtClient
+            schemes:
+                - https
+            summary: Get an individual extclient.
+            tags:
+                - ext_client
+    /api/extclients/{network}:
+        get:
+            description: |-
+                Get all extclients associated with network
+                Gets all extclients associated with network, including pending extclients
+            operationId: getNetworkExtClients
+            schemes:
+                - https
+            tags:
+                - ext_client
+    /api/extclients/{network}/{clientid}:
+        delete:
+            operationId: deleteExtClient
+            schemes:
+                - https
+            summary: Delete an individual extclient.
+            tags:
+                - ext_client
+        put:
+            operationId: updateExtClient
+            schemes:
+                - https
+            summary: Update an individual extclient.
+            tags:
+                - ext_client
+    /api/extclients/{network}/{clientid}/{type}:
+        get:
+            operationId: getExtClientConf
+            schemes:
+                - https
+            summary: Get an individual extclient.
+            tags:
+                - ext_client
+    /api/extclients/{network}/{nodeid}:
+        post:
+            operationId: createExtClient
+            schemes:
+                - https
+            summary: Create an individual extclient.  Must have valid key and be unique.
+            tags:
+                - ext_client
+    /api/getip:
+        get:
+            description: Get the current public IP address
+            operationId: getPublicIP
+            schemes:
+                - https
+            tags:
+                - ipservice
+    /api/networks:
+        get:
+            description: Get a network
+            operationId: getNetwork
+            schemes:
+                - https
+            tags:
+                - networks
+        post:
+            description: Create a network
+            operationId: createNetwork
+            schemes:
+                - https
+            tags:
+                - networks
+    /api/networks/{networkname}:
+        delete:
+            operationId: deleteNetwork
+            schemes:
+                - https
+            summary: Delete a network.  Will not delete if there are any nodes that belong to the network.
+            tags:
+                - networks
+        put:
+            description: Update a network
+            operationId: updateNetwork
+            schemes:
+                - https
+            tags:
+                - networks
+    /api/networks/{networkname}/acls:
+        get:
+            operationId: getNetworkACL
+            schemes:
+                - https
+            summary: Get a network ACL (Access Control List).
+            tags:
+                - networks
+        put:
+            operationId: updateNetworkACL
+            schemes:
+                - https
+            summary: Update a network ACL (Access Control List).
+            tags:
+                - networks
+    /api/networks/{networkname}/keys:
+        get:
+            operationId: getAccessKeys
+            schemes:
+                - https
+            summary: Get network access keys for a network.
+            tags:
+                - networks
+        post:
+            operationId: createAccessKey
+            schemes:
+                - https
+            summary: Create a network access key.
+            tags:
+                - networks
+    /api/networks/{networkname}/keys/{name}:
+        get:
+            operationId: deleteAccessKey
+            schemes:
+                - https
+            summary: Delete a network access key.
+            tags:
+                - networks
+    /api/networks/{networkname}/keyupdate:
+        post:
+            operationId: keyUpdate
+            schemes:
+                - https
+            summary: Update keys for a network.
+            tags:
+                - networks
+    /api/networks/{networkname}/nodelimit:
+        put:
+            description: Update a network's node limit
+            operationId: updateNetworkNodeLimit
+            schemes:
+                - https
+            tags:
+                - networks
+    /api/nodes:
+        get:
+            operationId: getAllNodes
+            schemes:
+                - https
+            summary: Get all nodes across all networks.
+            tags:
+                - nodes
+    /api/nodes/{network}:
+        get:
+            description: Gets all nodes associated with network including pending nodes
+            operationId: getNetworkNodes
+            schemes:
+                - https
+            tags:
+                - nodes
+        post:
+            operationId: createNode
+            schemes:
+                - https
+            summary: Create a node on a network.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}:
+        delete:
+            operationId: deleteNode
+            schemes:
+                - https
+            summary: Delete an individual node.
+            tags:
+                - nodes
+        get:
+            operationId: getNode
+            schemes:
+                - https
+            summary: Get an individual node.
+            tags:
+                - nodes
+        put:
+            operationId: updateNode
+            schemes:
+                - https
+            summary: Update an individual node.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/approve:
+        post:
+            operationId: uncordonNode
+            schemes:
+                - https
+            security:
+                - TODO:
+                    - May
+            summary: Takes a node out of pending state.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/creategateway:
+        post:
+            operationId: createEgressGateway
+            schemes:
+                - https
+            summary: Create an egress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/createingress:
+        post:
+            operationId: createIngressGateway
+            schemes:
+                - https
+            summary: Create an ingress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/createrelay:
+        post:
+            operationId: createRelay
+            schemes:
+                - https
+            summary: Create a relay.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/deletegateway:
+        delete:
+            operationId: deleteEgressGateway
+            schemes:
+                - https
+            summary: Delete an egress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/deleteingress:
+        delete:
+            operationId: deleteIngressGateway
+            schemes:
+                - https
+            summary: Delete an ingress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/deleterelay:
+        delete:
+            operationId: deleteRelay
+            schemes:
+                - https
+            summary: Remove a relay.
+            tags:
+                - nodes
+    /api/nodes/adm/{network}/authenticate:
+        post:
+            operationId: authenticate
+            schemes:
+                - https
+            summary: Authenticate to make further API calls related to a network.
+            tags:
+                - nodes
+    /api/nodes/adm/{network}/lastmodified:
+        get:
+            operationId: getLastModified
+            schemes:
+                - https
+            security:
+                - TODO:
+                    - This
+                - Potential way to do this:
+                    - "On"
+                    - set
+            summary: Get the time that a network of nodes was last modified.
+            tags:
+                - nodes
+    /api/oauth/login:
+        get:
+            description: Handles OAuth login
+            operationId: HandleAuthLogin
+            schemes:
+                - https
+            tags:
+                - nodes
+    /api/server/getconfig:
+        get:
+            operationId: getConfig
+            schemes:
+                - https
+            summary: Get the server configuration.
+            tags:
+                - nodes
+    /api/server/getserverinfo:
+        get:
+            operationId: getServerInfo
+            schemes:
+                - https
+            summary: Get the server configuration.
+            tags:
+                - nodes
+    /api/server/register:
+        post:
+            description: Registers a client with the server and return the Certificate Authority and certificate
+            operationId: register
+            schemes:
+                - https
+            tags:
+                - nodes
+    /api/server/removenetwork/{network}:
+        delete:
+            operationId: removeNetwork
+            schemes:
+                - https
+            summary: Remove a network from the server.
+            tags:
+                - nodes
+    /api/users:
+        get:
+            description: Get all users
+            operationId: getUsers
+            schemes:
+                - https
+            tags:
+                - nodes
+    /api/users/{username}:
+        delete:
+            operationId: deleteUser
+            schemes:
+                - https
+            summary: Delete a user.
+            tags:
+                - nodes
+        get:
+            operationId: getUser
+            schemes:
+                - https
+            summary: Get an individual user.
+            tags:
+                - nodes
+        post:
+            operationId: createUser
+            schemes:
+                - https
+            summary: Create a user.
+            tags:
+                - nodes
+        put:
+            operationId: updateUser
+            schemes:
+                - https
+            summary: Update a user.
+            tags:
+                - nodes
+    /api/users/{username}/adm:
+        put:
+            description: Updates the given admin user's info (as long as the user is an admin)
+            operationId: updateUserAdm
+            schemes:
+                - https
+            tags:
+                - nodes
+    /api/users/adm/authenticate:
+        post:
+            operationId: authenticateUser
+            schemes:
+                - https
+            summary: Node authenticates using its password and retrieves a JWT for authorization.
+            tags:
+                - nodes
+    /api/users/adm/createadmin:
+        post:
+            operationId: createAdmin
+            schemes:
+                - https
+            summary: Make a user an admin.
+            tags:
+                - nodes
+    /api/users/adm/hasadmin:
+        get:
+            operationId: hasAdmin
+            schemes:
+                - https
+            summary: Checks whether the server has an admin.
+            tags:
+                - nodes
+    /api/users/networks/{username}:
+        put:
+            description: Updates the networks of the given user
+            operationId: updateUserNetworks
+            schemes:
+                - https
+            tags:
+                - nodes
+    /meshclient/files/{filename}:
+        get:
+            description: Retrieve a file from the file server
+            operationId: fileServer
+            schemes:
+                - https
+            tags:
+                - meshclient
+produces:
+    - application/json
+schemes:
+    - https
+swagger: "2.0"

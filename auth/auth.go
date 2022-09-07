@@ -82,6 +82,7 @@ func InitializeAuthProvider() string {
 	return authInfo[0]
 }
 
+// Not included in API reference as part of the OAuth process itself.
 // HandleAuthCallback - handles oauth callback
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
@@ -96,7 +97,14 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	functions[handle_callback].(func(http.ResponseWriter, *http.Request))(w, r)
 }
 
-// HandleAuthLogin - handles oauth login
+// swagger:route GET /api/oauth/login nodes HandleAuthLogin
+//
+// Handles OAuth login
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
 		var referer = r.Header.Get("referer")

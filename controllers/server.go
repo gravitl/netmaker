@@ -67,6 +67,14 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
+// swagger:route DELETE /api/server/removenetwork/{network} nodes removeNetwork
+//
+// Remove a network from the server.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func removeNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -86,6 +94,14 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(fmt.Sprintf("network %s removed from server", network))
 }
 
+// swagger:route GET /api/server/getserverinfo nodes getServerInfo
+//
+// Get the server configuration.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -96,6 +112,14 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	//w.WriteHeader(http.StatusOK)
 }
 
+// swagger:route GET /api/server/getconfig nodes getConfig
+//
+// Get the server configuration.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getConfig(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -107,7 +131,14 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	//w.WriteHeader(http.StatusOK)
 }
 
-// register - registers a client with the server and return the CA and cert
+// swagger:route POST /api/server/register nodes register
+//
+// Registers a client with the server and return the Certificate Authority and certificate
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func register(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, "processing registration request")
 	w.Header().Set("Content-Type", "application/json")

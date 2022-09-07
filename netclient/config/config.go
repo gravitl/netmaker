@@ -95,28 +95,42 @@ func (config *ClientConfig) ConfigFileExists() bool {
 // ClientConfig.ReadConfig - used to read config from client disk into memory
 func (config *ClientConfig) ReadConfig() {
 
-	nofile := false
+	network := config.Network
+	if network == "" {
+		return
+	}
+
 	//home, err := homedir.Dir()
 	home := ncutils.GetNetclientPathSpecific()
 
-	file := fmt.Sprintf(home + "netconfig-" + config.Network)
+	file := fmt.Sprintf(home + "netconfig-" + network)
 	//f, err := os.Open(file)
 	f, err := os.OpenFile(file, os.O_RDONLY, 0600)
 	if err != nil {
 		logger.Log(1, "trouble opening file: ", err.Error())
-		nofile = true
-		//fmt.Println("Could not access " + home + "/.netconfig,  proceeding...")
+		if err = ReplaceWithBackup(network); err != nil {
+			log.Fatal(err)
+		}
+		f.Close()
+		f, err = os.Open(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 	}
 	defer f.Close()
-
-	//var cfg ClientConfig
-
-	if !nofile {
-		decoder := yaml.NewDecoder(f)
-		err = decoder.Decode(&config)
+	if err := yaml.NewDecoder(f).Decode(&config); err != nil {
+		logger.Log(0, "no config or invalid, replacing with backup")
+		if err = ReplaceWithBackup(network); err != nil {
+			log.Fatal(err)
+		}
+		f.Close()
+		f, err = os.Open(file)
 		if err != nil {
-			fmt.Println("no config or invalid")
-			fmt.Println(err)
+			log.Fatal(err)
+		}
+		defer f.Close()
+		if err := yaml.NewDecoder(f).Decode(&config); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -288,8 +302,18 @@ func ReadConfig(network string) (*ClientConfig, error) {
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(&cfg)
 	if err != nil {
-		logger.Log(2, "trouble decoding file", err.Error())
-		return nil, err
+		if err = ReplaceWithBackup(network); err != nil {
+			return nil, err
+		}
+		f.Close()
+		f, err = os.Open(file)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	return &cfg, err

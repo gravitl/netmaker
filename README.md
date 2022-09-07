@@ -1,7 +1,7 @@
 
 <p align="center">
   <a href="https://netmaker.io">
-  <img src="./img/netmaker-teal.png" width="50%"><break/>
+  <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png" width="50%"><break/>
   </a>
 </p>
 
@@ -10,7 +10,7 @@
     <img src="https://runacap.com/wp-content/uploads/2022/06/ROSS_badge_white_Q1_2022.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q1 2022 | Runa Capital"  width="15%"/>
 </a>  
 <a href="https://www.ycombinator.com/companies/netmaker/" target="_blank" rel="noopener">
-    <img src="./img/y-combinator.png" alt="Y-Combinator" width="16%" />
+    <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/y-combinator.png" alt="Y-Combinator" width="16%" />
 </a>  
 
 </p>
@@ -58,7 +58,7 @@
 3.a. (with custom domain + email): `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash -s -- -d mynetmaker.domain.com -e example@email.com`    
 
 <p float="left" align="middle">
-<img src="./img/readme.gif" />
+<img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
 </p>
 
 After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
