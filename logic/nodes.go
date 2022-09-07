@@ -377,6 +377,7 @@ func SetNodeDefaults(node *models.Node) {
 	//TODO: Maybe I should make Network a part of the node struct. Then we can just query the Network object for stuff.
 	parentNetwork, _ := GetNetworkByNode(node)
 	node.NetworkSettings = parentNetwork
+	node.NetworkSettings.AccessKeys = []models.AccessKey{}
 
 	node.ExpirationDateTime = time.Now().Unix() + models.TEN_YEARS_IN_SECONDS
 
