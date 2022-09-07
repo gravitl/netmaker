@@ -293,20 +293,21 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 
 	var nodeCfg config.ClientConfig
 	nodeCfg.Network = node.Network
-	nodeCfg.ReadConfig()
-	if nodeCfg.NetworkSettings.AddressRange != "" {
-		ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange)
-		if err == nil {
-			local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+	if !(node.IsServer == "yes") {
+		nodeCfg.ReadConfig()
+		if nodeCfg.NetworkSettings.AddressRange != "" {
+			ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange)
+			if err == nil {
+				local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+			}
+		}
+		if nodeCfg.NetworkSettings.AddressRange6 != "" {
+			ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange6)
+			if err == nil {
+				local.SetCIDRRoute(node.Interface, ip.String(), cidr)
+			}
 		}
 	}
-	if nodeCfg.NetworkSettings.AddressRange6 != "" {
-		ip, cidr, err := net.ParseCIDR(nodeCfg.NetworkSettings.AddressRange6)
-		if err == nil {
-			local.SetCIDRRoute(node.Interface, ip.String(), cidr)
-		}
-	}
-
 	return err
 }
 
