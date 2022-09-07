@@ -151,14 +151,13 @@ type ExtPeersResponse struct {
 
 // EgressGatewayRequest - egress gateway request
 type EgressGatewayRequest struct {
-	NodeID      string   `json:"nodeid" bson:"nodeid"`
-	NetID       string   `json:"netid" bson:"netid"`
-	RangeString string   `json:"rangestring" bson:"rangestring"`
-	NatEnabled  string   `json:"natenabled" bson:"natenabled"`
-	Ranges      []string `json:"ranges" bson:"ranges"`
-	Interface   string   `json:"interface" bson:"interface"`
-	PostUp      string   `json:"postup" bson:"postup"`
-	PostDown    string   `json:"postdown" bson:"postdown"`
+	NodeID     string   `json:"nodeid" bson:"nodeid"`
+	NetID      string   `json:"netid" bson:"netid"`
+	NatEnabled string   `json:"natenabled" bson:"natenabled"`
+	Ranges     []string `json:"ranges" bson:"ranges"`
+	Interface  string   `json:"interface" bson:"interface"`
+	PostUp     string   `json:"postup" bson:"postup"`
+	PostDown   string   `json:"postdown" bson:"postdown"`
 }
 
 // RelayRequest - relay request struct

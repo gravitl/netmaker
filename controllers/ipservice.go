@@ -14,6 +14,15 @@ func ipHandlers(r *mux.Router) {
 	r.HandleFunc("/api/getip", http.HandlerFunc(getPublicIP)).Methods("GET")
 }
 
+// swagger:route GET /api/getip ipservice getPublicIP
+//
+// Get the current public IP address
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 func getPublicIP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Set("Connection", "close")
 	ip, err := parseIP(r)

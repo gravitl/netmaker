@@ -36,6 +36,14 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 }
 
+// swagger:route POST /api/nodes/adm/{network}/authenticate nodes authenticate
+//
+// Authenticate to make further API calls related to a network.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
@@ -287,7 +295,14 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 	}
 }
 
-// Gets all nodes associated with network, including pending nodes
+// swagger:route GET /api/nodes/{network} nodes getNetworkNodes
+//
+// Gets all nodes associated with network including pending nodes
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -316,7 +331,14 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(nodes)
 }
 
-// A separate function to get all nodes, not just nodes for a particular network.
+// swagger:route GET /api/nodes nodes getAllNodes
+//
+// Get all nodes across all networks.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -363,7 +385,14 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 	return nodes, err
 }
 
-// Get an individual node. Nothin fancy here folks.
+// swagger:route GET /api/nodes/{network}/{nodeid} nodes getNode
+//
+// Get an individual node.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -401,7 +430,14 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// swagger:route GET /api/nodes/adm/{network}/lastmodified nodes getLastModified
+//
 // Get the time that a network of nodes was last modified.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 // TODO: This needs to be refactored
 // Potential way to do this: On UpdateNode, set a new field for "LastModified"
 // If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
@@ -423,6 +459,14 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network.NodesLastModified)
 }
 
+// swagger:route POST /api/nodes/{network} nodes createNode
+//
+// Create a node on a network.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func createNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -542,6 +586,14 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	runForceServerUpdate(&node, true)
 }
 
+// swagger:route POST /api/nodes/{network}/{nodeid}/approve nodes uncordonNode
+//
+// Takes a node out of pending state.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 // Takes node out of pending state
 // TODO: May want to use cordon/uncordon terminology instead of "ispending".
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
@@ -564,6 +616,14 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 
 // == EGRESS ==
 
+// swagger:route POST /api/nodes/{network}/{nodeid}/creategateway nodes createEgressGateway
+//
+// Create an egress gateway.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	var params = mux.Vars(r)
@@ -592,6 +652,14 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	runUpdates(&node, true)
 }
 
+// swagger:route DELETE /api/nodes/{network}/{nodeid}/deletegateway nodes deleteEgressGateway
+//
+// Delete an egress gateway.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -615,6 +683,14 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 
 // == INGRESS ==
 
+// swagger:route POST /api/nodes/{network}/{nodeid}/createingress nodes createIngressGateway
+//
+// Create an ingress gateway.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -636,6 +712,14 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	runUpdates(&node, true)
 }
 
+// swagger:route DELETE /api/nodes/{network}/{nodeid}/deleteingress nodes deleteIngressGateway
+//
+// Delete an ingress gateway.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -657,6 +741,14 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	runUpdates(&node, true)
 }
 
+// swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
+//
+// Update an individual node.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -751,6 +843,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	runUpdates(&newNode, ifaceDelta)
 }
 
+// swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
+//
+// Delete an individual node.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
