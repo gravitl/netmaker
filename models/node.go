@@ -433,6 +433,9 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.Connected == "" {
 		newNode.Connected = currentNode.Connected
 	}
+	if newNode.PrivateNetworkID == "" {
+		newNode.PrivateNetworkID = currentNode.PrivateNetworkID
+	}
 	newNode.TrafficKeys = currentNode.TrafficKeys
 }
 

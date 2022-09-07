@@ -25,6 +25,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.Connected != currentNode.Connected ||
 		newNode.PostUp != currentNode.PostUp ||
 		newNode.PostDown != currentNode.PostDown ||
+		newNode.PrivateNetworkID != currentNode.PrivateNetworkID ||
 		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
 		return true
 	}
