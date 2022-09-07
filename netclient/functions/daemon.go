@@ -34,6 +34,8 @@ var messageCache = new(sync.Map)
 
 var serverSet map[string]bool
 
+var mqclient mqtt.Client
+
 const lastNodeUpdate = "lnu"
 const lastPeerUpdate = "lpu"
 
@@ -192,12 +194,12 @@ func unsubscribeNode(client mqtt.Client, nodeCfg *config.ClientConfig) {
 func messageQueue(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientConfig) {
 	defer wg.Done()
 	logger.Log(0, "network:", cfg.Node.Network, "netclient message queue started for server:", cfg.Server.Server)
-	client, err := setupMQTT(cfg, false)
+	err := setupMQTT(cfg)
 	if err != nil {
 		logger.Log(0, "unable to connect to broker", cfg.Server.Server, err.Error())
 		return
 	}
-	defer client.Disconnect(250)
+	//defer mqclient.Disconnect(250)
 	<-ctx.Done()
 	logger.Log(0, "shutting down message queue for server", cfg.Server.Server)
 }
@@ -232,7 +234,7 @@ func NewTLSConfig(server string) (*tls.Config, error) {
 
 // setupMQTT creates a connection to broker and returns client
 // this function is primarily used to create a connection to publish to the broker
-func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
+func setupMQTT(cfg *config.ClientConfig) error {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
@@ -240,7 +242,7 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	tlsConfig, err := NewTLSConfig(server)
 	if err != nil {
 		logger.Log(0, "failed to get TLS config for", server, err.Error())
-		return nil, err
+		return err
 	}
 	opts.SetTLSConfig(tlsConfig)
 	opts.SetClientID(ncutils.MakeRandomString(23))
@@ -252,17 +254,15 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts.SetWriteTimeout(time.Minute)
 
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		if !publish {
-			networks, err := ncutils.GetSystemNetworks()
-			if err != nil {
-				logger.Log(0, "error retriving networks", err.Error())
-			}
-			for _, network := range networks {
-				var currNodeCfg config.ClientConfig
-				currNodeCfg.Network = network
-				currNodeCfg.ReadConfig()
-				setSubscriptions(client, &currNodeCfg)
-			}
+		networks, err := ncutils.GetSystemNetworks()
+		if err != nil {
+			logger.Log(0, "error retriving networks", err.Error())
+		}
+		for _, network := range networks {
+			var currNodeCfg config.ClientConfig
+			currNodeCfg.Network = network
+			currNodeCfg.ReadConfig()
+			setSubscriptions(client, &currNodeCfg)
 		}
 	})
 	opts.SetOrderMatters(true)
@@ -270,11 +270,11 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		logger.Log(0, "network:", cfg.Node.Network, "detected broker connection lost for", cfg.Server.Server)
 	})
-	client := mqtt.NewClient(opts)
+	mqclient = mqtt.NewClient(opts)
 	var connecterr error
 	for count := 0; count < 3; count++ {
 		connecterr = nil
-		if token := client.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+		if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
 			logger.Log(0, "unable to connect to broker, retrying ...")
 			if token.Error() == nil {
 				connecterr = errors.New("connect timeout")
@@ -289,12 +289,12 @@ func setupMQTT(cfg *config.ClientConfig, publish bool) (mqtt.Client, error) {
 	if connecterr != nil {
 		reRegisterWithServer(cfg)
 		//try after re-registering
-		if token := client.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
-			return client, errors.New("unable to connect to broker")
+		if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+			return errors.New("unable to connect to broker")
 		}
 	}
 
-	return client, nil
+	return nil
 }
 
 func reRegisterWithServer(cfg *config.ClientConfig) {

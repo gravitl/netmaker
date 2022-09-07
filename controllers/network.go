@@ -39,7 +39,14 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", securityCheck(true, http.HandlerFunc(getNetworkACL))).Methods("GET")
 }
 
-// simple get all networks function
+// swagger:route GET /api/networks networks getNetworks
+//
+// Lists all networks
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	headerNetworks := r.Header.Get("networks")
@@ -80,7 +87,14 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allnetworks)
 }
 
-// Simple get network function
+// swagger:route GET /api/networks networks getNetwork
+//
+// Get a network
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -101,6 +115,14 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
+// swagger:route POST /api/networks/{networkname}/keyupdate networks keyUpdate
+//
+// Update keys for a network.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -130,7 +152,14 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// swagger:route PUT /api/networks/{networkname} networks updateNetwork
+//
 // Update a network
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -225,6 +254,14 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newNetwork)
 }
 
+// swagger:route PUT /api/networks/{networkname}/nodelimit networks updateNetworkNodeLimit
+//
+// Update a network's node limit
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -264,6 +301,14 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
+// swagger:route PUT /api/networks/{networkname}/acls networks updateNetworkACL
+//
+// Update a network ACL (Access Control List).
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -311,6 +356,14 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newNetACL)
 }
 
+// swagger:route GET /api/networks/{networkname}/acls networks getNetworkACL
+//
+// Get a network ACL (Access Control List).
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -328,8 +381,14 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(networkACL)
 }
 
-// Delete a network
-// Will stop you if  there's any nodes associated
+// swagger:route DELETE /api/networks/{networkname} networks deleteNetwork
+//
+// Delete a network.  Will not delete if there are any nodes that belong to the network.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -352,6 +411,14 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode("success")
 }
 
+// swagger:route POST /api/networks networks createNetwork
+//
+// Create a network
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -402,6 +469,15 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
+// swagger:route POST /api/networks/{networkname}/keys networks createAccessKey
+//
+// Create a network access key.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 // BEGIN KEY MANAGEMENT SECTION
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -435,7 +511,14 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(key)
 }
 
-// pretty simple get
+// swagger:route GET /api/networks/{networkname}/keys networks getAccessKeys
+//
+// Get network access keys for a network.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -455,6 +538,15 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(keys)
 }
 
+// swagger:route GET /api/networks/{networkname}/keys/{name} networks deleteAccessKey
+//
+// Delete a network access key.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
 // delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

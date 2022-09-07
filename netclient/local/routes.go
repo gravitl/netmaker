@@ -106,6 +106,9 @@ func FlushPeerRoutes(iface, currentAddr string, peers []wgtypes.Peer) {
 		for _, allowedIP := range peer.AllowedIPs {
 			deleteRoute(iface, &allowedIP, currentAddr)
 		}
+		if peer.Endpoint == nil {
+			continue
+		}
 		if hasRoute && !ncutils.IpIsPrivate(peer.Endpoint.IP) {
 			ipNet, err := ncutils.GetIPNetFromString(peer.Endpoint.IP.String())
 			if err != nil {

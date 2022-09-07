@@ -86,9 +86,9 @@ func initialize() { // Client Mode Prereq Check
 		logger.Log(0, "no OAuth provider found or not configured, continuing without OAuth")
 	}
 
-	err = serverctl.SetDefaultACLS()
+	err = serverctl.SetDefaults()
 	if err != nil {
-		logger.FatalLog("error setting default acls: ", err.Error())
+		logger.FatalLog("error setting defaults: ", err.Error())
 	}
 
 	if servercfg.IsClientMode() != "off" {
@@ -171,7 +171,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
 	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
-	var client = mq.SetupMQTT(false) // Set up the subscription listener
+	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
 	go logic.ManageZombies(ctx)
@@ -180,7 +180,6 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	<-quit
 	cancel()
 	logger.Log(0, "Message Queue shutting down")
-	client.Disconnect(250)
 }
 
 func setVerbosity() {

@@ -2,6 +2,7 @@ package wireguard
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -15,8 +16,10 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+const disconnect_error = "node disconnected"
+
 // ApplyWithoutWGQuick - Function for running the equivalent of "wg-quick up" for linux if wg-quick is missing
-func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) error {
+func ApplyWithoutWGQuick(node *models.Node, ifacename, confPath string, isConnected bool) error {
 
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {
@@ -72,7 +75,12 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename string, confPath string) e
 		mask6 = netmask
 		address6 = node.Address6
 	}
-	setKernelDevice(ifacename, address4, mask4, address6, mask6)
+	err = setKernelDevice(ifacename, address4, mask4, address6, mask6, isConnected)
+	if err != nil {
+		if err.Error() == disconnect_error {
+			return nil
+		}
+	}
 
 	_, err = wgclient.Device(ifacename)
 	if err != nil {
@@ -140,7 +148,7 @@ func RemoveWithoutWGQuick(ifacename string) error {
 	return err
 }
 
-func setKernelDevice(ifacename, address4, mask4, address6, mask6 string) error {
+func setKernelDevice(ifacename, address4, mask4, address6, mask6 string, isConnected bool) error {
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {
 		return err
@@ -148,6 +156,10 @@ func setKernelDevice(ifacename, address4, mask4, address6, mask6 string) error {
 
 	// == best effort ==
 	ncutils.RunCmd("ip link delete dev "+ifacename, false)
+	if !isConnected {
+		return fmt.Errorf(disconnect_error)
+	}
+
 	ncutils.RunCmd(ipExec+" link add dev "+ifacename+" type wireguard", true)
 	if address4 != "" {
 		ncutils.RunCmd(ipExec+" address add dev "+ifacename+" "+address4+"/"+mask4, true)
