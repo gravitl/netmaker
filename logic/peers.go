@@ -86,7 +86,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if err != nil {
 			return models.PeerUpdate{}, err
 		}
-		if node.Endpoint == peer.Endpoint || node.PrivateNetworkID == peer.PrivateNetworkID {
+		if node.Endpoint == peer.Endpoint || (node.PrivateNetworkID != "" && peer.PrivateNetworkID != "" && node.PrivateNetworkID == peer.PrivateNetworkID) {
 			//peer is on same network
 			// set_local
 			if node.LocalAddress != peer.LocalAddress && peer.LocalAddress != "" {
