@@ -3,7 +3,6 @@ package functions
 import (
 	"fmt"
 
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
@@ -24,10 +23,6 @@ func Connect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
-	if err := PublishNodeUpdate(cfg); err != nil {
-		logger.Log(0, "network:", cfg.Node.Network, "could not publish connection change, it will likely get reverted")
-	}
-
 	return config.ModNodeConfig(&cfg.Node)
 }
 
@@ -46,9 +41,5 @@ func Disconnect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
-	if err := PublishNodeUpdate(cfg); err != nil {
-		logger.Log(0, "network:", cfg.Node.Network, "could not publish connection change, it will likely get reverted")
-	}
-
 	return config.ModNodeConfig(&cfg.Node)
 }
