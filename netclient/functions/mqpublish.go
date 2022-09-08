@@ -26,13 +26,16 @@ import (
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
+	checkin()
+	ticker := time.NewTicker(time.Second * 60)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Log(0, "checkin routine closed")
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
-		case <-time.After(time.Second * 60):
+		case <-ticker.C:
 			checkin()
 		}
 	}
