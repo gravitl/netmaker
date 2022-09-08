@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 )
@@ -23,6 +24,7 @@ func Connect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
+	daemon.Restart()
 	return config.ModNodeConfig(&cfg.Node)
 }
 
@@ -41,5 +43,6 @@ func Disconnect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
+	daemon.Restart()
 	return config.ModNodeConfig(&cfg.Node)
 }
