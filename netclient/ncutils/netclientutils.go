@@ -437,6 +437,10 @@ func Copy(src, dst string) error {
 func RunCmds(commands []string, printerr bool) error {
 	var err error
 	for _, command := range commands {
+		//prevent panic
+		if command == " " {
+			continue
+		}
 		args := strings.Fields(command)
 		out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 		if err != nil && printerr {
