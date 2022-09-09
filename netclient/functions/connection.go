@@ -24,8 +24,9 @@ func Connect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
+	err = config.ModNodeConfig(&cfg.Node)
 	daemon.Restart()
-	return config.ModNodeConfig(&cfg.Node)
+	return err
 }
 
 // Disconnect - attempts to disconnect a node on given network
@@ -43,6 +44,7 @@ func Disconnect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
+	err = config.ModNodeConfig(&cfg.Node)
 	daemon.Restart()
-	return config.ModNodeConfig(&cfg.Node)
+	return err
 }
