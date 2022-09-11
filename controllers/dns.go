@@ -27,7 +27,7 @@ func dnsHandlers(r *mux.Router) {
 
 // swagger:route GET /api/dns/adm/{network}/nodes dns getNodeDNS
 //
-// Gets node DNS entries associated with a network
+// Gets node DNS entries associated with a network.
 //
 //		Schemes: https
 //
@@ -53,12 +53,16 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route GET /api/dns dns getAllDNS
 //
-// Gets all DNS entries
+// Gets all DNS entries.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+// 		Responses:
+//   		200: dnsResponse
+//
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	dns, err := logic.GetAllDNS()
@@ -73,12 +77,16 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route GET /api/dns/adm/{network}/custom dns getCustomDNS
 //
-// Gets custom DNS entries associated with a network
+// Gets custom DNS entries associated with a network.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+// 		Responses:
+//   		200: dnsResponse
+//
 func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -99,12 +107,16 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route GET /api/dns/adm/{network} dns getDNS
 //
-// Gets all DNS entries associated with the network
+// Gets all DNS entries associated with the network.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+// 		Responses:
+//   		200: dnsResponse
+//
 func getDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -125,12 +137,16 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route POST /api/dns/{network} dns createDNS
 //
-// Create a DNS entry
+// Create a DNS entry.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+// 		Responses:
+//   		200: dnsResponse
+//
 func createDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -184,12 +200,16 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route DELETE /api/dns/{network}/{domain} dns deleteDNS
 //
-// Delete a DNS entry
+// Delete a DNS entry.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: stringJSONResponse
+//			*: stringJSONResponse
 func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -248,12 +268,16 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 
 // swagger:route POST /api/dns/adm/pushdns dns pushDNS
 //
-// Push DNS entries to nameserver
+// Push DNS entries to nameserver.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: dnsStringJSONResponse
+//			*: dnsStringJSONResponse
 func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
