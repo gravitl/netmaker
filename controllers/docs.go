@@ -33,6 +33,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 )
 
+var _ = useUnused() // "use" the function to prevent "unused function" errors
+
 // swagger:parameters getNodeDNS getCustomDNS getDNS
 type dnsPathParams struct {
 	// Network
@@ -348,4 +350,51 @@ type usernamePathParam struct {
 	// Username
 	// in: path
 	Username string `json:"username"`
+}
+
+// prevent issues with integration tests for types just used by Swagger docs.
+func useUnused() bool {
+	_ = dnsPathParams{}
+	_ = dnsParams{}
+	_ = dnsResponse{}
+	_ = dnsDeletePathParams{}
+	_ = stringJSONResponse{}
+	_ = getAllClientsRequest{}
+	_ = extClientSliceResponse{}
+	_ = extClientResponse{}
+	_ = successResponse{}
+	_ = extClientPathParams{}
+	_ = extClientBodyParam{}
+	_ = extClientNetworkPathParam{}
+	_ = createExtClientPathParams{}
+	_ = networkNodePathParams{}
+	_ = byteArrayResponse{}
+	_ = headerNetworks{}
+	_ = getNetworksSliceResponse{}
+	_ = networkBodyParam{}
+	_ = networkPathParam{}
+	_ = networkAccessKeyNamePathParam{}
+	_ = networkBodyResponse{}
+	_ = accessKeyBodyParam{}
+	_ = accessKeyBodyResponse{}
+	_ = accessKeySliceBodyResponse{}
+	_ = aclContainerBodyParam{}
+	_ = aclContainerResponse{}
+	_ = nodeSliceResponse{}
+	_ = nodeResponse{}
+	_ = nodeBodyParam{}
+	_ = relayRequestBodyParam{}
+	_ = egressGatewayBodyParam{}
+	_ = authParamBodyParam{}
+	_ = serverConfigResponse{}
+	_ = nodeGetResponse{}
+	_ = nodeLastModifiedResponse{}
+	_ = registerRequestBodyParam{}
+	_ = registerResponse{}
+	_ = boolResponse{}
+	_ = userBodyParam{}
+	_ = userBodyResponse{}
+	_ = userAuthBodyParam{}
+	_ = usernamePathParam{}
+	return false
 }
