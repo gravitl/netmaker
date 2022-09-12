@@ -20,6 +20,9 @@ import (
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: nodeResponse
 func createRelay(w http.ResponseWriter, r *http.Request) {
 	var relay models.RelayRequest
 	var params = mux.Vars(r)
@@ -59,6 +62,9 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: nodeResponse
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)

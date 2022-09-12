@@ -75,6 +75,9 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: stringJSONResponse
 func removeNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -102,6 +105,9 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: serverConfigResponse
 func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -120,6 +126,9 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: serverConfigResponse
 func getConfig(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -133,12 +142,15 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route POST /api/server/register nodes register
 //
-// Registers a client with the server and return the Certificate Authority and certificate
+// Registers a client with the server and return the Certificate Authority and certificate.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: registerResponse
 func register(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, "processing registration request")
 	w.Header().Set("Content-Type", "application/json")

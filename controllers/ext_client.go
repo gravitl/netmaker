@@ -38,13 +38,17 @@ func checkIngressExists(nodeID string) bool {
 
 // swagger:route GET /api/extclients/{network} ext_client getNetworkExtClients
 //
-// Get all extclients associated with network
-// Gets all extclients associated with network, including pending extclients
+// Get all extclients associated with network.
+// Gets all extclients associated with network, including pending extclients.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: extClientSliceResponse
+//
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -74,6 +78,9 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: extClientSliceResponse
 //
 // Not quite sure if this is necessary. Probably necessary based on front end but may
 // want to review after iteration 1 if it's being used or not
@@ -113,7 +120,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(clients)
 }
 
-// swagger:route GET /api/extclients ext_client getExtClient
+// swagger:route GET /api/extclients/{network}/{clientid} ext_client getExtClient
 //
 // Get an individual extclient.
 //
@@ -121,6 +128,9 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: extClientResponse
 //
 func getExtClient(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -150,6 +160,9 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: extClientResponse
 //
 func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -289,7 +302,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	networkName := params["network"]
 	nodeid := params["nodeid"]
-	
+
 	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
 		err := errors.New("ingress does not exist")
@@ -301,11 +314,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var extclient models.ExtClient
 	var CustomExtClient models.CustomExtClient
-	
-	err := json.NewDecoder(r.Body).Decode(&CustomExtClient);
-	
-	if err == nil { extclient.ClientID = CustomExtClient.ClientID }
-	
+
+	err := json.NewDecoder(r.Body).Decode(&CustomExtClient)
+
+	if err == nil {
+		extclient.ClientID = CustomExtClient.ClientID
+	}
+
 	extclient.Network = networkName
 	extclient.IngressGatewayID = nodeid
 	node, err := logic.GetNodeByID(nodeid)
@@ -345,6 +360,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: extClientResponse
 //
 func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -413,6 +431,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: successResponse
 //
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	// Set header
