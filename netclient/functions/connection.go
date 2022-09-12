@@ -24,9 +24,14 @@ func Connect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
-	err = config.ModNodeConfig(&cfg.Node)
+	if err := setupMQTTSingleton(cfg); err != nil {
+		return err
+	}
+	if err := PublishNodeUpdate(cfg); err != nil {
+		return err
+	}
 	daemon.Restart()
-	return err
+	return nil
 }
 
 // Disconnect - attempts to disconnect a node on given network
@@ -44,7 +49,12 @@ func Disconnect(network string) error {
 	if err = wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, filePath); err != nil {
 		return err
 	}
-	err = config.ModNodeConfig(&cfg.Node)
+	if err := setupMQTTSingleton(cfg); err != nil {
+		return err
+	}
+	if err := PublishNodeUpdate(cfg); err != nil {
+		return err
+	}
 	daemon.Restart()
-	return err
+	return nil
 }

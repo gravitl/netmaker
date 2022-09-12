@@ -232,6 +232,33 @@ func NewTLSConfig(server string) (*tls.Config, error) {
 
 }
 
+// func setMQTTSingenton creates a connection to broker for single use (ie to publish a message)
+// only to be called from cli (eg. connect/disconnect, join, leave) and not from daemon ---
+func setupMQTTSingleton(cfg *config.ClientConfig) error {
+	opts := mqtt.NewClientOptions()
+	server := cfg.Server.Server
+	port := cfg.Server.MQPort
+	opts.AddBroker("ssl://" + server + ":" + port)
+	tlsConfig, err := NewTLSConfig(server)
+	if err != nil {
+		logger.Log(0, "failed to get TLS config for", server, err.Error())
+		return err
+	}
+	opts.SetTLSConfig(tlsConfig)
+	mqclient = mqtt.NewClient(opts)
+	var connecterr error
+	opts.SetClientID(ncutils.MakeRandomString(23))
+	if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+		logger.Log(0, "unable to connect to broker, retrying ...")
+		if token.Error() == nil {
+			connecterr = errors.New("connect timeout")
+		} else {
+			connecterr = token.Error()
+		}
+	}
+	return connecterr
+}
+
 // setupMQTT creates a connection to broker and returns client
 // this function is primarily used to create a connection to publish to the broker
 func setupMQTT(cfg *config.ClientConfig) error {
