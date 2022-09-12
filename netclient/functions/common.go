@@ -77,6 +77,9 @@ func getPrivateAddr() (string, error) {
 	if local == "" {
 		err = errors.New("could not find local ip")
 	}
+	if net.ParseIP(local).To16() != nil {
+		local = "[" + local + "]"
+	}
 
 	return local, err
 }
