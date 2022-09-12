@@ -438,7 +438,7 @@ func RunCmds(commands []string, printerr bool) error {
 	var err error
 	for _, command := range commands {
 		//prevent panic
-		if command == " " {
+		if len(strings.Trim(command, " ")) == 0 {
 			continue
 		}
 		args := strings.Fields(command)
