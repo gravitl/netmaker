@@ -6,6 +6,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 )
 
+// constant for database key for storing server ids
 const server_id_key = "nm-server-id"
 
 type serverData struct {

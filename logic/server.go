@@ -314,6 +314,7 @@ func AddServerIDIfNotPresent() error {
 	return nil
 }
 
+// GetServerCount - fetches server count from DB
 func GetServerCount() int {
 	if record, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, server_id_key); err == nil {
 		currentServerIDs := models.ServerIDs{}
