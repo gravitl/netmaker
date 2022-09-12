@@ -50,7 +50,7 @@ type Node struct {
 	ID                      string               `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5,id_unique"`
 	Address                 string               `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6                string               `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
-	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
+	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty"`
 	Name                    string               `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
 	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort              int32                `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
