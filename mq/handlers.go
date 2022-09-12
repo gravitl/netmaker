@@ -36,13 +36,19 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, record)
 			return
 		}
-		version, decryptErr := decryptMsg(&node, msg.Payload())
+		decrypted, decryptErr := decryptMsg(&node, msg.Payload())
 		if decryptErr != nil {
 			logger.Log(0, "error decrypting when updating node ", node.ID, decryptErr.Error())
 			return
 		}
+		var checkin models.NodeCheckin
+		if err := json.Unmarshal(decrypted, &checkin); err != nil {
+			logger.Log(1, "error unmarshaling payload ", err.Error())
+			return
+		}
 		node.SetLastCheckIn()
-		node.Version = string(version)
+		node.Version = checkin.Version
+		node.Connected = checkin.Connected
 		if err := logic.UpdateNode(&node, &node); err != nil {
 			logger.Log(0, "error updating node", node.Name, node.ID, " on checkin", err.Error())
 			return

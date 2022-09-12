@@ -39,6 +39,12 @@ const (
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
+// NodeCheckin - struct for node checkins with server
+type NodeCheckin struct {
+	Version   string
+	Connected string
+}
+
 // Node - struct for node model
 type Node struct {
 	ID                      string               `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5,id_unique"`
