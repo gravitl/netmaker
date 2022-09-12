@@ -11,13 +11,18 @@ import (
 
 // InitializeNetworkUsers - intializes network users for a given network
 func InitializeNetworkUsers(network string) error {
-	newNetUserMap := make(promodels.NetworkUserMap)
-	netUserData, err := json.Marshal(newNetUserMap)
-	if err != nil {
-		return err
-	}
 
-	return database.Insert(network, string(netUserData), database.NETWORK_USER_TABLE_NAME)
+	_, err := database.FetchRecord(database.NETWORK_USER_TABLE_NAME, network)
+	if err != nil && database.IsEmptyRecord(err) {
+		newNetUserMap := make(promodels.NetworkUserMap)
+		netUserData, err := json.Marshal(newNetUserMap)
+		if err != nil {
+			return err
+		}
+
+		return database.Insert(network, string(netUserData), database.NETWORK_USER_TABLE_NAME)
+	}
+	return err
 }
 
 // GetNetworkUsers - gets the network users table

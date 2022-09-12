@@ -142,6 +142,13 @@ func (node *Node) SetDefaultConnected() {
 	}
 }
 
+// Node.SetDefaultACL
+func (node *Node) SetDefaultACL() {
+	if node.DefaultACL == "" {
+		node.DefaultACL = "yes"
+	}
+}
+
 // Node.SetDefaultMTU - sets default MTU of a node
 func (node *Node) SetDefaultMTU() {
 	if node.MTU == 0 {

@@ -475,6 +475,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIsK8S()
 	node.SetDefaultIsHub()
 	node.SetDefaultConnected()
+	node.SetDefaultACL()
 }
 
 // GetRecordKey - get record key
