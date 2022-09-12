@@ -19,8 +19,7 @@ func WgQuickDownMac(node *models.Node, iface string) error {
 		return err
 	}
 	if node.PostDown != "" {
-		runcmds := strings.Split(node.PostDown, "; ")
-		ncutils.RunCmds(runcmds, true)
+		ncutils.RunCmd(node.PostDown, true)
 	}
 	return nil
 }
@@ -85,8 +84,7 @@ func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 	//next, wg-quick runs monitor_daemon
 	time.Sleep(time.Second / 2)
 	if node.PostUp != "" {
-		runcmds := strings.Split(node.PostUp, "; ")
-		ncutils.RunCmds(runcmds, true)
+		ncutils.RunCmd(node.PostUp, true)
 	}
 	return err
 }

@@ -87,8 +87,6 @@ func Daemon() error {
 
 func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
-	wg.Add(1)
-	go Checkin(ctx, wg)
 	serverSet := make(map[string]bool)
 	networks, _ := ncutils.GetSystemNetworks()
 	for _, network := range networks {
@@ -116,6 +114,8 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 			go messageQueue(ctx, wg, &cfg)
 		}
 	}
+	wg.Add(1)
+	go Checkin(ctx, wg)
 	return cancel
 }
 

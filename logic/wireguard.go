@@ -191,8 +191,7 @@ func removeLocalServer(node *models.Node) error {
 				logger.Log(1, out)
 			}
 			if node.PostDown != "" {
-				runcmds := strings.Split(node.PostDown, "; ")
-				_ = ncutils.RunCmds(runcmds, false)
+				ncutils.RunCmd(node.PostDown, false)
 			}
 		}
 	}
