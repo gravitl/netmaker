@@ -230,7 +230,7 @@ echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
 setup_vpn() {( set -e
 echo "creating vpn network (10.201.0.0/16)"
 
-curl -s -o /dev/null -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"8.8.8.8"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
+curl -s -o /dev/null -d '{"addressrange":"10.201.0.0/16","netid":"vpn","defaultextclientdns":"10.201.255.254"}' -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/networks
 
 sleep 5
 
@@ -241,9 +241,9 @@ SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 curl -s -o /dev/null -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn/$SERVER_ID/createingress
 
-echo "waiting 10 seconds for server to apply configuration..."
+echo "waiting 5 seconds for server to apply configuration..."
 
-sleep 10
+sleep 5
 
 
 echo "configuring netmaker server vpn gateway..."
@@ -257,10 +257,12 @@ SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
 
 EGRESS_JSON=$( jq -n \
                   --arg gw "$GATEWAY_IFACE" \
-                  '{ranges: ["0.0.0.0/0","::/0"], interface: $gw}' )
+                  '{ranges: ["0.0.0.0/0"], interface: $gw}' )
 
 echo "egress json: $EGRESS_JSON"
 curl -s -o /dev/null -X POST -d "$EGRESS_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/vpn/$SERVER_ID/creategateway
+
+sleep 3
 
 echo "creating client configs..."
 
@@ -271,6 +273,7 @@ do
                   '{clientid: $clientid}' )
 
         curl -s -o /dev/null -d "$CLIENT_JSON" -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/extclients/vpn/$SERVER_ID
+        sleep 2
 done
 
 echo "finished configuring vpn server."
