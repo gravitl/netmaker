@@ -15,7 +15,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.0
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.14.1
+	github.com/urfave/cli/v2 v2.16.3
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 	golang.zx2c4.com/wireguard v0.0.0-20220318042302-193cf8d6a5d6 // indirect
