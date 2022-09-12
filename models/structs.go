@@ -224,3 +224,8 @@ func (user *User) NameInCharSet() bool {
 	}
 	return true
 }
+
+// ServerIDs - struct to hold server ids.
+type ServerIDs struct {
+	ServerIDs []string `json:"server_ids"`
+}

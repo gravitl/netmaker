@@ -74,7 +74,9 @@ func initialize() { // Client Mode Prereq Check
 	}
 	logger.Log(0, "database successfully connected")
 	logic.SetJWTSecret()
-
+	if err = logic.AddServerIDIfNotPresent(); err != nil {
+		logger.Log(1, "failed to save server ID")
+	}
 	err = logic.TimerCheckpoint()
 	if err != nil {
 		logger.Log(1, "Timer error occurred: ", err.Error())

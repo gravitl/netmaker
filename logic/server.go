@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -8,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -284,4 +286,41 @@ func serverPush(serverNode *models.Node) error {
 	serverNode.OS = runtime.GOOS
 	serverNode.SetLastCheckIn()
 	return UpdateNode(serverNode, serverNode)
+}
+
+// AddServerIDIfNotPresent - add's current server ID to DB if not present
+func AddServerIDIfNotPresent() error {
+	currentNodeID := servercfg.GetNodeID()
+	currentServerIDs := models.ServerIDs{}
+
+	record, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, server_id_key)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	} else if err == nil {
+		if err = json.Unmarshal([]byte(record), &currentServerIDs); err != nil {
+			return err
+		}
+	}
+
+	if !StringSliceContains(currentServerIDs.ServerIDs, currentNodeID) {
+		currentServerIDs.ServerIDs = append(currentServerIDs.ServerIDs, currentNodeID)
+		data, err := json.Marshal(&currentServerIDs)
+		if err != nil {
+			return err
+		}
+		return database.Insert(server_id_key, string(data), database.SERVERCONF_TABLE_NAME)
+	}
+
+	return nil
+}
+
+// GetServerCount - fetches server count from DB
+func GetServerCount() int {
+	if record, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, server_id_key); err == nil {
+		currentServerIDs := models.ServerIDs{}
+		if err = json.Unmarshal([]byte(record), &currentServerIDs); err == nil {
+			return len(currentServerIDs.ServerIDs)
+		}
+	}
+	return 1
 }
