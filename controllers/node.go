@@ -11,7 +11,9 @@ import (
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -31,7 +33,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", securityCheck(false, http.HandlerFunc(createIngressGateway))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", securityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(false, true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
-	r.HandleFunc("/api/nodes/{network}", nodeauth(http.HandlerFunc(createNode))).Methods("POST")
+	r.HandleFunc("/api/nodes/{network}", nodeauth(checkFreeTierLimits(node_l, http.HandlerFunc(createNode)))).Methods("POST")
 	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(false, true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 }
@@ -237,6 +239,7 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 				returnErrorResponse(w, r, errorResponse)
 				return
 			}
+
 			isnetadmin := isadmin
 			if errN == nil && isadmin {
 				nodeID = "mastermac"
@@ -244,7 +247,7 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 				r.Header.Set("ismasterkey", "yes")
 			}
 			if !isadmin && params["network"] != "" {
-				if logic.StringSliceContains(networks, params["network"]) {
+				if logic.StringSliceContains(networks, params["network"]) && pro.IsUserNetAdmin(params["network"], username) {
 					isnetadmin = true
 				}
 			}
@@ -435,6 +438,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		Node:         node,
 		Peers:        peerUpdate.Peers,
 		ServerConfig: servercfg.GetServerInfo(),
+		PeerIDs:      peerUpdate.PeerIDs,
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
@@ -537,7 +541,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
-	validKey := logic.IsKeyValid(networkName, node.AccessKey)
+	keyName, validKey := logic.IsKeyValid(networkName, node.AccessKey)
 	if !validKey {
 		// Check to see if network will allow manual sign up
 		// may want to switch this up with the valid key check and avoid a DB call that way.
@@ -554,6 +558,14 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	user, err := pro.GetNetworkUser(networkName, promodels.NetworkUserID(keyName))
+	if err == nil {
+		if user.ID != "" {
+			logger.Log(1, "associating new node with user", keyName)
+			node.OwnerID = string(user.ID)
+		}
+	}
+
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key: ", keyErr.Error())
@@ -584,6 +596,24 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check if key belongs to a user
+	// if so add to their netuser data
+	// if it fails remove the node and fail request
+	if user != nil {
+		var updatedUserNode bool
+		user.Nodes = append(user.Nodes, node.ID) // add new node to user
+		if err = pro.UpdateNetworkUser(networkName, user); err == nil {
+			logger.Log(1, "added node", node.ID, node.Name, "to user", string(user.ID))
+			updatedUserNode = true
+		}
+		if !updatedUserNode { // user was found but not updated, so delete node
+			logger.Log(0, "failed to add node to user", keyName)
+			logic.DeleteNodeByID(&node, true)
+			returnErrorResponse(w, r, formatError(err, "internal"))
+			return
+		}
+	}
+
 	peerUpdate, err := logic.GetPeerUpdate(&node)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
@@ -596,6 +626,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Node:         node,
 		Peers:        peerUpdate.Peers,
 		ServerConfig: servercfg.GetServerInfo(),
+		PeerIDs:      peerUpdate.PeerIDs,
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
@@ -911,6 +942,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+	if r.Header.Get("ismaster") != "yes" {
+		username := r.Header.Get("user")
+		if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
+			returnErrorResponse(w, r, formatError(fmt.Errorf("user not permitted"), "badrequest"))
+			return
+		}
+	}
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent
 	node.Action = models.NODE_DELETE
 
@@ -919,6 +957,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
@@ -1005,4 +1044,25 @@ func updateRelay(oldnode, newnode *models.Node) {
 		}
 	}
 	logic.UpdateNode(relay, newrelay)
+}
+
+func doesUserOwnNode(username, network, nodeID string) bool {
+	u, err := logic.GetUser(username)
+	if err != nil {
+		return false
+	}
+	if u.IsAdmin {
+		return true
+	}
+
+	netUser, err := pro.GetNetworkUser(network, promodels.NetworkUserID(u.UserName))
+	if err != nil {
+		return false
+	}
+
+	if netUser.AccessLevel == pro.NET_ADMIN {
+		return true
+	}
+
+	return logic.StringSliceContains(netUser.Nodes, nodeID)
 }

@@ -7,11 +7,17 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
+)
+
+var (
+	upgrader = websocket.Upgrader{}
 )
 
 func userHandlers(r *mux.Router) {
@@ -22,12 +28,14 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(updateUser)))).Methods("PUT")
 	r.HandleFunc("/api/users/networks/{username}", securityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods("PUT")
 	r.HandleFunc("/api/users/{username}/adm", securityCheck(true, http.HandlerFunc(updateUserAdm))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}", securityCheck(true, http.HandlerFunc(createUser))).Methods("POST")
+	r.HandleFunc("/api/users/{username}", securityCheck(true, checkFreeTierLimits(users_l, http.HandlerFunc(createUser)))).Methods("POST")
 	r.HandleFunc("/api/users/{username}", securityCheck(true, http.HandlerFunc(deleteUser))).Methods("DELETE")
 	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(getUser)))).Methods("GET")
 	r.HandleFunc("/api/users", securityCheck(true, http.HandlerFunc(getUsers))).Methods("GET")
 	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
+	r.HandleFunc("/api/oauth/node-handler", socketHandler)
+	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterNodeSSO).Methods("GET")
 }
 
 // swagger:route POST /api/users/adm/authenticate nodes authenticateUser
@@ -48,6 +56,11 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	var authRequest models.UserAuthParams
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+	}
+
+	if !servercfg.IsBasicAuthEnabled() {
+		returnErrorResponse(response, request, formatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		return
 	}
 
 	decoder := json.NewDecoder(request.Body)
@@ -216,14 +229,20 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	admin, err = logic.CreateAdmin(admin)
 
+	if !servercfg.IsBasicAuthEnabled() {
+		returnErrorResponse(w, r, formatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		return
+	}
+
+	admin, err = logic.CreateAdmin(admin)
 	if err != nil {
 		logger.Log(0, admin.UserName, "failed to create admin: ",
 			err.Error())
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+
 	logger.Log(1, admin.UserName, "was made a new admin")
 	json.NewEncoder(w).Encode(admin)
 }
@@ -250,6 +269,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+
 	user, err = logic.CreateUser(user)
 	if err != nil {
 		logger.Log(0, user.UserName, "error creating new user: ",
@@ -294,7 +314,13 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateUserNetworks(userchange.Networks, userchange.IsAdmin, &user)
+	err = logic.UpdateUserNetworks(userchange.Networks, userchange.Groups, userchange.IsAdmin, &models.ReturnUser{
+		Groups:   user.Groups,
+		IsAdmin:  user.IsAdmin,
+		Networks: user.Networks,
+		UserName: user.UserName,
+	})
+
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user networks: ", err.Error())
@@ -443,4 +469,16 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
+}
+
+// Called when vpn client dials in to start the auth flow and first stage is to get register URL itself
+func socketHandler(w http.ResponseWriter, r *http.Request) {
+	// Upgrade our raw HTTP connection to a websocket based one
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Log(0, "error during connection upgrade for node SSO sign-in:", err.Error())
+		return
+	}
+	// Start handling the session
+	go auth.SessionHandler(conn)
 }

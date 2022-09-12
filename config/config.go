@@ -70,6 +70,10 @@ type ServerConfig struct {
 	MQServerPort          string `yaml:"mqserverport"`
 	Server                string `yaml:"server"`
 	PublicIPService       string `yaml:"publicipservice"`
+	MetricsExporter       string `yaml:"metrics_exporter"`
+	BasicAuth             string `yaml:"basic_auth"`
+	LicenseValue          string `yaml:"license_value"`
+	NetmakerAccountID     string `yaml:"netmaker_account_id"`
 }
 
 // SQLConfig - Generic SQL Config

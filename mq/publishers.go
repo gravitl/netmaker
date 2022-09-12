@@ -2,11 +2,13 @@ package mq
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/pro/metrics"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
@@ -105,6 +107,11 @@ func NodeUpdate(node *models.Node) error {
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
 
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		logger.Log(1, "error retrieving networks for keepalive", err.Error())
+	}
+
 	var force bool
 	peer_force_send++
 	if peer_force_send == 5 {
@@ -121,10 +128,8 @@ func sendPeers() {
 		if err != nil {
 			logger.Log(3, "error occurred on timer,", err.Error())
 		}
-	}
-	networks, err := logic.GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
-		logger.Log(1, "error retrieving networks for keepalive", err.Error())
+
+		collectServerMetrics(networks[:])
 	}
 
 	for _, network := range networks {
@@ -173,6 +178,67 @@ func ServerStartNotify() error {
 		if err = NodeUpdate(&nodes[i]); err != nil {
 			logger.Log(1, "error when notifying node", nodes[i].Name, " - ", nodes[i].ID, "of a server startup")
 		}
+	}
+	return nil
+}
+
+// function to collect and store metrics for server nodes
+func collectServerMetrics(networks []models.Network) {
+	if len(networks) > 0 {
+		for i := range networks {
+			currentNetworkNodes, err := logic.GetNetworkNodes(networks[i].NetID)
+			if err != nil {
+				continue
+			}
+			currentServerNodes := logic.GetServerNodes(networks[i].NetID)
+			if len(currentServerNodes) > 0 {
+				for i := range currentServerNodes {
+					if logic.IsLocalServer(&currentServerNodes[i]) {
+						serverMetrics := logic.CollectServerMetrics(currentServerNodes[i].ID, currentNetworkNodes)
+						if serverMetrics != nil {
+							serverMetrics.NodeName = currentServerNodes[i].Name
+							serverMetrics.NodeID = currentServerNodes[i].ID
+							serverMetrics.IsServer = "yes"
+							serverMetrics.Network = currentServerNodes[i].Network
+							if err = metrics.GetExchangedBytesForNode(&currentServerNodes[i], serverMetrics); err != nil {
+								logger.Log(1, fmt.Sprintf("failed to update exchanged bytes info for server: %s, err: %v",
+									currentServerNodes[i].Name, err))
+							}
+							updateNodeMetrics(&currentServerNodes[i], serverMetrics)
+							if err = logic.UpdateMetrics(currentServerNodes[i].ID, serverMetrics); err != nil {
+								logger.Log(1, "failed to update metrics for server node", currentServerNodes[i].ID)
+							}
+							if servercfg.IsMetricsExporter() {
+								logger.Log(2, "-------------> SERVER METRICS: ", fmt.Sprintf("%+v", serverMetrics))
+								if err := pushMetricsToExporter(*serverMetrics); err != nil {
+									logger.Log(2, "failed to push server metrics to exporter: ", err.Error())
+								}
+							}
+
+						}
+
+					}
+				}
+			}
+		}
+	}
+}
+
+func pushMetricsToExporter(metrics models.Metrics) error {
+	logger.Log(2, "----> Pushing metrics to exporter")
+	SetupMQTT()
+	data, err := json.Marshal(metrics)
+	if err != nil {
+		return errors.New("failed to marshal metrics: " + err.Error())
+	}
+	if token := mqclient.Publish("metrics_exporter", 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
 	}
 	return nil
 }

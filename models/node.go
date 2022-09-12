@@ -50,7 +50,7 @@ type Node struct {
 	ID                      string               `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5,id_unique"`
 	Address                 string               `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6                string               `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
-	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty"`
+	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
 	Name                    string               `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
 	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort              int32                `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
@@ -101,6 +101,9 @@ type Node struct {
 	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 	Connected       string      `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
+	// == PRO ==
+	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
 }
 
 // NodesArray - used for node sorting
@@ -438,6 +441,10 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.Connected == "" {
 		newNode.Connected = currentNode.Connected
 	}
+	if newNode.DefaultACL == "" {
+		newNode.DefaultACL = currentNode.DefaultACL
+	}
+
 	newNode.TrafficKeys = currentNode.TrafficKeys
 }
 
@@ -468,4 +475,16 @@ func (node *Node) NameInNodeCharSet() bool {
 		}
 	}
 	return true
+}
+
+// == PRO ==
+
+// Node.DoesACLAllow - checks if default ACL on node is "yes"
+func (node *Node) DoesACLAllow() bool {
+	return node.DefaultACL == "yes"
+}
+
+// Node.DoesACLDeny - checks if default ACL on node is "no"
+func (node *Node) DoesACLDeny() bool {
+	return node.DefaultACL == "no"
 }

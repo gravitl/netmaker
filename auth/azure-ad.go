@@ -23,11 +23,6 @@ var azure_ad_functions = map[string]interface{}{
 	verify_user:     verifyAzureUser,
 }
 
-type azureOauthUser struct {
-	UserPrincipalName string `json:"userPrincipalName" bson:"userPrincipalName"`
-	AccessToken       string `json:"accesstoken" bson:"accesstoken"`
-}
-
 // == handle azure ad authentication here ==
 
 func initAzureAD(redirectURL string, clientID string, clientSecret string) {
@@ -41,7 +36,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 }
 
 func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
-	var oauth_state_string = logic.RandomString(16)
+	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil && servercfg.GetFrontendURL() != "" {
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
@@ -61,7 +56,8 @@ func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
 
 func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 
-	var content, err = getAzureUserInfo(r.FormValue("state"), r.FormValue("code"))
+	var rState, rCode = getStateAndCode(r)
+	var content, err = getAzureUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from azure:", err.Error())
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
@@ -93,9 +89,9 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.UserPrincipalName, http.StatusPermanentRedirect)
 }
 
-func getAzureUserInfo(state string, code string) (*azureOauthUser, error) {
+func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
-	if !isValid || state != oauth_state_string {
+	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
 	var token, err = auth_provider.Exchange(context.Background(), code)
@@ -121,7 +117,7 @@ func getAzureUserInfo(state string, code string) (*azureOauthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}
-	var userInfo = &azureOauthUser{}
+	var userInfo = &OAuthUser{}
 	if err = json.Unmarshal(contents, userInfo); err != nil {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}

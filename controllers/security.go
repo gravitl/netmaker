@@ -9,7 +9,9 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -58,6 +60,75 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
+func netUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var errorResponse = models.ErrorResponse{
+			Code: http.StatusUnauthorized, Message: "unauthorized",
+		}
+		r.Header.Set("ismaster", "no")
+
+		var params = mux.Vars(r)
+		var netUserName = params["networkuser"]
+		var network = params["network"]
+
+		bearerToken := r.Header.Get("Authorization")
+
+		var tokenSplit = strings.Split(bearerToken, " ")
+		var authToken = ""
+
+		if len(tokenSplit) < 2 {
+			returnErrorResponse(w, r, errorResponse)
+			return
+		} else {
+			authToken = tokenSplit[1]
+		}
+
+		isMasterAuthenticated := authenticateMaster(authToken)
+		if isMasterAuthenticated {
+			r.Header.Set("user", "master token user")
+			r.Header.Set("ismaster", "yes")
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		userName, _, isadmin, err := logic.VerifyUserToken(authToken)
+		if err != nil {
+			returnErrorResponse(w, r, errorResponse)
+			return
+		}
+		r.Header.Set("user", userName)
+
+		if isadmin {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if isNodes || isClients {
+			necessaryAccess := pro.NET_ADMIN
+			if isClients {
+				necessaryAccess = pro.CLIENT_ACCESS
+			}
+			if isNodes {
+				necessaryAccess = pro.NODE_ACCESS
+			}
+			u, err := pro.GetNetworkUser(network, promodels.NetworkUserID(userName))
+			if err != nil {
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
+			if u.AccessLevel > necessaryAccess {
+				returnErrorResponse(w, r, errorResponse)
+				return
+			}
+		} else if netUserName != userName {
+			returnErrorResponse(w, r, errorResponse)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+}
+
 // SecurityCheck - checks token stuff
 func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, string, error) {
 	var tokenSplit = strings.Split(token, " ")
@@ -87,6 +158,9 @@ func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, strin
 	// check network admin access
 	if len(netname) > 0 && (!authenticateNetworkUser(netname, userNetworks) || len(userNetworks) == 0) {
 		return nil, username, unauthorized_err
+	}
+	if !pro.IsUserNetAdmin(netname, username) {
+		return nil, "", unauthorized_err
 	}
 	return userNetworks, username, nil
 }
