@@ -120,7 +120,7 @@ func setNodeDefaults() error {
 func setNetworkDefaults() error {
 	// upgraded systems will not have NetworkUsers's set, which is why we need this function
 	networks, err := logic.GetNetworks()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 	for _, net := range networks {
