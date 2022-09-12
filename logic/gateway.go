@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -334,6 +335,9 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 		postUp += "nft 'add chain ip nat prerouting { type nat hook prerouting priority 0 ;}' ; "
 		postUp += "nft 'add chain ip nat postrouting { type nat hook postrouting priority 0 ;}' ; "
 		for _, networkCIDR := range gatewayranges {
+			if net.ParseIP(networkCIDR).To16() != nil {
+				continue
+			}
 			postUp += "nft add rule nat postrouting iifname " + networkInterface + " oifname " + gatewayInterface + " ip saddr " + networkCIDR + " masquerade ; "
 		}
 
