@@ -43,6 +43,7 @@ func sendTelemetry() error {
 		Event:      "daily checkin",
 		Properties: posthog.NewProperties().
 			Set("nodes", d.Nodes).
+			Set("servers", d.Servers).
 			Set("non-server nodes", d.Count.NonServer).
 			Set("extclients", d.ExtClients).
 			Set("users", d.Users).
