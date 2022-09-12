@@ -187,6 +187,8 @@ EOF
 
 
 echo "visit https://dashboard.$NETMAKER_BASE_DOMAIN to log in"
+echo "visit https://grafana.$NETMAKER_BASE_DOMAIN to view metrics on grafana dashboard"
+echo "visit https://prometheus.$NETMAKER_BASE_DOMAIN to view metrics on prometheus" 
 sleep 7
 
 setup_mesh() {( set -e

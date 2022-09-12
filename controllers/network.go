@@ -25,7 +25,7 @@ const NO_NETWORKS_PRESENT = "THIS_USER_HAS_NONE"
 
 func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", securityCheck(false, http.HandlerFunc(getNetworks))).Methods("GET")
-	r.HandleFunc("/api/networks", securityCheck(true, http.HandlerFunc(createNetwork))).Methods("POST")
+	r.HandleFunc("/api/networks", securityCheck(true, checkFreeTierLimits(networks_l, http.HandlerFunc(createNetwork)))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(getNetwork))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}", securityCheck(false, http.HandlerFunc(updateNetwork))).Methods("PUT")
 	r.HandleFunc("/api/networks/{networkname}/nodelimit", securityCheck(true, http.HandlerFunc(updateNetworkNodeLimit))).Methods("PUT")
@@ -199,7 +199,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		newNetwork.DefaultPostUp = network.DefaultPostUp
 	}
 
-	rangeupdate4, rangeupdate6, localrangeupdate, holepunchupdate, err := logic.UpdateNetwork(&network, &newNetwork)
+	rangeupdate4, rangeupdate6, localrangeupdate, holepunchupdate, groupsDelta, userDelta, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update network: ",
 			err.Error())
@@ -207,6 +207,24 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(groupsDelta) > 0 {
+		for _, g := range groupsDelta {
+			users, err := logic.GetGroupUsers(g)
+			if err == nil {
+				for _, user := range users {
+					logic.AdjustNetworkUserPermissions(&user, &newNetwork)
+				}
+			}
+		}
+	}
+	if len(userDelta) > 0 {
+		for _, uname := range userDelta {
+			user, err := logic.GetReturnUser(uname)
+			if err == nil {
+				logic.AdjustNetworkUserPermissions(&user, &newNetwork)
+			}
+		}
+	}
 	if rangeupdate4 {
 		err = logic.UpdateNetworkNodeAddresses(network.NetID)
 		if err != nil {
@@ -536,6 +554,15 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "badrequest"))
 		return
 	}
+
+	// do not allow access key creations view API with user names
+	if _, err = logic.GetUser(key.Name); err == nil {
+		logger.Log(0, "access key creation with invalid name attempted by", r.Header.Get("user"))
+		returnErrorResponse(w, r, formatError(fmt.Errorf("cannot create access key with user name"), "badrequest"))
+		logic.DeleteKey(key.Name, network.NetID)
+		return
+	}
+
 	logger.Log(1, r.Header.Get("user"), "created access key", accesskey.Name, "on", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(key)

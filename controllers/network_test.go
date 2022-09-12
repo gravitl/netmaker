@@ -17,7 +17,7 @@ type NetworkValidationTestCase struct {
 }
 
 func TestCreateNetwork(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllNetworks()
 
 	var network models.Network
@@ -30,7 +30,7 @@ func TestCreateNetwork(t *testing.T) {
 	assert.Nil(t, err)
 }
 func TestGetNetwork(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	createNet()
 
 	t.Run("GetExistingNetwork", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestGetNetwork(t *testing.T) {
 }
 
 func TestDeleteNetwork(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	createNet()
 	//create nodes
 	t.Run("NetworkwithNodes", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestDeleteNetwork(t *testing.T) {
 }
 
 func TestCreateKey(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	createNet()
 	keys, _ := logic.GetKeys("skynet")
 	for _, key := range keys {
@@ -74,7 +74,7 @@ func TestCreateKey(t *testing.T) {
 	t.Run("NameTooLong", func(t *testing.T) {
 		network, err := logic.GetNetwork("skynet")
 		assert.Nil(t, err)
-		accesskey.Name = "Thisisareallylongkeynamethatwillfail"
+		accesskey.Name = "ThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfailThisisareallylongkeynamethatwillfail"
 		_, err = logic.CreateAccessKey(accesskey, network)
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'max' tag")
@@ -134,7 +134,7 @@ func TestCreateKey(t *testing.T) {
 }
 
 func TestGetKeys(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllNetworks()
 	createNet()
 	network, err := logic.GetNetwork("skynet")
@@ -157,7 +157,7 @@ func TestGetKeys(t *testing.T) {
 	})
 }
 func TestDeleteKey(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	createNet()
 	network, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
@@ -179,7 +179,7 @@ func TestDeleteKey(t *testing.T) {
 func TestSecurityCheck(t *testing.T) {
 	//these seem to work but not sure it the tests are really testing the functionality
 
-	database.InitializeDatabase()
+	initialize()
 	os.Setenv("MASTER_KEY", "secretkey")
 	t.Run("NoNetwork", func(t *testing.T) {
 		networks, username, err := SecurityCheck(false, "", "Bearer secretkey")
@@ -210,7 +210,7 @@ func TestValidateNetwork(t *testing.T) {
 	//t.Skip()
 	//This functions is not called by anyone
 	//it panics as validation function 'display_name_valid' is not defined
-	database.InitializeDatabase()
+	initialize()
 	//yes := true
 	//no := false
 	//deleteNet(t)
@@ -295,7 +295,7 @@ func TestValidateNetwork(t *testing.T) {
 func TestIpv6Network(t *testing.T) {
 	//these seem to work but not sure it the tests are really testing the functionality
 
-	database.InitializeDatabase()
+	initialize()
 	os.Setenv("MASTER_KEY", "secretkey")
 	deleteAllNetworks()
 	createNet()
@@ -319,6 +319,21 @@ func deleteAllNetworks() {
 	for _, net := range nets {
 		logic.DeleteNetwork(net.NetID)
 	}
+}
+
+func initialize() {
+	database.InitializeDatabase()
+	createAdminUser()
+}
+
+func createAdminUser() {
+	logic.CreateAdmin(models.User{
+		UserName: "admin",
+		Password: "password",
+		IsAdmin:  true,
+		Networks: []string{},
+		Groups:   []string{},
+	})
 }
 
 func createNet() {
