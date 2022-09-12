@@ -70,6 +70,20 @@ func DeleteNetwork(network string) error {
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
 
+	if network.AddressRange != "" {
+		normalizedRange, err := NormalizeCIDR(network.AddressRange)
+		if err != nil {
+			return models.Network{}, err
+		}
+		network.AddressRange = normalizedRange
+	}
+	if network.AddressRange6 != "" {
+		normalizedRange, err := NormalizeCIDR(network.AddressRange6)
+		if err != nil {
+			return models.Network{}, err
+		}
+		network.AddressRange6 = normalizedRange
+	}
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()

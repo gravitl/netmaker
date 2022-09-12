@@ -14,6 +14,14 @@ import (
 
 // CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
+	for i, cidr := range gateway.Ranges {
+		normalized, err := NormalizeCIDR(cidr)
+		if err != nil {
+			return models.Node{}, err
+		}
+		gateway.Ranges[i] = normalized
+
+	}
 	node, err := GetNodeByID(gateway.NodeID)
 	if err != nil {
 		return models.Node{}, err
