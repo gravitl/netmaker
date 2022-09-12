@@ -6,6 +6,8 @@ import (
 	"github.com/gravitl/netmaker/database"
 )
 
+const server_id_key = "nm-server-id"
+
 type serverData struct {
 	PrivateKey string `json:"privatekey,omitempty" bson:"privatekey,omitempty"`
 }

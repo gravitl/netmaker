@@ -65,6 +65,7 @@ func fetchTelemetryData() (telemetryData, error) {
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
+	data.Servers = GetServerCount()
 	nodes, err := GetAllNodes()
 	if err == nil {
 		data.Nodes = len(nodes)
@@ -140,6 +141,7 @@ type telemetryData struct {
 	Users      int
 	Count      clientCount
 	Networks   int
+	Servers    int
 	Version    string
 }
 
