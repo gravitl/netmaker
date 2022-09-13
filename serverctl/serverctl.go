@@ -125,7 +125,12 @@ func setNetworkDefaults() error {
 	}
 	for _, net := range networks {
 		if err = pro.InitializeNetworkUsers(net.NetID); err != nil {
-			logger.Log(0, "could not initialize NetworkUsers on network ", net.NetID)
+			logger.Log(0, "could not initialize NetworkUsers on network", net.NetID)
+		}
+		pro.AddProNetDefaults(&net)
+		_, _, _, _, _, _, err = logic.UpdateNetwork(&net, &net)
+		if err != nil {
+			logger.Log(0, "could not set defaults on network", net.NetID)
 		}
 	}
 	return nil
