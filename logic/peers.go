@@ -53,6 +53,9 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
 	for _, peer := range currentPeers {
+		var (
+			inSameNetwokZone bool
+		)
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
@@ -89,6 +92,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if node.Endpoint == peer.Endpoint || (node.PrivateNetworkID != "" && peer.PrivateNetworkID != "" && node.PrivateNetworkID == peer.PrivateNetworkID) {
 			//peer is on same network
 			// set_local
+			inSameNetwokZone = true
 			if node.LocalAddress != peer.LocalAddress && peer.LocalAddress != "" {
 				peer.Endpoint = peer.LocalAddress
 				if peer.LocalListenPort != 0 {
@@ -110,7 +114,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if setEndpoint {
 
 			var setUDPPort = false
-			if peer.UDPHolePunch == "yes" && errN == nil && CheckEndpoint(udppeers[peer.PublicKey]) {
+			if peer.UDPHolePunch == "yes" && !inSameNetwokZone && errN == nil && CheckEndpoint(udppeers[peer.PublicKey]) {
 				endpointstring := udppeers[peer.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
 				if len(endpointarr) == 2 {
