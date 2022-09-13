@@ -8,20 +8,173 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"runtime"
+	"strings"
+	"syscall"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/daemon"
+	"github.com/gravitl/netmaker/netclient/global_settings"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/term"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+// JoinViaSso - Handles the Single Sign-On flow on the end point VPN client side
+// Contacts the server provided by the user (and thus specified in cfg.SsoServer)
+// get the URL to authenticate with a provider and shows the user the URL.
+// Then waits for user to authenticate with the URL.
+// Upon user successful auth flow finished - server should return access token to the requested network
+// Otherwise the error message is sent which can be displayed to the user
+func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
+
+	// User must tell us which network he is joining
+	if cfg.Node.Network == "" {
+		return errors.New("no network provided")
+	}
+
+	// Prepare a channel for interrupt
+	// Channel to listen for interrupt signal to terminate gracefully
+	interrupt := make(chan os.Signal, 1)
+	// Notify the interrupt channel for SIGINT
+	signal.Notify(interrupt, os.Interrupt)
+
+	// Web Socket is used, construct the URL accordingly ...
+	socketUrl := fmt.Sprintf("wss://%s/api/oauth/node-handler", cfg.SsoServer)
+	// Dial the netmaker server controller
+	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
+	if err != nil {
+		logger.Log(0, fmt.Sprintf("Error connecting to %s : %s", cfg.Server.API, err.Error()))
+		return err
+	}
+	// Don't forget to close when finished
+	defer conn.Close()
+	// Find and set node MacAddress
+	if cfg.Node.MacAddress == "" {
+		macs, err := ncutils.GetMacAddr()
+		if err != nil {
+			//if macaddress can't be found set to random string
+			cfg.Node.MacAddress = ncutils.MakeRandomString(18)
+		} else {
+			cfg.Node.MacAddress = macs[0]
+		}
+	}
+
+	var loginMsg promodels.LoginMsg
+	loginMsg.Mac = cfg.Node.MacAddress
+	loginMsg.Network = cfg.Node.Network
+	if global_settings.User != "" {
+		fmt.Printf("Continuing with user, %s.\nPlease input password:\n", global_settings.User)
+		pass, err := term.ReadPassword(int(syscall.Stdin))
+		if err != nil || string(pass) == "" {
+			logger.FatalLog("no password provided, exiting")
+		}
+		loginMsg.User = global_settings.User
+		loginMsg.Password = string(pass)
+	}
+
+	msgTx, err := json.Marshal(loginMsg)
+	if err != nil {
+		logger.Log(0, fmt.Sprintf("failed to marshal message %+v", loginMsg))
+		return err
+	}
+	err = conn.WriteMessage(websocket.TextMessage, []byte(msgTx))
+	if err != nil {
+		logger.FatalLog("Error during writing to websocket:", err.Error())
+		return err
+	}
+
+	// if user provided, server will handle authentication
+	if loginMsg.User == "" {
+		// We are going to get instructions on how to authenticate
+		// Wait to receive something from server
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("Error in receive:", err)
+			return err
+		}
+		// Print message from the netmaker controller to the user
+		fmt.Printf("Please visit:\n %s \n to authenticate", string(msg))
+	}
+
+	// Now the user is authenticating and we need to block until received
+	// An answer from the server.
+	// Server waits ~5 min - If takes too long timeout will be triggered by the server
+	done := make(chan struct{})
+	// Following code will run in a separate go routine
+	// it reads a message from the server which either contains 'AccessToken:' string or not
+	// if not - then it contains an Error to display.
+	// if yes - then AccessToken is to be used to proceed joining the network
+	go func() {
+		defer close(done)
+		for {
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				// Error reading a message from the server
+				if !strings.Contains(err.Error(), "normal") {
+					logger.Log(0, "read:", err.Error())
+				}
+				return
+			}
+			// Get the access token from the response
+			if strings.Contains(string(msg), "AccessToken: ") {
+				// Access was granted
+				rxToken := strings.TrimPrefix(string(msg), "AccessToken: ")
+				accesstoken, err := config.ParseAccessToken(rxToken)
+				if err != nil {
+					log.Printf("Failed to parse received access token %s,err=%s\n", accesstoken, err.Error())
+					return
+				}
+
+				cfg.Network = accesstoken.ClientConfig.Network
+				cfg.Node.Network = accesstoken.ClientConfig.Network
+				cfg.AccessKey = accesstoken.ClientConfig.Key
+				cfg.Node.LocalRange = accesstoken.ClientConfig.LocalRange
+				//cfg.Server.Server = accesstoken.ServerConfig.Server
+				cfg.Server.API = accesstoken.APIConnString
+			} else {
+				// Access was not granted. Display a message from the server
+				logger.Log(0, "Message from server:", string(msg))
+				cfg.AccessKey = ""
+				return
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-done:
+			logger.Log(1, "finished")
+			return nil
+		case <-interrupt:
+			log.Println("interrupt")
+			// Cleanly close the connection by sending a close message and then
+			// waiting (with timeout) for the server to close the connection.
+			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "write close:", err.Error())
+				return err
+			}
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+			}
+			return nil
+		}
+	}
+}
 
 // JoinNetwork - helps a client join a network
 func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {

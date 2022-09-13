@@ -1,3 +1,4 @@
+// -build ee
 package main
 
 import (
@@ -19,9 +20,11 @@ import (
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/ee"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -36,11 +39,11 @@ var version = "dev"
 func main() {
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
 	flag.Parse()
-
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
-	initialize()                       // initial db and acls; gen cert if required
+	// fmt.Println(models.ProLogo())
+	initialize() // initial db and acls; gen cert if required
 	setGarbageCollection()
 	setVerbosity()
 	defer database.CloseDB()
@@ -73,14 +76,34 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database")
 	}
 	logger.Log(0, "database successfully connected")
-	logic.SetJWTSecret()
-	if err = logic.AddServerIDIfNotPresent(); err != nil {
+	if err = ee.AddServerIDIfNotPresent(); err != nil {
 		logger.Log(1, "failed to save server ID")
 	}
+
+	logic.SetJWTSecret()
+
+	if err = pro.InitializeGroups(); err != nil {
+		logger.Log(0, "could not initialize default user group, \"*\"")
+	}
+
 	err = logic.TimerCheckpoint()
 	if err != nil {
 		logger.Log(1, "Timer error occurred: ", err.Error())
 	}
+
+	if ee.IsEnterprise() {
+		// == License Handling ==
+		ee.ValidateLicense()
+		if ee.Limits.FreeTier {
+			logger.Log(0, "proceeding with Free Tier license")
+		} else {
+			logger.Log(0, "proceeding with Paid Tier license")
+		}
+		// == End License Handling ==
+
+		ee.AddLicenseHooks()
+	}
+
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {
 		logger.Log(0, "OAuth provider,", authProvider+",", "initialized")

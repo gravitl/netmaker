@@ -134,6 +134,20 @@ func GetFlags(hostname string) []cli.Flag {
 			Usage:   "Access Token for signing up machine with Netmaker server during initial 'add'.",
 		},
 		&cli.StringFlag{
+			Name:    "login-server",
+			Aliases: []string{"l"},
+			EnvVars: []string{"LOGIN_SERVER"},
+			Value:   "",
+			Usage:   "Login server URL, use it for the Single Sign-on along with the network parameter",
+		},
+		&cli.StringFlag{
+			Name:    "user",
+			Aliases: []string{"u"},
+			EnvVars: []string{"USER_NAME"},
+			Value:   "",
+			Usage:   "User name provided upon joins if joining over basic auth is desired.",
+		},
+		&cli.StringFlag{
 			Name:    "localrange",
 			EnvVars: []string{"NETCLIENT_LOCALRANGE"},
 			Value:   "",

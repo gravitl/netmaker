@@ -45,6 +45,9 @@ func InitServerNetclient() error {
 					logger.Log(1, "failed pull for network", network.NetID, ", on server node", currentServerNode.ID)
 				}
 			}
+			if err = logic.InitializeNetUsers(&network); err != nil {
+				logger.Log(0, "something went wrong syncing usrs on network", network.NetID, "-", err.Error())
+			}
 		}
 	}
 

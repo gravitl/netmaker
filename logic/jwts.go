@@ -53,6 +53,30 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 	return "", err
 }
 
+// CreateProUserJWT - creates a user jwt token
+func CreateProUserJWT(username string, networks, groups []string, isadmin bool) (response string, err error) {
+	expirationTime := time.Now().Add(60 * 12 * time.Minute)
+	claims := &models.UserClaims{
+		UserName: username,
+		Networks: networks,
+		IsAdmin:  isadmin,
+		Groups:   groups,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "Netmaker",
+			Subject:   fmt.Sprintf("user|%s", username),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtSecretKey)
+	if err == nil {
+		return tokenString, nil
+	}
+	return "", err
+}
+
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, networks []string, isadmin bool) (response string, err error) {
 	expirationTime := time.Now().Add(60 * 12 * time.Minute)
