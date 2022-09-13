@@ -74,6 +74,7 @@ type ServerConfig struct {
 	BasicAuth             string `yaml:"basic_auth"`
 	LicenseValue          string `yaml:"license_value"`
 	NetmakerAccountID     string `yaml:"netmaker_account_id"`
+	IsEE                  string `yaml:"is_ee"`
 }
 
 // SQLConfig - Generic SQL Config

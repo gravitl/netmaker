@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/ee"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -136,6 +137,10 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	// get params
 
 	scfg := servercfg.GetServerConfig()
+	scfg.IsEE = "no"
+	if ee.IsEnterprise() {
+		scfg.IsEE = "yes"
+	}
 	json.NewEncoder(w).Encode(scfg)
 	//w.WriteHeader(http.StatusOK)
 }
