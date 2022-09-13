@@ -46,7 +46,7 @@ func SetupSystemDDaemon() error {
 Description=Netclient Daemon
 Documentation=https://docs.netmaker.org https://k8s.netmaker.org
 After=network-online.target
-Wants=network-online.target systemd-networkd-wait-online.service
+Wants=network-online.target
 
 [Service]
 User=root
