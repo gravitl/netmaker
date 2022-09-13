@@ -54,7 +54,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #3 Set allowedips: set_allowedips
 	for _, peer := range currentPeers {
 		var (
-			inSameNetwokZone bool
+			inSameNetworkZone bool
 		)
 		if peer.ID == node.ID {
 			//skip yourself
@@ -89,10 +89,10 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if err != nil {
 			return models.PeerUpdate{}, err
 		}
-		if node.Endpoint == peer.Endpoint || (node.PrivateNetworkID != "" && peer.PrivateNetworkID != "" && node.PrivateNetworkID == peer.PrivateNetworkID) {
+		if node.Endpoint == peer.Endpoint || (node.PrivateNetworkID != "" && node.PrivateNetworkID == peer.PrivateNetworkID) {
 			//peer is on same network
 			// set_local
-			inSameNetwokZone = true
+			inSameNetworkZone = true
 			if node.LocalAddress != peer.LocalAddress && peer.LocalAddress != "" {
 				peer.Endpoint = peer.LocalAddress
 				if peer.LocalListenPort != 0 {
@@ -114,7 +114,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if setEndpoint {
 
 			var setUDPPort = false
-			if peer.UDPHolePunch == "yes" && !inSameNetwokZone && errN == nil && CheckEndpoint(udppeers[peer.PublicKey]) {
+			if peer.UDPHolePunch == "yes" && !inSameNetworkZone && errN == nil && CheckEndpoint(udppeers[peer.PublicKey]) {
 				endpointstring := udppeers[peer.PublicKey]
 				endpointarr := strings.Split(endpointstring, ":")
 				if len(endpointarr) == 2 {
@@ -128,7 +128,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
 			// or, if port is for some reason zero use the LocalListenPort
 			// but only do this if LocalListenPort is not zero
-			if ((peer.UDPHolePunch == "yes" && !setUDPPort) || inSameNetwokZone || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
+			if ((peer.UDPHolePunch == "yes" && !setUDPPort) || inSameNetworkZone || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
 				peer.ListenPort = peer.LocalListenPort
 			}
 			endpoint := peer.Endpoint + ":" + strconv.FormatInt(int64(peer.ListenPort), 10)
