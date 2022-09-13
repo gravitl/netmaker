@@ -17,6 +17,12 @@ func AddProNetDefaults(network *models.Network) {
 		}
 		network.ProSettings = &newProSettings
 	}
+	if network.ProSettings.AllowedUsers == nil {
+		network.ProSettings.AllowedUsers = []string{}
+	}
+	if network.ProSettings.AllowedGroups == nil {
+		network.ProSettings.AllowedGroups = []string{}
+	}
 }
 
 // isUserGroupAllowed - checks if a user group is allowed on a network
