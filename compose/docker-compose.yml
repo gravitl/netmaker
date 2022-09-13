@@ -111,9 +111,9 @@ services:
     restart: unless-stopped
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/dynamic-security.json:/mosquitto/config/dynamic-security.json
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-      - shared_certs:/mosquitto/certs
     expose:
       - "8883"
     labels:
