@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -89,6 +90,10 @@ func SetDefaults() error {
 		return err
 	}
 
+	if err := setNetworkDefaults(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -107,6 +112,20 @@ func setNodeDefaults() error {
 			if _, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID), acls.Allowed); err != nil {
 				logger.Log(1, "could not create a default ACL for node", nodes[i].ID)
 			}
+		}
+	}
+	return nil
+}
+
+func setNetworkDefaults() error {
+	// upgraded systems will not have NetworkUsers's set, which is why we need this function
+	networks, err := logic.GetNetworks()
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+	for _, net := range networks {
+		if err = pro.InitializeNetworkUsers(net.NetID); err != nil {
+			logger.Log(0, "could not initialize NetworkUsers on network ", net.NetID)
 		}
 	}
 	return nil
