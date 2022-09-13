@@ -131,9 +131,6 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			if ((peer.UDPHolePunch == "yes" && !setUDPPort) || inSameNetwokZone || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
 				peer.ListenPort = peer.LocalListenPort
 			}
-			if inSameNetwokZone {
-				peer.ListenPort = peer.LocalListenPort
-			}
 			endpoint := peer.Endpoint + ":" + strconv.FormatInt(int64(peer.ListenPort), 10)
 			address, err = net.ResolveUDPAddr("udp", endpoint)
 			if err != nil {
