@@ -87,8 +87,6 @@ func Daemon() error {
 
 func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
-	wg.Add(1)
-	go Checkin(ctx, wg)
 	serverSet := make(map[string]bool)
 	networks, _ := ncutils.GetSystemNetworks()
 	for _, network := range networks {
@@ -116,6 +114,8 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 			go messageQueue(ctx, wg, &cfg)
 		}
 	}
+	wg.Add(1)
+	go Checkin(ctx, wg)
 	return cancel
 }
 
@@ -230,6 +230,33 @@ func NewTLSConfig(server string) (*tls.Config, error) {
 		InsecureSkipVerify: false,
 	}, nil
 
+}
+
+// func setMQTTSingenton creates a connection to broker for single use (ie to publish a message)
+// only to be called from cli (eg. connect/disconnect, join, leave) and not from daemon ---
+func setupMQTTSingleton(cfg *config.ClientConfig) error {
+	opts := mqtt.NewClientOptions()
+	server := cfg.Server.Server
+	port := cfg.Server.MQPort
+	opts.AddBroker("ssl://" + server + ":" + port)
+	tlsConfig, err := NewTLSConfig(server)
+	if err != nil {
+		logger.Log(0, "failed to get TLS config for", server, err.Error())
+		return err
+	}
+	opts.SetTLSConfig(tlsConfig)
+	mqclient = mqtt.NewClient(opts)
+	var connecterr error
+	opts.SetClientID(ncutils.MakeRandomString(23))
+	if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
+		logger.Log(0, "unable to connect to broker, retrying ...")
+		if token.Error() == nil {
+			connecterr = errors.New("connect timeout")
+		} else {
+			connecterr = token.Error()
+		}
+	}
+	return connecterr
 }
 
 // setupMQTT creates a connection to broker and returns client

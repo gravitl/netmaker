@@ -99,8 +99,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename, confPath string, isConnec
 		return err
 	}
 	if node.PostDown != "" {
-		runcmds := strings.Split(node.PostDown, "; ")
-		_ = ncutils.RunCmds(runcmds, false)
+		ncutils.RunCmd(node.PostDown, false)
 	}
 	// set MTU of node interface
 	if _, err := ncutils.RunCmd(ipExec+" link set mtu "+strconv.Itoa(int(node.MTU))+" up dev "+ifacename, true); err != nil {
@@ -108,8 +107,7 @@ func ApplyWithoutWGQuick(node *models.Node, ifacename, confPath string, isConnec
 		return err
 	}
 	if node.PostUp != "" {
-		runcmds := strings.Split(node.PostUp, "; ")
-		_ = ncutils.RunCmds(runcmds, true)
+		ncutils.RunCmd(node.PostUp, false)
 	}
 	if node.Address6 != "" {
 		logger.Log(1, "adding address: ", node.Address6)
@@ -139,8 +137,7 @@ func RemoveWithoutWGQuick(ifacename string) error {
 	nodeconf, err := config.ReadConfig(network)
 	if nodeconf != nil && err == nil {
 		if nodeconf.Node.PostDown != "" {
-			runcmds := strings.Split(nodeconf.Node.PostDown, "; ")
-			_ = ncutils.RunCmds(runcmds, false)
+			ncutils.RunCmd(nodeconf.Node.PostDown, false)
 		}
 	} else if err != nil {
 		logger.Log(1, "error retrieving config: ", err.Error())

@@ -41,12 +41,15 @@ func networkHandlers(r *mux.Router) {
 
 // swagger:route GET /api/networks networks getNetworks
 //
-// Lists all networks
+// Lists all networks.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: getNetworksSliceResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	headerNetworks := r.Header.Get("networks")
@@ -87,14 +90,17 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allnetworks)
 }
 
-// swagger:route GET /api/networks networks getNetwork
+// swagger:route GET /api/networks/{networkname} networks getNetwork
 //
-// Get a network
+// Get a network.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: networkBodyResponse
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -123,6 +129,9 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: networkBodyResponse
 func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -154,12 +163,15 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route PUT /api/networks/{networkname} networks updateNetwork
 //
-// Update a network
+// Update a network.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: networkBodyResponse
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -256,12 +268,15 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route PUT /api/networks/{networkname}/nodelimit networks updateNetworkNodeLimit
 //
-// Update a network's node limit
+// Update a network's node limit.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: networkBodyResponse
 func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -309,6 +324,9 @@ func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: aclContainerResponse
 func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -364,6 +382,9 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: aclContainerResponse
 func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -389,6 +410,9 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: stringJSONResponse
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -413,12 +437,15 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route POST /api/networks networks createNetwork
 //
-// Create a network
+// Create a network.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: networkBodyResponse
 func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -478,6 +505,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 // 		Security:
 //   		oauth
 //
+//		Responses:
+//			200: accessKeyBodyResponse
+//
 // BEGIN KEY MANAGEMENT SECTION
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -519,6 +549,9 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: accessKeySliceBodyResponse
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -538,7 +571,7 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(keys)
 }
 
-// swagger:route GET /api/networks/{networkname}/keys/{name} networks deleteAccessKey
+// swagger:route DELETE /api/networks/{networkname}/keys/{name} networks deleteAccessKey
 //
 // Delete a network access key.
 //
@@ -546,6 +579,10 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200:
+//			*: stringJSONResponse
 //
 // delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {

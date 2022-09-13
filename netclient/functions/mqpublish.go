@@ -26,13 +26,16 @@ import (
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
+	checkin()
+	ticker := time.NewTicker(time.Second * 60)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Log(0, "checkin routine closed")
 			return
 			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
-		case <-time.After(time.Second * 60):
+		case <-ticker.C:
 			checkin()
 		}
 	}
@@ -123,7 +126,15 @@ func PublishNodeUpdate(nodeCfg *config.ClientConfig) error {
 
 // Hello -- ping the broker to let server know node it's alive and well
 func Hello(nodeCfg *config.ClientConfig) {
-	if err := publish(nodeCfg, fmt.Sprintf("ping/%s", nodeCfg.Node.ID), []byte(ncutils.Version), 0); err != nil {
+	var checkin models.NodeCheckin
+	checkin.Version = ncutils.Version
+	checkin.Connected = nodeCfg.Node.Connected
+	data, err := json.Marshal(checkin)
+	if err != nil {
+		logger.Log(0, "unable to marshal checkin data", err.Error())
+		return
+	}
+	if err := publish(nodeCfg, fmt.Sprintf("ping/%s", nodeCfg.Node.ID), data, 0); err != nil {
 		logger.Log(0, fmt.Sprintf("Network: %s error publishing ping, %v", nodeCfg.Node.Network, err))
 		logger.Log(0, "running pull on "+nodeCfg.Node.Network+" to reconnect")
 		_, err := Pull(nodeCfg.Node.Network, true)

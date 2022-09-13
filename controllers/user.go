@@ -39,6 +39,8 @@ func userHandlers(r *mux.Router) {
 // 		Security:
 //   		oauth
 //
+//		Responses:
+//			200: successResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
@@ -103,6 +105,9 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: successResponse
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -140,6 +145,9 @@ func GetUserInternal(username string) (models.User, error) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -159,12 +167,15 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route GET /api/users nodes getUsers
 //
-// Get all users
+// Get all users.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -189,6 +200,9 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -222,6 +236,9 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -246,12 +263,15 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route PUT /api/users/networks/{username} nodes updateUserNetworks
 //
-// Updates the networks of the given user
+// Updates the networks of the given user.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -293,6 +313,9 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -335,12 +358,15 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route PUT /api/users/{username}/adm nodes updateUserAdm
 //
-// Updates the given admin user's info (as long as the user is an admin)
+// Updates the given admin user's info (as long as the user is an admin).
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -390,6 +416,9 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

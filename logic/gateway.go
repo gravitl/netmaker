@@ -14,6 +14,14 @@ import (
 
 // CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
+	for i, cidr := range gateway.Ranges {
+		normalized, err := NormalizeCIDR(cidr)
+		if err != nil {
+			return models.Node{}, err
+		}
+		gateway.Ranges[i] = normalized
+
+	}
 	node, err := GetNodeByID(gateway.NodeID)
 	if err != nil {
 		return models.Node{}, err
@@ -325,9 +333,6 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 		postUp += "nft add table nat ; "
 		postUp += "nft 'add chain ip nat prerouting { type nat hook prerouting priority 0 ;}' ; "
 		postUp += "nft 'add chain ip nat postrouting { type nat hook postrouting priority 0 ;}' ; "
-		for _, networkCIDR := range gatewayranges {
-			postUp += "nft add rule nat postrouting iifname " + networkInterface + " oifname " + gatewayInterface + " ip saddr " + networkCIDR + " masquerade ; "
-		}
 
 		postDown += "nft flush table filter ; "
 

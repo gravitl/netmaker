@@ -99,7 +99,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route GET /api/oauth/login nodes HandleAuthLogin
 //
-// Handles OAuth login
+// Handles OAuth login.
 //
 //		Schemes: https
 //

@@ -70,6 +70,20 @@ func DeleteNetwork(network string) error {
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
 
+	if network.AddressRange != "" {
+		normalizedRange, err := NormalizeCIDR(network.AddressRange)
+		if err != nil {
+			return models.Network{}, err
+		}
+		network.AddressRange = normalizedRange
+	}
+	if network.AddressRange6 != "" {
+		normalizedRange, err := NormalizeCIDR(network.AddressRange6)
+		if err != nil {
+			return models.Network{}, err
+		}
+		network.AddressRange6 = normalizedRange
+	}
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
@@ -659,8 +673,7 @@ func deleteInterface(ifacename string, postdown string) error {
 		}
 		_, err = ncutils.RunCmd(ipExec+" link del "+ifacename, false)
 		if postdown != "" {
-			runcmds := strings.Split(postdown, "; ")
-			err = ncutils.RunCmds(runcmds, false)
+			_, err = ncutils.RunCmd(postdown, false)
 		}
 	}
 	return err

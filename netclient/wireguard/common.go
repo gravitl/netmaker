@@ -335,22 +335,31 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 	//	wireguard.Section(section_interface).Key("DNS").SetValue(cfg.Server.CoreDNSAddr)
 	//}
 	//need to split postup/postdown because ini lib adds a ` and the ` breaks freebsd
+	//works fine on others
 	if node.PostUp != "" {
-		parts := strings.Split(node.PostUp, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostUp").SetValue(part)
+		if node.OS == "freebsd" {
+			parts := strings.Split(node.PostUp, " ; ")
+			for i, part := range parts {
+				if i == 0 {
+					wireguard.Section(section_interface).Key("PostUp").SetValue(part)
+				}
+				wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
 			}
-			wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
+		} else {
+			wireguard.Section(section_interface).Key("PostUp").SetValue((node.PostUp))
 		}
 	}
 	if node.PostDown != "" {
-		parts := strings.Split(node.PostDown, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostDown").SetValue(part)
+		if node.OS == "freebsd" {
+			parts := strings.Split(node.PostDown, " ; ")
+			for i, part := range parts {
+				if i == 0 {
+					wireguard.Section(section_interface).Key("PostDown").SetValue(part)
+				}
+				wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
 			}
-			wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
+		} else {
+			wireguard.Section(section_interface).Key("PostUp").SetValue((node.PostUp))
 		}
 	}
 	if node.MTU != 0 {
