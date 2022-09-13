@@ -128,7 +128,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
 			// or, if port is for some reason zero use the LocalListenPort
 			// but only do this if LocalListenPort is not zero
-			if ((peer.UDPHolePunch == "yes" && !setUDPPort) || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
+			if ((peer.UDPHolePunch == "yes" && !setUDPPort) || inSameNetwokZone || peer.ListenPort == 0) && peer.LocalListenPort != 0 {
 				peer.ListenPort = peer.LocalListenPort
 			}
 
