@@ -175,6 +175,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
 	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
+	go mq.DynamicSecManager(ctx)
 	go mq.Keepalive(ctx)
 	go logic.ManageZombies(ctx)
 	quit := make(chan os.Signal, 1)

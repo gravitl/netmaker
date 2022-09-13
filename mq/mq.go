@@ -8,7 +8,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 // KEEPALIVE_TIMEOUT - time in seconds for timeout
@@ -26,13 +25,15 @@ var mqclient mqtt.Client
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
 	opts := mqtt.NewClientOptions()
-	broker, secure := servercfg.GetMessageQueueEndpoint()
+	broker, _ := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
-	if secure {
-		opts.SetTLSConfig(&serverctl.TlsConfig)
-	}
+	// if secure {
+	// 	opts.SetTLSConfig(&serverctl.TlsConfig)
+	// }
+	opts.SetUsername(mqDynSecAdmin)
+	opts.SetPassword(defaultAdminPassword)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(time.Second << 2)
