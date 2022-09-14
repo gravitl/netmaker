@@ -95,6 +95,7 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 				Nodes:       netUser.Nodes,
 				Clients:     netUser.Clients,
 			}
+			newData.User.SetDefaults()
 			// check network level permissions
 			if doesNetworkAllow := pro.IsUserAllowed(&networks[i], networkUserName, u.Groups); doesNetworkAllow || netUser.AccessLevel == pro.NET_ADMIN {
 				netNodes, err := logic.GetNetworkNodes(netID)

@@ -49,7 +49,7 @@ func CreateNetworkUser(network *models.Network, user *promodels.NetworkUser) err
 	if err != nil {
 		return err
 	}
-
+	user.SetDefaults()
 	currentUsers.Add(user)
 	data, err := json.Marshal(currentUsers)
 	if err != nil {

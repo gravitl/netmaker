@@ -25,3 +25,13 @@ func (N NetworkUserMap) Delete(ID NetworkUserID) {
 func (N NetworkUserMap) Add(User *NetworkUser) {
 	N[User.ID] = *User
 }
+
+// SetDefaults - adds the defaults to network user
+func (U *NetworkUser) SetDefaults() {
+	if U.Clients == nil {
+		U.Clients = []string{}
+	}
+	if U.Nodes == nil {
+		U.Nodes = []string{}
+	}
+}
