@@ -3,7 +3,6 @@ package logic
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -169,8 +168,8 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			for i := range idsAndAddr {
 				peerMap[idsAndAddr[i].ID] = idsAndAddr[i]
 			}
-		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
+		} else if !database.IsEmptyRecord(err) {
+			logger.Log(1, "error retrieving external clients:", err.Error())
 		}
 	}
 
