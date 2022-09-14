@@ -58,7 +58,7 @@ func TestNetworkProSettings(t *testing.T) {
 		}
 		AddProNetDefaults(&network)
 		assert.NotNil(t, network.ProSettings)
-		assert.Nil(t, network.ProSettings.AllowedGroups)
-		assert.Nil(t, network.ProSettings.AllowedUsers)
+		assert.Equal(t, len(network.ProSettings.AllowedGroups), 1)
+		assert.Equal(t, len(network.ProSettings.AllowedUsers), 0)
 	})
 }

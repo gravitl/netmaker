@@ -20,7 +20,6 @@ import (
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/ee"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -76,7 +75,7 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database")
 	}
 	logger.Log(0, "database successfully connected")
-	if err = ee.AddServerIDIfNotPresent(); err != nil {
+	if err = logic.AddServerIDIfNotPresent(); err != nil {
 		logger.Log(1, "failed to save server ID")
 	}
 
@@ -91,18 +90,7 @@ func initialize() { // Client Mode Prereq Check
 		logger.Log(1, "Timer error occurred: ", err.Error())
 	}
 
-	if ee.IsEnterprise() {
-		// == License Handling ==
-		ee.ValidateLicense()
-		if ee.Limits.FreeTier {
-			logger.Log(0, "proceeding with Free Tier license")
-		} else {
-			logger.Log(0, "proceeding with Paid Tier license")
-		}
-		// == End License Handling ==
-
-		ee.AddLicenseHooks()
-	}
+	logic.EnterpriseCheck()
 
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {

@@ -21,13 +21,13 @@ import (
 
 func extClientHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/extclients", securityCheck(false, http.HandlerFunc(getAllExtClients))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}", securityCheck(false, http.HandlerFunc(getNetworkExtClients))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", securityCheck(false, http.HandlerFunc(getExtClient))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", netUserSecurityCheck(false, true, http.HandlerFunc(getExtClientConf))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", netUserSecurityCheck(false, true, http.HandlerFunc(updateExtClient))).Methods("PUT")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", netUserSecurityCheck(false, true, http.HandlerFunc(deleteExtClient))).Methods("DELETE")
-	r.HandleFunc("/api/extclients/{network}/{nodeid}", netUserSecurityCheck(false, true, checkFreeTierLimits(clients_l, http.HandlerFunc(createExtClient)))).Methods("POST")
+	r.HandleFunc("/api/extclients", logic.SecurityCheck(false, http.HandlerFunc(getAllExtClients))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}", logic.SecurityCheck(false, http.HandlerFunc(getNetworkExtClients))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(getExtClient))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(getExtClientConf))).Methods("GET")
+	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(updateExtClient))).Methods("PUT")
+	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(deleteExtClient))).Methods("DELETE")
+	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.NetUserSecurityCheck(false, true, checkFreeTierLimits(clients_l, http.HandlerFunc(createExtClient)))).Methods("POST")
 }
 
 func checkIngressExists(nodeID string) bool {
@@ -62,7 +62,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ext clients for network [%s]: %v", network, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -96,16 +96,16 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	if marshalErr != nil {
 		logger.Log(0, "error unmarshalling networks: ",
 			marshalErr.Error())
-		returnErrorResponse(w, r, formatError(marshalErr, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(marshalErr, "internal"))
 		return
 	}
 	clients := []models.ExtClient{}
 	var err error
-	if networksSlice[0] == ALL_NETWORK_ACCESS {
+	if networksSlice[0] == logic.ALL_NETWORK_ACCESS {
 		clients, err = functions.GetAllExtClients()
 		if err != nil && !database.IsEmptyRecord(err) {
 			logger.Log(0, "failed to get all extclients: ", err.Error())
-			returnErrorResponse(w, r, formatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	} else {
@@ -146,7 +146,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to get extclient for [%s] on network [%s]: %v",
 			clientid, network, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -177,7 +177,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to get extclient for [%s] on network [%s]: %v",
 			clientid, networkid, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -185,14 +185,14 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ingress gateway node [%s] info: %v", client.IngressGatewayID, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	network, err := logic.GetParentNetwork(client.Network)
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "Could not retrieve Ingress Gateway Network", client.Network)
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -258,7 +258,7 @@ Endpoint = %s
 		bytes, err := qrcode.Encode(config, qrcode.Medium, 220)
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to encode qr code: ", err.Error())
-			returnErrorResponse(w, r, formatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		w.Header().Set("Content-Type", "image/png")
@@ -266,7 +266,7 @@ Endpoint = %s
 		_, err = w.Write(bytes)
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "response writer error (qr) ", err.Error())
-			returnErrorResponse(w, r, formatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		return
@@ -280,7 +280,7 @@ Endpoint = %s
 		_, err := fmt.Fprint(w, config)
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "response writer error (file) ", err.Error())
-			returnErrorResponse(w, r, formatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		}
 		return
 	}
@@ -310,7 +310,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		err := errors.New("ingress does not exist")
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create extclient on network [%s]: %v", networkName, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -329,7 +329,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ingress gateway node [%s] info: %v", nodeid, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
@@ -345,7 +345,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create new ext client on network [%s]: %v", networkName, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -355,7 +355,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		if isAdmin, err = checkProClientAccess(userID, extclient.ClientID, &parentNetwork); err != nil {
 			logger.Log(0, userID, "attempted to create a client on network", networkName, "but they lack access")
 			logic.DeleteExtClient(networkName, extclient.ClientID)
-			returnErrorResponse(w, r, formatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		if !isAdmin {
@@ -400,7 +400,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	clientid := params["clientid"]
@@ -410,7 +410,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get record key for client [%s], network [%s]: %v",
 				clientid, network, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
@@ -418,13 +418,13 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to fetch  ext client record key [%s] from db for client [%s], network [%s]: %v",
 				key, clientid, network, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if err = json.Unmarshal([]byte(data), &oldExtClient); err != nil {
 		logger.Log(0, "error unmarshalling extclient: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -435,7 +435,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		userID := r.Header.Get("user")
 		_, doesOwn := doesUserOwnClient(userID, params["clientid"], networkName)
 		if !doesOwn {
-			returnErrorResponse(w, r, formatError(fmt.Errorf("user not permitted"), "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "internal"))
 			return
 		}
 	}
@@ -457,7 +457,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to update ext client [%s], network [%s]: %v",
 				clientid, network, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", newExtClient.ClientID)
@@ -497,14 +497,14 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		err = errors.New("Could not delete extclient " + params["clientid"])
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete extclient [%s],network [%s]: %v", clientid, network, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	ingressnode, err := logic.GetNodeByID(extclient.IngressGatewayID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ingress gateway node [%s] info: %v", extclient.IngressGatewayID, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -513,7 +513,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		userID, clientID, networkName := r.Header.Get("user"), params["clientid"], params["network"]
 		_, doesOwn := doesUserOwnClient(userID, clientID, networkName)
 		if !doesOwn {
-			returnErrorResponse(w, r, formatError(fmt.Errorf("user not permitted"), "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "internal"))
 			return
 		}
 	}
@@ -531,7 +531,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete extclient [%s],network [%s]: %v", clientid, network, err))
 		err = errors.New("Could not delete extclient " + params["clientid"])
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -542,7 +542,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])
-	returnSuccessResponse(w, r, params["clientid"]+" deleted.")
+	logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }
 
 func checkProClientAccess(username, clientID string, network *models.Network) (bool, error) {

@@ -7,10 +7,11 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 )
 
 func loggerHandlers(r *mux.Router) {
-	r.HandleFunc("/api/logs", securityCheck(true, http.HandlerFunc(getLogs))).Methods("GET")
+	r.HandleFunc("/api/logs", logic.SecurityCheck(true, http.HandlerFunc(getLogs))).Methods("GET")
 }
 
 func getLogs(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,4 @@
-package controller
+package logic
 
 import (
 	"encoding/json"
@@ -7,8 +7,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
@@ -16,16 +14,20 @@ import (
 )
 
 const (
+	// ALL_NETWORK_ACCESS - represents all networks
+	ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
+
 	master_uname     = "masteradministrator"
-	unauthorized_msg = "unauthorized"
-	unauthorized_err = models.Error(unauthorized_msg)
+	Unauthorized_Msg = "unauthorized"
+	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
 
-func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
+// SecurityCheck - Check if user has appropriate permissions
+func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: unauthorized_msg,
+			Code: http.StatusUnauthorized, Message: Unauthorized_Msg,
 		}
 
 		var params = mux.Vars(r)
@@ -44,14 +46,14 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		if len(networkName) == 0 {
 			networkName = params["network"]
 		}
-		networks, username, err := SecurityCheck(reqAdmin, networkName, bearerToken)
+		networks, username, err := UserPermissions(reqAdmin, networkName, bearerToken)
 		if err != nil {
-			returnErrorResponse(w, r, errorResponse)
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 		networksJson, err := json.Marshal(&networks)
 		if err != nil {
-			returnErrorResponse(w, r, errorResponse)
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 		r.Header.Set("user", username)
@@ -60,7 +62,8 @@ func securityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
-func netUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.HandlerFunc {
+// NetUserSecurityCheck - Check if network user has appropriate permissions
+func NetUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: "unauthorized",
@@ -77,7 +80,7 @@ func netUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.Handl
 		var authToken = ""
 
 		if len(tokenSplit) < 2 {
-			returnErrorResponse(w, r, errorResponse)
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		} else {
 			authToken = tokenSplit[1]
@@ -91,9 +94,9 @@ func netUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.Handl
 			return
 		}
 
-		userName, _, isadmin, err := logic.VerifyUserToken(authToken)
+		userName, _, isadmin, err := VerifyUserToken(authToken)
 		if err != nil {
-			returnErrorResponse(w, r, errorResponse)
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 		r.Header.Set("user", userName)
@@ -113,15 +116,15 @@ func netUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.Handl
 			}
 			u, err := pro.GetNetworkUser(network, promodels.NetworkUserID(userName))
 			if err != nil {
-				returnErrorResponse(w, r, errorResponse)
+				ReturnErrorResponse(w, r, errorResponse)
 				return
 			}
 			if u.AccessLevel > necessaryAccess {
-				returnErrorResponse(w, r, errorResponse)
+				ReturnErrorResponse(w, r, errorResponse)
 				return
 			}
 		} else if netUserName != userName {
-			returnErrorResponse(w, r, errorResponse)
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 
@@ -129,14 +132,14 @@ func netUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.Handl
 	}
 }
 
-// SecurityCheck - checks token stuff
-func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, string, error) {
+// UserPermissions - checks token stuff
+func UserPermissions(reqAdmin bool, netname string, token string) ([]string, string, error) {
 	var tokenSplit = strings.Split(token, " ")
 	var authToken = ""
 	userNetworks := []string{}
 
 	if len(tokenSplit) < 2 {
-		return userNetworks, "", unauthorized_err
+		return userNetworks, "", Unauthorized_Err
 	} else {
 		authToken = tokenSplit[1]
 	}
@@ -144,12 +147,12 @@ func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, strin
 	if authenticateMaster(authToken) {
 		return []string{ALL_NETWORK_ACCESS}, master_uname, nil
 	}
-	username, networks, isadmin, err := logic.VerifyUserToken(authToken)
+	username, networks, isadmin, err := VerifyUserToken(authToken)
 	if err != nil {
-		return nil, username, unauthorized_err
+		return nil, username, Unauthorized_Err
 	}
 	if !isadmin && reqAdmin {
-		return nil, username, unauthorized_err
+		return nil, username, Unauthorized_Err
 	}
 	userNetworks = networks
 	if isadmin {
@@ -157,10 +160,10 @@ func SecurityCheck(reqAdmin bool, netname string, token string) ([]string, strin
 	}
 	// check network admin access
 	if len(netname) > 0 && (!authenticateNetworkUser(netname, userNetworks) || len(userNetworks) == 0) {
-		return nil, username, unauthorized_err
+		return nil, username, Unauthorized_Err
 	}
 	if !pro.IsUserNetAdmin(netname, username) {
-		return nil, "", unauthorized_err
+		return nil, "", Unauthorized_Err
 	}
 	return userNetworks, username, nil
 }
@@ -171,11 +174,11 @@ func authenticateMaster(tokenString string) bool {
 }
 
 func authenticateNetworkUser(network string, userNetworks []string) bool {
-	networkexists, err := functions.NetworkExists(network)
+	networkexists, err := NetworkExists(network)
 	if (err != nil && !database.IsEmptyRecord(err)) || !networkexists {
 		return false
 	}
-	return logic.StringSliceContains(userNetworks, network)
+	return StringSliceContains(userNetworks, network)
 }
 
 //Consider a more secure way of setting master key
@@ -187,15 +190,15 @@ func authenticateDNSToken(tokenString string) bool {
 	return tokens[1] == servercfg.GetDNSKey()
 }
 
-func continueIfUserMatch(next http.Handler) http.HandlerFunc {
+func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: unauthorized_msg,
+			Code: http.StatusUnauthorized, Message: Unauthorized_Msg,
 		}
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]
 		if requestedUser != r.Header.Get("user") {
-			returnErrorResponse(w, r, errorResponse)
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -1,4 +1,4 @@
-package controller
+package ee_controllers
 
 import (
 	"encoding/json"
@@ -10,10 +10,11 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-func metricHandlers(r *mux.Router) {
-	r.HandleFunc("/api/metrics/{network}/{nodeid}", securityCheck(true, http.HandlerFunc(getNodeMetrics))).Methods("GET")
-	r.HandleFunc("/api/metrics/{network}", securityCheck(true, http.HandlerFunc(getNetworkNodesMetrics))).Methods("GET")
-	r.HandleFunc("/api/metrics", securityCheck(true, http.HandlerFunc(getAllMetrics))).Methods("GET")
+// MetricHandlers - How we handle EE Metrics
+func MetricHandlers(r *mux.Router) {
+	r.HandleFunc("/api/metrics/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(getNodeMetrics))).Methods("GET")
+	r.HandleFunc("/api/metrics/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodesMetrics))).Methods("GET")
+	r.HandleFunc("/api/metrics", logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics))).Methods("GET")
 }
 
 // get the metrics of a given node
@@ -28,7 +29,7 @@ func getNodeMetrics(w http.ResponseWriter, r *http.Request) {
 	metrics, err := logic.GetMetrics(nodeID)
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of node", nodeID, err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -49,7 +50,7 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 	networkNodes, err := logic.GetNetworkNodes(network)
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of all nodes in network", network, err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -79,7 +80,7 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of all nodes on server", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 

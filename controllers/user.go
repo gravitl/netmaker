@@ -25,13 +25,13 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods("GET")
 	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
-	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(updateUser)))).Methods("PUT")
-	r.HandleFunc("/api/users/networks/{username}", securityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}/adm", securityCheck(true, http.HandlerFunc(updateUserAdm))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}", securityCheck(true, checkFreeTierLimits(users_l, http.HandlerFunc(createUser)))).Methods("POST")
-	r.HandleFunc("/api/users/{username}", securityCheck(true, http.HandlerFunc(deleteUser))).Methods("DELETE")
-	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(getUser)))).Methods("GET")
-	r.HandleFunc("/api/users", securityCheck(true, http.HandlerFunc(getUsers))).Methods("GET")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods("PUT")
+	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}/adm", logic.SecurityCheck(true, http.HandlerFunc(updateUserAdm))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(users_l, http.HandlerFunc(createUser)))).Methods("POST")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods("DELETE")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods("GET")
+	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods("GET")
 	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
 	r.HandleFunc("/api/oauth/node-handler", socketHandler)
@@ -59,7 +59,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	if !servercfg.IsBasicAuthEnabled() {
-		returnErrorResponse(response, request, formatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		logic.ReturnErrorResponse(response, request, logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
 		return
 	}
 
@@ -69,7 +69,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if decoderErr != nil {
 		logger.Log(0, "error decoding request body: ",
 			decoderErr.Error())
-		returnErrorResponse(response, request, errorResponse)
+		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
 	username := authRequest.UserName
@@ -77,14 +77,14 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "user validation failed: ",
 			err.Error())
-		returnErrorResponse(response, request, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "badrequest"))
 		return
 	}
 
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
 		logger.Log(0, username, "jwt token is empty")
-		returnErrorResponse(response, request, formatError(errors.New("no token returned"), "internal"))
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("no token returned"), "internal"))
 		return
 	}
 
@@ -102,7 +102,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if jsonError != nil {
 		logger.Log(0, username,
 			"error marshalling resp: ", err.Error())
-		returnErrorResponse(response, request, errorResponse)
+		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
 	logger.Log(2, username, "was authenticated")
@@ -128,7 +128,7 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 	hasadmin, err := logic.HasAdmin()
 	if err != nil {
 		logger.Log(0, "failed to check for admin: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -171,7 +171,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
@@ -197,7 +197,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -226,12 +226,12 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 
 		logger.Log(0, admin.UserName, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
 	if !servercfg.IsBasicAuthEnabled() {
-		returnErrorResponse(w, r, formatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
 		return
 	}
 
@@ -239,7 +239,7 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, admin.UserName, "failed to create admin: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
@@ -266,7 +266,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, user.UserName, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
@@ -274,7 +274,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, user.UserName, "error creating new user: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, user.UserName, "was created")
@@ -302,7 +302,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user networks: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	var userchange models.User
@@ -311,7 +311,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	err = logic.UpdateUserNetworks(userchange.Networks, userchange.Groups, userchange.IsAdmin, &models.ReturnUser{
@@ -324,7 +324,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user networks: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, username, "status was updated")
@@ -352,13 +352,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if auth.IsOauthUser(&user) == nil {
 		err := fmt.Errorf("cannot update user info for oauth user %s", username)
 		logger.Log(0, err.Error())
-		returnErrorResponse(w, r, formatError(err, "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 	var userchange models.User
@@ -367,7 +367,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	userchange.Networks = nil
@@ -375,7 +375,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, username, "was updated")
@@ -401,13 +401,13 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	username := params["username"]
 	user, err := GetUserInternal(username)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if auth.IsOauthUser(&user) != nil {
 		err := fmt.Errorf("cannot update user info for oauth user %s", username)
 		logger.Log(0, err.Error())
-		returnErrorResponse(w, r, formatError(err, "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 	var userchange models.User
@@ -416,18 +416,18 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if !user.IsAdmin {
 		logger.Log(0, username, "not an admin user")
-		returnErrorResponse(w, r, formatError(errors.New("not a admin user"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not a admin user"), "badrequest"))
 	}
 	user, err = logic.UpdateUser(userchange, user)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user (admin) info: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, username, "was updated (admin)")
@@ -458,12 +458,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	} else if !success {
 		err := errors.New("delete unsuccessful")
 		logger.Log(0, username, err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 

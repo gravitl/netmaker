@@ -1,7 +1,11 @@
+//go:build ee
+// +build ee
+
 package ee
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,10 +15,19 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/crypto/nacl/box"
 )
+
+const (
+	db_license_key = "netmaker-id-key-pair"
+)
+
+type apiServerConf struct {
+	PrivateKey []byte `json:"private_key" binding:"required"`
+	PublicKey  []byte `json:"public_key" binding:"required"`
+}
 
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
@@ -39,7 +52,7 @@ func ValidateLicense() error {
 		logger.FatalLog(errValidation.Error())
 	}
 
-	tempPubKey, tempPrivKey, err := pro.FetchApiServerKeys()
+	tempPubKey, tempPrivKey, err := FetchApiServerKeys()
 	if err != nil {
 		logger.FatalLog(errValidation.Error())
 	}
@@ -88,9 +101,57 @@ func ValidateLicense() error {
 	if Limits.FreeTier {
 		Limits.Networks = 3
 	}
+	setControllerLimits()
 
 	logger.Log(0, "License validation succeeded!")
 	return nil
+}
+
+// FetchApiServerKeys - fetches netmaker license keys for identification
+// as well as secure communication with API
+// if none present, it generates a new pair
+func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
+	var returnData = apiServerConf{}
+	currentData, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, db_license_key)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return nil, nil, err
+	} else if database.IsEmptyRecord(err) { // need to generate a new identifier pair
+		pub, priv, err = box.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, nil, err
+		}
+		pubBytes, err := ncutils.ConvertKeyToBytes(pub)
+		if err != nil {
+			return nil, nil, err
+		}
+		privBytes, err := ncutils.ConvertKeyToBytes(priv)
+		if err != nil {
+			return nil, nil, err
+		}
+		returnData.PrivateKey = privBytes
+		returnData.PublicKey = pubBytes
+		record, err := json.Marshal(&returnData)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err = database.Insert(db_license_key, string(record), database.SERVERCONF_TABLE_NAME); err != nil {
+			return nil, nil, err
+		}
+	} else {
+		if err = json.Unmarshal([]byte(currentData), &returnData); err != nil {
+			return nil, nil, err
+		}
+		priv, err = ncutils.ConvertBytesToKey(returnData.PrivateKey)
+		if err != nil {
+			return nil, nil, err
+		}
+		pub, err = ncutils.ConvertBytesToKey(returnData.PublicKey)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return pub, priv, nil
 }
 
 func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
@@ -177,32 +238,6 @@ func getCachedResponse() ([]byte, error) {
 // ClearLicenseCache - clears the cached validate response
 func ClearLicenseCache() error {
 	return database.DeleteRecord(database.CACHE_TABLE_NAME, license_cache_key)
-}
-
-// AddServerIDIfNotPresent - add's current server ID to DB if not present
-func AddServerIDIfNotPresent() error {
-	currentNodeID := servercfg.GetNodeID()
-	currentServerIDs := serverIDs{}
-
-	record, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, server_id_key)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return err
-	} else if err == nil {
-		if err = json.Unmarshal([]byte(record), &currentServerIDs); err != nil {
-			return err
-		}
-	}
-
-	if !logic.StringSliceContains(currentServerIDs.ServerIDs, currentNodeID) {
-		currentServerIDs.ServerIDs = append(currentServerIDs.ServerIDs, currentNodeID)
-		data, err := json.Marshal(&currentServerIDs)
-		if err != nil {
-			return err
-		}
-		return database.Insert(server_id_key, string(data), database.SERVERCONF_TABLE_NAME)
-	}
-
-	return nil
 }
 
 func getServerCount() int {

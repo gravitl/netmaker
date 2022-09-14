@@ -7,7 +7,6 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/ee"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -99,7 +98,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
 func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
-	if ee.IsEnterprise() {
+	if logic.Is_EE {
 		go func() {
 			id, err := getID(msg.Topic())
 			if err != nil {

@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/ee"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro/metrics"
+	"github.com/gravitl/netmaker/logic/metrics"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
@@ -185,7 +184,7 @@ func ServerStartNotify() error {
 
 // function to collect and store metrics for server nodes
 func collectServerMetrics(networks []models.Network) {
-	if !ee.IsEnterprise() {
+	if !logic.Is_EE {
 		return
 	}
 	if len(networks) > 0 {

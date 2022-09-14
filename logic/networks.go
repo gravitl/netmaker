@@ -96,7 +96,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 
 	err := ValidateNetwork(&network, false)
 	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "badrequest"))
+		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return models.Network{}, err
 	}
 
@@ -654,6 +654,17 @@ func SaveNetwork(network *models.Network) error {
 		return err
 	}
 	return nil
+}
+
+// NetworkExists - check if network exists
+func NetworkExists(name string) (bool, error) {
+
+	var network string
+	var err error
+	if network, err = database.FetchRecord(database.NETWORKS_TABLE_NAME, name); err != nil {
+		return false, err
+	}
+	return len(network) > 0, nil
 }
 
 // == Private ==

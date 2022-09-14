@@ -15,7 +15,7 @@ import (
 
 	"github.com/cloverstd/tcping/ping"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/pro/metrics"
+	"github.com/gravitl/netmaker/logic/metrics"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"

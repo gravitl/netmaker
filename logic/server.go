@@ -18,6 +18,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+var EnterpriseCheckFuncs []interface{}
+
 // == Join, Checkin, and Leave for Server ==
 
 // KUBERNETES_LISTEN_PORT - starting port for Kubernetes in order to use NodePort range
@@ -162,6 +164,13 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	}
 
 	return *node, nil
+}
+
+// EnterpriseCheck - Runs enterprise functions if presented
+func EnterpriseCheck() {
+	for _, check := range EnterpriseCheckFuncs {
+		check.(func())()
+	}
 }
 
 // ServerUpdate - updates the server

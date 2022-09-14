@@ -14,13 +14,13 @@ import (
 )
 
 func networkUsersHandlers(r *mux.Router) {
-	r.HandleFunc("/api/networkusers", securityCheck(true, http.HandlerFunc(getAllNetworkUsers))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}", securityCheck(true, http.HandlerFunc(getNetworkUsers))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}/{networkuser}", securityCheck(true, http.HandlerFunc(getNetworkUser))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}", securityCheck(true, http.HandlerFunc(createNetworkUser))).Methods("POST")
-	r.HandleFunc("/api/networkusers/{network}", securityCheck(true, http.HandlerFunc(updateNetworkUser))).Methods("PUT")
-	r.HandleFunc("/api/networkusers/data/{networkuser}/me", netUserSecurityCheck(false, false, http.HandlerFunc(getNetworkUserData))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}/{networkuser}", securityCheck(true, http.HandlerFunc(deleteNetworkUser))).Methods("DELETE")
+	r.HandleFunc("/api/networkusers", logic.SecurityCheck(true, http.HandlerFunc(getAllNetworkUsers))).Methods("GET")
+	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUsers))).Methods("GET")
+	r.HandleFunc("/api/networkusers/{network}/{networkuser}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUser))).Methods("GET")
+	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(createNetworkUser))).Methods("POST")
+	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkUser))).Methods("PUT")
+	r.HandleFunc("/api/networkusers/data/{networkuser}/me", logic.NetUserSecurityCheck(false, false, http.HandlerFunc(getNetworkUserData))).Methods("GET")
+	r.HandleFunc("/api/networkusers/{network}/{networkuser}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetworkUser))).Methods("DELETE")
 }
 
 // == RETURN TYPES ==
@@ -52,18 +52,18 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 
 	networks, err := logic.GetNetworks()
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	if networkUserName == "" {
-		returnErrorResponse(w, r, formatError(errors.New("netuserToGet"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("netuserToGet"), "badrequest"))
 		return
 	}
 
 	u, err := logic.GetUser(networkUserName)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(errors.New("could not find user"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("could not find user"), "badrequest"))
 		return
 	}
 
@@ -151,7 +151,7 @@ func getAllNetworkUsers(w http.ResponseWriter, r *http.Request) {
 
 	networks, err := logic.GetNetworks()
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -160,7 +160,7 @@ func getAllNetworkUsers(w http.ResponseWriter, r *http.Request) {
 	for i := range networks {
 		netusers, err := pro.GetNetworkUsers(networks[i].NetID)
 		if err != nil {
-			returnErrorResponse(w, r, formatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		for _, v := range netusers {
@@ -181,13 +181,13 @@ func getNetworkUsers(w http.ResponseWriter, r *http.Request) {
 
 	_, err := logic.GetNetwork(netname)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	netusers, err := pro.GetNetworkUsers(netname)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -203,19 +203,19 @@ func getNetworkUser(w http.ResponseWriter, r *http.Request) {
 
 	_, err := logic.GetNetwork(netname)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	netuserToGet := params["networkuser"]
 	if netuserToGet == "" {
-		returnErrorResponse(w, r, formatError(errors.New("netuserToGet"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("netuserToGet"), "badrequest"))
 		return
 	}
 
 	netuser, err := pro.GetNetworkUser(netname, promodels.NetworkUserID(netuserToGet))
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -230,7 +230,7 @@ func createNetworkUser(w http.ResponseWriter, r *http.Request) {
 
 	network, err := logic.GetNetwork(netname)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	var networkuser promodels.NetworkUser
@@ -238,13 +238,13 @@ func createNetworkUser(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&networkuser)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	err = pro.CreateNetworkUser(&network, &networkuser)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
@@ -260,7 +260,7 @@ func updateNetworkUser(w http.ResponseWriter, r *http.Request) {
 
 	network, err := logic.GetNetwork(netname)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	var networkuser promodels.NetworkUser
@@ -268,38 +268,38 @@ func updateNetworkUser(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&networkuser)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if networkuser.ID == "" || !pro.DoesNetworkUserExist(netname, networkuser.ID) {
-		returnErrorResponse(w, r, formatError(errors.New("invalid user "+string(networkuser.ID)), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid user "+string(networkuser.ID)), "badrequest"))
 		return
 	}
 	if networkuser.AccessLevel < pro.NET_ADMIN || networkuser.AccessLevel > pro.NO_ACCESS {
-		returnErrorResponse(w, r, formatError(errors.New("invalid user access level provided"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid user access level provided"), "badrequest"))
 		return
 	}
 
 	if networkuser.ClientLimit < 0 || networkuser.NodeLimit < 0 {
-		returnErrorResponse(w, r, formatError(errors.New("negative user limit provided"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("negative user limit provided"), "badrequest"))
 		return
 	}
 
 	u, err := logic.GetUser(string(networkuser.ID))
 	if err != nil {
-		returnErrorResponse(w, r, formatError(errors.New("invalid user "+string(networkuser.ID)), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid user "+string(networkuser.ID)), "badrequest"))
 		return
 	}
 
 	if !pro.IsUserAllowed(&network, u.UserName, u.Groups) {
-		returnErrorResponse(w, r, formatError(errors.New("user must be in allowed groups or users"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user must be in allowed groups or users"), "badrequest"))
 		return
 	}
 
 	if networkuser.AccessLevel == pro.NET_ADMIN {
 		currentUser, err := logic.GetUser(string(networkuser.ID))
 		if err != nil {
-			returnErrorResponse(w, r, formatError(errors.New("user model not found for "+string(networkuser.ID)), "badrequest"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user model not found for "+string(networkuser.ID)), "badrequest"))
 			return
 		}
 
@@ -316,7 +316,7 @@ func updateNetworkUser(w http.ResponseWriter, r *http.Request) {
 					UserName: currentUser.UserName,
 				},
 			); err != nil {
-				returnErrorResponse(w, r, formatError(errors.New("user model failed net admin update "+string(networkuser.ID)+" (are they an admin?"), "badrequest"))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user model failed net admin update "+string(networkuser.ID)+" (are they an admin?"), "badrequest"))
 				return
 			}
 		}
@@ -324,7 +324,7 @@ func updateNetworkUser(w http.ResponseWriter, r *http.Request) {
 
 	err = pro.UpdateNetworkUser(netname, &networkuser)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
@@ -340,18 +340,18 @@ func deleteNetworkUser(w http.ResponseWriter, r *http.Request) {
 
 	_, err := logic.GetNetwork(netname)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	netuserToDelete := params["networkuser"]
 	if netuserToDelete == "" {
-		returnErrorResponse(w, r, formatError(errors.New("no group name provided"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no group name provided"), "badrequest"))
 		return
 	}
 
 	if err := pro.DeleteNetworkUser(netname, netuserToDelete); err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 

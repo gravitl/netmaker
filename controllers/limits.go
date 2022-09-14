@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/ee"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -23,32 +22,32 @@ func checkFreeTierLimits(limit_choice int, next http.Handler) http.HandlerFunc {
 			Code: http.StatusUnauthorized, Message: "free tier limits exceeded on networks",
 		}
 
-		if ee.Limits.FreeTier { // check that free tier limits not exceeded
+		if logic.Free_Tier && logic.Is_EE { // check that free tier limits not exceeded
 			if limit_choice == networks_l {
 				currentNetworks, err := logic.GetNetworks()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(currentNetworks) >= ee.Limits.Networks {
-					returnErrorResponse(w, r, errorResponse)
+				if (err != nil && !database.IsEmptyRecord(err)) || len(currentNetworks) >= logic.Networks_Limit {
+					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
 			} else if limit_choice == node_l {
 				nodes, err := logic.GetAllNodes()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(nodes) >= ee.Limits.Nodes {
+				if (err != nil && !database.IsEmptyRecord(err)) || len(nodes) >= logic.Node_Limit {
 					errorResponse.Message = "free tier limits exceeded on nodes"
-					returnErrorResponse(w, r, errorResponse)
+					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
 			} else if limit_choice == users_l {
 				users, err := logic.GetUsers()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(users) >= ee.Limits.Users {
+				if (err != nil && !database.IsEmptyRecord(err)) || len(users) >= logic.Users_Limit {
 					errorResponse.Message = "free tier limits exceeded on users"
-					returnErrorResponse(w, r, errorResponse)
+					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
 			} else if limit_choice == clients_l {
 				clients, err := logic.GetAllExtClients()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(clients) >= ee.Limits.Clients {
+				if (err != nil && !database.IsEmptyRecord(err)) || len(clients) >= logic.Clients_Limit {
 					errorResponse.Message = "free tier limits exceeded on external clients"
-					returnErrorResponse(w, r, errorResponse)
+					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
 			}

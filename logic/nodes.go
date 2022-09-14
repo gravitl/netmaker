@@ -311,7 +311,7 @@ func CreateNode(node *models.Node) error {
 	//Create a JWT for the node
 	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
 	if tokenString == "" {
-		//returnErrorResponse(w, r, errorResponse)
+		//logic.ReturnErrorResponse(w, r, errorResponse)
 		return err
 	}
 	err = ValidateNode(node, false)

@@ -99,7 +99,7 @@ func CreateUser(user models.User) (models.User, error) {
 
 	tokenString, _ := CreateProUserJWT(user.UserName, user.Networks, user.Groups, user.IsAdmin)
 	if tokenString == "" {
-		// returnErrorResponse(w, r, errorResponse)
+		// logic.ReturnErrorResponse(w, r, errorResponse)
 		return user, err
 	}
 
