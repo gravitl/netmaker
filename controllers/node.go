@@ -591,6 +591,33 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	// Create client for this node in Mq
+	// Delete Any Existing Client
+	mq.DynSecChan <- mq.DynSecAction{
+		ActionType: mq.CreateClient,
+		Payload: mq.MqDynsecPayload{
+			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.CreateClientCmd,
+					Username: node.ID,
+					Password: node.Password,
+					Clientid: node.ID,
+					Roles: []mq.MqDynSecRole{
+						{
+							Rolename: "node",
+							Priority: -1,
+						},
+					},
+					Groups: []mq.MqDynSecGroup{
+						{
+							Groupname: "nodes",
+							Priority:  -1,
+						},
+					},
+				},
+			},
+		},
+	}
 
 	response := models.NodeGet{
 		Node:         node,

@@ -1,9 +1,9 @@
 {
 	"clients":	[{
-			"username":	"bob",
+			"username":	"Netmaker-Admin",
 			"textName":	"Dynsec admin user",
-			"password":	"JEfqgJum2mlJa51WTGdvEAs2Rnc8vno14yAsAhxbjo9nKs0GAgL0+YM2iOUaW/GFK8L/B0EkbP5qd1AeyBdRTg==",
-			"salt":	"MgoCdNVGYMqJh+nU",
+			"password":	"T42rorlC/mAP+i19g/YqMlWShPpfo8F/nBz2ZQNRcjAnfczrgu4rIQam9z7T/87NBIHxqR1wMlCIvRN5JApHcw==",
+			"salt":	"lHl24sEf+lJ/kFHk",
 			"iterations":	101,
 			"roles":	[{
 					"rolename":	"admin"
@@ -43,12 +43,18 @@
 					"acltype":	"unsubscribePattern",
 					"topic":	"#",
 					"allow":	true
-				}]
+				},
+				{
+					"acltype":	"publishClientSend",
+					"topic":	"#",
+					"allow":	true
+				}
+			]
 		}],
 	"defaultACLAccess":	{
-		"publishClientSend":	false,
+		"publishClientSend":	true,
 		"publishClientReceive":	true,
-		"subscribe":	false,
+		"subscribe":	true,
 		"unsubscribe":	true
 	}
 }
