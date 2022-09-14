@@ -140,7 +140,9 @@ func CreateUser(user models.User) (models.User, error) {
 
 		// legacy
 		if StringSliceContains(user.Networks, currentNets[i].NetID) {
-			newUser.AccessLevel = pro.NET_ADMIN
+			if !Is_EE {
+				newUser.AccessLevel = pro.NET_ADMIN
+			}
 		}
 		userErr := pro.CreateNetworkUser(&currentNets[i], &newUser)
 		if userErr != nil {
