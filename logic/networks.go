@@ -88,11 +88,16 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		}
 		network.AddressRange6 = normalizedRange
 	}
+
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
 
 	pro.AddProNetDefaults(&network)
+
+	if len(network.ProSettings.AllowedGroups) == 0 {
+		network.ProSettings.AllowedGroups = []string{pro.DEFAULT_ALLOWED_GROUPS}
+	}
 
 	err := ValidateNetwork(&network, false)
 	if err != nil {
