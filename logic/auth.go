@@ -103,6 +103,8 @@ func CreateUser(user models.User) (models.User, error) {
 		return user, err
 	}
 
+	SetUserDefaults(&user)
+
 	// connect db
 	data, err := json.Marshal(&user)
 	if err != nil {

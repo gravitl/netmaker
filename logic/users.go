@@ -70,3 +70,10 @@ func InitializeNetUsers(network *models.Network) error {
 	}
 	return nil
 }
+
+// SetUserDefaults - sets the defaults of a user to avoid empty fields
+func SetUserDefaults(user *models.User) {
+	if user.Groups == nil {
+		user.Groups = []string{pro.DEFAULT_ALLOWED_GROUPS}
+	}
+}

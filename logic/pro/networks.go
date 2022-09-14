@@ -13,7 +13,7 @@ func AddProNetDefaults(network *models.Network) {
 			DefaultUserNodeLimit:   0,
 			DefaultUserClientLimit: 0,
 			AllowedUsers:           []string{},
-			AllowedGroups:          []string{},
+			AllowedGroups:          []string{DEFAULT_ALLOWED_GROUPS},
 		}
 		network.ProSettings = &newProSettings
 	}
@@ -21,7 +21,7 @@ func AddProNetDefaults(network *models.Network) {
 		network.ProSettings.AllowedUsers = []string{}
 	}
 	if network.ProSettings.AllowedGroups == nil {
-		network.ProSettings.AllowedGroups = []string{}
+		network.ProSettings.AllowedGroups = []string{DEFAULT_ALLOWED_GROUPS}
 	}
 }
 

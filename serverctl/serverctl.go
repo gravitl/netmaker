@@ -94,6 +94,10 @@ func SetDefaults() error {
 		return err
 	}
 
+	if err := setUserDefaults(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -131,6 +135,24 @@ func setNetworkDefaults() error {
 		_, _, _, _, _, _, err = logic.UpdateNetwork(&net, &net)
 		if err != nil {
 			logger.Log(0, "could not set defaults on network", net.NetID)
+		}
+	}
+	return nil
+}
+
+func setUserDefaults() error {
+	users, err := logic.GetUsers()
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+	for _, user := range users {
+		updateUser, err := logic.GetUser(user.UserName)
+		if err != nil {
+			logger.Log(0, "could not update user", updateUser.UserName)
+		}
+		logic.SetUserDefaults(&updateUser)
+		if _, err = logic.UpdateUser(updateUser, updateUser); err != nil {
+			logger.Log(0, "could not update user", updateUser.UserName)
 		}
 	}
 	return nil

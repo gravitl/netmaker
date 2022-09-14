@@ -95,7 +95,7 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 				Clients:     netUser.Clients,
 			}
 			// check network level permissions
-			if doesNetworkAllow := pro.IsUserAllowed(&networks[i], networkUserName, u.Groups); doesNetworkAllow {
+			if doesNetworkAllow := pro.IsUserAllowed(&networks[i], networkUserName, u.Groups); doesNetworkAllow || netUser.AccessLevel == pro.NET_ADMIN {
 				netNodes, err := logic.GetNetworkNodes(netID)
 				if err != nil {
 					logger.Log(0, "failed to retrieve nodes on network", netID, "for user", string(netUser.ID))
