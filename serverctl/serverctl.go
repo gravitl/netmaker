@@ -151,7 +151,9 @@ func setUserDefaults() error {
 			logger.Log(0, "could not update user", updateUser.UserName)
 		}
 		logic.SetUserDefaults(&updateUser)
-		if _, err = logic.UpdateUser(updateUser, updateUser); err != nil {
+		copyUser := updateUser
+		copyUser.Password = ""
+		if _, err = logic.UpdateUser(copyUser, updateUser); err != nil {
 			logger.Log(0, "could not update user", updateUser.UserName)
 		}
 	}
