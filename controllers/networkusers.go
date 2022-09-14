@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro"
@@ -98,7 +99,11 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 			if doesNetworkAllow := pro.IsUserAllowed(&networks[i], networkUserName, u.Groups); doesNetworkAllow || netUser.AccessLevel == pro.NET_ADMIN {
 				netNodes, err := logic.GetNetworkNodes(netID)
 				if err != nil {
-					logger.Log(0, "failed to retrieve nodes on network", netID, "for user", string(netUser.ID))
+					if database.IsEmptyRecord(err) && netUser.AccessLevel == pro.NET_ADMIN {
+						newData.Networks = append(newData.Networks, networks[i])
+					} else {
+						logger.Log(0, "failed to retrieve nodes on network", netID, "for user", string(netUser.ID))
+					}
 				} else {
 					if netUser.AccessLevel <= pro.NODE_ACCESS { // handle nodes
 						// if access level is NODE_ACCESS, filter nodes
