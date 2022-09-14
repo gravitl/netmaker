@@ -3,7 +3,6 @@ package logic
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -158,8 +157,8 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		extPeers, err := getExtPeers(node)
 		if err == nil {
 			peers = append(peers, extPeers...)
-		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
+		} else if !database.IsEmptyRecord(err) {
+			logger.Log(1, "error retrieving external clients:", err.Error())
 		}
 	}
 
