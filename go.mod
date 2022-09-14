@@ -36,7 +36,7 @@ require (
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.3.0
+	github.com/coreos/go-oidc/v3 v3.4.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 )
 
