@@ -67,7 +67,7 @@ func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
-// swagger:route DELETE /api/server/removenetwork/{network} nodes removeNetwork
+// swagger:route DELETE /api/server/removenetwork/{network} server removeNetwork
 //
 // Remove a network from the server.
 //
@@ -97,7 +97,7 @@ func removeNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(fmt.Sprintf("network %s removed from server", network))
 }
 
-// swagger:route GET /api/server/getserverinfo nodes getServerInfo
+// swagger:route GET /api/server/getserverinfo server getServerInfo
 //
 // Get the server configuration.
 //
@@ -118,7 +118,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	//w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route GET /api/server/getconfig nodes getConfig
+// swagger:route GET /api/server/getconfig server getConfig
 //
 // Get the server configuration.
 //
@@ -140,7 +140,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	//w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/server/register nodes register
+// swagger:route POST /api/server/register server register
 //
 // Registers a client with the server and return the Certificate Authority and certificate.
 //
