@@ -601,19 +601,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 					Command:  mq.CreateClientCmd,
 					Username: node.ID,
 					Password: node.Password,
-					Clientid: node.ID,
-					Roles: []mq.MqDynSecRole{
-						{
-							Rolename: "node",
-							Priority: -1,
-						},
-					},
-					Groups: []mq.MqDynSecGroup{
-						{
-							Groupname: "nodes",
-							Priority:  -1,
-						},
-					},
+					Roles:    make([]mq.MqDynSecRole, 0),
+					Groups:   make([]mq.MqDynSecGroup, 0),
 				},
 			},
 		},

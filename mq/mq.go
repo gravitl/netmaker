@@ -26,6 +26,7 @@ var mqclient mqtt.Client
 func SetupMQTT() {
 	opts := mqtt.NewClientOptions()
 	broker, _ := servercfg.GetMessageQueueEndpoint()
+	logger.Log(0, "----------> BROKER: ", broker)
 	opts.AddBroker(broker)
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id

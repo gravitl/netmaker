@@ -1,8 +1,6 @@
 package command
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"fmt"
 	"strings"
 
@@ -11,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/tls"
 )
 
 // Join - join command to run from cli
@@ -93,27 +90,27 @@ func Pull(cfg *config.ClientConfig) error {
 
 		currentServers[currCfg.Server.Server] = *currCfg
 	}
-	//generate new client key if one doesn' exist
-	var private *ed25519.PrivateKey
-	private, err = tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
-	if err != nil {
-		_, newKey, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return err
-		}
-		if err := tls.SaveKeyToFile(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); err != nil {
-			return err
-		}
-		private = &newKey
-	}
-	// re-register with server -- get new certs for broker
-	for _, clientCfg := range currentServers {
-		if err = functions.RegisterWithServer(private, &clientCfg); err != nil {
-			logger.Log(0, "registration error", err.Error())
-		} else {
-			daemon.Restart()
-		}
-	}
+	// //generate new client key if one doesn' exist
+	// var private *ed25519.PrivateKey
+	// private, err = tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
+	// if err != nil {
+	// 	_, newKey, err := ed25519.GenerateKey(rand.Reader)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if err := tls.SaveKeyToFile(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); err != nil {
+	// 		return err
+	// 	}
+	// 	private = &newKey
+	// }
+	// // re-register with server -- get new certs for broker
+	// for _, clientCfg := range currentServers {
+	// 	if err = functions.RegisterWithServer(private, &clientCfg); err != nil {
+	// 		logger.Log(0, "registration error", err.Error())
+	// 	} else {
+	daemon.Restart()
+	// 	}
+	// }
 	logger.Log(1, "reset network", cfg.Network, "and peer configs")
 
 	return err

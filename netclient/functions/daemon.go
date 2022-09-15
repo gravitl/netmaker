@@ -265,13 +265,15 @@ func setupMQTT(cfg *config.ClientConfig) error {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
-	opts.AddBroker("ssl://" + server + ":" + port)
-	tlsConfig, err := NewTLSConfig(server)
-	if err != nil {
-		logger.Log(0, "failed to get TLS config for", server, err.Error())
-		return err
-	}
-	opts.SetTLSConfig(tlsConfig)
+	opts.AddBroker("mqtts://" + server + ":" + port)
+	// tlsConfig, err := NewTLSConfig(server)
+	// if err != nil {
+	// 	logger.Log(0, "failed to get TLS config for", server, err.Error())
+	// 	return err
+	// }
+	//opts.SetTLSConfig(tlsConfig)
+	opts.SetUsername(cfg.Node.ID)
+	opts.SetPassword(cfg.Node.Password)
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
@@ -314,7 +316,7 @@ func setupMQTT(cfg *config.ClientConfig) error {
 		}
 	}
 	if connecterr != nil {
-		reRegisterWithServer(cfg)
+		//reRegisterWithServer(cfg)
 		//try after re-registering
 		if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
 			return errors.New("unable to connect to broker")

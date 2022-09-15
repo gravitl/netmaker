@@ -103,7 +103,7 @@ func checkin() {
 			config.Write(&nodeCfg, nodeCfg.Network)
 		}
 		Hello(&nodeCfg)
-		checkCertExpiry(&nodeCfg)
+		//checkCertExpiry(&nodeCfg)
 	}
 }
 
