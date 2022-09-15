@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/logger"
@@ -56,7 +55,7 @@ func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
 	// Dial the netmaker server controller
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
-		logger.Log(0, fmt.Sprintf("Error connecting to %s : %s", cfg.Server.API, err.Error()))
+		logger.Log(0, fmt.Sprintf("error connecting to %s : %s", cfg.Server.API, err.Error()))
 		return err
 	}
 	// Don't forget to close when finished
@@ -113,19 +112,25 @@ func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
 	// An answer from the server.
 	// Server waits ~5 min - If takes too long timeout will be triggered by the server
 	done := make(chan struct{})
+	defer close(done)
 	// Following code will run in a separate go routine
 	// it reads a message from the server which either contains 'AccessToken:' string or not
 	// if not - then it contains an Error to display.
 	// if yes - then AccessToken is to be used to proceed joining the network
 	go func() {
-		defer close(done)
 		for {
-			_, msg, err := conn.ReadMessage()
+			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
 				// Error reading a message from the server
 				if !strings.Contains(err.Error(), "normal") {
 					logger.Log(0, "read:", err.Error())
 				}
+				return
+			}
+
+			if msgType == websocket.CloseMessage {
+				logger.Log(1, "received close message from server")
+				done <- struct{}{}
 				return
 			}
 			// Get the access token from the response
@@ -134,7 +139,7 @@ func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
 				rxToken := strings.TrimPrefix(string(msg), "AccessToken: ")
 				accesstoken, err := config.ParseAccessToken(rxToken)
 				if err != nil {
-					log.Printf("Failed to parse received access token %s,err=%s\n", accesstoken, err.Error())
+					logger.Log(0, fmt.Sprintf("failed to parse received access token %s,err=%s\n", accesstoken, err.Error()))
 					return
 				}
 
@@ -159,17 +164,13 @@ func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
 			logger.Log(1, "finished")
 			return nil
 		case <-interrupt:
-			log.Println("interrupt")
+			logger.Log(0, "interrupt received, closing connection")
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the server to close the connection.
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				logger.Log(0, "write close:", err.Error())
 				return err
-			}
-			select {
-			case <-done:
-			case <-time.After(time.Second):
 			}
 			return nil
 		}

@@ -58,7 +58,7 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 	// retrieve machinekey from state cache
 	reqKeyIf, machineKeyFoundErr := netcache.Get(state)
 	if machineKeyFoundErr != nil {
-		logger.Log(0, "requested machine state key expired before authorisation completed -", err.Error())
+		logger.Log(0, "requested machine state key expired before authorisation completed -", machineKeyFoundErr.Error())
 		reqKeyIf = &netcache.CValue{
 			Network:    "invalid",
 			Value:      state,

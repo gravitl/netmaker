@@ -229,7 +229,6 @@ func collectServerMetrics(networks []models.Network) {
 
 func pushMetricsToExporter(metrics models.Metrics) error {
 	logger.Log(2, "----> Pushing metrics to exporter")
-	SetupMQTT()
 	data, err := json.Marshal(metrics)
 	if err != nil {
 		return errors.New("failed to marshal metrics: " + err.Error())

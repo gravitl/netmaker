@@ -13,7 +13,7 @@ import (
 
 // InitEE - Initialize EE Logic
 func InitEE() {
-	SetIsEnterprise()
+	setIsEnterprise()
 	models.SetLogo(retrieveEELogo())
 	controller.HttpHandlers = append(controller.HttpHandlers, ee_controllers.MetricHandlers)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {

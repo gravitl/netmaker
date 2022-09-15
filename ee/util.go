@@ -8,14 +8,14 @@ import (
 
 var isEnterprise bool
 
-// SetIsEnterprise - sets server to use enterprise features
-func SetIsEnterprise() {
-	isEnterprise = true
-}
-
 // IsEnterprise - checks if enterprise binary or not
 func IsEnterprise() bool {
 	return isEnterprise
+}
+
+// setIsEnterprise - sets server to use enterprise features
+func setIsEnterprise() {
+	isEnterprise = true
 }
 
 // base64encode - base64 encode helper function

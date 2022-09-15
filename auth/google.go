@@ -88,7 +88,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(1, "completed google OAuth sigin in for", content.Email)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
+	http.Redirect(w, r, fmt.Sprintf("%s/login?login=%s&user=%s", servercfg.GetFrontendURL(), jwt, content.Email), http.StatusPermanentRedirect)
 }
 
 func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {

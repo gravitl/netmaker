@@ -167,7 +167,7 @@ func publishMetrics(nodeCfg *config.ClientConfig) {
 		logger.Log(1, "failed to authenticate when publishing metrics", err.Error())
 		return
 	}
-	url := "https://" + nodeCfg.Server.API + "/api/nodes/" + nodeCfg.Network + "/" + nodeCfg.Node.ID
+	url := fmt.Sprintf("https://%s/api/nodes/%s/%s", nodeCfg.Server.API, nodeCfg.Network, nodeCfg.Node.ID)
 	response, err := API("", http.MethodGet, url, token)
 	if err != nil {
 		logger.Log(1, "failed to read from server during metrics publish", err.Error())

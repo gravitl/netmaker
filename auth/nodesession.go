@@ -19,7 +19,7 @@ import (
 // SessionHandler - called by the HTTP router when user
 // is calling netclient with --login-server parameter in order to authenticate
 // via SSO mechanism by OAuth2 protocol flow.
-// This triggers a session start and it is managed by the flow implmented here and callback
+// This triggers a session start and it is managed by the flow implemented here and callback
 // When this method finishes - the auth flow has finished either OK or by timeout or any other error occured
 func SessionHandler(conn *websocket.Conn) {
 	defer conn.Close()
@@ -55,6 +55,8 @@ func SessionHandler(conn *websocket.Conn) {
 	// TBD: what should be the timeout here ?
 	timeout := make(chan bool, 1)
 	answer := make(chan string, 1)
+	defer close(answer)
+	defer close(timeout)
 
 	if loginMessage.User != "" { // handle basic auth
 		// verify that server supports basic auth, then authorize the request with given credentials
@@ -149,7 +151,4 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "write close:", err.Error())
 		return
 	}
-	time.After(time.Second)
-	close(answer)
-	close(timeout)
 }

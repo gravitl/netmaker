@@ -476,7 +476,11 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	// Upgrade our raw HTTP connection to a websocket based one
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logger.Log(0, "error during connection upgrade for node SSO sign-in:", err.Error())
+		logger.Log(0, "error during connection upgrade for node sign-in:", err.Error())
+		return
+	}
+	if conn == nil {
+		logger.Log(0, "failed to establish web-socket connection during node sign-in")
 		return
 	}
 	// Start handling the session

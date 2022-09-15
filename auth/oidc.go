@@ -62,7 +62,6 @@ func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
-	logger.Log(3, "using state string:", oauth_state_string)
 	var url = auth_provider.AuthCodeURL(oauth_state_string)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
