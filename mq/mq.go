@@ -68,6 +68,7 @@ func Configure() {
 	if token := mqclient.Publish(DynamicSecPubTopic, 0, true, d); token.Error() != nil {
 		logger.FatalLog("failed to modify admin password: ", token.Error().Error())
 	}
+	mqclient.Disconnect(2)
 	adminPassword = newAdminPassword
 }
 
