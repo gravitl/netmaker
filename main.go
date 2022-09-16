@@ -123,10 +123,6 @@ func initialize() { // Client Mode Prereq Check
 		}
 	}
 
-	if err = genCerts(); err != nil {
-		logger.Log(0, "something went wrong when generating broker certs", err.Error())
-	}
-
 	if servercfg.IsMessageQueueBackend() {
 		if err = mq.ServerStartNotify(); err != nil {
 			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
