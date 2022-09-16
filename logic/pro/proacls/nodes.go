@@ -23,10 +23,10 @@ func AdjustNodeAcls(node *models.Node, networkNodes []models.Node) error {
 		// 2 cases
 		// both allow - allow
 		// either 1 denies - deny
-		if node.DoesACLAllow() {
-			currentACLs.ChangeAccess(acls.AclID(nodeID), acls.AclID(currentNodeID), acls.Allowed)
-		} else if node.DoesACLDeny() {
+		if node.DoesACLDeny() || networkNodes[i].DoesACLDeny() {
 			currentACLs.ChangeAccess(acls.AclID(nodeID), acls.AclID(currentNodeID), acls.NotAllowed)
+		} else if node.DoesACLAllow() || networkNodes[i].DoesACLAllow() {
+			currentACLs.ChangeAccess(acls.AclID(nodeID), acls.AclID(currentNodeID), acls.Allowed)
 		}
 	}
 
