@@ -206,10 +206,6 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		logger.Log(0, "error setting route for netmaker: "+err.Error())
 	}
 	cfg.Node = node
-	// if err := Register(cfg); err != nil {
-	// 	return err
-	// }
-
 	logger.Log(0, "starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:])
 	if err != nil {
