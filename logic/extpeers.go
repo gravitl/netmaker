@@ -183,3 +183,40 @@ func UpdateExtClient(newclientid string, network string, enabled bool, client *m
 	CreateExtClient(client)
 	return client, err
 }
+
+// GetExtClientsByID - gets the clients of attached gateway
+func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
+	var result []models.ExtClient
+	currentClients, err := GetNetworkExtClients(network)
+	if err != nil {
+		return result, err
+	}
+	for i := range currentClients {
+		if currentClients[i].IngressGatewayID == nodeid {
+			result = append(result, currentClients[i])
+		}
+	}
+	return result, nil
+}
+
+// GetAllExtClients - gets all ext clients from DB
+func GetAllExtClients() ([]models.ExtClient, error) {
+	var clients = []models.ExtClient{}
+	currentNetworks, err := GetNetworks()
+	if err != nil && database.IsEmptyRecord(err) {
+		return clients, nil
+	} else if err != nil {
+		return clients, err
+	}
+
+	for i := range currentNetworks {
+		netName := currentNetworks[i].NetID
+		netClients, err := GetNetworkExtClients(netName)
+		if err != nil {
+			continue
+		}
+		clients = append(clients, netClients...)
+	}
+
+	return clients, nil
+}

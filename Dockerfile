@@ -1,11 +1,14 @@
 #first stage - builder
 FROM gravitl/go-builder as builder
-ARG version 
+ARG version
+ARG tags 
 WORKDIR /app
 COPY . .
 ENV GO111MODULE=auto
 
-RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -X 'main.version=${version}'" -o netmaker main.go
+RUN apk add git
+RUN GOOS=linux CGO_ENABLED=1 go build ${tags} -ldflags="-s -X 'main.version=${version}'" .
+# RUN go build -tags=ee . -o netmaker main.go
 FROM alpine:3.15.2
 
 # add a c lib

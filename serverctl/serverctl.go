@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -44,6 +45,9 @@ func InitServerNetclient() error {
 				if err = logic.ServerPull(&currentServerNode, true); err != nil {
 					logger.Log(1, "failed pull for network", network.NetID, ", on server node", currentServerNode.ID)
 				}
+			}
+			if err = logic.InitializeNetUsers(&network); err != nil {
+				logger.Log(0, "something went wrong syncing usrs on network", network.NetID, "-", err.Error())
 			}
 		}
 	}
@@ -86,6 +90,14 @@ func SetDefaults() error {
 		return err
 	}
 
+	if err := setNetworkDefaults(); err != nil {
+		return err
+	}
+
+	if err := setUserDefaults(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -104,6 +116,45 @@ func setNodeDefaults() error {
 			if _, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID), acls.Allowed); err != nil {
 				logger.Log(1, "could not create a default ACL for node", nodes[i].ID)
 			}
+		}
+	}
+	return nil
+}
+
+func setNetworkDefaults() error {
+	// upgraded systems will not have NetworkUsers's set, which is why we need this function
+	networks, err := logic.GetNetworks()
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+	for _, net := range networks {
+		if err = pro.InitializeNetworkUsers(net.NetID); err != nil {
+			logger.Log(0, "could not initialize NetworkUsers on network", net.NetID)
+		}
+		pro.AddProNetDefaults(&net)
+		_, _, _, _, _, _, err = logic.UpdateNetwork(&net, &net)
+		if err != nil {
+			logger.Log(0, "could not set defaults on network", net.NetID)
+		}
+	}
+	return nil
+}
+
+func setUserDefaults() error {
+	users, err := logic.GetUsers()
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+	for _, user := range users {
+		updateUser, err := logic.GetUser(user.UserName)
+		if err != nil {
+			logger.Log(0, "could not update user", updateUser.UserName)
+		}
+		logic.SetUserDefaults(&updateUser)
+		copyUser := updateUser
+		copyUser.Password = ""
+		if _, err = logic.UpdateUser(copyUser, updateUser); err != nil {
+			logger.Log(0, "could not update user", updateUser.UserName)
 		}
 	}
 	return nil

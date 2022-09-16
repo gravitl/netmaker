@@ -1,0 +1,14 @@
+#first stage - builder
+FROM alpine:3.15.2
+ARG version 
+WORKDIR /app
+COPY ./netmaker /root/netmaker
+ENV GO111MODULE=auto
+
+# add a c lib
+RUN apk add gcompat iptables wireguard-tools
+# set the working directory
+WORKDIR /root/
+RUN mkdir -p /etc/netclient/config
+EXPOSE 8081
+ENTRYPOINT ["./netmaker"]

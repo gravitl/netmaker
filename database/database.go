@@ -59,6 +59,18 @@ const NODE_ACLS_TABLE_NAME = "nodeacls"
 // SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
 const SSO_STATE_CACHE = "ssostatecache"
 
+// METRICS_TABLE_NAME - stores network metrics
+const METRICS_TABLE_NAME = "metrics"
+
+// NETWORK_USER_TABLE_NAME - network user table tracks stats for a network user per network
+const NETWORK_USER_TABLE_NAME = "networkusers"
+
+// USER_GROUPS_TABLE_NAME - table for storing usergroups
+const USER_GROUPS_TABLE_NAME = "usergroups"
+
+// CACHE_TABLE_NAME - caching table
+const CACHE_TABLE_NAME = "cache"
+
 // == ERROR CONSTS ==
 
 // NO_RECORD - no singular result found
@@ -139,6 +151,10 @@ func createTables() {
 	createTable(GENERATED_TABLE_NAME)
 	createTable(NODE_ACLS_TABLE_NAME)
 	createTable(SSO_STATE_CACHE)
+	createTable(METRICS_TABLE_NAME)
+	createTable(NETWORK_USER_TABLE_NAME)
+	createTable(USER_GROUPS_TABLE_NAME)
+	createTable(CACHE_TABLE_NAME)
 }
 
 func createTable(tableName string) error {

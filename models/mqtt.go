@@ -9,6 +9,7 @@ type PeerUpdate struct {
 	ServerAddrs   []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
 	Peers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	DNS           string               `json:"dns" bson:"dns" yaml:"dns"`
+	PeerIDs       PeerMap              `json:"peerids" bson:"peerids" yaml:"peerids"`
 }
 
 // KeyUpdate - key update struct
