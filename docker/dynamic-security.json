@@ -1,13 +1,21 @@
 {
 	"clients":	[{
 			"username":	"Netmaker-Admin",
-			"textName":	"Dynsec admin user",
+			"textName":	"netmaker admin user",
 			"password":	"T42rorlC/mAP+i19g/YqMlWShPpfo8F/nBz2ZQNRcjAnfczrgu4rIQam9z7T/87NBIHxqR1wMlCIvRN5JApHcw==",
 			"salt":	"lHl24sEf+lJ/kFHk",
 			"iterations":	101,
 			"roles":	[{
 					"rolename":	"admin"
 				}]
+		},
+		{
+			"username":	"netmaker-exporter",
+			"textName":	"netmaker metrics exporter",
+			"password":	"yl7HZglF4CvCxgjPLLIYc73LRtjEwp2/SAEQXeW5Ta1Dl4RoLN5/gjqiv8xmue+F9LfRk8KICkNbhSYuEfJ7ww==",
+			"salt":	"veLl9eN02i+hKkyT",
+			"iterations":	101,
+			"roles":	[]
 		}],
 	"roles":	[{
 			"rolename":	"admin",
