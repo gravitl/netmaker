@@ -90,29 +90,8 @@ func Pull(cfg *config.ClientConfig) error {
 
 		currentServers[currCfg.Server.Server] = *currCfg
 	}
-	// //generate new client key if one doesn' exist
-	// var private *ed25519.PrivateKey
-	// private, err = tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
-	// if err != nil {
-	// 	_, newKey, err := ed25519.GenerateKey(rand.Reader)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if err := tls.SaveKeyToFile(ncutils.GetNetclientPath(), ncutils.GetSeparator()+"client.key", newKey); err != nil {
-	// 		return err
-	// 	}
-	// 	private = &newKey
-	// }
-	// // re-register with server -- get new certs for broker
-	// for _, clientCfg := range currentServers {
-	// 	if err = functions.RegisterWithServer(private, &clientCfg); err != nil {
-	// 		logger.Log(0, "registration error", err.Error())
-	// 	} else {
 	daemon.Restart()
-	// 	}
-	// }
 	logger.Log(1, "reset network", cfg.Network, "and peer configs")
-
 	return err
 }
 
