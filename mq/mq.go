@@ -2,10 +2,12 @@ package mq
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -22,6 +24,53 @@ var peer_force_send = 0
 
 var mqclient mqtt.Client
 
+func Configure() {
+	opts := mqtt.NewClientOptions()
+	broker, _ := servercfg.GetMessageQueueEndpoint()
+	opts.AddBroker(broker)
+	id := ncutils.MakeRandomString(23)
+	opts.ClientID = id
+	opts.SetUsername(mqDynSecAdmin)
+	opts.SetPassword(adminPassword)
+	opts.SetAutoReconnect(true)
+	opts.SetConnectRetry(true)
+	opts.SetConnectRetryInterval(time.Second << 2)
+	opts.SetKeepAlive(time.Minute)
+	opts.SetWriteTimeout(time.Minute)
+	mqclient := mqtt.NewClient(opts)
+	tperiod := time.Now().Add(10 * time.Second)
+	for {
+		if token := mqclient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+			logger.Log(2, "unable to connect to broker, retrying ...")
+			if time.Now().After(tperiod) {
+				if token.Error() == nil {
+					logger.FatalLog("could not connect to broker, token timeout, exiting ...")
+				} else {
+					logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
+				}
+			}
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	newAdminPassword := logic.GenKey()
+	payload := MqDynsecPayload{
+		Commands: []MqDynSecCmd{
+			{
+				Command:  ModifyClientCmd,
+				Username: mqDynSecAdmin,
+				Password: newAdminPassword,
+			},
+		},
+	}
+	d, _ := json.Marshal(payload)
+	if token := mqclient.Publish(DynamicSecPubTopic, 0, true, d); token.Error() != nil {
+		logger.FatalLog("failed to modify admin password: ", token.Error().Error())
+	}
+	adminPassword = newAdminPassword
+}
+
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
 	opts := mqtt.NewClientOptions()
@@ -30,7 +79,7 @@ func SetupMQTT() {
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
 	opts.SetUsername(mqDynSecAdmin)
-	opts.SetPassword(defaultAdminPassword)
+	opts.SetPassword(adminPassword)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(time.Second << 2)

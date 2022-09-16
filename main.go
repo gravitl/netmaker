@@ -169,6 +169,8 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
 	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
+	// update admin password and re-create client
+	mq.Configure()
 	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.DynamicSecManager(ctx)

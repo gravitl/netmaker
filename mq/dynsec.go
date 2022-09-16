@@ -31,8 +31,10 @@ var (
 	ModifyClientCmd  = "modifyClient"
 )
 
-const mqDynSecAdmin = "Netmaker-Admin"
-const defaultAdminPassword = "Netmaker-Admin"
+var (
+	mqDynSecAdmin string = "Netmaker-Admin"
+	adminPassword string = "Netmaker-Admin"
+)
 
 type MqDynSecGroup struct {
 	Groupname string `json:"groupname"`
@@ -76,7 +78,7 @@ type MqDynsecPayload struct {
 var DynSecChan = make(chan DynSecAction, 100)
 
 func DynamicSecManager(ctx context.Context) {
-
+	defer close(DynSecChan)
 	for {
 		select {
 		case <-ctx.Done():
