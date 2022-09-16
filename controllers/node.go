@@ -591,8 +591,19 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
 	}
+	// Delete Any Existing Client with this ID.
+	mq.DynSecChan <- mq.DynSecAction{
+		ActionType: mq.DeleteClient,
+		Payload: mq.MqDynsecPayload{
+			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.DeleteClientCmd,
+					Username: node.ID,
+				},
+			},
+		},
+	}
 	// Create client for this node in Mq
-	// Delete Any Existing Client
 	mq.DynSecChan <- mq.DynSecAction{
 		ActionType: mq.CreateClient,
 		Payload: mq.MqDynsecPayload{
@@ -934,6 +945,17 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnErrorResponse(w, r, formatError(err, "internal"))
 		return
+	}
+	mq.DynSecChan <- mq.DynSecAction{
+		ActionType: mq.DeleteClient,
+		Payload: mq.MqDynsecPayload{
+			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.DeleteClientCmd,
+					Username: nodeid,
+				},
+			},
+		},
 	}
 	returnSuccessResponse(w, r, nodeid+" deleted.")
 

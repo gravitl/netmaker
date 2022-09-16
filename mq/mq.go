@@ -26,13 +26,9 @@ var mqclient mqtt.Client
 func SetupMQTT() {
 	opts := mqtt.NewClientOptions()
 	broker, _ := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "----------> BROKER: ", broker)
 	opts.AddBroker(broker)
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
-	// if secure {
-	// 	opts.SetTLSConfig(&serverctl.TlsConfig)
-	// }
 	opts.SetUsername(mqDynSecAdmin)
 	opts.SetPassword(defaultAdminPassword)
 	opts.SetAutoReconnect(true)
