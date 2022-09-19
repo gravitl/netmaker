@@ -23,7 +23,6 @@ import (
 // When this method finishes - the auth flow has finished either OK or by timeout or any other error occured
 func SessionHandler(conn *websocket.Conn) {
 	defer conn.Close()
-	logger.Log(1, "Running  sessionHandler")
 
 	// If reached here we have a session from user to handle...
 	messageType, message, err := conn.ReadMessage()
