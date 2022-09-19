@@ -6,6 +6,8 @@ import (
 
 var upgrade0160 = UpgradeInfo{
 	RequiredVersions: []string{
+		"v0.14.6",
+		"v0.15.0",
 		"v0.15.1",
 		"v0.15.2",
 	},
