@@ -239,13 +239,3 @@ func getCachedResponse() ([]byte, error) {
 func ClearLicenseCache() error {
 	return database.DeleteRecord(database.CACHE_TABLE_NAME, license_cache_key)
 }
-
-func getServerCount() int {
-	if record, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, server_id_key); err == nil {
-		currentServerIDs := serverIDs{}
-		if err = json.Unmarshal([]byte(record), &currentServerIDs); err == nil {
-			return len(currentServerIDs.ServerIDs)
-		}
-	}
-	return 1
-}
