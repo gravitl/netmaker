@@ -746,7 +746,7 @@ info:
 
         API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
     title: Netmaker
-    version: 0.15.2
+    version: 0.16.0
 paths:
     /api/dns:
         get:
@@ -1087,6 +1087,13 @@ paths:
     /api/networks/{networkname}:
         delete:
             operationId: deleteNetwork
+            parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
             responses:
                 "200":
                     $ref: '#/responses/stringJSONResponse'
@@ -1097,6 +1104,13 @@ paths:
                 - networks
         get:
             operationId: getNetwork
+            parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
             responses:
                 "200":
                     $ref: '#/responses/networkBodyResponse'
@@ -1114,6 +1128,12 @@ paths:
                   schema:
                     $ref: '#/definitions/Network'
                   x-go-name: Network
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
             responses:
                 "200":
                     $ref: '#/responses/networkBodyResponse'
@@ -1126,6 +1146,12 @@ paths:
         get:
             operationId: getNetworkACL
             parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
                 - description: ACL Container
                   in: body
                   name: acl_container
@@ -1143,6 +1169,12 @@ paths:
         put:
             operationId: updateNetworkACL
             parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
                 - description: ACL Container
                   in: body
                   name: acl_container
@@ -1160,6 +1192,13 @@ paths:
     /api/networks/{networkname}/keys:
         get:
             operationId: getAccessKeys
+            parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
             responses:
                 "200":
                     $ref: '#/responses/accessKeySliceBodyResponse'
@@ -1171,6 +1210,12 @@ paths:
         post:
             operationId: createAccessKey
             parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
                 - description: Access Key
                   in: body
                   name: access_key
@@ -1189,6 +1234,12 @@ paths:
         delete:
             operationId: deleteAccessKey
             parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
                 - description: Access Key Name
                   in: path
                   name: access_key_name
@@ -1206,6 +1257,13 @@ paths:
     /api/networks/{networkname}/keyupdate:
         post:
             operationId: keyUpdate
+            parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
             responses:
                 "200":
                     $ref: '#/responses/networkBodyResponse'
@@ -1217,6 +1275,13 @@ paths:
     /api/networks/{networkname}/nodelimit:
         put:
             operationId: updateNetworkNodeLimit
+            parameters:
+                - description: Network Name
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: NetworkName
             responses:
                 "200":
                     $ref: '#/responses/networkBodyResponse'
@@ -1239,13 +1304,6 @@ paths:
     /api/nodes/{network}:
         get:
             operationId: getNetworkNodes
-            parameters:
-                - description: Network
-                  in: path
-                  name: network
-                  required: true
-                  type: string
-                  x-go-name: Network
             responses:
                 "200":
                     $ref: '#/responses/nodeSliceResponse'
@@ -1256,13 +1314,6 @@ paths:
                 - nodes
         post:
             operationId: createNode
-            parameters:
-                - description: Network
-                  in: path
-                  name: network
-                  required: true
-                  type: string
-                  x-go-name: Network
             responses:
                 "200":
                     $ref: '#/responses/nodeGetResponse'
@@ -1537,12 +1588,6 @@ paths:
         post:
             operationId: authenticate
             parameters:
-                - description: Network
-                  in: path
-                  name: network
-                  required: true
-                  type: string
-                  x-go-name: Network
                 - description: AuthParams
                   in: body
                   name: auth_params
@@ -1560,13 +1605,6 @@ paths:
     /api/nodes/adm/{network}/lastmodified:
         get:
             operationId: getLastModified
-            parameters:
-                - description: Network
-                  in: path
-                  name: network
-                  required: true
-                  type: string
-                  x-go-name: Network
             responses:
                 "200":
                     $ref: '#/responses/nodeLastModifiedResponse'
@@ -1593,7 +1631,7 @@ paths:
                 - https
             summary: Get the server configuration.
             tags:
-                - nodes
+                - server
     /api/server/getserverinfo:
         get:
             operationId: getServerInfo
@@ -1604,7 +1642,7 @@ paths:
                 - https
             summary: Get the server configuration.
             tags:
-                - nodes
+                - server
     /api/server/register:
         post:
             operationId: register
@@ -1622,17 +1660,10 @@ paths:
                 - https
             summary: Registers a client with the server and return the Certificate Authority and certificate.
             tags:
-                - nodes
+                - server
     /api/server/removenetwork/{network}:
         delete:
             operationId: removeNetwork
-            parameters:
-                - description: Network
-                  in: path
-                  name: network
-                  required: true
-                  type: string
-                  x-go-name: Network
             responses:
                 "200":
                     $ref: '#/responses/stringJSONResponse'
@@ -1640,7 +1671,7 @@ paths:
                 - https
             summary: Remove a network from the server.
             tags:
-                - nodes
+                - server
     /api/users:
         get:
             operationId: getUsers
@@ -1651,7 +1682,7 @@ paths:
                 - https
             summary: Get all users.
             tags:
-                - nodes
+                - user
     /api/users/{username}:
         delete:
             operationId: deleteUser
@@ -1669,7 +1700,7 @@ paths:
                 - https
             summary: Delete a user.
             tags:
-                - nodes
+                - user
         get:
             operationId: getUser
             parameters:
@@ -1686,7 +1717,7 @@ paths:
                 - https
             summary: Get an individual user.
             tags:
-                - nodes
+                - user
         post:
             operationId: createUser
             parameters:
@@ -1709,7 +1740,7 @@ paths:
                 - https
             summary: Create a user.
             tags:
-                - nodes
+                - user
         put:
             operationId: updateUser
             parameters:
@@ -1732,7 +1763,7 @@ paths:
                 - https
             summary: Update a user.
             tags:
-                - nodes
+                - user
     /api/users/{username}/adm:
         put:
             operationId: updateUserAdm
@@ -1750,7 +1781,7 @@ paths:
                 - https
             summary: Updates the given admin user's info (as long as the user is an admin).
             tags:
-                - nodes
+                - user
     /api/users/adm/authenticate:
         post:
             operationId: authenticateUser
@@ -1768,7 +1799,7 @@ paths:
                 - https
             summary: Node authenticates using its password and retrieves a JWT for authorization.
             tags:
-                - nodes
+                - user
     /api/users/adm/createadmin:
         post:
             operationId: createAdmin
@@ -1786,7 +1817,7 @@ paths:
                 - https
             summary: Make a user an admin.
             tags:
-                - nodes
+                - user
     /api/users/adm/hasadmin:
         get:
             operationId: hasAdmin
@@ -1797,7 +1828,7 @@ paths:
                 - https
             summary: Checks whether the server has an admin.
             tags:
-                - nodes
+                - user
     /api/users/networks/{username}:
         put:
             operationId: updateUserNetworks
@@ -1821,7 +1852,7 @@ paths:
                 - https
             summary: Updates the networks of the given user.
             tags:
-                - nodes
+                - user
     /meshclient/files/{filename}:
         get:
             operationId: fileServer

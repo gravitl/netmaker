@@ -38,7 +38,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterNodeSSO).Methods("GET")
 }
 
-// swagger:route POST /api/users/adm/authenticate nodes authenticateUser
+// swagger:route POST /api/users/adm/authenticate user authenticateUser
 //
 // Node authenticates using its password and retrieves a JWT for authorization.
 //
@@ -110,7 +110,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// swagger:route GET /api/users/adm/hasadmin nodes hasAdmin
+// swagger:route GET /api/users/adm/hasadmin user hasAdmin
 //
 // Checks whether the server has an admin.
 //
@@ -150,7 +150,7 @@ func GetUserInternal(username string) (models.User, error) {
 	return user, err
 }
 
-// swagger:route GET /api/users/{username} nodes getUser
+// swagger:route GET /api/users/{username} user getUser
 //
 // Get an individual user.
 //
@@ -178,7 +178,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route GET /api/users nodes getUsers
+// swagger:route GET /api/users user getUsers
 //
 // Get all users.
 //
@@ -205,7 +205,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// swagger:route POST /api/users/adm/createadmin nodes createAdmin
+// swagger:route POST /api/users/adm/createadmin user createAdmin
 //
 // Make a user an admin.
 //
@@ -247,7 +247,7 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(admin)
 }
 
-// swagger:route POST /api/users/{username} nodes createUser
+// swagger:route POST /api/users/{username} user createUser
 //
 // Create a user.
 //
@@ -281,7 +281,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route PUT /api/users/networks/{username} nodes updateUserNetworks
+// swagger:route PUT /api/users/networks/{username} user updateUserNetworks
 //
 // Updates the networks of the given user.
 //
@@ -331,7 +331,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route PUT /api/users/{username} nodes updateUser
+// swagger:route PUT /api/users/{username} user updateUser
 //
 // Update a user.
 //
@@ -382,7 +382,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route PUT /api/users/{username}/adm nodes updateUserAdm
+// swagger:route PUT /api/users/{username}/adm user updateUserAdm
 //
 // Updates the given admin user's info (as long as the user is an admin).
 //
@@ -434,7 +434,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route DELETE /api/users/{username} nodes deleteUser
+// swagger:route DELETE /api/users/{username} user deleteUser
 //
 // Delete a user.
 //

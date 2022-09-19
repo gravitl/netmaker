@@ -50,7 +50,37 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 	}
 }
 
-// swagger:route GET /api/server/getserverinfo nodes getServerInfo
+// swagger:route DELETE /api/server/removenetwork/{network} server removeNetwork
+//
+// Remove a network from the server.
+//
+//		Schemes: https
+//
+// 		Security:
+//   		oauth
+//
+//		Responses:
+//			200: stringJSONResponse
+func removeNetwork(w http.ResponseWriter, r *http.Request) {
+	// Set header
+	w.Header().Set("Content-Type", "application/json")
+
+	// get params
+	var params = mux.Vars(r)
+	network := params["network"]
+	err := logic.DeleteNetwork(network)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete network [%s]: %v", network, err))
+		json.NewEncoder(w).Encode(fmt.Sprintf("could not remove network %s from server", network))
+		return
+	}
+	logger.Log(1, r.Header.Get("user"),
+		fmt.Sprintf("deleted network [%s]: %v", network, err))
+	json.NewEncoder(w).Encode(fmt.Sprintf("network %s removed from server", network))
+}
+
+// swagger:route GET /api/server/getserverinfo server getServerInfo
 //
 // Get the server configuration.
 //
@@ -71,7 +101,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	//w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route GET /api/server/getconfig nodes getConfig
+// swagger:route GET /api/server/getconfig server getConfig
 //
 // Get the server configuration.
 //
@@ -97,7 +127,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	//w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/server/register nodes register
+// swagger:route POST /api/server/register server register
 //
 // Registers a client with the server and return the Certificate Authority and certificate.
 //
