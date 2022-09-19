@@ -360,10 +360,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		logger.Log(0, "network:", node.Network, "failed to make backup, node will not auto restore if config is corrupted")
 	}
 
-	err = local.SetNetmakerDomainRoute(cfg.Server.API)
-	if err != nil {
-		logger.Log(0, "error setting route for netmaker: "+err.Error())
-	}
+	local.SetNetmakerDomainRoute(cfg.Server.API)
 	cfg.Node = node
 	if err := Register(cfg); err != nil {
 		return err
