@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/validation"
@@ -62,6 +63,9 @@ func DeleteNetwork(network string) error {
 		} else {
 			logger.Log(1, "could not remove servers before deleting network", network)
 		}
+		if err = pro.RemoveAllNetworkUsers(network); err != nil {
+			logger.Log(0, "failed to remove network users on network delete for network", network, err.Error())
+		}
 		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}
 	return errors.New("node check failed. All nodes must be deleted before deleting network")
@@ -84,13 +88,24 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		}
 		network.AddressRange6 = normalizedRange
 	}
+
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
 
+	pro.AddProNetDefaults(&network)
+
+	if len(network.ProSettings.AllowedGroups) == 0 {
+		network.ProSettings.AllowedGroups = []string{pro.DEFAULT_ALLOWED_GROUPS}
+	}
+
 	err := ValidateNetwork(&network, false)
 	if err != nil {
-		//returnErrorResponse(w, r, formatError(err, "badrequest"))
+		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return models.Network{}, err
+	}
+
+	if err = pro.InitializeNetworkUsers(network.NetID); err != nil {
 		return models.Network{}, err
 	}
 
@@ -98,8 +113,14 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	if err != nil {
 		return models.Network{}, err
 	}
+
 	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
 		return models.Network{}, err
+	}
+
+	// == add all current users to network as network users ==
+	if err = InitializeNetUsers(&network); err != nil {
+		return network, err
 	}
 
 	return network, nil
@@ -526,25 +547,29 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, bool, error) {
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, bool, []string, []string, error) {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, false, err
+		return false, false, false, false, nil, nil, err
 	}
 	if newNetwork.NetID == currentNetwork.NetID {
 		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
 		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
 		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
 		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
+		groupDelta := append(StringDifference(newNetwork.ProSettings.AllowedGroups, currentNetwork.ProSettings.AllowedGroups),
+			StringDifference(currentNetwork.ProSettings.AllowedGroups, newNetwork.ProSettings.AllowedGroups)...)
+		userDelta := append(StringDifference(newNetwork.ProSettings.AllowedUsers, currentNetwork.ProSettings.AllowedUsers),
+			StringDifference(currentNetwork.ProSettings.AllowedUsers, newNetwork.ProSettings.AllowedUsers)...)
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
-			return false, false, false, false, err
+			return false, false, false, false, nil, nil, err
 		}
 		newNetwork.SetNetworkLastModified()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		return hasrangeupdate4, hasrangeupdate6, localrangeupdate, hasholepunchupdate, err
+		return hasrangeupdate4, hasrangeupdate6, localrangeupdate, hasholepunchupdate, groupDelta, userDelta, err
 	}
 	// copy values
-	return false, false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	return false, false, false, false, nil, nil, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
 // GetNetwork - gets a network from database
@@ -596,6 +621,15 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 		}
 	}
 
+	if network.ProSettings != nil {
+		if network.ProSettings.DefaultAccessLevel < pro.NET_ADMIN || network.ProSettings.DefaultAccessLevel > pro.NO_ACCESS {
+			return fmt.Errorf("invalid access level")
+		}
+		if network.ProSettings.DefaultUserClientLimit < 0 || network.ProSettings.DefaultUserNodeLimit < 0 {
+			return fmt.Errorf("invalid node/client limit provided")
+		}
+	}
+
 	return err
 }
 
@@ -625,6 +659,17 @@ func SaveNetwork(network *models.Network) error {
 		return err
 	}
 	return nil
+}
+
+// NetworkExists - check if network exists
+func NetworkExists(name string) (bool, error) {
+
+	var network string
+	var err error
+	if network, err = database.FetchRecord(database.NETWORKS_TABLE_NAME, name); err != nil {
+		return false, err
+	}
+	return len(network) > 0, nil
 }
 
 // == Private ==

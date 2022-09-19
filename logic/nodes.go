@@ -13,6 +13,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/logic/pro"
+	"github.com/gravitl/netmaker/logic/pro/proacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -128,6 +130,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			}
 		}
 	}
+	nodeACLDelta := currentNode.DefaultACL != newNode.DefaultACL
 	newNode.Fill(currentNode)
 
 	if currentNode.IsServer == "yes" && !validateServer(currentNode, newNode) {
@@ -137,7 +140,15 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if err := ValidateNode(newNode, true); err != nil {
 		return err
 	}
+
 	if newNode.ID == currentNode.ID {
+		if nodeACLDelta {
+			if err := updateProNodeACLS(newNode); err != nil {
+				logger.Log(1, "failed to apply node level ACLs during creation of node", newNode.ID, "-", err.Error())
+				return err
+			}
+		}
+
 		newNode.SetLastModified()
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
@@ -145,6 +156,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			return database.Insert(newNode.ID, string(data), database.NODES_TABLE_NAME)
 		}
 	}
+
 	return fmt.Errorf("failed to update node " + currentNode.ID + ", cannot change ID.")
 }
 
@@ -176,8 +188,15 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		return err
 	}
+
 	if servercfg.IsDNSMode() {
 		SetDNS()
+	}
+	if node.OwnerID != "" {
+		err = pro.DissociateNetworkUserNode(node.OwnerID, node.Network, node.ID)
+		if err != nil {
+			logger.Log(0, "failed to dissasociate", node.OwnerID, "from node", node.ID, ":", err.Error())
+		}
 	}
 
 	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID))
@@ -186,6 +205,10 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		logger.Log(2, "attempted to remove node ACL for node", node.Name, node.ID)
 	}
 	// removeZombie <- node.ID
+	if err = DeleteMetrics(node.ID); err != nil {
+		logger.Log(1, "unable to remove metrics from DB for node", node.ID, err.Error())
+	}
+
 	if node.IsServer == "yes" {
 		return removeLocalServer(node)
 	}
@@ -218,6 +241,9 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 	})
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
+	})
+	_ = v.RegisterValidation("checkyesornoorunset", func(fl validator.FieldLevel) bool {
+		return validation.CheckYesOrNoOrUnset(fl)
 	})
 	err := v.Struct(node)
 
@@ -255,6 +281,10 @@ func CreateNode(node *models.Node) error {
 		}
 	}
 
+	if node.DefaultACL == "" {
+		node.DefaultACL = "unset"
+	}
+
 	reverse := node.IsServer == "yes"
 	if node.Address == "" {
 		if parentNetwork.IsIPv4 == "yes" {
@@ -281,7 +311,7 @@ func CreateNode(node *models.Node) error {
 	//Create a JWT for the node
 	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
 	if tokenString == "" {
-		//returnErrorResponse(w, r, errorResponse)
+		//logic.ReturnErrorResponse(w, r, errorResponse)
 		return err
 	}
 	err = ValidateNode(node, false)
@@ -305,9 +335,19 @@ func CreateNode(node *models.Node) error {
 		return err
 	}
 
+	if err = updateProNodeACLS(node); err != nil {
+		logger.Log(1, "failed to apply node level ACLs during creation of node", node.ID, "-", err.Error())
+		return err
+	}
+
 	if node.IsPending != "yes" {
 		DecrimentKey(node.Network, node.AccessKey)
 	}
+
+	if err = UpdateMetrics(node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {
+		logger.Log(1, "failed to initialize metrics for node", node.Name, node.ID, err.Error())
+	}
+
 	SetNetworkNodesLastModified(node.Network)
 	if servercfg.IsDNSMode() {
 		err = SetDNS()
@@ -435,6 +475,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIsK8S()
 	node.SetDefaultIsHub()
 	node.SetDefaultConnected()
+	node.SetDefaultACL()
 }
 
 // GetRecordKey - get record key
@@ -677,3 +718,19 @@ func findNode(ip string) (*models.Node, error) {
 	}
 	return nil, errors.New("node not found")
 }
+
+// == PRO ==
+
+func updateProNodeACLS(node *models.Node) error {
+	// == PRO node ACLs ==
+	networkNodes, err := GetNetworkNodes(node.Network)
+	if err != nil {
+		return err
+	}
+	if err = proacls.AdjustNodeAcls(node, networkNodes[:]); err != nil {
+		return err
+	}
+	return nil
+}
+
+// == END PRO ==

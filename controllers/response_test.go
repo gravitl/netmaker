@@ -7,12 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFormatError(t *testing.T) {
-	response := formatError(errors.New("this is a sample error"), "badrequest")
+	response := logic.FormatError(errors.New("this is a sample error"), "badrequest")
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 	assert.Equal(t, "this is a sample error", response.Message)
 }
@@ -20,7 +21,7 @@ func TestFormatError(t *testing.T) {
 func TestReturnSuccessResponse(t *testing.T) {
 	var response models.SuccessResponse
 	handler := func(rw http.ResponseWriter, r *http.Request) {
-		returnSuccessResponse(rw, r, "This is a test message")
+		logic.ReturnSuccessResponse(rw, r, "This is a test message")
 	}
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	w := httptest.NewRecorder()
@@ -42,7 +43,7 @@ func TestReturnErrorResponse(t *testing.T) {
 	errMessage.Code = http.StatusUnauthorized
 	errMessage.Message = "You are not authorized to access this endpoint"
 	handler := func(rw http.ResponseWriter, r *http.Request) {
-		returnErrorResponse(rw, r, errMessage)
+		logic.ReturnErrorResponse(rw, r, errMessage)
 	}
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	w := httptest.NewRecorder()

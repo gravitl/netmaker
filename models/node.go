@@ -101,6 +101,9 @@ type Node struct {
 	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 	Connected       string      `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
+	// == PRO ==
+	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
 }
 
 // NodesArray - used for node sorting
@@ -136,6 +139,13 @@ func (node *Node) SetDefaultConnected() {
 	}
 	if node.IsServer == "yes" {
 		node.Connected = "yes"
+	}
+}
+
+// Node.SetDefaultACL
+func (node *Node) SetDefaultACL() {
+	if node.DefaultACL == "" {
+		node.DefaultACL = "yes"
 	}
 }
 
@@ -438,6 +448,10 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.Connected == "" {
 		newNode.Connected = currentNode.Connected
 	}
+	if newNode.DefaultACL == "" {
+		newNode.DefaultACL = currentNode.DefaultACL
+	}
+
 	newNode.TrafficKeys = currentNode.TrafficKeys
 }
 
@@ -468,4 +482,16 @@ func (node *Node) NameInNodeCharSet() bool {
 		}
 	}
 	return true
+}
+
+// == PRO ==
+
+// Node.DoesACLAllow - checks if default ACL on node is "yes"
+func (node *Node) DoesACLAllow() bool {
+	return node.DefaultACL == "yes"
+}
+
+// Node.DoesACLDeny - checks if default ACL on node is "no"
+func (node *Node) DoesACLDeny() bool {
+	return node.DefaultACL == "no"
 }

@@ -21,46 +21,29 @@ import (
 
 func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
-	r.HandleFunc("/api/server/getconfig", securityCheckServer(false, http.HandlerFunc(getConfig))).Methods("GET")
-	r.HandleFunc("/api/server/removenetwork/{network}", securityCheckServer(true, http.HandlerFunc(removeNetwork))).Methods("DELETE")
+	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).Methods("GET")
 	r.HandleFunc("/api/server/register", authorize(true, false, "node", http.HandlerFunc(register))).Methods("POST")
 	r.HandleFunc("/api/server/getserverinfo", authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods("GET")
 }
 
-//Security check is middleware for every function and just checks to make sure that its the master calling
-//Only admin should have access to all these network-level actions
-//or maybe some Users once implemented
-func securityCheckServer(adminonly bool, next http.Handler) http.HandlerFunc {
+// allowUsers - allow all authenticated (valid) users - only used by getConfig, may be able to remove during refactor
+func allowUsers(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+			Code: http.StatusInternalServerError, Message: logic.Unauthorized_Msg,
 		}
-
 		bearerToken := r.Header.Get("Authorization")
-
 		var tokenSplit = strings.Split(bearerToken, " ")
 		var authToken = ""
 		if len(tokenSplit) < 2 {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-			}
-			returnErrorResponse(w, r, errorResponse)
+			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
 		} else {
 			authToken = tokenSplit[1]
 		}
-		//all endpoints here require master so not as complicated
-		//still might not be a good  way of doing this
-		user, _, isadmin, err := logic.VerifyUserToken(authToken)
-		errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "W1R3: You are unauthorized to access this endpoint.",
-		}
-		if !adminonly && (err != nil || user == "") {
-			returnErrorResponse(w, r, errorResponse)
-			return
-		}
-		if adminonly && !isadmin && !authenticateMaster(authToken) {
-			returnErrorResponse(w, r, errorResponse)
+		user, _, _, err := logic.VerifyUserToken(authToken)
+		if err != nil || user == "" {
+			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -136,6 +119,10 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	// get params
 
 	scfg := servercfg.GetServerConfig()
+	scfg.IsEE = "no"
+	if logic.Is_EE {
+		scfg.IsEE = "yes"
+	}
 	json.NewEncoder(w).Encode(scfg)
 	//w.WriteHeader(http.StatusOK)
 }
@@ -161,7 +148,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusBadRequest, Message: err.Error(),
 		}
-		returnErrorResponse(w, r, errorResponse)
+		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
 	cert, ca, err := genCerts(&request.Key, &request.CommonName)
@@ -170,7 +157,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		errorResponse := models.ErrorResponse{
 			Code: http.StatusNotFound, Message: err.Error(),
 		}
-		returnErrorResponse(w, r, errorResponse)
+		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
 	//x509.Certificate.PublicKey is an interface therefore json encoding/decoding result in a string value rather than a []byte
