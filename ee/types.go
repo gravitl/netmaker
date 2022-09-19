@@ -81,7 +81,3 @@ type ValidateLicenseRequest struct {
 type licenseResponseCache struct {
 	Body []byte `json:"body" binding:"required"`
 }
-
-type serverIDs struct {
-	ServerIDs []string `json:"server_ids" binding:"required"`
-}

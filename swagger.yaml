@@ -1661,17 +1661,6 @@ paths:
             summary: Registers a client with the server and return the Certificate Authority and certificate.
             tags:
                 - server
-    /api/server/removenetwork/{network}:
-        delete:
-            operationId: removeNetwork
-            responses:
-                "200":
-                    $ref: '#/responses/stringJSONResponse'
-            schemes:
-                - https
-            summary: Remove a network from the server.
-            tags:
-                - server
     /api/users:
         get:
             operationId: getUsers
