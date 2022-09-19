@@ -155,8 +155,11 @@ func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []
 // Listens in /oidc/register/:regKey.
 func RegisterNodeSSO(w http.ResponseWriter, r *http.Request) {
 
-	logger.Log(1, "RegisterNodeSSO\n")
-
+	if auth_provider == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("invalid login attempt"))
+		return
+	}
 	vars := mux.Vars(r)
 
 	// machineKeyStr this is not key but state
@@ -165,8 +168,7 @@ func RegisterNodeSSO(w http.ResponseWriter, r *http.Request) {
 
 	if machineKeyStr == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Wrong params"))
-		logger.Log(0, "Wrong params ", machineKeyStr)
+		w.Write([]byte("invalid login attempt"))
 		return
 	}
 
