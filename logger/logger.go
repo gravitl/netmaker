@@ -134,7 +134,7 @@ func Retrieve(filePath string) string {
 
 // FatalLog - exits os after logging
 func FatalLog(message ...string) {
-	fmt.Printf("[netmaker] Fatal: %s \n", MakeString(" ", message...))
+	fmt.Printf("[%s] Fatal: %s \n", program, MakeString(" ", message...))
 	os.Exit(2)
 }
 

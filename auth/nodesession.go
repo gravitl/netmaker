@@ -23,7 +23,6 @@ import (
 // When this method finishes - the auth flow has finished either OK or by timeout or any other error occured
 func SessionHandler(conn *websocket.Conn) {
 	defer conn.Close()
-	logger.Log(1, "Running  sessionHandler")
 
 	// If reached here we have a session from user to handle...
 	messageType, message, err := conn.ReadMessage()
@@ -58,12 +57,20 @@ func SessionHandler(conn *websocket.Conn) {
 	defer close(answer)
 	defer close(timeout)
 
+	if _, err = logic.GetNetwork(loginMessage.Network); err != nil {
+		err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		if err != nil {
+			logger.Log(0, "error during message writing:", err.Error())
+		}
+		return
+	}
+
 	if loginMessage.User != "" { // handle basic auth
 		// verify that server supports basic auth, then authorize the request with given credentials
 		// check if user is allowed to join via node sso
 		// i.e. user is admin or user has network permissions
 		if !servercfg.IsBasicAuthEnabled() {
-			err = conn.WriteMessage(messageType, []byte("Basic Auth Disabled"))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				logger.Log(0, "error during message writing:", err.Error())
 			}
@@ -73,7 +80,7 @@ func SessionHandler(conn *websocket.Conn) {
 			Password: loginMessage.Password,
 		})
 		if err != nil {
-			err = conn.WriteMessage(messageType, []byte(fmt.Sprintf("Failed to authenticate, %s.", loginMessage.User)))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				logger.Log(0, "error during message writing:", err.Error())
 			}
@@ -81,7 +88,7 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 		user, err := isUserIsAllowed(loginMessage.User, loginMessage.Network, false)
 		if err != nil {
-			err = conn.WriteMessage(messageType, []byte(fmt.Sprintf("%s lacks permission to join.", loginMessage.User)))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				logger.Log(0, "error during message writing:", err.Error())
 			}
@@ -99,6 +106,13 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 	} else { // handle SSO / OAuth
+		if auth_provider == nil {
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "error during message writing:", err.Error())
+			}
+			return
+		}
 		redirectUrl = fmt.Sprintf("https://%s/api/oauth/register/%s", servercfg.GetAPIConnString(), stateStr)
 		err = conn.WriteMessage(messageType, []byte(redirectUrl))
 		if err != nil {
@@ -135,7 +149,7 @@ func SessionHandler(conn *websocket.Conn) {
 	case <-timeout:
 		logger.Log(0, "Authentication server time out for a node on network", loginMessage.Network)
 		// the read from req.answerCh has timed out
-		err = conn.WriteMessage(messageType, []byte("Authentication server time out"))
+		err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		if err != nil {
 			logger.Log(0, "Error during message writing:", err.Error())
 		}

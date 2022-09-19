@@ -82,6 +82,7 @@ func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
 		}
 		loginMsg.User = global_settings.User
 		loginMsg.Password = string(pass)
+		fmt.Println("attempting login...")
 	}
 
 	msgTx, err := json.Marshal(loginMsg)
@@ -101,7 +102,6 @@ func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
 		// Wait to receive something from server
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("Error in receive:", err)
 			return err
 		}
 		// Print message from the netmaker controller to the user
@@ -121,6 +121,11 @@ func JoinViaSSo(cfg *config.ClientConfig, privateKey string) error {
 		for {
 			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
+				if msgType < 0 {
+					logger.Log(1, "received close message from server")
+					done <- struct{}{}
+					return
+				}
 				// Error reading a message from the server
 				if !strings.Contains(err.Error(), "normal") {
 					logger.Log(0, "read:", err.Error())

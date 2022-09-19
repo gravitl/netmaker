@@ -38,7 +38,7 @@ func SetupSystemDDaemon() error {
 	}
 	err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
 	if err != nil {
-		log.Println(err)
+		logger.Log(0, err.Error())
 		return err
 	}
 
@@ -64,7 +64,7 @@ WantedBy=multi-user.target
 	if !ncutils.FileExists("/etc/systemd/system/netclient.service") {
 		err = os.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
 		if err != nil {
-			log.Println(err)
+			logger.Log(0, err.Error())
 			return err
 		}
 	}
@@ -106,7 +106,7 @@ func RemoveSystemDServices() error {
 	var err error
 	if !ncutils.IsWindows() && isOnlyService() {
 		if err != nil {
-			log.Println(err)
+			logger.Log(0, err.Error())
 		}
 		ncutils.RunCmd("systemctl disable netclient.service", false)
 		ncutils.RunCmd("systemctl disable netclient.timer", false)

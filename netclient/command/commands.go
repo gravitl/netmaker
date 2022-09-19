@@ -30,14 +30,13 @@ func Join(cfg *config.ClientConfig, privateKey string) error {
 		logger.Log(1, "Logging into %s via:", cfg.Network, cfg.SsoServer)
 		err = functions.JoinViaSSo(cfg, privateKey)
 		if err != nil {
-			logger.Log(0, "Join via OIDC failed: ", err.Error())
+			logger.Log(0, "Join failed: ", err.Error())
 			return err
 		}
 
 		if cfg.AccessKey == "" {
-			return errors.New("failed to get access key")
+			return errors.New("login failed")
 		}
-		logger.Log(1, "Got an access key to ", cfg.Network, " via:", cfg.SsoServer)
 	}
 
 	logger.Log(1, "Joining network: ", cfg.Network)
