@@ -38,7 +38,7 @@ func SetupSystemDDaemon() error {
 	}
 	err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
 	if err != nil {
-		log.Println(err)
+		logger.Log(0, err.Error())
 		return err
 	}
 
@@ -46,7 +46,7 @@ func SetupSystemDDaemon() error {
 Description=Netclient Daemon
 Documentation=https://docs.netmaker.org https://k8s.netmaker.org
 After=network-online.target
-Wants=network-online.target systemd-networkd-wait-online.service
+Wants=network-online.target
 
 [Service]
 User=root
@@ -64,7 +64,7 @@ WantedBy=multi-user.target
 	if !ncutils.FileExists("/etc/systemd/system/netclient.service") {
 		err = os.WriteFile("/etc/systemd/system/netclient.service", servicebytes, 0644)
 		if err != nil {
-			log.Println(err)
+			logger.Log(0, err.Error())
 			return err
 		}
 	}
@@ -106,7 +106,7 @@ func RemoveSystemDServices() error {
 	var err error
 	if !ncutils.IsWindows() && isOnlyService() {
 		if err != nil {
-			log.Println(err)
+			logger.Log(0, err.Error())
 		}
 		ncutils.RunCmd("systemctl disable netclient.service", false)
 		ncutils.RunCmd("systemctl disable netclient.timer", false)

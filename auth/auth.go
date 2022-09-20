@@ -9,6 +9,7 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -27,7 +28,18 @@ const (
 	oidc_provider_name     = "oidc"
 	verify_user            = "verifyuser"
 	auth_key               = "netmaker_auth"
+	user_signin_length     = 16
+	node_signin_length     = 64
 )
+
+// OAuthUser - generic OAuth strategy user
+type OAuthUser struct {
+	Name              string `json:"name" bson:"name"`
+	Email             string `json:"email" bson:"email"`
+	Login             string `json:"login" bson:"login"`
+	UserPrincipalName string `json:"userPrincipalName" bson:"userPrincipalName"`
+	AccessToken       string `json:"accesstoken" bson:"accesstoken"`
+}
 
 var auth_provider *oauth2.Config
 
@@ -94,12 +106,19 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if functions == nil {
 		return
 	}
-	functions[handle_callback].(func(http.ResponseWriter, *http.Request))(w, r)
+	state, _ := getStateAndCode(r)
+	_, err := netcache.Get(state) // if in netcache proceeed with node registration login
+	if err == nil || len(state) == node_signin_length || (err != nil && strings.Contains(err.Error(), "expired")) {
+		logger.Log(0, "proceeding with node SSO callback")
+		HandleNodeSSOCallback(w, r)
+	} else { // handle normal login
+		functions[handle_callback].(func(http.ResponseWriter, *http.Request))(w, r)
+	}
 }
 
 // swagger:route GET /api/oauth/login nodes HandleAuthLogin
 //
-// Handles OAuth login
+// Handles OAuth login.
 //
 //		Schemes: https
 //
@@ -196,4 +215,36 @@ func fetchPassValue(newValue string) (string, error) {
 		return "", nil
 	}
 	return string(b64CurrentValue), nil
+}
+
+func getStateAndCode(r *http.Request) (string, string) {
+	var state, code string
+	if r.FormValue("state") != "" && r.FormValue("code") != "" {
+		state = r.FormValue("state")
+		code = r.FormValue("code")
+	} else if r.URL.Query().Get("state") != "" && r.URL.Query().Get("code") != "" {
+		state = r.URL.Query().Get("state")
+		code = r.URL.Query().Get("code")
+	}
+
+	return state, code
+}
+
+func (user *OAuthUser) getUserName() string {
+	var userName string
+	if user.Email != "" {
+		userName = user.Email
+	} else if user.Login != "" {
+		userName = user.Login
+	} else if user.UserPrincipalName != "" {
+		userName = user.UserPrincipalName
+	} else if user.Name != "" {
+		userName = user.Name
+	}
+	return userName
+}
+
+func isStateCached(state string) bool {
+	_, err := netcache.Get(state)
+	return err == nil || strings.Contains(err.Error(), "expired")
 }

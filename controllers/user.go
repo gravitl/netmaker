@@ -7,11 +7,17 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
+)
+
+var (
+	upgrader = websocket.Upgrader{}
 )
 
 func userHandlers(r *mux.Router) {
@@ -19,18 +25,20 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods("GET")
 	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
-	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(updateUser)))).Methods("PUT")
-	r.HandleFunc("/api/users/networks/{username}", securityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}/adm", securityCheck(true, http.HandlerFunc(updateUserAdm))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}", securityCheck(true, http.HandlerFunc(createUser))).Methods("POST")
-	r.HandleFunc("/api/users/{username}", securityCheck(true, http.HandlerFunc(deleteUser))).Methods("DELETE")
-	r.HandleFunc("/api/users/{username}", securityCheck(false, continueIfUserMatch(http.HandlerFunc(getUser)))).Methods("GET")
-	r.HandleFunc("/api/users", securityCheck(true, http.HandlerFunc(getUsers))).Methods("GET")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods("PUT")
+	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}/adm", logic.SecurityCheck(true, http.HandlerFunc(updateUserAdm))).Methods("PUT")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(users_l, http.HandlerFunc(createUser)))).Methods("POST")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods("DELETE")
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods("GET")
+	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods("GET")
 	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
+	r.HandleFunc("/api/oauth/node-handler", socketHandler)
+	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterNodeSSO).Methods("GET")
 }
 
-// swagger:route POST /api/users/adm/authenticate nodes authenticateUser
+// swagger:route POST /api/users/adm/authenticate user authenticateUser
 //
 // Node authenticates using its password and retrieves a JWT for authorization.
 //
@@ -39,6 +47,8 @@ func userHandlers(r *mux.Router) {
 // 		Security:
 //   		oauth
 //
+//		Responses:
+//			200: successResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
@@ -48,13 +58,18 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
 
+	if !servercfg.IsBasicAuthEnabled() {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		return
+	}
+
 	decoder := json.NewDecoder(request.Body)
 	decoderErr := decoder.Decode(&authRequest)
 	defer request.Body.Close()
 	if decoderErr != nil {
 		logger.Log(0, "error decoding request body: ",
 			decoderErr.Error())
-		returnErrorResponse(response, request, errorResponse)
+		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
 	username := authRequest.UserName
@@ -62,14 +77,14 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "user validation failed: ",
 			err.Error())
-		returnErrorResponse(response, request, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "badrequest"))
 		return
 	}
 
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
 		logger.Log(0, username, "jwt token is empty")
-		returnErrorResponse(response, request, formatError(errors.New("no token returned"), "internal"))
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("no token returned"), "internal"))
 		return
 	}
 
@@ -87,7 +102,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if jsonError != nil {
 		logger.Log(0, username,
 			"error marshalling resp: ", err.Error())
-		returnErrorResponse(response, request, errorResponse)
+		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
 	logger.Log(2, username, "was authenticated")
@@ -95,7 +110,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// swagger:route GET /api/users/adm/hasadmin nodes hasAdmin
+// swagger:route GET /api/users/adm/hasadmin user hasAdmin
 //
 // Checks whether the server has an admin.
 //
@@ -103,6 +118,9 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: successResponse
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -110,7 +128,7 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 	hasadmin, err := logic.HasAdmin()
 	if err != nil {
 		logger.Log(0, "failed to check for admin: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -132,7 +150,7 @@ func GetUserInternal(username string) (models.User, error) {
 	return user, err
 }
 
-// swagger:route GET /api/users/{username} nodes getUser
+// swagger:route GET /api/users/{username} user getUser
 //
 // Get an individual user.
 //
@@ -140,6 +158,9 @@ func GetUserInternal(username string) (models.User, error) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -150,21 +171,24 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route GET /api/users nodes getUsers
+// swagger:route GET /api/users user getUsers
 //
-// Get all users
+// Get all users.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -173,7 +197,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -181,7 +205,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// swagger:route POST /api/users/adm/createadmin nodes createAdmin
+// swagger:route POST /api/users/adm/createadmin user createAdmin
 //
 // Make a user an admin.
 //
@@ -189,6 +213,9 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -199,22 +226,28 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 
 		logger.Log(0, admin.UserName, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	admin, err = logic.CreateAdmin(admin)
 
+	if !servercfg.IsBasicAuthEnabled() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		return
+	}
+
+	admin, err = logic.CreateAdmin(admin)
 	if err != nil {
 		logger.Log(0, admin.UserName, "failed to create admin: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
 	logger.Log(1, admin.UserName, "was made a new admin")
 	json.NewEncoder(w).Encode(admin)
 }
 
-// swagger:route POST /api/users/{username} nodes createUser
+// swagger:route POST /api/users/{username} user createUser
 //
 // Create a user.
 //
@@ -222,6 +255,9 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -230,28 +266,32 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, user.UserName, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
 	user, err = logic.CreateUser(user)
 	if err != nil {
 		logger.Log(0, user.UserName, "error creating new user: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, user.UserName, "was created")
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route PUT /api/users/networks/{username} nodes updateUserNetworks
+// swagger:route PUT /api/users/networks/{username} user updateUserNetworks
 //
-// Updates the networks of the given user
+// Updates the networks of the given user.
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -262,7 +302,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user networks: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	var userchange models.User
@@ -271,21 +311,27 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateUserNetworks(userchange.Networks, userchange.IsAdmin, &user)
+	err = logic.UpdateUserNetworks(userchange.Networks, userchange.Groups, userchange.IsAdmin, &models.ReturnUser{
+		Groups:   user.Groups,
+		IsAdmin:  user.IsAdmin,
+		Networks: user.Networks,
+		UserName: user.UserName,
+	})
+
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user networks: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, username, "status was updated")
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route PUT /api/users/{username} nodes updateUser
+// swagger:route PUT /api/users/{username} user updateUser
 //
 // Update a user.
 //
@@ -293,6 +339,9 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -303,13 +352,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if auth.IsOauthUser(&user) == nil {
 		err := fmt.Errorf("cannot update user info for oauth user %s", username)
 		logger.Log(0, err.Error())
-		returnErrorResponse(w, r, formatError(err, "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 	var userchange models.User
@@ -318,7 +367,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	userchange.Networks = nil
@@ -326,21 +375,24 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route PUT /api/users/{username}/adm nodes updateUserAdm
+// swagger:route PUT /api/users/{username}/adm user updateUserAdm
 //
-// Updates the given admin user's info (as long as the user is an admin)
+// Updates the given admin user's info (as long as the user is an admin).
 //
 //		Schemes: https
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -349,13 +401,13 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	username := params["username"]
 	user, err := GetUserInternal(username)
 	if err != nil {
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if auth.IsOauthUser(&user) != nil {
 		err := fmt.Errorf("cannot update user info for oauth user %s", username)
 		logger.Log(0, err.Error())
-		returnErrorResponse(w, r, formatError(err, "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 	var userchange models.User
@@ -364,25 +416,25 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if !user.IsAdmin {
 		logger.Log(0, username, "not an admin user")
-		returnErrorResponse(w, r, formatError(errors.New("not a admin user"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not a admin user"), "badrequest"))
 	}
 	user, err = logic.UpdateUser(userchange, user)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user (admin) info: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, username, "was updated (admin)")
 	json.NewEncoder(w).Encode(user)
 }
 
-// swagger:route DELETE /api/users/{username} nodes deleteUser
+// swagger:route DELETE /api/users/{username} user deleteUser
 //
 // Delete a user.
 //
@@ -390,6 +442,9 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: userBodyResponse
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -403,15 +458,31 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	} else if !success {
 		err := errors.New("delete unsuccessful")
 		logger.Log(0, username, err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
+}
+
+// Called when vpn client dials in to start the auth flow and first stage is to get register URL itself
+func socketHandler(w http.ResponseWriter, r *http.Request) {
+	// Upgrade our raw HTTP connection to a websocket based one
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Log(0, "error during connection upgrade for node sign-in:", err.Error())
+		return
+	}
+	if conn == nil {
+		logger.Log(0, "failed to establish web-socket connection during node sign-in")
+		return
+	}
+	// Start handling the session
+	go auth.SessionHandler(conn)
 }

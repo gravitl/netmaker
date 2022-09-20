@@ -28,7 +28,7 @@ func SetupFreebsdDaemon() error {
 	}
 	err = ncutils.Copy(binarypath, EXEC_DIR+"netclient")
 	if err != nil {
-		log.Println(err)
+		logger.Log(0, err.Error())
 		return err
 	}
 

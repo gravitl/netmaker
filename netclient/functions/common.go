@@ -77,6 +77,9 @@ func getPrivateAddr() (string, error) {
 	if local == "" {
 		err = errors.New("could not find local ip")
 	}
+	if net.ParseIP(local).To16() != nil {
+		local = "[" + local + "]"
+	}
 
 	return local, err
 }
@@ -298,8 +301,7 @@ func WipeLocal(cfg *config.ClientConfig) error {
 	if cfg.Node.Interface != "" {
 		if ncutils.FileExists(dir + cfg.Node.Interface + ".conf") {
 			if err := os.Remove(dir + cfg.Node.Interface + ".conf"); err != nil {
-				log.Println("error removing .conf:")
-				log.Println(err.Error())
+				logger.Log(0, err.Error())
 				fail = true
 			}
 		}

@@ -9,7 +9,7 @@ import (
 func fileHandlers(r *mux.Router) {
 	// swagger:route GET /meshclient/files/{filename} meshclient fileServer
 	//
-	// Retrieve a file from the file server
+	// Retrieve a file from the file server.
 	//
 	//		Schemes: https
 	//

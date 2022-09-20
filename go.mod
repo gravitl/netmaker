@@ -9,15 +9,18 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
-	github.com/lib/pq v1.10.6
+	github.com/lib/pq v1.10.7
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.0
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.14.1
+	github.com/urfave/cli/v2 v2.16.3
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
+	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20220318042302-193cf8d6a5d6 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
 	google.golang.org/protobuf v1.28.1 // indirect
@@ -30,14 +33,17 @@ require (
 	fyne.io/fyne/v2 v2.2.3
 	github.com/c-robinson/iplib v1.0.3
 	github.com/cloverstd/tcping v0.1.1
+	github.com/go-ping/ping v1.1.0
 	github.com/guumaster/hostctl v1.1.3
 	github.com/kr/pretty v0.3.0
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.3.0
+	github.com/coreos/go-oidc/v3 v3.4.0
+	github.com/gorilla/websocket v1.4.2
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
+	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
 )
 
 require (
@@ -67,7 +73,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/josharian/native v1.0.0 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -91,10 +96,7 @@ require (
 	github.com/yuin/goldmark v1.4.13 // indirect
 	golang.org/x/image v0.0.0-20220601225756-64ec528b34cd // indirect
 	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
-	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
-	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

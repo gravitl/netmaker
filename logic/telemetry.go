@@ -43,6 +43,7 @@ func sendTelemetry() error {
 		Event:      "daily checkin",
 		Properties: posthog.NewProperties().
 			Set("nodes", d.Nodes).
+			Set("servers", d.Servers).
 			Set("non-server nodes", d.Count.NonServer).
 			Set("extclients", d.ExtClients).
 			Set("users", d.Users).
@@ -65,6 +66,7 @@ func fetchTelemetryData() (telemetryData, error) {
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
+	data.Servers = GetServerCount()
 	nodes, err := GetAllNodes()
 	if err == nil {
 		data.Nodes = len(nodes)
@@ -140,6 +142,7 @@ type telemetryData struct {
 	Users      int
 	Count      clientCount
 	Networks   int
+	Servers    int
 	Version    string
 }
 

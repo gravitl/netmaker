@@ -14,6 +14,7 @@ import (
 // Usage :  set update required to true and and update logic to function
 func UpdateClientConfig() {
 	defer upgrades.ReleaseUpgrades()
+	upgrades.InitializeUpgrades()
 
 	networks, _ := ncutils.GetSystemNetworks()
 	if len(networks) == 0 {

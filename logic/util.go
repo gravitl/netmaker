@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -170,6 +171,22 @@ func ShouldPublishPeerPorts(serverNode *models.Node) bool {
 	return false
 }
 
+// NormalCIDR - returns the first address of CIDR
+func NormalizeCIDR(address string) (string, error) {
+	ip, IPNet, err := net.ParseCIDR(address)
+	if err != nil {
+		return "", err
+	}
+	if ip.To4() == nil {
+		net6 := iplib.Net6FromStr(IPNet.String())
+		IPNet.IP = net6.FirstAddress()
+	} else {
+		net4 := iplib.Net4FromStr(IPNet.String())
+		IPNet.IP = net4.NetworkAddress()
+	}
+	return IPNet.String(), nil
+}
+
 func getNetworkProtocols(cidrs []string) (bool, bool) {
 	ipv4 := false
 	ipv6 := false
@@ -185,4 +202,19 @@ func getNetworkProtocols(cidrs []string) (bool, bool) {
 		}
 	}
 	return ipv4, ipv6
+}
+
+// StringDifference - returns the elements in `a` that aren't in `b`.
+func StringDifference(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }

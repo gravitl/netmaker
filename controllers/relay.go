@@ -20,6 +20,9 @@ import (
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: nodeResponse
 func createRelay(w http.ResponseWriter, r *http.Request) {
 	var relay models.RelayRequest
 	var params = mux.Vars(r)
@@ -27,7 +30,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&relay)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	relay.NetID = params["network"]
@@ -36,7 +39,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create relay on node [%s] on network [%s]: %v", relay.NodeID, relay.NetID, err))
-		returnErrorResponse(w, r, formatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
@@ -59,6 +62,9 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 //
 // 		Security:
 //   		oauth
+//
+//		Responses:
+//			200: nodeResponse
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -67,7 +73,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	updatenodes, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		returnErrorResponse(w, r, formatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)

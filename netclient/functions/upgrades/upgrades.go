@@ -1,10 +1,11 @@
 package upgrades
 
-func init() {
+// InitializeUpgrades - initializes written upgrades
+func InitializeUpgrades() {
 	addUpgrades([]UpgradeInfo{
 		upgrade0145,
 		upgrade0146,
-		upgrade0148,
+		upgrade0160,
 	})
 }
 

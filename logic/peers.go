@@ -3,7 +3,6 @@ package logic
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -32,6 +31,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	} else if network.IsPointToSite == "yes" && node.IsHub != "yes" {
 		isP2S = true
 	}
+	var peerMap = make(models.PeerMap)
 
 	// udppeers = the peers parsed from the local interface
 	// gives us correct port to reach
@@ -153,16 +153,26 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		}
 
 		peers = append(peers, peerData)
+		peerMap[peer.PublicKey] = models.IDandAddr{
+			Name:     peer.Name,
+			ID:       peer.ID,
+			Address:  peer.PrimaryAddress(),
+			IsServer: peer.IsServer,
+		}
+
 		if peer.IsServer == "yes" {
 			serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(&peer), Address: peer.Address})
 		}
 	}
 	if node.IsIngressGateway == "yes" {
-		extPeers, err := getExtPeers(node)
+		extPeers, idsAndAddr, err := getExtPeers(node)
 		if err == nil {
 			peers = append(peers, extPeers...)
-		} else {
-			log.Println("ERROR RETRIEVING EXTERNAL PEERS", err)
+			for i := range idsAndAddr {
+				peerMap[idsAndAddr[i].ID] = idsAndAddr[i]
+			}
+		} else if !database.IsEmptyRecord(err) {
+			logger.Log(1, "error retrieving external clients:", err.Error())
 		}
 	}
 
@@ -171,14 +181,16 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
 	peerUpdate.DNS = getPeerDNS(node.Network)
+	peerUpdate.PeerIDs = peerMap
 	return peerUpdate, nil
 }
 
-func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, error) {
+func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
+	var idsAndAddr []models.IDandAddr
 	extPeers, err := GetExtPeersList(node)
 	if err != nil {
-		return peers, err
+		return peers, idsAndAddr, err
 	}
 	for _, extPeer := range extPeers {
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
@@ -212,14 +224,24 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, error) {
 				allowedips = append(allowedips, addr6)
 			}
 		}
+
+		primaryAddr := extPeer.Address
+		if primaryAddr == "" {
+			primaryAddr = extPeer.Address6
+		}
+
 		peer = wgtypes.PeerConfig{
 			PublicKey:         pubkey,
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        allowedips,
 		}
 		peers = append(peers, peer)
+		idsAndAddr = append(idsAndAddr, models.IDandAddr{
+			ID:      peer.PublicKey.String(),
+			Address: primaryAddr,
+		})
 	}
-	return peers, nil
+	return peers, idsAndAddr, nil
 
 }
 
@@ -285,7 +307,7 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway == "yes" {
-		extPeers, err := getExtPeers(peer)
+		extPeers, _, err := getExtPeers(peer)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.Name, err.Error())
 		}
@@ -337,7 +359,7 @@ func GetAllowedIPs(node, peer *models.Node) []net.IPNet {
 				allowedips = append(allowedips, extAllowedIPs...)
 			}
 			if relayedNode.IsIngressGateway == "yes" {
-				extPeers, err := getExtPeers(relayedNode)
+				extPeers, _, err := getExtPeers(relayedNode)
 				if err == nil {
 					for _, extPeer := range extPeers {
 						allowedips = append(allowedips, extPeer.AllowedIPs...)
@@ -490,7 +512,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	}
 	//if ingress add extclients
 	if node.IsIngressGateway == "yes" {
-		extPeers, err := getExtPeers(node)
+		extPeers, _, err := getExtPeers(node)
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {

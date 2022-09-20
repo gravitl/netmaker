@@ -39,12 +39,18 @@ const (
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
+// NodeCheckin - struct for node checkins with server
+type NodeCheckin struct {
+	Version   string
+	Connected string
+}
+
 // Node - struct for node model
 type Node struct {
 	ID                      string               `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5,id_unique"`
 	Address                 string               `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6                string               `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
-	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty,ip"`
+	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty"`
 	Name                    string               `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
 	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort              int32                `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
@@ -96,6 +102,9 @@ type Node struct {
 	InternetGateway  string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 	Connected        string      `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
 	PrivateNetworkID string      `json:"privatenetworkid" bson:"privatenetworkid" yaml:"privatenetworkid"`
+	// == PRO ==
+	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
 }
 
 // NodesArray - used for node sorting
@@ -131,6 +140,13 @@ func (node *Node) SetDefaultConnected() {
 	}
 	if node.IsServer == "yes" {
 		node.Connected = "yes"
+	}
+}
+
+// Node.SetDefaultACL
+func (node *Node) SetDefaultACL() {
+	if node.DefaultACL == "" {
+		node.DefaultACL = "yes"
 	}
 }
 
@@ -436,6 +452,9 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.PrivateNetworkID == "" {
 		newNode.PrivateNetworkID = currentNode.PrivateNetworkID
 	}
+	if newNode.DefaultACL == "" {
+		newNode.DefaultACL = currentNode.DefaultACL
+	}
 	newNode.TrafficKeys = currentNode.TrafficKeys
 }
 
@@ -466,4 +485,16 @@ func (node *Node) NameInNodeCharSet() bool {
 		}
 	}
 	return true
+}
+
+// == PRO ==
+
+// Node.DoesACLAllow - checks if default ACL on node is "yes"
+func (node *Node) DoesACLAllow() bool {
+	return node.DefaultACL == "yes"
+}
+
+// Node.DoesACLDeny - checks if default ACL on node is "no"
+func (node *Node) DoesACLDeny() bool {
+	return node.DefaultACL == "no"
 }

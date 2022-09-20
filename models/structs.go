@@ -2,6 +2,7 @@ package models
 
 import (
 	"strings"
+	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -28,6 +29,7 @@ type User struct {
 	Password string   `json:"password" bson:"password" validate:"required,min=5"`
 	Networks []string `json:"networks" bson:"networks"`
 	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
+	Groups   []string `json:"groups" bson:"groups" yaml:"groups"`
 }
 
 // ReturnUser - return user struct
@@ -35,6 +37,7 @@ type ReturnUser struct {
 	UserName string   `json:"username" bson:"username"`
 	Networks []string `json:"networks" bson:"networks"`
 	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
+	Groups   []string `json:"groups" bson:"groups"`
 }
 
 // UserAuthParams - user auth params struct
@@ -48,6 +51,7 @@ type UserClaims struct {
 	IsAdmin  bool
 	UserName string
 	Networks []string
+	Groups   []string
 	jwt.RegisteredClaims
 }
 
@@ -95,10 +99,11 @@ type SuccessResponse struct {
 
 // AccessKey - access key struct
 type AccessKey struct {
-	Name         string `json:"name" bson:"name" validate:"omitempty,max=20"`
-	Value        string `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
-	AccessString string `json:"accessstring" bson:"accessstring"`
-	Uses         int    `json:"uses" bson:"uses" validate:"numeric,min=0"`
+	Name         string     `json:"name" bson:"name" validate:"omitempty,max=345"`
+	Value        string     `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
+	AccessString string     `json:"accessstring" bson:"accessstring"`
+	Uses         int        `json:"uses" bson:"uses" validate:"numeric,min=0"`
+	Expiration   *time.Time `json:"expiration" bson:"expiration"`
 }
 
 // DisplayKey - what is displayed for key
@@ -200,6 +205,7 @@ type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
+	PeerIDs      PeerMap              `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient
@@ -223,4 +229,9 @@ func (user *User) NameInCharSet() bool {
 		}
 	}
 	return true
+}
+
+// ServerIDs - struct to hold server ids.
+type ServerIDs struct {
+	ServerIDs []string `json:"server_ids"`
 }
