@@ -359,7 +359,7 @@ func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerCon
 				wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
 			}
 		} else {
-			wireguard.Section(section_interface).Key("PostUp").SetValue((node.PostUp))
+			wireguard.Section(section_interface).Key("PostDown").SetValue((node.PostDown))
 		}
 	}
 	if node.MTU != 0 {

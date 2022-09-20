@@ -4,10 +4,10 @@
 package main
 
 import (
-	"log"
 	"os"
 	"runtime/debug"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/cli_options"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/functions"
@@ -47,7 +47,7 @@ func main() {
 	} else {
 		err := app.Run(os.Args)
 		if err != nil {
-			log.Fatal(err)
+			logger.FatalLog(err.Error())
 		}
 	}
 }

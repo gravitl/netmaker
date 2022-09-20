@@ -32,6 +32,7 @@ type ClientConfig struct {
 	OperatingSystem string              `yaml:"operatingsystem"`
 	AccessKey       string              `yaml:"accesskey"`
 	PublicIPService string              `yaml:"publicipservice"`
+	SsoServer       string              `yaml:"sso"`
 }
 
 // RegisterRequest - struct for registation with netmaker server
@@ -239,6 +240,11 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("apiserver") != "" {
 			cfg.Server.API = c.String("apiserver")
 		}
+	} else if c.String("server") != "" {
+		cfg.SsoServer = c.String("server")
+		cfg.Network = c.String("network")
+		cfg.Node.Network = c.String("network")
+		global_settings.User = c.String("user")
 	} else {
 		cfg.AccessKey = c.String("key")
 		cfg.Network = c.String("network")

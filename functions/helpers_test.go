@@ -26,7 +26,7 @@ func TestNetworkExists(t *testing.T) {
 	}
 	database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
 	defer database.CloseDB()
-	exists, err := NetworkExists(testNetwork.NetID)
+	exists, err := logic.NetworkExists(testNetwork.NetID)
 	if err == nil {
 		t.Fatalf("expected error, received nil")
 	}
@@ -38,7 +38,7 @@ func TestNetworkExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to save test network in databse: %s", err)
 	}
-	exists, err = NetworkExists(testNetwork.NetID)
+	exists, err = logic.NetworkExists(testNetwork.NetID)
 	if err != nil {
 		t.Fatalf("expected nil, received err: %s", err)
 	}

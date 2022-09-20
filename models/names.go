@@ -231,6 +231,8 @@ var SMALL_NAMES = []string{
 	"cold",
 }
 
+var logoString = retrieveLogo()
+
 // GenerateNodeName - generates a random node name
 func GenerateNodeName() string {
 	rand.Seed(time.Now().UnixNano())
@@ -239,6 +241,15 @@ func GenerateNodeName() string {
 
 // RetrieveLogo - retrieves the ascii art logo for Netmaker
 func RetrieveLogo() string {
+	return logoString
+}
+
+// SetLogo - sets the logo ascii art
+func SetLogo(logo string) {
+	logoString = logo
+}
+
+func retrieveLogo() string {
 	return `              
  __   __     ______     ______   __    __     ______     __  __     ______     ______    
 /\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \   

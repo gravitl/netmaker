@@ -216,10 +216,13 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	}
 	//check if internet gateway has changed
 	oldGateway, err := net.ResolveUDPAddr("udp", cfg.Node.InternetGateway)
+
+	// note: may want to remove second part (oldGateway == &net.UDPAddr{})
+	// since it's a pointer, will never be true
 	if err != nil || (oldGateway == &net.UDPAddr{}) {
 		oldGateway = nil
 	}
-	if (internetGateway == nil && oldGateway != nil) || (internetGateway != nil && internetGateway != oldGateway) {
+	if (internetGateway == nil && oldGateway != nil) || (internetGateway != nil && internetGateway.String() != oldGateway.String()) {
 		cfg.Node.InternetGateway = internetGateway.String()
 		if err := config.ModNodeConfig(&cfg.Node); err != nil {
 			logger.Log(0, "failed to save internet gateway", err.Error())

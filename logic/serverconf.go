@@ -6,6 +6,21 @@ import (
 	"github.com/gravitl/netmaker/database"
 )
 
+var (
+	// Node_Limit - dummy var for community
+	Node_Limit = 1000000000
+	// Networks_Limit - dummy var for community
+	Networks_Limit = 1000000000
+	// Users_Limit - dummy var for community
+	Users_Limit = 1000000000
+	// Clients_Limit - dummy var for community
+	Clients_Limit = 1000000000
+	// Free_Tier - specifies if free tier
+	Free_Tier = false
+	// Is_EE - specifies if enterprise
+	Is_EE = false
+)
+
 // constant for database key for storing server ids
 const server_id_key = "nm-server-id"
 

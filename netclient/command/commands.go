@@ -3,6 +3,7 @@ package command
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -18,6 +19,27 @@ import (
 func Join(cfg *config.ClientConfig, privateKey string) error {
 	var err error
 	//join network
+	if cfg.SsoServer != "" {
+		// User wants to get access key from the OIDC server
+		// Do that before the Joining Network flow by performing the end point auth flow
+		// if performed successfully an access key is obtained from the server and then we
+		// proceed with the usual flow 'pretending' that user is feeded us with an access token
+		if len(cfg.Network) == 0 || cfg.Network == "all" {
+			return fmt.Errorf("no network provided. Specify network with \"-n <net name>\"")
+		}
+		logger.Log(1, "Logging into %s via:", cfg.Network, cfg.SsoServer)
+		err = functions.JoinViaSSo(cfg, privateKey)
+		if err != nil {
+			logger.Log(0, "Join failed: ", err.Error())
+			return err
+		}
+
+		if cfg.AccessKey == "" {
+			return errors.New("login failed")
+		}
+	}
+
+	logger.Log(1, "Joining network: ", cfg.Network)
 	err = functions.JoinNetwork(cfg, privateKey)
 	if err != nil {
 		if !strings.Contains(err.Error(), "ALREADY_INSTALLED") {
