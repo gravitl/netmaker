@@ -240,8 +240,8 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("apiserver") != "" {
 			cfg.Server.API = c.String("apiserver")
 		}
-	} else if c.String("login-server") != "" {
-		cfg.SsoServer = c.String("login-server")
+	} else if c.String("server") != "" {
+		cfg.SsoServer = c.String("server")
 		cfg.Network = c.String("network")
 		cfg.Node.Network = c.String("network")
 		global_settings.User = c.String("user")

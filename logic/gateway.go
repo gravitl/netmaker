@@ -212,12 +212,12 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
-			postUpCmd = node.PostUp + " ; " + postUpCmd
+			postUpCmd = node.PostUp + postUpCmd
 		}
 	}
 	if node.PostDown != "" {
 		if !strings.Contains(node.PostDown, postDownCmd) {
-			postDownCmd = node.PostDown + " ; " + postDownCmd
+			postDownCmd = node.PostDown + postDownCmd
 		}
 	}
 	node.SetLastModified()
@@ -385,12 +385,12 @@ func firewallIPTablesCommandsCreateIngress(networkInterface string, ipv4, ipv6 b
 		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 		postUp += "ip6tables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postUp += "ip6tables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postUp += "ip6tables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+		postUp += "ip6tables -t nat -A POSTROUTING -o " + networkInterface + " -j MASQUERADE ; "
 
 		// doesn't remove potentially empty tables or chains
 		postDown += "ip6tables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
-		postDown += "ip6tables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE"
+		postDown += "ip6tables -t nat -D POSTROUTING -o " + networkInterface + " -j MASQUERADE ; "
 	}
 	return postUp, postDown
 }
@@ -402,13 +402,13 @@ func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterf
 	postDown := ""
 	if ipv4 {
 		postUp += "iptables -A FORWARD -i " + networkInterface + " -j ACCEPT ; "
-		postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT"
+		postUp += "iptables -A FORWARD -o " + networkInterface + " -j ACCEPT ; "
 		postDown += "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
 
 		if egressNatEnabled == "yes" {
-			postUp += " ; iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
-			postDown += " ; iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
+			postUp += "iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
+			postDown += "iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
 		}
 	}
 	if ipv6 {
@@ -418,8 +418,8 @@ func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterf
 		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
 
 		if egressNatEnabled == "yes" {
-			postUp += " ; ip6tables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
-			postDown += " ; ip6tables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE"
+			postUp += "ip6tables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
+			postDown += "ip6tables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
 		}
 	}
 	return postUp, postDown
