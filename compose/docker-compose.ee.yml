@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.16.0
+    image: gravitl/netmaker:v0.16.0-ee
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -39,6 +39,9 @@ services:
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
+      METRICS_EXPORTER: "on"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
+      NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
     ports:
       - "51821-51830:51821-51830/udp"
     expose:
@@ -111,6 +114,7 @@ services:
     restart: unless-stopped
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/mosquitto.passwords:/etc/mosquitto.passwords
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
       - shared_certs:/mosquitto/certs
@@ -123,6 +127,66 @@ services:
       - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
       - traefik.tcp.routers.mqtts.service=mqtts-svc
       - traefik.tcp.routers.mqtts.entrypoints=websecure
+  prometheus:
+    container_name: prometheus
+    image: gravitl/netmaker-prometheus:latest
+    environment:
+      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.prometheus.entrypoints=websecure
+      - traefik.http.routers.prometheus.rule=Host(`prometheus.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+      - traefik.http.routers.prometheus.service=prometheus
+    restart: always
+    volumes:
+      - prometheus_data:/prometheus
+    depends_on:
+      - netmaker
+    ports:
+      - 9090:9090
+  grafana:
+    container_name: grafana
+    image: gravitl/netmaker-grafana:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.rule=Host(`grafana.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+      - traefik.http.routers.grafana.service=grafana
+    environment:
+      PROMETHEUS_HOST: "prometheus.NETMAKER_BASE_DOMAIN"
+      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+    ports:
+      - 3000:3000
+    restart: always
+    links:
+      - prometheus
+    depends_on:
+      - prometheus
+      - netmaker
+  netmaker-exporter:
+    container_name: netmaker-exporter
+    image: gravitl/netmaker-exporter:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.netmaker-exporter.entrypoints=websecure
+      - traefik.http.routers.netmaker-exporter.rule=Host(`netmaker-exporter.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.services.netmaker-exporter.loadbalancer.server.port=8085
+      - traefik.http.routers.netmaker-exporter.service=netmaker-exporter
+    restart: always
+    depends_on:
+      - netmaker
+    environment:
+      MQ_HOST: "mq"
+      MQ_PORT: "443"
+      MQ_SERVER_PORT: "1884"
+      PROMETHEUS: "on"
+      VERBOSITY: "1"
+      API_PORT: "8085"
+      PROMETHEUS_HOST: https://prometheus.NETMAKER_BASE_DOMAIN
+    expose:
+      - "8085"
 volumes:
   traefik_certs: {}
   shared_certs: {}
@@ -130,3 +194,4 @@ volumes:
   dnsconfig: {}
   mosquitto_data: {}
   mosquitto_logs: {}
+  prometheus_data: {}
