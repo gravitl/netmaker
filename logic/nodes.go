@@ -421,6 +421,10 @@ func SetNodeDefaults(node *models.Node) {
 
 	node.ExpirationDateTime = time.Now().Unix() + models.TEN_YEARS_IN_SECONDS
 
+	if node.DefaultACL == "" && node.IsServer != "yes" {
+		node.DefaultACL = parentNetwork.DefaultACL
+	}
+
 	if node.ListenPort == 0 {
 		node.ListenPort = parentNetwork.DefaultListenPort
 	}
