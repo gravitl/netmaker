@@ -480,6 +480,7 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetDefaultIsHub()
 	node.SetDefaultConnected()
 	node.SetDefaultACL()
+	node.SetDefaultFailover()
 }
 
 // GetRecordKey - get record key

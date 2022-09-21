@@ -6,6 +6,7 @@ package ee
 import (
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/ee/ee_controllers"
+	eelogic "github.com/gravitl/netmaker/ee/logic"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -28,6 +29,7 @@ func InitEE() {
 		// == End License Handling ==
 		AddLicenseHooks()
 	})
+	logic.EnterpriseFailoverFunc = eelogic.AutoRelay
 }
 
 func setControllerLimits() {

@@ -18,7 +18,11 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []interface{}
+
+// EnterpriseFailoverFunc - interface to control failover funcs
+var EnterpriseFailoverFunc interface{}
 
 // == Join, Checkin, and Leave for Server ==
 
