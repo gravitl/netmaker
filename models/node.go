@@ -301,7 +301,7 @@ func (node *Node) SetDefaultName() {
 // Node.SetDefaultFailover - sets default value of failover status to no if not set
 func (node *Node) SetDefaultFailover() {
 	if node.Failover == "" {
-		node.Failover = "yes"
+		node.Failover = "no"
 	}
 }
 
