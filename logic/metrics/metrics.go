@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -48,6 +50,7 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 			newMetric.Latency = 999
 		} else {
 			pinger.Count = 1
+			pinger.Timeout = time.Second * 2
 			err = pinger.Run()
 			if err != nil {
 				logger.Log(0, "failed ping for metrics on peer address", address, err.Error())
