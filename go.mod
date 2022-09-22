@@ -41,7 +41,7 @@ require (
 
 require (
 	github.com/coreos/go-oidc/v3 v3.4.0
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
 )
