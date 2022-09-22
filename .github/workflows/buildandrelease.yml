@@ -402,7 +402,7 @@ jobs:
           cd netclient
           env GOOS=darwin GOARCH=amd64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient .
           env CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-arm64/netclient main.go
-          env GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin/netclient-darwin-headless .
+          env GOOS=darwin GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-darwin-headless/netclient .
       - name: Upload darwin-amd64 to Release
         uses: svenstaro/upload-release-action@v2
         with:
