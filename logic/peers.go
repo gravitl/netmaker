@@ -61,6 +61,10 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if node.NetworkSettings.IsPointToSite == "yes" && node.IsHub == "no" && peer.IsHub == "no" {
 			continue
 		}
+		if node.Connected != "yes" {
+			//skip unconnected nodes
+			continue
+		}
 
 		// if the node is not a server, set the endpoint
 		var setEndpoint = !(node.IsServer == "yes")
