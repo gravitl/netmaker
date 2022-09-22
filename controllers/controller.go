@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/handlers"
@@ -59,7 +60,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 
 	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
 	// Ignore other incoming signals
-	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.TODO(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 
 	// Block main routine until a signal is received
