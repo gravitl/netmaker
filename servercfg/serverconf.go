@@ -101,6 +101,7 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.Server = GetServer()
+	cfg.Is_EE = GetServerConfig().IsEE == "yes"
 
 	return cfg
 }
