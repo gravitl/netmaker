@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // InitEE - Initialize EE Logic
@@ -34,7 +35,7 @@ func setControllerLimits() {
 	logic.Users_Limit = Limits.Users
 	logic.Clients_Limit = Limits.Clients
 	logic.Free_Tier = Limits.FreeTier
-	logic.Is_EE = true
+	servercfg.Is_EE = true
 }
 
 func retrieveEELogo() string {

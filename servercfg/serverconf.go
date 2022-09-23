@@ -15,6 +15,7 @@ import (
 
 var (
 	Version = "dev"
+	Is_EE   = false
 )
 
 // SetHost - sets the host ip
@@ -84,6 +85,10 @@ func GetServerConfig() config.ServerConfig {
 	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
+	cfg.IsEE = "no"
+	if Is_EE {
+		cfg.IsEE = "yes"
+	}
 
 	return cfg
 }
@@ -101,6 +106,7 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.Server = GetServer()
+	cfg.Is_EE = GetServerConfig().IsEE == "yes"
 
 	return cfg
 }
