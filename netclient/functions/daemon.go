@@ -94,11 +94,13 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 		cfg := config.ClientConfig{}
 		cfg.Network = network
 		cfg.ReadConfig()
-		if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
-			logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
-		}
-		if cfg.PublicIPService != "" {
-			global_settings.PublicIPServices[network] = cfg.PublicIPService
+		if cfg.Node.Connected == "yes" {
+			if err := wireguard.ApplyConf(&cfg.Node, cfg.Node.Interface, ncutils.GetNetclientPathSpecific()+cfg.Node.Interface+".conf"); err != nil {
+				logger.Log(0, "failed to start ", cfg.Node.Interface, "wg interface", err.Error())
+			}
+			if cfg.PublicIPService != "" {
+				global_settings.PublicIPServices[network] = cfg.PublicIPService
+			}
 		}
 
 		server := cfg.Server.Server
