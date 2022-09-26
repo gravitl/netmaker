@@ -39,6 +39,7 @@ services:
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
+      MQ_ADMIN_PASSWORD: "MQ_ADMIN_PASSWORD"
     ports:
       - "51821-51830:51821-51830/udp"
     expose:
@@ -109,9 +110,13 @@ services:
     depends_on:
       - netmaker
     restart: unless-stopped
+    command: ["/mosquitto/config/wait.sh"]
+    environment:
+     NETMAKER_SERVER_HOST: "api.NETMAKER_BASE_DOMAIN"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /root/dynamic-security.json:/mosquitto/config/dynamic-security.json
+      - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
     expose:
