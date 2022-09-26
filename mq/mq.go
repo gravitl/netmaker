@@ -85,9 +85,9 @@ func SetupMQTT() {
 			client.Disconnect(240)
 			logger.Log(0, "node client subscription failed")
 		}
-		if token := client.Subscribe(DynamicSecSubTopic, 0, mqtt.MessageHandler(watchDynSecTopic)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token := client.Subscribe("metrics/#", 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
-			logger.Log(0, "Dynamic security client subscription failed")
+			logger.Log(0, "node metrics subscription failed")
 		}
 
 		opts.SetOrderMatters(true)

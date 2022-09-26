@@ -25,7 +25,7 @@ func SetupMacDaemon() error {
 	}
 	err = ncutils.Copy(binarypath, MAC_EXEC_DIR+"netclient")
 	if err != nil {
-		log.Println(err)
+		logger.Log(0, err.Error())
 		return err
 	}
 

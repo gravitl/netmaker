@@ -26,11 +26,6 @@ var oidc_functions = map[string]interface{}{
 
 var oidc_verifier *oidc.IDTokenVerifier
 
-type OIDCUser struct {
-	Name  string `json:"name" bson:"name"`
-	Email string `json:"email" bson:"email"`
-}
-
 // == handle OIDC authentication here ==
 
 func initOIDC(redirectURL string, clientID string, clientSecret string, issuer string) {
@@ -54,7 +49,7 @@ func initOIDC(redirectURL string, clientID string, clientSecret string, issuer s
 }
 
 func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
-	var oauth_state_string = logic.RandomString(16)
+	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil && servercfg.GetFrontendURL() != "" {
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
@@ -67,14 +62,15 @@ func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
 		return
 	}
-
 	var url = auth_provider.AuthCodeURL(oauth_state_string)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 
-	var content, err = getOIDCUserInfo(r.FormValue("state"), r.FormValue("code"))
+	var rState, rCode = getStateAndCode(r)
+
+	var content, err = getOIDCUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from callback:", err.Error())
 		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
@@ -98,7 +94,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 
 	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
 	if jwtErr != nil {
-		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
 		return
 	}
 
@@ -106,10 +102,12 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }
 
-func getOIDCUserInfo(state string, code string) (u *OIDCUser, e error) {
+func getOIDCUserInfo(state string, code string) (u *OAuthUser, e error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
-	if !isValid || state != oauth_state_string {
-		return nil, fmt.Errorf("invalid OAuth state")
+	logger.Log(3, "using oauth state string:,", oauth_state_string)
+	logger.Log(3, "            state string:,", state)
+	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
+		return nil, fmt.Errorf("invalid oauth state")
 	}
 
 	defer func() {
@@ -136,7 +134,7 @@ func getOIDCUserInfo(state string, code string) (u *OIDCUser, e error) {
 		return nil, fmt.Errorf("failed to verify raw id_token: \"%s\"", err.Error())
 	}
 
-	u = &OIDCUser{}
+	u = &OAuthUser{}
 	if err := idToken.Claims(u); err != nil {
 		e = fmt.Errorf("error when claiming OIDCUser: \"%s\"", err.Error())
 	}

@@ -1,4 +1,4 @@
-package controller
+package logic
 
 import (
 	"encoding/json"
@@ -8,7 +8,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-func formatError(err error, errType string) models.ErrorResponse {
+// FormatError - takes ErrorResponse and uses correct code
+func FormatError(err error, errType string) models.ErrorResponse {
 
 	var status = http.StatusInternalServerError
 	switch errType {
@@ -33,7 +34,8 @@ func formatError(err error, errType string) models.ErrorResponse {
 	return response
 }
 
-func returnSuccessResponse(response http.ResponseWriter, request *http.Request, message string) {
+// ReturnSuccessResponse - processes message and adds header
+func ReturnSuccessResponse(response http.ResponseWriter, request *http.Request, message string) {
 	var httpResponse models.SuccessResponse
 	httpResponse.Code = http.StatusOK
 	httpResponse.Message = message
@@ -42,7 +44,8 @@ func returnSuccessResponse(response http.ResponseWriter, request *http.Request, 
 	json.NewEncoder(response).Encode(httpResponse)
 }
 
-func returnErrorResponse(response http.ResponseWriter, request *http.Request, errorMessage models.ErrorResponse) {
+// ReturnErrorResponse - processes error and adds header
+func ReturnErrorResponse(response http.ResponseWriter, request *http.Request, errorMessage models.ErrorResponse) {
 	httpResponse := &models.ErrorResponse{Code: errorMessage.Code, Message: errorMessage.Message}
 	jsonResponse, err := json.Marshal(httpResponse)
 	if err != nil {

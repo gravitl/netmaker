@@ -1,0 +1,197 @@
+version: "3.4"
+
+services:
+  netmaker:
+    container_name: netmaker
+    image: gravitl/netmaker:v0.16.0-ee
+    cap_add: 
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.all.forwarding=1
+    restart: always
+    volumes:
+      - dnsconfig:/root/config/dnsconfig
+      - sqldata:/root/data
+      - shared_certs:/etc/netmaker
+    environment:
+      SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
+      SERVER_HOST: "SERVER_PUBLIC_IP"
+      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP"
+      DNS_MODE: "on"
+      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      API_PORT: "8081"
+      CLIENT_MODE: "on"
+      MASTER_KEY: "REPLACE_MASTER_KEY"
+      CORS_ALLOWED_ORIGIN: "*"
+      DISPLAY_KEYS: "on"
+      DATABASE: "sqlite"
+      NODE_ID: "netmaker-server-1"
+      MQ_HOST: "mq"
+      MQ_PORT: "443"
+      MQ_SERVER_PORT: "1883"
+      HOST_NETWORK: "off"
+      VERBOSITY: "1"
+      MANAGE_IPTABLES: "on"
+      PORT_FORWARD_SERVICES: "dns"
+      METRICS_EXPORTER: "on"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
+      NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
+    ports:
+      - "51821-51830:51821-51830/udp"
+    expose:
+      - "8081"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.netmaker-api.entrypoints=websecure
+      - traefik.http.routers.netmaker-api.rule=Host(`api.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.netmaker-api.service=netmaker-api
+      - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
+  netmaker-ui:
+    container_name: netmaker-ui
+    image: gravitl/netmaker-ui:v0.16.0
+    depends_on:
+      - netmaker
+    links:
+      - "netmaker:api"
+    restart: always
+    environment:
+      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
+    expose:
+      - "80"
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.nmui-security.headers.accessControlAllowOriginList=*.NETMAKER_BASE_DOMAIN
+      - traefik.http.middlewares.nmui-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.nmui-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.nmui-security.headers.customFrameOptionsValue=SAMEORIGIN
+      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.X-Robots-Tag=none
+      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.Server= # Remove the server name
+      - traefik.http.routers.netmaker-ui.entrypoints=websecure
+      - traefik.http.routers.netmaker-ui.middlewares=nmui-security@docker
+      - traefik.http.routers.netmaker-ui.rule=Host(`dashboard.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.netmaker-ui.service=netmaker-ui
+      - traefik.http.services.netmaker-ui.loadbalancer.server.port=80
+  coredns:
+    container_name: coredns
+    image: coredns/coredns
+    command: -conf /root/dnsconfig/Corefile
+    depends_on:
+      - netmaker
+    restart: always
+    volumes:
+      - dnsconfig:/root/dnsconfig
+  traefik:
+    image: traefik:v2.6
+    container_name: traefik
+    command:
+      - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
+      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.http.acme.tlschallenge=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certResolver=http"
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--serverstransport.insecureskipverify=true"
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
+    ports:
+      - "443:443"
+  mq:
+    container_name: mq
+    image: eclipse-mosquitto:2.0.11-openssl
+    depends_on:
+      - netmaker
+    restart: unless-stopped
+    volumes:
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/mosquitto.passwords:/etc/mosquitto.passwords
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+      - shared_certs:/mosquitto/certs
+    expose:
+      - "8883"
+    labels:
+      - traefik.enable=true
+      - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
+      - traefik.tcp.routers.mqtts.tls.passthrough=true
+      - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
+      - traefik.tcp.routers.mqtts.service=mqtts-svc
+      - traefik.tcp.routers.mqtts.entrypoints=websecure
+  prometheus:
+    container_name: prometheus
+    image: gravitl/netmaker-prometheus:latest
+    environment:
+      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.prometheus.entrypoints=websecure
+      - traefik.http.routers.prometheus.rule=Host(`prometheus.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+      - traefik.http.routers.prometheus.service=prometheus
+    restart: always
+    volumes:
+      - prometheus_data:/prometheus
+    depends_on:
+      - netmaker
+    ports:
+      - 9090:9090
+  grafana:
+    container_name: grafana
+    image: gravitl/netmaker-grafana:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.rule=Host(`grafana.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+      - traefik.http.routers.grafana.service=grafana
+    environment:
+      PROMETHEUS_HOST: "prometheus.NETMAKER_BASE_DOMAIN"
+      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+    ports:
+      - 3000:3000
+    restart: always
+    links:
+      - prometheus
+    depends_on:
+      - prometheus
+      - netmaker
+  netmaker-exporter:
+    container_name: netmaker-exporter
+    image: gravitl/netmaker-exporter:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.netmaker-exporter.entrypoints=websecure
+      - traefik.http.routers.netmaker-exporter.rule=Host(`netmaker-exporter.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.services.netmaker-exporter.loadbalancer.server.port=8085
+      - traefik.http.routers.netmaker-exporter.service=netmaker-exporter
+    restart: always
+    depends_on:
+      - netmaker
+    environment:
+      MQ_HOST: "mq"
+      MQ_PORT: "443"
+      MQ_SERVER_PORT: "1884"
+      PROMETHEUS: "on"
+      VERBOSITY: "1"
+      API_PORT: "8085"
+      PROMETHEUS_HOST: https://prometheus.NETMAKER_BASE_DOMAIN
+    expose:
+      - "8085"
+volumes:
+  traefik_certs: {}
+  shared_certs: {}
+  sqldata: {}
+  dnsconfig: {}
+  mosquitto_data: {}
+  mosquitto_logs: {}
+  prometheus_data: {}

@@ -15,6 +15,7 @@ import (
 
 var (
 	Version = "dev"
+	Is_EE   = false
 )
 
 // SetHost - sets the host ip
@@ -84,6 +85,10 @@ func GetServerConfig() config.ServerConfig {
 	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
+	cfg.IsEE = "no"
+	if Is_EE {
+		cfg.IsEE = "yes"
+	}
 
 	return cfg
 }
@@ -101,6 +106,7 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.Server = GetServer()
+	cfg.Is_EE = GetServerConfig().IsEE == "yes"
 
 	return cfg
 }
@@ -279,6 +285,21 @@ func IsRestBackend() bool {
 		}
 	}
 	return isrest
+}
+
+// IsMetricsExporter - checks if metrics exporter is on or off
+func IsMetricsExporter() bool {
+	export := false
+	if os.Getenv("METRICS_EXPORTER") != "" {
+		if os.Getenv("METRICS_EXPORTER") == "on" {
+			export = true
+		}
+	} else if config.Config.Server.MetricsExporter != "" {
+		if config.Config.Server.MetricsExporter == "on" {
+			export = true
+		}
+	}
+	return export
 }
 
 // IsAgentBackend - checks if agent backed is on or off
@@ -609,4 +630,33 @@ func GetMqAdminPassword() string {
 		password = config.Config.Server.MQAdminPassword
 	}
 	return password
+}
+
+// IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
+func IsBasicAuthEnabled() bool {
+	var enabled = true //default
+	if os.Getenv("BASIC_AUTH") != "" {
+		enabled = os.Getenv("BASIC_AUTH") == "yes"
+	} else if config.Config.Server.BasicAuth != "" {
+		enabled = config.Config.Server.BasicAuth == "yes"
+	}
+	return enabled
+}
+
+// GetLicenseKey - retrieves pro license value from env or conf files
+func GetLicenseKey() string {
+	licenseKeyValue := os.Getenv("LICENSE_KEY")
+	if licenseKeyValue == "" {
+		licenseKeyValue = config.Config.Server.LicenseValue
+	}
+	return licenseKeyValue
+}
+
+// GetNetmakerAccountID - get's the associated, Netmaker, account ID to verify ownership
+func GetNetmakerAccountID() string {
+	netmakerAccountID := os.Getenv("NETMAKER_ACCOUNT_ID")
+	if netmakerAccountID == "" {
+		netmakerAccountID = config.Config.Server.LicenseValue
+	}
+	return netmakerAccountID
 }

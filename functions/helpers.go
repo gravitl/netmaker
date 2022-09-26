@@ -8,17 +8,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-// NetworkExists - check if network exists
-func NetworkExists(name string) (bool, error) {
-
-	var network string
-	var err error
-	if network, err = database.FetchRecord(database.NETWORKS_TABLE_NAME, name); err != nil {
-		return false, err
-	}
-	return len(network) > 0, nil
-}
-
 // NameInDNSCharSet - name in dns char set
 func NameInDNSCharSet(name string) bool {
 

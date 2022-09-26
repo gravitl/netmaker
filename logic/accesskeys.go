@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-playground/validator/v10"
+	validator "github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -161,11 +161,11 @@ func DecrimentKey(networkName string, keyvalue string) {
 }
 
 // IsKeyValid - check if key is valid
-func IsKeyValid(networkname string, keyvalue string) bool {
+func IsKeyValid(networkname string, keyvalue string) (string, bool) {
 
 	network, err := GetParentNetwork(networkname)
 	if err != nil {
-		return false
+		return "", false
 	}
 	accesskeys := network.AccessKeys
 
@@ -185,7 +185,7 @@ func IsKeyValid(networkname string, keyvalue string) bool {
 			isvalid = true
 		}
 	}
-	return isvalid
+	return key.Name, isvalid
 }
 
 // RemoveKeySensitiveInfo - remove sensitive key info

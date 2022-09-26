@@ -17,6 +17,7 @@ jobs:
       - name: Build
         run: |
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build main.go
+         env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=ee main.go
          cd netclient
          env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build main.go
          env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build main.go
@@ -81,7 +82,7 @@ jobs:
             sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev 
             go test -p 1 ./... -v
             go install honnef.co/go/tools/cmd/staticcheck@latest
-            ~/go/bin/staticcheck ./...
+            { ~/go/bin/staticcheck  -tags=ee ./... ; }
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"

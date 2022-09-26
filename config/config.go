@@ -71,6 +71,11 @@ type ServerConfig struct {
 	Server                string `yaml:"server"`
 	PublicIPService       string `yaml:"publicipservice"`
 	MQAdminPassword       string `yaml:"mqadminpassword"`
+	MetricsExporter       string `yaml:"metrics_exporter"`
+	BasicAuth             string `yaml:"basic_auth"`
+	LicenseValue          string `yaml:"license_value"`
+	NetmakerAccountID     string `yaml:"netmaker_account_id"`
+	IsEE                  string `yaml:"is_ee"`
 }
 
 // SQLConfig - Generic SQL Config
