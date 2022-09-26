@@ -188,7 +188,6 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	mq.SetUpAdminClient()
 	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
-	go mq.DynamicSecManager(ctx)
 	go mq.Keepalive(ctx)
 	go logic.ManageZombies(ctx)
 	quit := make(chan os.Signal, 1)

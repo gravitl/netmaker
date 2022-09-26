@@ -1,7 +1,6 @@
 package mq
 
 import (
-	"context"
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
@@ -115,8 +114,6 @@ type MqDynsecPayload struct {
 	Commands []MqDynSecCmd `json:"commands"`
 }
 
-var DynSecChan = make(chan DynSecAction, 100)
-
 func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLength int) string {
 	binaryEncoded := pbkdf2.Key([]byte(password), []byte(salt), iterations, keyLength, sha512.New)
 	return base64.StdEncoding.EncodeToString(binaryEncoded)
@@ -129,7 +126,10 @@ func Configure() error {
 		return err
 	}
 	c := dynCnf{}
-	json.Unmarshal(b, &c)
+	err = json.Unmarshal(b, &c)
+	if err != nil {
+		return err
+	}
 	password := servercfg.GetMqAdminPassword()
 	if password == "" {
 		return errors.New("MQ admin password not provided")
@@ -150,24 +150,16 @@ func Configure() error {
 	return os.WriteFile(file, data, 0755)
 }
 
-func DynamicSecManager(ctx context.Context) {
-	defer close(DynSecChan)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case dynSecAction := <-DynSecChan:
-			d, err := json.Marshal(dynSecAction.Payload)
-			if err != nil {
-				continue
-			}
-			if token := mqclient.Publish(DynamicSecPubTopic, 2, false, d); token.Error() != nil {
-				logger.Log(0, fmt.Sprintf("failed to perform action [%s]: %v",
-					dynSecAction.ActionType, token.Error()))
-			}
-		}
+func PublishEventToDynSecTopic(event DynSecAction) error {
 
+	d, err := json.Marshal(event.Payload)
+	if err != nil {
+		return err
 	}
+	if token := mqAdminClient.Publish(DynamicSecPubTopic, 2, false, d); token.Error() != nil {
+		return err
+	}
+	return nil
 }
 
 func watchDynSecTopic(client mqtt.Client, msg mqtt.Message) {

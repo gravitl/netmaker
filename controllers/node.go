@@ -621,7 +621,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Delete Any Existing Client with this ID.
-	mq.DynSecChan <- mq.DynSecAction{
+	event := mq.DynSecAction{
 		ActionType: mq.DeleteClient,
 		Payload: mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
@@ -632,8 +632,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	}
+	if err := mq.PublishEventToDynSecTopic(event); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
+			event.ActionType, err.Error()))
+	}
 	// Create client for this node in Mq
-	mq.DynSecChan <- mq.DynSecAction{
+	event = mq.DynSecAction{
 		ActionType: mq.CreateClient,
 		Payload: mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
@@ -647,6 +651,10 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		},
+	}
+	if err := mq.PublishEventToDynSecTopic(event); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
+			event.ActionType, err.Error()))
 	}
 
 	response := models.NodeGet{
@@ -984,7 +992,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	mq.DynSecChan <- mq.DynSecAction{
+
+	event := mq.DynSecAction{
 		ActionType: mq.DeleteClient,
 		Payload: mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
@@ -994,6 +1003,10 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		},
+	}
+	if err := mq.PublishEventToDynSecTopic(event); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
+			event.ActionType, err.Error()))
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
