@@ -223,5 +223,5 @@ func genKeyName() string {
 
 func GenKey() string {
 	entropy, _ := rand.Int(rand.Reader, maxentropy)
-	return entropy.Text(16)[:16]
+	return entropy.Text(62)[:64]
 }
