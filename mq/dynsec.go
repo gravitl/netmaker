@@ -2,11 +2,18 @@ package mq
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 const DynamicSecSubTopic = "$CONTROL/dynamic-security/#"
@@ -14,14 +21,14 @@ const DynamicSecPubTopic = "$CONTROL/dynamic-security/v1"
 
 type DynSecActionType string
 
+var mqAdminClient mqtt.Client
+
 var (
-	CreateClient            DynSecActionType = "CREATE_CLIENT"
-	DisableClient           DynSecActionType = "DISABLE_CLIENT"
-	EnableClient            DynSecActionType = "ENABLE_CLIENT"
-	DeleteClient            DynSecActionType = "DELETE_CLIENT"
-	CreateAdminClient       DynSecActionType = "CREATE_ADMIN_CLIENT"
-	ModifyClient            DynSecActionType = "MODIFY_CLIENT"
-	DISABLE_EXISTING_ADMINS DynSecActionType = "DISABLE_EXISTING_ADMINS"
+	CreateClient  DynSecActionType = "CREATE_CLIENT"
+	DisableClient DynSecActionType = "DISABLE_CLIENT"
+	EnableClient  DynSecActionType = "ENABLE_CLIENT"
+	DeleteClient  DynSecActionType = "DELETE_CLIENT"
+	ModifyClient  DynSecActionType = "MODIFY_CLIENT"
 )
 
 var (
@@ -32,9 +39,42 @@ var (
 )
 
 var (
-	mqDynSecAdmin string = "Netmaker-Admin"
-	adminPassword string = "Netmaker-Admin"
+	mqAdminUserName          string = "Netmaker-Admin"
+	mqNetmakerServerUserName string = "Netmaker-Server"
 )
+
+type client struct {
+	Username   string `json:"username"`
+	TextName   string `json:"textName"`
+	Password   string `json:"password"`
+	Salt       string `json:"salt"`
+	Iterations int    `json:"iterations"`
+	Roles      []struct {
+		Rolename string `json:"rolename"`
+	} `json:"roles"`
+}
+
+type role struct {
+	Rolename string `json:"rolename"`
+	Acls     []struct {
+		Acltype string `json:"acltype"`
+		Topic   string `json:"topic"`
+		Allow   bool   `json:"allow"`
+	} `json:"acls"`
+}
+
+type defaultAccessAcl struct {
+	PublishClientSend    bool `json:"publishClientSend"`
+	PublishClientReceive bool `json:"publishClientReceive"`
+	Subscribe            bool `json:"subscribe"`
+	Unsubscribe          bool `json:"unsubscribe"`
+}
+
+type dynCnf struct {
+	Clients          []client         `json:"clients"`
+	Roles            []role           `json:"roles"`
+	DefaultACLAccess defaultAccessAcl `json:"defaultACLAccess"`
+}
 
 type MqDynSecGroup struct {
 	Groupname string `json:"groupname"`
@@ -76,6 +116,39 @@ type MqDynsecPayload struct {
 }
 
 var DynSecChan = make(chan DynSecAction, 100)
+
+func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLength int) string {
+	binaryEncoded := pbkdf2.Key([]byte(password), []byte(salt), iterations, keyLength, sha512.New)
+	return base64.StdEncoding.EncodeToString(binaryEncoded)
+}
+
+func Configure() error {
+	file := "/root/dynamic-security.json"
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	c := dynCnf{}
+	json.Unmarshal(b, &c)
+	password := servercfg.GetMqAdminPassword()
+	if password == "" {
+		return errors.New("MQ admin password not provided")
+	}
+	for i, cI := range c.Clients {
+		if cI.Username == mqAdminUserName || cI.Username == mqNetmakerServerUserName {
+			salt := logic.RandomString(12)
+			hashed := encodePasswordToPBKDF2(password, salt, 101, 64)
+			cI.Password = hashed
+			cI.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
+			c.Clients[i] = cI
+		}
+	}
+	data, err := json.MarshalIndent(c, "", " ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(file, data, 0755)
+}
 
 func DynamicSecManager(ctx context.Context) {
 	defer close(DynSecChan)

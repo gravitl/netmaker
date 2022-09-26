@@ -139,6 +139,12 @@ func startControllers() {
 			logger.Log(0, "error occurred initializing DNS: ", err.Error())
 		}
 	}
+	if servercfg.IsMessageQueueBackend() {
+		if err := mq.Configure(); err != nil {
+			logger.FatalLog("failed to configure MQ: ", err.Error())
+		}
+	}
+
 	//Run Rest Server
 	if servercfg.IsRestBackend() {
 		if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
@@ -150,7 +156,6 @@ func startControllers() {
 		waitnetwork.Add(1)
 		go controller.HandleRESTRequests(&waitnetwork)
 	}
-
 	//Run MessageQueue
 	if servercfg.IsMessageQueueBackend() {
 		waitnetwork.Add(1)
@@ -169,8 +174,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
 	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
-	// update admin password and re-create client
-	mq.Configure()
+	mq.SetUpAdminClient()
 	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.DynamicSecManager(ctx)

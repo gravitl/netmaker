@@ -2,12 +2,10 @@ package mq
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -24,29 +22,28 @@ var peer_force_send = 0
 
 var mqclient mqtt.Client
 
-func Configure() {
+func SetUpAdminClient() {
 	opts := mqtt.NewClientOptions()
-	broker, _ := servercfg.GetMessageQueueEndpoint()
-	opts.AddBroker(broker)
-	id := ncutils.MakeRandomString(23)
-	opts.ClientID = id
-	opts.SetUsername(mqDynSecAdmin)
-	opts.SetPassword(adminPassword)
-	opts.SetAutoReconnect(true)
-	opts.SetConnectRetry(true)
-	opts.SetConnectRetryInterval(time.Second << 2)
-	opts.SetKeepAlive(time.Minute)
-	opts.SetWriteTimeout(time.Minute)
-	mqclient := mqtt.NewClient(opts)
+	setMqOptions(mqAdminUserName, servercfg.GetMqAdminPassword(), opts)
+	mqAdminClient = mqtt.NewClient(opts)
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		if token := client.Subscribe(DynamicSecSubTopic, 0, mqtt.MessageHandler(watchDynSecTopic)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+			client.Disconnect(240)
+			logger.Log(0, "Dynamic security client subscription failed")
+		}
+
+		opts.SetOrderMatters(true)
+		opts.SetResumeSubs(true)
+	})
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
-		if token := mqclient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-			logger.Log(2, "unable to connect to broker, retrying ...")
+		if token := mqAdminClient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+			logger.Log(2, "Admin: unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				if token.Error() == nil {
-					logger.FatalLog("could not connect to broker, token timeout, exiting ...")
+					logger.FatalLog("Admin: could not connect to broker, token timeout, exiting ...")
 				} else {
-					logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
+					logger.FatalLog("Admin: could not connect to broker, exiting ...", token.Error().Error())
 				}
 			}
 		} else {
@@ -54,38 +51,27 @@ func Configure() {
 		}
 		time.Sleep(2 * time.Second)
 	}
-	newAdminPassword := logic.GenKey()
-	payload := MqDynsecPayload{
-		Commands: []MqDynSecCmd{
-			{
-				Command:  ModifyClientCmd,
-				Username: mqDynSecAdmin,
-				Password: newAdminPassword,
-			},
-		},
-	}
-	d, _ := json.Marshal(payload)
-	if token := mqclient.Publish(DynamicSecPubTopic, 0, true, d); token.Error() != nil {
-		logger.FatalLog("failed to modify admin password: ", token.Error().Error())
-	}
-	mqclient.Disconnect(2)
-	adminPassword = newAdminPassword
+
 }
 
-// SetupMQTT creates a connection to broker and return client
-func SetupMQTT() {
-	opts := mqtt.NewClientOptions()
+func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	broker, _ := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
 	id := ncutils.MakeRandomString(23)
 	opts.ClientID = id
-	opts.SetUsername(mqDynSecAdmin)
-	opts.SetPassword(adminPassword)
+	opts.SetUsername(user)
+	opts.SetPassword(password)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(time.Second << 2)
 	opts.SetKeepAlive(time.Minute)
 	opts.SetWriteTimeout(time.Minute)
+}
+
+// SetupMQTT creates a connection to broker and return client
+func SetupMQTT() {
+	opts := mqtt.NewClientOptions()
+	setMqOptions(mqNetmakerServerUserName, servercfg.GetMqAdminPassword(), opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		if token := client.Subscribe("ping/#", 2, mqtt.MessageHandler(Ping)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
