@@ -9,10 +9,10 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/functions"
-	"github.com/gravitl/netmaker/netclient/gui/components"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/netclient/functions"
+	"github.com/netmakerio/netmaker/netclient/gui/components"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 // GetNetworksView - displays the view of all networks

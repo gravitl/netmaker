@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gravitl/netmaker/servercfg"
 	_ "github.com/lib/pq"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 // PGDB - database object for PostGreSQL

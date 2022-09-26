@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
 

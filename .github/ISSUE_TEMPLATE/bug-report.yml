@@ -81,7 +81,7 @@ body:
     id: terms
     attributes:
       label: Contributing guidelines
-      description: Have you read [CONTRIBUTING.md](https://github.com/gravitl/netmaker/blob/master/CONTRIBUTING.md)
+      description: Have you read [CONTRIBUTING.md](https://github.com/netmakerio/netmaker/blob/master/CONTRIBUTING.md)
       options:
         - label: Yes, I did.
           required: true

@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gravitl/netmaker/logger"
+	"github.com/netmakerio/netmaker/logger"
 )
 
 // RunCmdFormatted - run a command formatted for freebsd

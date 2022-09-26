@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro/netcache"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/logic/pro/netcache"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 // SessionHandler - called by the HTTP router when user

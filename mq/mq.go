@@ -5,10 +5,10 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/serverctl"
 )
 
 // KEEPALIVE_TIMEOUT - time in seconds for timeout

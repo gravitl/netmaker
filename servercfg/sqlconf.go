@@ -1,9 +1,10 @@
 package servercfg
 
 import (
-	"github.com/gravitl/netmaker/config"
 	"os"
 	"strconv"
+
+	"github.com/netmakerio/netmaker/config"
 )
 
 func GetSQLConf() config.SQLConfig {

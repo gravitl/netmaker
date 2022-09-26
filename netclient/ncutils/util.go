@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/logger"
+	"github.com/netmakerio/netmaker/logger"
 )
 
 // BackOff - back off any function while there is an error

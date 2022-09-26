@@ -3,7 +3,7 @@ package database
 import (
 	"errors"
 
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/servercfg"
 	"github.com/rqlite/gorqlite"
 )
 

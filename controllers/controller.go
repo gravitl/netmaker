@@ -12,8 +12,8 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 // HttpHandlers - handler functions for REST interactions

@@ -6,12 +6,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/mq"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 func dnsHandlers(r *mux.Router) {
@@ -29,10 +29,10 @@ func dnsHandlers(r *mux.Router) {
 //
 // Gets node DNS entries associated with a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -55,14 +55,13 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 //
 // Gets all DNS entries.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-// 		Responses:
-//   		200: dnsResponse
-//
+//			Responses:
+//	  		200: dnsResponse
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	dns, err := logic.GetAllDNS()
@@ -79,14 +78,13 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 //
 // Gets custom DNS entries associated with a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-// 		Responses:
-//   		200: dnsResponse
-//
+//			Responses:
+//	  		200: dnsResponse
 func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -109,14 +107,13 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 //
 // Gets all DNS entries associated with the network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-// 		Responses:
-//   		200: dnsResponse
-//
+//			Responses:
+//	  		200: dnsResponse
 func getDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -139,14 +136,13 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 //
 // Create a DNS entry.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-// 		Responses:
-//   		200: dnsResponse
-//
+//			Responses:
+//	  		200: dnsResponse
 func createDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -202,14 +198,14 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a DNS entry.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: stringJSONResponse
-//			*: stringJSONResponse
+//			Responses:
+//				200: stringJSONResponse
+//				*: stringJSONResponse
 func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -270,14 +266,14 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 //
 // Push DNS entries to nameserver.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: dnsStringJSONResponse
-//			*: dnsStringJSONResponse
+//			Responses:
+//				200: dnsStringJSONResponse
+//				*: dnsStringJSONResponse
 func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

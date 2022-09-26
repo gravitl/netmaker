@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )

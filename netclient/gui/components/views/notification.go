@@ -4,7 +4,7 @@ import (
 	"image/color"
 
 	"fyne.io/fyne/v2"
-	"github.com/gravitl/netmaker/netclient/gui/components"
+	"github.com/netmakerio/netmaker/netclient/gui/components"
 )
 
 // GenerateNotification - generates a notification
@@ -34,5 +34,5 @@ func ErrorNotify(msg string) {
 
 // SuccessNotify - changes notification to a specified success message
 func SuccessNotify(msg string) {
-	RefreshComponent(Notify, GenerateNotification(msg, components.Gravitl_color))
+	RefreshComponent(Notify, GenerateNotification(msg, components.Netmaker_color))
 }

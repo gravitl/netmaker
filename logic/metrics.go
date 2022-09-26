@@ -3,8 +3,8 @@ package logic
 import (
 	"encoding/json"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/models"
 )
 
 // GetMetrics - gets the metrics

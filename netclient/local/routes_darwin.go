@@ -3,8 +3,8 @@ package local
 import (
 	"fmt"
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 	"net"
 	"regexp"
 	"strings"

@@ -1,7 +1,7 @@
 # Security Policy
 
 Netmaker is reliant on secure networking. If you find a vulnerability or bug please report it.
-Depending on complexity or severity, the Gravitl team may compensate (aka. bug bounty) the reporter. 
+Depending on complexity or severity, the Netmaker team may compensate (aka. bug bounty) the reporter. 
 However, there is no official bug bounty program up yet for the Netmaker project.
 
 ## Supported Versions
@@ -9,4 +9,4 @@ However, there is no official bug bounty program up yet for the Netmaker project
 
 ## Reporting a Vulnerability
 
-Please report security issues to `info@gravitl.com`
+Please report security issues to `info@netmaker.io`

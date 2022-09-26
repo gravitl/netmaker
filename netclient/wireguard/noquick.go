@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )

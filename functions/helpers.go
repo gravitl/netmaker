@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/models"
 )
 
 // NameInDNSCharSet - name in dns char set

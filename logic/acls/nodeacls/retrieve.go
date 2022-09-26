@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/netmakerio/netmaker/logic/acls"
 )
 
 // AreNodesAllowed - checks if nodes are allowed to communicate in their network ACL

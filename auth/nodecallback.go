@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/logic/pro/netcache"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/logic/pro"
+	"github.com/netmakerio/netmaker/logic/pro/netcache"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 var (

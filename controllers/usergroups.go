@@ -5,12 +5,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/logic/pro"
+	"github.com/netmakerio/netmaker/models/promodels"
 )
 
 func userGroupsHandlers(r *mux.Router) {

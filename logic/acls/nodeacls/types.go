@@ -1,7 +1,7 @@
 package nodeacls
 
 import (
-	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/netmakerio/netmaker/logic/acls"
 )
 
 type (

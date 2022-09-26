@@ -6,23 +6,23 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mq"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/mq"
 )
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
 //
 // Create a relay.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createRelay(w http.ResponseWriter, r *http.Request) {
 	var relay models.RelayRequest
 	var params = mux.Vars(r)
@@ -58,13 +58,13 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 //
 // Remove a relay.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)

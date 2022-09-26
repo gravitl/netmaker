@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 // InitWindows - Initialize windows directory & files and such
@@ -42,5 +42,5 @@ func InitWindows() {
 			log.Fatalf("[netclient] netclient.exe not found in current working directory: %s \nexiting.", wdPath)
 		}
 	}
-	log.Println("Gravitl Netclient on Windows started")
+	log.Println("Netmaker Netclient on Windows started")
 }

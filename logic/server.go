@@ -9,12 +9,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/netclient/wireguard"
+	"github.com/netmakerio/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 

@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 var jwtSecretKey []byte

@@ -5,14 +5,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/logic/acls"
+	"github.com/netmakerio/netmaker/logic/acls/nodeacls"
+	"github.com/netmakerio/netmaker/logic/pro"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 const (

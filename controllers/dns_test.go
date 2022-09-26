@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -249,33 +249,33 @@ func TestGetDNSEntry(t *testing.T) {
 	})
 }
 
-// func TestUpdateDNS(t *testing.T) {
-// 	var newentry models.DNSEntry
-// 	database.InitializeDatabase()
-// 	deleteAllDNS(t)
-// 	deleteAllNetworks()
-// 	createNet()
-// 	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
-// 	CreateDNS(entry)
-// 	t.Run("change address", func(t *testing.T) {
-// 		newentry.Address = "10.0.0.75"
-// 		updated, err := UpdateDNS(newentry, entry)
-// 		assert.Nil(t, err)
-// 		assert.Equal(t, newentry.Address, updated.Address)
-// 	})
-// 	t.Run("change name", func(t *testing.T) {
-// 		newentry.Name = "newname"
-// 		updated, err := UpdateDNS(newentry, entry)
-// 		assert.Nil(t, err)
-// 		assert.Equal(t, newentry.Name, updated.Name)
-// 	})
-// 	t.Run("change network", func(t *testing.T) {
-// 		newentry.Network = "wirecat"
-// 		updated, err := UpdateDNS(newentry, entry)
-// 		assert.Nil(t, err)
-// 		assert.NotEqual(t, newentry.Network, updated.Network)
-// 	})
-// }
+//	func TestUpdateDNS(t *testing.T) {
+//		var newentry models.DNSEntry
+//		database.InitializeDatabase()
+//		deleteAllDNS(t)
+//		deleteAllNetworks()
+//		createNet()
+//		entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+//		CreateDNS(entry)
+//		t.Run("change address", func(t *testing.T) {
+//			newentry.Address = "10.0.0.75"
+//			updated, err := UpdateDNS(newentry, entry)
+//			assert.Nil(t, err)
+//			assert.Equal(t, newentry.Address, updated.Address)
+//		})
+//		t.Run("change name", func(t *testing.T) {
+//			newentry.Name = "newname"
+//			updated, err := UpdateDNS(newentry, entry)
+//			assert.Nil(t, err)
+//			assert.Equal(t, newentry.Name, updated.Name)
+//		})
+//		t.Run("change network", func(t *testing.T) {
+//			newentry.Network = "wirecat"
+//			updated, err := UpdateDNS(newentry, entry)
+//			assert.Nil(t, err)
+//			assert.NotEqual(t, newentry.Network, updated.Network)
+//		})
+//	}
 func TestDeleteDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)

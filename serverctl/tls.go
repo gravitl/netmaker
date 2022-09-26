@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/tls"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/tls"
 )
 
 // TlsConfig - holds this servers TLS conf in memory

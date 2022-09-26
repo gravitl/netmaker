@@ -3,7 +3,7 @@ package ee
 import (
 	"encoding/base64"
 
-	"github.com/gravitl/netmaker/logic"
+	"github.com/netmakerio/netmaker/logic"
 )
 
 var isEnterprise bool

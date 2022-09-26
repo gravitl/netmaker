@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/gravitl/netmaker/logger"
+	"github.com/netmakerio/netmaker/logger"
 )
 
 func init() {

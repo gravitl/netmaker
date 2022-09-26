@@ -8,13 +8,13 @@ definitions:
             type: integer
         description: ACL - the ACL of other nodes in a NetworkACL for a single unique node
         type: object
-        x-go-package: github.com/gravitl/netmaker/logic/acls
+        x-go-package: github.com/netmakerio/netmaker/logic/acls
     ACLContainer:
         additionalProperties:
             $ref: '#/definitions/ACL'
         description: ACLContainer - the total list of all node's ACL in a given network
         type: object
-        x-go-package: github.com/gravitl/netmaker/logic/acls
+        x-go-package: github.com/netmakerio/netmaker/logic/acls
     AccessKey:
         description: AccessKey - access key struct
         properties:
@@ -32,7 +32,7 @@ definitions:
                 type: string
                 x-go-name: Value
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     AttributeTypeAndValue:
         description: |-
             AttributeTypeAndValue mirrors the ASN.1 structure of the same name in
@@ -56,7 +56,7 @@ definitions:
                 type: string
                 x-go-name: Password
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     CustomExtClient:
         description: CustomExtClient - struct for CustomExtClient params
         properties:
@@ -64,7 +64,7 @@ definitions:
                 type: string
                 x-go-name: ClientID
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     DNSEntry:
         description: DNSEntry - a DNS entry represented as struct
         properties:
@@ -81,7 +81,7 @@ definitions:
                 type: string
                 x-go-name: Network
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     Duration:
         description: |-
             A Duration represents the elapsed time between two instants
@@ -117,7 +117,7 @@ definitions:
                 type: array
                 x-go-name: Ranges
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     ExtClient:
         description: ExtClient - struct for external clients
         properties:
@@ -156,7 +156,7 @@ definitions:
                 type: string
                 x-go-name: PublicKey
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     IPMask:
         description: See type IPNet and func ParseCIDR for details.
         items:
@@ -310,7 +310,7 @@ definitions:
                 type: integer
                 x-go-name: NodesLastModified
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     Node:
         description: Node - struct for node model
         properties:
@@ -486,7 +486,7 @@ definitions:
                 type: string
                 x-go-name: Version
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     NodeGet:
         description: NodeGet - struct for a single node get response
         properties:
@@ -500,7 +500,7 @@ definitions:
             serverconfig:
                 $ref: '#/definitions/ServerConfig'
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     ObjectIdentifier:
         items:
             format: int64
@@ -563,7 +563,7 @@ definitions:
             Key:
                 $ref: '#/definitions/PrivateKey'
         type: object
-        x-go-package: github.com/gravitl/netmaker/netclient/config
+        x-go-package: github.com/netmakerio/netmaker/netclient/config
     RelayRequest:
         description: RelayRequest - relay request struct
         properties:
@@ -579,7 +579,7 @@ definitions:
                 type: array
                 x-go-name: RelayAddrs
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     ServerConfig:
         description: ServerConfig - server conf struct
         properties:
@@ -663,7 +663,7 @@ definitions:
             Version:
                 type: string
         type: object
-        x-go-package: github.com/gravitl/netmaker/config
+        x-go-package: github.com/netmakerio/netmaker/config
     SuccessResponse:
         properties:
             Code:
@@ -674,7 +674,7 @@ definitions:
             Response: {}
         title: SuccessResponse is struct for sending error message with code.
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     TrafficKeys:
         description: TrafficKeys - struct to hold public keys
         properties:
@@ -691,7 +691,7 @@ definitions:
                 type: array
                 x-go-name: Server
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     UDPAddr:
         properties:
             IP:
@@ -722,7 +722,7 @@ definitions:
                 type: string
                 x-go-name: UserName
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
     UserAuthParams:
         description: UserAuthParams - user auth params struct
         properties:
@@ -733,7 +733,7 @@ definitions:
                 type: string
                 x-go-name: UserName
         type: object
-        x-go-package: github.com/gravitl/netmaker/models
+        x-go-package: github.com/netmakerio/netmaker/models
 host: netmaker.io
 info:
     description: |-

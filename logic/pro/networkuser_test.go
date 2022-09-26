@@ -3,9 +3,9 @@ package pro
 import (
 	"testing"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/models/promodels"
 	"github.com/stretchr/testify/assert"
 )
 

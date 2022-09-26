@@ -1,7 +1,7 @@
 
 <p align="center">
   <a href="https://netmaker.io">
-  <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png" width="50%"><break/>
+  <img src="https://raw.githubusercontent/netmakerio/netmaker-docs/master/images/netmaker-github/netmaker-teal.png" width="50%"><break/>
   </a>
 </p>
 
@@ -10,20 +10,20 @@
     <img src="https://runacap.com/wp-content/uploads/2022/06/ROSS_badge_white_Q1_2022.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q1 2022 | Runa Capital"  width="15%"/>
 </a>  
 <a href="https://www.ycombinator.com/companies/netmaker/" target="_blank" rel="noopener">
-    <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/y-combinator.png" alt="Y-Combinator" width="16%" />
+    <img src="https://raw.githubusercontent/netmakerio/netmaker-docs/master/images/netmaker-github/y-combinator.png" alt="Y-Combinator" width="16%" />
 </a>  
 
 </p>
 
 <p align="center">
-  <a href="https://github.com/gravitl/netmaker/releases">
+  <a href="https://github.com/netmakerio/netmaker/releases">
     <img src="https://img.shields.io/badge/Version-0.16.0-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
   </a>  
-  <a href="https://goreportcard.com/report/github.com/gravitl/netmaker">
-    <img src="https://goreportcard.com/badge/github.com/gravitl/netmaker" />
+  <a href="https://goreportcard.com/report/github.com/netmakerio/netmaker">
+    <img src="https://goreportcard.com/badge/github.com/netmakerio/netmaker" />
   </a>
   <a href="https://twitter.com/intent/follow?screen_name=netmaker_io">
     <img src="https://img.shields.io/twitter/follow/netmaker_io?label=follow&style=social" />
@@ -54,11 +54,11 @@
 
 1. Get a cloud VM with Ubuntu 20.04 and a public IP.
 2. Open ports 443 and 51821-51830/udp on the VM firewall and in cloud security settings.
-3. Run the script: `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash`  
-3.a. (with custom domain + email): `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash -s -- -d mynetmaker.domain.com -e example@email.com`    
+3. Run the script: `wget -qO - https://raw.githubusercontent/netmakerio/netmaker/master/scripts/nm-quick.sh | sudo bash`  
+3.a. (with custom domain + email): `wget -qO - https://raw.githubusercontent/netmakerio/netmaker/master/scripts/nm-quick.sh | sudo bash -s -- -d mynetmaker.domain.com -e example@email.com`    
 
 <p float="left" align="middle">
-<img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
+<img src="https://raw.githubusercontent/netmakerio/netmaker-docs/master/images/netmaker-github/readme.gif" />
 </p>
 
 After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
@@ -89,9 +89,9 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 - [Golang GUI](https://github.com/mattkasun/netmaker-gui)
 
-- [CoreDNS Plugin](https://github.com/gravitl/netmaker-coredns-plugin)
+- [CoreDNS Plugin](https://github.com/netmakerio/netmaker-coredns-plugin)
 
-- [Multi-Cluster K8S Plugin](https://github.com/gravitl/netmak8s)
+- [Multi-Cluster K8S Plugin](https://github.com/netmakerio/netmak8s)
 
 - [Terraform Provider](https://github.com/madacluster/netmaker-terraform-provider)
 

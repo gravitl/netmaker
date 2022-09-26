@@ -8,14 +8,14 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/mq"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/functions"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/logic/pro"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/mq"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -43,14 +43,13 @@ func checkIngressExists(nodeID string) bool {
 // Get all extclients associated with network.
 // Gets all extclients associated with network, including pending extclients.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientSliceResponse
-//
+//			Responses:
+//				200: extClientSliceResponse
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -75,14 +74,13 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 //
 // A separate function to get all extclients, not just extclients for a particular network.
 //
+//			Schemes: https
 //
-//		Schemes: https
+//			Security:
+//	  		oauth
 //
-// 		Security:
-//   		oauth
-//
-//		Responses:
-//			200: extClientSliceResponse
+//			Responses:
+//				200: extClientSliceResponse
 //
 // Not quite sure if this is necessary. Probably necessary based on front end but may
 // want to review after iteration 1 if it's being used or not
@@ -126,14 +124,13 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 //
 // Get an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientResponse
-//
+//			Responses:
+//				200: extClientResponse
 func getExtClient(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -158,14 +155,13 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // Get an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientResponse
-//
+//			Responses:
+//				200: extClientResponse
 func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -293,11 +289,10 @@ Endpoint = %s
 //
 // Create an individual extclient.  Must have valid key and be unique.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
-//
+//			Security:
+//	  		oauth
 func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -381,14 +376,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // Update an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientResponse
-//
+//			Responses:
+//				200: extClientResponse
 func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -476,14 +470,13 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
-//
+//			Responses:
+//				200: successResponse
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

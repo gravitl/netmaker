@@ -1,4 +1,4 @@
-module github.com/gravitl/netmaker
+module github.com/netmakerio/netmaker
 
 go 1.18
 

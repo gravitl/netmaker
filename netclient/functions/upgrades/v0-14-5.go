@@ -1,8 +1,8 @@
 package upgrades
 
 import (
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/config"
 )
 
 var upgrade0145 = UpgradeInfo{

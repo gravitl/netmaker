@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/netmakerio/netmaker/database"
 )
 
 const (

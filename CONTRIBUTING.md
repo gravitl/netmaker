@@ -8,9 +8,9 @@ Before you start contributing, take a moment to check here if it makes sense.
 
 #### **Did you find a bug?**
 
-* Search on on GitHub under [Issues](https://github.com/gravitl/netmaker/issues) to make sure the bug was not already discovered.
+* Search on on GitHub under [Issues](https://github.com/netmakerio/netmaker/issues) to make sure the bug was not already discovered.
 
-* If you don't find an open issue that addresses the problem, you can [open a new one](https://github.com/gravitl/netmaker/issues/new). 
+* If you don't find an open issue that addresses the problem, you can [open a new one](https://github.com/netmakerio/netmaker/issues/new). 
 
 * If you're creating a new issue, include a **title and clear description**, as much relevant information as possible **including logs**, and an explanation/output demonstrating expected behavior vs. actual behavior. Make sure to specify the **version of netmaker/netclient.** If it's a server issue, describe the environment where the server is running. If it's a client issue, give us the operating system and any relevant environment factors (CGNAT, 4g router, etc).
 
@@ -49,7 +49,7 @@ Cosmetic changes that do not add substantial useability, stability, functionalit
 
 * Examples: feature_v0.9.5_widget, bugfix_v0.8.2_ipv6-changes
 
-* Please open a [Pull Request](https://github.com/gravitl/netmaker/compare/develop...master?expand=1) against the develop branch with your branch which clearly describes everything you've done and references any related GitHub issues. 
+* Please open a [Pull Request](https://github.com/netmakerio/netmaker/compare/develop...master?expand=1) against the develop branch with your branch which clearly describes everything you've done and references any related GitHub issues. 
 
 * You will need to sign the CLA in order for us to accept your changes (a bot should appear asking you to sign)
 
