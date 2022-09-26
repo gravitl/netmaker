@@ -103,7 +103,7 @@ if [ -f "/root/docker-compose.yml" ]; then
     echo "Using existing docker compose"
 else 
     echo "Pulling docker compose"
-    wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml
+    wget -q -O /root/docker-compose.yml https://raw.githubusercontent/netmakerio/netmaker/master/compose/docker-compose.yml
 fi
 
 
@@ -111,7 +111,7 @@ if [ -f "/root/mosquitto.conf" ]; then
     echo "Using existing mosquitto config"
 else
     echo "Pulling mosquitto config"
-    wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
+    wget -q -O /root/mosquitto.conf https://raw.githubusercontent/netmakerio/netmaker/master/docker/mosquitto.conf
 fi
 
 
@@ -191,14 +191,14 @@ echo "-----------------------------------------------------------------"
 sleep 5
 echo "For Linux and Mac clients, install with the following command:"
 echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-echo "curl -sfL https://raw.githubusercontent.com/gravitl/netmaker/develop/scripts/netclient-install.sh | sudo KEY=$VPN_ACCESS_TOKEN sh -"
+echo "curl -sfL https://raw.githubusercontent/netmakerio/netmaker/develop/scripts/netclient-install.sh | sudo KEY=$VPN_ACCESS_TOKEN sh -"
 sleep 5
 echo "-----------------------------------------------------------------"
 echo "-----------------------------------------------------------------"
 echo "For Windows clients, perform the following from powershell, as administrator:"
 echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 echo "1. Make sure WireGuardNT is installed - https://download.wireguard.com/windows-client/wireguard-installer.exe"
-echo "2. Download netclient.exe - wget https://github.com/gravitl/netmaker/releases/download/latest/netclient.exe"
+echo "2. Download netclient.exe - wget https://github.com/netmakerio/netmaker/releases/download/latest/netclient.exe"
 echo "3. Install Netclient - powershell.exe .\\netclient.exe join -t $VPN_ACCESS_TOKEN"
 echo "4. Whitelist C:\ProgramData\Netclient in Windows Defender"
 sleep 5

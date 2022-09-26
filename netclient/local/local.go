@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 // SetIPForwarding - Sets IP forwarding if it's mac or linux

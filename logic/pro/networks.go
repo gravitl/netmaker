@@ -1,8 +1,8 @@
 package pro
 
 import (
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/models/promodels"
 )
 
 // AddProNetDefaults - adds default values to a network model

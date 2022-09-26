@@ -10,13 +10,13 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
-	"github.com/gravitl/netmaker/tls"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/serverctl"
+	"github.com/netmakerio/netmaker/tls"
 )
 
 func serverHandlers(r *mux.Router) {

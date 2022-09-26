@@ -8,12 +8,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/gravitl/netmaker/auth"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/auth"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 var (
@@ -42,13 +42,13 @@ func userHandlers(r *mux.Router) {
 //
 // Node authenticates using its password and retrieves a JWT for authorization.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
@@ -114,13 +114,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //
 // Checks whether the server has an admin.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -154,13 +154,13 @@ func GetUserInternal(username string) (models.User, error) {
 //
 // Get an individual user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -182,13 +182,13 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 //
 // Get all users.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -209,13 +209,13 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 //
 // Make a user an admin.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -251,13 +251,13 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 //
 // Create a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -285,13 +285,13 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 //
 // Updates the networks of the given user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -335,13 +335,13 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 //
 // Update a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -386,13 +386,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 //
 // Updates the given admin user's info (as long as the user is an admin).
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -438,13 +438,13 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

@@ -3,11 +3,11 @@ package models
 import (
 	"time"
 
-	"github.com/gravitl/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/models/promodels"
 )
 
 // Network Struct - contains info for a given unique network
-//At  some point, need to replace all instances of Name with something else like  Identifier
+// At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
 	AddressRange        string                `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
 	AddressRange6       string                `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`

@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/tls"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/tls"
 )
 
 // Register - the function responsible for registering with the server and acquiring certs

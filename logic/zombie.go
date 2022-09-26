@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/models"
 )
 
 const (

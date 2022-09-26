@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/gravitl/netmaker/logger"
+	"github.com/netmakerio/netmaker/logger"
 )
 
 //go:embed windowsdaemon/winsw.exe

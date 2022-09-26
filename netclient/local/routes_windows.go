@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 // GetDefaultRoute - Gets the default route (ip and interface) on a windows machine

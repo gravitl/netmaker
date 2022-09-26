@@ -10,10 +10,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/global_settings"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/global_settings"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )

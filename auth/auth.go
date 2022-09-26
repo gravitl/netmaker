@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro/netcache"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/logic/pro/netcache"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 )
@@ -120,10 +120,10 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 //
 // Handles OAuth login.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
 		var referer = r.Header.Get("referer")

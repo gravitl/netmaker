@@ -27,7 +27,7 @@ var ssoCallbackTemplate = template.Must(
 	  <div class="container">
 		<div class="row justify-content-center mt-5 p-5 align-items-center text-center">
 		  <a href="https://netmaker.io">
-			<img src="https://raw.githubusercontent.com/gravitl/netmaker/master/img/netmaker-teal.png" alt="Netmaker"
+			<img src="https://raw.githubusercontent/netmakerio/netmaker/master/img/netmaker-teal.png" alt="Netmaker"
 			  width="75%" height="25%" class="img-fluid">
 		  </a>
 		</div>
@@ -64,7 +64,7 @@ var ssoErrCallbackTemplate = template.Must(
 	  <div class="container">
 		<div class="row justify-content-center mt-5 p-5 align-items-center text-center">
 		  <a href="https://netmaker.io">
-			<img src="https://raw.githubusercontent.com/gravitl/netmaker/master/img/netmaker-teal.png" alt="Netmaker"
+			<img src="https://raw.githubusercontent/netmakerio/netmaker/master/img/netmaker-teal.png" alt="Netmaker"
 			  width="75%" height="25%" class="img-fluid">
 		  </a>
 		</div>

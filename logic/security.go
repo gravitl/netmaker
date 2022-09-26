@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logic/pro"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 const (
@@ -181,7 +181,7 @@ func authenticateNetworkUser(network string, userNetworks []string) bool {
 	return StringSliceContains(userNetworks, network)
 }
 
-//Consider a more secure way of setting master key
+// Consider a more secure way of setting master key
 func authenticateDNSToken(tokenString string) bool {
 	tokens := strings.Split(tokenString, " ")
 	if len(tokens) < 2 {

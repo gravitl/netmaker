@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/config"
+	"github.com/netmakerio/netmaker/models"
 )
 
 var (
@@ -447,7 +447,7 @@ func GetPublicIP() (string, error) {
 	endpoint := ""
 	var err error
 
-	iplist := []string{"https://ip.server.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	iplist := []string{"https://ip.server.netmaker.io", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	publicIpService := os.Getenv("PUBLIC_IP_SERVICE")
 	if publicIpService != "" {
 		// prepend the user-specified service so it's checked first

@@ -4,10 +4,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/functions/upgrades"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/netclient/functions/upgrades"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 // UpdateClientConfig - function is called on daemon start to update clientConfig if required

@@ -1,9 +1,9 @@
 package cli_options
 
 import (
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/command"
-	"github.com/gravitl/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/command"
+	"github.com/netmakerio/netmaker/netclient/config"
 	"github.com/urfave/cli/v2"
 )
 

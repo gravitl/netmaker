@@ -10,13 +10,13 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/go-playground/validator/v10"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/validation"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic/acls/nodeacls"
+	"github.com/netmakerio/netmaker/logic/pro"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/validation"
 )
 
 // GetNetworks - returns all networks from database

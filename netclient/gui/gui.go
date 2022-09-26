@@ -10,11 +10,11 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/functions"
-	"github.com/gravitl/netmaker/netclient/gui/components"
-	"github.com/gravitl/netmaker/netclient/gui/components/views"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/functions"
+	"github.com/netmakerio/netmaker/netclient/gui/components"
+	"github.com/netmakerio/netmaker/netclient/gui/components/views"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 //go:embed nm-logo-sm.png
@@ -55,7 +55,7 @@ func Run(networks []string) error {
 		}, components.Blue_color),
 		components.NewToolbarLabelButton("Join new", theme.ContentAddIcon(), func() {
 			views.ShowView(views.Join)
-		}, components.Gravitl_color),
+		}, components.Netmaker_color),
 		components.NewToolbarLabelButton("Uninstall", theme.ErrorIcon(), func() {
 			confirmView := views.GetConfirmation("Confirm Netclient uninstall?", func() {
 				views.ShowView(views.Networks)

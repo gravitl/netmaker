@@ -42,8 +42,8 @@ new-module -name netclient-install -scriptblock {
             } else {
                 $outpath = "$env:userprofile\Downloads\netclient.exe"
                 Write-Host "'netclient.exe' is NOT installed. installing...";
-                Write-Host "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe";
-                $url = "https://github.com/gravitl/netmaker/releases/download/$version/netclient.exe"
+                Write-Host "https://github.com/netmakerio/netmaker/releases/download/$version/netclient.exe";
+                $url = "https://github.com/netmakerio/netmaker/releases/download/$version/netclient.exe"
                 Invoke-WebRequest -Uri $url -OutFile $outpath
                 $loc = Get-Location
                 Copy-Item -Path "$env:userprofile\Downloads\netclient.exe" -Destination "$loc\netclient.exe"

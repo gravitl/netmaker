@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/gravitl/netmaker/ee"
+	"github.com/netmakerio/netmaker/ee"
 )
 
 func init() {

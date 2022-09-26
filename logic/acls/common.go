@@ -3,7 +3,7 @@ package acls
 import (
 	"encoding/json"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/netmakerio/netmaker/database"
 )
 
 // == type functions ==

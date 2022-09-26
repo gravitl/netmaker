@@ -8,10 +8,10 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/kr/pretty"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/netclient/functions"
 )
 
 func main() {

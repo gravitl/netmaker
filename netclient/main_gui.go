@@ -4,9 +4,9 @@
 package main
 
 import (
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/gui"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/netclient/config"
+	"github.com/netmakerio/netmaker/netclient/gui"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 func init() {

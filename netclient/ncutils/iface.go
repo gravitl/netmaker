@@ -3,7 +3,7 @@ package ncutils
 import (
 	"net"
 
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/models"
 )
 
 // IfaceDelta - checks if the new node causes an interface change

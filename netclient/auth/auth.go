@@ -3,7 +3,7 @@ package auth
 import (
 	"os"
 
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 	//    "os"
 )
 

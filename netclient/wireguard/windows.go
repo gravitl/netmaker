@@ -3,8 +3,8 @@ package wireguard
 import (
 	"fmt"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 // ApplyWindowsConf - applies the WireGuard configuration file on Windows

@@ -5,11 +5,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
-const MAC_SERVICE_NAME = "com.gravitl.netclient"
+const MAC_SERVICE_NAME = "io.nemaker.netclient"
 const MAC_EXEC_DIR = "/usr/local/bin/"
 
 // SetupMacDaemon - Creates a daemon service from the netclient under LaunchAgents for MacOS
@@ -75,8 +75,8 @@ func CreateMacService(servicename string) error {
 	daemonstring := MacDaemonString()
 	daemonbytes := []byte(daemonstring)
 
-	if !ncutils.FileExists("/Library/LaunchDaemons/com.gravitl.netclient.plist") {
-		err = os.WriteFile("/Library/LaunchDaemons/com.gravitl.netclient.plist", daemonbytes, 0644)
+	if !ncutils.FileExists("/Library/LaunchDaemons/io.netmaker.netclient.plist") {
+		err = os.WriteFile("/Library/LaunchDaemons/io.netmaker.netclient.plist", daemonbytes, 0644)
 	}
 	return err
 }
@@ -87,14 +87,14 @@ func MacDaemonString() string {
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\" >
 <plist version='1.0'>
 <dict>
-	<key>Label</key><string>com.gravitl.netclient</string>
+	<key>Label</key><string>io.netmaker.netclient</string>
 	<key>ProgramArguments</key>
 		<array>
 			<string>/usr/local/bin/netclient</string>
 			<string>daemon</string>
 		</array>
-	<key>StandardOutPath</key><string>/var/log/com.gravitl.netclient.log</string>
-	<key>StandardErrorPath</key><string>/var/log/com.gravitl.netclient.log</string>
+	<key>StandardOutPath</key><string>/var/log/io.netmaker.netclient.log</string>
+	<key>StandardErrorPath</key><string>/var/log/io.netmaker.netclient.log</string>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>KeepAlive</key>

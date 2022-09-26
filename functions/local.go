@@ -3,8 +3,8 @@ package functions
 import (
 	"os"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
 )
 
 // LINUX_APP_DATA_PATH - linux path

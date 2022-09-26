@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
 )
 
 func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {

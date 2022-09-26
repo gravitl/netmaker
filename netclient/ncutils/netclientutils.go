@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/global_settings"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/netclient/global_settings"
 )
 
 var (
@@ -148,7 +148,7 @@ func IsEmptyRecord(err error) bool {
 // GetPublicIP - gets public ip
 func GetPublicIP(api string) (string, error) {
 
-	iplist := []string{"https://ip.client.gravitl.com", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	iplist := []string{"https://ip.client.netmaker.io", "https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
 
 	for network, ipService := range global_settings.PublicIPServices {
 		logger.Log(3, "User provided public IP service defined for network", network, "is", ipService)

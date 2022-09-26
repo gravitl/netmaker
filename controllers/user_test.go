@@ -3,9 +3,9 @@ package controller
 import (
 	"testing"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
 

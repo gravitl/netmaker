@@ -4,12 +4,12 @@
 package ee
 
 import (
-	controller "github.com/gravitl/netmaker/controllers"
-	"github.com/gravitl/netmaker/ee/ee_controllers"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+	controller "github.com/netmakerio/netmaker/controllers"
+	"github.com/netmakerio/netmaker/ee/ee_controllers"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/servercfg"
 )
 
 // InitEE - Initialize EE Logic

@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/go-ping/ping"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 

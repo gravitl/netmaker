@@ -5,8 +5,8 @@ import "image/color"
 var (
 	// Red_color - preferred red color
 	Red_color = color.NRGBA{R: 233, G: 10, B: 17, A: 155}
-	// Gravitl_color - gravitl primary sea green color
-	Gravitl_color = color.NRGBA{R: 14, G: 173, B: 105, A: 155}
+	// Netmaker_color - Netmaker primary sea green color
+	Netmaker_color = color.NRGBA{R: 14, G: 173, B: 105, A: 155}
 	// Blue_color - preferred blue color
 	Blue_color = color.NRGBA{R: 17, G: 157, B: 164, A: 155}
 	// Danger_color - preferred danger color

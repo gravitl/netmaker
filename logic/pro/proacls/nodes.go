@@ -1,9 +1,9 @@
 package proacls
 
 import (
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/models"
+	"github.com/netmakerio/netmaker/logic/acls"
+	"github.com/netmakerio/netmaker/logic/acls/nodeacls"
+	"github.com/netmakerio/netmaker/models"
 )
 
 // AdjustNodeAcls - adjusts ACLs based on a node's default value

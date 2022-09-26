@@ -1,8 +1,8 @@
 package nodeacls
 
 import (
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/logic/acls"
 )
 
 // CreateNodeACL - inserts or updates a node ACL on given network and adds to state

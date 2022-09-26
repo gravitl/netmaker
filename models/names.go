@@ -18,7 +18,7 @@ var NAMES = []string{
 	"audio",
 	"schemer",
 	"depth",
-	"gravitl",
+	"netmaker",
 	"mystic",
 	"donkey",
 	"atomic",

@@ -3,8 +3,8 @@ package pro
 import (
 	"encoding/json"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/models/promodels"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/models/promodels"
 )
 
 // InitializeGroups - initialize groups data structure if not present in the DB

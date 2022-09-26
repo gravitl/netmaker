@@ -16,20 +16,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gravitl/netmaker/auth"
-	"github.com/gravitl/netmaker/config"
-	controller "github.com/gravitl/netmaker/controllers"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
-	"github.com/gravitl/netmaker/tls"
+	"github.com/netmakerio/netmaker/auth"
+	"github.com/netmakerio/netmaker/config"
+	controller "github.com/netmakerio/netmaker/controllers"
+	"github.com/netmakerio/netmaker/database"
+	"github.com/netmakerio/netmaker/functions"
+	"github.com/netmakerio/netmaker/logger"
+	"github.com/netmakerio/netmaker/logic"
+	"github.com/netmakerio/netmaker/logic/pro"
+	"github.com/netmakerio/netmaker/models"
+	"github.com/netmakerio/netmaker/mq"
+	"github.com/netmakerio/netmaker/netclient/ncutils"
+	"github.com/netmakerio/netmaker/servercfg"
+	"github.com/netmakerio/netmaker/serverctl"
+	"github.com/netmakerio/netmaker/tls"
 )
 
 var version = "dev"
@@ -237,7 +237,7 @@ func genCerts() error {
 	//if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 	if errors.Is(err, os.ErrNotExist) || database.IsEmptyRecord(err) || ca.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
 		logger.Log(0, "generating new root CA")
-		caName := tls.NewName("CA Root", "US", "Gravitl")
+		caName := tls.NewName("CA Root", "US", "Netmaker")
 		csr, err := tls.NewCSR(*private, caName)
 		if err != nil {
 			return err
