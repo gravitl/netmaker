@@ -70,6 +70,7 @@ type ServerConfig struct {
 	MQServerPort          string `yaml:"mqserverport"`
 	Server                string `yaml:"server"`
 	PublicIPService       string `yaml:"publicipservice"`
+	MQAdminPassword       string `yaml:"mqadminpassword"`
 }
 
 // SQLConfig - Generic SQL Config
