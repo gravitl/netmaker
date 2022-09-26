@@ -600,3 +600,13 @@ func GetMQServerPort() string {
 	}
 	return port
 }
+
+func GetMqAdminPassword() string {
+	password := ""
+	if os.Getenv("MQ_ADMIN_PASSWORD") != "" {
+		password = os.Getenv("MQ_ADMIN_PASSWORD")
+	} else if config.Config.Server.MQAdminPassword != "" {
+		password = config.Config.Server.MQAdminPassword
+	}
+	return password
+}
