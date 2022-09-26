@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -140,7 +141,7 @@ func CreateUser(user models.User) (models.User, error) {
 
 		// legacy
 		if StringSliceContains(user.Networks, currentNets[i].NetID) {
-			if !Is_EE {
+			if !servercfg.Is_EE {
 				newUser.AccessLevel = pro.NET_ADMIN
 			}
 		}
