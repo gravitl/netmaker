@@ -58,13 +58,13 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 //
 // Get the server configuration.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: serverConfigResponse
+//			Responses:
+//				200: serverConfigResponse
 func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -79,13 +79,13 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 //
 // Get the server configuration.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: serverConfigResponse
+//			Responses:
+//				200: serverConfigResponse
 func getConfig(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -94,7 +94,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 	scfg := servercfg.GetServerConfig()
 	scfg.IsEE = "no"
-	if logic.Is_EE {
+	if servercfg.Is_EE {
 		scfg.IsEE = "yes"
 	}
 	json.NewEncoder(w).Encode(scfg)
@@ -105,13 +105,13 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 //
 // Registers a client with the server and return the Certificate Authority and certificate.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: registerResponse
+//			Responses:
+//				200: registerResponse
 func register(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, "processing registration request")
 	w.Header().Set("Content-Type", "application/json")

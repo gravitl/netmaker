@@ -184,7 +184,7 @@ func ServerStartNotify() error {
 
 // function to collect and store metrics for server nodes
 func collectServerMetrics(networks []models.Network) {
-	if !logic.Is_EE {
+	if !servercfg.Is_EE {
 		return
 	}
 	if len(networks) > 0 {

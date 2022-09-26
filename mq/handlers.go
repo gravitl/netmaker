@@ -98,7 +98,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
 func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
-	if logic.Is_EE {
+	if servercfg.Is_EE {
 		go func() {
 			id, err := getID(msg.Topic())
 			if err != nil {
