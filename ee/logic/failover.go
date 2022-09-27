@@ -35,7 +35,7 @@ func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
 			continue
 		}
 
-		if currentMetrics.Connectivity[currentNetworkNodes[i].ID].Connected && (currentNetworkNodes[i].Failover == "yes" || currentNetworkNodes[i].IsServer == "yes") {
+		if currentMetrics.Connectivity[currentNetworkNodes[i].ID].Connected && (currentNetworkNodes[i].Failover == "yes") {
 			if currentMetrics.Connectivity[currentNetworkNodes[i].ID].Latency < int64(minLatency) {
 				fastestCandidate = &currentNetworkNodes[i]
 				minLatency = currentMetrics.Connectivity[currentNetworkNodes[i].ID].Latency
