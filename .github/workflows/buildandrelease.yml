@@ -434,54 +434,57 @@ jobs:
   #         prerelease: true
   #         asset_name: netclient-darwin-headless
  
-  netclient-windows:
-    runs-on: windows-latest
-    needs: version
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Set Variables
-        run: |
-          TAG=${{needs.version.outputs.tag}}
-          VERSION=${{needs.version.outputs.version}}
-          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
-          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
-        shell: bash
-      - name: Setup go
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.18
-      - name: Mysys2 setup
-        uses: msys2/setup-msys2@v2
-        with:
-          install: >-
-            git
-            mingw-w64-x86_64-toolchain
-      - name: Build
-        run: |
-          echo $(go env GOPATH)/bin >> $GITHUB_PATH
-          cd netclient
-          go get -v github.com/josephspurrier/goversioninfo
-          go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
-          go generate
-          go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe .
+ # TODO uncomment when wget/sign working to test whole process
+  # netclient-windows:
+  #   runs-on: windows-latest
+  #   needs: version
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v2
+  #     - name: Set Variables
+  #       run: |
+  #         TAG=${{needs.version.outputs.tag}}
+  #         VERSION=${{needs.version.outputs.version}}
+  #         echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+  #         echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+  #       shell: bash
+  #     - name: Setup go
+  #       uses: actions/setup-go@v3
+  #       with:
+  #         go-version: 1.18
+  #     - name: Mysys2 setup
+  #       uses: msys2/setup-msys2@v2
+  #       with:
+  #         install: >-
+  #           git
+  #           mingw-w64-x86_64-toolchain
+  #     - name: Build
+  #       run: |
+  #         echo $(go env GOPATH)/bin >> $GITHUB_PATH
+  #         cd netclient
+  #         go get -v github.com/josephspurrier/goversioninfo
+  #         go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
+  #         go generate
+  #         go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe .
 
-      - name: Upload netclient windows to Release
-        continue-on-error: true
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient/build/netclient.exe
-          tag: ${{ env.NETMAKER_VERSION }}
-          overwrite: true
-          prerelease: true
-          asset_name: netclient.exe
+  #     - name: Upload netclient windows to Release
+  #       continue-on-error: true
+  #       uses: svenstaro/upload-release-action@v2
+  #       with:
+  #         repo_token: ${{ secrets.GITHUB_TOKEN }}
+  #         file: netclient/build/netclient.exe
+  #         tag: ${{ env.NETMAKER_VERSION }}
+  #         overwrite: true
+  #         prerelease: true
+  #         asset_name: netclient.exe
 
 
   sign-netclient-windows:
       name: Sign netclient.exe with CodeSignTool
       runs-on: ubuntu-latest 
-      needs: netclient-windows
+      needs: version
+      # TODO re-enable when testing full process
+      # needs: netclient-windows
       steps:
           - name: Checkout
             uses: actions/checkout@v2
@@ -491,8 +494,10 @@ jobs:
               args: -q https://github.com/gravitl/netmaker/releases/download/${{ steps.echo.outputs.tag }}/netclient.exe
           - run: ls -R .
             working-directory: netclient
+          # TODO remove when done testing
           # - name: Setup tmate session
           #   uses: mxschmitt/action-tmate@v3
+          # TODO add secrets to fork before testing
           # - uses: sslcom/actions-codesigner@develop
           #   with:
           #     command: sign
