@@ -754,9 +754,10 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
+	failover := r.Header.Get("failover") == "yes"
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := logic.CreateIngressGateway(netid, nodeid)
+	node, err := logic.CreateIngressGateway(netid, nodeid, failover)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create ingress gateway on node [%s] on network [%s]: %v",

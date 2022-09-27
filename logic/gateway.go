@@ -172,7 +172,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 }
 
 // CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
+func CreateIngressGateway(netid string, nodeid string, failover bool) (models.Node, error) {
 
 	var postUpCmd, postDownCmd string
 	node, err := GetNodeByID(nodeid)
@@ -224,7 +224,9 @@ func CreateIngressGateway(netid string, nodeid string) (models.Node, error) {
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
 	node.UDPHolePunch = "no"
-
+	if failover {
+		node.Failover = "yes"
+	}
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
