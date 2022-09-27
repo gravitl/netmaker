@@ -9,10 +9,86 @@ import (
 	"os"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/pbkdf2"
+)
+
+var (
+	dynamicSecurityFile = "dynamic-security.json"
+	dynConfig           = dynJSON{
+		Clients: []client{
+			{
+				Username:   "Netmaker-Admin",
+				TextName:   "netmaker admin user",
+				Password:   "",
+				Salt:       "",
+				Iterations: 0,
+				Roles: []clientRole{
+					{
+						Rolename: "admin",
+					},
+				},
+			},
+			{
+				Username:   "Netmaker-Server",
+				TextName:   "netmaker server user",
+				Password:   "",
+				Salt:       "",
+				Iterations: 0,
+				Roles:      []clientRole{},
+			},
+			{
+				Username:   "netmaker-exporter",
+				TextName:   "netmaker metrics exporter",
+				Password:   "yl7HZglF4CvCxgjPLLIYc73LRtjEwp2/SAEQXeW5Ta1Dl4RoLN5/gjqiv8xmue+F9LfRk8KICkNbhSYuEfJ7ww==",
+				Salt:       "veLl9eN02i+hKkyT",
+				Iterations: 0,
+				Roles:      []clientRole{},
+			},
+		},
+		Roles: []role{
+			{
+				Rolename: "admin",
+				Acls: []Acl{
+					{
+						AclType: "publishClientSend",
+						Topic:   "$CONTROL/dynamic-security/#",
+						Allow:   true,
+					},
+					{
+						AclType: "publishClientReceive",
+						Topic:   "$CONTROL/dynamic-security/#",
+						Allow:   true,
+					},
+					{
+						AclType: "subscribePattern",
+						Topic:   "$CONTROL/dynamic-security/#",
+						Allow:   true,
+					},
+					{
+						AclType: "publishClientReceive",
+						Topic:   "$SYS/#",
+						Allow:   true,
+					},
+					{
+						AclType: "subscribePattern",
+						Topic:   "$SYS/#",
+						Allow:   true,
+					},
+				},
+			},
+		},
+		DefaultAcl: defaultAccessAcl{
+			PublishClientSend:    true,
+			PublishClientReceive: true,
+			Subscribe:            true,
+			Unsubscribe:          true,
+		},
+	}
 )
 
 const DynamicSecSubTopic = "$CONTROL/dynamic-security/#"
@@ -37,29 +113,32 @@ var (
 	ModifyClientCmd  = "modifyClient"
 )
 
+type dynJSON struct {
+	Clients    []client         `json:"clients"`
+	Roles      []role           `json:"roles"`
+	DefaultAcl defaultAccessAcl `json:"defaultACLAccess"`
+}
+
 var (
 	mqAdminUserName          string = "Netmaker-Admin"
 	mqNetmakerServerUserName string = "Netmaker-Server"
 )
 
+type clientRole struct {
+	Rolename string `json:"rolename"`
+}
 type client struct {
-	Username   string `json:"username"`
-	TextName   string `json:"textName"`
-	Password   string `json:"password"`
-	Salt       string `json:"salt"`
-	Iterations int    `json:"iterations"`
-	Roles      []struct {
-		Rolename string `json:"rolename"`
-	} `json:"roles"`
+	Username   string       `json:"username"`
+	TextName   string       `json:"textName"`
+	Password   string       `json:"password"`
+	Salt       string       `json:"salt"`
+	Iterations int          `json:"iterations"`
+	Roles      []clientRole `json:"roles"`
 }
 
 type role struct {
 	Rolename string `json:"rolename"`
-	Acls     []struct {
-		Acltype string `json:"acltype"`
-		Topic   string `json:"topic"`
-		Allow   bool   `json:"allow"`
-	} `json:"acls"`
+	Acls     []Acl  `json:"acls"`
 }
 
 type defaultAccessAcl struct {
@@ -120,34 +199,26 @@ func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLen
 }
 
 func Configure() error {
-	file := "/root/dynamic-security.json"
-	b, err := os.ReadFile(file)
-	if err != nil {
-		return err
-	}
-	c := dynCnf{}
-	err = json.Unmarshal(b, &c)
-	if err != nil {
-		return err
-	}
 	password := servercfg.GetMqAdminPassword()
 	if password == "" {
 		return errors.New("MQ admin password not provided")
 	}
-	for i, cI := range c.Clients {
+	for i, cI := range dynConfig.Clients {
 		if cI.Username == mqAdminUserName || cI.Username == mqNetmakerServerUserName {
 			salt := logic.RandomString(12)
 			hashed := encodePasswordToPBKDF2(password, salt, 101, 64)
 			cI.Password = hashed
+			cI.Iterations = 101
 			cI.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
-			c.Clients[i] = cI
+			dynConfig.Clients[i] = cI
 		}
 	}
-	data, err := json.MarshalIndent(c, "", " ")
+	data, err := json.MarshalIndent(dynConfig, "", " ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file, data, 0755)
+	path := functions.GetNetmakerPath() + ncutils.GetSeparator() + dynamicSecurityFile
+	return os.WriteFile(path, data, 0755)
 }
 
 func PublishEventToDynSecTopic(event DynSecAction) error {
@@ -157,7 +228,7 @@ func PublishEventToDynSecTopic(event DynSecAction) error {
 		return err
 	}
 	if token := mqAdminClient.Publish(DynamicSecPubTopic, 2, false, d); token.Error() != nil {
-		return err
+		return token.Error()
 	}
 	return nil
 }

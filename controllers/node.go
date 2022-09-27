@@ -67,75 +67,94 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			decoderErr.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
-	} else {
-		errorResponse.Code = http.StatusBadRequest
-		if authRequest.ID == "" {
-			errorResponse.Message = "W1R3: ID can't be empty"
-			logger.Log(0, request.Header.Get("user"), errorResponse.Message)
-			logic.ReturnErrorResponse(response, request, errorResponse)
-			return
-		} else if authRequest.Password == "" {
-			errorResponse.Message = "W1R3: Password can't be empty"
-			logger.Log(0, request.Header.Get("user"), errorResponse.Message)
-			logic.ReturnErrorResponse(response, request, errorResponse)
-			return
-		} else {
-			var err error
-			result, err = logic.GetNodeByID(authRequest.ID)
-
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				logger.Log(0, request.Header.Get("user"),
-					fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
-				logic.ReturnErrorResponse(response, request, errorResponse)
-				return
-			}
-
-			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				logger.Log(0, request.Header.Get("user"),
-					"error validating user password: ", err.Error())
-				logic.ReturnErrorResponse(response, request, errorResponse)
-				return
-			} else {
-				tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
-
-				if tokenString == "" {
-					errorResponse.Code = http.StatusBadRequest
-					errorResponse.Message = "Could not create Token"
-					logger.Log(0, request.Header.Get("user"),
-						fmt.Sprintf("%s: %v", errorResponse.Message, err))
-					logic.ReturnErrorResponse(response, request, errorResponse)
-					return
-				}
-
-				var successResponse = models.SuccessResponse{
-					Code:    http.StatusOK,
-					Message: "W1R3: Device " + authRequest.ID + " Authorized",
-					Response: models.SuccessfulLoginResponse{
-						AuthToken: tokenString,
-						ID:        authRequest.ID,
-					},
-				}
-				successJSONResponse, jsonError := json.Marshal(successResponse)
-
-				if jsonError != nil {
-					errorResponse.Code = http.StatusBadRequest
-					errorResponse.Message = err.Error()
-					logger.Log(0, request.Header.Get("user"),
-						"error marshalling resp: ", err.Error())
-					logic.ReturnErrorResponse(response, request, errorResponse)
-					return
-				}
-				response.WriteHeader(http.StatusOK)
-				response.Header().Set("Content-Type", "application/json")
-				response.Write(successJSONResponse)
-			}
-		}
 	}
+	errorResponse.Code = http.StatusBadRequest
+	if authRequest.ID == "" {
+		errorResponse.Message = "W1R3: ID can't be empty"
+		logger.Log(0, request.Header.Get("user"), errorResponse.Message)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	} else if authRequest.Password == "" {
+		errorResponse.Message = "W1R3: Password can't be empty"
+		logger.Log(0, request.Header.Get("user"), errorResponse.Message)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	var err error
+	result, err = logic.GetNodeByID(authRequest.ID)
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error validating user password: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	event := mq.DynSecAction{
+		ActionType: mq.CreateClient,
+		Payload: mq.MqDynsecPayload{
+			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.CreateClientCmd,
+					Username: result.ID,
+					Password: authRequest.Password,
+					Textname: result.Name,
+					Roles:    make([]mq.MqDynSecRole, 0),
+					Groups:   make([]mq.MqDynSecGroup, 0),
+				},
+			},
+		},
+	}
+	if err := mq.PublishEventToDynSecTopic(event); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
+			event.ActionType, err.Error()))
+		errorResponse.Code = http.StatusInternalServerError
+		errorResponse.Message = fmt.Sprintf("could not create mq client for node [%s]: %v", result.ID, err)
+		return
+	}
+
+	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
+	if tokenString == "" {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = "Could not create Token"
+		logger.Log(0, request.Header.Get("user"),
+			fmt.Sprintf("%s: %v", errorResponse.Message, err))
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	var successResponse = models.SuccessResponse{
+		Code:    http.StatusOK,
+		Message: "W1R3: Device " + authRequest.ID + " Authorized",
+		Response: models.SuccessfulLoginResponse{
+			AuthToken: tokenString,
+			ID:        authRequest.ID,
+		},
+	}
+	successJSONResponse, jsonError := json.Marshal(successResponse)
+
+	if jsonError != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error marshalling resp: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	response.WriteHeader(http.StatusOK)
+	response.Header().Set("Content-Type", "application/json")
+	response.Write(successJSONResponse)
+
 }
 
 // auth middleware for api calls from nodes where node is has not yet joined the server (register, join)

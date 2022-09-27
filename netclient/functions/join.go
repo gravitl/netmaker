@@ -199,7 +199,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		return err
 	}
 	if cfg.Node.Password == "" {
-		cfg.Node.Password = logic.GenKey()
+		cfg.Node.Password = logic.GenPassWord()
 	}
 	//check if ListenPort was set on command line
 	if cfg.Node.ListenPort != 0 {

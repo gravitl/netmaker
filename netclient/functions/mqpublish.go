@@ -115,7 +115,6 @@ func checkin(currentRun int) {
 			config.Write(&nodeCfg, nodeCfg.Network)
 		}
 		Hello(&nodeCfg)
-		checkCertExpiry(&nodeCfg)
 		if currentRun >= 5 && nodeCfg.Server.Is_EE {
 			logger.Log(0, "collecting metrics for node", nodeCfg.Node.Name)
 			publishMetrics(&nodeCfg)
