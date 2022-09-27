@@ -138,7 +138,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			if newMetrics.Connectivity != nil {
 				err := logic.EnterpriseFailoverFunc.(func(*models.Node) error)(&currentNode)
 				if err != nil {
-					logger.Log(0, "could failed to failover for node", currentNode.Name, "on network", currentNode.Network, "-", err.Error())
+					logger.Log(0, "failed to failover for node", currentNode.Name, "on network", currentNode.Network, "-", err.Error())
 				} else {
 					if err := NodeUpdate(&currentNode); err != nil {
 						logger.Log(1, "error publishing node update to node", currentNode.Name, err.Error())

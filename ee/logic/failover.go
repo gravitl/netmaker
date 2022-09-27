@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -10,6 +11,25 @@ func SetFailover(node *models.Node) error {
 	failoverNode := determineFailoverCandidate(node)
 	if failoverNode != nil {
 		return setFailoverNode(failoverNode, node)
+	}
+	return nil
+}
+
+// ResetFailover - sets the failover node and wipes disconnected status
+func ResetFailover(network string) error {
+	nodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		err = SetFailover(&node)
+		if err != nil {
+			logger.Log(2, "error setting failover for node", node.Name, ":", err.Error())
+		}
+		err = WipeFailover(node.ID)
+		if err != nil {
+			logger.Log(2, "error wiping failover for node", node.Name, ":", err.Error())
+		}
 	}
 	return nil
 }
@@ -62,4 +82,13 @@ func setFailoverNode(failoverNode, node *models.Node) error {
 		return err
 	}
 	return logic.UpdateNode(&nodeToUpdate, node)
+}
+
+func WipeFailover(nodeid string) error {
+	metrics, err := logic.GetMetrics(nodeid)
+	if err != nil {
+		return err
+	}
+	metrics.NeedsFailover = make(map[string]string)
+	return logic.UpdateMetrics(nodeid, metrics)
 }

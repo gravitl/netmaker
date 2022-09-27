@@ -260,6 +260,7 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
 	node.IngressGatewayRange = ""
+	node.Failover = ""
 
 	// default to removing postup and postdown
 	node.PostUp = ""
@@ -272,6 +273,11 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 			logger.Log(0, fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
 				node.EgressGatewayRequest.NodeID, node.EgressGatewayRequest.NetID, err))
 		}
+	}
+
+	err = EnterpriseResetFailoverFunc.(func(string) error)(node.Network)
+	if err != nil {
+		logger.Log(0, "failed to reset failover on network", node.Network, ":", err.Error())
 	}
 
 	data, err := json.Marshal(&node)

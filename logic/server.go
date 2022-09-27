@@ -24,6 +24,9 @@ var EnterpriseCheckFuncs []interface{}
 // EnterpriseFailoverFunc - interface to control failover funcs
 var EnterpriseFailoverFunc interface{}
 
+// EnterpriseResetFailoverFunc - interface to control reset failover funcs
+var EnterpriseResetFailoverFunc interface{}
+
 // == Join, Checkin, and Leave for Server ==
 
 // KUBERNETES_LISTEN_PORT - starting port for Kubernetes in order to use NodePort range
