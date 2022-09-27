@@ -491,7 +491,7 @@ jobs:
           - name: Download EXE to Sign
             uses: wei/wget@v1.1.1
             with:
-              args: -q https://github.com/gravitl/netmaker/releases/download/${{ steps.echo.outputs.tag }}/netclient.exe
+              args: -q https://github.com/gravitl/netmaker/releases/download/${{ env.NETMAKER_VERSION }}/netclient.exe
           - run: ls -R .
             working-directory: netclient
           # TODO remove when done testing
