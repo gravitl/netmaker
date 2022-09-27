@@ -29,7 +29,7 @@ func InitEE() {
 		// == End License Handling ==
 		AddLicenseHooks()
 	})
-	logic.EnterpriseFailoverFunc = eelogic.AutoRelay
+	logic.EnterpriseFailoverFunc = eelogic.SetFailover
 }
 
 func setControllerLimits() {

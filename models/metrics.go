@@ -4,11 +4,12 @@ import "time"
 
 // Metrics - metrics struct
 type Metrics struct {
-	Network      string            `json:"network" bson:"network" yaml:"network"`
-	NodeID       string            `json:"node_id" bson:"node_id" yaml:"node_id"`
-	NodeName     string            `json:"node_name" bson:"node_name" yaml:"node_name"`
-	IsServer     string            `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Connectivity map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
+	Network       string            `json:"network" bson:"network" yaml:"network"`
+	NodeID        string            `json:"node_id" bson:"node_id" yaml:"node_id"`
+	NodeName      string            `json:"node_name" bson:"node_name" yaml:"node_name"`
+	IsServer      string            `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Connectivity  map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
+	NeedsFailover map[string]string `json:"needsfailover" bson:"needsfailover" yaml:"needsfailover"`
 }
 
 // Metric - holds a metric for data between nodes
