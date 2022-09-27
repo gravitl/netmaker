@@ -63,6 +63,15 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 				newMetric.Latency = pingStats.AvgRtt.Milliseconds()
 			}
 		}
+		// check device peer to see if WG is working if ping failed
+		if !newMetric.Connected {
+			if currPeer.ReceiveBytes > 0 &&
+				currPeer.TransmitBytes > 0 &&
+				time.Now().Before(currPeer.LastHandshakeTime.Add(time.Minute<<1)) {
+				newMetric.Connected = true
+				newMetric.Uptime = 1
+			}
+		}
 		newMetric.TotalTime = 1
 		metrics.Connectivity[id] = newMetric
 	}
