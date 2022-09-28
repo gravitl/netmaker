@@ -47,7 +47,7 @@ func resetFailover() {
 	nets, err := logic.GetNetworks()
 	if err == nil {
 		for _, net := range nets {
-			err = ResetFailover(net.NetID)
+			err = eelogic.ResetFailover(net.NetID)
 			if err != nil {
 				logger.Log(0, "failed to reset failover on network", net.NetID, ":", err.Error())
 			}

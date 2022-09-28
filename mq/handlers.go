@@ -143,6 +143,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			}
 
 			if shouldUpdate {
+				logger.Log(2, "updating peers after node", currentNode.Name, currentNode.Network, "detected connectivity issues")
 				if err = PublishPeerUpdate(&currentNode, true); err != nil {
 					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.Name, currentNode.Network)
 				}
@@ -266,9 +267,12 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 	}
 	shouldUpdate := false
 	for k, v := range oldMetrics.FailoverPeers {
+		if len(newMetrics.FailoverPeers[k]) > 0 && len(v) == 0 {
+			shouldUpdate = true
+		}
+
 		if len(v) > 0 && len(newMetrics.FailoverPeers[k]) == 0 {
 			newMetrics.FailoverPeers[k] = v
-			shouldUpdate = true
 		}
 	}
 
