@@ -37,6 +37,9 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	if servercfg.Is_EE {
 		metrics, _ = GetMetrics(node.ID)
 	}
+	if metrics == nil {
+		metrics = &models.Metrics{}
+	}
 	if metrics.FailoverPeers == nil {
 		metrics.FailoverPeers = make(map[string]string)
 	}
@@ -94,6 +97,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		}
 		if len(metrics.FailoverPeers[peer.ID]) > 0 {
 			logger.Log(0, "peer", peer.Name, peer.PrimaryAddress(), "was found to be in failover peers list for node", node.Name, node.PrimaryAddress())
+			continue
 		}
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
@@ -147,7 +151,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 				return models.PeerUpdate{}, err
 			}
 		}
-		// set_allowedips
+
 		allowedips := GetAllowedIPs(node, &peer, metrics)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
@@ -258,7 +262,6 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
-
 	allowedips = getNodeAllowedIPs(peer, node)
 
 	// handle ingress gateway peers
@@ -272,16 +275,16 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		}
 		// if node is a failover node, add allowed ips from nodes it is handling
 		if peer.Failover == "yes" && metrics.FailoverPeers != nil {
-			// travers through nodes that need handling
-			for k, v := range metrics.FailoverPeers {
+			// traverse through nodes that need handling
+			logger.Log(3, "peer", peer.Name, "was found to be failover for", node.Name, "checking failover peers...")
+			for k := range metrics.FailoverPeers {
 				// if FailoverNode is me for this node, add allowedips
-				if v == peer.ID {
+				if metrics.FailoverPeers[k] == peer.ID {
 					// get original node so we can traverse the allowed ips
 					nodeToFailover, err := GetNodeByID(k)
 					if err == nil {
-						// get all allowedips and append
-						// allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
-						logger.Log(0, "failing over node", nodeToFailover.Name, nodeToFailover.PrimaryAddress())
+						allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
+						logger.Log(0, "failing over node", nodeToFailover.Name, nodeToFailover.PrimaryAddress(), "to failover node", peer.Name)
 					}
 				}
 			}

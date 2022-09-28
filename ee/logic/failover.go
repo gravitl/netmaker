@@ -63,19 +63,12 @@ func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
 		}
 	}
 
-	if fastestCandidate == nil {
-		leader, err := logic.GetNetworkServerLeader(nodeToBeRelayed.Network)
-		if err != nil {
-			return nil
-		}
-		return &leader
-	}
-
 	return fastestCandidate
 }
 
 // setFailoverNode - changes node's failover node
 func setFailoverNode(failoverNode, node *models.Node) error {
+
 	node.FailoverNode = failoverNode.ID
 	nodeToUpdate, err := logic.GetNodeByID(node.ID)
 	if err != nil {

@@ -266,6 +266,12 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 		}
 	}
 
+	for k, v := range oldMetrics.FailoverPeers {
+		if len(v) > 0 && len(newMetrics.FailoverPeers[k]) == 0 {
+			newMetrics.FailoverPeers[k] = v
+		}
+	}
+
 	for k := range oldMetrics.Connectivity { // cleanup any left over data, self healing
 		delete(newMetrics.Connectivity, k)
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // CreateEgressGateway - creates an egress gateway
@@ -224,9 +225,9 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
 	node.UDPHolePunch = "no"
-	// if failover && servercfg.Is_EE {
-	// 	node.Failover = "yes"
-	// }
+	if failover && servercfg.Is_EE {
+		node.Failover = "yes"
+	}
 	data, err := json.Marshal(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -260,7 +261,7 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
 	node.IngressGatewayRange = ""
-	node.Failover = ""
+	node.Failover = "no"
 
 	// default to removing postup and postdown
 	node.PostUp = ""

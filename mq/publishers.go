@@ -217,9 +217,7 @@ func collectServerMetrics(networks []models.Network) {
 									logger.Log(2, "failed to push server metrics to exporter: ", err.Error())
 								}
 							}
-
 						}
-
 					}
 				}
 			}
