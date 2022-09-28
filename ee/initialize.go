@@ -28,11 +28,11 @@ func InitEE() {
 		}
 		// == End License Handling ==
 		AddLicenseHooks()
+		resetFailover()
 	})
 	logic.EnterpriseFailoverFunc = eelogic.SetFailover
 	logic.EnterpriseResetFailoverFunc = eelogic.ResetFailover
 	logic.EnterpriseResetAllPeersFailovers = eelogic.WipeAffectedFailoversOnly
-	resetFailover()
 }
 
 func setControllerLimits() {

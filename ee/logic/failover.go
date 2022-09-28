@@ -100,11 +100,11 @@ func WipeAffectedFailoversOnly(nodeid, network string) error {
 	if err != nil {
 		return nil
 	}
+	WipeFailover(nodeid)
 
 	for i := range currentNetworkNodes {
 		currNodeID := currentNetworkNodes[i].ID
 		if currNodeID == nodeid {
-			WipeFailover(nodeid)
 			continue
 		}
 		currMetrics, err := logic.GetMetrics(currNodeID)
