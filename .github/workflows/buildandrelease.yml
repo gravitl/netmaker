@@ -465,6 +465,9 @@ jobs:
           go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
           go generate
           go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient.exe .
+      - name: show env var
+        run: |
+          echo NETMAKER_VERSION is ${NETMAKER_VERSION}
 
       - name: Upload netclient windows to Release
         continue-on-error: true
@@ -476,6 +479,18 @@ jobs:
           overwrite: true
           prerelease: true
           asset_name: netclient.exe
+
+      # TODO remove when done testing
+      - name: Upload unsigned netclient windows to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient.exe
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-unsigned.exe
 
 
   sign-netclient-windows:
