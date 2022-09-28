@@ -496,7 +496,7 @@ jobs:
               command: sign
               username: ${{secrets.ES_USERNAME}}
               password: ${{secrets.ES_PASSWORD}}
-          # one cert so far.. so not needed for initial testing    credential_id: ${{secrets.CREDENTIAL_ID}}
+              credential_id: ${{secrets.CREDENTIAL_ID}}
               totp_secret: ${{secrets.ES_TOTP_SECRET}}
               file_path: /home/runner/work/netmaker-wf/netmaker-wf/netclient.exe
               output_path: .
