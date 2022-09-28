@@ -9,7 +9,7 @@ type Metrics struct {
 	NodeName      string            `json:"node_name" bson:"node_name" yaml:"node_name"`
 	IsServer      string            `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Connectivity  map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
-	NeedsFailover map[string]string `json:"needsfailover" bson:"needsfailover" yaml:"needsfailover"`
+	FailoverPeers map[string]string `json:"needsfailover" bson:"needsfailover" yaml:"needsfailover"`
 }
 
 // Metric - holds a metric for data between nodes

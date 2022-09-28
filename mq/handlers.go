@@ -209,16 +209,16 @@ func updateNodePeers(currentNode *models.Node) {
 }
 
 func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
-	if newMetrics.NeedsFailover == nil {
-		newMetrics.NeedsFailover = make(map[string]string)
+	if newMetrics.FailoverPeers == nil {
+		newMetrics.FailoverPeers = make(map[string]string)
 	}
 	oldMetrics, err := logic.GetMetrics(currentNode.ID)
 	if err != nil {
 		logger.Log(1, "error finding old metrics for node", currentNode.ID, currentNode.Name)
 		return
 	}
-	if oldMetrics.NeedsFailover == nil {
-		oldMetrics.NeedsFailover = make(map[string]string)
+	if oldMetrics.FailoverPeers == nil {
+		oldMetrics.FailoverPeers = make(map[string]string)
 	}
 
 	var attachedClients []models.ExtClient
@@ -259,8 +259,10 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 		return
 	}
 	for _, node := range nodes {
-		if !newMetrics.Connectivity[node.ID].Connected && node.Connected == "yes" {
-			newMetrics.NeedsFailover[node.ID] = node.FailoverNode
+		if !newMetrics.Connectivity[node.ID].Connected &&
+			len(newMetrics.Connectivity[node.ID].NodeName) > 0 &&
+			node.Connected == "yes" {
+			newMetrics.FailoverPeers[node.ID] = node.FailoverNode
 		}
 	}
 

@@ -81,6 +81,9 @@ func setFailoverNode(failoverNode, node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	if nodeToUpdate.FailoverNode == failoverNode.ID {
+		return nil
+	}
 	return logic.UpdateNode(&nodeToUpdate, node)
 }
 
@@ -89,6 +92,6 @@ func WipeFailover(nodeid string) error {
 	if err != nil {
 		return err
 	}
-	metrics.NeedsFailover = make(map[string]string)
+	metrics.FailoverPeers = make(map[string]string)
 	return logic.UpdateMetrics(nodeid, metrics)
 }

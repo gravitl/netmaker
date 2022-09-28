@@ -30,8 +30,8 @@ func InitEE() {
 		AddLicenseHooks()
 	})
 	logic.EnterpriseFailoverFunc = eelogic.SetFailover
-	logic.EnterpriseResetFailoverFunc = eelogic.ResetFailover
-	resetFailover()
+	// logic.EnterpriseResetFailoverFunc = eelogic.ResetFailover
+	// resetFailover()
 }
 
 func setControllerLimits() {
@@ -42,17 +42,17 @@ func setControllerLimits() {
 	servercfg.Is_EE = true
 }
 
-func resetFailover() {
-	nets, err := logic.GetNetworks()
-	if err == nil {
-		for _, net := range nets {
-			err = logic.EnterpriseResetFailoverFunc.(func(string) error)(net.NetID)
-			if err != nil {
-				logger.Log(0, "failed to reset failover on network", net.NetID, ":", err.Error())
-			}
-		}
-	}
-}
+// func resetFailover() {
+// 	nets, err := logic.GetNetworks()
+// 	if err == nil {
+// 		for _, net := range nets {
+// 			err = logic.EnterpriseResetFailoverFunc.(func(string) error)(net.NetID)
+// 			if err != nil {
+// 				logger.Log(0, "failed to reset failover on network", net.NetID, ":", err.Error())
+// 			}
+// 		}
+// 	}
+// }
 
 func retrieveEELogo() string {
 	return `              

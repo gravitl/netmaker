@@ -37,8 +37,8 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	if servercfg.Is_EE {
 		metrics, _ = GetMetrics(node.ID)
 	}
-	if metrics.NeedsFailover == nil {
-		metrics.NeedsFailover = make(map[string]string)
+	if metrics.FailoverPeers == nil {
+		metrics.FailoverPeers = make(map[string]string)
 	}
 	// udppeers = the peers parsed from the local interface
 	// gives us correct port to reach
@@ -92,8 +92,8 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if isP2S && peer.IsHub != "yes" {
 			continue
 		}
-		if metrics.NeedsFailover[peer.ID] != "" {
-			continue
+		if len(metrics.FailoverPeers[peer.ID]) > 0 {
+			logger.Log(0, "peer", peer.Name, peer.PrimaryAddress(), "was found to be in failover peers list for node", node.Name, node.PrimaryAddress())
 		}
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
@@ -271,16 +271,17 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			allowedips = append(allowedips, extPeer.AllowedIPs...)
 		}
 		// if node is a failover node, add allowed ips from nodes it is handling
-		if peer.Failover == "yes" && metrics.NeedsFailover != nil {
+		if peer.Failover == "yes" && metrics.FailoverPeers != nil {
 			// travers through nodes that need handling
-			for k, v := range metrics.NeedsFailover {
+			for k, v := range metrics.FailoverPeers {
 				// if FailoverNode is me for this node, add allowedips
 				if v == peer.ID {
 					// get original node so we can traverse the allowed ips
 					nodeToFailover, err := GetNodeByID(k)
 					if err == nil {
 						// get all allowedips and append
-						allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
+						// allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
+						logger.Log(0, "failing over node", nodeToFailover.Name, nodeToFailover.PrimaryAddress())
 					}
 				}
 			}
