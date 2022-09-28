@@ -80,11 +80,15 @@ func setFailoverNode(failoverNode, node *models.Node) error {
 	return logic.UpdateNode(&nodeToUpdate, node)
 }
 
+// WipeFailover - removes the failover peers of given node (ID)
 func WipeFailover(nodeid string) error {
 	metrics, err := logic.GetMetrics(nodeid)
 	if err != nil {
 		return err
 	}
-	metrics.FailoverPeers = make(map[string]string)
-	return logic.UpdateMetrics(nodeid, metrics)
+	if metrics != nil {
+		metrics.FailoverPeers = make(map[string]string)
+		return logic.UpdateMetrics(nodeid, metrics)
+	}
+	return nil
 }

@@ -250,6 +250,20 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 	return err
 }
 
+// IsFailoverPresent - checks if a node is marked as a failover in given network
+func IsFailoverPresent(network string) bool {
+	netNodes, err := GetNetworkNodes(network)
+	if err != nil {
+		return false
+	}
+	for i := range netNodes {
+		if netNodes[i].Failover == "yes" {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateNode - creates a node in database
 func CreateNode(node *models.Node) error {
 

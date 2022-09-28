@@ -95,7 +95,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if isP2S && peer.IsHub != "yes" {
 			continue
 		}
-		if len(metrics.FailoverPeers[peer.ID]) > 0 {
+		if len(metrics.FailoverPeers[peer.ID]) > 0 && IsFailoverPresent(node.Network) {
 			logger.Log(2, "peer", peer.Name, peer.PrimaryAddress(), "was found to be in failover peers list for node", node.Name, node.PrimaryAddress())
 			continue
 		}
