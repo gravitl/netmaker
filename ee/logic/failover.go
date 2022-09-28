@@ -92,3 +92,30 @@ func WipeFailover(nodeid string) error {
 	}
 	return nil
 }
+
+// WipeAffectedFailoversOnly - wipes failovers for nodes that have given node (ID)
+// in their respective failover lists
+func WipeAffectedFailoversOnly(nodeid, network string) error {
+	currentNetworkNodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return nil
+	}
+
+	for i := range currentNetworkNodes {
+		currNodeID := currentNetworkNodes[i].ID
+		if currNodeID == nodeid {
+			WipeFailover(nodeid)
+			continue
+		}
+		currMetrics, err := logic.GetMetrics(currNodeID)
+		if err != nil || currMetrics == nil {
+			continue
+		}
+		if currMetrics.FailoverPeers != nil {
+			if len(currMetrics.FailoverPeers[nodeid]) > 0 {
+				WipeFailover(currNodeID)
+			}
+		}
+	}
+	return nil
+}

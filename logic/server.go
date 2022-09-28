@@ -27,6 +27,9 @@ var EnterpriseFailoverFunc interface{}
 // EnterpriseResetFailoverFunc - interface to control reset failover funcs
 var EnterpriseResetFailoverFunc interface{}
 
+// EnterpriseResetAllPeersFailovers - resets all nodes that are considering a node to be failover worthy (inclusive)
+var EnterpriseResetAllPeersFailovers interface{}
+
 // == Join, Checkin, and Leave for Server ==
 
 // KUBERNETES_LISTEN_PORT - starting port for Kubernetes in order to use NodePort range

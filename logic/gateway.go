@@ -276,10 +276,10 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 		}
 	}
 
-	// err = EnterpriseResetFailoverFunc.(func(string) error)(node.Network)
-	// if err != nil {
-	// 	logger.Log(0, "failed to reset failover on network", node.Network, ":", err.Error())
-	// }
+	err = EnterpriseResetFailoverFunc.(func(string) error)(node.Network)
+	if err != nil {
+		logger.Log(0, "failed to reset failover on network", node.Network, ":", err.Error())
+	}
 
 	data, err := json.Marshal(&node)
 	if err != nil {

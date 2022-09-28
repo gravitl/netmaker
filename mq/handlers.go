@@ -122,7 +122,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 
-			updateNodeMetrics(&currentNode, &newMetrics)
+			shouldUpdate := updateNodeMetrics(&currentNode, &newMetrics)
 
 			if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
 				logger.Log(1, "faield to update node metrics", id, currentNode.Name, err.Error())
@@ -139,13 +139,12 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 				err := logic.EnterpriseFailoverFunc.(func(*models.Node) error)(&currentNode)
 				if err != nil {
 					logger.Log(0, "failed to failover for node", currentNode.Name, "on network", currentNode.Network, "-", err.Error())
-				} else {
-					if err := NodeUpdate(&currentNode); err != nil {
-						logger.Log(1, "error publishing node update to node", currentNode.Name, err.Error())
-					}
-					if err := PublishPeerUpdate(&currentNode, true); err != nil {
-						logger.Log(1, "error publishing peer update after auto relay for node", currentNode.Name, err.Error())
-					}
+				}
+			}
+
+			if shouldUpdate {
+				if err = PublishPeerUpdate(&currentNode, true); err != nil {
+					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.Name, currentNode.Network)
 				}
 			}
 
@@ -208,14 +207,14 @@ func updateNodePeers(currentNode *models.Node) {
 	}
 }
 
-func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
+func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) bool {
 	if newMetrics.FailoverPeers == nil {
 		newMetrics.FailoverPeers = make(map[string]string)
 	}
 	oldMetrics, err := logic.GetMetrics(currentNode.ID)
 	if err != nil {
 		logger.Log(1, "error finding old metrics for node", currentNode.ID, currentNode.Name)
-		return
+		return false
 	}
 	if oldMetrics.FailoverPeers == nil {
 		oldMetrics.FailoverPeers = make(map[string]string)
@@ -256,7 +255,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 	nodes, err := logic.GetNetworkNodes(currentNode.Network)
 	if err != nil {
 		logger.Log(0, "failed to retrieve nodes while updating metrics")
-		return
+		return false
 	}
 	for _, node := range nodes {
 		if !newMetrics.Connectivity[node.ID].Connected &&
@@ -265,14 +264,16 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 			newMetrics.FailoverPeers[node.ID] = node.FailoverNode
 		}
 	}
-
+	shouldUpdate := false
 	for k, v := range oldMetrics.FailoverPeers {
 		if len(v) > 0 && len(newMetrics.FailoverPeers[k]) == 0 {
 			newMetrics.FailoverPeers[k] = v
+			shouldUpdate = true
 		}
 	}
 
 	for k := range oldMetrics.Connectivity { // cleanup any left over data, self healing
 		delete(newMetrics.Connectivity, k)
 	}
+	return shouldUpdate
 }
