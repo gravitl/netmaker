@@ -237,8 +237,14 @@ func setupMQTTSingleton(cfg *config.ClientConfig) error {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
-	opts.AddBroker("tcp://" + server + ":" + port)
-	mqclient = mqtt.NewClient(opts)
+	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + cfg.Network)
+	if err != nil {
+		return fmt.Errorf("could not read secrets file %w", err)
+	}
+	opts.AddBroker("mqtts://" + server + ":" + port)
+	opts.SetUsername(cfg.Node.ID)
+	opts.SetPassword(string(pass))
+	mqclient := mqtt.NewClient(opts)
 	var connecterr error
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
@@ -258,9 +264,13 @@ func setupMQTT(cfg *config.ClientConfig) error {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", server, port))
+	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + cfg.Network)
+	if err != nil {
+		return fmt.Errorf("could not read secrets file %w", err)
+	}
+	opts.AddBroker(fmt.Sprintf("mqtts://%s:%s", server, port))
 	opts.SetUsername(cfg.Node.ID)
-	opts.SetPassword(cfg.Node.Password)
+	opts.SetPassword(string(pass))
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
