@@ -44,7 +44,7 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 		case <-ticker.C:
 			currentRun++
 			checkin(currentRun)
-			if currentRun >= 5 {
+			if currentRun >= 0 {
 				currentRun = 0
 			}
 		}
@@ -116,7 +116,7 @@ func checkin(currentRun int) {
 		}
 		Hello(&nodeCfg)
 		checkCertExpiry(&nodeCfg)
-		if currentRun >= 5 && nodeCfg.Server.Is_EE {
+		if currentRun >= 0 && nodeCfg.Server.Is_EE {
 			logger.Log(0, "collecting metrics for node", nodeCfg.Node.Name)
 			publishMetrics(&nodeCfg)
 		}
