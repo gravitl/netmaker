@@ -514,8 +514,8 @@ jobs:
             uses: svenstaro/upload-release-action@v2
             with:
               repo_token: ${{ secrets.GITHUB_TOKEN }}
-              file: netclient/build/netclient.exe
-              tag: ${{ env.NETMAKER_VERSION }}
+              file: /home/runner/work/netmaker-wf/netmaker-wf/netclient.exe
+              tag: ${{ needs.version.outputs.tag }}
               overwrite: true
               prerelease: true
               asset_name: netclient.exe
