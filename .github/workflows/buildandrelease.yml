@@ -494,9 +494,6 @@ jobs:
               args: -q https://github.com/gravitl/netmaker/releases/download/${{ needs.version.outputs.tag }}/netclient.exe
           - run: ls -R .
             working-directory: netclient
-          # TODO remove when done testing
-          - name: Setup tmate session
-            uses: mxschmitt/action-tmate@v3
           # TODO add secrets to fork before testing
           - uses: sslcom/actions-codesigner@develop
             with:
@@ -505,8 +502,11 @@ jobs:
               password: ${{secrets.ES_PASSWORD}}
           # one cert so far.. so not needed for initial testing    credential_id: ${{secrets.CREDENTIAL_ID}}
               totp_secret: ${{secrets.ES_TOTP_SECRET}}
-              file_path: netclient.exe
+              file_path: /home/runner/work/netmaker-wf/netmaker-wf/netclient.exe
               output_path: .
+          # TODO remove when done testing
+          # - name: Setup tmate session
+          #   uses: mxschmitt/action-tmate@v3          
 
 # TODO uncomment when done with signing testing 
           - name: Upload signed netclient windows to Release
