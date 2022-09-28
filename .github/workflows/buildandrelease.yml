@@ -495,8 +495,8 @@ jobs:
           - run: ls -R .
             working-directory: netclient
           # TODO remove when done testing
-          # - name: Setup tmate session
-          #   uses: mxschmitt/action-tmate@v3
+          - name: Setup tmate session
+            uses: mxschmitt/action-tmate@v3
           # TODO add secrets to fork before testing
           # - uses: sslcom/actions-codesigner@develop
           #   with:
