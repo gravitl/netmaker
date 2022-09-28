@@ -446,7 +446,12 @@ jobs:
           VERSION=${{needs.version.outputs.version}}
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo $GITHUB_ENV
         shell: bash
+      - name: show env var # TODO testing only
+        run: |
+          echo ${{needs.version.outputs.tag}}
+          echo ${{needs.version.outputs.version}}
       - name: Setup go
         uses: actions/setup-go@v3
         with:
@@ -465,9 +470,7 @@ jobs:
           go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
           go generate
           go build -tags=gui -ldflags="-X 'main.version=${{needs.version.outputs.tag}}'" -o build/netclient.exe .
-      - name: show env var # TODO testing only
-        run: |
-          echo ${{needs.version.outputs.tag}}
+
 
       - name: Upload netclient windows to Release
         continue-on-error: true
