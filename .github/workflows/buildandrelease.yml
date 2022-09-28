@@ -509,16 +509,16 @@ jobs:
               output_path: .
 
 # TODO uncomment when done with signing testing 
-          # - name: Upload signed netclient windows to Release
-          #   continue-on-error: true
-          #   uses: svenstaro/upload-release-action@v2
-          #   with:
-          #     repo_token: ${{ secrets.GITHUB_TOKEN }}
-          #     file: netclient/build/netclient.exe
-          #     tag: ${{ env.NETMAKER_VERSION }}
-          #     overwrite: true
-          #     prerelease: true
-          #     asset_name: netclient.exe
+          - name: Upload signed netclient windows to Release
+            continue-on-error: true
+            uses: svenstaro/upload-release-action@v2
+            with:
+              repo_token: ${{ secrets.GITHUB_TOKEN }}
+              file: netclient/build/netclient.exe
+              tag: ${{ env.NETMAKER_VERSION }}
+              overwrite: true
+              prerelease: true
+              asset_name: netclient.exe
 
 # TODO uncomment when done with signing testing 
   # linux-packages:
