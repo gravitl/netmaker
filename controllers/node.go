@@ -604,7 +604,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Mine:   node.TrafficKeys.Mine,
 		Server: key,
 	}
-
+	nodePassword := node.Password
 	err = logic.CreateNode(&node)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -663,7 +663,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				{
 					Command:  mq.CreateClientCmd,
 					Username: node.ID,
-					Password: node.Password,
+					Password: nodePassword,
 					Textname: node.Name,
 					Roles:    make([]mq.MqDynSecRole, 0),
 					Groups:   make([]mq.MqDynSecGroup, 0),

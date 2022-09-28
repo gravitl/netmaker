@@ -46,7 +46,7 @@ var (
 				TextName:   "netmaker metrics exporter",
 				Password:   "yl7HZglF4CvCxgjPLLIYc73LRtjEwp2/SAEQXeW5Ta1Dl4RoLN5/gjqiv8xmue+F9LfRk8KICkNbhSYuEfJ7ww==",
 				Salt:       "veLl9eN02i+hKkyT",
-				Iterations: 0,
+				Iterations: 101,
 				Roles:      []clientRole{},
 			},
 		},
@@ -77,6 +77,26 @@ var (
 					{
 						AclType: "subscribePattern",
 						Topic:   "$SYS/#",
+						Allow:   true,
+					},
+					{
+						AclType: "publishClientReceive",
+						Topic:   "#",
+						Allow:   true,
+					},
+					{
+						AclType: "subscribePattern",
+						Topic:   "#",
+						Allow:   true,
+					},
+					{
+						AclType: "unsubscribePattern",
+						Topic:   "#",
+						Allow:   true,
+					},
+					{
+						AclType: "publishClientSend",
+						Topic:   "#",
 						Allow:   true,
 					},
 				},
@@ -165,9 +185,9 @@ type MqDynSecRole struct {
 }
 
 type Acl struct {
-	AclType  string `json:"acl_type"`
+	AclType  string `json:"acltype"`
 	Topic    string `json:"topic"`
-	Priority int    `json:"priority"`
+	Priority int    `json:"priority,omitempty"`
 	Allow    bool   `json:"allow"`
 }
 
@@ -203,6 +223,7 @@ func Configure() error {
 	if password == "" {
 		return errors.New("MQ admin password not provided")
 	}
+	fmt.Println("-----> PASSWORD: ", password)
 	for i, cI := range dynConfig.Clients {
 		if cI.Username == mqAdminUserName || cI.Username == mqNetmakerServerUserName {
 			salt := logic.RandomString(12)
