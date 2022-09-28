@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -74,6 +75,38 @@ func initialize() { // Client Mode Prereq Check
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("Error connecting to database")
 	}
+	//update network defaults
+	networks, _ := logic.GetNetworks()
+	for _, network := range networks {
+		update := false
+		newNet := network
+		newNet.SetDefaults()
+		if strings.Contains(network.NetID, ".") {
+			newNet.NetID = strings.ReplaceAll(network.NetID, ".", "")
+			newNet.DefaultInterface = strings.ReplaceAll(network.DefaultInterface, ".", "")
+			update = true
+		}
+		if strings.ContainsAny(network.NetID, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+			newNet.NetID = strings.ToLower(network.NetID)
+			newNet.DefaultInterface = strings.ToLower(network.DefaultInterface)
+			update = true
+		}
+		if update {
+			newNet.SetDefaults()
+			if err := logic.SaveNetwork(&newNet); err != nil {
+				logger.Log(0, "error saving networks during initial update:", err.Error())
+			}
+			if err := logic.DeleteNetwork(network.NetID); err != nil {
+				logger.Log(0, "error deleting old network:", err.Error())
+			}
+		} else {
+			network.SetDefaults()
+			if err := logic.SaveNetwork(&network); err != nil {
+				logger.Log(0, "error saving networks during with defaults:", err.Error())
+			}
+		}
+	}
+
 	logger.Log(0, "database successfully connected")
 	if err = logic.AddServerIDIfNotPresent(); err != nil {
 		logger.Log(1, "failed to save server ID")
