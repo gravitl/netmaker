@@ -96,7 +96,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			continue
 		}
 		if len(metrics.FailoverPeers[peer.ID]) > 0 {
-			logger.Log(0, "peer", peer.Name, peer.PrimaryAddress(), "was found to be in failover peers list for node", node.Name, node.PrimaryAddress())
+			logger.Log(2, "peer", peer.Name, peer.PrimaryAddress(), "was found to be in failover peers list for node", node.Name, node.PrimaryAddress())
 			continue
 		}
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
@@ -283,8 +283,13 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 					// get original node so we can traverse the allowed ips
 					nodeToFailover, err := GetNodeByID(k)
 					if err == nil {
-						allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
-						logger.Log(0, "failing over node", nodeToFailover.Name, nodeToFailover.PrimaryAddress(), "to failover node", peer.Name)
+						failoverNodeMetrics, err := GetMetrics(nodeToFailover.ID)
+						if err == nil && failoverNodeMetrics != nil {
+							if len(failoverNodeMetrics.NodeName) > 0 {
+								allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
+								logger.Log(0, "failing over node", nodeToFailover.Name, nodeToFailover.PrimaryAddress(), "to failover node", peer.Name)
+							}
+						}
 					}
 				}
 			}
