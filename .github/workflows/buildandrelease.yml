@@ -498,15 +498,15 @@ jobs:
           - name: Setup tmate session
             uses: mxschmitt/action-tmate@v3
           # TODO add secrets to fork before testing
-          # - uses: sslcom/actions-codesigner@develop
-          #   with:
-          #     command: sign
-          #     username: ${{secrets.ES_USERNAME}}
-          #     password: ${{secrets.ES_PASSWORD}}
-          #     credential_id: ${{secrets.CREDENTIAL_ID}}
-          #     totp_secret: ${{secrets.ES_TOTP_SECRET}}
-          #     file_path: netclient/netclient.exe
-          #     output_path: .
+          - uses: sslcom/actions-codesigner@develop
+            with:
+              command: sign
+              username: ${{secrets.ES_USERNAME}}
+              password: ${{secrets.ES_PASSWORD}}
+          # one cert so far.. so not needed for initial testing    credential_id: ${{secrets.CREDENTIAL_ID}}
+              totp_secret: ${{secrets.ES_TOTP_SECRET}}
+              file_path: netclient.exe
+              output_path: .
 
 # TODO uncomment when done with signing testing 
           # - name: Upload signed netclient windows to Release
