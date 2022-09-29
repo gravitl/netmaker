@@ -99,6 +99,8 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 - [Netmaker K3S](https://github.com/geragcp/netmaker-k3s)
 
+- [Run Netmaker + Netclient with Podman](https://github.com/agorgl/nm-setup)
+
 ## Disclaimer
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
 
