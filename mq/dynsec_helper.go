@@ -10,6 +10,182 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+var (
+	AdminRole    string = "admin"
+	ServerRole   string = "server"
+	ExporterRole string = "exporter"
+)
+
+var (
+	dynamicSecurityFile = "dynamic-security.json"
+	dynConfig           = dynJSON{
+		Clients: []client{
+			{
+				Username:   mqAdminUserName,
+				TextName:   "netmaker admin user",
+				Password:   "",
+				Salt:       "",
+				Iterations: 0,
+				Roles: []clientRole{
+					{
+						Rolename: AdminRole,
+					},
+				},
+			},
+			{
+				Username:   mqNetmakerServerUserName,
+				TextName:   "netmaker server user",
+				Password:   "",
+				Salt:       "",
+				Iterations: 0,
+				Roles: []clientRole{
+					{
+						Rolename: ServerRole,
+					},
+				},
+			},
+		},
+		Roles: []role{
+			{
+				Rolename: AdminRole,
+				Acls: []Acl{
+					{
+						AclType:  "publishClientSend",
+						Topic:    "$CONTROL/dynamic-security/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "$CONTROL/dynamic-security/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "subscribePattern",
+						Topic:    "$CONTROL/dynamic-security/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "$SYS/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "subscribePattern",
+						Topic:    "$SYS/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "subscribePattern",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "unsubscribePattern",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientSend",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+				},
+			},
+			{
+				Rolename: ServerRole,
+				Acls: []Acl{
+					{
+						AclType:  "publishClientSend",
+						Topic:    "peers/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientSend",
+						Topic:    "update/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientSend",
+						Topic:    "metrics_exporter",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "ping/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "update/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "signal/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "metrics/#",
+						Priority: -1,
+						Allow:    true,
+					},
+				},
+			},
+		},
+		DefaultAcl: defaultAccessAcl{
+			PublishClientSend:    false,
+			PublishClientReceive: true,
+			Subscribe:            false,
+			Unsubscribe:          true,
+		},
+	}
+
+	exporterMQClient = client{
+		Username:   mqExporterUserName,
+		TextName:   "netmaker metrics exporter",
+		Password:   "",
+		Salt:       "",
+		Iterations: 101,
+		Roles: []clientRole{
+			{
+				Rolename: ExporterRole,
+			},
+		},
+	}
+	exporterMQRole = role{
+		Rolename: ExporterRole,
+		Acls: []Acl{
+			{
+				AclType:  "publishClientReceive",
+				Topic:    "metrics_exporter",
+				Allow:    true,
+				Priority: -1,
+			},
+		},
+	}
+)
+
 type DynListCLientsCmdResp struct {
 	Responses []struct {
 		Command string          `json:"command"`

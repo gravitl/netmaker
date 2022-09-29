@@ -18,174 +18,6 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-var (
-	dynamicSecurityFile = "dynamic-security.json"
-	dynConfig           = dynJSON{
-		Clients: []client{
-			{
-				Username:   "Netmaker-Admin",
-				TextName:   "netmaker admin user",
-				Password:   "",
-				Salt:       "",
-				Iterations: 0,
-				Roles: []clientRole{
-					{
-						Rolename: "admin",
-					},
-				},
-			},
-			{
-				Username:   "Netmaker-Server",
-				TextName:   "netmaker server user",
-				Password:   "",
-				Salt:       "",
-				Iterations: 0,
-				Roles: []clientRole{
-					{
-						Rolename: "server",
-					},
-				},
-			},
-			{
-				Username:   "netmaker-exporter",
-				TextName:   "netmaker metrics exporter",
-				Password:   "yl7HZglF4CvCxgjPLLIYc73LRtjEwp2/SAEQXeW5Ta1Dl4RoLN5/gjqiv8xmue+F9LfRk8KICkNbhSYuEfJ7ww==",
-				Salt:       "veLl9eN02i+hKkyT",
-				Iterations: 101,
-				Roles: []clientRole{
-					{
-						Rolename: "exporter",
-					},
-				},
-			},
-		},
-		Roles: []role{
-			{
-				Rolename: "admin",
-				Acls: []Acl{
-					{
-						AclType:  "publishClientSend",
-						Topic:    "$CONTROL/dynamic-security/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "$CONTROL/dynamic-security/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "subscribePattern",
-						Topic:    "$CONTROL/dynamic-security/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "$SYS/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "subscribePattern",
-						Topic:    "$SYS/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "subscribePattern",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "unsubscribePattern",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientSend",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-				},
-			},
-			{
-				Rolename: "server",
-				Acls: []Acl{
-					{
-						AclType:  "publishClientSend",
-						Topic:    "peers/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientSend",
-						Topic:    "update/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientSend",
-						Topic:    "metrics_exporter",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "ping/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "update/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "signal/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "metrics/#",
-						Priority: -1,
-						Allow:    true,
-					},
-				},
-			},
-			{
-				Rolename: "exporter",
-				Acls: []Acl{
-					{
-						AclType: "publishClientReceive",
-						Topic:   "metrics_exporter",
-						Allow:   true,
-					},
-				},
-			},
-		},
-		DefaultAcl: defaultAccessAcl{
-			PublishClientSend:    false,
-			PublishClientReceive: true,
-			Subscribe:            false,
-			Unsubscribe:          true,
-		},
-	}
-)
-
 const DynamicSecSubTopic = "$CONTROL/dynamic-security/#"
 const DynamicSecPubTopic = "$CONTROL/dynamic-security/v1"
 
@@ -212,6 +44,7 @@ type dynJSON struct {
 var (
 	mqAdminUserName          string = "Netmaker-Admin"
 	mqNetmakerServerUserName string = "Netmaker-Server"
+	mqExporterUserName       string = "Netmaker-Exporter"
 )
 
 type clientRole struct {
@@ -288,6 +121,10 @@ func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLen
 }
 
 func Configure() error {
+	if servercfg.Is_EE {
+		dynConfig.Clients = append(dynConfig.Clients, exporterMQClient)
+		dynConfig.Roles = append(dynConfig.Roles, exporterMQRole)
+	}
 	password := servercfg.GetMqAdminPassword()
 	if password == "" {
 		return errors.New("MQ admin password not provided")
@@ -296,6 +133,14 @@ func Configure() error {
 		if cI.Username == mqAdminUserName || cI.Username == mqNetmakerServerUserName {
 			salt := logic.RandomString(12)
 			hashed := encodePasswordToPBKDF2(password, salt, 101, 64)
+			cI.Password = hashed
+			cI.Iterations = 101
+			cI.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
+			dynConfig.Clients[i] = cI
+		} else if servercfg.Is_EE && cI.Username == mqExporterUserName {
+			exporterPassword := servercfg.GetLicenseKey()
+			salt := logic.RandomString(12)
+			hashed := encodePasswordToPBKDF2(exporterPassword, salt, 101, 64)
 			cI.Password = hashed
 			cI.Iterations = 101
 			cI.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
