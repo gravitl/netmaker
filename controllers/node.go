@@ -101,23 +101,45 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	event := mq.DynSecAction{
-		ActionType: mq.CreateClient,
 		Payload: mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
+
+				{
+					Command:  mq.CreateRoleCmd,
+					RoleName: result.Network,
+					Textname: "Network wide role with Acls for nodes",
+					Acls:     mq.FetchNetworkAcls(result.Network),
+				},
+
+				{
+					Command:  mq.CreateRoleCmd,
+					RoleName: fmt.Sprintf("%s-%s", "Node", result.ID),
+					Acls:     mq.FetchNodeAcls(result.ID),
+					Textname: "Role for node " + result.Name,
+				},
 				{
 					Command:  mq.CreateClientCmd,
 					Username: result.ID,
 					Password: authRequest.Password,
 					Textname: result.Name,
-					Roles:    make([]mq.MqDynSecRole, 0),
-					Groups:   make([]mq.MqDynSecGroup, 0),
+					Roles: []mq.MqDynSecRole{
+						{
+							Rolename: fmt.Sprintf("%s-%s", "Node", result.ID),
+							Priority: -1,
+						},
+						{
+							Rolename: result.Network,
+							Priority: -1,
+						},
+					},
+					Groups: make([]mq.MqDynSecGroup, 0),
 				},
 			},
 		},
 	}
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
-			event.ActionType, err.Error()))
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+			event.Payload.Commands, err.Error()))
 		errorResponse.Code = http.StatusInternalServerError
 		errorResponse.Message = fmt.Sprintf("could not create mq client for node [%s]: %v", result.ID, err)
 		return
@@ -641,7 +663,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 	// Delete Any Existing Client with this ID.
 	event := mq.DynSecAction{
-		ActionType: mq.DeleteClient,
 		Payload: mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
 				{
@@ -652,28 +673,42 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
-			event.ActionType, err.Error()))
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+			event.Payload.Commands, err.Error()))
 	}
 	// Create client for this node in Mq
 	event = mq.DynSecAction{
-		ActionType: mq.CreateClient,
 		Payload: mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.CreateRoleCmd,
+					RoleName: fmt.Sprintf("%s-%s", "Node", node.ID),
+					Acls:     mq.FetchNodeAcls(node.ID),
+					Textname: "Role for node " + node.Name,
+				},
 				{
 					Command:  mq.CreateClientCmd,
 					Username: node.ID,
 					Password: nodePassword,
 					Textname: node.Name,
-					Roles:    make([]mq.MqDynSecRole, 0),
-					Groups:   make([]mq.MqDynSecGroup, 0),
+					Roles: []mq.MqDynSecRole{
+						{
+							Rolename: fmt.Sprintf("%s-%s", "Node", node.ID),
+							Priority: -1,
+						},
+						{
+							Rolename: node.Network,
+							Priority: -1,
+						},
+					},
+					Groups: make([]mq.MqDynSecGroup, 0),
 				},
 			},
 		},
 	}
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
-			event.ActionType, err.Error()))
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+			event.Payload.Commands, err.Error()))
 	}
 
 	response := models.NodeGet{
@@ -1013,9 +1048,12 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	event := mq.DynSecAction{
-		ActionType: mq.DeleteClient,
 		Payload: mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.DeleteRoleCmd,
+					RoleName: fmt.Sprintf("%s-%s", "Node", nodeid),
+				},
 				{
 					Command:  mq.DeleteClientCmd,
 					Username: nodeid,
@@ -1024,8 +1062,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%s]: %v",
-			event.ActionType, err.Error()))
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+			event.Payload.Commands, err.Error()))
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])

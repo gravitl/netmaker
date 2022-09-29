@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/functions"
@@ -39,7 +40,11 @@ var (
 				Password:   "",
 				Salt:       "",
 				Iterations: 0,
-				Roles:      []clientRole{},
+				Roles: []clientRole{
+					{
+						Rolename: "server",
+					},
+				},
 			},
 			{
 				Username:   "netmaker-exporter",
@@ -47,7 +52,11 @@ var (
 				Password:   "yl7HZglF4CvCxgjPLLIYc73LRtjEwp2/SAEQXeW5Ta1Dl4RoLN5/gjqiv8xmue+F9LfRk8KICkNbhSYuEfJ7ww==",
 				Salt:       "veLl9eN02i+hKkyT",
 				Iterations: 101,
-				Roles:      []clientRole{},
+				Roles: []clientRole{
+					{
+						Rolename: "exporter",
+					},
+				},
 			},
 		},
 		Roles: []role{
@@ -55,57 +64,123 @@ var (
 				Rolename: "admin",
 				Acls: []Acl{
 					{
-						AclType: "publishClientSend",
-						Topic:   "$CONTROL/dynamic-security/#",
-						Allow:   true,
+						AclType:  "publishClientSend",
+						Topic:    "$CONTROL/dynamic-security/#",
+						Priority: -1,
+						Allow:    true,
 					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "$CONTROL/dynamic-security/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "subscribePattern",
+						Topic:    "$CONTROL/dynamic-security/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "$SYS/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "subscribePattern",
+						Topic:    "$SYS/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "subscribePattern",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "unsubscribePattern",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientSend",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+				},
+			},
+			{
+				Rolename: "server",
+				Acls: []Acl{
+					{
+						AclType:  "publishClientSend",
+						Topic:    "peers/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientSend",
+						Topic:    "update/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientSend",
+						Topic:    "metrics_exporter",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "ping/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "update/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "signal/#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "publishClientReceive",
+						Topic:    "metrics/#",
+						Priority: -1,
+						Allow:    true,
+					},
+				},
+			},
+			{
+				Rolename: "exporter",
+				Acls: []Acl{
 					{
 						AclType: "publishClientReceive",
-						Topic:   "$CONTROL/dynamic-security/#",
-						Allow:   true,
-					},
-					{
-						AclType: "subscribePattern",
-						Topic:   "$CONTROL/dynamic-security/#",
-						Allow:   true,
-					},
-					{
-						AclType: "publishClientReceive",
-						Topic:   "$SYS/#",
-						Allow:   true,
-					},
-					{
-						AclType: "subscribePattern",
-						Topic:   "$SYS/#",
-						Allow:   true,
-					},
-					{
-						AclType: "publishClientReceive",
-						Topic:   "#",
-						Allow:   true,
-					},
-					{
-						AclType: "subscribePattern",
-						Topic:   "#",
-						Allow:   true,
-					},
-					{
-						AclType: "unsubscribePattern",
-						Topic:   "#",
-						Allow:   true,
-					},
-					{
-						AclType: "publishClientSend",
-						Topic:   "#",
+						Topic:   "metrics_exporter",
 						Allow:   true,
 					},
 				},
 			},
 		},
 		DefaultAcl: defaultAccessAcl{
-			PublishClientSend:    true,
+			PublishClientSend:    false,
 			PublishClientReceive: true,
-			Subscribe:            true,
+			Subscribe:            false,
 			Unsubscribe:          true,
 		},
 	}
@@ -114,23 +189,18 @@ var (
 const DynamicSecSubTopic = "$CONTROL/dynamic-security/#"
 const DynamicSecPubTopic = "$CONTROL/dynamic-security/v1"
 
-type DynSecActionType string
-
 var mqAdminClient mqtt.Client
-
-var (
-	CreateClient  DynSecActionType = "CREATE_CLIENT"
-	DisableClient DynSecActionType = "DISABLE_CLIENT"
-	EnableClient  DynSecActionType = "ENABLE_CLIENT"
-	DeleteClient  DynSecActionType = "DELETE_CLIENT"
-	ModifyClient  DynSecActionType = "MODIFY_CLIENT"
-)
 
 var (
 	CreateClientCmd  = "createClient"
 	DisableClientCmd = "disableClient"
 	DeleteClientCmd  = "deleteClient"
 	ModifyClientCmd  = "modifyClient"
+)
+
+var (
+	CreateRoleCmd = "createRole"
+	DeleteRoleCmd = "deleteRole"
 )
 
 type dynJSON struct {
@@ -205,8 +275,7 @@ type MqDynSecCmd struct {
 }
 
 type DynSecAction struct {
-	ActionType DynSecActionType
-	Payload    MqDynsecPayload
+	Payload MqDynsecPayload
 }
 
 type MqDynsecPayload struct {
@@ -223,7 +292,6 @@ func Configure() error {
 	if password == "" {
 		return errors.New("MQ admin password not provided")
 	}
-	fmt.Println("-----> PASSWORD: ", password)
 	for i, cI := range dynConfig.Clients {
 		if cI.Username == mqAdminUserName || cI.Username == mqNetmakerServerUserName {
 			salt := logic.RandomString(12)
@@ -248,10 +316,15 @@ func PublishEventToDynSecTopic(event DynSecAction) error {
 	if err != nil {
 		return err
 	}
-	if token := mqAdminClient.Publish(DynamicSecPubTopic, 2, false, d); token.Error() != nil {
-		return token.Error()
+	var connecterr error
+	if token := mqAdminClient.Publish(DynamicSecPubTopic, 2, false, d); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		if token.Error() == nil {
+			connecterr = errors.New("connect timeout")
+		} else {
+			connecterr = token.Error()
+		}
 	}
-	return nil
+	return connecterr
 }
 
 func watchDynSecTopic(client mqtt.Client, msg mqtt.Message) {
