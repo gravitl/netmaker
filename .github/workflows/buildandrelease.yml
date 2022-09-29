@@ -463,12 +463,13 @@ jobs:
             git
             mingw-w64-x86_64-toolchain
       - name: Build
+      # TODO for testing: removed below cd netclient (as the manual build works for versions and the workflow was not..)
+      # go get -v github.com/josephspurrier/goversioninfo
+      # go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
+      # go generate
         run: |
           echo $(go env GOPATH)/bin >> $GITHUB_PATH
           cd netclient
-          go get -v github.com/josephspurrier/goversioninfo
-          go install -v github.com/josephspurrier/goversioninfo/cmd/goversioninfo
-          go generate
           go build -tags=gui -ldflags="-X 'main.version=${{needs.version.outputs.tag}}'" -o build/netclient.exe .
 
 
