@@ -100,46 +100,46 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	event := mq.DynSecAction{
-		Payload: mq.MqDynsecPayload{
-			Commands: []mq.MqDynSecCmd{
+	// creates network role, node role,node client (added here to resolve any missing configuration in MQ)
+	event := mq.MqDynsecPayload{
+		Commands: []mq.MqDynSecCmd{
 
-				{
-					Command:  mq.CreateRoleCmd,
-					RoleName: result.Network,
-					Textname: "Network wide role with Acls for nodes",
-					Acls:     mq.FetchNetworkAcls(result.Network),
-				},
+			{
+				Command:  mq.CreateRoleCmd,
+				RoleName: result.Network,
+				Textname: "Network wide role with Acls for nodes",
+				Acls:     mq.FetchNetworkAcls(result.Network),
+			},
 
-				{
-					Command:  mq.CreateRoleCmd,
-					RoleName: fmt.Sprintf("%s-%s", "Node", result.ID),
-					Acls:     mq.FetchNodeAcls(result.ID),
-					Textname: "Role for node " + result.Name,
-				},
-				{
-					Command:  mq.CreateClientCmd,
-					Username: result.ID,
-					Password: authRequest.Password,
-					Textname: result.Name,
-					Roles: []mq.MqDynSecRole{
-						{
-							Rolename: fmt.Sprintf("%s-%s", "Node", result.ID),
-							Priority: -1,
-						},
-						{
-							Rolename: result.Network,
-							Priority: -1,
-						},
+			{
+				Command:  mq.CreateRoleCmd,
+				RoleName: fmt.Sprintf("%s-%s", "Node", result.ID),
+				Acls:     mq.FetchNodeAcls(result.ID),
+				Textname: "Role for node " + result.Name,
+			},
+			{
+				Command:  mq.CreateClientCmd,
+				Username: result.ID,
+				Password: authRequest.Password,
+				Textname: result.Name,
+				Roles: []mq.MqDynSecRole{
+					{
+						Rolename: fmt.Sprintf("%s-%s", "Node", result.ID),
+						Priority: -1,
 					},
-					Groups: make([]mq.MqDynSecGroup, 0),
+					{
+						Rolename: result.Network,
+						Priority: -1,
+					},
 				},
+				Groups: make([]mq.MqDynSecGroup, 0),
 			},
 		},
 	}
+
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
 		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Payload.Commands, err.Error()))
+			event.Commands, err.Error()))
 		errorResponse.Code = http.StatusInternalServerError
 		errorResponse.Message = fmt.Sprintf("could not create mq client for node [%s]: %v", result.ID, err)
 		return
@@ -662,53 +662,51 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Delete Any Existing Client with this ID.
-	event := mq.DynSecAction{
-		Payload: mq.MqDynsecPayload{
-			Commands: []mq.MqDynSecCmd{
-				{
-					Command:  mq.DeleteClientCmd,
-					Username: node.ID,
-				},
+	event := mq.MqDynsecPayload{
+		Commands: []mq.MqDynSecCmd{
+			{
+				Command:  mq.DeleteClientCmd,
+				Username: node.ID,
 			},
 		},
 	}
+
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
 		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Payload.Commands, err.Error()))
+			event.Commands, err.Error()))
 	}
 	// Create client for this node in Mq
-	event = mq.DynSecAction{
-		Payload: mq.MqDynsecPayload{
-			Commands: []mq.MqDynSecCmd{
-				{
-					Command:  mq.CreateRoleCmd,
-					RoleName: fmt.Sprintf("%s-%s", "Node", node.ID),
-					Acls:     mq.FetchNodeAcls(node.ID),
-					Textname: "Role for node " + node.Name,
-				},
-				{
-					Command:  mq.CreateClientCmd,
-					Username: node.ID,
-					Password: nodePassword,
-					Textname: node.Name,
-					Roles: []mq.MqDynSecRole{
-						{
-							Rolename: fmt.Sprintf("%s-%s", "Node", node.ID),
-							Priority: -1,
-						},
-						{
-							Rolename: node.Network,
-							Priority: -1,
-						},
+	event = mq.MqDynsecPayload{
+		Commands: []mq.MqDynSecCmd{
+			{
+				Command:  mq.CreateRoleCmd,
+				RoleName: fmt.Sprintf("%s-%s", "Node", node.ID),
+				Acls:     mq.FetchNodeAcls(node.ID),
+				Textname: "Role for node " + node.Name,
+			},
+			{
+				Command:  mq.CreateClientCmd,
+				Username: node.ID,
+				Password: nodePassword,
+				Textname: node.Name,
+				Roles: []mq.MqDynSecRole{
+					{
+						Rolename: fmt.Sprintf("%s-%s", "Node", node.ID),
+						Priority: -1,
 					},
-					Groups: make([]mq.MqDynSecGroup, 0),
+					{
+						Rolename: node.Network,
+						Priority: -1,
+					},
 				},
+				Groups: make([]mq.MqDynSecGroup, 0),
 			},
 		},
 	}
+
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
 		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Payload.Commands, err.Error()))
+			event.Commands, err.Error()))
 	}
 
 	response := models.NodeGet{
@@ -1046,24 +1044,23 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
-	event := mq.DynSecAction{
-		Payload: mq.MqDynsecPayload{
-			Commands: []mq.MqDynSecCmd{
-				{
-					Command:  mq.DeleteRoleCmd,
-					RoleName: fmt.Sprintf("%s-%s", "Node", nodeid),
-				},
-				{
-					Command:  mq.DeleteClientCmd,
-					Username: nodeid,
-				},
+	// deletes node related role and client
+	event := mq.MqDynsecPayload{
+		Commands: []mq.MqDynSecCmd{
+			{
+				Command:  mq.DeleteRoleCmd,
+				RoleName: fmt.Sprintf("%s-%s", "Node", nodeid),
+			},
+			{
+				Command:  mq.DeleteClientCmd,
+				Username: nodeid,
 			},
 		},
 	}
+
 	if err := mq.PublishEventToDynSecTopic(event); err != nil {
 		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Payload.Commands, err.Error()))
+			event.Commands, err.Error()))
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])

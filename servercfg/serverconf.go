@@ -622,6 +622,7 @@ func GetMQServerPort() string {
 	return port
 }
 
+// GetMqAdminPassword - fetches the MQ Admin password
 func GetMqAdminPassword() string {
 	password := ""
 	if os.Getenv("MQ_ADMIN_PASSWORD") != "" {

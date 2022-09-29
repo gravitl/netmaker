@@ -10,15 +10,21 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-var (
-	AdminRole    string = "admin"
-	ServerRole   string = "server"
-	ExporterRole string = "exporter"
+const (
+	// constant for admin role
+	adminRole = "admin"
+	// constant for server role
+	serverRole = "server"
+	// constant for exporter role
+	exporterRole = "exporter"
+
+	// const for dynamic security file
+	dynamicSecurityFile = "dynamic-security.json"
 )
 
 var (
-	dynamicSecurityFile = "dynamic-security.json"
-	dynConfig           = dynJSON{
+	// default configuration of dynamic security
+	dynConfig = dynJSON{
 		Clients: []client{
 			{
 				Username:   mqAdminUserName,
@@ -28,7 +34,7 @@ var (
 				Iterations: 0,
 				Roles: []clientRole{
 					{
-						Rolename: AdminRole,
+						Rolename: adminRole,
 					},
 				},
 			},
@@ -40,14 +46,14 @@ var (
 				Iterations: 0,
 				Roles: []clientRole{
 					{
-						Rolename: ServerRole,
+						Rolename: serverRole,
 					},
 				},
 			},
 		},
 		Roles: []role{
 			{
-				Rolename: AdminRole,
+				Rolename: adminRole,
 				Acls: []Acl{
 					{
 						AclType:  "publishClientSend",
@@ -106,7 +112,7 @@ var (
 				},
 			},
 			{
-				Rolename: ServerRole,
+				Rolename: serverRole,
 				Acls: []Acl{
 					{
 						AclType:  "publishClientSend",
@@ -169,12 +175,12 @@ var (
 		Iterations: 101,
 		Roles: []clientRole{
 			{
-				Rolename: ExporterRole,
+				Rolename: exporterRole,
 			},
 		},
 	}
 	exporterMQRole = role{
-		Rolename: ExporterRole,
+		Rolename: exporterRole,
 		Acls: []Acl{
 			{
 				AclType:  "publishClientReceive",
@@ -186,6 +192,7 @@ var (
 	}
 )
 
+// DynListCLientsCmdResp - struct for list clients response from MQ
 type DynListCLientsCmdResp struct {
 	Responses []struct {
 		Command string          `json:"command"`
@@ -194,11 +201,13 @@ type DynListCLientsCmdResp struct {
 	} `json:"responses"`
 }
 
+// ListClientsData - struct for list clients data
 type ListClientsData struct {
 	Clients    []string `json:"clients"`
 	TotalCount int      `json:"totalCount"`
 }
 
+// GetAdminClient - fetches admin client of the MQ
 func GetAdminClient() (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	setMqOptions(mqAdminUserName, servercfg.GetMqAdminPassword(), opts)
@@ -214,6 +223,7 @@ func GetAdminClient() (mqtt.Client, error) {
 	return mqclient, connecterr
 }
 
+// ListClients -  to list all clients in the MQ
 func ListClients(client mqtt.Client) (ListClientsData, error) {
 	respChan := make(chan mqtt.Message, 10)
 	defer close(respChan)
@@ -254,6 +264,7 @@ func ListClients(client mqtt.Client) (ListClientsData, error) {
 	return resp, errors.New("resp not found")
 }
 
+// FetchNetworkAcls - fetches network acls
 func FetchNetworkAcls(network string) []Acl {
 	return []Acl{
 		{
@@ -269,6 +280,7 @@ func FetchNetworkAcls(network string) []Acl {
 	}
 }
 
+// FetchNodeAcls -fetches node acls
 func FetchNodeAcls(nodeID string) []Acl {
 	return []Acl{
 

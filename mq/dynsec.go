@@ -18,38 +18,53 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-const DynamicSecSubTopic = "$CONTROL/dynamic-security/#"
-const DynamicSecPubTopic = "$CONTROL/dynamic-security/v1"
+// DynamicSecSubTopic - constant for dynamic security subscription topic
+const dynamicSecSubTopic = "$CONTROL/dynamic-security/#"
 
+// DynamicSecPubTopic - constant for dynamic security subscription topic
+const dynamicSecPubTopic = "$CONTROL/dynamic-security/v1"
+
+// mq client for admin
 var mqAdminClient mqtt.Client
 
-var (
-	CreateClientCmd  = "createClient"
+const (
+	// constant for client command
+	CreateClientCmd = "createClient"
+	// constant for disable command
 	DisableClientCmd = "disableClient"
-	DeleteClientCmd  = "deleteClient"
-	ModifyClientCmd  = "modifyClient"
-)
+	// constant for delete client command
+	DeleteClientCmd = "deleteClient"
+	// constant for modify client command
+	ModifyClientCmd = "modifyClient"
 
-var (
+	// constant for create role command
 	CreateRoleCmd = "createRole"
+	// constant for delete role command
 	DeleteRoleCmd = "deleteRole"
 )
 
+const (
+	// constant for admin user name
+	mqAdminUserName = "Netmaker-Admin"
+	// constant for server user name
+	mqNetmakerServerUserName = "Netmaker-Server"
+	// constant for exporter user name
+	mqExporterUserName = "Netmaker-Exporter"
+)
+
+// struct for dynamic security file
 type dynJSON struct {
 	Clients    []client         `json:"clients"`
 	Roles      []role           `json:"roles"`
 	DefaultAcl defaultAccessAcl `json:"defaultACLAccess"`
 }
 
-var (
-	mqAdminUserName          string = "Netmaker-Admin"
-	mqNetmakerServerUserName string = "Netmaker-Server"
-	mqExporterUserName       string = "Netmaker-Exporter"
-)
-
+// struct for client role
 type clientRole struct {
 	Rolename string `json:"rolename"`
 }
+
+// struct for MQ client
 type client struct {
 	Username   string       `json:"username"`
 	TextName   string       `json:"textName"`
@@ -59,11 +74,13 @@ type client struct {
 	Roles      []clientRole `json:"roles"`
 }
 
+// struct for MQ role
 type role struct {
 	Rolename string `json:"rolename"`
 	Acls     []Acl  `json:"acls"`
 }
 
+// struct for default acls
 type defaultAccessAcl struct {
 	PublishClientSend    bool `json:"publishClientSend"`
 	PublishClientReceive bool `json:"publishClientReceive"`
@@ -71,22 +88,19 @@ type defaultAccessAcl struct {
 	Unsubscribe          bool `json:"unsubscribe"`
 }
 
-type dynCnf struct {
-	Clients          []client         `json:"clients"`
-	Roles            []role           `json:"roles"`
-	DefaultACLAccess defaultAccessAcl `json:"defaultACLAccess"`
-}
-
+// MqDynSecGroup - struct for MQ client group
 type MqDynSecGroup struct {
 	Groupname string `json:"groupname"`
 	Priority  int    `json:"priority"`
 }
 
+// MqDynSecRole - struct for MQ client role
 type MqDynSecRole struct {
 	Rolename string `json:"rolename"`
 	Priority int    `json:"priority"`
 }
 
+// Acl - struct for MQ acls
 type Acl struct {
 	AclType  string `json:"acltype"`
 	Topic    string `json:"topic"`
@@ -94,6 +108,7 @@ type Acl struct {
 	Allow    bool   `json:"allow"`
 }
 
+// MqDynSecCmd - struct for MQ dynamic security command
 type MqDynSecCmd struct {
 	Command         string          `json:"command"`
 	Username        string          `json:"username"`
@@ -107,19 +122,18 @@ type MqDynSecCmd struct {
 	Roles           []MqDynSecRole  `json:"roles"`
 }
 
-type DynSecAction struct {
-	Payload MqDynsecPayload
-}
-
+// MqDynsecPayload - struct for dynamic security command payload
 type MqDynsecPayload struct {
 	Commands []MqDynSecCmd `json:"commands"`
 }
 
+// encodePasswordToPBKDF2 - encodes the given password with PBKDF2 hashing for MQ
 func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLength int) string {
 	binaryEncoded := pbkdf2.Key([]byte(password), []byte(salt), iterations, keyLength, sha512.New)
 	return base64.StdEncoding.EncodeToString(binaryEncoded)
 }
 
+// Configure - configures the dynamic initial configuration for MQ
 func Configure() error {
 	if servercfg.Is_EE {
 		dynConfig.Clients = append(dynConfig.Clients, exporterMQClient)
@@ -155,14 +169,15 @@ func Configure() error {
 	return os.WriteFile(path, data, 0755)
 }
 
-func PublishEventToDynSecTopic(event DynSecAction) error {
+// PublishEventToDynSecTopic - publishes the message to dynamic security topic
+func PublishEventToDynSecTopic(payload MqDynsecPayload) error {
 
-	d, err := json.Marshal(event.Payload)
+	d, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 	var connecterr error
-	if token := mqAdminClient.Publish(DynamicSecPubTopic, 2, false, d); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+	if token := mqAdminClient.Publish(dynamicSecPubTopic, 2, false, d); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		if token.Error() == nil {
 			connecterr = errors.New("connect timeout")
 		} else {
@@ -172,6 +187,7 @@ func PublishEventToDynSecTopic(event DynSecAction) error {
 	return connecterr
 }
 
+// watchDynSecTopic - message handler for dynamic security responses
 func watchDynSecTopic(client mqtt.Client, msg mqtt.Message) {
 
 	logger.Log(1, fmt.Sprintf("----->WatchDynSecTopic Message: %+v", string(msg.Payload())))
