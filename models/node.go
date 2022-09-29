@@ -82,6 +82,7 @@ type Node struct {
 	EgressGatewayNatEnabled string               `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
+	FailoverNode            string               `json:"failovernode" bson:"failovernode" yaml:"failovernode"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
 	// IsStatic - refers to if the Endpoint is set manually or dynamically
@@ -104,6 +105,7 @@ type Node struct {
 	// == PRO ==
 	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
+	Failover   string `json:"failover" bson:"failover" yaml:"failover" validate:"checkyesorno"`
 }
 
 // NodesArray - used for node sorting
@@ -297,6 +299,13 @@ func (node *Node) SetDefaultName() {
 	}
 }
 
+// Node.SetDefaultFailover - sets default value of failover status to no if not set
+func (node *Node) SetDefaultFailover() {
+	if node.Failover == "" {
+		node.Failover = "no"
+	}
+}
+
 // Node.Fill - fills other node data into calling node data if not set on calling node
 func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
@@ -450,6 +459,10 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	}
 	if newNode.DefaultACL == "" {
 		newNode.DefaultACL = currentNode.DefaultACL
+	}
+
+	if newNode.Failover == "" {
+		newNode.Failover = currentNode.Failover
 	}
 
 	newNode.TrafficKeys = currentNode.TrafficKeys

@@ -7,6 +7,9 @@ import (
 	"github.com/gravitl/netmaker/logger"
 )
 
+// CheckInInterval - the interval for check-in time in units/minute
+const CheckInInterval = 1
+
 // BackOff - back off any function while there is an error
 func BackOff(isExponential bool, maxTime int, f interface{}) (interface{}, error) {
 	// maxTime seconds
