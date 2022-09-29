@@ -86,6 +86,12 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
+		ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
+		if servercfg.Is_EE && ifaceDelta {
+			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
+				logger.Log(1, "failed to reset failover list during node update", currentNode.Name, currentNode.Network)
+			}
+		}
 		newNode.SetLastCheckIn()
 		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
@@ -144,7 +150,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 
 			if shouldUpdate {
 				logger.Log(2, "updating peers after node", currentNode.Name, currentNode.Network, "detected connectivity issues")
-				if err = PublishPeerUpdate(&currentNode, true); err != nil {
+				if err = PublishSinglePeerUpdate(&currentNode); err != nil {
 					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.Name, currentNode.Network)
 				}
 			}
@@ -267,7 +273,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 			newMetrics.FailoverPeers[node.ID] = node.FailoverNode
 		}
 	}
-	shouldUpdate := false
+	shouldUpdate := len(oldMetrics.FailoverPeers) == 0 && len(newMetrics.FailoverPeers) > 0
 	for k, v := range oldMetrics.FailoverPeers {
 		if len(newMetrics.FailoverPeers[k]) > 0 && len(v) == 0 {
 			shouldUpdate = true

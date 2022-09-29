@@ -241,22 +241,22 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error) {
+func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool, error) {
 
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.Node{}, err
+		return models.Node{}, false, err
 	}
 	network, err := GetParentNetwork(networkName)
 	if err != nil {
-		return models.Node{}, err
+		return models.Node{}, false, err
 	}
 	// delete ext clients belonging to ingress gateway
 	if err = DeleteGatewayExtClients(node.ID, networkName); err != nil {
-		return models.Node{}, err
+		return models.Node{}, false, err
 	}
 	logger.Log(3, "deleting ingress gateway")
-
+	wasFailover := node.Failover == "yes"
 	node.UDPHolePunch = network.DefaultUDPHolePunch
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
@@ -276,21 +276,16 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 		}
 	}
 
-	err = EnterpriseResetFailoverFunc(node.Network)
-	if err != nil {
-		logger.Log(0, "failed to reset failover on network", node.Network, ":", err.Error())
-	}
-
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.Node{}, err
+		return models.Node{}, false, err
 	}
 	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	if err != nil {
-		return models.Node{}, err
+		return models.Node{}, wasFailover, err
 	}
 	err = SetNetworkNodesLastModified(networkName)
-	return node, err
+	return node, wasFailover, err
 }
 
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network

@@ -212,6 +212,7 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 	if node.IsServer == "yes" {
 		return removeLocalServer(node)
 	}
+
 	return nil
 }
 

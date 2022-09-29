@@ -33,23 +33,25 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 			//skip self
 			continue
 		}
-		peerUpdate, err := logic.GetPeerUpdate(&node)
+		err = PublishSinglePeerUpdate(&node)
 		if err != nil {
-			logger.Log(1, "error getting peer update for node", node.ID, err.Error())
-			continue
-		}
-		data, err := json.Marshal(&peerUpdate)
-		if err != nil {
-			logger.Log(2, "error marshaling peer update for node", node.ID, err.Error())
-			continue
-		}
-		if err = publish(&node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
-			logger.Log(1, "failed to publish peer update for node", node.ID)
-		} else {
-			logger.Log(1, "sent peer update for node", node.Name, "on network:", node.Network)
+			logger.Log(1, "failed to publish peer update to node", node.Name, "on network", node.Network, ":", err.Error())
 		}
 	}
-	return nil
+	return err
+}
+
+// PublishSinglePeerUpdate --- determines and publishes a peer update to one node
+func PublishSinglePeerUpdate(node *models.Node) error {
+	peerUpdate, err := logic.GetPeerUpdate(node)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(&peerUpdate)
+	if err != nil {
+		return err
+	}
+	return publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data)
 }
 
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
