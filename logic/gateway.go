@@ -276,7 +276,7 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, error
 		}
 	}
 
-	err = EnterpriseResetFailoverFunc.(func(string) error)(node.Network)
+	err = EnterpriseResetFailoverFunc(node.Network)
 	if err != nil {
 		logger.Log(0, "failed to reset failover on network", node.Network, ":", err.Error())
 	}

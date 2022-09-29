@@ -19,16 +19,16 @@ import (
 )
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
-var EnterpriseCheckFuncs []interface{}
+var EnterpriseCheckFuncs []func()
 
 // EnterpriseFailoverFunc - interface to control failover funcs
-var EnterpriseFailoverFunc interface{}
+var EnterpriseFailoverFunc func(node *models.Node) error
 
 // EnterpriseResetFailoverFunc - interface to control reset failover funcs
-var EnterpriseResetFailoverFunc interface{}
+var EnterpriseResetFailoverFunc func(network string) error
 
 // EnterpriseResetAllPeersFailovers - resets all nodes that are considering a node to be failover worthy (inclusive)
-var EnterpriseResetAllPeersFailovers interface{}
+var EnterpriseResetAllPeersFailovers func(nodeid, network string) error
 
 // == Join, Checkin, and Leave for Server ==
 
@@ -179,7 +179,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 // EnterpriseCheck - Runs enterprise functions if presented
 func EnterpriseCheck() {
 	for _, check := range EnterpriseCheckFuncs {
-		check.(func())()
+		check()
 	}
 }
 

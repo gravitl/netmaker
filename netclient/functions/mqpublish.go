@@ -39,7 +39,6 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 		case <-ctx.Done():
 			logger.Log(0, "checkin routine closed")
 			return
-			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-ticker.C:
 			checkin()
 		}

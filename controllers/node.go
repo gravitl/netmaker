@@ -887,7 +887,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ifaceDelta && servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers.(func(string, string) error)(node.ID, node.Network); err != nil {
+		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node update for node", node.Name, node.Network)
 		}
 	}
