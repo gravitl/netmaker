@@ -23,8 +23,10 @@ func InitEE() {
 		ValidateLicense()
 		if Limits.FreeTier {
 			logger.Log(0, "proceeding with Free Tier license")
+			logic.SetFreeTierForTelemetry(true)
 		} else {
 			logger.Log(0, "proceeding with Paid Tier license")
+			logic.SetFreeTierForTelemetry(false)
 		}
 		// == End License Handling ==
 		AddLicenseHooks()
