@@ -631,6 +631,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Mine:   node.TrafficKeys.Mine,
 		Server: key,
 	}
+	// consume password before hashing for mq client creation
 	nodePassword := node.Password
 	err = logic.CreateNode(&node)
 	if err != nil {

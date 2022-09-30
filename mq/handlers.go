@@ -71,7 +71,6 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error getting node.ID sent on ", msg.Topic(), err.Error())
 			return
 		}
-		logger.Log(0, "----------->###### Recieved Node Update for: ", id)
 		currentNode, err := logic.GetNodeByID(id)
 		if err != nil {
 			logger.Log(1, "error getting node ", id, err.Error())
