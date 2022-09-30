@@ -267,6 +267,10 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 			if nodesAllowed {
 				// TODO --- should ensure that node is only operating on itself
 				if _, _, _, err := logic.VerifyToken(authToken); err == nil {
+
+					// this indicates request is from a node
+					// used for failover - if a getNode comes from node, this will trigger a metrics wipe
+					r.Header.Set("requestfrom", "node")
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -452,6 +456,8 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
+	nodeRequest := r.Header.Get("requestfrom") == "node"
+
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	node, err := logic.GetNodeByID(nodeid)
@@ -479,6 +485,12 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		Peers:        peerUpdate.Peers,
 		ServerConfig: servercfg.GetServerInfo(),
 		PeerIDs:      peerUpdate.PeerIDs,
+	}
+
+	if servercfg.Is_EE && nodeRequest {
+		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
+			logger.Log(1, "failed to reset failover list during node config pull", node.Name, node.Network)
+		}
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
@@ -841,13 +853,25 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := logic.CreateIngressGateway(netid, nodeid)
+	type failoverData struct {
+		Failover bool `json:"failover"`
+	}
+	var failoverReqBody failoverData
+	json.NewDecoder(r.Body).Decode(&failoverReqBody)
+
+	node, err := logic.CreateIngressGateway(netid, nodeid, failoverReqBody.Failover)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create ingress gateway on node [%s] on network [%s]: %v",
 				nodeid, netid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	if servercfg.Is_EE && failoverReqBody.Failover {
+		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
+			logger.Log(1, "failed to reset failover list during failover create", node.Name, node.Network)
+		}
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
@@ -873,13 +897,19 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := logic.DeleteIngressGateway(netid, nodeid)
+	node, wasFailover, err := logic.DeleteIngressGateway(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
 				nodeid, netid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	if servercfg.Is_EE && wasFailover {
+		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
+			logger.Log(1, "failed to reset failover list during failover create", node.Name, node.Network)
+		}
 	}
 
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
@@ -962,6 +992,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				logger.Log(2, "failed to update server node on hub change", err.Error())
 			}
 
+		}
+	}
+
+	if ifaceDelta && servercfg.Is_EE {
+		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
+			logger.Log(0, "failed to reset failover lists during node update for node", node.Name, node.Network)
 		}
 	}
 
@@ -1059,6 +1095,12 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
 			event.Commands, err.Error()))
 	}
+	if servercfg.Is_EE {
+		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
+			logger.Log(0, "failed to reset failover lists during node delete for node", node.Name, node.Network)
+		}
+	}
+
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)

@@ -31,27 +31,21 @@ var metricsCache = new(sync.Map)
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
-	currentRun := 0
-	checkin(currentRun)
-	ticker := time.NewTicker(time.Second * 60)
+	checkin()
+	ticker := time.NewTicker(time.Minute * ncutils.CheckInInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Log(0, "checkin routine closed")
 			return
-			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-ticker.C:
-			currentRun++
-			checkin(currentRun)
-			if currentRun >= 5 {
-				currentRun = 0
-			}
+			checkin()
 		}
 	}
 }
 
-func checkin(currentRun int) {
+func checkin() {
 	networks, _ := ncutils.GetSystemNetworks()
 	logger.Log(3, "checkin with server(s) for all networks")
 	for _, network := range networks {
@@ -115,7 +109,7 @@ func checkin(currentRun int) {
 			config.Write(&nodeCfg, nodeCfg.Network)
 		}
 		Hello(&nodeCfg)
-		if currentRun >= 5 && nodeCfg.Server.Is_EE {
+		if nodeCfg.Server.Is_EE {
 			logger.Log(0, "collecting metrics for node", nodeCfg.Node.Name)
 			publishMetrics(&nodeCfg)
 		}
