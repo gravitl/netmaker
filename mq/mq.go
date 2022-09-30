@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -28,9 +29,9 @@ func SetUpAdminClient() {
 	setMqOptions(mqAdminUserName, servercfg.GetMqAdminPassword(), opts)
 	mqAdminClient = mqtt.NewClient(opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		if token := client.Subscribe(dynamicSecSubTopic, 0, mqtt.MessageHandler(watchDynSecTopic)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token := client.Subscribe(dynamicSecSubTopic, 2, mqtt.MessageHandler(watchDynSecTopic)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
-			logger.Log(0, "Dynamic security client subscription failed")
+			logger.Log(0, fmt.Sprintf("Dynamic security client subscription failed: %v ", token.Error()))
 		}
 
 		opts.SetOrderMatters(true)

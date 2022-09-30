@@ -58,6 +58,7 @@ func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.M
 			newServerMetrics.Connectivity[currNodeID] = models.Metric{
 				Connected: false,
 				Latency:   999,
+				PercentUp: 0,
 			}
 		}
 	}

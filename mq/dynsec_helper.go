@@ -156,6 +156,18 @@ var (
 						Priority: -1,
 						Allow:    true,
 					},
+					{
+						AclType:  "subscribePattern",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
+					{
+						AclType:  "unsubscribePattern",
+						Topic:    "#",
+						Priority: -1,
+						Allow:    true,
+					},
 				},
 			},
 		},
@@ -187,6 +199,18 @@ var (
 				Topic:    "metrics_exporter",
 				Allow:    true,
 				Priority: -1,
+			},
+			{
+				AclType:  "subscribePattern",
+				Topic:    "#",
+				Priority: -1,
+				Allow:    true,
+			},
+			{
+				AclType:  "unsubscribePattern",
+				Topic:    "#",
+				Priority: -1,
+				Allow:    true,
 			},
 		},
 	}
@@ -268,14 +292,28 @@ func ListClients(client mqtt.Client) (ListClientsData, error) {
 func FetchNetworkAcls(network string) []Acl {
 	return []Acl{
 		{
-			AclType: "publishClientReceive",
-			Topic:   fmt.Sprintf("update/%s/#", network),
-			Allow:   true,
+			AclType:  "publishClientReceive",
+			Topic:    fmt.Sprintf("update/%s/#", network),
+			Priority: -1,
+			Allow:    true,
 		},
 		{
-			AclType: "publishClientReceive",
-			Topic:   fmt.Sprintf("peers/%s/#", network),
-			Allow:   true,
+			AclType:  "publishClientReceive",
+			Topic:    fmt.Sprintf("peers/%s/#", network),
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "unsubscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
 		},
 	}
 }
@@ -285,24 +323,40 @@ func FetchNodeAcls(nodeID string) []Acl {
 	return []Acl{
 
 		{
-			AclType: "publishClientSend",
-			Topic:   fmt.Sprintf("signal/%s", nodeID),
-			Allow:   true,
+			AclType:  "publishClientSend",
+			Topic:    fmt.Sprintf("signal/%s", nodeID),
+			Priority: -1,
+			Allow:    true,
 		},
 		{
-			AclType: "publishClientSend",
-			Topic:   fmt.Sprintf("update/%s", nodeID),
-			Allow:   true,
+			AclType:  "publishClientSend",
+			Topic:    fmt.Sprintf("update/%s", nodeID),
+			Priority: -1,
+			Allow:    true,
 		},
 		{
-			AclType: "publishClientSend",
-			Topic:   fmt.Sprintf("ping/%s", nodeID),
-			Allow:   true,
+			AclType:  "publishClientSend",
+			Topic:    fmt.Sprintf("ping/%s", nodeID),
+			Priority: -1,
+			Allow:    true,
 		},
 		{
-			AclType: "publishClientSend",
-			Topic:   fmt.Sprintf("metrics/%s", nodeID),
-			Allow:   true,
+			AclType:  "publishClientSend",
+			Topic:    fmt.Sprintf("metrics/%s", nodeID),
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "unsubscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
 		},
 	}
 }

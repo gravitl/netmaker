@@ -80,7 +80,7 @@ COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 EMAIL="$(echo $RANDOM | md5sum  | head -c 32)@email.com"
-MQ_ADMIN_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+MQ_ADMIN_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 64 ; echo '')
 if [ -n "$domain" ]; then
   NETMAKER_BASE_DOMAIN=$domain
 fi
@@ -128,7 +128,8 @@ sleep 5
 echo "setting mosquitto.conf..."
 
 wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
-
+wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+chmod +x /root/wait.sh
 echo "setting docker-compose..."
 
 mkdir -p /etc/netmaker

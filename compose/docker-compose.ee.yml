@@ -17,7 +17,7 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - shared_certs:/etc/netmaker
+      - mosquitto_data:/etc/netmaker
     environment:
       SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -115,7 +115,7 @@ services:
     restart: unless-stopped
     command: ["/mosquitto/config/wait.sh"]
     environment:
-      NETMAKER_SERVER_HOST: "api.NETMAKER_BASE_DOMAIN"
+      NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /root/wait.sh:/mosquitto/config/wait.sh
@@ -182,7 +182,7 @@ services:
     environment:
       MQ_HOST: "mq"
       MQ_PORT: "443"
-      MQ_SERVER_PORT: "1884"
+      MQ_SERVER_PORT: "1883"
       PROMETHEUS: "on"
       VERBOSITY: "1"
       API_PORT: "8085"
@@ -192,7 +192,6 @@ services:
       - "8085"
 volumes:
   traefik_certs: {}
-  shared_certs: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_data: {}

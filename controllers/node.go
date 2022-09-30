@@ -661,23 +661,20 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	// Delete Any Existing Client with this ID.
+
+	// Create client for this node in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
 			{
 				Command:  mq.DeleteClientCmd,
 				Username: node.ID,
 			},
-		},
-	}
-
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
-	// Create client for this node in Mq
-	event = mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
+			{
+				Command:  mq.CreateRoleCmd,
+				RoleName: node.Network,
+				Textname: "Network wide role with Acls for nodes",
+				Acls:     mq.FetchNetworkAcls(node.Network),
+			},
 			{
 				Command:  mq.CreateRoleCmd,
 				RoleName: fmt.Sprintf("%s-%s", "Node", node.ID),
