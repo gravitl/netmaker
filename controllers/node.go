@@ -100,7 +100,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	// creates network role, node role,node client (added here to resolve any missing configuration in MQ)
+	// creates network role,node client (added here to resolve any missing configuration in MQ)
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
 
@@ -110,13 +110,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				Textname: "Network wide role with Acls for nodes",
 				Acls:     mq.FetchNetworkAcls(result.Network),
 			},
-
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: fmt.Sprintf("%s-%s", "Node", result.ID),
-				Acls:     mq.FetchNodeAcls(result.ID),
-				Textname: "Role for node " + result.Name,
-			},
 			{
 				Command:  mq.CreateClientCmd,
 				Username: result.ID,
@@ -124,7 +117,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 				Textname: result.Name,
 				Roles: []mq.MqDynSecRole{
 					{
-						Rolename: fmt.Sprintf("%s-%s", "Node", result.ID),
+						Rolename: mq.NodeRole,
 						Priority: -1,
 					},
 					{
@@ -677,7 +670,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	// Create client for this node in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
-			{
+			{ // delete if any client exists already
 				Command:  mq.DeleteClientCmd,
 				Username: node.ID,
 			},
@@ -688,19 +681,13 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				Acls:     mq.FetchNetworkAcls(node.Network),
 			},
 			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: fmt.Sprintf("%s-%s", "Node", node.ID),
-				Acls:     mq.FetchNodeAcls(node.ID),
-				Textname: "Role for node " + node.Name,
-			},
-			{
 				Command:  mq.CreateClientCmd,
 				Username: node.ID,
 				Password: nodePassword,
 				Textname: node.Name,
 				Roles: []mq.MqDynSecRole{
 					{
-						Rolename: fmt.Sprintf("%s-%s", "Node", node.ID),
+						Rolename: mq.NodeRole,
 						Priority: -1,
 					},
 					{

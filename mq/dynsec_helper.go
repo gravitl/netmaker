@@ -17,6 +17,8 @@ const (
 	serverRole = "server"
 	// constant for exporter role
 	exporterRole = "exporter"
+	// constant for node role
+	NodeRole = "node"
 
 	// const for dynamic security file
 	dynamicSecurityFile = "dynamic-security.json"
@@ -54,121 +56,15 @@ var (
 		Roles: []role{
 			{
 				Rolename: adminRole,
-				Acls: []Acl{
-					{
-						AclType:  "publishClientSend",
-						Topic:    "$CONTROL/dynamic-security/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "$CONTROL/dynamic-security/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "subscribePattern",
-						Topic:    "$CONTROL/dynamic-security/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "$SYS/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "subscribePattern",
-						Topic:    "$SYS/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "subscribePattern",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "unsubscribePattern",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientSend",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-				},
+				Acls:     fetchAdminAcls(),
 			},
 			{
 				Rolename: serverRole,
-				Acls: []Acl{
-					{
-						AclType:  "publishClientSend",
-						Topic:    "peers/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientSend",
-						Topic:    "update/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientSend",
-						Topic:    "metrics_exporter",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "ping/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "update/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "signal/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "publishClientReceive",
-						Topic:    "metrics/#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "subscribePattern",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-					{
-						AclType:  "unsubscribePattern",
-						Topic:    "#",
-						Priority: -1,
-						Allow:    true,
-					},
-				},
+				Acls:     fetchServerAcls(),
+			},
+			{
+				Rolename: NodeRole,
+				Acls:     fetchNodeAcls(),
 			},
 		},
 		DefaultAcl: defaultAccessAcl{
@@ -193,26 +89,7 @@ var (
 	}
 	exporterMQRole = role{
 		Rolename: exporterRole,
-		Acls: []Acl{
-			{
-				AclType:  "publishClientReceive",
-				Topic:    "metrics_exporter",
-				Allow:    true,
-				Priority: -1,
-			},
-			{
-				AclType:  "subscribePattern",
-				Topic:    "#",
-				Priority: -1,
-				Allow:    true,
-			},
-			{
-				AclType:  "unsubscribePattern",
-				Topic:    "#",
-				Priority: -1,
-				Allow:    true,
-			},
-		},
+		Acls:     fetchExporterAcls(),
 	}
 )
 
@@ -318,35 +195,47 @@ func FetchNetworkAcls(network string) []Acl {
 	}
 }
 
-// FetchNodeAcls - fetches node acls
-func FetchNodeAcls(nodeID string) []Acl {
-	// keeping node acls generic as of now.
+// serverAcls - fetches server role related acls
+func fetchServerAcls() []Acl {
 	return []Acl{
-
 		{
-			AclType: "publishClientSend",
-			//Topic:    fmt.Sprintf("signal/%s", nodeID),
-			Topic:    "signal/#",
+			AclType:  "publishClientSend",
+			Topic:    "peers/#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
-			AclType: "publishClientSend",
-			// Topic:    fmt.Sprintf("update/%s", nodeID),
+			AclType:  "publishClientSend",
 			Topic:    "update/#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
-			AclType: "publishClientSend",
-			//Topic:    fmt.Sprintf("ping/%s", nodeID),
+			AclType:  "publishClientSend",
+			Topic:    "metrics_exporter",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientReceive",
 			Topic:    "ping/#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
-			AclType: "publishClientSend",
-			//Topic:    fmt.Sprintf("metrics/%s", nodeID),
+			AclType:  "publishClientReceive",
+			Topic:    "update/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientReceive",
+			Topic:    "signal/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientReceive",
 			Topic:    "metrics/#",
 			Priority: -1,
 			Allow:    true,
@@ -359,6 +248,134 @@ func FetchNodeAcls(nodeID string) []Acl {
 		},
 		{
 			AclType:  "unsubscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+	}
+}
+
+// fetchNodeAcls - fetches node related acls
+func fetchNodeAcls() []Acl {
+	// keeping node acls generic as of now.
+	return []Acl{
+
+		{
+			AclType:  "publishClientSend",
+			Topic:    "signal/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientSend",
+			Topic:    "update/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientSend",
+			Topic:    "ping/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientSend",
+			Topic:    "metrics/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "unsubscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+	}
+}
+
+// fetchExporterAcls - fetch exporter role related acls
+func fetchExporterAcls() []Acl {
+	return []Acl{
+		{
+			AclType:  "publishClientReceive",
+			Topic:    "metrics_exporter",
+			Allow:    true,
+			Priority: -1,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "unsubscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+	}
+}
+
+// fetchAdminAcls - fetches admin role related acls
+func fetchAdminAcls() []Acl {
+	return []Acl{
+		{
+			AclType:  "publishClientSend",
+			Topic:    "$CONTROL/dynamic-security/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientReceive",
+			Topic:    "$CONTROL/dynamic-security/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "$CONTROL/dynamic-security/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientReceive",
+			Topic:    "$SYS/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "$SYS/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientReceive",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "unsubscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientSend",
 			Topic:    "#",
 			Priority: -1,
 			Allow:    true,
