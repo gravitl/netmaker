@@ -186,6 +186,7 @@ services:
       PROMETHEUS: "on"
       VERBOSITY: "1"
       API_PORT: "8085"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
       PROMETHEUS_HOST: https://prometheus.NETMAKER_BASE_DOMAIN
     expose:
       - "8085"
