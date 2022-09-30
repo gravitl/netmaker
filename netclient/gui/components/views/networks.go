@@ -52,7 +52,7 @@ func GetNetworksView(networks []string) fyne.CanvasObject {
 		)
 		cfg, err := config.ReadConfig(*network)
 		if err != nil {
-
+			fmt.Println(err)
 		}
 		if cfg.Node.Connected == "yes" {
 			grid.Add(
