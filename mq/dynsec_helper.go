@@ -318,31 +318,36 @@ func FetchNetworkAcls(network string) []Acl {
 	}
 }
 
-// FetchNodeAcls -fetches node acls
+// FetchNodeAcls - fetches node acls
 func FetchNodeAcls(nodeID string) []Acl {
+	// keeping node acls generic as of now.
 	return []Acl{
 
 		{
-			AclType:  "publishClientSend",
-			Topic:    fmt.Sprintf("signal/%s", nodeID),
+			AclType: "publishClientSend",
+			//Topic:    fmt.Sprintf("signal/%s", nodeID),
+			Topic:    "signal/#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
-			AclType:  "publishClientSend",
-			Topic:    fmt.Sprintf("update/%s", nodeID),
+			AclType: "publishClientSend",
+			// Topic:    fmt.Sprintf("update/%s", nodeID),
+			Topic:    "update/#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
-			AclType:  "publishClientSend",
-			Topic:    fmt.Sprintf("ping/%s", nodeID),
+			AclType: "publishClientSend",
+			//Topic:    fmt.Sprintf("ping/%s", nodeID),
+			Topic:    "ping/#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
-			AclType:  "publishClientSend",
-			Topic:    fmt.Sprintf("metrics/%s", nodeID),
+			AclType: "publishClientSend",
+			//Topic:    fmt.Sprintf("metrics/%s", nodeID),
+			Topic:    "metrics/#",
 			Priority: -1,
 			Allow:    true,
 		},
