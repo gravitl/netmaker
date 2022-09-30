@@ -132,9 +132,32 @@ func setNetworkDefaults() error {
 			logger.Log(0, "could not initialize NetworkUsers on network", net.NetID)
 		}
 		pro.AddProNetDefaults(&net)
-		_, _, _, _, _, _, err = logic.UpdateNetwork(&net, &net)
-		if err != nil {
-			logger.Log(0, "could not set defaults on network", net.NetID)
+		update := false
+		newNet := net
+		if strings.Contains(net.NetID, ".") {
+			newNet.NetID = strings.ReplaceAll(net.NetID, ".", "")
+			newNet.DefaultInterface = strings.ReplaceAll(net.DefaultInterface, ".", "")
+			update = true
+		}
+		if strings.ContainsAny(net.NetID, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+			newNet.NetID = strings.ToLower(net.NetID)
+			newNet.DefaultInterface = strings.ToLower(net.DefaultInterface)
+			update = true
+		}
+		if update {
+			newNet.SetDefaults()
+			if err := logic.SaveNetwork(&newNet); err != nil {
+				logger.Log(0, "error saving networks during initial update:", err.Error())
+			}
+			if err := logic.DeleteNetwork(net.NetID); err != nil {
+				logger.Log(0, "error deleting old network:", err.Error())
+			}
+		} else {
+			net.SetDefaults()
+			_, _, _, _, _, _, err = logic.UpdateNetwork(&net, &net)
+			if err != nil {
+				logger.Log(0, "could not set defaults on network", net.NetID)
+			}
 		}
 	}
 	return nil
