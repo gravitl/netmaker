@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -48,6 +50,7 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 			newMetric.Latency = 999
 		} else {
 			pinger.Count = 1
+			pinger.Timeout = time.Second * 2
 			err = pinger.Run()
 			if err != nil {
 				logger.Log(0, "failed ping for metrics on peer address", address, err.Error())
@@ -55,11 +58,24 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 				newMetric.Latency = 999
 			} else {
 				pingStats := pinger.Statistics()
-				newMetric.Uptime = 1
-				newMetric.Connected = true
-				newMetric.Latency = pingStats.AvgRtt.Milliseconds()
+				if pingStats.PacketsRecv > 0 {
+					newMetric.Uptime = 1
+					newMetric.Connected = true
+					newMetric.Latency = pingStats.AvgRtt.Milliseconds()
+				}
 			}
 		}
+
+		// check device peer to see if WG is working if ping failed
+		if !newMetric.Connected {
+			if currPeer.ReceiveBytes > 0 &&
+				currPeer.TransmitBytes > 0 &&
+				time.Now().Before(currPeer.LastHandshakeTime.Add(time.Minute<<1)) {
+				newMetric.Connected = true
+				newMetric.Uptime = 1
+			}
+		}
+
 		newMetric.TotalTime = 1
 		metrics.Connectivity[id] = newMetric
 	}

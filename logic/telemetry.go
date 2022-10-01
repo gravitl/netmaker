@@ -10,11 +10,27 @@ import (
 	"github.com/posthog/posthog-go"
 )
 
+// flags to keep for telemetry
+var isFreeTier bool
+var isEE bool
+
 // posthog_pub_key - Key for sending data to PostHog
 const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
 
 // posthog_endpoint - Endpoint of PostHog server
 const posthog_endpoint = "https://app.posthog.com"
+
+// setEEForTelemetry - store EE flag without having an import cycle when used for telemetry
+// (as the ee package needs the logic package as currently written).
+func SetEEForTelemetry(eeFlag bool) {
+	isEE = eeFlag
+}
+
+// setFreeTierForTelemetry - store free tier flag without having an import cycle when used for telemetry
+// (as the ee package needs the logic package as currently written).
+func SetFreeTierForTelemetry(freeTierFlag bool) {
+	isFreeTier = freeTierFlag
+}
 
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
@@ -54,7 +70,9 @@ func sendTelemetry() error {
 			Set("freebsd", d.Count.FreeBSD).
 			Set("docker", d.Count.Docker).
 			Set("k8s", d.Count.K8S).
-			Set("version", d.Version),
+			Set("version", d.Version).
+			Set("is_ee", isEE).
+			Set("is_free_tier", isFreeTier),
 	})
 }
 
@@ -144,6 +162,8 @@ type telemetryData struct {
 	Networks   int
 	Servers    int
 	Version    string
+	IsEE       bool
+	IsFreeTier bool
 }
 
 // clientCount - What types of netclients we're tallying
