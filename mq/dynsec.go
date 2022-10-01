@@ -18,12 +18,6 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-// DynamicSecSubTopic - constant for dynamic security subscription topic
-const dynamicSecSubTopic = "$CONTROL/dynamic-security/#"
-
-// DynamicSecPubTopic - constant for dynamic security subscription topic
-const dynamicSecPubTopic = "$CONTROL/dynamic-security/v1"
-
 // mq client for admin
 var mqAdminClient mqtt.Client
 
@@ -41,15 +35,18 @@ const (
 	CreateRoleCmd = "createRole"
 	// constant for delete role command
 	DeleteRoleCmd = "deleteRole"
-)
 
-const (
 	// constant for admin user name
 	mqAdminUserName = "Netmaker-Admin"
 	// constant for server user name
 	mqNetmakerServerUserName = "Netmaker-Server"
 	// constant for exporter user name
 	mqExporterUserName = "Netmaker-Exporter"
+
+	// DynamicSecSubTopic - constant for dynamic security subscription topic
+	dynamicSecSubTopic = "$CONTROL/dynamic-security/#"
+	// DynamicSecPubTopic - constant for dynamic security subscription topic
+	dynamicSecPubTopic = "$CONTROL/dynamic-security/v1"
 )
 
 // struct for dynamic security file

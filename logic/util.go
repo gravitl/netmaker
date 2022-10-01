@@ -219,7 +219,7 @@ func StringDifference(a, b []string) []string {
 	return diff
 }
 
-// CheckIfFileExists - checks if file exists or no in the given path
+// CheckIfFileExists - checks if file exists or not in the given path
 func CheckIfFileExists(filePath string) bool {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return false
