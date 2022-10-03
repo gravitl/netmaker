@@ -88,12 +88,12 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	if node.PostUp != "" {
 		if !strings.Contains(node.PostUp, postUpCmd) {
-			postUpCmd = node.PostUp + " ; " + postUpCmd
+			postUpCmd = node.PostUp + postUpCmd
 		}
 	}
 	if node.PostDown != "" {
 		if !strings.Contains(node.PostDown, postDownCmd) {
-			postDownCmd = node.PostDown + " ; " + postDownCmd
+			postDownCmd = node.PostDown + postDownCmd
 		}
 	}
 
