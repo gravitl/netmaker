@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/tls"
 )
 
 var metricsCache = new(sync.Map)
@@ -109,7 +107,6 @@ func checkin() {
 			config.Write(&nodeCfg, nodeCfg.Network)
 		}
 		Hello(&nodeCfg)
-		checkCertExpiry(&nodeCfg)
 		if nodeCfg.Server.Is_EE {
 			logger.Log(0, "collecting metrics for node", nodeCfg.Node.Name)
 			publishMetrics(&nodeCfg)
@@ -258,22 +255,6 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func checkCertExpiry(cfg *config.ClientConfig) error {
-	cert, err := tls.ReadCertFromFile(ncutils.GetNetclientServerPath(cfg.Server.Server) + ncutils.GetSeparator() + "client.pem")
-	//if cert doesn't exist or will expire within 10 days
-	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
-		key, err := tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
-		if err != nil {
-			return err
-		}
-		return RegisterWithServer(key, cfg)
-	}
-	if err != nil {
-		return err
 	}
 	return nil
 }

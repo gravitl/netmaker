@@ -2,13 +2,10 @@ package functions
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -21,12 +18,10 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/daemon"
 	"github.com/gravitl/netmaker/netclient/global_settings"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	ssl "github.com/gravitl/netmaker/tls"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -237,14 +232,14 @@ func setupMQTTSingleton(cfg *config.ClientConfig) error {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
-	opts.AddBroker("ssl://" + server + ":" + port)
-	tlsConfig, err := NewTLSConfig(server)
+	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + cfg.Network)
 	if err != nil {
-		logger.Log(0, "failed to get TLS config for", server, err.Error())
-		return err
+		return fmt.Errorf("could not read secrets file %w", err)
 	}
-	opts.SetTLSConfig(tlsConfig)
-	mqclient = mqtt.NewClient(opts)
+	opts.AddBroker("mqtts://" + server + ":" + port)
+	opts.SetUsername(cfg.Node.ID)
+	opts.SetPassword(string(pass))
+	mqclient := mqtt.NewClient(opts)
 	var connecterr error
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
@@ -264,13 +259,13 @@ func setupMQTT(cfg *config.ClientConfig) error {
 	opts := mqtt.NewClientOptions()
 	server := cfg.Server.Server
 	port := cfg.Server.MQPort
-	opts.AddBroker("ssl://" + server + ":" + port)
-	tlsConfig, err := NewTLSConfig(server)
+	pass, err := os.ReadFile(ncutils.GetNetclientPathSpecific() + "secret-" + cfg.Network)
 	if err != nil {
-		logger.Log(0, "failed to get TLS config for", server, err.Error())
-		return err
+		return fmt.Errorf("could not read secrets file %w", err)
 	}
-	opts.SetTLSConfig(tlsConfig)
+	opts.AddBroker(fmt.Sprintf("mqtts://%s:%s", server, port))
+	opts.SetUsername(cfg.Node.ID)
+	opts.SetPassword(string(pass))
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	opts.SetDefaultPublishHandler(All)
 	opts.SetAutoReconnect(true)
@@ -313,27 +308,11 @@ func setupMQTT(cfg *config.ClientConfig) error {
 		}
 	}
 	if connecterr != nil {
-		reRegisterWithServer(cfg)
-		//try after re-registering
-		if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
-			return errors.New("unable to connect to broker")
-		}
+		logger.Log(0, "failed to establish connection to broker: ", connecterr.Error())
+		return connecterr
 	}
 
 	return nil
-}
-
-func reRegisterWithServer(cfg *config.ClientConfig) {
-	logger.Log(0, "connection issue detected.. attempt connection with new certs and broker information")
-	key, err := ssl.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
-	if err != nil {
-		_, *key, err = ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			log.Fatal("could not generate new key")
-		}
-	}
-	RegisterWithServer(key, cfg)
-	daemon.Restart()
 }
 
 // publishes a message to server to update peers on this peer's behalf

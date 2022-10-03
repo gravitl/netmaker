@@ -17,7 +17,7 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - shared_certs:/etc/netmaker
+      - mosquitto_data:/etc/netmaker
     environment:
       SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -42,6 +42,7 @@ services:
       METRICS_EXPORTER: "on"
       LICENSE_KEY: "YOUR_LICENSE_KEY"
       NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
+      MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
     ports:
       - "51821-51830:51821-51830/udp"
     expose:
@@ -112,21 +113,22 @@ services:
     depends_on:
       - netmaker
     restart: unless-stopped
+    command: ["/mosquitto/config/wait.sh"]
+    environment:
+      NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /root/mosquitto.passwords:/etc/mosquitto.passwords
+      - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-      - shared_certs:/mosquitto/certs
     expose:
       - "8883"
     labels:
       - traefik.enable=true
-      - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
-      - traefik.tcp.routers.mqtts.tls.passthrough=true
-      - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
-      - traefik.tcp.routers.mqtts.service=mqtts-svc
-      - traefik.tcp.routers.mqtts.entrypoints=websecure
+      - traefik.tcp.routers.mqtt.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
+      - traefik.tcp.routers.mqtt.tls.certresolver=http
+      - traefik.tcp.services.mqtt.loadbalancer.server.port=8883
+      - traefik.tcp.routers.mqtt.entrypoints=websecure
   prometheus:
     container_name: prometheus
     image: gravitl/netmaker-prometheus:latest
@@ -180,16 +182,16 @@ services:
     environment:
       MQ_HOST: "mq"
       MQ_PORT: "443"
-      MQ_SERVER_PORT: "1884"
+      MQ_SERVER_PORT: "1883"
       PROMETHEUS: "on"
       VERBOSITY: "1"
       API_PORT: "8085"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
       PROMETHEUS_HOST: https://prometheus.NETMAKER_BASE_DOMAIN
     expose:
       - "8085"
 volumes:
   traefik_certs: {}
-  shared_certs: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_data: {}

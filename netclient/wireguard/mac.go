@@ -26,7 +26,7 @@ func WgQuickDownMac(node *models.Node, iface string) error {
 
 // RemoveConfMac - bring down mac interface and remove routes
 func RemoveConfMac(iface string) error {
-	realIface, err := getRealIface(iface)
+	realIface, err := GetRealIface(iface)
 	if realIface != "" {
 		err = deleteInterface(iface, realIface)
 	}
@@ -37,7 +37,7 @@ func RemoveConfMac(iface string) error {
 func WgQuickUpMac(node *models.Node, iface string, confPath string) error {
 	var err error
 	var realIface string
-	realIface, err = getRealIface(iface)
+	realIface, err = GetRealIface(iface)
 	if realIface != "" && err == nil {
 		deleteInterface(iface, realIface)
 		deleteRoutes(realIface)
@@ -101,8 +101,8 @@ func addInterface(iface string) (string, error) {
 	return realIface, err
 }
 
-// getRealIface - retrieves tun iface based on reference iface name from config file
-func getRealIface(iface string) (string, error) {
+// GetRealIface - retrieves tun iface based on reference iface name from config file
+func GetRealIface(iface string) (string, error) {
 	ncutils.RunCmd("wg show interfaces", false)
 	ifacePath := "/var/run/wireguard/" + iface + ".name"
 	if !(ncutils.FileExists(ifacePath)) {
@@ -120,7 +120,7 @@ func getRealIface(iface string) (string, error) {
 
 // deleteRoutes - deletes network routes associated with interface
 func deleteRoutes(iface string) error {
-	realIface, err := getRealIface(iface)
+	realIface, err := GetRealIface(iface)
 	if err != nil {
 		return err
 	}

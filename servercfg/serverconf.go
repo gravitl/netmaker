@@ -622,6 +622,17 @@ func GetMQServerPort() string {
 	return port
 }
 
+// GetMqAdminPassword - fetches the MQ Admin password
+func GetMqAdminPassword() string {
+	password := ""
+	if os.Getenv("MQ_ADMIN_PASSWORD") != "" {
+		password = os.Getenv("MQ_ADMIN_PASSWORD")
+	} else if config.Config.Server.MQAdminPassword != "" {
+		password = config.Config.Server.MQAdminPassword
+	}
+	return password
+}
+
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
 	var enabled = true //default
