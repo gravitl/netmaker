@@ -445,6 +445,17 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 			}
 		}
 	}
+	//add egress range if relay is egress
+	if relay.IsEgressGateway == "yes" {
+		var ip *net.IPNet
+		for _, cidr := range relay.EgressGatewayRanges {
+			_, ip, err = net.ParseCIDR(cidr)
+			if err != nil {
+				continue
+			}
+		}
+		allowedips = append(allowedips, *ip)
+	}
 
 	pubkey, err := wgtypes.ParseKey(relay.PublicKey)
 	if err != nil {
