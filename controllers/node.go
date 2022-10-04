@@ -1072,10 +1072,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		event := mq.MqDynsecPayload{
 			Commands: []mq.MqDynSecCmd{
 				{
-					Command:  mq.DeleteRoleCmd,
-					RoleName: fmt.Sprintf("%s-%s", "Node", nodeid),
-				},
-				{
 					Command:  mq.DeleteClientCmd,
 					Username: nodeid,
 				},
