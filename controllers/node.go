@@ -256,6 +256,7 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 				logic.ReturnErrorResponse(w, r, errorResponse)
 				return
 			}
+			r.Header.Set("requestfrom", "")
 			//check if node instead of user
 			if nodesAllowed {
 				// TODO --- should ensure that node is only operating on itself
@@ -1036,6 +1037,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 	var nodeid = params["nodeid"]
+	fromNode := r.Header.Get("requestfrom") == "node"
 	var node, err = logic.GetNodeByID(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -1060,29 +1062,28 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent
 	node.Action = models.NODE_DELETE
 
-	err = logic.DeleteNodeByID(&node, false)
+	err = logic.DeleteNodeByID(&node, fromNode)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	// deletes node related role and client
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{
-				Command:  mq.DeleteRoleCmd,
-				RoleName: fmt.Sprintf("%s-%s", "Node", nodeid),
+	if fromNode {
+		// deletes node related role and client
+		event := mq.MqDynsecPayload{
+			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.DeleteClientCmd,
+					Username: nodeid,
+				},
 			},
-			{
-				Command:  mq.DeleteClientCmd,
-				Username: nodeid,
-			},
-		},
+		}
+
+		if err := mq.PublishEventToDynSecTopic(event); err != nil {
+			logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+				event.Commands, err.Error()))
+		}
 	}
 
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
 	if servercfg.Is_EE {
 		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node delete for node", node.Name, node.Network)
