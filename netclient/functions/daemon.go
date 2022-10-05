@@ -239,7 +239,7 @@ func setupMQTTSingleton(cfg *config.ClientConfig) error {
 	opts.AddBroker("mqtts://" + server + ":" + port)
 	opts.SetUsername(cfg.Node.ID)
 	opts.SetPassword(string(pass))
-	mqclient := mqtt.NewClient(opts)
+	mqclient = mqtt.NewClient(opts)
 	var connecterr error
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
