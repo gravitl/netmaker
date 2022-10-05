@@ -47,6 +47,10 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	postUpCmd := ""
 	postDownCmd := ""
 	ipv4, ipv6 := getNetworkProtocols(gateway.Ranges)
+	//no support for ipv6 and ip6tables in netmaker container
+	if node.IsServer == "yes" {
+		ipv6 = false
+	}
 	logger.Log(3, "creating egress gateway firewall in use is '", node.FirewallInUse, "'")
 	if node.OS == "linux" {
 		switch node.FirewallInUse {
