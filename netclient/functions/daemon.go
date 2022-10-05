@@ -68,12 +68,14 @@ func Daemon() error {
 			cancel()
 			logger.Log(0, "shutting down netclient daemon")
 			wg.Wait()
+			mqclient.Disconnect(250)
 			logger.Log(0, "shutdown complete")
 			return nil
 		case <-reset:
 			logger.Log(0, "received reset")
 			cancel()
 			wg.Wait()
+			mqclient.Disconnect(250)
 			logger.Log(0, "restarting daemon")
 			cancel = startGoRoutines(&wg)
 		}
@@ -109,7 +111,14 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 		}
 	}
 	wg.Add(1)
-	go Checkin(ctx, wg)
+	for {
+		if mqclient != nil && mqclient.IsConnected() {
+			go Checkin(ctx, wg)
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
 	return cancel
 }
 

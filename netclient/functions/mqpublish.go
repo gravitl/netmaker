@@ -107,7 +107,7 @@ func checkin() {
 			config.Write(&nodeCfg, nodeCfg.Network)
 		}
 		Hello(&nodeCfg)
-		if nodeCfg.Server.Is_EE {
+		if nodeCfg.Server.Is_EE && nodeCfg.Node.Connected == "yes" {
 			logger.Log(0, "collecting metrics for node", nodeCfg.Node.Name)
 			publishMetrics(&nodeCfg)
 		}
