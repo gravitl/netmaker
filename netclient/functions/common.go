@@ -192,35 +192,8 @@ func LeaveNetwork(network string) error {
 	if err := removeHostDNS(cfg.Node.Interface, ncutils.IsWindows()); err != nil {
 		logger.Log(0, "failed to delete dns entries for", cfg.Node.Interface, err.Error())
 	}
-	logger.Log(2, "deleting broker keys as required")
-	if !brokerInUse(cfg.Server.Server) {
-		if err := deleteBrokerFiles(cfg.Server.Server); err != nil {
-			logger.Log(0, "failed to deleter certs for", cfg.Server.Server, err.Error())
-		}
-	}
 	logger.Log(2, "restarting daemon")
 	return daemon.Restart()
-}
-
-func brokerInUse(broker string) bool {
-	networks, _ := ncutils.GetSystemNetworks()
-	for _, net := range networks {
-		cfg := config.ClientConfig{}
-		cfg.Network = net
-		cfg.ReadConfig()
-		if cfg.Server.Server == broker {
-			return true
-		}
-	}
-	return false
-}
-
-func deleteBrokerFiles(broker string) error {
-	dir := ncutils.GetNetclientServerPath(broker)
-	if err := os.RemoveAll(dir); err != nil {
-		return err
-	}
-	return nil
 }
 
 func deleteNodeFromServer(cfg *config.ClientConfig) error {
@@ -340,6 +313,7 @@ func API(data any, method, url, authorization string) (*http.Response, error) {
 	if authorization != "" {
 		request.Header.Set("authorization", "Bearer "+authorization)
 	}
+	request.Header.Set("requestfrom", "node")
 	return HTTPClient.Do(request)
 }
 

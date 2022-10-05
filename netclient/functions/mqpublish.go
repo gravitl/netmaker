@@ -29,7 +29,6 @@ var metricsCache = new(sync.Map)
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
-	checkin()
 	ticker := time.NewTicker(time.Minute * ncutils.CheckInInterval)
 	defer ticker.Stop()
 	for {
@@ -38,7 +37,12 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 			logger.Log(0, "checkin routine closed")
 			return
 		case <-ticker.C:
-			checkin()
+			if mqclient != nil && mqclient.IsConnected() {
+				checkin()
+			} else {
+				logger.Log(0, "MQ client is not connected, skipping checkin...")
+			}
+
 		}
 	}
 }

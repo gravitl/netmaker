@@ -2,8 +2,6 @@ package functions
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -68,14 +66,18 @@ func Daemon() error {
 			cancel()
 			logger.Log(0, "shutting down netclient daemon")
 			wg.Wait()
-			mqclient.Disconnect(250)
+			if mqclient != nil {
+				mqclient.Disconnect(250)
+			}
 			logger.Log(0, "shutdown complete")
 			return nil
 		case <-reset:
 			logger.Log(0, "received reset")
 			cancel()
 			wg.Wait()
-			mqclient.Disconnect(250)
+			if mqclient != nil {
+				mqclient.Disconnect(250)
+			}
 			logger.Log(0, "restarting daemon")
 			cancel = startGoRoutines(&wg)
 		}
@@ -111,14 +113,7 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 		}
 	}
 	wg.Add(1)
-	for {
-		if mqclient != nil && mqclient.IsConnected() {
-			go Checkin(ctx, wg)
-			break
-		}
-		time.Sleep(time.Second)
-	}
-
+	go Checkin(ctx, wg)
 	return cancel
 }
 
@@ -205,34 +200,6 @@ func messageQueue(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientCon
 	//defer mqclient.Disconnect(250)
 	<-ctx.Done()
 	logger.Log(0, "shutting down message queue for server", cfg.Server.Server)
-}
-
-// NewTLSConf sets up tls configuration to connect to broker securely
-func NewTLSConfig(server string) (*tls.Config, error) {
-	file := ncutils.GetNetclientServerPath(server) + ncutils.GetSeparator() + "root.pem"
-	certpool := x509.NewCertPool()
-	ca, err := os.ReadFile(file)
-	if err != nil {
-		logger.Log(0, "could not read CA file", err.Error())
-	}
-	ok := certpool.AppendCertsFromPEM(ca)
-	if !ok {
-		logger.Log(0, "failed to append cert")
-	}
-	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+ncutils.GetSeparator()+"client.pem", ncutils.GetNetclientPath()+ncutils.GetSeparator()+"client.key")
-	if err != nil {
-		logger.Log(0, "could not read client cert/key", err.Error())
-		return nil, err
-	}
-	certs := []tls.Certificate{clientKeyPair}
-	return &tls.Config{
-		RootCAs:            certpool,
-		ClientAuth:         tls.NoClientCert,
-		ClientCAs:          nil,
-		Certificates:       certs,
-		InsecureSkipVerify: false,
-	}, nil
-
 }
 
 // func setMQTTSingenton creates a connection to broker for single use (ie to publish a message)
