@@ -199,6 +199,10 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	ipv4, ipv6 := getNetworkProtocols(cidrs)
+	//no support for ipv6 and ip6tables in netmaker container
+	if node.IsServer == "yes" {
+		ipv6 = false
+	}
 	logger.Log(3, "creating ingress gateway firewall in use is '", node.FirewallInUse, "'")
 	switch node.FirewallInUse {
 	case models.FIREWALL_NFTABLES:
