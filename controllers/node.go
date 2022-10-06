@@ -83,12 +83,15 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	var err error
 	result, err = logic.GetNodeByID(authRequest.ID)
 	if err != nil {
-		errorResponse.Code = http.StatusBadRequest
-		errorResponse.Message = err.Error()
-		logger.Log(0, request.Header.Get("user"),
-			fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
-		logic.ReturnErrorResponse(response, request, errorResponse)
-		return
+		result, err = logic.GetDeletedNodeByID(authRequest.ID)
+		if err != nil {
+			errorResponse.Code = http.StatusBadRequest
+			errorResponse.Message = err.Error()
+			logger.Log(0, request.Header.Get("user"),
+				fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
+			logic.ReturnErrorResponse(response, request, errorResponse)
+			return
+		}
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
@@ -256,7 +259,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 				logic.ReturnErrorResponse(w, r, errorResponse)
 				return
 			}
-			r.Header.Set("requestfrom", "")
 			//check if node instead of user
 			if nodesAllowed {
 				// TODO --- should ensure that node is only operating on itself
@@ -264,7 +266,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 
 					// this indicates request is from a node
 					// used for failover - if a getNode comes from node, this will trigger a metrics wipe
-					r.Header.Set("requestfrom", "node")
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -1040,10 +1041,20 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	fromNode := r.Header.Get("requestfrom") == "node"
 	var node, err = logic.GetNodeByID(nodeid)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+		if fromNode {
+			node, err = logic.GetDeletedNodeByID(nodeid)
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"),
+					fmt.Sprintf("error fetching node from deleted nodes [ %s ] info: %v", nodeid, err))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+		} else {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	if isServer(&node) {
 		err := fmt.Errorf("cannot delete server node")

@@ -186,7 +186,9 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		}
 	}
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
+		if !database.IsEmptyRecord(err) {
+			return err
+		}
 	}
 
 	if servercfg.IsDNSMode() {

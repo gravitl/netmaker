@@ -2,8 +2,6 @@ package functions
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -68,12 +66,18 @@ func Daemon() error {
 			cancel()
 			logger.Log(0, "shutting down netclient daemon")
 			wg.Wait()
+			if mqclient != nil {
+				mqclient.Disconnect(250)
+			}
 			logger.Log(0, "shutdown complete")
 			return nil
 		case <-reset:
 			logger.Log(0, "received reset")
 			cancel()
 			wg.Wait()
+			if mqclient != nil {
+				mqclient.Disconnect(250)
+			}
 			logger.Log(0, "restarting daemon")
 			cancel = startGoRoutines(&wg)
 		}
@@ -198,34 +202,6 @@ func messageQueue(ctx context.Context, wg *sync.WaitGroup, cfg *config.ClientCon
 	logger.Log(0, "shutting down message queue for server", cfg.Server.Server)
 }
 
-// NewTLSConf sets up tls configuration to connect to broker securely
-func NewTLSConfig(server string) (*tls.Config, error) {
-	file := ncutils.GetNetclientServerPath(server) + ncutils.GetSeparator() + "root.pem"
-	certpool := x509.NewCertPool()
-	ca, err := os.ReadFile(file)
-	if err != nil {
-		logger.Log(0, "could not read CA file", err.Error())
-	}
-	ok := certpool.AppendCertsFromPEM(ca)
-	if !ok {
-		logger.Log(0, "failed to append cert")
-	}
-	clientKeyPair, err := tls.LoadX509KeyPair(ncutils.GetNetclientServerPath(server)+ncutils.GetSeparator()+"client.pem", ncutils.GetNetclientPath()+ncutils.GetSeparator()+"client.key")
-	if err != nil {
-		logger.Log(0, "could not read client cert/key", err.Error())
-		return nil, err
-	}
-	certs := []tls.Certificate{clientKeyPair}
-	return &tls.Config{
-		RootCAs:            certpool,
-		ClientAuth:         tls.NoClientCert,
-		ClientCAs:          nil,
-		Certificates:       certs,
-		InsecureSkipVerify: false,
-	}, nil
-
-}
-
 // func setMQTTSingenton creates a connection to broker for single use (ie to publish a message)
 // only to be called from cli (eg. connect/disconnect, join, leave) and not from daemon ---
 func setupMQTTSingleton(cfg *config.ClientConfig) error {
@@ -239,7 +215,7 @@ func setupMQTTSingleton(cfg *config.ClientConfig) error {
 	opts.AddBroker("mqtts://" + server + ":" + port)
 	opts.SetUsername(cfg.Node.ID)
 	opts.SetPassword(string(pass))
-	mqclient := mqtt.NewClient(opts)
+	mqclient = mqtt.NewClient(opts)
 	var connecterr error
 	opts.SetClientID(ncutils.MakeRandomString(23))
 	if token := mqclient.Connect(); !token.WaitTimeout(30*time.Second) || token.Error() != nil {
