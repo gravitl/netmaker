@@ -134,6 +134,7 @@ services:
     image: gravitl/netmaker-prometheus:latest
     environment:
       NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
     labels:
       - traefik.enable=true
       - traefik.http.routers.prometheus.entrypoints=websecure
@@ -159,6 +160,9 @@ services:
     environment:
       PROMETHEUS_HOST: "prometheus.NETMAKER_BASE_DOMAIN"
       NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
+    volumes:
+      - grafana_data:/var/lib/grafana
     ports:
       - 3000:3000
     restart: always
@@ -197,3 +201,4 @@ volumes:
   mosquitto_data: {}
   mosquitto_logs: {}
   prometheus_data: {}
+  grafana_data: {}
