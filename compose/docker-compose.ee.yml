@@ -160,6 +160,7 @@ services:
     environment:
       PROMETHEUS_HOST: "prometheus.NETMAKER_BASE_DOMAIN"
       NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
     volumes:
       - grafana_data:/var/lib/grafana
     ports:
