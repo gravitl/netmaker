@@ -110,13 +110,10 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			}
 		}
 	}
-	if ncutils.IsMac() {
-		err = SetMacPeerRoutes(iface)
-		return err
-	} else if ncutils.IsLinux() {
-		if len(peers) > 0 {
-			local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
-		}
+
+	// if routes are wrong, come back to this, but should work...I would think. Or we should get it working.
+	if len(peers) > 0 {
+		local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
 	}
 
 	return nil
@@ -263,8 +260,6 @@ func RemoveConf(iface string, printlog bool) error {
 		err = RemoveWithoutWGQuick(iface)
 	case "windows":
 		err = RemoveWindowsConf(iface, printlog)
-	case "darwin":
-		err = RemoveConfMac(iface)
 	default:
 		confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
 		err = RemoveWGQuickConf(confPath, printlog)
@@ -283,8 +278,6 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	switch os {
 	case "windows":
 		ApplyWindowsConf(confPath, isConnected)
-	case "darwin":
-		ApplyMacOSConf(node, ifacename, confPath, isConnected)
 	case "nowgquick":
 		ApplyWithoutWGQuick(node, ifacename, confPath, isConnected)
 	default:
