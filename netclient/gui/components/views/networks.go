@@ -21,11 +21,12 @@ func GetNetworksView(networks []string) fyne.CanvasObject {
 	if len(networks) == 0 {
 		return container.NewCenter(widget.NewLabel("No networks present"))
 	}
-	grid := container.New(layout.NewGridLayout(4),
+	grid := container.New(layout.NewGridLayout(5),
 		container.NewCenter(widget.NewLabel("Network Name")),
 		container.NewCenter(widget.NewLabel("Node Info")),
 		container.NewCenter(widget.NewLabel("Pull Latest")),
 		container.NewCenter(widget.NewLabel("Leave network")),
+		container.NewCenter(widget.NewLabel("Connection status")),
 	)
 	for i := range networks {
 		network := &networks[i]
@@ -49,6 +50,24 @@ func GetNetworksView(networks []string) fyne.CanvasObject {
 				leave(*network)
 			}, components.Danger_color),
 		)
+		cfg, err := config.ReadConfig(*network)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if cfg.Node.Connected == "yes" {
+			grid.Add(
+				components.ColoredIconButton("disconnect", theme.CheckButtonCheckedIcon(), func() {
+					disconnect(*network)
+				}, components.Gravitl_color),
+			)
+		} else {
+			grid.Add(
+				components.ColoredIconButton("connect", theme.CheckButtonIcon(), func() {
+					connect(*network)
+				}, components.Danger_color),
+			)
+		}
+
 		// renders = append(renders, container.NewCenter(netToolbar))
 	}
 
@@ -152,6 +171,57 @@ func leave(network string) {
 			ErrorNotify("Failed to leave " + network + " : " + err.Error())
 		} else {
 			SuccessNotify("Left " + network)
+		}
+		networks, err := ncutils.GetSystemNetworks()
+		if err != nil {
+			networks = []string{}
+			ErrorNotify("Failed to read local networks!")
+		}
+		RefreshComponent(Networks, GetNetworksView(networks))
+		ShowView(Networks)
+	})
+	RefreshComponent(Confirm, confirmView)
+	ShowView(Confirm)
+}
+func connect(network string) {
+
+	confirmView := GetConfirmation("Confirm connecting "+network+"?", func() {
+		ShowView(Networks)
+	}, func() {
+		LoadingNotify()
+		err := functions.Connect(network)
+		if err != nil {
+
+			ErrorNotify("Failed to connect " + network + " : " + err.Error())
+
+		} else {
+			SuccessNotify("connected to " + network)
+		}
+		networks, err := ncutils.GetSystemNetworks()
+		if err != nil {
+			networks = []string{}
+			ErrorNotify("Failed to read local networks!")
+		}
+		RefreshComponent(Networks, GetNetworksView(networks))
+		ShowView(Networks)
+	})
+	RefreshComponent(Confirm, confirmView)
+	ShowView(Confirm)
+}
+func disconnect(network string) {
+
+	confirmView := GetConfirmation("Confirm disconnecting  "+network+"?", func() {
+		ShowView(Networks)
+	}, func() {
+		LoadingNotify()
+		fmt.Println(network)
+		err := functions.Disconnect(network)
+		if err != nil {
+
+			ErrorNotify("Failed to disconnect " + network + " : " + err.Error())
+
+		} else {
+			SuccessNotify("disconnected from " + network)
 		}
 		networks, err := ncutils.GetSystemNetworks()
 		if err != nil {
