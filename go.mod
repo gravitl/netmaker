@@ -35,7 +35,7 @@ require (
 	github.com/cloverstd/tcping v0.1.1
 	github.com/go-ping/ping v1.1.0
 	github.com/guumaster/hostctl v1.1.3
-	github.com/kr/pretty v0.3.0
+	github.com/kr/pretty v0.3.1
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
