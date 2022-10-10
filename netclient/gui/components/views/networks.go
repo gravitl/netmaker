@@ -56,13 +56,13 @@ func GetNetworksView(networks []string) fyne.CanvasObject {
 		}
 		if cfg.Node.Connected == "yes" {
 			grid.Add(
-				components.ColoredIconButton("connection", theme.CheckButtonCheckedIcon(), func() {
+				components.ColoredIconButton("disconnect", theme.CheckButtonCheckedIcon(), func() {
 					disconnect(*network)
 				}, components.Gravitl_color),
 			)
 		} else {
 			grid.Add(
-				components.ColoredIconButton("connection", theme.CheckButtonIcon(), func() {
+				components.ColoredIconButton("connect", theme.CheckButtonIcon(), func() {
 					connect(*network)
 				}, components.Danger_color),
 			)
