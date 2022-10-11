@@ -71,28 +71,11 @@ jobs:
             docker run --rm ${{ env.TAG }}&
             sleep 10
             kill %1
-      # -
-      #   name: Build armv7l and export to Docker
-      #   uses: docker/build-push-action@v2
-      #   with:
-      #     context: .
-      #     load: true
-      #     platforms: linux/armv7l
-      #     file: ./docker/Dockerfile-netclient-multiarch
-      #     tags: ${{ env.TAG }}
-      #     build-args: version=${{ env.TAG }}  
-      # -
-      #   name: Test armv7l
-      #   run: |
-      #       docker run --rm ${{ env.TAG }}&
-      #       sleep 10
-      #       kill %1
       -
         name: Build and push
         uses: docker/build-push-action@v2
         with:
           context: .
-          # platforms: linux/amd64, linux/arm64, linux/armv7l
           platforms: linux/amd64, linux/arm64
           file: ./docker/Dockerfile-netclient-multiarch
           push: true
