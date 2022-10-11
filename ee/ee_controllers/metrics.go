@@ -15,7 +15,7 @@ func MetricHandlers(r *mux.Router) {
 	r.HandleFunc("/api/metrics/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(getNodeMetrics))).Methods("GET")
 	r.HandleFunc("/api/metrics/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodesMetrics))).Methods("GET")
 	r.HandleFunc("/api/metrics", logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics))).Methods("GET")
-	r.HandleFunc("/api/metrics-ext/{network}", logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics))).Methods("GET")
+	r.HandleFunc("/api/metrics-ext/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtMetrics))).Methods("GET")
 }
 
 // get the metrics of a given node
@@ -96,8 +96,8 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	networkMetrics := models.NetworkMetrics{}
-	networkMetrics.Nodes = make(models.MetricsMap)
+	networkMetrics := models.Metrics{}
+	networkMetrics.Connectivity = make(map[string]models.Metric)
 
 	for i := range ingresses {
 		id := ingresses[i].ID
@@ -115,14 +115,14 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 			}
 			// if metrics for that client have been reported, append them
 			if len(ingressMetrics.Connectivity[clients[j].ClientID].NodeName) > 0 {
-				networkMetrics.Nodes[clients[j].ClientID] = *ingressMetrics
+				networkMetrics.Connectivity[clients[j].ClientID] = ingressMetrics.Connectivity[clients[j].ClientID]
 			}
 		}
 	}
 
 	logger.Log(1, r.Header.Get("user"), "fetched ext client metrics for network", network)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(networkMetrics)
+	json.NewEncoder(w).Encode(networkMetrics.Connectivity)
 }
 
 // get Metrics of all nodes on server, lots of data

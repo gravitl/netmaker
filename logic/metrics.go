@@ -2,7 +2,6 @@ package logic
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
@@ -74,8 +73,7 @@ func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.M
 				for i := range clients {
 					for j := range peers {
 						if clients[i].PublicKey == peers[j].PublicKey.String() {
-							if peers[j].LastHandshakeTime.Before(time.Now().Add(-(time.Minute * 3))) &&
-								peers[j].ReceiveBytes > 0 &&
+							if peers[j].ReceiveBytes > 0 &&
 								peers[j].TransmitBytes > 0 {
 								newServerMetrics.Connectivity[clients[i].ClientID] = models.Metric{
 									NodeName:      clients[i].ClientID,
