@@ -15,6 +15,7 @@ func MetricHandlers(r *mux.Router) {
 	r.HandleFunc("/api/metrics/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(getNodeMetrics))).Methods("GET")
 	r.HandleFunc("/api/metrics/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodesMetrics))).Methods("GET")
 	r.HandleFunc("/api/metrics", logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics))).Methods("GET")
+	r.HandleFunc("/api/metrics-ext/{network}", logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics))).Methods("GET")
 }
 
 // get the metrics of a given node
@@ -68,6 +69,58 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(1, r.Header.Get("user"), "fetched metrics for network", network)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(networkMetrics)
+}
+
+// get the metrics for ext clients on a given network
+func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+	network := params["network"]
+
+	logger.Log(1, r.Header.Get("user"), "requested fetching external client metrics on network", network)
+	ingresses, err := logic.GetNetworkIngresses(network) // grab all the ingress gateways
+	if err != nil {
+		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of ext clients in network", network, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	clients, err := logic.GetNetworkExtClients(network) // grab all the network ext clients
+	if err != nil {
+		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of ext clients in network", network, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	networkMetrics := models.NetworkMetrics{}
+	networkMetrics.Nodes = make(models.MetricsMap)
+
+	for i := range ingresses {
+		id := ingresses[i].ID
+		ingressMetrics, err := logic.GetMetrics(id)
+		if err != nil {
+			logger.Log(1, r.Header.Get("user"), "failed to append external client metrics from ingress node", id, err.Error())
+			continue
+		}
+		if ingressMetrics.Connectivity == nil {
+			continue
+		}
+		for j := range clients {
+			if clients[j].Network != network {
+				continue
+			}
+			// if metrics for that client have been reported, append them
+			if len(ingressMetrics.Connectivity[clients[j].ClientID].NodeName) > 0 {
+				networkMetrics.Nodes[clients[j].ClientID] = *ingressMetrics
+			}
+		}
+	}
+
+	logger.Log(1, r.Header.Get("user"), "fetched ext client metrics for network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(networkMetrics)
 }
