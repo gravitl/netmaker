@@ -134,7 +134,6 @@ func initialize() { // Client Mode Prereq Check
 			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
 		}
 	}
-	logic.InitalizeZombies()
 }
 
 func startControllers() {
