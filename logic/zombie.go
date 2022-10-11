@@ -107,8 +107,10 @@ func InitializeZombies() {
 			if node.MacAddress == othernode.MacAddress {
 				if node.LastCheckIn > othernode.LastCheckIn {
 					zombies = append(zombies, othernode.ID)
+					logger.Log(1, "adding ", othernode.Name, " with ID ", othernode.ID, " to zombie list")
 				} else {
 					zombies = append(zombies, node.ID)
+					logger.Log(1, "adding ", node.Name, " with ID ", node.ID, " to zombie list")
 				}
 			}
 		}
