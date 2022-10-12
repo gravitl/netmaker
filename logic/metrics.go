@@ -77,8 +77,8 @@ func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.M
 								peers[j].TransmitBytes > 0 {
 								newServerMetrics.Connectivity[clients[i].ClientID] = models.Metric{
 									NodeName:      clients[i].ClientID,
-									TotalTime:     1,
-									Uptime:        1,
+									TotalTime:     5,
+									Uptime:        5,
 									IsServer:      "no",
 									TotalReceived: peers[j].ReceiveBytes,
 									TotalSent:     peers[j].TransmitBytes,
@@ -87,7 +87,7 @@ func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.M
 							} else {
 								newServerMetrics.Connectivity[clients[i].ClientID] = models.Metric{
 									NodeName:  clients[i].ClientID,
-									TotalTime: 1,
+									TotalTime: 5,
 									Uptime:    0,
 									IsServer:  "no",
 									Connected: false,
