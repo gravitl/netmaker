@@ -11,7 +11,7 @@ import (
 // ApplyWGQuickConf - applies wg-quick commands if os supports
 func ApplyWGQuickConf(confPath, ifacename string, isConnected bool) error {
 	if ncutils.IsWindows() {
-		return ApplyWindowsConf(confPath, isConnected)
+		return ApplyWindowsConf(confPath, ifacename, isConnected)
 	} else {
 		_, err := os.Stat(confPath)
 		if err != nil {

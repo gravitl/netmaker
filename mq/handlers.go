@@ -97,7 +97,11 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error saving node", err.Error())
 			return
 		}
-		updateNodePeers(&currentNode)
+		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
+			if err = PublishPeerUpdate(&currentNode, true); err != nil {
+				logger.Log(0, "error updating peers when node", currentNode.Name, currentNode.ID, "informed the server of an interface change", err.Error())
+			}
+		}
 		logger.Log(1, "updated node", id, newNode.Name)
 	}()
 }
