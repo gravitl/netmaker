@@ -277,7 +277,7 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	var err error
 	switch os {
 	case "windows":
-		ApplyWindowsConf(confPath, isConnected)
+		ApplyWindowsConf(confPath, ifacename, isConnected)
 	case "nowgquick":
 		ApplyWithoutWGQuick(node, ifacename, confPath, isConnected)
 	default:
