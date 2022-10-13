@@ -6,6 +6,7 @@ func InitializeUpgrades() {
 		upgrade0145,
 		upgrade0146,
 		upgrade0160,
+		upgrade0161,
 	})
 }
 

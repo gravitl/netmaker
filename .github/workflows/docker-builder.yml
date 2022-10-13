@@ -23,6 +23,6 @@ jobs:
       with:
         context: .
         push: true
-        platforms: linux/amd64, linux/arm64
+        platforms: linux/amd64, linux/arm64, linux/armv7l
         file: ./docker/Dockerfile-go-builder
         tags: gravitl/go-builder:latest

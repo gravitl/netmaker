@@ -15,6 +15,7 @@ import (
 
 var (
 	Version = "dev"
+	Is_EE   = false
 )
 
 // SetHost - sets the host ip
@@ -84,6 +85,10 @@ func GetServerConfig() config.ServerConfig {
 	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
+	cfg.IsEE = "no"
+	if Is_EE {
+		cfg.IsEE = "yes"
+	}
 
 	return cfg
 }
@@ -101,6 +106,7 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.Server = GetServer()
+	cfg.Is_EE = Is_EE
 
 	return cfg
 }
@@ -614,6 +620,17 @@ func GetMQServerPort() string {
 		port = config.Config.Server.MQServerPort
 	}
 	return port
+}
+
+// GetMqAdminPassword - fetches the MQ Admin password
+func GetMqAdminPassword() string {
+	password := ""
+	if os.Getenv("MQ_ADMIN_PASSWORD") != "" {
+		password = os.Getenv("MQ_ADMIN_PASSWORD")
+	} else if config.Config.Server.MQAdminPassword != "" {
+		password = config.Config.Server.MQAdminPassword
+	}
+	return password
 }
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/tls"
 )
 
 var metricsCache = new(sync.Map)
@@ -31,27 +29,25 @@ var metricsCache = new(sync.Map)
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
-	currentRun := 0
-	checkin(currentRun)
-	ticker := time.NewTicker(time.Second * 60)
+	ticker := time.NewTicker(time.Minute * ncutils.CheckInInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Log(0, "checkin routine closed")
 			return
-			//delay should be configuraable -> use cfg.Node.NetworkSettings.DefaultCheckInInterval ??
 		case <-ticker.C:
-			currentRun++
-			checkin(currentRun)
-			if currentRun >= 5 {
-				currentRun = 0
+			if mqclient != nil && mqclient.IsConnected() {
+				checkin()
+			} else {
+				logger.Log(0, "MQ client is not connected, skipping checkin...")
 			}
+
 		}
 	}
 }
 
-func checkin(currentRun int) {
+func checkin() {
 	networks, _ := ncutils.GetSystemNetworks()
 	logger.Log(3, "checkin with server(s) for all networks")
 	for _, network := range networks {
@@ -69,41 +65,43 @@ func checkin(currentRun int) {
 			// defaults to iptables for now, may need another default for non-Linux OSes
 			nodeCfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
 		}
-		if nodeCfg.Node.IsStatic != "yes" {
-			extIP, err := ncutils.GetPublicIP(nodeCfg.Server.API)
-			if err != nil {
-				logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
-			}
-			if nodeCfg.Node.Endpoint != extIP && extIP != "" {
-				logger.Log(1, "network:", nodeCfg.Node.Network, "endpoint has changed from ", nodeCfg.Node.Endpoint, " to ", extIP)
-				nodeCfg.Node.Endpoint = extIP
-				if err := PublishNodeUpdate(&nodeCfg); err != nil {
-					logger.Log(0, "network:", nodeCfg.Node.Network, "could not publish endpoint change")
+		if nodeCfg.Node.Connected == "yes" {
+			if nodeCfg.Node.IsStatic != "yes" {
+				extIP, err := ncutils.GetPublicIP(nodeCfg.Server.API)
+				if err != nil {
+					logger.Log(1, "error encountered checking public ip addresses: ", err.Error())
 				}
-			}
-			intIP, err := getPrivateAddr()
-			if err != nil {
-				logger.Log(1, "network:", nodeCfg.Node.Network, "error encountered checking private ip addresses: ", err.Error())
-			}
-			if nodeCfg.Node.LocalAddress != intIP && intIP != "" {
-				logger.Log(1, "network:", nodeCfg.Node.Network, "local Address has changed from ", nodeCfg.Node.LocalAddress, " to ", intIP)
-				nodeCfg.Node.LocalAddress = intIP
-				if err := PublishNodeUpdate(&nodeCfg); err != nil {
-					logger.Log(0, "Network: ", nodeCfg.Node.Network, " could not publish local address change")
+				if nodeCfg.Node.Endpoint != extIP && extIP != "" {
+					logger.Log(1, "network:", nodeCfg.Node.Network, "endpoint has changed from ", nodeCfg.Node.Endpoint, " to ", extIP)
+					nodeCfg.Node.Endpoint = extIP
+					if err := PublishNodeUpdate(&nodeCfg); err != nil {
+						logger.Log(0, "network:", nodeCfg.Node.Network, "could not publish endpoint change")
+					}
 				}
-			}
-			_ = UpdateLocalListenPort(&nodeCfg)
+				intIP, err := getPrivateAddr()
+				if err != nil {
+					logger.Log(1, "network:", nodeCfg.Node.Network, "error encountered checking private ip addresses: ", err.Error())
+				}
+				if nodeCfg.Node.LocalAddress != intIP && intIP != "" {
+					logger.Log(1, "network:", nodeCfg.Node.Network, "local Address has changed from ", nodeCfg.Node.LocalAddress, " to ", intIP)
+					nodeCfg.Node.LocalAddress = intIP
+					if err := PublishNodeUpdate(&nodeCfg); err != nil {
+						logger.Log(0, "Network: ", nodeCfg.Node.Network, " could not publish local address change")
+					}
+				}
+				_ = UpdateLocalListenPort(&nodeCfg)
 
-		} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {
-			localIP, err := ncutils.GetLocalIP(nodeCfg.Node.LocalRange)
-			if err != nil {
-				logger.Log(1, "network:", nodeCfg.Node.Network, "error encountered checking local ip addresses: ", err.Error())
-			}
-			if nodeCfg.Node.Endpoint != localIP && localIP != "" {
-				logger.Log(1, "network:", nodeCfg.Node.Network, "endpoint has changed from "+nodeCfg.Node.Endpoint+" to ", localIP)
-				nodeCfg.Node.Endpoint = localIP
-				if err := PublishNodeUpdate(&nodeCfg); err != nil {
-					logger.Log(0, "network:", nodeCfg.Node.Network, "could not publish localip change")
+			} else if nodeCfg.Node.IsLocal == "yes" && nodeCfg.Node.LocalRange != "" {
+				localIP, err := ncutils.GetLocalIP(nodeCfg.Node.LocalRange)
+				if err != nil {
+					logger.Log(1, "network:", nodeCfg.Node.Network, "error encountered checking local ip addresses: ", err.Error())
+				}
+				if nodeCfg.Node.Endpoint != localIP && localIP != "" {
+					logger.Log(1, "network:", nodeCfg.Node.Network, "endpoint has changed from "+nodeCfg.Node.Endpoint+" to ", localIP)
+					nodeCfg.Node.Endpoint = localIP
+					if err := PublishNodeUpdate(&nodeCfg); err != nil {
+						logger.Log(0, "network:", nodeCfg.Node.Network, "could not publish localip change")
+					}
 				}
 			}
 		}
@@ -113,8 +111,7 @@ func checkin(currentRun int) {
 			config.Write(&nodeCfg, nodeCfg.Network)
 		}
 		Hello(&nodeCfg)
-		checkCertExpiry(&nodeCfg)
-		if currentRun >= 5 {
+		if nodeCfg.Server.Is_EE && nodeCfg.Node.Connected == "yes" {
 			logger.Log(0, "collecting metrics for node", nodeCfg.Node.Name)
 			publishMetrics(&nodeCfg)
 		}
@@ -262,22 +259,6 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func checkCertExpiry(cfg *config.ClientConfig) error {
-	cert, err := tls.ReadCertFromFile(ncutils.GetNetclientServerPath(cfg.Server.Server) + ncutils.GetSeparator() + "client.pem")
-	//if cert doesn't exist or will expire within 10 days
-	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
-		key, err := tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
-		if err != nil {
-			return err
-		}
-		return RegisterWithServer(key, cfg)
-	}
-	if err != nil {
-		return err
 	}
 	return nil
 }

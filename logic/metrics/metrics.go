@@ -1,12 +1,14 @@
 package metrics
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
@@ -20,6 +22,14 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 		return &metrics, err
 	}
 	defer wgclient.Close()
+
+	if runtime.GOOS == "darwin" {
+		iface, err = wireguard.GetRealIface(iface)
+		if err != nil {
+			fillUnconnectedData(&metrics, peerMap)
+			return &metrics, err
+		}
+	}
 	device, err := wgclient.Device(iface)
 	if err != nil {
 		fillUnconnectedData(&metrics, peerMap)
@@ -58,11 +68,24 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 				newMetric.Latency = 999
 			} else {
 				pingStats := pinger.Statistics()
-				newMetric.Uptime = 1
-				newMetric.Connected = true
-				newMetric.Latency = pingStats.AvgRtt.Milliseconds()
+				if pingStats.PacketsRecv > 0 {
+					newMetric.Uptime = 1
+					newMetric.Connected = true
+					newMetric.Latency = pingStats.AvgRtt.Milliseconds()
+				}
 			}
 		}
+
+		// check device peer to see if WG is working if ping failed
+		if !newMetric.Connected {
+			if currPeer.ReceiveBytes > 0 &&
+				currPeer.TransmitBytes > 0 &&
+				time.Now().Before(currPeer.LastHandshakeTime.Add(time.Minute<<1)) {
+				newMetric.Connected = true
+				newMetric.Uptime = 1
+			}
+		}
+
 		newMetric.TotalTime = 1
 		metrics.Connectivity[id] = newMetric
 	}

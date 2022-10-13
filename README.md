@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.16.0-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.16.1-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
@@ -98,6 +98,8 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 - [VyOS Integration](https://github.com/kylechase/vyos-netmaker)
 
 - [Netmaker K3S](https://github.com/geragcp/netmaker-k3s)
+
+- [Run Netmaker + Netclient with Podman](https://github.com/agorgl/nm-setup)
 
 ## Disclaimer
  [WireGuard](https://wireguard.com/) is a registered trademark of Jason A. Donenfeld.
