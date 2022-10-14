@@ -83,6 +83,7 @@ func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.M
 									TotalReceived: peers[j].ReceiveBytes,
 									TotalSent:     peers[j].TransmitBytes,
 									Connected:     true,
+									Latency:       -1, // can not determine latency on server currently
 								}
 							} else {
 								newServerMetrics.Connectivity[clients[i].ClientID] = models.Metric{
