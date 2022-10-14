@@ -5,6 +5,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 )
 
 // GetMetrics - gets the metrics
@@ -42,9 +43,11 @@ func DeleteMetrics(nodeid string) error {
 func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.Metrics {
 	newServerMetrics := models.Metrics{}
 	newServerMetrics.Connectivity = make(map[string]models.Metric)
+	var serverNode models.Node
 	for i := range networkNodes {
 		currNodeID := networkNodes[i].ID
 		if currNodeID == serverID {
+			serverNode = networkNodes[i]
 			continue
 		}
 		if currMetrics, err := GetMetrics(currNodeID); err == nil {
@@ -61,5 +64,42 @@ func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.M
 			}
 		}
 	}
+
+	if serverNode.IsIngressGateway == "yes" {
+		clients, err := GetExtClientsByID(serverID, serverNode.Network)
+		if err == nil {
+			peers, err := wireguard.GetDevicePeers(serverNode.Interface)
+			if err == nil {
+				for i := range clients {
+					for j := range peers {
+						if clients[i].PublicKey == peers[j].PublicKey.String() {
+							if peers[j].ReceiveBytes > 0 &&
+								peers[j].TransmitBytes > 0 {
+								newServerMetrics.Connectivity[clients[i].ClientID] = models.Metric{
+									NodeName:      clients[i].ClientID,
+									TotalTime:     5,
+									Uptime:        5,
+									IsServer:      "no",
+									TotalReceived: peers[j].ReceiveBytes,
+									TotalSent:     peers[j].TransmitBytes,
+									Connected:     true,
+								}
+							} else {
+								newServerMetrics.Connectivity[clients[i].ClientID] = models.Metric{
+									NodeName:  clients[i].ClientID,
+									TotalTime: 5,
+									Uptime:    0,
+									IsServer:  "no",
+									Connected: false,
+									Latency:   999,
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return &newServerMetrics
 }

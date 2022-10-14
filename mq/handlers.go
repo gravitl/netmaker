@@ -242,10 +242,16 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		// associate ext clients with IDs
 		for i := range attachedClients {
 			extMetric := newMetrics.Connectivity[attachedClients[i].PublicKey]
-			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
-			if extMetric.Connected { // add ext client metrics
-				newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
+			if len(extMetric.NodeName) == 0 { // cover server clients
+				extMetric = newMetrics.Connectivity[attachedClients[i].ClientID]
+				if extMetric.TotalReceived > 0 && extMetric.TotalSent > 0 {
+					extMetric.Connected = true
+				}
 			}
+			extMetric.NodeName = attachedClients[i].ClientID
+			extMetric.IsServer = "no"
+			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
+			newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
 		}
 	}
 
