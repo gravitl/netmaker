@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.16.0
+    image: gravitl/netmaker:v0.16.1
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -17,7 +17,7 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - shared_certs:/etc/netmaker
+      - mosquitto_data:/etc/netmaker
     environment:
       SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -39,6 +39,7 @@ services:
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
+      MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
     ports:
       - "51821-51830:51821-51830/udp"
     expose:
@@ -51,7 +52,7 @@ services:
       - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.16.0
+    image: gravitl/netmaker-ui:v0.16.1
     depends_on:
       - netmaker
     links:
@@ -109,23 +110,24 @@ services:
     depends_on:
       - netmaker
     restart: unless-stopped
+    command: ["/mosquitto/config/wait.sh"]
+    environment:
+      NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-      - shared_certs:/mosquitto/certs
     expose:
       - "8883"
     labels:
       - traefik.enable=true
-      - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
-      - traefik.tcp.routers.mqtts.tls.passthrough=true
-      - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
-      - traefik.tcp.routers.mqtts.service=mqtts-svc
-      - traefik.tcp.routers.mqtts.entrypoints=websecure
+      - traefik.tcp.routers.mqtt.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
+      - traefik.tcp.routers.mqtt.tls.certresolver=http
+      - traefik.tcp.services.mqtt.loadbalancer.server.port=8883
+      - traefik.tcp.routers.mqtt.entrypoints=websecure
 volumes:
   traefik_certs: {}
-  shared_certs: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_data: {}

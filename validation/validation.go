@@ -3,7 +3,7 @@ package validation
 import (
 	"regexp"
 
-	"github.com/go-playground/validator/v10"
+	validator "github.com/go-playground/validator/v10"
 )
 
 // CheckYesOrNo - checks if a field on a struct is yes or no

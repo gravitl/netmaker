@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-playground/validator/v10"
+	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -186,7 +186,9 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 		}
 	}
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		return err
+		if !database.IsEmptyRecord(err) {
+			return err
+		}
 	}
 
 	if servercfg.IsDNSMode() {

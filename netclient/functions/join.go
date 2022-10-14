@@ -199,7 +199,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 		return err
 	}
 	if cfg.Node.Password == "" {
-		cfg.Node.Password = logic.GenKey()
+		cfg.Node.Password = logic.GenPassWord()
 	}
 	//check if ListenPort was set on command line
 	if cfg.Node.ListenPort != 0 {
@@ -362,10 +362,6 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 
 	local.SetNetmakerDomainRoute(cfg.Server.API)
 	cfg.Node = node
-	if err := Register(cfg); err != nil {
-		return err
-	}
-
 	logger.Log(0, "starting wireguard")
 	err = wireguard.InitWireguard(&node, privateKey, nodeGET.Peers[:])
 	if err != nil {

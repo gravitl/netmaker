@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/tls"
 )
 
 var metricsCache = new(sync.Map)
@@ -31,7 +29,6 @@ var metricsCache = new(sync.Map)
 func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Log(2, "starting checkin goroutine")
 	defer wg.Done()
-	checkin()
 	ticker := time.NewTicker(time.Minute * ncutils.CheckInInterval)
 	defer ticker.Stop()
 	for {
@@ -40,7 +37,12 @@ func Checkin(ctx context.Context, wg *sync.WaitGroup) {
 			logger.Log(0, "checkin routine closed")
 			return
 		case <-ticker.C:
-			checkin()
+			if mqclient != nil && mqclient.IsConnected() {
+				checkin()
+			} else {
+				logger.Log(0, "MQ client is not connected, skipping checkin...")
+			}
+
 		}
 	}
 }
@@ -109,8 +111,7 @@ func checkin() {
 			config.Write(&nodeCfg, nodeCfg.Network)
 		}
 		Hello(&nodeCfg)
-		checkCertExpiry(&nodeCfg)
-		if nodeCfg.Server.Is_EE {
+		if nodeCfg.Server.Is_EE && nodeCfg.Node.Connected == "yes" {
 			logger.Log(0, "collecting metrics for node", nodeCfg.Node.Name)
 			publishMetrics(&nodeCfg)
 		}
@@ -258,22 +259,6 @@ func publish(nodeCfg *config.ClientConfig, dest string, msg []byte, qos byte) er
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func checkCertExpiry(cfg *config.ClientConfig) error {
-	cert, err := tls.ReadCertFromFile(ncutils.GetNetclientServerPath(cfg.Server.Server) + ncutils.GetSeparator() + "client.pem")
-	//if cert doesn't exist or will expire within 10 days
-	if errors.Is(err, os.ErrNotExist) || cert.NotAfter.Before(time.Now().Add(time.Hour*24*10)) {
-		key, err := tls.ReadKeyFromFile(ncutils.GetNetclientPath() + ncutils.GetSeparator() + "client.key")
-		if err != nil {
-			return err
-		}
-		return RegisterWithServer(key, cfg)
-	}
-	if err != nil {
-		return err
 	}
 	return nil
 }

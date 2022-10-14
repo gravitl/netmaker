@@ -251,7 +251,11 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		oldMetric := oldMetrics.Connectivity[k]
 		currMetric.TotalTime += oldMetric.TotalTime
 		currMetric.Uptime += oldMetric.Uptime // get the total uptime for this connection
-		currMetric.PercentUp = 100.0 * (float64(currMetric.Uptime) / float64(currMetric.TotalTime))
+		if currMetric.Uptime == 0 || currMetric.TotalTime == 0 {
+			currMetric.PercentUp = 0
+		} else {
+			currMetric.PercentUp = 100.0 * (float64(currMetric.Uptime) / float64(currMetric.TotalTime))
+		}
 		totalUpMinutes := currMetric.Uptime * ncutils.CheckInInterval
 		currMetric.ActualUptime = time.Duration(totalUpMinutes) * time.Minute
 		delete(oldMetrics.Connectivity, k) // remove from old data

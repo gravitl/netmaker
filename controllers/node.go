@@ -67,75 +67,112 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			decoderErr.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
-	} else {
-		errorResponse.Code = http.StatusBadRequest
-		if authRequest.ID == "" {
-			errorResponse.Message = "W1R3: ID can't be empty"
-			logger.Log(0, request.Header.Get("user"), errorResponse.Message)
+	}
+	errorResponse.Code = http.StatusBadRequest
+	if authRequest.ID == "" {
+		errorResponse.Message = "W1R3: ID can't be empty"
+		logger.Log(0, request.Header.Get("user"), errorResponse.Message)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	} else if authRequest.Password == "" {
+		errorResponse.Message = "W1R3: Password can't be empty"
+		logger.Log(0, request.Header.Get("user"), errorResponse.Message)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	var err error
+	result, err = logic.GetNodeByID(authRequest.ID)
+	if err != nil {
+		result, err = logic.GetDeletedNodeByID(authRequest.ID)
+		if err != nil {
+			errorResponse.Code = http.StatusBadRequest
+			errorResponse.Message = err.Error()
+			logger.Log(0, request.Header.Get("user"),
+				fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
 			logic.ReturnErrorResponse(response, request, errorResponse)
 			return
-		} else if authRequest.Password == "" {
-			errorResponse.Message = "W1R3: Password can't be empty"
-			logger.Log(0, request.Header.Get("user"), errorResponse.Message)
-			logic.ReturnErrorResponse(response, request, errorResponse)
-			return
-		} else {
-			var err error
-			result, err = logic.GetNodeByID(authRequest.ID)
-
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				logger.Log(0, request.Header.Get("user"),
-					fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
-				logic.ReturnErrorResponse(response, request, errorResponse)
-				return
-			}
-
-			err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
-			if err != nil {
-				errorResponse.Code = http.StatusBadRequest
-				errorResponse.Message = err.Error()
-				logger.Log(0, request.Header.Get("user"),
-					"error validating user password: ", err.Error())
-				logic.ReturnErrorResponse(response, request, errorResponse)
-				return
-			} else {
-				tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
-
-				if tokenString == "" {
-					errorResponse.Code = http.StatusBadRequest
-					errorResponse.Message = "Could not create Token"
-					logger.Log(0, request.Header.Get("user"),
-						fmt.Sprintf("%s: %v", errorResponse.Message, err))
-					logic.ReturnErrorResponse(response, request, errorResponse)
-					return
-				}
-
-				var successResponse = models.SuccessResponse{
-					Code:    http.StatusOK,
-					Message: "W1R3: Device " + authRequest.ID + " Authorized",
-					Response: models.SuccessfulLoginResponse{
-						AuthToken: tokenString,
-						ID:        authRequest.ID,
-					},
-				}
-				successJSONResponse, jsonError := json.Marshal(successResponse)
-
-				if jsonError != nil {
-					errorResponse.Code = http.StatusBadRequest
-					errorResponse.Message = err.Error()
-					logger.Log(0, request.Header.Get("user"),
-						"error marshalling resp: ", err.Error())
-					logic.ReturnErrorResponse(response, request, errorResponse)
-					return
-				}
-				response.WriteHeader(http.StatusOK)
-				response.Header().Set("Content-Type", "application/json")
-				response.Write(successJSONResponse)
-			}
 		}
 	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error validating user password: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	// creates network role,node client (added here to resolve any missing configuration in MQ)
+	event := mq.MqDynsecPayload{
+		Commands: []mq.MqDynSecCmd{
+
+			{
+				Command:  mq.CreateRoleCmd,
+				RoleName: result.Network,
+				Textname: "Network wide role with Acls for nodes",
+				Acls:     mq.FetchNetworkAcls(result.Network),
+			},
+			{
+				Command:  mq.CreateClientCmd,
+				Username: result.ID,
+				Password: authRequest.Password,
+				Textname: result.Name,
+				Roles: []mq.MqDynSecRole{
+					{
+						Rolename: mq.NodeRole,
+						Priority: -1,
+					},
+					{
+						Rolename: result.Network,
+						Priority: -1,
+					},
+				},
+				Groups: make([]mq.MqDynSecGroup, 0),
+			},
+		},
+	}
+
+	if err := mq.PublishEventToDynSecTopic(event); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+			event.Commands, err.Error()))
+		errorResponse.Code = http.StatusInternalServerError
+		errorResponse.Message = fmt.Sprintf("could not create mq client for node [%s]: %v", result.ID, err)
+		return
+	}
+
+	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
+	if tokenString == "" {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = "Could not create Token"
+		logger.Log(0, request.Header.Get("user"),
+			fmt.Sprintf("%s: %v", errorResponse.Message, err))
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	var successResponse = models.SuccessResponse{
+		Code:    http.StatusOK,
+		Message: "W1R3: Device " + authRequest.ID + " Authorized",
+		Response: models.SuccessfulLoginResponse{
+			AuthToken: tokenString,
+			ID:        authRequest.ID,
+		},
+	}
+	successJSONResponse, jsonError := json.Marshal(successResponse)
+
+	if jsonError != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error marshalling resp: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	response.WriteHeader(http.StatusOK)
+	response.Header().Set("Content-Type", "application/json")
+	response.Write(successJSONResponse)
+
 }
 
 // auth middleware for api calls from nodes where node is has not yet joined the server (register, join)
@@ -229,7 +266,6 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 
 					// this indicates request is from a node
 					// used for failover - if a getNode comes from node, this will trigger a metrics wipe
-					r.Header.Set("requestfrom", "node")
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -597,7 +633,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Mine:   node.TrafficKeys.Mine,
 		Server: key,
 	}
-
+	// consume password before hashing for mq client creation
+	nodePassword := node.Password
 	err = logic.CreateNode(&node)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -631,6 +668,44 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", node.ID, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	// Create client for this node in Mq
+	event := mq.MqDynsecPayload{
+		Commands: []mq.MqDynSecCmd{
+			{ // delete if any client exists already
+				Command:  mq.DeleteClientCmd,
+				Username: node.ID,
+			},
+			{
+				Command:  mq.CreateRoleCmd,
+				RoleName: node.Network,
+				Textname: "Network wide role with Acls for nodes",
+				Acls:     mq.FetchNetworkAcls(node.Network),
+			},
+			{
+				Command:  mq.CreateClientCmd,
+				Username: node.ID,
+				Password: nodePassword,
+				Textname: node.Name,
+				Roles: []mq.MqDynSecRole{
+					{
+						Rolename: mq.NodeRole,
+						Priority: -1,
+					},
+					{
+						Rolename: node.Network,
+						Priority: -1,
+					},
+				},
+				Groups: make([]mq.MqDynSecGroup, 0),
+			},
+		},
+	}
+
+	if err := mq.PublishEventToDynSecTopic(event); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+			event.Commands, err.Error()))
 	}
 
 	response := models.NodeGet{
@@ -963,12 +1038,23 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 	var nodeid = params["nodeid"]
+	fromNode := r.Header.Get("requestfrom") == "node"
 	var node, err = logic.GetNodeByID(nodeid)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+		if fromNode {
+			node, err = logic.GetDeletedNodeByID(nodeid)
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"),
+					fmt.Sprintf("error fetching node from deleted nodes [ %s ] info: %v", nodeid, err))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+		} else {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	if isServer(&node) {
 		err := fmt.Errorf("cannot delete server node")
@@ -987,10 +1073,26 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	//send update to node to be deleted before deleting on server otherwise message cannot be sent
 	node.Action = models.NODE_DELETE
 
-	err = logic.DeleteNodeByID(&node, false)
+	err = logic.DeleteNodeByID(&node, fromNode)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if fromNode {
+		// deletes node related role and client
+		event := mq.MqDynsecPayload{
+			Commands: []mq.MqDynSecCmd{
+				{
+					Command:  mq.DeleteClientCmd,
+					Username: nodeid,
+				},
+			},
+		}
+
+		if err := mq.PublishEventToDynSecTopic(event); err != nil {
+			logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+				event.Commands, err.Error()))
+		}
 	}
 
 	if servercfg.Is_EE {
@@ -1000,7 +1102,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
-
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)
 	runForceServerUpdate(&node, false)

@@ -1,12 +1,14 @@
 package metrics
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/go-ping/ping"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
@@ -20,6 +22,14 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 		return &metrics, err
 	}
 	defer wgclient.Close()
+
+	if runtime.GOOS == "darwin" {
+		iface, err = wireguard.GetRealIface(iface)
+		if err != nil {
+			fillUnconnectedData(&metrics, peerMap)
+			return &metrics, err
+		}
+	}
 	device, err := wgclient.Device(iface)
 	if err != nil {
 		fillUnconnectedData(&metrics, peerMap)
