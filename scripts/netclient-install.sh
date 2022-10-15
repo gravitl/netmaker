@@ -37,6 +37,11 @@ elif [ "${OS}" = "FreeBSD" ]; then
 	dependencies="wireguard wget"
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
+elif [ -f /etc/turris-version ]; then
+	dependencies="wireguard-tools bash"
+	OS="TurrisOS"
+	update_cmd='opkg update'	
+	install_cmd='opkg install'
 elif [ -f /etc/openwrt_release ]; then
 	dependencies="wireguard-tools bash"
 	OS="OpenWRT"
@@ -75,7 +80,7 @@ while [ -n "$1" ]; do
 			fi
 		fi	
 	else
-		if [ "${OS}" = "OpenWRT" ]; then
+		if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 			is_installed=$(opkg list-installed $1 | grep $1)
 		else
 			is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
@@ -86,7 +91,7 @@ while [ -n "$1" ]; do
 			echo "    " $1 is not installed. Attempting install.
 			${install_cmd} $1
 			sleep 5
-			if [ "${OS}" = "OpenWRT" ]; then
+			if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 				is_installed=$(opkg list-installed $1 | grep $1)
 			else
 				is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
@@ -189,7 +194,7 @@ echo "Binary = $dist"
 
 url="https://github.com/gravitl/netmaker/releases/download/$VERSION/$dist"
 curl_opts='-nv'
-if [ "${OS}" = "OpenWRT" ]; then
+if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 	curl_opts='-q'
 fi
 
@@ -204,7 +209,7 @@ fi
 chmod +x netclient
 
 EXTRA_ARGS=""
-if [  "${OS}" = "OpenWRT" ]; then
+if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 	EXTRA_ARGS="--daemon=off"
 fi
 
@@ -225,9 +230,18 @@ if [ "${OS}" = "FreeBSD" ]; then
   fi
 fi
 
-if [ "${OS}" = "OpenWRT" ]; then
+if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 	mv ./netclient /sbin/netclient
-	cat << 'END_OF_FILE' > ./netclient.service.tmp
+
+	if [ "${OS}" = "TurrisOS" ]; then
+		url="https://raw.githubusercontent.com/gravitl/netmaker/$VERSION/scripts/openwrt-daemon.sh"
+		if curl --output /dev/null --silent --head --fail $url; then
+			wget $curl_opts -O netclient.service.tmp $url
+		else
+			wget $curl_opts -O netclient.service.tmp https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/openwrt-daemon.sh
+		fi
+	else
+		cat << 'END_OF_FILE' > ./netclient.service.tmp
 #!/bin/sh /etc/rc.common
 
 EXTRA_COMMANDS="status"
@@ -271,6 +285,7 @@ status() {
 }
 
 END_OF_FILE
+	fi
 	mv ./netclient.service.tmp /etc/init.d/netclient
 	chmod +x /etc/init.d/netclient
 	/etc/init.d/netclient enable
