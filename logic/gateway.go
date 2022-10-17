@@ -265,7 +265,9 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 	}
 	logger.Log(3, "deleting ingress gateway")
 	wasFailover := node.Failover == "yes"
-	node.UDPHolePunch = network.DefaultUDPHolePunch
+	if node.IsServer != "yes" {
+		node.UDPHolePunch = network.DefaultUDPHolePunch
+	}
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
 	node.IngressGatewayRange = ""
