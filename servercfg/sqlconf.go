@@ -36,7 +36,7 @@ func GetSQLPort() int32 {
 	return port
 }
 func GetSQLUser() string {
-	user := "posgres"
+	user := "postgres"
 	if os.Getenv("SQL_USER") != "" {
 		user = os.Getenv("SQL_USER")
 	} else if config.Config.SQL.Username != "" {
