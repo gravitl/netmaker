@@ -322,7 +322,7 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 	postUp += "nft add rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
 	postUp += "nft add table nat ; "
 	postUp += "nft add chain nat postrouting ; "
-	postUp += "nft add rule ip nat postrouting oifname " + networkInterface + " counter masquerade"
+	postUp += "nft add rule ip nat postrouting oifname " + networkInterface + " counter masquerade ; "
 
 	// doesn't remove potentially empty tables or chains
 	postDown := "nft flush table filter ; "
