@@ -10,6 +10,8 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/agnivade/levenshtein"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/functions"
 	"github.com/gravitl/netmaker/netclient/gui/components"
@@ -48,15 +50,48 @@ func Run(networks []string) error {
 	views.SetView(views.NetDetails, netDetailsViews)
 	window.SetFixedSize(false)
 
+	searchBar := widget.NewEntry()
+	searchBar.PlaceHolder = "Search a Network ..."
+	searchBar.TextStyle = fyne.TextStyle{
+		Italic: true,
+	}
+	searchBar.OnChanged = func(text string) {
+		if text == "" {
+			networkView = container.NewVScroll(views.GetNetworksView(networks))
+			networkView.SetMinSize(fyne.NewSize(400, 300))
+			views.RefreshComponent(views.Networks, networkView)
+			views.ShowView(views.Networks)
+			return
+		}
+
+		opts := []string{}
+		for _, n := range networks {
+			r := levenshtein.ComputeDistance(text, n)
+			if r <= 2 {
+				opts = append(opts, n)
+			}
+		}
+
+		// fmt.Println(opts)
+		networkView = container.NewVScroll(views.GetNetworksView(opts))
+		networkView.SetMinSize(fyne.NewSize(400, 300))
+		views.RefreshComponent(views.Networks, networkView)
+		views.ShowView(views.Networks)
+		opts = nil
+	}
+
 	toolbar := container.NewCenter(widget.NewToolbar(
 		components.NewToolbarLabelButton("Networks", theme.HomeIcon(), func() {
+			searchBar.Show()
 			views.ShowView(views.Networks)
 			views.ClearNotification()
 		}, components.Blue_color),
 		components.NewToolbarLabelButton("Join new", theme.ContentAddIcon(), func() {
+			searchBar.Hide()
 			views.ShowView(views.Join)
 		}, components.Gravitl_color),
 		components.NewToolbarLabelButton("Uninstall", theme.ErrorIcon(), func() {
+			searchBar.Hide()
 			confirmView := views.GetConfirmation("Confirm Netclient uninstall?", func() {
 				views.ShowView(views.Networks)
 			}, func() {
@@ -96,8 +131,9 @@ func Run(networks []string) error {
 	views.CurrentContent = container.NewVBox()
 
 	views.CurrentContent.Add(container.NewGridWithRows(
-		1,
+		2,
 		toolbar,
+		searchBar,
 	))
 	views.CurrentContent.Add(views.GetView(views.Networks))
 	views.CurrentContent.Add(views.GetView(views.NetDetails))
