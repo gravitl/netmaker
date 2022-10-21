@@ -132,19 +132,20 @@ func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLen
 
 // Configure - configures the dynamic initial configuration for MQ
 func Configure() error {
+	logger.Log(0, "Configuring MQ...")
 	path := functions.GetNetmakerPath() + ncutils.GetSeparator() + dynamicSecurityFile
-	if logic.CheckIfFileExists(path) {
-		logger.Log(0, "MQ Is Already Configured, Skipping...")
-		return nil
-	}
-	if servercfg.Is_EE {
-		dynConfig.Clients = append(dynConfig.Clients, exporterMQClient)
-		dynConfig.Roles = append(dynConfig.Roles, exporterMQRole)
-	}
+
 	password := servercfg.GetMqAdminPassword()
 	if password == "" {
 		return errors.New("MQ admin password not provided")
 	}
+	if logic.CheckIfFileExists(path) {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			json.Unmarshal(data, &dynConfig)
+		}
+	}
+
 	for i, cI := range dynConfig.Clients {
 		if cI.Username == mqAdminUserName || cI.Username == mqNetmakerServerUserName {
 			salt := logic.RandomString(12)

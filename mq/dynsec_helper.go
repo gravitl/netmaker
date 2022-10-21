@@ -52,6 +52,7 @@ var (
 					},
 				},
 			},
+			exporterMQClient,
 		},
 		Roles: []role{
 			{
@@ -66,6 +67,7 @@ var (
 				Rolename: NodeRole,
 				Acls:     fetchNodeAcls(),
 			},
+			exporterMQRole,
 		},
 		DefaultAcl: defaultAccessAcl{
 			PublishClientSend:    false,
