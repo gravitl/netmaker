@@ -26,7 +26,7 @@ const (
 
 var (
 	// default configuration of dynamic security
-	dynConfig = dynJSON{
+	dynConfigInI = dynJSON{
 		Clients: []client{
 			{
 				Username:   mqAdminUserName,
@@ -52,6 +52,7 @@ var (
 					},
 				},
 			},
+			exporterMQClient,
 		},
 		Roles: []role{
 			{
@@ -66,6 +67,7 @@ var (
 				Rolename: NodeRole,
 				Acls:     fetchNodeAcls(),
 			},
+			exporterMQRole,
 		},
 		DefaultAcl: defaultAccessAcl{
 			PublishClientSend:    false,
