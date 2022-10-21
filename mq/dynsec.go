@@ -132,7 +132,9 @@ func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLen
 
 // Configure - configures the dynamic initial configuration for MQ
 func Configure() error {
+
 	logger.Log(0, "Configuring MQ...")
+	dynConfig := dynConfigInI
 	path := functions.GetNetmakerPath() + ncutils.GetSeparator() + dynamicSecurityFile
 
 	password := servercfg.GetMqAdminPassword()

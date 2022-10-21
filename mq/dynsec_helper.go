@@ -26,7 +26,7 @@ const (
 
 var (
 	// default configuration of dynamic security
-	dynConfig = dynJSON{
+	dynConfigInI = dynJSON{
 		Clients: []client{
 			{
 				Username:   mqAdminUserName,
