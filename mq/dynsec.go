@@ -132,19 +132,27 @@ func encodePasswordToPBKDF2(password string, salt string, iterations int, keyLen
 
 // Configure - configures the dynamic initial configuration for MQ
 func Configure() error {
+
+	logger.Log(0, "Configuring MQ...")
+	dynConfig := dynConfigInI
 	path := functions.GetNetmakerPath() + ncutils.GetSeparator() + dynamicSecurityFile
-	if logic.CheckIfFileExists(path) {
-		logger.Log(0, "MQ Is Already Configured, Skipping...")
-		return nil
-	}
-	if servercfg.Is_EE {
-		dynConfig.Clients = append(dynConfig.Clients, exporterMQClient)
-		dynConfig.Roles = append(dynConfig.Roles, exporterMQRole)
-	}
+
 	password := servercfg.GetMqAdminPassword()
 	if password == "" {
 		return errors.New("MQ admin password not provided")
 	}
+	if logic.CheckIfFileExists(path) {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			var cfg dynJSON
+			err = json.Unmarshal(data, &cfg)
+			if err == nil {
+				logger.Log(0, "MQ config exists already, So Updating Existing Config...")
+				dynConfig = cfg
+			}
+		}
+	}
+	exporter := false
 	for i, cI := range dynConfig.Clients {
 		if cI.Username == mqAdminUserName || cI.Username == mqNetmakerServerUserName {
 			salt := logic.RandomString(12)
@@ -154,6 +162,7 @@ func Configure() error {
 			cI.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
 			dynConfig.Clients[i] = cI
 		} else if servercfg.Is_EE && cI.Username == mqExporterUserName {
+			exporter = true
 			exporterPassword := servercfg.GetLicenseKey()
 			salt := logic.RandomString(12)
 			hashed := encodePasswordToPBKDF2(exporterPassword, salt, 101, 64)
@@ -162,6 +171,16 @@ func Configure() error {
 			cI.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
 			dynConfig.Clients[i] = cI
 		}
+	}
+	if servercfg.Is_EE && !exporter {
+		exporterPassword := servercfg.GetLicenseKey()
+		salt := logic.RandomString(12)
+		hashed := encodePasswordToPBKDF2(exporterPassword, salt, 101, 64)
+		exporterMQClient.Password = hashed
+		exporterMQClient.Iterations = 101
+		exporterMQClient.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
+		dynConfig.Clients = append(dynConfig.Clients, exporterMQClient)
+		dynConfig.Roles = append(dynConfig.Roles, exporterMQRole)
 	}
 	data, err := json.MarshalIndent(dynConfig, "", " ")
 	if err != nil {
