@@ -142,6 +142,7 @@ func Configure() error {
 	if logic.CheckIfFileExists(path) {
 		data, err := os.ReadFile(path)
 		if err == nil {
+			logger.Log(0, "MQ config exists already, Updating Existing Config...")
 			json.Unmarshal(data, &dynConfig)
 		}
 	}
