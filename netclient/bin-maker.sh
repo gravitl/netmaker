@@ -20,7 +20,7 @@ function build
 	    build $_goarch $_goose 5 && build $_goarch $_goose 6 && build $_goarch $_goose 7
     else
         echo $_out
-        GOARM=$_goarm GOARCH=$_goarch GOOS=$_goose GOHOSTARCH=$__HOST_ARCH CGO_ENABLED=0 go build -ldflags="-X 'main.version=$VERSION'" -o $_out
+        if [ "$_goarch" == "mips" ]; then GOMIPS=softfloat; fi; GOARM=$_goarm GOARCH=$_goarch GOOS=$_goose GOHOSTARCH=$__HOST_ARCH CGO_ENABLED=0 go build -ldflags="-X 'main.version=$VERSION'" -o $_out
     fi
 }
 
