@@ -462,21 +462,29 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	//}
 	//need to split postup/postdown because ini lib adds a quotes which breaks freebsd
 	if node.PostUp != "" {
-		parts := strings.Split(node.PostUp, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostUp").SetValue(part)
+		if node.OS == "freebsd" {
+			parts := strings.Split(node.PostUp, " ; ")
+			for i, part := range parts {
+				if i == 0 {
+					wireguard.Section(section_interface).Key("PostUp").SetValue(part)
+				}
+				wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
 			}
-			wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
+		} else {
+			wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostUp)
 		}
 	}
 	if node.PostDown != "" {
-		parts := strings.Split(node.PostDown, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostDown").SetValue(part)
+		if node.OS == "freebsd" {
+			parts := strings.Split(node.PostDown, " ; ")
+			for i, part := range parts {
+				if i == 0 {
+					wireguard.Section(section_interface).Key("PostDown").SetValue(part)
+				}
+				wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
 			}
-			wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
+		} else {
+			wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostDown)
 		}
 	}
 	if node.MTU != 0 {
