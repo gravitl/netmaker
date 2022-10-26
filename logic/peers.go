@@ -111,6 +111,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 				if peer.LocalListenPort != 0 {
 					peer.ListenPort = peer.LocalListenPort
 				}
+			}
 		}
 
 		// set address if setEndpoint is true
