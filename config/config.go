@@ -76,6 +76,7 @@ type ServerConfig struct {
 	LicenseValue          string `yaml:"license_value"`
 	NetmakerAccountID     string `yaml:"netmaker_account_id"`
 	IsEE                  string `yaml:"is_ee"`
+	StunPort              string `yaml:"stun_port"`
 }
 
 // SQLConfig - Generic SQL Config

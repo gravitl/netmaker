@@ -25,6 +25,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
+	stunserver "github.com/gravitl/netmaker/stun-server"
 )
 
 var version = "dev"
@@ -170,6 +171,8 @@ func startControllers() {
 	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
+	// starts the stun server
+	go stunserver.Start()
 
 	waitnetwork.Wait()
 }

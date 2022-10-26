@@ -107,6 +107,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Version = GetVersion()
 	cfg.Server = GetServer()
 	cfg.Is_EE = Is_EE
+	cfg.StunPort = GetStunPort()
 
 	return cfg
 }
@@ -660,4 +661,14 @@ func GetNetmakerAccountID() string {
 		netmakerAccountID = config.Config.Server.LicenseValue
 	}
 	return netmakerAccountID
+}
+
+func GetStunPort() string {
+	port := "3478" //default
+	if os.Getenv("STUN_PORT") != "" {
+		port = os.Getenv("STUN_PORT")
+	} else if config.Config.Server.StunPort != "" {
+		port = config.Config.Server.StunPort
+	}
+	return port
 }

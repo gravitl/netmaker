@@ -219,6 +219,7 @@ type ServerConfig struct {
 	MQPort      string `yaml:"mqport"`
 	Server      string `yaml:"server"`
 	Is_EE       bool   `yaml:"isee"`
+	StunPort    string `yaml:"stun_port"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
