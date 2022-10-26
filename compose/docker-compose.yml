@@ -40,6 +40,7 @@ services:
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
       MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
+      STUN_PORT: "3478"
     ports:
       - "51821-51830:51821-51830/udp"
     expose:
