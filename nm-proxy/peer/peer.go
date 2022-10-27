@@ -10,10 +10,10 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/common"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/proxy"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/server"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/wg"
+	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/proxy"
+	"github.com/gravitl/netmaker/nm-proxy/server"
+	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 

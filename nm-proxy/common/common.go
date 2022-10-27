@@ -18,7 +18,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/wg"
+	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 

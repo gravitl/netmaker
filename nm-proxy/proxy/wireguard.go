@@ -11,9 +11,9 @@ import (
 	"strconv"
 
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/common"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/packet"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/wg"
+	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/packet"
+	"github.com/gravitl/netmaker/nm-proxy/wg"
 )
 
 func NewProxy(config Config) *Proxy {

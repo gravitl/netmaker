@@ -1,4 +1,4 @@
-package netclientproxy
+package nmproxy
 
 import (
 	"fmt"
@@ -9,12 +9,12 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/common"
-	peerpkg "github.com/gravitl/netmaker/netclient/netclient-proxy/peer"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/server"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/stun"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/wg"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/gravitl/netmaker/nm-proxy/common"
+	peerpkg "github.com/gravitl/netmaker/nm-proxy/peer"
+	"github.com/gravitl/netmaker/nm-proxy/server"
+	"github.com/gravitl/netmaker/nm-proxy/stun"
+	"github.com/gravitl/netmaker/nm-proxy/wg"
 )
 
 func Start() {

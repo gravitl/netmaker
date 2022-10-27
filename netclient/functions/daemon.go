@@ -19,8 +19,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/global_settings"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	netclientproxy "github.com/gravitl/netmaker/netclient/netclient-proxy"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	nmproxy "github.com/gravitl/netmaker/nm-proxy"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -115,7 +115,7 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 	}
 	wg.Add(1)
 	go Checkin(ctx, wg)
-	go netclientproxy.Start()
+	go nmproxy.Start()
 	return cancel
 }
 

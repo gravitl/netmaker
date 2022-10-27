@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/common"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/packet"
+	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/packet"
 )
 
 const (

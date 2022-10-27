@@ -4,8 +4,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/server"
-	"github.com/gravitl/netmaker/netclient/netclient-proxy/wg"
+	"github.com/gravitl/netmaker/nm-proxy/server"
+	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
