@@ -2,6 +2,8 @@ package wireguard
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
@@ -17,7 +19,8 @@ func GetRealIface(iface string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !(ncutils.FileExists("/var/run/wireguard/" + realIfaceName + ".sock")) {
+	realIfaceName = strings.TrimSpace(realIfaceName)
+	if !(ncutils.FileExists(fmt.Sprintf("/var/run/wireguard/%s.sock", realIfaceName))) {
 		return "", errors.New("interface file does not exist")
 	}
 	return realIfaceName, nil
