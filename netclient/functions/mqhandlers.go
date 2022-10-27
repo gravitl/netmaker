@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/guumaster/hostctl/pkg/file"
 	"github.com/guumaster/hostctl/pkg/parser"
 	"github.com/guumaster/hostctl/pkg/types"
@@ -245,6 +246,13 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	if err != nil {
 		logger.Log(0, "error syncing wg after peer update: "+err.Error())
 		return
+	}
+	ProxyMgmChan <- &manager.ManagerAction{
+		Action: manager.AddInterface,
+		Payload: manager.ManagerPayload{
+			InterfaceName: cfg.Node.Interface,
+			Peers:         peerUpdate.Peers,
+		},
 	}
 	logger.Log(0, "network:", cfg.Node.Network, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
 	if cfg.Node.DNSOn == "yes" {

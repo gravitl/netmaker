@@ -2,8 +2,12 @@ package functions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -13,6 +17,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/auth"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -21,11 +26,14 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	nmproxy "github.com/gravitl/netmaker/nm-proxy"
+	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+var ProxyMgmChan = make(chan *manager.ManagerAction, 100)
 var messageCache = new(sync.Map)
-
+var ProxyStatus = "OFF"
 var serverSet map[string]bool
 
 var mqclient mqtt.Client
@@ -115,8 +123,62 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 	}
 	wg.Add(1)
 	go Checkin(ctx, wg)
-	go nmproxy.Start()
+	if ProxyStatus == "OFF" {
+		ProxyStatus = "ON"
+		go nmproxy.Start(ProxyMgmChan)
+	} else {
+		log.Println("Proxy already running...")
+	}
+
+	go func() {
+
+		networks, _ := ncutils.GetSystemNetworks()
+		for _, network := range networks {
+			logger.Log(0, "Collecting interface and peers info to configure proxy...")
+			cfg := config.ClientConfig{}
+			cfg.Network = network
+			cfg.ReadConfig()
+			node, err := GetNodeInfo(&cfg)
+			if err != nil {
+				log.Println("Failed to get node info: ", err)
+				continue
+			}
+			ProxyMgmChan <- &manager.ManagerAction{
+				Action: manager.AddInterface,
+				Payload: manager.ManagerPayload{
+					InterfaceName: node.Node.Interface,
+					Peers:         node.Peers,
+				},
+			}
+
+		}
+
+	}()
 	return cancel
+}
+func GetNodeInfo(cfg *config.ClientConfig) (models.NodeGet, error) {
+	var nodeGET models.NodeGet
+	token, err := common.Authenticate(cfg)
+	if err != nil {
+		return nodeGET, err
+	}
+	url := fmt.Sprintf("https://%s/api/nodes/%s/%s", cfg.Server.API, cfg.Network, cfg.Node.ID)
+	response, err := common.API("", http.MethodGet, url, token)
+	if err != nil {
+		return nodeGET, err
+	}
+	if response.StatusCode != http.StatusOK {
+		bytes, err := io.ReadAll(response.Body)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return nodeGET, (fmt.Errorf("%s %w", string(bytes), err))
+	}
+	defer response.Body.Close()
+	if err := json.NewDecoder(response.Body).Decode(&nodeGET); err != nil {
+		return nodeGET, fmt.Errorf("error decoding node %w", err)
+	}
+	return nodeGET, nil
 }
 
 // UpdateKeys -- updates private key and returns new publickey
