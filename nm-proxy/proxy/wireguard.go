@@ -24,14 +24,26 @@ func NewProxy(config Config) *Proxy {
 // proxyToRemote proxies everything from Wireguard to the RemoteKey peer
 func (p *Proxy) ProxyToRemote() {
 	buf := make([]byte, 1500)
-	defer p.LocalConn.Close()
-	defer p.RemoteConn.Close()
+
+	go func() {
+		<-p.Ctx.Done()
+		defer p.LocalConn.Close()
+		defer p.RemoteConn.Close()
+	}()
 	for {
 		select {
 		case <-p.Ctx.Done():
-			log.Printf("stopped proxying to remote peer %s due to closed connection\n", p.Config.RemoteKey)
+			log.Printf("----------> stopped proxying to remote peer %s due to closed connection\n", p.Config.RemoteKey)
 			if runtime.GOOS == "darwin" {
-				_, err := common.RunCmd(fmt.Sprintf("ifconfig lo0 -alias %s 255.255.255.255", p.LocalConn.LocalAddr().String()), true)
+				host, _, err := net.SplitHostPort(p.LocalConn.LocalAddr().String())
+				if err != nil {
+					log.Println("Failed to split host: ", p.LocalConn.LocalAddr().String(), err)
+					return
+				}
+				if host == "127.0.0.1" {
+					return
+				}
+				_, err = common.RunCmd(fmt.Sprintf("ifconfig lo0 -alias %s 255.255.255.255", host), true)
 				if err != nil {
 					log.Println("Failed to add alias: ", err)
 				}
@@ -65,30 +77,6 @@ func (p *Proxy) ProxyToRemote() {
 			})
 			if err != nil {
 				log.Println("Failed to send to remote: ", err)
-			}
-		}
-	}
-}
-
-// proxyToLocal proxies everything from the RemoteKey peer to local Wireguard
-func (p *Proxy) ProxyToLocal() {
-
-	buf := make([]byte, 1500)
-	for {
-		select {
-		case <-p.Ctx.Done():
-			log.Printf("stopped proxying from remote peer %s due to closed connection\n", p.Config.RemoteKey)
-			return
-		default:
-
-			n, err := p.RemoteConn.Read(buf)
-			if err != nil {
-				continue
-			}
-			log.Printf("PROXING TO LOCAL!!!---> %s <<<<<<<< %s\n", p.LocalConn.LocalAddr().String(), p.RemoteConn.RemoteAddr().String())
-			_, err = p.LocalConn.Write(buf[:n])
-			if err != nil {
-				continue
 			}
 		}
 	}

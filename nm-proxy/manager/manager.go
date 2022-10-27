@@ -45,6 +45,7 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 }
 func cleanUp(iface string) {
 	if peers, ok := common.WgIFaceMap[iface]; ok {
+		log.Println("########------------>  CLEANING UP: ", iface)
 		for _, peerI := range peers {
 			peerI.Proxy.Cancel()
 		}
