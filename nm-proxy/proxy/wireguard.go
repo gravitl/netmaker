@@ -1,9 +1,7 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
@@ -13,6 +11,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
+	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 )
 
@@ -25,10 +24,18 @@ func NewProxy(config Config) *Proxy {
 // proxyToRemote proxies everything from Wireguard to the RemoteKey peer
 func (p *Proxy) ProxyToRemote() {
 	buf := make([]byte, 1500)
+	defer p.LocalConn.Close()
+	defer p.RemoteConn.Close()
 	for {
 		select {
 		case <-p.Ctx.Done():
 			log.Printf("stopped proxying to remote peer %s due to closed connection\n", p.Config.RemoteKey)
+			if runtime.GOOS == "darwin" {
+				_, err := common.RunCmd(fmt.Sprintf("ifconfig lo0 -alias %s 255.255.255.255", p.LocalConn.LocalAddr().String()), true)
+				if err != nil {
+					log.Println("Failed to add alias: ", err)
+				}
+			}
 			return
 		default:
 
@@ -37,8 +44,8 @@ func (p *Proxy) ProxyToRemote() {
 				log.Println("ERRR READ: ", err)
 				continue
 			}
-
-			if peerI, ok := common.Peers[p.Config.RemoteKey]; ok {
+			peers := common.WgIFaceMap[p.Config.WgInterface.Name]
+			if peerI, ok := peers[p.Config.RemoteKey]; ok {
 				log.Println("PROCESSING PKT BEFORE SENDING")
 
 				buf, n, err = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.RemoteWgPort)
@@ -49,10 +56,10 @@ func (p *Proxy) ProxyToRemote() {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
 			}
 			// test(n, buf)
-			log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s\n", p.Config.ProxyServer.Server.LocalAddr().String(), p.RemoteConn.RemoteAddr().String())
+			log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s\n", server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.RemoteAddr().String())
 			host, port, _ := net.SplitHostPort(p.RemoteConn.RemoteAddr().String())
 			portInt, _ := strconv.Atoi(port)
-			_, err = p.Config.ProxyServer.Server.WriteToUDP(buf[:n], &net.UDPAddr{
+			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], &net.UDPAddr{
 				IP:   net.ParseIP(host),
 				Port: portInt,
 			})
@@ -61,18 +68,6 @@ func (p *Proxy) ProxyToRemote() {
 			}
 		}
 	}
-}
-
-func test(n int, data []byte) {
-	var localWgPort uint16
-	//portBuf := data[n-2 : n+1]
-	portBuf := data[2:4]
-	reader := bytes.NewReader(portBuf)
-	err := binary.Read(reader, binary.BigEndian, &localWgPort)
-	if err != nil {
-		log.Println("Failed to read port buffer: ", err)
-	}
-	log.Println("TEST WFGPO: ", localWgPort)
 }
 
 // proxyToLocal proxies everything from the RemoteKey peer to local Wireguard
@@ -119,7 +114,13 @@ func (p *Proxy) Start(remoteConn net.Conn) error {
 	p.RemoteConn = remoteConn
 
 	var err error
-	addr, err := GetFreeIp("127.0.0.1/8")
+
+	wgPort, err := p.Config.WgInterface.GetListenPort()
+	if err != nil {
+		log.Printf("Failed to get listen port for iface: %s,Err: %v\n", p.Config.WgInterface.Name, err)
+		return err
+	}
+	addr, err := GetFreeIp("127.0.0.1/8", *wgPort)
 	if err != nil {
 		log.Println("Failed to get freeIp: ", err)
 		return err
@@ -127,11 +128,6 @@ func (p *Proxy) Start(remoteConn net.Conn) error {
 	wgAddr := "127.0.0.1"
 	if runtime.GOOS == "darwin" {
 		wgAddr = addr
-	}
-	wgPort, err := p.Config.WgInterface.GetListenPort()
-	if err != nil {
-		log.Printf("Failed to get listen port for iface: %s,Err: %v\n", p.Config.WgInterface.Name, err)
-		return err
 	}
 
 	p.LocalConn, err = net.DialUDP("udp", &net.UDPAddr{
@@ -157,7 +153,7 @@ func (p *Proxy) Start(remoteConn net.Conn) error {
 	return nil
 }
 
-func GetFreeIp(cidrAddr string) (string, error) {
+func GetFreeIp(cidrAddr string, dstPort int) (string, error) {
 	//ensure AddressRange is valid
 	if _, _, err := net.ParseCIDR(cidrAddr); err != nil {
 		log.Println("UniqueAddress encountered  an error")
@@ -176,10 +172,10 @@ func GetFreeIp(cidrAddr string) (string, error) {
 
 		conn, err := net.DialUDP("udp", &net.UDPAddr{
 			IP:   net.ParseIP(newAddrs.String()),
-			Port: 51722,
+			Port: common.NmProxyPort,
 		}, &net.UDPAddr{
 			IP:   net.ParseIP("127.0.0.1"),
-			Port: 51820,
+			Port: dstPort,
 		})
 		if err == nil {
 			conn.Close()

@@ -1,72 +1,32 @@
 package nmproxy
 
 import (
-	"fmt"
 	"log"
 	"net"
-	"runtime"
 
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/gravitl/netmaker/nm-proxy/common"
-	peerpkg "github.com/gravitl/netmaker/nm-proxy/peer"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/stun"
-	"github.com/gravitl/netmaker/nm-proxy/wg"
 )
 
-func Start() {
+// Comm Channel to configure proxy
+/* Actions -
+   1. Add - new interface and its peers
+   2. Delete - remove close all conns for the interface,cleanup
+
+*/
+func Start(mgmChan chan *manager.ManagerAction) {
 	log.Println("Starting Proxy...")
+	go manager.StartProxyManager(mgmChan)
 	hInfo := stun.GetHostInfo()
 	stun.Host = hInfo
 	log.Printf("HOSTINFO: %+v", hInfo)
 	// start the netclient proxy server
-	p, err := server.CreateProxyServer(0, 0, hInfo.PrivIp.String())
+	err := server.NmProxyServer.CreateProxyServer(0, 0, hInfo.PrivIp.String())
 	if err != nil {
 		log.Fatal("failed to create proxy: ", err)
 	}
-	go p.Listen()
-	networks, _ := ncutils.GetSystemNetworks()
-	for _, network := range networks {
-		logger.Log(3, "initializing network", network)
-		cfg := config.ClientConfig{}
-		cfg.Network = network
-		cfg.ReadConfig()
-		node, err := peerpkg.GetNodeInfo(&cfg)
-		if err != nil {
-			log.Println("Failed to get node info: ", err)
-			continue
-		}
-		for _, peerI := range node.Peers {
-			ifaceName := node.Node.Interface
-			log.Println("--------> IFACE: ", ifaceName)
-			if runtime.GOOS == "darwin" {
-				ifaceName, err = wireguard.GetRealIface(ifaceName)
-				if err != nil {
-					log.Println("failed to get real iface: ", err)
-				}
-			}
-			wgInterface, err := wg.NewWGIFace(ifaceName, "127.0.0.1/32", wg.DefaultMTU)
-			if err != nil {
-				log.Fatal("Failed init new interface: ", err)
-			}
-			log.Printf("wg: %+v\n", wgInterface)
-			peerpkg.AddNewPeer(p, wgInterface, &peerI)
-			if val, ok := common.RemoteEndpointsMap[peerI.Endpoint.IP.String()]; ok {
-				val = append(val, peerI.PublicKey.String())
-				common.RemoteEndpointsMap[peerI.Endpoint.IP.String()] = val
-			} else {
-				common.RemoteEndpointsMap[peerI.Endpoint.IP.String()] = []string{peerI.PublicKey.String()}
-			}
-
-		}
-
-	}
-	fmt.Printf("\nPEERS-------> %+v\n", common.Peers)
-	fmt.Printf("\nREMOTE ENDPOINTS-------> %+v\n", common.RemoteEndpointsMap)
-	select {}
+	server.NmProxyServer.Listen()
 }
 
 // IsPublicIP indicates whether IP is public or not.

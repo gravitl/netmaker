@@ -10,6 +10,10 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 )
 
+var (
+	NmProxyServer = &ProxyServer{}
+)
+
 const (
 	defaultBodySize = 10000
 	defaultPort     = 51722
@@ -47,17 +51,19 @@ func (p *ProxyServer) Listen() {
 		}
 		log.Println("--------> RECV PKT: ", source.IP.String(), localWgPort)
 		if val, ok := common.RemoteEndpointsMap[source.IP.String()]; ok {
-			for _, peerKeys := range val {
-				if peerI, ok := common.Peers[peerKeys]; ok {
-					if peerI.Config.LocalWgPort == int(localWgPort) {
-						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s\n", peerI.Proxy.LocalConn.RemoteAddr(),
-							peerI.Proxy.LocalConn.LocalAddr(), fmt.Sprintf("%s:%d", source.IP.String(), source.Port))
-						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
-						if err != nil {
-							log.Println("Failed to proxy to Wg local interface: ", err)
-							continue
-						}
+			for _, remotePeer := range val {
+				if peers, ok := common.WgIFaceMap[remotePeer.Interface]; ok {
+					if peerI, ok := peers[remotePeer.PeerKey]; ok {
+						if peerI.Config.LocalWgPort == int(localWgPort) {
+							log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s\n", peerI.Proxy.LocalConn.RemoteAddr(),
+								peerI.Proxy.LocalConn.LocalAddr(), fmt.Sprintf("%s:%d", source.IP.String(), source.Port))
+							_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
+							if err != nil {
+								log.Println("Failed to proxy to Wg local interface: ", err)
+								continue
+							}
 
+						}
 					}
 				}
 
@@ -72,7 +78,7 @@ func (p *ProxyServer) Listen() {
 // bodySize - default 10000, leave 0 to use default
 // addr - the address for proxy to listen on
 // forwards - indicate address to forward to, {"<address:port>",...} format
-func CreateProxyServer(port, bodySize int, addr string) (p *ProxyServer, err error) {
+func (p *ProxyServer) CreateProxyServer(port, bodySize int, addr string) (err error) {
 	if p == nil {
 		p = &ProxyServer{}
 	}

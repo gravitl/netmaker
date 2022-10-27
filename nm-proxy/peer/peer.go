@@ -1,18 +1,12 @@
 package peer
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"net/http"
 
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	"github.com/gravitl/netmaker/nm-proxy/proxy"
-	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -38,40 +32,13 @@ type ConnConfig struct {
 	RemoteProxyPort int
 }
 
-func GetNodeInfo(cfg *config.ClientConfig) (models.NodeGet, error) {
-	var nodeGET models.NodeGet
-	token, err := common.Authenticate(cfg)
-	if err != nil {
-		return nodeGET, err
-	}
-	url := fmt.Sprintf("https://%s/api/nodes/%s/%s", cfg.Server.API, cfg.Network, cfg.Node.ID)
-	response, err := common.API("", http.MethodGet, url, token)
-	if err != nil {
-		return nodeGET, err
-	}
-	if response.StatusCode != http.StatusOK {
-		bytes, err := io.ReadAll(response.Body)
-		if err != nil {
-			fmt.Println(err)
-		}
-		return nodeGET, (fmt.Errorf("%s %w", string(bytes), err))
-	}
-	defer response.Body.Close()
-	if err := json.NewDecoder(response.Body).Decode(&nodeGET); err != nil {
-		return nodeGET, fmt.Errorf("error decoding node %w", err)
-	}
-	return nodeGET, nil
-}
-
-func AddNewPeer(pserver *server.ProxyServer, wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
+func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
 
 	c := proxy.Config{
-		Port:         peer.Endpoint.Port,
-		WgListenAddr: "127.0.0.1",
-		RemoteKey:    peer.PublicKey.String(),
-		WgInterface:  wgInterface,
-		AllowedIps:   peer.AllowedIPs,
-		ProxyServer:  pserver,
+		Port:        peer.Endpoint.Port,
+		RemoteKey:   peer.PublicKey.String(),
+		WgInterface: wgInterface,
+		AllowedIps:  peer.AllowedIPs,
 	}
 	p := proxy.NewProxy(c)
 	remoteConn, err := net.Dial("udp", fmt.Sprintf("%s:%d", peer.Endpoint.IP.String(), common.NmProxyPort))
@@ -83,27 +50,23 @@ func AddNewPeer(pserver *server.ProxyServer, wgInterface *wg.WGIface, peer *wgty
 	if err != nil {
 		return err
 	}
-	log.Println("-------> Here1")
 	connConf := common.ConnConfig{
-		Key:      peer.PublicKey.String(),
-		LocalKey: "",
-		ProxyConfig: common.Config{
-			Port:         peer.Endpoint.Port,
-			WgListenAddr: "127.0.0.1",
-			RemoteKey:    peer.PublicKey.String(),
-			WgInterface:  wgInterface,
-			AllowedIps:   peer.AllowedIPs,
-			//ProxyServer:  pserver,
-		},
-		AllowedIPs:      peer.AllowedIPs,
+		Key:             peer.PublicKey.String(),
+		LocalKey:        "",
 		RemoteProxyIP:   net.ParseIP(peer.Endpoint.IP.String()),
 		RemoteWgPort:    peer.Endpoint.Port,
 		RemoteProxyPort: common.NmProxyPort,
 	}
 	peerProxy := common.Proxy{
-		Ctx:        p.Ctx,
-		Cancel:     p.Cancel,
-		Config:     connConf.ProxyConfig,
+		Ctx:    p.Ctx,
+		Cancel: p.Cancel,
+		Config: common.Config{
+			Port:        peer.Endpoint.Port,
+			RemoteKey:   peer.PublicKey.String(),
+			WgInterface: wgInterface,
+			AllowedIps:  peer.AllowedIPs,
+		},
+
 		RemoteConn: remoteConn,
 		LocalConn:  p.LocalConn,
 	}
@@ -111,6 +74,11 @@ func AddNewPeer(pserver *server.ProxyServer, wgInterface *wg.WGIface, peer *wgty
 		Config: connConf,
 		Proxy:  peerProxy,
 	}
-	common.Peers[peer.PublicKey.String()] = &peerConn
+	if _, ok := common.WgIFaceMap[wgInterface.Name]; ok {
+		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
+	} else {
+		common.WgIFaceMap[wgInterface.Name] = make(map[string]*common.Conn)
+		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
+	}
 	return nil
 }

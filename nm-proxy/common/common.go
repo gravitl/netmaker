@@ -37,10 +37,7 @@ type ConnConfig struct {
 	// Key is a public key of a remote peer
 	Key string
 	// LocalKey is a public key of a local peer
-	LocalKey string
-
-	ProxyConfig     Config
-	AllowedIPs      []net.IPNet
+	LocalKey        string
 	LocalWgPort     int
 	RemoteProxyIP   net.IP
 	RemoteWgPort    int
@@ -50,12 +47,10 @@ type Config struct {
 	Port         int
 	BodySize     int
 	Addr         string
-	WgListenAddr string
 	RemoteKey    string
 	WgInterface  *wg.WGIface
 	AllowedIps   []net.IPNet
 	PreSharedKey *wgtypes.Key
-	//ProxyServer  *server.ProxyServer
 }
 
 // Proxy -  WireguardProxy proxies
@@ -68,9 +63,14 @@ type Proxy struct {
 	LocalConn  net.Conn
 }
 
-var Peers = make(map[string]*Conn)
+type RemotePeer struct {
+	PeerKey   string
+	Interface string
+}
 
-var RemoteEndpointsMap = make(map[string][]string)
+var WgIFaceMap = make(map[string]map[string]*Conn)
+
+var RemoteEndpointsMap = make(map[string][]RemotePeer)
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {

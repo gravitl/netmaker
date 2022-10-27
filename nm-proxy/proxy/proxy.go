@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 
-	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -18,12 +17,10 @@ type Config struct {
 	Port         int
 	BodySize     int
 	Addr         string
-	WgListenAddr string
 	RemoteKey    string
 	WgInterface  *wg.WGIface
 	AllowedIps   []net.IPNet
 	PreSharedKey *wgtypes.Key
-	ProxyServer  *server.ProxyServer
 }
 
 // Proxy -  WireguardProxy proxies
