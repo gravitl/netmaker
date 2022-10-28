@@ -277,13 +277,39 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 	}
 
 	if cfg.Node.FirewallInUse == "" {
-		if ncutils.IsNFTablesPresent() {
-			cfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
-		} else if ncutils.IsIPTablesPresent() {
-			cfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
-		} else {
-			cfg.Node.FirewallInUse = models.FIREWALL_NONE
+
+		// If NFTables and IPTables are both present, ask the user to specify which one to use. 
+		// If something else is returned by the user, default to NONE
+		if ncutils.IsNFTablesPresent() && ncutils.IsIPTablesPresent() {
+
+			var fw_to_use string
+
+			logger.Log(0, `Both NFTables and IPTables are installed on this system. Which firewall do you want to configure?
+(1) NFTables
+(2) IPTables`)
+
+			fmt.Scanln(&fw_to_use)
+
+			if fw_to_use == "1" {
+				cfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
+			} else if fw_to_use == "2" {
+				cfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
+			} else {
+				cfg.Node.FirewallInUse = models.FIREWALL_NONE
+			}
+
+		}else{
+
+			if ncutils.IsNFTablesPresent() {
+				cfg.Node.FirewallInUse = models.FIREWALL_NFTABLES
+			} else if ncutils.IsIPTablesPresent() {
+				cfg.Node.FirewallInUse = models.FIREWALL_IPTABLES
+			} else {
+				cfg.Node.FirewallInUse = models.FIREWALL_NONE
+			}
+		
 		}
+
 	}
 
 	// make sure name is appropriate, if not, give blank name
