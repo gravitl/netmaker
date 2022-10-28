@@ -14,9 +14,13 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+var ProxyStatus = "OFF"
+var ProxyMgmChan = make(chan *manager.ManagerAction, 100)
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []func()
@@ -173,6 +177,13 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 		return returnNode, err
 	}
 
+	ProxyMgmChan <- &manager.ManagerAction{
+		Action: manager.AddInterface,
+		Payload: manager.ManagerPayload{
+			InterfaceName: node.Interface,
+			Peers:         peers.Peers,
+		},
+	}
 	return *node, nil
 }
 

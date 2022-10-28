@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -52,6 +53,50 @@ func InitServerNetclient() error {
 		}
 	}
 
+	return nil
+}
+
+func SyncServerNetworkWithProxy() error {
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		logger.Log(1, "error retrieving networks for keepalive", err.Error())
+	}
+	for _, network := range networks {
+		serverNetworkSettings, err := logic.GetNetwork(network.NetID)
+		if err != nil {
+			continue
+		}
+		localnets, err := net.Interfaces()
+		if err != nil {
+			return err
+		}
+		ifaceExists := false
+		for _, localnet := range localnets {
+			if serverNetworkSettings.DefaultInterface == localnet.Name {
+				ifaceExists = true
+			}
+		}
+		if ifaceExists {
+			serverNode, err := logic.GetNetworkServerLocal(network.NetID)
+			if err != nil {
+				logger.Log(1, "failed to retrieve local server node: ", serverNode.ID)
+				continue
+			}
+			peers, err := logic.GetPeersForProxy(&serverNode)
+			if err != nil && !ncutils.IsEmptyRecord(err) {
+				logger.Log(1, "failed to retrieve peers for server node: ", serverNode.ID)
+				continue
+			}
+			logic.ProxyMgmChan <- &manager.ManagerAction{
+				Action: manager.AddInterface,
+				Payload: manager.ManagerPayload{
+					InterfaceName: serverNetworkSettings.DefaultInterface,
+					Peers:         peers,
+				},
+			}
+		}
+
+	}
 	return nil
 }
 

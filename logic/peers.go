@@ -19,6 +19,45 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+func GetPeersForProxy(node *models.Node) ([]wgtypes.PeerConfig, error) {
+	var peers []wgtypes.PeerConfig
+	var err error
+	currentPeers, err := GetNetworkNodes(node.Network)
+	if err != nil {
+		return peers, err
+	}
+	for _, peer := range currentPeers {
+		if peer.ID == node.ID {
+			//skip yourself
+			continue
+		}
+		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
+		if err != nil {
+			logger.Log(1, "failed to parse node pub key: ", peer.ID)
+			continue
+		}
+		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", node.Endpoint, node.ListenPort))
+		if err != nil {
+			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
+			continue
+		}
+		allowedips := getNodeAllowedIPs(node, &peer)
+		var keepalive time.Duration
+		if node.PersistentKeepalive != 0 {
+			// set_keepalive
+			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
+		}
+		peers = append(peers, wgtypes.PeerConfig{
+			PublicKey:                   pubkey,
+			Endpoint:                    endpoint,
+			AllowedIPs:                  allowedips,
+			PersistentKeepaliveInterval: &keepalive,
+			ReplaceAllowedIPs:           true,
+		})
+	}
+	return peers, nil
+}
+
 // GetPeerUpdate - gets a wireguard peer config for each peer of a node
 func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate

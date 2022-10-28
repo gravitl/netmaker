@@ -23,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	nmproxy "github.com/gravitl/netmaker/nm-proxy"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	stunserver "github.com/gravitl/netmaker/stun-server"
@@ -173,7 +174,13 @@ func startControllers() {
 	}
 	// starts the stun server
 	go stunserver.Start()
-
+	go nmproxy.Start(logic.ProxyMgmChan)
+	go func() {
+		err := serverctl.SyncServerNetworkWithProxy()
+		if err != nil {
+			logger.Log(0, "failed to sync proxy with server interfaces: ", err.Error())
+		}
+	}()
 	waitnetwork.Wait()
 }
 

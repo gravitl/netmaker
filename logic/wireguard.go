@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -142,6 +143,15 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 	} else {
 		err = wireguard.InitWireguard(node, privkey, peers.Peers)
 		logger.Log(3, "finished setting wg config on server", node.Name)
+	}
+	if ProxyStatus == "ON" {
+		ProxyMgmChan <- &manager.ManagerAction{
+			Action: manager.AddInterface,
+			Payload: manager.ManagerPayload{
+				InterfaceName: node.Interface,
+				Peers:         peers.Peers,
+			},
+		}
 	}
 	return err
 }
