@@ -64,3 +64,6 @@ func GetHostInfo() (info HostInfo) {
 	}
 	return
 }
+
+// /tmp/netclient daemon > /tmp/netclient.out 2>&1
+// tcpdump -evvvttttni any 'udp port 51820'

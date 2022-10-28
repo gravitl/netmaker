@@ -61,7 +61,12 @@ func (w *WGIface) GetWgIface(iface string) error {
 	if err != nil {
 		return err
 	}
-	wgClient.Device(iface)
+	dev, err := wgClient.Device(iface)
+	if err != nil {
+		return err
+	}
+	log.Printf("----> DEVICE: %+v\n", dev)
+
 	return nil
 }
 

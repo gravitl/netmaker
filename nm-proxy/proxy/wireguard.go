@@ -2,11 +2,13 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/nm-proxy/common"
@@ -102,13 +104,19 @@ func (p *Proxy) Start(remoteConn net.Conn) error {
 	p.RemoteConn = remoteConn
 
 	var err error
-
+	// err = p.Config.WgInterface.GetWgIface(p.Config.WgInterface.Name)
+	// if err != nil {
+	// 	log.Println("Failed to get iface: ", p.Config.WgInterface.Name, err)
+	// 	return err
+	// }
 	wgPort, err := p.Config.WgInterface.GetListenPort()
 	if err != nil {
 		log.Printf("Failed to get listen port for iface: %s,Err: %v\n", p.Config.WgInterface.Name, err)
 		return err
 	}
-	addr, err := GetFreeIp("127.0.0.1/8", *wgPort)
+	p.Config.WgInterface.Port = *wgPort
+	log.Printf("----> WGIFACE: %+v\n", p.Config.WgInterface)
+	addr, err := GetFreeIp("127.0.0.1/8", p.Config.WgInterface.Port)
 	if err != nil {
 		log.Println("Failed to get freeIp: ", err)
 		return err
@@ -123,10 +131,11 @@ func (p *Proxy) Start(remoteConn net.Conn) error {
 		Port: common.NmProxyPort,
 	}, &net.UDPAddr{
 		IP:   net.ParseIP(wgAddr),
-		Port: *wgPort,
+		Port: p.Config.WgInterface.Port,
 	})
 	if err != nil {
-		log.Fatalf("failed dialing to local Wireguard port,Err: %v\n", err)
+		log.Printf("failed dialing to local Wireguard port,Err: %v\n", err)
+		return err
 	}
 
 	log.Printf("Dialing to local Wireguard port %s --> %s\n", p.LocalConn.LocalAddr().String(), p.LocalConn.RemoteAddr().String())
@@ -143,6 +152,9 @@ func (p *Proxy) Start(remoteConn net.Conn) error {
 
 func GetFreeIp(cidrAddr string, dstPort int) (string, error) {
 	//ensure AddressRange is valid
+	if dstPort == 0 {
+		return "", errors.New("dst port should be set")
+	}
 	if _, _, err := net.ParseCIDR(cidrAddr); err != nil {
 		log.Println("UniqueAddress encountered  an error")
 		return "", err
@@ -165,14 +177,20 @@ func GetFreeIp(cidrAddr string, dstPort int) (string, error) {
 			IP:   net.ParseIP("127.0.0.1"),
 			Port: dstPort,
 		})
+		if err != nil {
+			log.Println("----> GetFreeIP ERR: ", err)
+			if strings.Contains(err.Error(), "can't assign requested address") {
+				newAddrs, err = net4.NextIP(newAddrs)
+				if err != nil {
+					return "", err
+				}
+			} else {
+				return "", err
+			}
+		}
 		if err == nil {
 			conn.Close()
 			return newAddrs.String(), nil
-		}
-
-		newAddrs, err = net4.NextIP(newAddrs)
-		if err != nil {
-			return "", err
 		}
 
 	}
