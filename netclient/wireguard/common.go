@@ -484,7 +484,7 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 				wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
 			}
 		} else {
-			wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostDown)
+			wireguard.Section(section_interface).Key("PostDown").SetValue(node.PostDown)
 		}
 	}
 	if node.MTU != 0 {
