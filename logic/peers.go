@@ -36,7 +36,7 @@ func GetPeersForProxy(node *models.Node) ([]wgtypes.PeerConfig, error) {
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
 			continue
 		}
-		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", node.Endpoint, node.ListenPort))
+		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, peer.LocalListenPort))
 		if err != nil {
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
 			continue

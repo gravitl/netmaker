@@ -42,8 +42,11 @@ require (
 require (
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/gorilla/websocket v1.5.0
+	github.com/pkg/errors v0.9.1
+	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
+	gortc.io/stun v1.23.0
 )
 
 require (
@@ -82,11 +85,9 @@ require (
 	github.com/mdlayher/socket v0.1.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/srwiley/oksvg v0.0.0-20200311192757-870daf9aa564 // indirect
 	github.com/srwiley/rasterx v0.0.0-20200120212402-85cb7272f5e9 // indirect
@@ -100,6 +101,5 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gortc.io/stun v1.23.0 // indirect
 	honnef.co/go/js/dom v0.0.0-20210725211120-f030747120f2 // indirect
 )

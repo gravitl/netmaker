@@ -3,6 +3,7 @@ package mq
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -11,7 +12,9 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // DefaultHandler default message queue handler  -- NOT USED
@@ -101,6 +104,26 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			if err = PublishPeerUpdate(&currentNode, true); err != nil {
 				logger.Log(0, "error updating peers when node", currentNode.Name, currentNode.ID, "informed the server of an interface change", err.Error())
 			}
+			pubKey, err := wgtypes.ParseKey(newNode.PublicKey)
+			if err == nil {
+				endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", newNode.Endpoint, newNode.LocalListenPort))
+				if err == nil {
+					logic.ProxyMgmChan <- &manager.ManagerAction{
+						Action: manager.UpdatePeer,
+						Payload: manager.ManagerPayload{
+							InterfaceName: newNode.Interface,
+							Peers: []wgtypes.PeerConfig{
+								{
+									PublicKey: pubKey,
+									Endpoint:  endpoint,
+								},
+							},
+						},
+					}
+				}
+
+			}
+
 		}
 		logger.Log(1, "updated node", id, newNode.Name)
 	}()

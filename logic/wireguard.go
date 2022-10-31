@@ -56,6 +56,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.UDPHolePunch != currentNode.UDPHolePunch ||
 		newNode.IsPending != currentNode.IsPending ||
 		newNode.ListenPort != currentNode.ListenPort ||
+		newNode.LocalListenPort != currentNode.LocalListenPort ||
 		newNode.MTU != currentNode.MTU ||
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		newNode.DNSOn != currentNode.DNSOn ||

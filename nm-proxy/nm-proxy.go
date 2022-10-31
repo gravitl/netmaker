@@ -15,7 +15,7 @@ import (
    2. Delete - remove close all conns for the interface,cleanup
 
 */
-func Start(mgmChan chan *manager.ManagerAction, isServer bool) {
+func Start(mgmChan chan *manager.ManagerAction) {
 	log.Println("Starting Proxy...")
 	go manager.StartProxyManager(mgmChan)
 	hInfo := stun.GetHostInfo()
