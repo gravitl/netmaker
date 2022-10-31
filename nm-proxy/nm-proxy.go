@@ -15,12 +15,15 @@ import (
    2. Delete - remove close all conns for the interface,cleanup
 
 */
-func Start(mgmChan chan *manager.ManagerAction) {
+func Start(mgmChan chan *manager.ManagerAction, isServer bool) {
 	log.Println("Starting Proxy...")
 	go manager.StartProxyManager(mgmChan)
 	hInfo := stun.GetHostInfo()
 	stun.Host = hInfo
 	log.Printf("HOSTINFO: %+v", hInfo)
+	if IsPublicIP(hInfo.PrivIp) {
+		log.Println("Host is public facing!!!")
+	}
 	// start the netclient proxy server
 	err := server.NmProxyServer.CreateProxyServer(0, 0, hInfo.PrivIp.String())
 	if err != nil {

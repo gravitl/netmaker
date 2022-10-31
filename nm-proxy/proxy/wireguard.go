@@ -62,7 +62,7 @@ func (p *Proxy) ProxyToRemote() {
 			if peerI, ok := peers[p.Config.RemoteKey]; ok {
 				log.Println("PROCESSING PKT BEFORE SENDING")
 
-				buf, n, err = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.RemoteWgPort)
+				buf, n, err = packet.ProcessPacketBeforeSending(buf, peerI.Config.LocalKey, n, peerI.Config.RemoteWgPort)
 				if err != nil {
 					log.Println("failed to process pkt before sending: ", err)
 				}
@@ -109,12 +109,11 @@ func (p *Proxy) Start(remoteConn net.Conn) error {
 	// 	log.Println("Failed to get iface: ", p.Config.WgInterface.Name, err)
 	// 	return err
 	// }
-	wgPort, err := p.Config.WgInterface.GetListenPort()
-	if err != nil {
-		log.Printf("Failed to get listen port for iface: %s,Err: %v\n", p.Config.WgInterface.Name, err)
-		return err
-	}
-	p.Config.WgInterface.Port = *wgPort
+	// wgAddr, err := GetInterfaceIpv4Addr(p.Config.WgInterface.Name)
+	// if err != nil {
+	// 	log.Println("failed to get interface addr: ", err)
+	// 	return err
+	// }
 	log.Printf("----> WGIFACE: %+v\n", p.Config.WgInterface)
 	addr, err := GetFreeIp("127.0.0.1/8", p.Config.WgInterface.Port)
 	if err != nil {
@@ -179,10 +178,11 @@ func GetFreeIp(cidrAddr string, dstPort int) (string, error) {
 		})
 		if err != nil {
 			log.Println("----> GetFreeIP ERR: ", err)
-			if strings.Contains(err.Error(), "can't assign requested address") {
-				newAddrs, err = net4.NextIP(newAddrs)
-				if err != nil {
-					return "", err
+			if strings.Contains(err.Error(), "can't assign requested address") || strings.Contains(err.Error(), "address already in use") {
+				var nErr error
+				newAddrs, nErr = net4.NextIP(newAddrs)
+				if nErr != nil {
+					return "", nErr
 				}
 			} else {
 				return "", err

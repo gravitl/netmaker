@@ -70,7 +70,7 @@ type RemotePeer struct {
 
 var WgIFaceMap = make(map[string]map[string]*Conn)
 
-var RemoteEndpointsMap = make(map[string][]RemotePeer)
+var PeerKeyHashMap = make(map[string]RemotePeer)
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {

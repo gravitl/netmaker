@@ -45,6 +45,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("----> Established Remote Conn with RPeer: %s, LAddr: %s ----> RAddr: %s", peer.PublicKey, remoteConn.LocalAddr().String(), remoteConn.RemoteAddr().String())
 	log.Printf("Starting proxy for Peer: %s\n", peer.PublicKey.String())
 	err = p.Start(remoteConn)
 	if err != nil {
@@ -52,7 +53,8 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
 	}
 	connConf := common.ConnConfig{
 		Key:             peer.PublicKey.String(),
-		LocalKey:        "",
+		LocalKey:        wgInterface.Device.PublicKey.String(),
+		LocalWgPort:     wgInterface.Device.ListenPort,
 		RemoteProxyIP:   net.ParseIP(peer.Endpoint.IP.String()),
 		RemoteWgPort:    peer.Endpoint.Port,
 		RemoteProxyPort: common.NmProxyPort,

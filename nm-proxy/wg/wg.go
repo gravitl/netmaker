@@ -22,6 +22,7 @@ type WGIface struct {
 	Name      string
 	Port      int
 	MTU       int
+	Device    *wgtypes.Device
 	Address   WGAddress
 	Interface NetInterface
 	mu        sync.Mutex
@@ -52,7 +53,7 @@ func NewWGIFace(iface string, address string, mtu int) (*WGIface, error) {
 	}
 
 	wgIface.Address = wgAddress
-
+	wgIface.GetWgIface(iface)
 	return wgIface, nil
 }
 
@@ -65,8 +66,10 @@ func (w *WGIface) GetWgIface(iface string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("----> DEVICE: %+v\n", dev)
 
+	log.Printf("----> DEVICE: %+v\n", dev)
+	w.Device = dev
+	w.Port = dev.ListenPort
 	return nil
 }
 

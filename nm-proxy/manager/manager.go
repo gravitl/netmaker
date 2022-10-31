@@ -1,7 +1,9 @@
 package manager
 
 import (
+	"crypto/md5"
 	"errors"
+	"fmt"
 	"log"
 	"runtime"
 
@@ -22,6 +24,7 @@ type ManagerPayload struct {
 const (
 	AddInterface    ProxyAction = "ADD_INTERFACE"
 	DeleteInterface ProxyAction = "DELETE_INTERFACE"
+	UpdatePeer      ProxyAction = "UPDATE_PEER"
 )
 
 type ManagerAction struct {
@@ -37,7 +40,12 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 			log.Printf("-------> PROXY-MANAGER: %+v\n", mI)
 			switch mI.Action {
 			case AddInterface:
-				mI.AddInterfaceToProxy()
+				err := mI.AddInterfaceToProxy()
+				if err != nil {
+					log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
+				}
+			case UpdatePeer:
+				mI.UpdatePeerProxy()
 			}
 
 		}
@@ -51,6 +59,25 @@ func cleanUp(iface string) {
 		}
 	}
 	delete(common.WgIFaceMap, iface)
+}
+
+func (m *ManagerAction) UpdatePeerProxy() error {
+	if len(m.Payload.Peers) == 0 {
+		log.Println("No Peers to add...")
+		return nil
+	}
+	for _, peerI := range m.Payload.Peers {
+		if peers, ok := common.WgIFaceMap[m.Payload.InterfaceName]; ok {
+			if peerConf, ok := peers[peerI.PublicKey.String()]; ok {
+
+				peerConf.Config.RemoteWgPort = peerI.Endpoint.Port
+				peers[peerI.PublicKey.String()] = peerConf
+				common.WgIFaceMap[m.Payload.InterfaceName] = peers
+				log.Printf("---->####### UPdated PEER: %+v\n", peerConf)
+			}
+		}
+	}
+	return nil
 }
 
 func (m *ManagerAction) AddInterfaceToProxy() error {
@@ -77,23 +104,14 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 		log.Fatal("Failed init new interface: ", err)
 	}
 	log.Printf("wg: %+v\n", wgInterface)
+
 	for _, peerI := range m.Payload.Peers {
-
-		peerpkg.AddNewPeer(wgInterface, &peerI)
-		if val, ok := common.RemoteEndpointsMap[peerI.Endpoint.IP.String()]; ok {
-
-			val = append(val, common.RemotePeer{
-				Interface: ifaceName,
-				PeerKey:   peerI.PublicKey.String(),
-			})
-			common.RemoteEndpointsMap[peerI.Endpoint.IP.String()] = val
-		} else {
-			common.RemoteEndpointsMap[peerI.Endpoint.IP.String()] = []common.RemotePeer{{
-				Interface: ifaceName,
-				PeerKey:   peerI.PublicKey.String(),
-			}}
+		common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peerI.PublicKey.String())))] = common.RemotePeer{
+			Interface: ifaceName,
+			PeerKey:   peerI.PublicKey.String(),
 		}
-
+		peerpkg.AddNewPeer(wgInterface, &peerI)
 	}
+	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)
 	return nil
 }
