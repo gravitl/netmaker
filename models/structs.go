@@ -218,6 +218,7 @@ type ServerConfig struct {
 	Version     string `yaml:"version"`
 	MQPort      string `yaml:"mqport"`
 	Server      string `yaml:"server"`
+	Broker      string `yaml:"broker"`
 	Is_EE       bool   `yaml:"isee"`
 }
 

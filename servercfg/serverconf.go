@@ -379,6 +379,17 @@ func GetServer() string {
 	return server
 }
 
+// GetBroker - gets the broker name
+func GetBroker() string {
+	server := ""
+	if os.Getenv("BROKER_NAME") != "" {
+		server = os.Getenv("BROKER_NAME")
+	} else if config.Config.Server.Broker != "" {
+		server = config.Config.Server.Broker
+	}
+	return server
+}
+
 func GetVerbosity() int32 {
 	var verbosity = 0
 	var err error

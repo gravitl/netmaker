@@ -41,13 +41,13 @@ func nodeHandlers(r *mux.Router) {
 //
 // Authenticate to make further API calls related to a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
@@ -344,13 +344,13 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 //
 // Gets all nodes associated with network including pending nodes.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeSliceResponse
+//			Responses:
+//				200: nodeSliceResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -383,13 +383,14 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 //
 // Get all nodes across all networks.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeSliceResponse
+//			Responses:
+//				200: nodeSliceResponse
+//
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -440,13 +441,13 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 //
 // Get an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -497,13 +498,14 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 //
 // Get the time that a network of nodes was last modified.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeLastModifiedResponse
+//			Responses:
+//				200: nodeLastModifiedResponse
+//
 // TODO: This needs to be refactored
 // Potential way to do this: On UpdateNode, set a new field for "LastModified"
 // If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
@@ -529,13 +531,13 @@ func getLastModified(w http.ResponseWriter, r *http.Request) {
 //
 // Create a node on a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeGetResponse
+//			Responses:
+//				200: nodeGetResponse
 func createNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -670,12 +672,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create client for this node in Mq
+	// Create client for this host in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
 			{ // delete if any client exists already
 				Command:  mq.DeleteClientCmd,
-				Username: node.ID,
+				Username: node.HostID,
 			},
 			{
 				Command:  mq.CreateRoleCmd,
@@ -685,7 +687,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			},
 			{
 				Command:  mq.CreateClientCmd,
-				Username: node.ID,
+				Username: node.HostID,
 				Password: nodePassword,
 				Textname: node.Name,
 				Roles: []mq.MqDynSecRole{
@@ -725,13 +727,14 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 //
 // Takes a node out of pending state.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
+//
 // Takes node out of pending state
 // TODO: May want to use cordon/uncordon terminology instead of "ispending".
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
@@ -758,13 +761,13 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 //
 // Create an egress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	var params = mux.Vars(r)
@@ -797,13 +800,13 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an egress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -831,13 +834,13 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Create an ingress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -875,13 +878,13 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an ingress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -913,13 +916,13 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Update an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -1024,13 +1027,13 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
