@@ -41,11 +41,11 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
 		AllowedIps:  peer.AllowedIPs,
 	}
 	p := proxy.NewProxy(c)
-	remoteConn, err := net.Dial("udp", fmt.Sprintf("%s:%d", peer.Endpoint.IP.String(), common.NmProxyPort))
+	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint.IP.String(), common.NmProxyPort))
 	if err != nil {
 		return err
 	}
-	log.Printf("----> Established Remote Conn with RPeer: %s, LAddr: %s ----> RAddr: %s", peer.PublicKey, remoteConn.LocalAddr().String(), remoteConn.RemoteAddr().String())
+	log.Printf("----> Established Remote Conn with RPeer: %s, ----> RAddr: %s", peer.PublicKey, remoteConn.String())
 	log.Printf("Starting proxy for Peer: %s\n", peer.PublicKey.String())
 	err = p.Start(remoteConn)
 	if err != nil {

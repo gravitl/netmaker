@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/c-robinson/iplib"
@@ -30,7 +29,6 @@ func (p *Proxy) ProxyToRemote() {
 	go func() {
 		<-p.Ctx.Done()
 		defer p.LocalConn.Close()
-		defer p.RemoteConn.Close()
 	}()
 	for {
 		select {
@@ -70,13 +68,9 @@ func (p *Proxy) ProxyToRemote() {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
 			}
 			// test(n, buf)
-			log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s\n", server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.RemoteAddr().String())
-			host, port, _ := net.SplitHostPort(p.RemoteConn.RemoteAddr().String())
-			portInt, _ := strconv.Atoi(port)
-			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], &net.UDPAddr{
-				IP:   net.ParseIP(host),
-				Port: portInt,
-			})
+			log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s\n", server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String())
+
+			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], p.RemoteConn)
 			if err != nil {
 				log.Println("Failed to send to remote: ", err)
 			}
@@ -100,7 +94,7 @@ func (p *Proxy) updateEndpoint() error {
 	return nil
 }
 
-func (p *Proxy) Start(remoteConn net.Conn) error {
+func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	p.RemoteConn = remoteConn
 
 	var err error

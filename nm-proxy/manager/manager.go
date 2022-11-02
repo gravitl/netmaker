@@ -22,9 +22,9 @@ type ManagerPayload struct {
 }
 
 const (
-	AddInterface    ProxyAction = "ADD_INTERFACE"
-	DeleteInterface ProxyAction = "DELETE_INTERFACE"
-	UpdatePeer      ProxyAction = "UPDATE_PEER"
+	AddInterface ProxyAction = "ADD_INTERFACE"
+	DeletePeer   ProxyAction = "DELETE_PEER"
+	UpdatePeer   ProxyAction = "UPDATE_PEER"
 )
 
 type ManagerAction struct {
@@ -46,11 +46,14 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 				}
 			case UpdatePeer:
 				mI.UpdatePeerProxy()
+			case DeletePeer:
+
 			}
 
 		}
 	}
 }
+
 func cleanUp(iface string) {
 	if peers, ok := common.WgIFaceMap[iface]; ok {
 		log.Println("########------------>  CLEANING UP: ", iface)
@@ -61,23 +64,52 @@ func cleanUp(iface string) {
 	delete(common.WgIFaceMap, iface)
 }
 
-func (m *ManagerAction) UpdatePeerProxy() error {
+func (m *ManagerAction) DeletePeers() {
 	if len(m.Payload.Peers) == 0 {
-		log.Println("No Peers to add...")
-		return nil
+		log.Println("No Peers to delete...")
+		return
 	}
-	for _, peerI := range m.Payload.Peers {
-		if peers, ok := common.WgIFaceMap[m.Payload.InterfaceName]; ok {
-			if peerConf, ok := peers[peerI.PublicKey.String()]; ok {
+	peersMap, ok := common.WgIFaceMap[m.Payload.InterfaceName]
+	if !ok {
+		log.Println("interface not found: ", m.Payload.InterfaceName)
+		return
+	}
 
-				peerConf.Config.RemoteWgPort = peerI.Endpoint.Port
-				peers[peerI.PublicKey.String()] = peerConf
-				common.WgIFaceMap[m.Payload.InterfaceName] = peers
-				log.Printf("---->####### UPdated PEER: %+v\n", peerConf)
-			}
+	for _, peerI := range m.Payload.Peers {
+		if peerConf, ok := peersMap[peerI.PublicKey.String()]; ok {
+			peerConf.Proxy.Cancel()
+			delete(peersMap, peerI.PublicKey.String())
 		}
 	}
-	return nil
+	common.WgIFaceMap[m.Payload.InterfaceName] = peersMap
+}
+
+func (m *ManagerAction) UpdatePeerProxy() {
+	if len(m.Payload.Peers) == 0 {
+		log.Println("No Peers to add...")
+		return
+	}
+	peers, ok := common.WgIFaceMap[m.Payload.InterfaceName]
+	if !ok {
+		log.Println("interface not found: ", m.Payload.InterfaceName)
+		return
+	}
+
+	for _, peerI := range m.Payload.Peers {
+		if peerI.Endpoint == nil {
+			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
+			continue
+		}
+
+		if peerConf, ok := peers[peerI.PublicKey.String()]; ok {
+
+			peerConf.Config.RemoteWgPort = peerI.Endpoint.Port
+			peers[peerI.PublicKey.String()] = peerConf
+			common.WgIFaceMap[m.Payload.InterfaceName] = peers
+			log.Printf("---->####### Updated PEER: %+v\n", peerConf)
+		}
+	}
+
 }
 
 func (m *ManagerAction) AddInterfaceToProxy() error {
@@ -106,6 +138,10 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 	log.Printf("wg: %+v\n", wgInterface)
 
 	for _, peerI := range m.Payload.Peers {
+		if peerI.Endpoint == nil {
+			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
+			continue
+		}
 		common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peerI.PublicKey.String())))] = common.RemotePeer{
 			Interface: ifaceName,
 			PeerKey:   peerI.PublicKey.String(),

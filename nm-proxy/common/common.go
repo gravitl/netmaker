@@ -59,7 +59,7 @@ type Proxy struct {
 	Cancel context.CancelFunc
 
 	Config     Config
-	RemoteConn net.Conn
+	RemoteConn *net.UDPAddr
 	LocalConn  net.Conn
 }
 

@@ -50,20 +50,20 @@ func (p *ProxyServer) Listen() {
 			log.Println("failed to extract info: ", err)
 			continue
 		}
-		log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s] \n", localWgPort, srcPeerKeyHash)
+		log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
 		if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
 			if peers, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 				if peerI, ok := peers[peerInfo.PeerKey]; ok {
-					if peerI.Config.LocalWgPort == int(localWgPort) {
-						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s\n", peerI.Proxy.LocalConn.RemoteAddr(),
-							peerI.Proxy.LocalConn.LocalAddr(), fmt.Sprintf("%s:%d", source.IP.String(), source.Port))
-						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
-						if err != nil {
-							log.Println("Failed to proxy to Wg local interface: ", err)
-							continue
-						}
-
+					// if peerI.Config.LocalWgPort == int(localWgPort) {
+					log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s\n", peerI.Proxy.LocalConn.RemoteAddr(),
+						peerI.Proxy.LocalConn.LocalAddr(), fmt.Sprintf("%s:%d", source.IP.String(), source.Port))
+					_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
+					if err != nil {
+						log.Println("Failed to proxy to Wg local interface: ", err)
+						continue
 					}
+
+					// }
 				}
 			}
 
