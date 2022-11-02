@@ -96,6 +96,8 @@ func GetServerConfig() config.ServerConfig {
 // GetServerConfig - gets the server config into memory from file or env
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
+	cfg.Server = GetServer()
+	cfg.Broker = GetBroker()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
@@ -105,7 +107,6 @@ func GetServerInfo() models.ServerConfig {
 		cfg.DNSMode = "on"
 	}
 	cfg.Version = GetVersion()
-	cfg.Server = GetServer()
 	cfg.Is_EE = Is_EE
 
 	return cfg
