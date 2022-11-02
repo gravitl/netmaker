@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
@@ -14,8 +15,10 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func nodeHandlers(r *mux.Router) {
@@ -1012,6 +1015,24 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
 	}
+	wgPubKey, wgErr := wgtypes.ParseKey(newNode.PublicKey)
+	nodeEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", newNode.Endpoint, newNode.LocalListenPort))
+	if wgErr == nil && udpErr == nil {
+		logic.ProxyMgmChan <- &manager.ManagerAction{
+			Action: manager.UpdatePeer,
+			Payload: manager.ManagerPayload{
+				InterfaceName: newNode.Interface,
+				Peers: []wgtypes.PeerConfig{
+					{
+						PublicKey: wgPubKey,
+						Endpoint:  nodeEndpoint,
+					},
+				},
+			},
+		}
+	} else {
+		logger.Log(1, fmt.Sprintf("failed to send node update to proxy, wgErr: %v, udpErr: %v", wgErr, udpErr))
+	}
 
 	logger.Log(1, r.Header.Get("user"), "updated node", node.ID, "on network", node.Network)
 	w.WriteHeader(http.StatusOK)
@@ -1100,7 +1121,20 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to reset failover lists during node delete for node", node.Name, node.Network)
 		}
 	}
-
+	wgKey, _ := wgtypes.ParseKey(node.PublicKey)
+	endpoint, _ := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", node.Endpoint, node.LocalListenPort))
+	logic.ProxyMgmChan <- &manager.ManagerAction{
+		Action: manager.DeletePeer,
+		Payload: manager.ManagerPayload{
+			InterfaceName: node.Interface,
+			Peers: []wgtypes.PeerConfig{
+				{
+					PublicKey: wgKey,
+					Endpoint:  endpoint,
+				},
+			},
+		},
+	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	runUpdates(&node, false)

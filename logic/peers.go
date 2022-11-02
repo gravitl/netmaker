@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ func GetPeersForProxy(node *models.Node) ([]wgtypes.PeerConfig, error) {
 			//skip yourself
 			continue
 		}
+		log.Printf("----------> PEER: %s, Endpoint: %s, LocalPort: %d", peer.ID, peer.Endpoint, peer.LocalListenPort)
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
@@ -47,6 +49,7 @@ func GetPeersForProxy(node *models.Node) ([]wgtypes.PeerConfig, error) {
 			// set_keepalive
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
+		log.Printf("---------->##### PEER: %s, Endpoint: %s, LocalPort: %d", peer.ID, endpoint, peer.LocalListenPort)
 		peers = append(peers, wgtypes.PeerConfig{
 			PublicKey:                   pubkey,
 			Endpoint:                    endpoint,

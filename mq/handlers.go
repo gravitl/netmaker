@@ -104,27 +104,24 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			if err = PublishPeerUpdate(&currentNode, true); err != nil {
 				logger.Log(0, "error updating peers when node", currentNode.Name, currentNode.ID, "informed the server of an interface change", err.Error())
 			}
-			pubKey, err := wgtypes.ParseKey(newNode.PublicKey)
-			if err == nil {
-				endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", newNode.Endpoint, newNode.LocalListenPort))
-				if err == nil {
-					logic.ProxyMgmChan <- &manager.ManagerAction{
-						Action: manager.UpdatePeer,
-						Payload: manager.ManagerPayload{
-							InterfaceName: newNode.Interface,
-							Peers: []wgtypes.PeerConfig{
-								{
-									PublicKey: pubKey,
-									Endpoint:  endpoint,
-								},
+			pubKey, wgErr := wgtypes.ParseKey(newNode.PublicKey)
+			endpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", newNode.Endpoint, newNode.LocalListenPort))
+			if wgErr == nil && udpErr == nil {
+				logic.ProxyMgmChan <- &manager.ManagerAction{
+					Action: manager.UpdatePeer,
+					Payload: manager.ManagerPayload{
+						InterfaceName: newNode.Interface,
+						Peers: []wgtypes.PeerConfig{
+							{
+								PublicKey: pubKey,
+								Endpoint:  endpoint,
 							},
 						},
-					}
+					},
 				}
-
 			}
-
 		}
+
 		logger.Log(1, "updated node", id, newNode.Name)
 	}()
 }

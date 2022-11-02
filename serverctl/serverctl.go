@@ -87,6 +87,7 @@ func SyncServerNetworkWithProxy() error {
 				logger.Log(1, "failed to retrieve peers for server node: ", serverNode.ID)
 				continue
 			}
+			logger.Log(0, "----> HEREEEEEEEE1")
 			logic.ProxyMgmChan <- &manager.ManagerAction{
 				Action: manager.AddInterface,
 				Payload: manager.ManagerPayload{

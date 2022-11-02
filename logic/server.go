@@ -19,7 +19,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var ProxyStatus = "OFF"
 var ProxyMgmChan = make(chan *manager.ManagerAction, 100)
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
@@ -176,7 +175,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	if err != nil {
 		return returnNode, err
 	}
-
+	logger.Log(0, "--------> Hereeeeeee23333")
 	ProxyMgmChan <- &manager.ManagerAction{
 		Action: manager.AddInterface,
 		Payload: manager.ManagerPayload{

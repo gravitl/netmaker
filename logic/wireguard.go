@@ -139,22 +139,41 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 	if peerupdate {
 		if err := wireguard.SetPeers(node.Interface, node, peers.Peers); err != nil {
 			logger.Log(0, "error updating peers", err.Error())
+			return err
 		}
+		// logger.Log(0, "--------> UPDATE PEERS IN PROXY.....")
+		// ProxyMgmChan <- &manager.ManagerAction{
+		// 	Action: manager.UpdatePeer,
+		// 	Payload: manager.ManagerPayload{
+		// 		InterfaceName: node.Interface,
+		// 		Peers:         peers.Peers,
+		// 	},
+		// }
+
 		logger.Log(2, "updated peers on server", node.Name)
 	} else {
 		err = wireguard.InitWireguard(node, privkey, peers.Peers)
+		if err != nil {
+			logger.Log(0, "failed to set wg config on server: ", node.Name, err.Error())
+			return err
+		}
 		logger.Log(3, "finished setting wg config on server", node.Name)
+
 	}
-	if ProxyStatus == "ON" {
+	logger.Log(0, "--------> ADD INTERFACE TO PROXY.....")
+	peersP, err := GetPeersForProxy(node)
+	if err != nil {
+		logger.Log(0, "failed to get peers for proxy: ", err.Error())
+	} else {
 		ProxyMgmChan <- &manager.ManagerAction{
 			Action: manager.AddInterface,
 			Payload: manager.ManagerPayload{
 				InterfaceName: node.Interface,
-				Peers:         peers.Peers,
+				Peers:         peersP,
 			},
 		}
 	}
-	return err
+	return nil
 }
 
 func setWGKeyConfig(node *models.Node) error {
