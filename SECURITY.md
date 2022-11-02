@@ -9,4 +9,4 @@ However, there is no official bug bounty program up yet for the Netmaker project
 
 ## Reporting a Vulnerability
 
-Please report security issues to `info@gravitl.com`
+Please report security issues to `info@netmaker.io`
