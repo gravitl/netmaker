@@ -324,6 +324,9 @@ func CreateNode(node *models.Node) error {
 	}
 
 	node.ID = uuid.NewString()
+	if node.IsServer == "yes" {
+		node.HostID = uuid.NewString()
+	}
 
 	//Create a JWT for the node
 	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
