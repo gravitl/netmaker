@@ -23,6 +23,7 @@ import (
 )
 
 var IsHostNetwork bool
+var IsRelay bool
 
 const (
 	NmProxyPort = 51722
@@ -51,6 +52,7 @@ type Config struct {
 	BodySize     int
 	Addr         string
 	RemoteKey    string
+	LocalKey     string
 	WgInterface  *wg.WGIface
 	AllowedIps   []net.IPNet
 	PreSharedKey *wgtypes.Key
@@ -69,11 +71,16 @@ type Proxy struct {
 type RemotePeer struct {
 	PeerKey   string
 	Interface string
+	Endpoint  *net.UDPAddr
 }
 
 var WgIFaceMap = make(map[string]map[string]*Conn)
 
 var PeerKeyHashMap = make(map[string]RemotePeer)
+
+var WgIfaceKeyMap = make(map[string]struct{})
+
+var RelayPeerMap = make(map[string]map[string]RemotePeer)
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {

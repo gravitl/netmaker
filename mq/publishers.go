@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/metrics"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
@@ -100,6 +101,28 @@ func NodeUpdate(node *models.Node) error {
 		return err
 	}
 	if err = publish(node, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
+		logger.Log(2, "error publishing node update to peer ", node.ID, err.Error())
+		return err
+	}
+	return nil
+}
+
+//ProxyUpdate -- publishes updates related to proxy
+func ProxyUpdate(proxyPayload *manager.ManagerAction, node *models.Node) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	if node.IsServer == "yes" {
+		logic.ProxyMgmChan <- proxyPayload
+	}
+	logger.Log(3, "publishing proxy update to "+node.Name)
+
+	data, err := json.Marshal(proxyPayload)
+	if err != nil {
+		logger.Log(2, "error marshalling node update ", err.Error())
+		return err
+	}
+	if err = publish(node, fmt.Sprintf("update/proxy/%s/%s", node.Network, node.ID), data); err != nil {
 		logger.Log(2, "error publishing node update to peer ", node.ID, err.Error())
 		return err
 	}

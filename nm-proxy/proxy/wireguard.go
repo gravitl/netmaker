@@ -58,18 +58,18 @@ func (p *Proxy) ProxyToRemote() {
 			}
 			peers := common.WgIFaceMap[p.Config.WgInterface.Name]
 			if peerI, ok := peers[p.Config.RemoteKey]; ok {
-				var srcPeerHash string
-				buf, n, srcPeerHash, err = packet.ProcessPacketBeforeSending(buf, peerI.Config.LocalKey, n, peerI.Config.RemoteWgPort)
+				var srcPeerKeyHash, dstPeerKeyHash string
+				buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
 				if err != nil {
 					log.Println("failed to process pkt before sending: ", err)
 				}
-				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ DstPort: %d, SrcPeerHash: %x ]]\n",
-					server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), peerI.Config.RemoteWgPort, srcPeerHash)
+				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ DstPort: %d, SrcPeerHash: %s, DstPeerHash: %s ]]\n",
+					server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), peerI.Config.RemoteWgPort, srcPeerKeyHash, dstPeerKeyHash)
 			} else {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
 				continue
 			}
-			// test(n, buf)
+			//test(n, buf)
 
 			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], p.RemoteConn)
 			if err != nil {
@@ -77,6 +77,12 @@ func (p *Proxy) ProxyToRemote() {
 			}
 		}
 	}
+}
+func test(n int, buffer []byte) {
+	data := buffer[:n]
+	srcKeyHash := data[n-32 : n-16]
+	dstKeyHash := data[n-16:]
+	log.Printf("--------> TEST PACKET [ SRCKEYHASH: %x ], [ DSTKEYHASH: %x ] \n", srcKeyHash, dstKeyHash)
 }
 
 func (p *Proxy) updateEndpoint() error {

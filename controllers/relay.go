@@ -10,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
@@ -42,12 +44,49 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	relayPeersMap := make(map[string][]wgtypes.PeerConfig)
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
 	for _, relayedNode := range updatenodes {
+		peers, err := logic.GetPeersForProxy(&relayedNode)
+		if err == nil {
+			relayPeersMap[relayedNode.PublicKey] = peers
+		}
+
+		// relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", node.Endpoint, node.LocalListenPort))
+		// if err != nil {
+		// 	logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
+		// }
+
+		// err = mq.ProxyUpdate(&manager.ManagerAction{
+		// 	Action: manager.AddInterface,
+		// 	Payload: manager.ManagerPayload{
+		// 		InterfaceName: relayedNode.Interface,
+		// 		IsRelayed:     true,
+		// 		Peers:         peers,
+		// 		RelayedTo:     relayEndpoint,
+		// 	},
+		// }, &node)
+		// if err != nil {
+		// 	logger.Log(1, "failed to send proxy update for relayed node: ", err.Error())
+		// }
+
 		err = mq.NodeUpdate(&relayedNode)
 		if err != nil {
 			logger.Log(1, "error sending update to relayed node ", relayedNode.Name, "on network", relay.NetID, ": ", err.Error())
 		}
+	}
+	// send proxy update for node that is relaying traffic
+	logger.Log(0, "--------> sending relay update to proxy")
+	err = mq.ProxyUpdate(&manager.ManagerAction{
+		Action: manager.RelayPeers,
+		Payload: manager.ManagerPayload{
+			IsRelay:      true,
+			RelayedPeers: relayPeersMap,
+		},
+	}, &node)
+	if err != nil {
+		logger.Log(1, "failed to send proxy update: ", err.Error())
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(node)

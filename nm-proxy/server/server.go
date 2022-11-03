@@ -22,6 +22,7 @@ const (
 type Config struct {
 	Port     int
 	BodySize int
+	IsRelay  bool
 	Addr     net.Addr
 }
 
@@ -34,7 +35,7 @@ type ProxyServer struct {
 func (p *ProxyServer) Listen() {
 
 	// Buffer with indicated body size
-	buffer := make([]byte, 1502)
+	buffer := make([]byte, 1532)
 	for {
 		// Read Packet
 		n, source, err := p.Server.ReadFromUDP(buffer)
@@ -42,28 +43,40 @@ func (p *ProxyServer) Listen() {
 			log.Println("RECV ERROR: ", err)
 			continue
 		}
-		var localWgPort int
-		var srcPeerKeyHash string
-		localWgPort, n, srcPeerKeyHash, err = packet.ExtractInfo(buffer, n)
-		if err != nil {
-			log.Println("failed to extract info: ", err)
-			continue
+		var srcPeerKeyHash, dstPeerKeyHash string
+		n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
+		//log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
+		if common.IsRelay && dstPeerKeyHash != "" {
+			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
+
+				log.Println("----------> Relaying######")
+				// check for routing map and forward to right proxy
+				if remoteMap, ok := common.RelayPeerMap[srcPeerKeyHash]; ok {
+					if conf, ok := remoteMap[dstPeerKeyHash]; ok {
+						log.Printf("--------> Relaying PKT [ SourceIP: %s:%d ], [ SourceKeyHash: %s ], [ DstIP: %s:%d ], [ DstHashKey: %s ] \n",
+							source.IP.String(), source.Port, srcPeerKeyHash, conf.Endpoint.String(), conf.Endpoint.Port, dstPeerKeyHash)
+						_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
+						if err != nil {
+							log.Println("Failed to send to remote: ", err)
+						}
+					}
+				}
+
+			}
 		}
-		// log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
+
 		if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
 			if peers, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 				if peerI, ok := peers[peerInfo.PeerKey]; ok {
-					// if peerI.Config.LocalWgPort == int(localWgPort) {
-					log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] ]]\n",
+					log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
 						peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
-						fmt.Sprintf("%s:%d", source.IP.String(), source.Port), localWgPort, srcPeerKeyHash, source.IP.String())
+						fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
 					_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
 					if err != nil {
 						log.Println("Failed to proxy to Wg local interface: ", err)
 						continue
 					}
 
-					// }
 				}
 			}
 
@@ -93,9 +106,12 @@ func (p *ProxyServer) CreateProxyServer(port, bodySize int, addr string) (err er
 
 func (p *ProxyServer) KeepAlive(ip string, port int) {
 	for {
-		_, _ = p.Server.Write([]byte("hello-proxy"))
-		//fmt.Println("Sending MSg: ", err)
-		time.Sleep(time.Second)
+		_, _ = p.Server.WriteToUDP([]byte("hello-proxy"), &net.UDPAddr{
+			IP:   net.ParseIP(ip),
+			Port: port,
+		})
+		//log.Println("Sending MSg: ", ip, port, err)
+		time.Sleep(time.Second * 5)
 	}
 }
 

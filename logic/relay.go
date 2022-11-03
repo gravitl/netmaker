@@ -72,6 +72,23 @@ func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]mod
 	}
 	return returnnodes, nil
 }
+func GetRelayedNodes(relayNode *models.Node) ([]models.Node, error) {
+	var returnnodes []models.Node
+	networkNodes, err := GetNetworkNodes(relayNode.Network)
+	if err != nil {
+		return returnnodes, err
+	}
+	for _, node := range networkNodes {
+		if node.IsServer != "yes" {
+			for _, addr := range relayNode.RelayAddrs {
+				if addr == node.Address || addr == node.Address6 {
+					returnnodes = append(returnnodes, node)
+				}
+			}
+		}
+	}
+	return returnnodes, nil
+}
 
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest) error {

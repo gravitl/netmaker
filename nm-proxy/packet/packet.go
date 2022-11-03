@@ -1,45 +1,36 @@
 package packet
 
 import (
-	"bytes"
 	"crypto/md5"
-	"encoding/binary"
 	"fmt"
-	"log"
 )
 
 var udpHeaderLen = 8
 
-func ProcessPacketBeforeSending(buf []byte, srckey string, n, dstPort int) ([]byte, int, string, error) {
-	portbuf := new(bytes.Buffer)
-	binary.Write(portbuf, binary.BigEndian, uint16(dstPort))
-	hmd5 := md5.Sum([]byte(srckey))
-	if n > len(buf)-18 {
-		buf = append(buf, portbuf.Bytes()[0])
-		buf = append(buf, portbuf.Bytes()[1])
-		buf = append(buf, hmd5[:]...)
+func ProcessPacketBeforeSending(buf []byte, n int, srckey, dstKey string) ([]byte, int, string, string) {
+
+	srcKeymd5 := md5.Sum([]byte(srckey))
+	dstKeymd5 := md5.Sum([]byte(dstKey))
+	if n > len(buf)-len(srcKeymd5)-len(dstKeymd5) {
+		buf = append(buf, srcKeymd5[:]...)
+		buf = append(buf, dstKeymd5[:]...)
 	} else {
-		buf[n] = portbuf.Bytes()[0]
-		buf[n+1] = portbuf.Bytes()[1]
-		copy(buf[n+2:n+2+len(hmd5)], hmd5[:])
+		copy(buf[n:n+len(srcKeymd5)], srcKeymd5[:])
+		copy(buf[n+len(srcKeymd5):n+len(srcKeymd5)+len(dstKeymd5)], dstKeymd5[:])
 	}
+	n += len(srcKeymd5)
+	n += len(dstKeymd5)
 
-	n += 2
-	n += len(hmd5)
-
-	return buf, n, fmt.Sprintf("%x", hmd5), nil
+	return buf, n, fmt.Sprintf("%x", srcKeymd5), fmt.Sprintf("%x", dstKeymd5)
 }
 
-func ExtractInfo(buffer []byte, n int) (int, int, string, error) {
+func ExtractInfo(buffer []byte, n int) (int, string, string) {
 	data := buffer[:n]
-	var localWgPort uint16
-	portBuf := data[n-18 : n-18+3]
-	keyHash := data[n-16:]
-	reader := bytes.NewReader(portBuf)
-	err := binary.Read(reader, binary.BigEndian, &localWgPort)
-	if err != nil {
-		log.Println("Failed to read port buffer: ", err)
+	if len(data) < 32 {
+		return 0, "", ""
 	}
-	n -= 18
-	return int(localWgPort), n, fmt.Sprintf("%x", keyHash), err
+	srcKeyHash := data[n-32 : n-16]
+	dstKeyHash := data[n-16:]
+	n -= 32
+	return n, fmt.Sprintf("%x", srcKeyHash), fmt.Sprintf("%x", dstKeyHash)
 }

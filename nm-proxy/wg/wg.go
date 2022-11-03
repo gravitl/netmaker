@@ -53,7 +53,10 @@ func NewWGIFace(iface string, address string, mtu int) (*WGIface, error) {
 	}
 
 	wgIface.Address = wgAddress
-	wgIface.GetWgIface(iface)
+	err = wgIface.GetWgIface(iface)
+	if err != nil {
+		return nil, err
+	}
 	return wgIface, nil
 }
 
@@ -71,6 +74,20 @@ func (w *WGIface) GetWgIface(iface string) error {
 	w.Device = dev
 	w.Port = dev.ListenPort
 	return nil
+}
+
+func GetWgIfacePubKey(iface string) string {
+	wgClient, err := wgctrl.New()
+	if err != nil {
+		log.Println("Error fetching pub key: ", iface, err)
+		return ""
+	}
+	dev, err := wgClient.Device(iface)
+	if err != nil {
+		log.Println("Error fetching pub key: ", iface, err)
+		return ""
+	}
+	return dev.PublicKey.String()
 }
 
 // parseAddress parse a string ("1.2.3.4/24") address to WG Address

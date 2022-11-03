@@ -1,12 +1,14 @@
 package peer
 
 import (
+	"crypto/md5"
 	"fmt"
 	"log"
 	"net"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	"github.com/gravitl/netmaker/nm-proxy/proxy"
+	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -32,16 +34,23 @@ type ConnConfig struct {
 	RemoteProxyPort int
 }
 
-func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
+func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed bool, relayTo *net.UDPAddr) error {
 
 	c := proxy.Config{
 		Port:        peer.Endpoint.Port,
+		LocalKey:    wgInterface.Device.PublicKey.String(),
 		RemoteKey:   peer.PublicKey.String(),
 		WgInterface: wgInterface,
 		AllowedIps:  peer.AllowedIPs,
 	}
 	p := proxy.NewProxy(c)
-	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint.IP.String(), common.NmProxyPort))
+
+	peerEndpoint := peer.Endpoint.IP.String()
+	if isRelayed {
+		go server.NmProxyServer.KeepAlive(peer.Endpoint.IP.String(), common.NmProxyPort)
+		peerEndpoint = relayTo.IP.String()
+	}
+	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peerEndpoint, common.NmProxyPort))
 	if err != nil {
 		return err
 	}
@@ -59,11 +68,13 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
 		RemoteWgPort:    peer.Endpoint.Port,
 		RemoteProxyPort: common.NmProxyPort,
 	}
+
 	peerProxy := common.Proxy{
 		Ctx:    p.Ctx,
 		Cancel: p.Cancel,
 		Config: common.Config{
 			Port:        peer.Endpoint.Port,
+			LocalKey:    wgInterface.Device.PublicKey.String(),
 			RemoteKey:   peer.PublicKey.String(),
 			WgInterface: wgInterface,
 			AllowedIps:  peer.AllowedIPs,
@@ -71,6 +82,9 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
 
 		RemoteConn: remoteConn,
 		LocalConn:  p.LocalConn,
+	}
+	if isRelayed {
+		connConf.RemoteProxyIP = relayTo.IP
 	}
 	peerConn := common.Conn{
 		Config: connConf,
@@ -82,5 +96,6 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig) error {
 		common.WgIFaceMap[wgInterface.Name] = make(map[string]*common.Conn)
 		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
 	}
+	common.WgIfaceKeyMap[fmt.Sprintf("%x", md5.Sum([]byte(wgInterface.Device.PublicKey.String())))] = struct{}{}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"runtime"
 
 	"github.com/gravitl/netmaker/netclient/wireguard"
@@ -19,12 +20,19 @@ type ProxyAction string
 type ManagerPayload struct {
 	InterfaceName string
 	Peers         []wgtypes.PeerConfig
+	IsRelayed     bool
+	RelayedTo     *net.UDPAddr
+	IsRelay       bool
+	RelayedPeers  map[string][]wgtypes.PeerConfig
 }
 
 const (
 	AddInterface ProxyAction = "ADD_INTERFACE"
 	DeletePeer   ProxyAction = "DELETE_PEER"
 	UpdatePeer   ProxyAction = "UPDATE_PEER"
+	RelayPeers   ProxyAction = "RELAY_PEERS"
+	RelayUpdate  ProxyAction = "RELAY_UPDATE"
+	RelayTo      ProxyAction = "RELAY_TO"
 )
 
 type ManagerAction struct {
@@ -45,23 +53,42 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 					log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
 				}
 			case UpdatePeer:
-				mI.UpdatePeerProxy()
+				//mI.UpdatePeerProxy()
 			case DeletePeer:
 				mI.DeletePeers()
+			case RelayPeers:
+				mI.RelayPeers()
+			case RelayUpdate:
+				mI.RelayUpdate()
 			}
 
 		}
 	}
 }
 
-func cleanUp(iface string) {
-	if peers, ok := common.WgIFaceMap[iface]; ok {
-		log.Println("########------------>  CLEANING UP: ", iface)
-		for _, peerI := range peers {
-			peerI.Proxy.Cancel()
+func (m *ManagerAction) RelayUpdate() {
+	common.IsRelay = m.Payload.IsRelay
+}
+
+func (m *ManagerAction) RelayPeers() {
+	common.IsRelay = true
+	for relayedNodePubKey, peers := range m.Payload.RelayedPeers {
+		for _, peer := range peers {
+			if _, ok := common.RelayPeerMap[relayedNodePubKey]; !ok {
+				common.RelayPeerMap[relayedNodePubKey] = make(map[string]common.RemotePeer)
+			}
+			peer.Endpoint.Port = common.NmProxyPort
+			relayedNodePubKeyHash := fmt.Sprintf("%x", md5.Sum([]byte(relayedNodePubKey)))
+			remotePeerKeyHash := fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))
+			if _, ok := common.RelayPeerMap[relayedNodePubKeyHash]; !ok {
+				common.RelayPeerMap[relayedNodePubKeyHash] = make(map[string]common.RemotePeer)
+			}
+			common.RelayPeerMap[relayedNodePubKeyHash][remotePeerKeyHash] = common.RemotePeer{
+				Endpoint: peer.Endpoint,
+			}
 		}
+
 	}
-	delete(common.WgIFaceMap, iface)
 }
 
 func (m *ManagerAction) DeletePeers() {
@@ -112,6 +139,16 @@ func (m *ManagerAction) UpdatePeerProxy() {
 
 }
 
+func cleanUp(iface string) {
+	if peers, ok := common.WgIFaceMap[iface]; ok {
+		log.Println("########------------>  CLEANING UP: ", iface)
+		for _, peerI := range peers {
+			peerI.Proxy.Cancel()
+		}
+	}
+	delete(common.WgIFaceMap, iface)
+}
+
 func (m *ManagerAction) AddInterfaceToProxy() error {
 	var err error
 	if m.Payload.InterfaceName == "" {
@@ -133,7 +170,8 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 
 	wgInterface, err := wg.NewWGIFace(ifaceName, "127.0.0.1/32", wg.DefaultMTU)
 	if err != nil {
-		log.Fatal("Failed init new interface: ", err)
+		log.Println("Failed init new interface: ", err)
+		return err
 	}
 	log.Printf("wg: %+v\n", wgInterface)
 
@@ -146,7 +184,8 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			Interface: ifaceName,
 			PeerKey:   peerI.PublicKey.String(),
 		}
-		peerpkg.AddNewPeer(wgInterface, &peerI)
+
+		peerpkg.AddNewPeer(wgInterface, &peerI, m.Payload.IsRelayed, m.Payload.RelayedTo)
 	}
 	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)
 	return nil

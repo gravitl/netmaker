@@ -217,6 +217,14 @@ func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 		}
 		return
 	}
+	if token := client.Subscribe(fmt.Sprintf("update/proxy/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(ProxyUpdate)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token.Error() == nil {
+			logger.Log(0, "network:", nodeCfg.Node.Network, "connection timeout")
+		} else {
+			logger.Log(0, "network:", nodeCfg.Node.Network, token.Error().Error())
+		}
+		return
+	}
 	logger.Log(3, fmt.Sprintf("subscribed to node updates for node %s update/%s/%s", nodeCfg.Node.Name, nodeCfg.Node.Network, nodeCfg.Node.ID))
 	if token := client.Subscribe(fmt.Sprintf("peers/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(UpdatePeers)); token.Wait() && token.Error() != nil {
 		logger.Log(0, "network", nodeCfg.Node.Network, token.Error().Error())
