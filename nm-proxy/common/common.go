@@ -22,8 +22,11 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+var IsHostNetwork bool
+
 const (
 	NmProxyPort = 51722
+	DefaultCIDR = "127.0.0.1/8"
 )
 
 type Conn struct {

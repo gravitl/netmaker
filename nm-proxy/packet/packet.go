@@ -10,12 +10,10 @@ import (
 
 var udpHeaderLen = 8
 
-func ProcessPacketBeforeSending(buf []byte, srckey string, n, dstPort int) ([]byte, int, error) {
-	log.Println("@###### DST Port: ", dstPort)
+func ProcessPacketBeforeSending(buf []byte, srckey string, n, dstPort int) ([]byte, int, string, error) {
 	portbuf := new(bytes.Buffer)
 	binary.Write(portbuf, binary.BigEndian, uint16(dstPort))
 	hmd5 := md5.Sum([]byte(srckey))
-	log.Printf("---> HASH: %x ", hmd5)
 	if n > len(buf)-18 {
 		buf = append(buf, portbuf.Bytes()[0])
 		buf = append(buf, portbuf.Bytes()[1])
@@ -29,7 +27,7 @@ func ProcessPacketBeforeSending(buf []byte, srckey string, n, dstPort int) ([]by
 	n += 2
 	n += len(hmd5)
 
-	return buf, n, nil
+	return buf, n, fmt.Sprintf("%x", hmd5), nil
 }
 
 func ExtractInfo(buffer []byte, n int) (int, int, string, error) {

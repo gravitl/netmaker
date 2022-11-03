@@ -58,17 +58,18 @@ func (p *Proxy) ProxyToRemote() {
 			}
 			peers := common.WgIFaceMap[p.Config.WgInterface.Name]
 			if peerI, ok := peers[p.Config.RemoteKey]; ok {
-				log.Println("PROCESSING PKT BEFORE SENDING")
-
-				buf, n, err = packet.ProcessPacketBeforeSending(buf, peerI.Config.LocalKey, n, peerI.Config.RemoteWgPort)
+				var srcPeerHash string
+				buf, n, srcPeerHash, err = packet.ProcessPacketBeforeSending(buf, peerI.Config.LocalKey, n, peerI.Config.RemoteWgPort)
 				if err != nil {
 					log.Println("failed to process pkt before sending: ", err)
 				}
+				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ DstPort: %d, SrcPeerHash: %x ]]\n",
+					server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), peerI.Config.RemoteWgPort, srcPeerHash)
 			} else {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
+				continue
 			}
 			// test(n, buf)
-			log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s\n", server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String())
 
 			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], p.RemoteConn)
 			if err != nil {
@@ -83,8 +84,8 @@ func (p *Proxy) updateEndpoint() error {
 	if err != nil {
 		return err
 	}
-	log.Println("--------> UDPADDR:  ", udpAddr)
 	// add local proxy connection as a Wireguard peer
+	log.Printf("---> ## Updating Peer:  %+v\n", p.Config)
 	err = p.Config.WgInterface.UpdatePeer(p.Config.RemoteKey, p.Config.AllowedIps, wg.DefaultWgKeepAlive,
 		udpAddr, p.Config.PreSharedKey)
 	if err != nil {
@@ -109,23 +110,24 @@ func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	// 	return err
 	// }
 	log.Printf("----> WGIFACE: %+v\n", p.Config.WgInterface)
-	addr, err := GetFreeIp("127.0.0.1/8", p.Config.WgInterface.Port)
+	addr, err := GetFreeIp(common.DefaultCIDR, p.Config.WgInterface.Port)
 	if err != nil {
 		log.Println("Failed to get freeIp: ", err)
 		return err
 	}
-	wgAddr := "127.0.0.1"
-	if runtime.GOOS == "darwin" {
-		wgAddr = addr
+	wgListenAddr, err := GetInterfaceListenAddr(p.Config.WgInterface.Port)
+	if err != nil {
+		log.Println("failed to get wg listen addr: ", err)
+		return err
 	}
-
+	if runtime.GOOS == "darwin" {
+		wgListenAddr.IP = net.ParseIP(addr)
+	}
+	log.Println("--------->#### Wg Listen Addr: ", wgListenAddr.String())
 	p.LocalConn, err = net.DialUDP("udp", &net.UDPAddr{
 		IP:   net.ParseIP(addr),
 		Port: common.NmProxyPort,
-	}, &net.UDPAddr{
-		IP:   net.ParseIP(wgAddr),
-		Port: p.Config.WgInterface.Port,
-	})
+	}, wgListenAddr)
 	if err != nil {
 		log.Printf("failed dialing to local Wireguard port,Err: %v\n", err)
 		return err
@@ -172,7 +174,8 @@ func GetFreeIp(cidrAddr string, dstPort int) (string, error) {
 		})
 		if err != nil {
 			log.Println("----> GetFreeIP ERR: ", err)
-			if strings.Contains(err.Error(), "can't assign requested address") || strings.Contains(err.Error(), "address already in use") {
+			if strings.Contains(err.Error(), "can't assign requested address") ||
+				strings.Contains(err.Error(), "address already in use") || strings.Contains(err.Error(), "cannot assign requested address") {
 				var nErr error
 				newAddrs, nErr = net4.NextIP(newAddrs)
 				if nErr != nil {

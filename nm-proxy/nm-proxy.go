@@ -3,7 +3,9 @@ package nmproxy
 import (
 	"log"
 	"net"
+	"os"
 
+	"github.com/gravitl/netmaker/nm-proxy/common"
 	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/stun"
@@ -17,6 +19,7 @@ import (
 */
 func Start(mgmChan chan *manager.ManagerAction) {
 	log.Println("Starting Proxy...")
+	common.IsHostNetwork = (os.Getenv("HOST_NETWORK") == "" || os.Getenv("HOST_NETWORK") == "on")
 	go manager.StartProxyManager(mgmChan)
 	hInfo := stun.GetHostInfo()
 	stun.Host = hInfo

@@ -47,7 +47,7 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 			case UpdatePeer:
 				mI.UpdatePeerProxy()
 			case DeletePeer:
-
+				mI.DeletePeers()
 			}
 
 		}
