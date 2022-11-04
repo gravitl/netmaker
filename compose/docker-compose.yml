@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.16.2
+    image: gravitl/netmaker:v0.16.3
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -53,7 +53,7 @@ services:
       - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.16.2
+    image: gravitl/netmaker-ui:v0.16.3
     depends_on:
       - netmaker
     links:
