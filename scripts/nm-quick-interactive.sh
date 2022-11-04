@@ -17,6 +17,37 @@ cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
 
+if [ -z "$1" ]; then
+	echo "-----------------------------------------------------"
+	echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
+	echo "EE will require you to create an account at https://dashboard.license.netmaker.io"
+	echo "-----------------------------------------------------"
+	select install_option in "Community Edition" "Enterprise Edition"; do
+	case $REPLY in
+		1)
+		echo "installing Netmaker CE"
+		INSTALL_TYPE="ce"
+		break
+		;;      
+		2)
+		echo "installing Netmaker EE"
+		INSTALL_TYPE="ee"
+		break
+		;;
+		*) echo "invalid option $REPLY";;
+	esac
+	done
+elif [ "$1" = "ce" ]; then
+	echo "installing Netmaker CE"
+	INSTALL_TYPE="ce"
+elif [ "$1" = "ee" ]; then
+	echo "installing Netmaker EE"
+	INSTALL_TYPE="ee"
+else
+	echo "install type invalid (options: 'ce, ee')"
+	exit 1
+fi
+
 wait_seconds() {(
   for ((a=1; a <= $1; a++))
   do
@@ -187,36 +218,45 @@ echo "The following subdomains will be used:"
 echo "          dashboard.$NETMAKER_BASE_DOMAIN"
 echo "                api.$NETMAKER_BASE_DOMAIN"
 echo "             broker.$NETMAKER_BASE_DOMAIN"
-echo "         prometheus.$NETMAKER_BASE_DOMAIN"
-echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
-echo "            grafana.$NETMAKER_BASE_DOMAIN"
+
+if [ "$INSTALL_TYPE" = "ee" ]; then
+	echo "         prometheus.$NETMAKER_BASE_DOMAIN"
+	echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
+	echo "            grafana.$NETMAKER_BASE_DOMAIN"
+fi
+
 echo "-----------------------------------------------------"
 
 if [[ "$DOMAIN_TYPE" == "custom" ]]; then
-	echo "is DNS configured correctly with records pointing to $SERVER_PUBLIC_IP?"
+	echo "before continuing, confirm DNS is configured correctly, with records pointing to $SERVER_PUBLIC_IP"
 	confirm
 fi
 
 wait_seconds 1
 
-echo "-----------------------------------------------------"
-echo "Provide Details for EE installation:"
-echo "    1. Log into https://dashboard.license.netmaker.io"
-echo "    2. Copy License Key Value: https://dashboard.license.netmaker.io/license-keys"
-echo "    3. Retrieve Account ID: https://dashboard.license.netmaker.io/user"
-echo "    4. note email address"
-echo "-----------------------------------------------------"
-unset LICENSE_KEY
-while [ -z "$LICENSE_KEY" ]; do
-     read -p "License Key: " LICENSE_KEY
-done
-unset ACCOUNT_ID
-while [ -z ${ACCOUNT_ID} ]; do
-     read -p "Account ID: " ACCOUNT_ID
-done
+if [ "$INSTALL_TYPE" = "ee" ]; then
+
+	echo "-----------------------------------------------------"
+	echo "Provide Details for EE installation:"
+	echo "    1. Log into https://dashboard.license.netmaker.io"
+	echo "    2. Copy License Key Value: https://dashboard.license.netmaker.io/license-keys"
+	echo "    3. Retrieve Account ID: https://dashboard.license.netmaker.io/user"
+	echo "    4. note email address"
+	echo "-----------------------------------------------------"
+	unset LICENSE_KEY
+	while [ -z "$LICENSE_KEY" ]; do
+		read -p "License Key: " LICENSE_KEY
+	done
+	unset ACCOUNT_ID
+	while [ -z ${ACCOUNT_ID} ]; do
+		read -p "Account ID: " ACCOUNT_ID
+	done
+
+fi
+
 unset EMAIL
 while [ -z ${EMAIL} ]; do
-     read -p "Email Address: " EMAIL
+     read -p "Email Address (for LetsEncrypt): " EMAIL
 done
 
 wait_seconds 2
@@ -227,9 +267,10 @@ echo "-----------------------------------------------------------------"
 echo "        domain: $NETMAKER_BASE_DOMAIN"
 echo "         email: $EMAIL"
 echo "     public ip: $SERVER_PUBLIC_IP"
-echo "       license: $LICENSE_KEY"
-echo "    account id: $ACCOUNT_ID"
-
+if [ "$INSTALL_TYPE" = "ee" ]; then
+	echo "       license: $LICENSE_KEY"
+	echo "    account id: $ACCOUNT_ID"
+fi
 echo "-----------------------------------------------------------------"
 echo "Confirm Settings for Installation"
 echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
@@ -244,7 +285,13 @@ echo "-----------------------------------------------------------------"
 wait_seconds 3
 
 echo "Pulling config files..."
-wget -O docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.ee.yml && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh && chmod +x wait.sh
+
+COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml" 
+if [ "$INSTALL_TYPE" = "ee" ]; then
+	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.ee.yml" 
+fi
+
+wget -O docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh && chmod +x wait.sh
 
 mkdir -p /etc/netmaker
 
@@ -255,9 +302,10 @@ sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 
-sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml 
-sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml 
-
+if [ "$INSTALL_TYPE" = "ee" ]; then
+	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml 
+	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml 
+fi
 echo "Starting containers..."
 
 docker-compose -f /root/docker-compose.yml up -d
