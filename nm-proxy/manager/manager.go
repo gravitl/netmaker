@@ -8,7 +8,6 @@ import (
 	"net"
 	"runtime"
 
-	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	peerpkg "github.com/gravitl/netmaker/nm-proxy/peer"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
@@ -18,12 +17,17 @@ import (
 type ProxyAction string
 
 type ManagerPayload struct {
-	InterfaceName string
-	Peers         []wgtypes.PeerConfig
-	IsRelayed     bool
-	RelayedTo     *net.UDPAddr
-	IsRelay       bool
-	RelayedPeers  map[string][]wgtypes.PeerConfig
+	InterfaceName string                          `json:"interface_name"`
+	Peers         []wgtypes.PeerConfig            `json:"peers"`
+	PeerMap       map[string]PeerConf             `json:"peer_map"`
+	IsRelayed     bool                            `json:"is_relayed"`
+	RelayedTo     *net.UDPAddr                    `json:"relayed_to"`
+	IsRelay       bool                            `json:"is_relay"`
+	RelayedPeers  map[string][]wgtypes.PeerConfig `json:"relayed_peers"`
+}
+type PeerConf struct {
+	IsRelayed bool         `json:"is_relayed"`
+	RelayedTo *net.UDPAddr `json:"relayed_to"`
 }
 
 const (
@@ -48,6 +52,10 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 			log.Printf("-------> PROXY-MANAGER: %+v\n", mI)
 			switch mI.Action {
 			case AddInterface:
+				common.IsRelay = mI.Payload.IsRelay
+				if mI.Payload.IsRelay {
+					mI.RelayPeers()
+				}
 				err := mI.AddInterfaceToProxy()
 				if err != nil {
 					log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
@@ -161,7 +169,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 	ifaceName := m.Payload.InterfaceName
 	log.Println("--------> IFACE: ", ifaceName)
 	if runtime.GOOS == "darwin" {
-		ifaceName, err = wireguard.GetRealIface(ifaceName)
+		ifaceName, err = wg.GetRealIface(ifaceName)
 		if err != nil {
 			log.Println("failed to get real iface: ", err)
 		}

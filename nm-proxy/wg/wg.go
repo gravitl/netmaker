@@ -1,9 +1,13 @@
 package wg
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +18,7 @@ import (
 const (
 	DefaultMTU         = 1280
 	DefaultWgPort      = 51820
-	DefaultWgKeepAlive = 25 * time.Second
+	DefaultWgKeepAlive = 20 * time.Second
 )
 
 // WGIface represents a interface instance
@@ -103,7 +107,6 @@ func parseAddress(address string) (WGAddress, error) {
 }
 
 // UpdatePeer updates existing Wireguard Peer or creates a new one if doesn't exist
-// Endpoint is optional
 func (w *WGIface) UpdatePeer(peerKey string, allowedIps []net.IPNet, keepAlive time.Duration, endpoint *net.UDPAddr, preSharedKey *wgtypes.Key) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -121,9 +124,9 @@ func (w *WGIface) UpdatePeer(peerKey string, allowedIps []net.IPNet, keepAlive t
 		return err
 	}
 	peer := wgtypes.PeerConfig{
-		PublicKey:                   peerKeyParsed,
-		ReplaceAllowedIPs:           true,
-		AllowedIPs:                  allowedIps,
+		PublicKey: peerKeyParsed,
+		// ReplaceAllowedIPs:           true,
+		// AllowedIPs:                  allowedIps,
 		PersistentKeepaliveInterval: &keepAlive,
 		PresharedKey:                preSharedKey,
 		Endpoint:                    endpoint,
@@ -175,4 +178,59 @@ func (w *WGIface) GetListenPort() (*int, error) {
 	log.Printf("got Wireguard device listen port %s, %d", w.Name, d.ListenPort)
 
 	return &d.ListenPort, nil
+}
+
+// GetRealIface - retrieves tun iface based on reference iface name from config file
+func GetRealIface(iface string) (string, error) {
+	RunCmd("wg show interfaces", false)
+	ifacePath := "/var/run/wireguard/" + iface + ".name"
+	if !(FileExists(ifacePath)) {
+		return "", errors.New(ifacePath + " does not exist")
+	}
+	realIfaceName, err := GetFileAsString(ifacePath)
+	if err != nil {
+		return "", err
+	}
+	realIfaceName = strings.TrimSpace(realIfaceName)
+	if !(FileExists(fmt.Sprintf("/var/run/wireguard/%s.sock", realIfaceName))) {
+		return "", errors.New("interface file does not exist")
+	}
+	return realIfaceName, nil
+}
+
+// FileExists - checks if file exists locally
+func FileExists(f string) bool {
+	info, err := os.Stat(f)
+	if os.IsNotExist(err) {
+		return false
+	}
+	if err != nil && strings.Contains(err.Error(), "not a directory") {
+		return false
+	}
+	if err != nil {
+		log.Println(0, "error reading file: "+f+", "+err.Error())
+	}
+	return !info.IsDir()
+}
+
+// GetFileAsString - returns the string contents of a given file
+func GetFileAsString(path string) (string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(content), err
+}
+
+// RunCmd - runs a local command
+func RunCmd(command string, printerr bool) (string, error) {
+	args := strings.Fields(command)
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Wait()
+	out, err := cmd.CombinedOutput()
+	if err != nil && printerr {
+		log.Println("error running command: ", command)
+		log.Println(strings.TrimSuffix(string(out), "\n"))
+	}
+	return string(out), err
 }

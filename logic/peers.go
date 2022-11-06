@@ -3,7 +3,6 @@ package logic
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -14,24 +13,56 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func GetPeersForProxy(node *models.Node) ([]wgtypes.PeerConfig, error) {
+func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload, error) {
+	proxyPayload := manager.ManagerPayload{}
 	var peers []wgtypes.PeerConfig
+	peerConfMap := make(map[string]manager.PeerConf)
 	var err error
 	currentPeers, err := GetNetworkNodes(node.Network)
 	if err != nil {
-		return peers, err
+		return proxyPayload, err
 	}
+	if !onlyPeers {
+		if node.IsRelayed == "yes" {
+			relayNode := FindRelay(node)
+			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
+			if err != nil {
+				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
+			}
+			proxyPayload.IsRelayed = true
+			proxyPayload.RelayedTo = relayEndpoint
+
+		}
+		if node.IsRelay == "yes" {
+			relayedNodes, err := GetRelayedNodes(node)
+			if err != nil {
+				logger.Log(1, "failed to relayed nodes: ", node.Name, err.Error())
+				proxyPayload.IsRelay = false
+			} else {
+				relayPeersMap := make(map[string][]wgtypes.PeerConfig)
+				for _, relayedNode := range relayedNodes {
+					payload, err := GetPeersForProxy(&relayedNode, true)
+					if err == nil {
+						relayPeersMap[relayedNode.PublicKey] = payload.Peers
+					}
+				}
+				proxyPayload.IsRelay = true
+				proxyPayload.RelayedPeers = relayPeersMap
+			}
+		}
+	}
+
 	for _, peer := range currentPeers {
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
 		}
-		log.Printf("----------> PEER: %s, Endpoint: %s, LocalPort: %d", peer.ID, peer.Endpoint, peer.LocalListenPort)
 		pubkey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
@@ -48,7 +79,6 @@ func GetPeersForProxy(node *models.Node) ([]wgtypes.PeerConfig, error) {
 			// set_keepalive
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
-		log.Printf("---------->##### PEER: %s, Endpoint: %s, LocalPort: %d", peer.ID, endpoint, peer.LocalListenPort)
 		peers = append(peers, wgtypes.PeerConfig{
 			PublicKey:                   pubkey,
 			Endpoint:                    endpoint,
@@ -56,8 +86,25 @@ func GetPeersForProxy(node *models.Node) ([]wgtypes.PeerConfig, error) {
 			PersistentKeepaliveInterval: &keepalive,
 			ReplaceAllowedIPs:           true,
 		})
+		if !onlyPeers && peer.IsRelayed == "yes" {
+			relayNode := FindRelay(&peer)
+			if relayNode != nil {
+				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, peer.LocalListenPort))
+				if err == nil {
+					peerConfMap[peer.PublicKey] = manager.PeerConf{
+						IsRelayed: true,
+						RelayedTo: relayTo,
+					}
+				}
+
+			}
+
+		}
 	}
-	return peers, nil
+	proxyPayload.Peers = peers
+	proxyPayload.PeerMap = peerConfMap
+	proxyPayload.InterfaceName = node.Interface
+	return proxyPayload, nil
 }
 
 // GetPeerUpdate - gets a wireguard peer config for each peer of a node
@@ -237,16 +284,6 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	peerUpdate.ServerAddrs = serverNodeAddresses
 	peerUpdate.DNS = getPeerDNS(node.Network)
 	peerUpdate.PeerIDs = peerMap
-	if node.IsRelayed == "yes" {
-		relayNode := FindRelay(node)
-		relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
-		if err != nil {
-			logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
-		}
-		peerUpdate.IsRelayed = true
-		peerUpdate.RelayTo = relayEndpoint
-
-	}
 	return peerUpdate, nil
 }
 

@@ -3,7 +3,6 @@ package mq
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -12,9 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // DefaultHandler default message queue handler  -- NOT USED
@@ -103,22 +100,6 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
 			if err = PublishPeerUpdate(&currentNode, true); err != nil {
 				logger.Log(0, "error updating peers when node", currentNode.Name, currentNode.ID, "informed the server of an interface change", err.Error())
-			}
-			pubKey, wgErr := wgtypes.ParseKey(newNode.PublicKey)
-			endpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", newNode.Endpoint, newNode.LocalListenPort))
-			if wgErr == nil && udpErr == nil {
-				logic.ProxyMgmChan <- &manager.ManagerAction{
-					Action: manager.UpdatePeer,
-					Payload: manager.ManagerPayload{
-						InterfaceName: newNode.Interface,
-						Peers: []wgtypes.PeerConfig{
-							{
-								PublicKey: pubKey,
-								Endpoint:  endpoint,
-							},
-						},
-					},
-				}
 			}
 		}
 

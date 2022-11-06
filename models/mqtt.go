@@ -1,21 +1,19 @@
 package models
 
 import (
-	"net"
-
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // PeerUpdate - struct
 type PeerUpdate struct {
-	Network       string               `json:"network" bson:"network" yaml:"network"`
-	ServerVersion string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs   []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
-	Peers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	DNS           string               `json:"dns" bson:"dns" yaml:"dns"`
-	PeerIDs       PeerMap              `json:"peerids" bson:"peerids" yaml:"peerids"`
-	IsRelayed     bool                 `json:"is_relayed" bson:"is_relayed" yaml:"is_relayed"`
-	RelayTo       *net.UDPAddr         `json:"relay_to" bson:"relay_to" yaml:"relay_to"`
+	Network       string                `json:"network" bson:"network" yaml:"network"`
+	ServerVersion string                `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
+	ServerAddrs   []ServerAddr          `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
+	Peers         []wgtypes.PeerConfig  `json:"peers" bson:"peers" yaml:"peers"`
+	DNS           string                `json:"dns" bson:"dns" yaml:"dns"`
+	PeerIDs       PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
+	ProxyUpdate   manager.ManagerAction `josn:"proxy_update"`
 }
 
 // KeyUpdate - key update struct

@@ -34,7 +34,7 @@ var All mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 func ProxyUpdate(client mqtt.Client, msg mqtt.Message) {
 	var nodeCfg config.ClientConfig
 	var proxyUpdate manager.ManagerAction
-	var network = strings.Split(msg.Topic(), "/")[2]
+	var network = parseNetworkFromTopic(msg.Topic())
 	nodeCfg.Network = network
 	nodeCfg.ReadConfig()
 
@@ -165,12 +165,7 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	//			}
 	//		}
 	//	}
-	ProxyMgmChan <- &manager.ManagerAction{
-		Action: manager.AddInterface,
-		Payload: manager.ManagerPayload{
-			IsRelayed: newNode.IsRelay == "yes",
-		},
-	}
+
 	if ifaceDelta { // if a change caused an ifacedelta we need to notify the server to update the peers
 		doneErr := publishSignal(&nodeCfg, ncutils.DONE)
 		if doneErr != nil {
@@ -273,15 +268,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		logger.Log(0, "error syncing wg after peer update: "+err.Error())
 		return
 	}
-	ProxyMgmChan <- &manager.ManagerAction{
-		Action: manager.AddInterface,
-		Payload: manager.ManagerPayload{
-			InterfaceName: cfg.Node.Interface,
-			Peers:         peerUpdate.Peers,
-			IsRelayed:     peerUpdate.IsRelayed,
-			RelayedTo:     peerUpdate.RelayTo,
-		},
-	}
+	ProxyMgmChan <- &peerUpdate.ProxyUpdate
 	logger.Log(0, "network:", cfg.Node.Network, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Interface, ncutils.IsWindows()); err != nil {
@@ -294,6 +281,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	}
+
 	_ = UpdateLocalListenPort(&cfg)
 }
 

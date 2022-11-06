@@ -175,38 +175,12 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	if err != nil {
 		return returnNode, err
 	}
-	logger.Log(0, "--------> Hereeeeeee23333")
-	proxyPayload := manager.ManagerPayload{
-		IsRelay:       node.IsRelay == "yes",
-		InterfaceName: node.Interface,
-		Peers:         peers.Peers,
+	proxyPayload, err := GetPeersForProxy(node, false)
+	if err != nil && !ncutils.IsEmptyRecord(err) {
+		logger.Log(1, "failed to retrieve peers")
+		return returnNode, err
 	}
-	// if proxyPayload.IsRelayed {
-	// 	relayNode := FindRelay(node)
-	// 	relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
-	// 	if err != nil {
-	// 		logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
-	// 		proxyPayload.IsRelayed = false
-	// 	}
-	// 	proxyPayload.RelayedTo = relayEndpoint
 
-	// }
-	if proxyPayload.IsRelay {
-		relayedNodes, err := GetRelayedNodes(node)
-		if err != nil {
-			logger.Log(1, "failed to relayed nodes: ", node.Name, err.Error())
-			proxyPayload.IsRelay = false
-		} else {
-			relayPeersMap := make(map[string][]wgtypes.PeerConfig)
-			for _, relayedNode := range relayedNodes {
-				peers, err := GetPeersForProxy(&relayedNode)
-				if err == nil {
-					relayPeersMap[relayedNode.PublicKey] = peers
-				}
-			}
-			proxyPayload.RelayedPeers = relayPeersMap
-		}
-	}
 	ProxyMgmChan <- &manager.ManagerAction{
 		Action:  manager.AddInterface,
 		Payload: proxyPayload,

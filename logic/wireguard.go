@@ -161,31 +161,11 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 
 	}
 	logger.Log(0, "--------> ADD/Update INTERFACE TO PROXY.....")
-	peersP, err := GetPeersForProxy(node)
+	proxyPayload, err := GetPeersForProxy(node, false)
 	if err != nil {
 		logger.Log(0, "failed to get peers for proxy: ", err.Error())
 	} else {
-		proxyPayload := manager.ManagerPayload{
-			IsRelay:       node.IsRelay == "yes",
-			InterfaceName: node.Interface,
-			Peers:         peersP,
-		}
-		if proxyPayload.IsRelay {
-			relayedNodes, err := GetRelayedNodes(node)
-			if err != nil {
-				logger.Log(1, "failed to relayed nodes: ", node.Name, err.Error())
-				proxyPayload.IsRelay = false
-			} else {
-				relayPeersMap := make(map[string][]wgtypes.PeerConfig)
-				for _, relayedNode := range relayedNodes {
-					peers, err := GetPeersForProxy(&relayedNode)
-					if err == nil {
-						relayPeersMap[relayedNode.PublicKey] = peers
-					}
-				}
-				proxyPayload.RelayedPeers = relayPeersMap
-			}
-		}
+
 		ProxyMgmChan <- &manager.ManagerAction{
 			Action:  manager.AddInterface,
 			Payload: proxyPayload,

@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 const (
@@ -83,33 +82,12 @@ func SyncServerNetworkWithProxy() error {
 				logger.Log(1, "failed to retrieve local server node: ", serverNode.ID)
 				continue
 			}
-			peers, err := logic.GetPeersForProxy(&serverNode)
+			proxyPayload, err := logic.GetPeersForProxy(&serverNode, false)
 			if err != nil && !ncutils.IsEmptyRecord(err) {
 				logger.Log(1, "failed to retrieve peers for server node: ", serverNode.ID)
 				continue
 			}
 			logger.Log(0, "----> HEREEEEEEEE1")
-			proxyPayload := manager.ManagerPayload{
-				IsRelay:       serverNode.IsRelay == "yes",
-				InterfaceName: serverNode.Interface,
-				Peers:         peers,
-			}
-			if proxyPayload.IsRelay {
-				relayedNodes, err := logic.GetRelayedNodes(&serverNode)
-				if err != nil {
-					logger.Log(1, "failed to relayed nodes: ", serverNode.Name, err.Error())
-					proxyPayload.IsRelay = false
-				} else {
-					relayPeersMap := make(map[string][]wgtypes.PeerConfig)
-					for _, relayedNode := range relayedNodes {
-						peers, err := logic.GetPeersForProxy(&relayedNode)
-						if err == nil {
-							relayPeersMap[relayedNode.PublicKey] = peers
-						}
-					}
-					proxyPayload.RelayedPeers = relayPeersMap
-				}
-			}
 			logic.ProxyMgmChan <- &manager.ManagerAction{
 				Action:  manager.AddInterface,
 				Payload: proxyPayload,
