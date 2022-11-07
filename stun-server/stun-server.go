@@ -1,10 +1,15 @@
 package stunserver
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/servercfg"
@@ -19,9 +24,8 @@ import (
 // nor ALTERNATE-SERVER, nor credentials mechanisms. It does not support
 // backwards compatibility with RFC 3489.
 type Server struct {
-	Addr         string
-	LogAllErrors bool
-	log          Logger
+	Addr string
+	Ctx  context.Context
 }
 
 // Logger is used for logging formatted messages.
@@ -72,54 +76,62 @@ func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
 	buf := make([]byte, 1024)
 	n, addr, err := c.ReadFrom(buf)
 	if err != nil {
-		s.log.Printf("ReadFrom: %v", err)
+		logger.Log(1, "ReadFrom: %v", err.Error())
 		return nil
 	}
 	log.Printf("read %d bytes from %s\n", n, addr)
 	if _, err = req.Write(buf[:n]); err != nil {
-		s.log.Printf("Write: %v", err)
+		logger.Log(1, "Write: %v", err.Error())
 		return err
 	}
 	if err = basicProcess(addr, buf[:n], req, res); err != nil {
 		if err == errNotSTUNMessage {
 			return nil
 		}
-		s.log.Printf("basicProcess: %v", err)
+		logger.Log(1, "basicProcess: %v", err.Error())
 		return nil
 	}
 	_, err = c.WriteTo(res.Raw, addr)
 	if err != nil {
-		s.log.Printf("WriteTo: %v", err)
+		logger.Log(1, "WriteTo: %v", err.Error())
 	}
 	return err
 }
 
 // Serve reads packets from connections and responds to BINDING requests.
-func (s *Server) Serve(c net.PacketConn) error {
+func (s *Server) serve(c net.PacketConn) error {
 	var (
 		res = new(stun.Message)
 		req = new(stun.Message)
 	)
 	for {
-		if err := s.serveConn(c, res, req); err != nil {
-			s.log.Printf("serve: %v", err)
-			return err
+		select {
+		case <-s.Ctx.Done():
+			logger.Log(0, "Shutting down stun server...")
+			c.Close()
+			return nil
+		default:
+			if err := s.serveConn(c, res, req); err != nil {
+				logger.Log(1, "serve: %v", err.Error())
+				continue
+			}
+			res.Reset()
+			req.Reset()
 		}
-		res.Reset()
-		req.Reset()
 	}
 }
 
-// ListenUDPAndServe listens on laddr and process incoming packets.
-func ListenUDPAndServe(serverNet, laddr string) error {
+// listenUDPAndServe listens on laddr and process incoming packets.
+func listenUDPAndServe(ctx context.Context, serverNet, laddr string) error {
 	c, err := net.ListenPacket(serverNet, laddr)
 	if err != nil {
 		return err
 	}
 	s := &Server{
-		log: defaultLogger,
+		Addr: laddr,
+		Ctx:  ctx,
 	}
-	return s.Serve(c)
+	return s.serve(c)
 }
 
 func normalize(address string) string {
@@ -132,11 +144,18 @@ func normalize(address string) string {
 	return address
 }
 
-func Start() {
-
+func Start(wg *sync.WaitGroup) {
+	defer wg.Done()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+		<-quit
+		cancel()
+	}()
 	normalized := normalize(fmt.Sprintf("0.0.0.0:%s", servercfg.GetStunPort()))
 	logger.Log(0, "netmaker-stun listening on", normalized, "via udp")
-	err := ListenUDPAndServe("udp", normalized)
+	err := listenUDPAndServe(ctx, "udp", normalized)
 	if err != nil {
 		logger.Log(0, "failed to start stun server: ", err.Error())
 	}

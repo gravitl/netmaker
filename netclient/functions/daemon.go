@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,7 +34,7 @@ import (
 
 var ProxyMgmChan = make(chan *manager.ManagerAction, 100)
 var messageCache = new(sync.Map)
-var ProxyStatus = "OFF"
+
 var serverSet map[string]bool
 
 var mqclient mqtt.Client
@@ -123,16 +124,19 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 	}
 	wg.Add(1)
 	go Checkin(ctx, wg)
-	if ProxyStatus == "OFF" {
-		ProxyStatus = "ON"
-		go nmproxy.Start(ProxyMgmChan)
-	} else {
-		log.Println("Proxy already running...")
+
+	if len(networks) != 0 {
+		cfg := config.ClientConfig{}
+		cfg.Network = networks[0]
+		cfg.ReadConfig()
+		apiHost, _, err := net.SplitHostPort(cfg.Server.API)
+		if err == nil {
+			go nmproxy.Start(ctx, ProxyMgmChan, apiHost)
+		}
 	}
 
-	go func() {
+	go func(networks []string) {
 
-		networks, _ := ncutils.GetSystemNetworks()
 		for _, network := range networks {
 			logger.Log(0, "Collecting interface and peers info to configure proxy...")
 			cfg := config.ClientConfig{}
@@ -153,7 +157,7 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 
 		}
 
-	}()
+	}(networks)
 	return cancel
 }
 func GetNodeInfo(cfg *config.ClientConfig) (models.NodeGet, error) {

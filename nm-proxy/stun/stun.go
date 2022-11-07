@@ -20,11 +20,12 @@ type HostInfo struct {
 
 var Host HostInfo
 
-func GetHostInfo() (info HostInfo) {
+func GetHostInfo(stunHostAddr string) (info HostInfo) {
 
-	s, err := net.ResolveUDPAddr("udp", "stun.nm.134.209.115.146.nip.io:3478")
+	s, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:3478", stunHostAddr))
 	if err != nil {
 		log.Println("Resolve: ", err)
+		return
 	}
 	l := &net.UDPAddr{
 		IP:   net.ParseIP(""),
@@ -32,13 +33,14 @@ func GetHostInfo() (info HostInfo) {
 	}
 	conn, err := net.DialUDP("udp", l, s)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	defer conn.Close()
-	fmt.Printf("%+v\n", conn.LocalAddr())
 	c, err := stun.NewClient(conn)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return
 	}
 	defer c.Close()
 	re := strings.Split(conn.LocalAddr().String(), ":")
@@ -49,17 +51,19 @@ func GetHostInfo() (info HostInfo) {
 	// Sending request to STUN server, waiting for response message.
 	if err := c.Do(message, func(res stun.Event) {
 		if res.Error != nil {
-			panic(res.Error)
+			log.Println("stun error: ", res.Error)
+			return
 		}
 		// Decoding XOR-MAPPED-ADDRESS attribute from message.
 		var xorAddr stun.XORMappedAddress
 		if err := xorAddr.GetFrom(res.Message); err != nil {
-			panic(err)
+			log.Println("stun error: ", res.Error)
+			return
 		}
 		info.PublicIp = xorAddr.IP
 		info.PubPort = xorAddr.Port
 	}); err != nil {
-		panic(err)
+		log.Println("stun error: ", err)
 	}
 	return
 }

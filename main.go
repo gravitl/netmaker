@@ -173,14 +173,24 @@ func startControllers() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 	// starts the stun server
-	go stunserver.Start()
-	go nmproxy.Start(logic.ProxyMgmChan)
+	waitnetwork.Add(1)
+	go stunserver.Start(&waitnetwork)
+	waitnetwork.Add(1)
 	go func() {
+		defer waitnetwork.Done()
+		ctx, cancel := context.WithCancel(context.Background())
+		waitnetwork.Add(1)
+		go nmproxy.Start(ctx, logic.ProxyMgmChan, servercfg.GetAPIHost())
 		err := serverctl.SyncServerNetworkWithProxy()
 		if err != nil {
 			logger.Log(0, "failed to sync proxy with server interfaces: ", err.Error())
 		}
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+		<-quit
+		cancel()
 	}()
+
 	waitnetwork.Wait()
 }
 

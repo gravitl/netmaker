@@ -1,6 +1,7 @@
 package nmproxy
 
 import (
+	"context"
 	"log"
 	"net"
 	"os"
@@ -17,11 +18,11 @@ import (
    2. Delete - remove close all conns for the interface,cleanup
 
 */
-func Start(mgmChan chan *manager.ManagerAction) {
+func Start(ctx context.Context, mgmChan chan *manager.ManagerAction, apiServerAddr string) {
 	log.Println("Starting Proxy...")
 	common.IsHostNetwork = (os.Getenv("HOST_NETWORK") == "" || os.Getenv("HOST_NETWORK") == "on")
 	go manager.StartProxyManager(mgmChan)
-	hInfo := stun.GetHostInfo()
+	hInfo := stun.GetHostInfo(apiServerAddr)
 	stun.Host = hInfo
 	log.Printf("HOSTINFO: %+v", hInfo)
 	if IsPublicIP(hInfo.PrivIp) {
@@ -32,7 +33,8 @@ func Start(mgmChan chan *manager.ManagerAction) {
 	if err != nil {
 		log.Fatal("failed to create proxy: ", err)
 	}
-	server.NmProxyServer.Listen()
+	server.NmProxyServer.Listen(ctx)
+
 }
 
 // IsPublicIP indicates whether IP is public or not.
