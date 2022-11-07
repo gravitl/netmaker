@@ -17,13 +17,19 @@ import (
 type ProxyAction string
 
 type ManagerPayload struct {
-	InterfaceName string                          `json:"interface_name"`
-	Peers         []wgtypes.PeerConfig            `json:"peers"`
-	PeerMap       map[string]PeerConf             `json:"peer_map"`
-	IsRelayed     bool                            `json:"is_relayed"`
-	RelayedTo     *net.UDPAddr                    `json:"relayed_to"`
-	IsRelay       bool                            `json:"is_relay"`
-	RelayedPeers  map[string][]wgtypes.PeerConfig `json:"relayed_peers"`
+	InterfaceName   string                 `json:"interface_name"`
+	Peers           []wgtypes.PeerConfig   `json:"peers"`
+	PeerMap         map[string]PeerConf    `json:"peer_map"`
+	IsRelayed       bool                   `json:"is_relayed"`
+	RelayedTo       *net.UDPAddr           `json:"relayed_to"`
+	IsRelay         bool                   `json:"is_relay"`
+	RelayedPeerConf map[string]RelayedConf `json:"relayed_conf"`
+}
+
+type RelayedConf struct {
+	RelayedPeerEndpoint *net.UDPAddr         `json:"relayed_peer_endpoint"`
+	RelayedPeerPubKey   string               `json:"relayed_peer_pub_key"`
+	Peers               []wgtypes.PeerConfig `json:"relayed_peers"`
 }
 type PeerConf struct {
 	IsRelayed bool         `json:"is_relayed"`
@@ -80,20 +86,21 @@ func (m *ManagerAction) RelayUpdate() {
 
 func (m *ManagerAction) RelayPeers() {
 	common.IsRelay = true
-	for relayedNodePubKey, peers := range m.Payload.RelayedPeers {
-		for _, peer := range peers {
-			if _, ok := common.RelayPeerMap[relayedNodePubKey]; !ok {
-				common.RelayPeerMap[relayedNodePubKey] = make(map[string]common.RemotePeer)
-			}
+	for relayedNodePubKey, relayedNodeConf := range m.Payload.RelayedPeerConf {
+		relayedNodePubKeyHash := fmt.Sprintf("%x", md5.Sum([]byte(relayedNodePubKey)))
+		if _, ok := common.RelayPeerMap[relayedNodePubKeyHash]; !ok {
+			common.RelayPeerMap[relayedNodePubKeyHash] = make(map[string]common.RemotePeer)
+		}
+		for _, peer := range relayedNodeConf.Peers {
 			peer.Endpoint.Port = common.NmProxyPort
-			relayedNodePubKeyHash := fmt.Sprintf("%x", md5.Sum([]byte(relayedNodePubKey)))
 			remotePeerKeyHash := fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))
-			if _, ok := common.RelayPeerMap[relayedNodePubKeyHash]; !ok {
-				common.RelayPeerMap[relayedNodePubKeyHash] = make(map[string]common.RemotePeer)
-			}
 			common.RelayPeerMap[relayedNodePubKeyHash][remotePeerKeyHash] = common.RemotePeer{
 				Endpoint: peer.Endpoint,
 			}
+		}
+		relayedNodeConf.RelayedPeerEndpoint.Port = common.NmProxyPort
+		common.RelayPeerMap[relayedNodePubKeyHash][relayedNodePubKeyHash] = common.RemotePeer{
+			Endpoint: relayedNodeConf.RelayedPeerEndpoint,
 		}
 
 	}
@@ -192,8 +199,19 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			Interface: ifaceName,
 			PeerKey:   peerI.PublicKey.String(),
 		}
+		var isRelayed bool
+		var relayedTo *net.UDPAddr
+		if m.Payload.IsRelayed {
+			isRelayed = true
+			relayedTo = m.Payload.RelayedTo
+		} else {
+			if val, ok := m.Payload.PeerMap[peerI.PublicKey.String()]; ok {
+				isRelayed = val.IsRelayed
+				relayedTo = val.RelayedTo
+			}
+		}
 
-		peerpkg.AddNewPeer(wgInterface, &peerI, m.Payload.IsRelayed, m.Payload.RelayedTo)
+		peerpkg.AddNewPeer(wgInterface, &peerI, isRelayed, relayedTo)
 	}
 	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)
 	return nil

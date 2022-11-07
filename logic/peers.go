@@ -45,15 +45,23 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 				logger.Log(1, "failed to relayed nodes: ", node.Name, err.Error())
 				proxyPayload.IsRelay = false
 			} else {
-				relayPeersMap := make(map[string][]wgtypes.PeerConfig)
+				relayPeersMap := make(map[string]manager.RelayedConf)
 				for _, relayedNode := range relayedNodes {
 					payload, err := GetPeersForProxy(&relayedNode, true)
 					if err == nil {
-						relayPeersMap[relayedNode.PublicKey] = payload.Peers
+						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedNode.Endpoint, relayedNode.LocalListenPort))
+						if udpErr == nil {
+							relayPeersMap[relayedNode.PublicKey] = manager.RelayedConf{
+								RelayedPeerEndpoint: relayedEndpoint,
+								RelayedPeerPubKey:   relayedNode.PublicKey,
+								Peers:               payload.Peers,
+							}
+						}
+
 					}
 				}
 				proxyPayload.IsRelay = true
-				proxyPayload.RelayedPeers = relayPeersMap
+				proxyPayload.RelayedPeerConf = relayPeersMap
 			}
 		}
 	}
@@ -89,7 +97,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 		if !onlyPeers && peer.IsRelayed == "yes" {
 			relayNode := FindRelay(&peer)
 			if relayNode != nil {
-				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, peer.LocalListenPort))
+				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
 				if err == nil {
 					peerConfMap[peer.PublicKey] = manager.PeerConf{
 						IsRelayed: true,

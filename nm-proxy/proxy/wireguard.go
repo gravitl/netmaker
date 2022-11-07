@@ -63,8 +63,8 @@ func (p *Proxy) ProxyToRemote() {
 				if err != nil {
 					log.Println("failed to process pkt before sending: ", err)
 				}
-				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ DstPort: %d, SrcPeerHash: %s, DstPeerHash: %s ]]\n",
-					server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), peerI.Config.RemoteWgPort, srcPeerKeyHash, dstPeerKeyHash)
+				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
+					server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
 			} else {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
 				continue

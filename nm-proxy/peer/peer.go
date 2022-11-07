@@ -8,7 +8,6 @@ import (
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	"github.com/gravitl/netmaker/nm-proxy/proxy"
-	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -47,7 +46,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed boo
 
 	peerEndpoint := peer.Endpoint.IP.String()
 	if isRelayed {
-		go server.NmProxyServer.KeepAlive(peer.Endpoint.IP.String(), common.NmProxyPort)
+		//go server.NmProxyServer.KeepAlive(peer.Endpoint.IP.String(), common.NmProxyPort)
 		peerEndpoint = relayTo.IP.String()
 	}
 	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peerEndpoint, common.NmProxyPort))

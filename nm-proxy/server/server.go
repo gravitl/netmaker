@@ -46,7 +46,7 @@ func (p *ProxyServer) Listen() {
 		var srcPeerKeyHash, dstPeerKeyHash string
 		n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
 		//log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
-		if common.IsRelay && dstPeerKeyHash != "" {
+		if common.IsRelay && dstPeerKeyHash != "" && srcPeerKeyHash != "" {
 			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
 
 				log.Println("----------> Relaying######")
@@ -58,6 +58,17 @@ func (p *ProxyServer) Listen() {
 						_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
 						if err != nil {
 							log.Println("Failed to send to remote: ", err)
+						}
+					}
+				} else {
+					if remoteMap, ok := common.RelayPeerMap[dstPeerKeyHash]; ok {
+						if conf, ok := remoteMap[dstPeerKeyHash]; ok {
+							log.Printf("--------> Relaying BACK TO RELAYED NODE PKT [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
+								source.String(), srcPeerKeyHash, conf.Endpoint.String(), dstPeerKeyHash)
+							_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
+							if err != nil {
+								log.Println("Failed to send to remote: ", err)
+							}
 						}
 					}
 				}
