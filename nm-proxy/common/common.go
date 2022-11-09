@@ -13,6 +13,7 @@ import (
 
 var IsHostNetwork bool
 var IsRelay bool
+var IsIngressGateway bool
 
 const (
 	NmProxyPort = 51722
@@ -30,12 +31,16 @@ type ConnConfig struct {
 	// Key is a public key of a remote peer
 	Key string
 	// LocalKey is a public key of a local peer
-	LocalKey        string
-	LocalWgPort     int
-	RemoteProxyIP   net.IP
-	RemoteWgPort    int
-	RemoteProxyPort int
+	LocalKey            string
+	LocalWgPort         int
+	RemoteProxyIP       net.IP
+	RemoteWgPort        int
+	RemoteProxyPort     int
+	IsExtClient         bool
+	IsAttachedExtClient bool
+	IngressGateWay      *net.UDPAddr
 }
+
 type Config struct {
 	Port         int
 	BodySize     int
@@ -70,6 +75,8 @@ var PeerKeyHashMap = make(map[string]RemotePeer)
 var WgIfaceKeyMap = make(map[string]struct{})
 
 var RelayPeerMap = make(map[string]map[string]RemotePeer)
+
+var ExtClientsMap = make(map[string]RemotePeer)
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {

@@ -33,7 +33,8 @@ type ConnConfig struct {
 	RemoteProxyPort int
 }
 
-func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed bool, relayTo *net.UDPAddr) error {
+func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
+	isRelayed, isExtClient bool, ingGateway, relayTo *net.UDPAddr) error {
 
 	c := proxy.Config{
 		Port:        peer.Endpoint.Port,
@@ -48,7 +49,10 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed boo
 	if isRelayed {
 		//go server.NmProxyServer.KeepAlive(peer.Endpoint.IP.String(), common.NmProxyPort)
 		peerEndpoint = relayTo.IP.String()
+	} else if isExtClient {
+		peerEndpoint = ingGateway.IP.String()
 	}
+
 	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peerEndpoint, common.NmProxyPort))
 	if err != nil {
 		return err

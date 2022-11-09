@@ -45,6 +45,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 				logger.Log(1, "failed to relayed nodes: ", node.Name, err.Error())
 				proxyPayload.IsRelay = false
 			} else {
+
 				relayPeersMap := make(map[string]manager.RelayedConf)
 				for _, relayedNode := range relayedNodes {
 					payload, err := GetPeersForProxy(&relayedNode, true)
@@ -64,6 +65,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 				proxyPayload.RelayedPeerConf = relayPeersMap
 			}
 		}
+
 	}
 
 	for _, peer := range currentPeers {
@@ -108,6 +110,14 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 			}
 
 		}
+	}
+	var extPeers []wgtypes.PeerConfig
+	extPeers, peerConfMap, err = getExtPeersForProxy(node, peerConfMap)
+	if err == nil {
+		peers = append(peers, extPeers...)
+
+	} else if !database.IsEmptyRecord(err) {
+		logger.Log(1, "error retrieving external clients:", err.Error())
 	}
 	proxyPayload.Peers = peers
 	proxyPayload.PeerMap = peerConfMap
@@ -274,17 +284,17 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			serverNodeAddresses = append(serverNodeAddresses, models.ServerAddr{IsLeader: IsLeader(&peer), Address: peer.Address})
 		}
 	}
-	if node.IsIngressGateway == "yes" {
-		extPeers, idsAndAddr, err := getExtPeers(node)
-		if err == nil {
-			peers = append(peers, extPeers...)
-			for i := range idsAndAddr {
-				peerMap[idsAndAddr[i].ID] = idsAndAddr[i]
-			}
-		} else if !database.IsEmptyRecord(err) {
-			logger.Log(1, "error retrieving external clients:", err.Error())
+	// if node.IsIngressGateway == "yes" {
+	extPeers, idsAndAddr, err := getExtPeers(node)
+	if err == nil {
+		peers = append(peers, extPeers...)
+		for i := range idsAndAddr {
+			peerMap[idsAndAddr[i].ID] = idsAndAddr[i]
 		}
+	} else if !database.IsEmptyRecord(err) {
+		logger.Log(1, "error retrieving external clients:", err.Error())
 	}
+	// }
 
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version
@@ -298,7 +308,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
-	extPeers, err := GetExtPeersList(node)
+	extPeers, err := GetNetworkExtClients(node.Network)
 	if err != nil {
 		return peers, idsAndAddr, err
 	}
@@ -355,42 +365,107 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 
 }
 
+func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.PeerConf) ([]wgtypes.PeerConfig, map[string]manager.PeerConf, error) {
+	var peers []wgtypes.PeerConfig
+
+	extPeers, err := GetNetworkExtClients(node.Network)
+	if err != nil {
+		return peers, proxyPeerConf, err
+	}
+	for _, extPeer := range extPeers {
+		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
+		if err != nil {
+			logger.Log(1, "error parsing ext pub key:", err.Error())
+			continue
+		}
+
+		if node.PublicKey == extPeer.PublicKey {
+			continue
+		}
+
+		var allowedips []net.IPNet
+		var peer wgtypes.PeerConfig
+		if extPeer.Address != "" {
+			var peeraddr = net.IPNet{
+				IP:   net.ParseIP(extPeer.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			if peeraddr.IP != nil && peeraddr.Mask != nil {
+				allowedips = append(allowedips, peeraddr)
+			}
+		}
+
+		if extPeer.Address6 != "" {
+			var addr6 = net.IPNet{
+				IP:   net.ParseIP(extPeer.Address6),
+				Mask: net.CIDRMask(128, 128),
+			}
+			if addr6.IP != nil && addr6.Mask != nil {
+				allowedips = append(allowedips, addr6)
+			}
+		}
+
+		peer = wgtypes.PeerConfig{
+			PublicKey:         pubkey,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        allowedips,
+		}
+
+		extConf := manager.PeerConf{
+			IsExtClient: true,
+		}
+		if extPeer.IngressGatewayID == node.ID {
+			extConf.IsAttachedExtClient = true
+		}
+		ingGatewayUdpAddr, err := net.ResolveUDPAddr("udp", extPeer.IngressGatewayEndpoint)
+		if err == nil {
+			extConf.IngressGatewayEndPoint = ingGatewayUdpAddr
+		}
+
+		proxyPeerConf[peer.PublicKey.String()] = extConf
+
+		peers = append(peers, peer)
+	}
+	return peers, proxyPeerConf, nil
+
+}
+
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
 
 	// handle ingress gateway peers
-	if peer.IsIngressGateway == "yes" {
-		extPeers, _, err := getExtPeers(peer)
-		if err != nil {
-			logger.Log(2, "could not retrieve ext peers for ", peer.Name, err.Error())
-		}
-		for _, extPeer := range extPeers {
-			allowedips = append(allowedips, extPeer.AllowedIPs...)
-		}
-		// if node is a failover node, add allowed ips from nodes it is handling
-		if peer.Failover == "yes" && metrics.FailoverPeers != nil {
-			// traverse through nodes that need handling
-			logger.Log(3, "peer", peer.Name, "was found to be failover for", node.Name, "checking failover peers...")
-			for k := range metrics.FailoverPeers {
-				// if FailoverNode is me for this node, add allowedips
-				if metrics.FailoverPeers[k] == peer.ID {
-					// get original node so we can traverse the allowed ips
-					nodeToFailover, err := GetNodeByID(k)
-					if err == nil {
-						failoverNodeMetrics, err := GetMetrics(nodeToFailover.ID)
-						if err == nil && failoverNodeMetrics != nil {
-							if len(failoverNodeMetrics.NodeName) > 0 {
-								allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
-								logger.Log(0, "failing over node", nodeToFailover.Name, nodeToFailover.PrimaryAddress(), "to failover node", peer.Name)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+	// if peer.IsIngressGateway == "yes" {
+	// 	extPeers, _, err := getExtPeers(peer)
+	// 	if err != nil {
+	// 		logger.Log(2, "could not retrieve ext peers for ", peer.Name, err.Error())
+	// 	}
+	// 	for _, extPeer := range extPeers {
+	// 		allowedips = append(allowedips, extPeer.AllowedIPs...)
+	// 	}
+	// 	// if node is a failover node, add allowed ips from nodes it is handling
+	// 	if peer.Failover == "yes" && metrics.FailoverPeers != nil {
+	// 		// traverse through nodes that need handling
+	// 		logger.Log(3, "peer", peer.Name, "was found to be failover for", node.Name, "checking failover peers...")
+	// 		for k := range metrics.FailoverPeers {
+	// 			// if FailoverNode is me for this node, add allowedips
+	// 			if metrics.FailoverPeers[k] == peer.ID {
+	// 				// get original node so we can traverse the allowed ips
+	// 				nodeToFailover, err := GetNodeByID(k)
+	// 				if err == nil {
+	// 					failoverNodeMetrics, err := GetMetrics(nodeToFailover.ID)
+	// 					if err == nil && failoverNodeMetrics != nil {
+	// 						if len(failoverNodeMetrics.NodeName) > 0 {
+	// 							allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
+	// 							logger.Log(0, "failing over node", nodeToFailover.Name, nodeToFailover.PrimaryAddress(), "to failover node", peer.Name)
+	// 						}
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
 	// handle relay gateway peers
 	// if peer.IsRelay == "yes" {
 	// 	for _, ip := range peer.RelayAddrs {

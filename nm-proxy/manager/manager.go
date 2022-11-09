@@ -21,6 +21,7 @@ type ManagerPayload struct {
 	Peers           []wgtypes.PeerConfig   `json:"peers"`
 	PeerMap         map[string]PeerConf    `json:"peer_map"`
 	IsRelayed       bool                   `json:"is_relayed"`
+	IsIngress       bool                   `json:"is_ingress"`
 	RelayedTo       *net.UDPAddr           `json:"relayed_to"`
 	IsRelay         bool                   `json:"is_relay"`
 	RelayedPeerConf map[string]RelayedConf `json:"relayed_conf"`
@@ -31,9 +32,13 @@ type RelayedConf struct {
 	RelayedPeerPubKey   string               `json:"relayed_peer_pub_key"`
 	Peers               []wgtypes.PeerConfig `json:"relayed_peers"`
 }
+
 type PeerConf struct {
-	IsRelayed bool         `json:"is_relayed"`
-	RelayedTo *net.UDPAddr `json:"relayed_to"`
+	IsExtClient            bool         `json:"is_ext_client"`
+	IsAttachedExtClient    bool         `json:"is_attached_ext_client"`
+	IngressGatewayEndPoint *net.UDPAddr `json:"ingress_gateway_endpoint"`
+	IsRelayed              bool         `json:"is_relayed"`
+	RelayedTo              *net.UDPAddr `json:"relayed_to"`
 }
 
 const (
@@ -62,6 +67,7 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 				if mI.Payload.IsRelay {
 					mI.RelayPeers()
 				}
+				mI.ExtClients()
 				err := mI.AddInterfaceToProxy()
 				if err != nil {
 					log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
@@ -82,6 +88,11 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 
 func (m *ManagerAction) RelayUpdate() {
 	common.IsRelay = m.Payload.IsRelay
+}
+
+func (m *ManagerAction) ExtClients() {
+	common.IsIngressGateway = m.Payload.IsIngress
+
 }
 
 func (m *ManagerAction) RelayPeers() {
@@ -138,7 +149,8 @@ func (m *ManagerAction) UpdatePeerProxy() {
 	}
 
 	for _, peerI := range m.Payload.Peers {
-		if peerI.Endpoint == nil {
+		peerConf := m.Payload.PeerMap[peerI.PublicKey.String()]
+		if peerI.Endpoint == nil && !peerConf.IsExtClient {
 			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
 			continue
 		}
@@ -191,7 +203,8 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 	log.Printf("wg: %+v\n", wgInterface)
 
 	for _, peerI := range m.Payload.Peers {
-		if peerI.Endpoint == nil {
+		peerConf := m.Payload.PeerMap[peerI.PublicKey.String()]
+		if peerI.Endpoint == nil && !peerConf.IsExtClient {
 			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
 			continue
 		}
@@ -199,19 +212,21 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			Interface: ifaceName,
 			PeerKey:   peerI.PublicKey.String(),
 		}
+
 		var isRelayed bool
 		var relayedTo *net.UDPAddr
 		if m.Payload.IsRelayed {
 			isRelayed = true
 			relayedTo = m.Payload.RelayedTo
 		} else {
-			if val, ok := m.Payload.PeerMap[peerI.PublicKey.String()]; ok {
-				isRelayed = val.IsRelayed
-				relayedTo = val.RelayedTo
-			}
+
+			isRelayed = peerConf.IsRelayed
+			relayedTo = peerConf.RelayedTo
+
 		}
 
-		peerpkg.AddNewPeer(wgInterface, &peerI, isRelayed, relayedTo)
+		peerpkg.AddNewPeer(wgInterface, &peerI, isRelayed,
+			peerConf.IsExtClient, peerConf.IngressGatewayEndPoint, relayedTo)
 	}
 	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)
 	return nil
