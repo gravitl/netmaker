@@ -129,11 +129,11 @@ services:
       - "8883"
     labels:
       - traefik.enable=true
-      - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
-      - traefik.tcp.routers.mqtts.tls.passthrough=true
-      - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
-      - traefik.tcp.routers.mqtts.service=mqtts-svc
-      - traefik.tcp.routers.mqtts.entrypoints=websecure
+      - traefik.http.routers.mqtt_websocket.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.mqtt_websocket.entrypoints=websocket
+      - traefik.http.routers.mqtt_websocket.tls.passthrough=true
+      - traefik.http.services.mqtts-svc.loadbalancer.server.port=8883
+      - traefik.http.routers.mqtt_websocket.service=mqtts-svc
 volumes:
   traefik_certs: {} # ssl certificates - auto generated
   shared_certs: {} # netmaker certs generated for MQ comms - used by nodes/servers

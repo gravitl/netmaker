@@ -236,7 +236,7 @@ func GetMessageQueueEndpoint() (string, bool) {
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	}
-	secure := strings.Contains(host, "mqtts") || strings.Contains(host, "ssl")
+	secure := strings.Contains(host, "wss") || strings.Contains(host, "ssl")
 	return host + ":" + GetMQServerPort(), secure
 }
 
