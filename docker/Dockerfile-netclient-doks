@@ -3,7 +3,7 @@ FROM debian:buster as builder
 
 RUN apt update -y && apt install -y wget bash gcc musl-dev openssl golang git build-essential libmnl-dev iptables
 
-RUN wget -O go.tgz https://go.dev/dl/go1.18.linux-amd64.tar.gz
+RUN wget -O go.tgz https://go.dev/dl/go1.19.linux-amd64.tar.gz
 
 RUN tar -C /usr/local -xzf go.tgz
 
