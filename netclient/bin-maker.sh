@@ -20,7 +20,12 @@ function build
 	    build $_goarch $_goose 5 && build $_goarch $_goose 6 && build $_goarch $_goose 7
     else
         echo $_out
-        GOARM=$_goarm GOARCH=$_goarch GOOS=$_goose GOHOSTARCH=$__HOST_ARCH CGO_ENABLED=0 go build -ldflags="-X 'main.version=$VERSION'" -o $_out
+        if [ "$_goarch" == "mips" ]; then
+            # If the binary created through `GOMIPS=softfloat GOARCH=mipsle` is not compatible with your hardware, try changing these variables and creating a binary file compatible with your hardware.
+            GOARM=$_goarm GOMIPS=softfloat GOARCH=mipsle GOOS=$_goose GOHOSTARCH=$__HOST_ARCH CGO_ENABLED=0 go build -ldflags="-X 'main.version=$VERSION'" -o $_out
+        else
+            GOARM=$_goarm GOARCH=$_goarch GOOS=$_goose GOHOSTARCH=$__HOST_ARCH CGO_ENABLED=0 go build -ldflags="-X 'main.version=$VERSION'" -o $_out
+        fi
     fi
 }
 

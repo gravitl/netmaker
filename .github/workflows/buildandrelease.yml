@@ -306,6 +306,48 @@ jobs:
           prerelease: true
           asset_name: netclient-mipsle
 
+  netclient-mips:
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set Variables
+        run: |
+          TAG=${{needs.version.outputs.tag}}
+          VERSION=${{needs.version.outputs.version}}
+          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+      - name: Build
+        run: |
+          cd netclient
+          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mips/netclient main.go
+          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mips-upx/netclient main.go && upx build/netclient-mips-upx/netclient
+
+      - name: Upload mips to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mips/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mips
+
+      - name: Upload upx compressed version of mips to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mips-upx/netclient
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mips-upx
+
   netclient-freebsd:
     runs-on: ubuntu-latest
     needs: version

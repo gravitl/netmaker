@@ -148,8 +148,11 @@ case $(uname | tr A-Z a-z) in
 			arm*)
 				dist=netclient-$CPU_ARCH
 			;;
-            mipsle)
+			mipsle)
                 dist=netclient-mipsle
+			;;
+			mips*)
+                dist=netclient-$CPU_ARCH
 			;;
 			*)
 				fatal "$CPU_ARCH : cpu architecture not supported"
@@ -240,6 +243,8 @@ if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 		else
 			wget $curl_opts -O netclient.service.tmp https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/openwrt-daemon.sh
 		fi
+	elif [ "${OS}" = "OpenWRT" ] && [ "$CPU_ARCH" = "mips" ]; then
+		wget $curl_opts -O netclient.service.tmp https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/openwrt-daemon.sh
 	else
 		cat << 'END_OF_FILE' > ./netclient.service.tmp
 #!/bin/sh /etc/rc.common
@@ -293,4 +298,3 @@ END_OF_FILE
 else 
 	rm -f netclient
 fi
-
