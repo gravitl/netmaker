@@ -85,7 +85,7 @@ services:
     volumes:
       - dnsconfig:/root/dnsconfig
   traefik:
-    image: traefik:v2.6
+    image: traefik:v2.9
     container_name: traefik
     command:
       - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
@@ -106,7 +106,7 @@ services:
       - "443:443"
   mq:
     container_name: mq
-    image: eclipse-mosquitto:2.0.11-openssl
+    image: eclipse-mosquitto:2.0.15-openssl
     depends_on:
       - netmaker
     restart: unless-stopped
