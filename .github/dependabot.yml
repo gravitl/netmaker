@@ -16,3 +16,15 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "develop"
+  # Enable version updates for GitHubActions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "develop"
+  # Enable version updates for docker images 
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "develop"
