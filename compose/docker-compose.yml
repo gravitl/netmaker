@@ -124,7 +124,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.mqtt_websocket.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
-      - traefik.http.routers.mqtt_websocket.entrypoints=websocket
+      - traefik.http.routers.mqtt_websocket.entrypoints=websecure
       - traefik.http.routers.mqtt_websocket.tls.certresolver=http
       - traefik.http.services.mqtt_websocket.loadbalancer.server.port=8883
 volumes:
