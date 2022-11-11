@@ -200,7 +200,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 			return nil, fmt.Errorf("could not validate license")
 		} // if you received a 200 cache the response locally
 
-		body, err = io.Copy(validateResponse.Body)
+		body, err = io.ReadAll(validateResponse.Body)
 		if err != nil {
 			return nil, err
 		}
