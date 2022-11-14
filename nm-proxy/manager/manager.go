@@ -280,6 +280,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")
+						go packet.StartSniffer(wgInterface.Name, peerConf.Address)
 						common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))] = common.RemotePeer{
 							Interface:           wgInterface.Name,
 							PeerKey:             peer.PublicKey.String(),
