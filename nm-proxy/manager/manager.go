@@ -7,12 +7,24 @@ import (
 	"log"
 	"net"
 	"runtime"
+	"time"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/packet"
 	peerpkg "github.com/gravitl/netmaker/nm-proxy/peer"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+/*
+TODO:-
+	1. ON Ingress node
+		--> for attached ext clients
+			-> start sniffer (will recieve pkts from ext clients (add ebf filter to listen on only ext traffic) if not intended to the interface forward it.)
+			-> start remote conn after endpoint is updated
+		-->
+*/
+var sent bool
 
 type ProxyAction string
 
@@ -35,6 +47,7 @@ type RelayedConf struct {
 
 type PeerConf struct {
 	IsExtClient            bool         `json:"is_ext_client"`
+	Address                string       `json:"address"`
 	IsAttachedExtClient    bool         `json:"is_attached_ext_client"`
 	IngressGatewayEndPoint *net.UDPAddr `json:"ingress_gateway_endpoint"`
 	IsRelayed              bool         `json:"is_relayed"`
@@ -60,9 +73,13 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 
 		select {
 		case mI := <-manageChan:
+			if sent {
+				continue
+			}
 			log.Printf("-------> PROXY-MANAGER: %+v\n", mI)
 			switch mI.Action {
 			case AddInterface:
+				sent = true
 				common.IsRelay = mI.Payload.IsRelay
 				if mI.Payload.IsRelay {
 					mI.RelayPeers()
@@ -103,11 +120,14 @@ func (m *ManagerAction) RelayPeers() {
 			common.RelayPeerMap[relayedNodePubKeyHash] = make(map[string]common.RemotePeer)
 		}
 		for _, peer := range relayedNodeConf.Peers {
-			peer.Endpoint.Port = common.NmProxyPort
-			remotePeerKeyHash := fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))
-			common.RelayPeerMap[relayedNodePubKeyHash][remotePeerKeyHash] = common.RemotePeer{
-				Endpoint: peer.Endpoint,
+			if peer.Endpoint != nil {
+				peer.Endpoint.Port = common.NmProxyPort
+				remotePeerKeyHash := fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))
+				common.RelayPeerMap[relayedNodePubKeyHash][remotePeerKeyHash] = common.RemotePeer{
+					Endpoint: peer.Endpoint,
+				}
 			}
+
 		}
 		relayedNodeConf.RelayedPeerEndpoint.Port = common.NmProxyPort
 		common.RelayPeerMap[relayedNodePubKeyHash][relayedNodePubKeyHash] = common.RemotePeer{
@@ -174,6 +194,8 @@ func cleanUp(iface string) {
 		}
 	}
 	delete(common.WgIFaceMap, iface)
+	time.Sleep(time.Second * 5)
+	log.Println("CLEANED UP..........")
 }
 
 func (m *ManagerAction) AddInterfaceToProxy() error {
@@ -208,9 +230,34 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
 			continue
 		}
-		common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peerI.PublicKey.String())))] = common.RemotePeer{
-			Interface: ifaceName,
-			PeerKey:   peerI.PublicKey.String(),
+		shouldProceed := false
+		if peerConf.IsExtClient && peerConf.IsAttachedExtClient {
+			// check if ext client got endpoint,otherwise continue
+			for _, devpeerI := range wgInterface.Device.Peers {
+				if devpeerI.PublicKey.String() == peerI.PublicKey.String() && devpeerI.Endpoint != nil {
+					peerI.Endpoint = devpeerI.Endpoint
+					shouldProceed = true
+					break
+				}
+			}
+
+		} else {
+			shouldProceed = true
+		}
+		if peerConf.IsExtClient && peerConf.IsAttachedExtClient && shouldProceed {
+			go packet.StartSniffer(wgInterface.Name, peerConf.Address)
+		}
+
+		if peerConf.IsExtClient && !peerConf.IsAttachedExtClient {
+			peerI.Endpoint = peerConf.IngressGatewayEndPoint
+		}
+		if shouldProceed {
+			common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peerI.PublicKey.String())))] = common.RemotePeer{
+				Interface:           ifaceName,
+				PeerKey:             peerI.PublicKey.String(),
+				IsExtClient:         peerConf.IsExtClient,
+				IsAttachedExtClient: peerConf.IsAttachedExtClient,
+			}
 		}
 
 		var isRelayed bool
@@ -224,9 +271,48 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			relayedTo = peerConf.RelayedTo
 
 		}
+		if !shouldProceed && peerConf.IsAttachedExtClient {
+			log.Println("Extclient endpoint not updated yet....skipping")
+			// TODO - watch the interface for ext client update
+			go func(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
+				isRelayed, isExtClient, isAttachedExtClient bool, relayTo *net.UDPAddr, peerConf PeerConf) {
+				addExtClient := false
+				defer func() {
+					if addExtClient {
+						common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))] = common.RemotePeer{
+							Interface:           wgInterface.Name,
+							PeerKey:             peer.PublicKey.String(),
+							IsExtClient:         peerConf.IsExtClient,
+							IsAttachedExtClient: peerConf.IsAttachedExtClient,
+							Endpoint:            peer.Endpoint,
+						}
+						peerpkg.AddNewPeer(wgInterface, peer, isRelayed,
+							peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo)
+					}
+				}()
+				for {
+					wgInterface, err := wg.NewWGIFace(ifaceName, "127.0.0.1/32", wg.DefaultMTU)
+					if err != nil {
+						log.Println("Failed init new interface: ", err)
+						continue
+					}
+					for _, devpeerI := range wgInterface.Device.Peers {
+						if devpeerI.PublicKey.String() == peer.PublicKey.String() && devpeerI.Endpoint != nil {
+							peer.Endpoint = devpeerI.Endpoint
+							addExtClient = true
+							return
+						}
+					}
+					time.Sleep(time.Second * 5)
+
+				}
+
+			}(wgInterface, &peerI, isRelayed, peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo, peerConf)
+			continue
+		}
 
 		peerpkg.AddNewPeer(wgInterface, &peerI, isRelayed,
-			peerConf.IsExtClient, peerConf.IngressGatewayEndPoint, relayedTo)
+			peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo)
 	}
 	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)
 	return nil

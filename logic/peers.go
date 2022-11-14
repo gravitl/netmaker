@@ -413,6 +413,7 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.Pee
 
 		extConf := manager.PeerConf{
 			IsExtClient: true,
+			Address:     extPeer.Address,
 		}
 		if extPeer.IngressGatewayID == node.ID {
 			extConf.IsAttachedExtClient = true

@@ -25,10 +25,10 @@ func NewProxy(config Config) *Proxy {
 // proxyToRemote proxies everything from Wireguard to the RemoteKey peer
 func (p *Proxy) ProxyToRemote() {
 	buf := make([]byte, 1500)
-
 	go func() {
 		<-p.Ctx.Done()
-		defer p.LocalConn.Close()
+		log.Println("Closing connection for: ", p.LocalConn.LocalAddr().String())
+		p.LocalConn.Close()
 	}()
 	for {
 		select {
@@ -40,14 +40,16 @@ func (p *Proxy) ProxyToRemote() {
 					log.Println("Failed to split host: ", p.LocalConn.LocalAddr().String(), err)
 					return
 				}
-				if host == "127.0.0.1" {
-					return
+
+				if host != "127.0.0.1" {
+					_, err = common.RunCmd(fmt.Sprintf("ifconfig lo0 -alias %s 255.255.255.255", host), true)
+					if err != nil {
+						log.Println("Failed to add alias: ", err)
+					}
 				}
-				_, err = common.RunCmd(fmt.Sprintf("ifconfig lo0 -alias %s 255.255.255.255", host), true)
-				if err != nil {
-					log.Println("Failed to add alias: ", err)
-				}
+
 			}
+
 			return
 		default:
 
@@ -58,15 +60,16 @@ func (p *Proxy) ProxyToRemote() {
 			}
 			peers := common.WgIFaceMap[p.Config.WgInterface.Name]
 			if peerI, ok := peers[p.Config.RemoteKey]; ok {
-				var srcPeerKeyHash, dstPeerKeyHash string
-				buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
+				//var srcPeerKeyHash, dstPeerKeyHash string
+				buf, n, _, _ = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
 				if err != nil {
 					log.Println("failed to process pkt before sending: ", err)
 				}
-				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
-					server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
+				// log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
+				// 	server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
 			} else {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
+				p.Cancel()
 				continue
 			}
 			//test(n, buf)

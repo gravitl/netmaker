@@ -2,6 +2,7 @@ package peer
 
 import (
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -34,7 +35,7 @@ type ConnConfig struct {
 }
 
 func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
-	isRelayed, isExtClient bool, ingGateway, relayTo *net.UDPAddr) error {
+	isRelayed, isExtClient, isAttachedExtClient bool, relayTo *net.UDPAddr) error {
 
 	c := proxy.Config{
 		Port:        peer.Endpoint.Port,
@@ -44,16 +45,21 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
 		AllowedIps:  peer.AllowedIPs,
 	}
 	p := proxy.NewProxy(c)
+	peerPort := common.NmProxyPort
+	if isExtClient && isAttachedExtClient {
+		peerPort = peer.Endpoint.Port
 
+	}
 	peerEndpoint := peer.Endpoint.IP.String()
 	if isRelayed {
 		//go server.NmProxyServer.KeepAlive(peer.Endpoint.IP.String(), common.NmProxyPort)
+		if relayTo == nil {
+			return errors.New("relay endpoint is nil")
+		}
 		peerEndpoint = relayTo.IP.String()
-	} else if isExtClient {
-		peerEndpoint = ingGateway.IP.String()
 	}
 
-	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peerEndpoint, common.NmProxyPort))
+	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peerEndpoint, peerPort))
 	if err != nil {
 		return err
 	}

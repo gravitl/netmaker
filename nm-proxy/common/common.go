@@ -63,9 +63,11 @@ type Proxy struct {
 }
 
 type RemotePeer struct {
-	PeerKey   string
-	Interface string
-	Endpoint  *net.UDPAddr
+	PeerKey             string
+	Interface           string
+	Endpoint            *net.UDPAddr
+	IsExtClient         bool
+	IsAttachedExtClient bool
 }
 
 var WgIFaceMap = make(map[string]map[string]*Conn)
@@ -75,8 +77,6 @@ var PeerKeyHashMap = make(map[string]RemotePeer)
 var WgIfaceKeyMap = make(map[string]struct{})
 
 var RelayPeerMap = make(map[string]map[string]RemotePeer)
-
-var ExtClientsMap = make(map[string]RemotePeer)
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {

@@ -41,6 +41,7 @@ require (
 
 require (
 	github.com/coreos/go-oidc/v3 v3.4.0
+	github.com/google/gopacket v1.1.19
 	github.com/gorilla/websocket v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
