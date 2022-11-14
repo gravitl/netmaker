@@ -74,7 +74,7 @@ func (w *WGIface) GetWgIface(iface string) error {
 		return err
 	}
 
-	log.Printf("----> DEVICE: %+v\n", dev)
+	//log.Printf("----> DEVICE: %+v\n", dev)
 	w.Device = dev
 	w.Port = dev.ListenPort
 	return nil

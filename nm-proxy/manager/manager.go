@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"crypto/md5"
 	"errors"
 	"fmt"
@@ -24,7 +25,6 @@ TODO:-
 			-> start remote conn after endpoint is updated
 		-->
 */
-var sent bool
 
 type ProxyAction string
 
@@ -73,13 +73,9 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 
 		select {
 		case mI := <-manageChan:
-			if sent {
-				continue
-			}
 			log.Printf("-------> PROXY-MANAGER: %+v\n", mI)
 			switch mI.Action {
 			case AddInterface:
-				sent = true
 				common.IsRelay = mI.Payload.IsRelay
 				if mI.Payload.IsRelay {
 					mI.RelayPeers()
@@ -194,7 +190,13 @@ func cleanUp(iface string) {
 		}
 	}
 	delete(common.WgIFaceMap, iface)
-	time.Sleep(time.Second * 5)
+	if waitThs, ok := common.ExtClientsWaitTh[iface]; ok {
+		for _, cancelF := range waitThs {
+			cancelF()
+		}
+		delete(common.ExtClientsWaitTh, iface)
+	}
+
 	log.Println("CLEANED UP..........")
 }
 
@@ -277,6 +279,8 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			go func(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
 				isRelayed, isExtClient, isAttachedExtClient bool, relayTo *net.UDPAddr, peerConf PeerConf) {
 				addExtClient := false
+				ctx, cancel := context.WithCancel(context.Background())
+				common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")
@@ -293,19 +297,25 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 					}
 				}()
 				for {
-					wgInterface, err := wg.NewWGIFace(ifaceName, "127.0.0.1/32", wg.DefaultMTU)
-					if err != nil {
-						log.Println("Failed init new interface: ", err)
-						continue
-					}
-					for _, devpeerI := range wgInterface.Device.Peers {
-						if devpeerI.PublicKey.String() == peer.PublicKey.String() && devpeerI.Endpoint != nil {
-							peer.Endpoint = devpeerI.Endpoint
-							addExtClient = true
+					select {
+					case <-ctx.Done():
+						log.Println("Exiting extclient watch Thread for: ", wgInterface.Device.PublicKey.String())
+						return
+					default:
+						wgInterface, err := wg.NewWGIFace(ifaceName, "127.0.0.1/32", wg.DefaultMTU)
+						if err != nil {
+							log.Println("Failed init new interface: ", err)
 							return
 						}
+						for _, devpeerI := range wgInterface.Device.Peers {
+							if devpeerI.PublicKey.String() == peer.PublicKey.String() && devpeerI.Endpoint != nil {
+								peer.Endpoint = devpeerI.Endpoint
+								addExtClient = true
+								return
+							}
+						}
+						time.Sleep(time.Second * 5)
 					}
-					time.Sleep(time.Second * 5)
 
 				}
 
