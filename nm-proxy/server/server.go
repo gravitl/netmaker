@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -113,9 +114,9 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
 				if peers, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 					if peerI, ok := peers[peerInfo.PeerKey]; ok {
-						// log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-						// 	peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
-						// 	fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+							peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
+							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
 						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
 						if err != nil {
 							log.Println("Failed to proxy to Wg local interface: ", err)

@@ -226,7 +226,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 
 	for _, peerI := range m.Payload.Peers {
 		peerConf := m.Payload.PeerMap[peerI.PublicKey.String()]
-		if peerI.Endpoint == nil && (!peerConf.IsAttachedExtClient || !peerConf.IsExtClient) {
+		if peerI.Endpoint == nil && !(peerConf.IsAttachedExtClient || peerConf.IsExtClient) {
 			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
 			continue
 		}

@@ -60,13 +60,13 @@ func (p *Proxy) ProxyToRemote() {
 			}
 			peers := common.WgIFaceMap[p.Config.WgInterface.Name]
 			if peerI, ok := peers[p.Config.RemoteKey]; ok {
-				//var srcPeerKeyHash, dstPeerKeyHash string
-				buf, n, _, _ = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
+				var srcPeerKeyHash, dstPeerKeyHash string
+				buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
 				if err != nil {
 					log.Println("failed to process pkt before sending: ", err)
 				}
-				// log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
-				// 	server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
+				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
+					server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
 			} else {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
 				p.Cancel()

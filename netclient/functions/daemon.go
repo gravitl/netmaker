@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -150,25 +149,25 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 
 	go func(networks []string) {
 
-		for _, network := range networks {
-			logger.Log(0, "Collecting interface and peers info to configure proxy...")
-			cfg := config.ClientConfig{}
-			cfg.Network = network
-			cfg.ReadConfig()
-			node, err := GetNodeInfo(&cfg)
-			if err != nil {
-				log.Println("Failed to get node info: ", err)
-				continue
-			}
-			ProxyMgmChan <- &manager.ManagerAction{
-				Action: manager.AddInterface,
-				Payload: manager.ManagerPayload{
-					InterfaceName: node.Node.Interface,
-					Peers:         node.Peers,
-				},
-			}
+		// for _, network := range networks {
+		// 	logger.Log(0, "Collecting interface and peers info to configure proxy...")
+		// 	cfg := config.ClientConfig{}
+		// 	cfg.Network = network
+		// 	cfg.ReadConfig()
+		// 	node, err := GetNodeInfo(&cfg)
+		// 	if err != nil {
+		// 		log.Println("Failed to get node info: ", err)
+		// 		continue
+		// 	}
+		// 	ProxyMgmChan <- &manager.ManagerAction{
+		// 		Action: manager.AddInterface,
+		// 		Payload: manager.ManagerPayload{
+		// 			InterfaceName: node.Node.Interface,
+		// 			Peers:         node.Peers,
+		// 		},
+		// 	}
 
-		}
+		// }
 
 	}(networks)
 	return cancel

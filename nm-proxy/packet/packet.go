@@ -42,17 +42,19 @@ func ExtractInfo(buffer []byte, n int) (int, string, string) {
 }
 
 func StartSniffer(ifaceName string, extClient string) {
+	log.Println("Starting Packet Sniffer for iface: ", ifaceName)
 	var (
 		snapshotLen int32 = 1024
 		promiscuous bool  = false
 		err         error
-		timeout     time.Duration = 30 * time.Second
+		timeout     time.Duration = 1 * time.Microsecond
 		handle      *pcap.Handle
 	)
 	// Open device
 	handle, err = pcap.OpenLive(ifaceName, snapshotLen, promiscuous, timeout)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("failed to start sniffer for iface: ", ifaceName, err)
+		return
 	}
 	defer handle.Close()
 
