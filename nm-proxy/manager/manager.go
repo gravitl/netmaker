@@ -25,6 +25,7 @@ TODO:-
 			-> start remote conn after endpoint is updated
 		-->
 */
+var sent bool
 
 type ProxyAction string
 
@@ -76,6 +77,7 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 			log.Printf("-------> PROXY-MANAGER: %+v\n", mI)
 			switch mI.Action {
 			case AddInterface:
+
 				common.IsRelay = mI.Payload.IsRelay
 				if mI.Payload.IsRelay {
 					mI.RelayPeers()

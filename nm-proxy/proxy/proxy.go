@@ -160,7 +160,7 @@ func StartSniffer(ctx context.Context, ifaceName, extClientAddr string, port int
 					if ip.DstIP.String() == extClientAddr || ip.SrcIP.String() == extClientAddr {
 						if ifacePeers, ok := common.PeerAddrMap[ifaceName]; ok {
 							if peerConf, ok := ifacePeers[ip.DstIP.String()]; ok {
-								log.Println("-----> Fowarding PKT From ExtClient: ", extClientAddr, " to: ", peerConf.Config.RemoteProxyIP)
+								log.Println("-----> Fowarding PKT From ExtClient: ", extClientAddr, " to: ", peerConf)
 								//server.NmProxyServer.Server.WriteTo(packet.Data(),  )
 							}
 
