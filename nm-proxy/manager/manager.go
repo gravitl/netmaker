@@ -270,6 +270,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 				Interface:           ifaceName,
 				PeerKey:             peerI.PublicKey.String(),
 				IsExtClient:         peerConf.IsExtClient,
+				Endpoint:            peerI.Endpoint,
 				IsAttachedExtClient: peerConf.IsAttachedExtClient,
 			}
 		}
@@ -340,5 +341,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo)
 	}
 	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)
+	log.Printf("-------> WgKeyHashMap: %+v\n", common.WgIfaceKeyMap)
+	log.Printf("-------> WgIFaceMap: %+v\n", common.WgIFaceMap)
 	return nil
 }

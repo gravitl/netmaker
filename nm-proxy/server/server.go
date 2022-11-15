@@ -69,7 +69,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 
 						log.Printf("-------->Forwarding the pkt to extClient  [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
 							source.String(), srcPeerKeyHash, val.Endpoint.String(), dstPeerKeyHash)
-						_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], val.Endpoint)
+						_, err = NmProxyServer.Server.WriteToUDP(buffer[:n], val.Endpoint)
 						if err != nil {
 							log.Println("Failed to send to remote: ", err)
 						}
