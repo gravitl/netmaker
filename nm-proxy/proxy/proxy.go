@@ -123,10 +123,10 @@ func StartSniffer(ctx context.Context, ifaceName, extClientAddr string, port int
 		log.Println("failed to start sniffer for iface: ", ifaceName, err)
 		return
 	}
-	if err := handle.SetBPFFilter(fmt.Sprintf("src %s and port %d", extClientAddr, port)); err != nil {
-		log.Println("failed to set bpf filter: ", err)
-		return
-	}
+	// if err := handle.SetBPFFilter(fmt.Sprintf("src %s and port %d", extClientAddr, port)); err != nil {
+	// 	log.Println("failed to set bpf filter: ", err)
+	// 	return
+	// }
 	defer handle.Close()
 
 	// var tcp layers.TCP
