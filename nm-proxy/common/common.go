@@ -74,7 +74,7 @@ var WgIFaceMap = make(map[string]map[string]*Conn)
 
 var PeerKeyHashMap = make(map[string]RemotePeer)
 
-var WgIfaceKeyMap = make(map[string]struct{})
+var WgIfaceKeyMap = make(map[string]RemotePeer)
 
 var RelayPeerMap = make(map[string]map[string]RemotePeer)
 

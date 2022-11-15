@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 	peerpkg "github.com/gravitl/netmaker/nm-proxy/peer"
+	"github.com/gravitl/netmaker/nm-proxy/proxy"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -225,7 +226,16 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 		return err
 	}
 	log.Printf("wg: %+v\n", wgInterface)
-
+	wgListenAddr, err := proxy.GetInterfaceListenAddr(wgInterface.Port)
+	if err != nil {
+		log.Println("failed to get wg listen addr: ", err)
+		return err
+	}
+	common.WgIfaceKeyMap[fmt.Sprintf("%x", md5.Sum([]byte(wgInterface.Device.PublicKey.String())))] = common.RemotePeer{
+		PeerKey:   wgInterface.Device.PublicKey.String(),
+		Interface: wgInterface.Name,
+		Endpoint:  wgListenAddr,
+	}
 	for _, peerI := range m.Payload.Peers {
 		peerConf := m.Payload.PeerMap[peerI.PublicKey.String()]
 		if peerI.Endpoint == nil && !(peerConf.IsAttachedExtClient || peerConf.IsExtClient) {

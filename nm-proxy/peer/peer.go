@@ -1,7 +1,6 @@
 package peer
 
 import (
-	"crypto/md5"
 	"errors"
 	"fmt"
 	"log"
@@ -105,6 +104,6 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
 		common.WgIFaceMap[wgInterface.Name] = make(map[string]*common.Conn)
 		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
 	}
-	common.WgIfaceKeyMap[fmt.Sprintf("%x", md5.Sum([]byte(wgInterface.Device.PublicKey.String())))] = struct{}{}
+
 	return nil
 }

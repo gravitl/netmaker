@@ -104,6 +104,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 					peerConfMap[peer.PublicKey] = manager.PeerConf{
 						IsRelayed: true,
 						RelayedTo: relayTo,
+						Address:   peer.PrimaryAddress(),
 					}
 				}
 
