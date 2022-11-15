@@ -242,6 +242,9 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
 			continue
 		}
+		if peerConf.IsExtClient && !common.IsIngressGateway {
+			continue
+		}
 		shouldProceed := false
 		if peerConf.IsExtClient && peerConf.IsAttachedExtClient {
 			// check if ext client got endpoint,otherwise continue
