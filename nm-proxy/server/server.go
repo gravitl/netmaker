@@ -128,19 +128,19 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				continue
 
 			}
-			// forward to all interfaces
-			for _, ifaceCfg := range common.WgIfaceKeyMap {
-				log.Println("###--------> Forwarding Unknown PKT to ", ifaceCfg.Interface)
-				conn, err := net.DialUDP("udp", source, ifaceCfg.Endpoint)
-				if err == nil {
-					_, err := conn.Write(buffer[:n])
-					if err != nil {
-						log.Println("Failed to forward the unknown pkt to ifcace: ", ifaceCfg.Interface, err)
-					}
-					conn.Close()
-				}
+			// // forward to all interfaces
+			// for _, ifaceCfg := range common.WgIfaceKeyMap {
+			// 	log.Println("###--------> Forwarding Unknown PKT to ", ifaceCfg.Interface)
+			// 	conn, err := net.DialUDP("udp", nil, ifaceCfg.Endpoint)
+			// 	if err == nil {
+			// 		_, err := conn.Write(buffer[:n])
+			// 		if err != nil {
+			// 			log.Println("Failed to forward the unknown pkt to ifcace: ", ifaceCfg.Interface, err)
+			// 		}
+			// 		conn.Close()
+			// 	}
 
-			}
+			// }
 		}
 
 	}
