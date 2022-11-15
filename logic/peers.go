@@ -120,6 +120,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 	} else if !database.IsEmptyRecord(err) {
 		logger.Log(1, "error retrieving external clients:", err.Error())
 	}
+	proxyPayload.IsIngress = node.IsIngressGateway == "yes"
 	proxyPayload.Peers = peers
 	proxyPayload.PeerMap = peerConfMap
 	proxyPayload.InterfaceName = node.Interface
