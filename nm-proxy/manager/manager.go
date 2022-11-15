@@ -191,6 +191,7 @@ func cleanUp(iface string) {
 		}
 	}
 	delete(common.WgIFaceMap, iface)
+	delete(common.PeerAddrMap, iface)
 	if waitThs, ok := common.ExtClientsWaitTh[iface]; ok {
 		for _, cancelF := range waitThs {
 			cancelF()
@@ -257,7 +258,9 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			shouldProceed = true
 		}
 		if peerConf.IsExtClient && peerConf.IsAttachedExtClient && shouldProceed {
-			go packet.StartSniffer(wgInterface.Name, peerConf.Address)
+			ctx, cancel := context.WithCancel(context.Background())
+			common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
+			go packet.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
 		}
 
 		if peerConf.IsExtClient && !peerConf.IsAttachedExtClient {
@@ -294,7 +297,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")
-						go packet.StartSniffer(wgInterface.Name, peerConf.Address)
+						go packet.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
 						common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))] = common.RemotePeer{
 							Interface:           wgInterface.Name,
 							PeerKey:             peer.PublicKey.String(),
@@ -302,7 +305,8 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 							IsAttachedExtClient: peerConf.IsAttachedExtClient,
 							Endpoint:            peer.Endpoint,
 						}
-						peerpkg.AddNewPeer(wgInterface, peer, isRelayed,
+
+						peerpkg.AddNewPeer(wgInterface, peer, peerConf.Address, isRelayed,
 							peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo)
 					}
 				}()
@@ -333,7 +337,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			continue
 		}
 
-		peerpkg.AddNewPeer(wgInterface, &peerI, isRelayed,
+		peerpkg.AddNewPeer(wgInterface, &peerI, peerConf.Address, isRelayed,
 			peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo)
 	}
 	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)

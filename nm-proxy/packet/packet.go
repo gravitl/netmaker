@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"github.com/gravitl/netmaker/nm-proxy/common"
 )
 
 var udpHeaderLen = 8
@@ -41,7 +43,7 @@ func ExtractInfo(buffer []byte, n int) (int, string, string) {
 	return n, fmt.Sprintf("%x", srcKeyHash), fmt.Sprintf("%x", dstKeyHash)
 }
 
-func StartSniffer(ifaceName string, extClient string) {
+func StartSniffer(ctx context.Context, ifaceName, extClientAddr string, port int) {
 	log.Println("Starting Packet Sniffer for iface: ", ifaceName)
 	var (
 		snapshotLen int32 = 1024
@@ -56,6 +58,10 @@ func StartSniffer(ifaceName string, extClient string) {
 		log.Println("failed to start sniffer for iface: ", ifaceName, err)
 		return
 	}
+	if err := handle.SetBPFFilter(fmt.Sprintf("src %s and port %d", extClientAddr, port)); err != nil {
+		log.Println("failed to set bpf filter: ", err)
+		return
+	}
 	defer handle.Close()
 
 	// var tcp layers.TCP
@@ -65,15 +71,43 @@ func StartSniffer(ifaceName string, extClient string) {
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	for {
-		packet, err := packetSource.NextPacket()
-		if err == nil {
-			printPacketInfo(packet)
+		select {
+		case <-ctx.Done():
+			log.Println("Stopping packet sniffer for iface: ", ifaceName, " port: ", port)
+			return
+		default:
+			packet, err := packetSource.NextPacket()
+			if err == nil {
+				//processPkt(ifaceName, packet)
+				ipLayer := packet.Layer(layers.LayerTypeIPv4)
+				if ipLayer != nil {
+					fmt.Println("IPv4 layer detected.")
+					ip, _ := ipLayer.(*layers.IPv4)
+
+					// IP layer variables:
+					// Version (Either 4 or 6)
+					// IHL (IP Header Length in 32-bit words)
+					// TOS, Length, Id, Flags, FragOffset, TTL, Protocol (TCP?),
+					// Checksum, SrcIP, DstIP
+					fmt.Println("#########################")
+					fmt.Printf("From %s to %s\n", ip.SrcIP, ip.DstIP)
+					fmt.Println("Protocol: ", ip.Protocol)
+
+					if ifacePeers, ok := common.PeerAddrMap[ifaceName]; ok {
+						if peerConf, ok := ifacePeers[ip.DstIP.String()]; ok {
+							log.Println("-----> Fowarding PKT From ExtClient: ", extClientAddr, " to: ", peerConf.Config.RemoteProxyIP)
+						}
+
+					}
+					fmt.Println("#########################")
+				}
+			}
 		}
 
 	}
 }
 
-func printPacketInfo(packet gopacket.Packet) {
+func processPkt(iface string, packet gopacket.Packet) {
 	// Let's see if the packet is an ethernet packet
 	// ethernetLayer := packet.Layer(layers.LayerTypeEthernet)
 	// if ethernetLayer != nil {
@@ -100,6 +134,7 @@ func printPacketInfo(packet gopacket.Packet) {
 		fmt.Printf("From %s to %s\n", ip.SrcIP, ip.DstIP)
 		fmt.Println("Protocol: ", ip.Protocol)
 		fmt.Println()
+
 	}
 
 	// udpLayer := packet.Layer(layers.LayerTypeUDP)

@@ -80,6 +80,8 @@ var RelayPeerMap = make(map[string]map[string]RemotePeer)
 
 var ExtClientsWaitTh = make(map[string][]context.CancelFunc)
 
+var PeerAddrMap = make(map[string]map[string]*Conn)
+
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {
 	args := strings.Fields(command)

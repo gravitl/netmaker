@@ -33,7 +33,7 @@ type ConnConfig struct {
 	RemoteProxyPort int
 }
 
-func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
+func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr string,
 	isRelayed, isExtClient, isAttachedExtClient bool, relayTo *net.UDPAddr) error {
 
 	c := proxy.Config{
@@ -103,6 +103,12 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
 	} else {
 		common.WgIFaceMap[wgInterface.Name] = make(map[string]*common.Conn)
 		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
+	}
+	if _, ok := common.PeerAddrMap[wgInterface.Name]; ok {
+		common.PeerAddrMap[wgInterface.Name][peerAddr] = &peerConn
+	} else {
+		common.PeerAddrMap[wgInterface.Name] = make(map[string]*common.Conn)
+		common.PeerAddrMap[wgInterface.Name][peerAddr] = &peerConn
 	}
 
 	return nil
