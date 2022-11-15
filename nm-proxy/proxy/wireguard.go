@@ -59,7 +59,7 @@ func (p *Proxy) ProxyToRemote() {
 				log.Println("ERRR READ: ", err)
 				continue
 			}
-			go func() {
+			go func(buf []byte, n int) {
 
 				if peerI, ok := peers[p.Config.RemoteKey]; ok {
 					var srcPeerKeyHash, dstPeerKeyHash string
@@ -80,7 +80,7 @@ func (p *Proxy) ProxyToRemote() {
 				if err != nil {
 					log.Println("Failed to send to remote: ", err)
 				}
-			}()
+			}(buf, n)
 
 		}
 	}

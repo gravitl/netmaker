@@ -59,7 +59,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				log.Println("RECV ERROR: ", err)
 				continue
 			}
-			go func() {
+			go func(buffer []byte, source *net.UDPAddr, n int) {
 
 				var srcPeerKeyHash, dstPeerKeyHash string
 				n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
@@ -143,7 +143,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				// 	}
 
 				// }
-			}()
+			}(buffer, source, n)
 		}
 
 	}
