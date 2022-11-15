@@ -24,7 +24,7 @@ RUN git clone https://git.zx2c4.com/wireguard-tools && \
     make && \
     make install
 
-FROM alpine:3.13.6
+FROM alpine:3.16.2
 
 WORKDIR /root/
 
