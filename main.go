@@ -184,6 +184,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
 	go logic.ManageZombies(ctx)
+	go logic.PurgePendingNodes(ctx)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit

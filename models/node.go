@@ -103,6 +103,7 @@ type Node struct {
 	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 	Connected       string      `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
+	PendingDelete   bool        `json:"pendingdelete" bson:"pendingdelete" yaml:"pendingdelete"`
 	// == PRO ==
 	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`

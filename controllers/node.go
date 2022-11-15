@@ -665,7 +665,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 		if !updatedUserNode { // user was found but not updated, so delete node
 			logger.Log(0, "failed to add node to user", keyName)
-			logic.DeleteNodeByID(&node, true)
+			logic.DeleteNode(&node, true)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
@@ -1049,22 +1049,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var nodeid = params["nodeid"]
 	fromNode := r.Header.Get("requestfrom") == "node"
-	var node, err = logic.GetNodeByID(nodeid)
+	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		if fromNode {
-			node, err = logic.GetDeletedNodeByID(nodeid)
-			if err != nil {
-				logger.Log(0, r.Header.Get("user"),
-					fmt.Sprintf("error fetching node from deleted nodes [ %s ] info: %v", nodeid, err))
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		} else {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
+		logger.Log(0, "error retrieving node to delete", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
 	if isServer(&node) {
 		err := fmt.Errorf("cannot delete server node")
@@ -1080,34 +1069,35 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	//send update to node to be deleted before deleting on server otherwise message cannot be sent
-	node.Action = models.NODE_DELETE
-
-	err = logic.DeleteNodeByID(&node, fromNode)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	if err := logic.DeleteNode(&node, fromNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
 	if fromNode {
-		// deletes node related role and client
-		event := mq.MqDynsecPayload{
-			Commands: []mq.MqDynSecCmd{
-				{
-					Command:  mq.DeleteClientCmd,
-					Username: nodeid,
+		//check if server should be removed from mq
+		found := false
+		// err is irrelevent
+		nodes, _ := logic.GetAllNodes()
+		for _, nodetocheck := range nodes {
+			if nodetocheck.HostID == node.HostID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// deletes node related role and client
+			event := mq.MqDynsecPayload{
+				Commands: []mq.MqDynSecCmd{
+					{
+						Command:  mq.DeleteClientCmd,
+						Username: node.HostID,
+					},
 				},
-			},
-		}
-
-		if err := mq.PublishEventToDynSecTopic(event); err != nil {
-			logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-				event.Commands, err.Error()))
-		}
-	}
-
-	if servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node delete for node", node.Name, node.Network)
+			}
+			if err := mq.PublishEventToDynSecTopic(event); err != nil {
+				logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+					event.Commands, err.Error()))
+			}
 		}
 	}
 

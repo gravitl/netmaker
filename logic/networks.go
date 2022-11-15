@@ -54,7 +54,7 @@ func DeleteNetwork(network string) error {
 		servers, err := GetSortedNetworkServerNodes(network)
 		if err == nil {
 			for _, s := range servers {
-				if err = DeleteNodeByID(&s, true); err != nil {
+				if err = DeleteNode(&s, true); err != nil {
 					logger.Log(2, "could not removed server", s.Name, "before deleting network", network)
 				} else {
 					logger.Log(2, "removed server", s.Name, "before deleting network", network)
