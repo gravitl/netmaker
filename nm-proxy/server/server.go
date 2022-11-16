@@ -54,7 +54,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			return
 		default:
 			// Read Packet
-			buffer := make([]byte, 1532)
+			buffer := make([]byte, 5032)
 			n, source, err := p.Server.ReadFromUDP(buffer)
 			if err != nil { // in future log errors?
 				log.Println("RECV ERROR: ", err)
