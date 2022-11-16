@@ -35,7 +35,7 @@ type ProxyServer struct {
 func (p *ProxyServer) Listen(ctx context.Context) {
 
 	// Buffer with indicated body size
-	buffer := make([]byte, 65535+32)
+	buffer := make([]byte, 65032)
 	for {
 
 		select {
@@ -59,11 +59,11 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				log.Println("RECV ERROR: ", err)
 				continue
 			}
-			// go func(buffer []byte, source *net.UDPAddr, n int) {
+			//go func(buffer []byte, source *net.UDPAddr, n int) {
 
 			var srcPeerKeyHash, dstPeerKeyHash string
 			n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
-			//log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
+			//log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
 			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
 				// if common.IsIngressGateway {
 				// 	log.Println("----> fowarding PKT to EXT client...")
@@ -92,7 +92,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 							if err != nil {
 								log.Println("Failed to send to remote: ", err)
 							}
-							return
+							//continue
 						}
 					} else {
 						if remoteMap, ok := common.RelayPeerMap[dstPeerKeyHash]; ok {
@@ -103,7 +103,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 								if err != nil {
 									log.Println("Failed to send to remote: ", err)
 								}
-								return
+								//continue
 							}
 						}
 
@@ -122,12 +122,11 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
 						if err != nil {
 							log.Println("Failed to proxy to Wg local interface: ", err)
-							return
+							//continue
 						}
 
 					}
 				}
-				return
 
 			}
 			// // forward to all interfaces
@@ -143,7 +142,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			// 	}
 
 			// }
-			// }(buffer, source, n)
+			//}(buffer, source, n)
 		}
 
 	}

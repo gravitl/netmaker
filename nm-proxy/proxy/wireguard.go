@@ -31,7 +31,7 @@ func (p *Proxy) ProxyToRemote() {
 		log.Println("Closing connection for: ", p.LocalConn.LocalAddr().String())
 		p.LocalConn.Close()
 	}()
-	buf := make([]byte, 65535)
+	buf := make([]byte, 65000)
 	for {
 		select {
 		case <-p.Ctx.Done():
@@ -60,7 +60,7 @@ func (p *Proxy) ProxyToRemote() {
 				log.Println("ERRR READ: ", err)
 				continue
 			}
-			// go func(buf []byte, n int) {
+			//go func(buf []byte, n int) {
 
 			if peerI, ok := peers[p.Config.RemoteKey]; ok {
 				//var srcPeerKeyHash, dstPeerKeyHash string
@@ -81,7 +81,7 @@ func (p *Proxy) ProxyToRemote() {
 			if err != nil {
 				log.Println("Failed to send to remote: ", err)
 			}
-			// }(buf, n)
+			//}(buf, n)
 
 		}
 	}

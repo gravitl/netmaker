@@ -262,9 +262,9 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			shouldProceed = true
 		}
 		if peerConf.IsExtClient && peerConf.IsAttachedExtClient && shouldProceed {
-			ctx, cancel := context.WithCancel(context.Background())
-			common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
-			go proxy.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
+			//ctx, cancel := context.WithCancel(context.Background())
+			//common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
+			//go proxy.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
 		}
 
 		if peerConf.IsExtClient && !peerConf.IsAttachedExtClient {
@@ -302,7 +302,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")
-						go proxy.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
+						//go proxy.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
 						common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))] = common.RemotePeer{
 							Interface:           wgInterface.Name,
 							PeerKey:             peer.PublicKey.String(),
