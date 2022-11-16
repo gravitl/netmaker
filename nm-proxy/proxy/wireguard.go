@@ -53,7 +53,7 @@ func (p *Proxy) ProxyToRemote() {
 
 			return
 		default:
-			buf := make([]byte, 5000)
+			buf := make([]byte, 1500)
 			n, err := p.LocalConn.Read(buf)
 			if err != nil {
 				log.Println("ERRR READ: ", err)
