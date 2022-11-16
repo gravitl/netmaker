@@ -267,14 +267,16 @@ func UniqueAddress6(networkName string, reverse bool) (string, error) {
 		return "666", err
 	}
 	net6 := iplib.Net6FromStr(network.AddressRange6)
-	newAddrs := net6.FirstAddress()
 
+	newAddrs, err := net6.NextIP(net6.FirstAddress())
 	if reverse {
-		newAddrs = net6.LastAddress()
+		newAddrs, err = net6.PreviousIP(net6.LastAddress())
+	}
+	if err != nil {
+		return "", err
 	}
 
 	for {
-
 		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
 			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
 			return newAddrs.String(), nil
