@@ -24,7 +24,7 @@ func NewProxy(config Config) *Proxy {
 
 // proxyToRemote proxies everything from Wireguard to the RemoteKey peer
 func (p *Proxy) ProxyToRemote() {
-	buf := make([]byte, 1500)
+
 	peers := common.WgIFaceMap[p.Config.WgInterface.Name]
 	go func() {
 		<-p.Ctx.Done()
@@ -53,7 +53,7 @@ func (p *Proxy) ProxyToRemote() {
 
 			return
 		default:
-
+			buf := make([]byte, 1500)
 			n, err := p.LocalConn.Read(buf)
 			if err != nil {
 				log.Println("ERRR READ: ", err)

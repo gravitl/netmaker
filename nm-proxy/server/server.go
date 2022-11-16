@@ -36,7 +36,7 @@ type ProxyServer struct {
 func (p *ProxyServer) Listen(ctx context.Context) {
 
 	// Buffer with indicated body size
-	buffer := make([]byte, 1532)
+
 	for {
 
 		select {
@@ -54,6 +54,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			return
 		default:
 			// Read Packet
+			buffer := make([]byte, 1532)
 			n, source, err := p.Server.ReadFromUDP(buffer)
 			if err != nil { // in future log errors?
 				log.Println("RECV ERROR: ", err)
