@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"time"
@@ -36,7 +35,7 @@ type ProxyServer struct {
 func (p *ProxyServer) Listen(ctx context.Context) {
 
 	// Buffer with indicated body size
-
+	buffer := make([]byte, 65535+32)
 	for {
 
 		select {
@@ -54,97 +53,97 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			return
 		default:
 			// Read Packet
-			buffer := make([]byte, 1532)
+
 			n, source, err := p.Server.ReadFromUDP(buffer)
 			if err != nil { // in future log errors?
 				log.Println("RECV ERROR: ", err)
 				continue
 			}
-			go func(buffer []byte, source *net.UDPAddr, n int) {
+			// go func(buffer []byte, source *net.UDPAddr, n int) {
 
-				var srcPeerKeyHash, dstPeerKeyHash string
-				n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
-				//log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
-				if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
-					// if common.IsIngressGateway {
-					// 	log.Println("----> fowarding PKT to EXT client...")
-					// 	if val, ok := common.PeerKeyHashMap[dstPeerKeyHash]; ok && val.IsAttachedExtClient {
+			var srcPeerKeyHash, dstPeerKeyHash string
+			n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
+			//log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
+			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
+				// if common.IsIngressGateway {
+				// 	log.Println("----> fowarding PKT to EXT client...")
+				// 	if val, ok := common.PeerKeyHashMap[dstPeerKeyHash]; ok && val.IsAttachedExtClient {
 
-					// 		log.Printf("-------->Forwarding the pkt to extClient  [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
-					// 			source.String(), srcPeerKeyHash, val.Endpoint.String(), dstPeerKeyHash)
-					// 		_, err = NmProxyServer.Server.WriteToUDP(buffer[:n], val.Endpoint)
-					// 		if err != nil {
-					// 			log.Println("Failed to send to remote: ", err)
-					// 		}
-					// 		continue
+				// 		log.Printf("-------->Forwarding the pkt to extClient  [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
+				// 			source.String(), srcPeerKeyHash, val.Endpoint.String(), dstPeerKeyHash)
+				// 		_, err = NmProxyServer.Server.WriteToUDP(buffer[:n], val.Endpoint)
+				// 		if err != nil {
+				// 			log.Println("Failed to send to remote: ", err)
+				// 		}
+				// 		continue
 
-					// 	}
-					// }
+				// 	}
+				// }
 
-					if common.IsRelay {
+				if common.IsRelay {
 
-						log.Println("----------> Relaying######")
-						// check for routing map and forward to right proxy
-						if remoteMap, ok := common.RelayPeerMap[srcPeerKeyHash]; ok {
+					log.Println("----------> Relaying######")
+					// check for routing map and forward to right proxy
+					if remoteMap, ok := common.RelayPeerMap[srcPeerKeyHash]; ok {
+						if conf, ok := remoteMap[dstPeerKeyHash]; ok {
+							log.Printf("--------> Relaying PKT [ SourceIP: %s:%d ], [ SourceKeyHash: %s ], [ DstIP: %s:%d ], [ DstHashKey: %s ] \n",
+								source.IP.String(), source.Port, srcPeerKeyHash, conf.Endpoint.String(), conf.Endpoint.Port, dstPeerKeyHash)
+							_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
+							if err != nil {
+								log.Println("Failed to send to remote: ", err)
+							}
+							return
+						}
+					} else {
+						if remoteMap, ok := common.RelayPeerMap[dstPeerKeyHash]; ok {
 							if conf, ok := remoteMap[dstPeerKeyHash]; ok {
-								log.Printf("--------> Relaying PKT [ SourceIP: %s:%d ], [ SourceKeyHash: %s ], [ DstIP: %s:%d ], [ DstHashKey: %s ] \n",
-									source.IP.String(), source.Port, srcPeerKeyHash, conf.Endpoint.String(), conf.Endpoint.Port, dstPeerKeyHash)
+								log.Printf("--------> Relaying BACK TO RELAYED NODE PKT [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
+									source.String(), srcPeerKeyHash, conf.Endpoint.String(), dstPeerKeyHash)
 								_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
 								if err != nil {
 									log.Println("Failed to send to remote: ", err)
 								}
 								return
 							}
-						} else {
-							if remoteMap, ok := common.RelayPeerMap[dstPeerKeyHash]; ok {
-								if conf, ok := remoteMap[dstPeerKeyHash]; ok {
-									log.Printf("--------> Relaying BACK TO RELAYED NODE PKT [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
-										source.String(), srcPeerKeyHash, conf.Endpoint.String(), dstPeerKeyHash)
-									_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
-									if err != nil {
-										log.Println("Failed to send to remote: ", err)
-									}
-									return
-								}
-							}
-
 						}
 
 					}
 
 				}
 
-				if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
-					if peers, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
-						if peerI, ok := peers[peerInfo.PeerKey]; ok {
-							log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-								peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
-								fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-							_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
-							if err != nil {
-								log.Println("Failed to proxy to Wg local interface: ", err)
-								return
-							}
+			}
 
+			if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
+				if peers, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
+					if peerI, ok := peers[peerInfo.PeerKey]; ok {
+						// log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+						// 	peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
+						// 	fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
+						if err != nil {
+							log.Println("Failed to proxy to Wg local interface: ", err)
+							return
 						}
+
 					}
-					return
-
 				}
-				// // forward to all interfaces
-				// for _, ifaceCfg := range common.WgIfaceKeyMap {
-				// 	log.Println("###--------> Forwarding Unknown PKT to ", ifaceCfg.Interface)
-				// 	conn, err := net.DialUDP("udp", nil, ifaceCfg.Endpoint)
-				// 	if err == nil {
-				// 		_, err := conn.Write(buffer[:n])
-				// 		if err != nil {
-				// 			log.Println("Failed to forward the unknown pkt to ifcace: ", ifaceCfg.Interface, err)
-				// 		}
-				// 		conn.Close()
-				// 	}
+				return
 
-				// }
-			}(buffer, source, n)
+			}
+			// // forward to all interfaces
+			// for _, ifaceCfg := range common.WgIfaceKeyMap {
+			// 	log.Println("###--------> Forwarding Unknown PKT to ", ifaceCfg.Interface)
+			// 	conn, err := net.DialUDP("udp", nil, ifaceCfg.Endpoint)
+			// 	if err == nil {
+			// 		_, err := conn.Write(buffer[:n])
+			// 		if err != nil {
+			// 			log.Println("Failed to forward the unknown pkt to ifcace: ", ifaceCfg.Interface, err)
+			// 		}
+			// 		conn.Close()
+			// 	}
+
+			// }
+			// }(buffer, source, n)
 		}
 
 	}

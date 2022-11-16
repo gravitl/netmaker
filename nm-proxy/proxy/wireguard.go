@@ -31,6 +31,7 @@ func (p *Proxy) ProxyToRemote() {
 		log.Println("Closing connection for: ", p.LocalConn.LocalAddr().String())
 		p.LocalConn.Close()
 	}()
+	buf := make([]byte, 65535)
 	for {
 		select {
 		case <-p.Ctx.Done():
@@ -53,34 +54,34 @@ func (p *Proxy) ProxyToRemote() {
 
 			return
 		default:
-			buf := make([]byte, 1500)
+
 			n, err := p.LocalConn.Read(buf)
 			if err != nil {
 				log.Println("ERRR READ: ", err)
 				continue
 			}
-			go func(buf []byte, n int) {
+			// go func(buf []byte, n int) {
 
-				if peerI, ok := peers[p.Config.RemoteKey]; ok {
-					var srcPeerKeyHash, dstPeerKeyHash string
-					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
-					if err != nil {
-						log.Println("failed to process pkt before sending: ", err)
-					}
-					log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
-						p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
-				} else {
-					log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
-					p.Cancel()
-					return
-				}
-				//test(n, buf)
-
-				_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], p.RemoteConn)
+			if peerI, ok := peers[p.Config.RemoteKey]; ok {
+				//var srcPeerKeyHash, dstPeerKeyHash string
+				buf, n, _, _ = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
 				if err != nil {
-					log.Println("Failed to send to remote: ", err)
+					log.Println("failed to process pkt before sending: ", err)
 				}
-			}(buf, n)
+				// log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
+				// 	p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
+			} else {
+				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
+				p.Cancel()
+				return
+			}
+			//test(n, buf)
+
+			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], p.RemoteConn)
+			if err != nil {
+				log.Println("Failed to send to remote: ", err)
+			}
+			// }(buf, n)
 
 		}
 	}
