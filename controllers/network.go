@@ -57,7 +57,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 	allnetworks := []models.Network{}
 	var err error
-	if networksSlice[0] == logic.ALL_NETWORK_ACCESS {
+	if len(networksSlice) > 0 && networksSlice[0] == logic.ALL_NETWORK_ACCESS {
 		allnetworks, err = logic.GetNetworks()
 		if err != nil && !database.IsEmptyRecord(err) {
 			logger.Log(0, r.Header.Get("user"), "failed to fetch networks: ", err.Error())

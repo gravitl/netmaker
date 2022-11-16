@@ -110,13 +110,10 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 			}
 		}
 	}
-	if ncutils.IsMac() {
-		err = SetMacPeerRoutes(iface)
-		return err
-	} else if ncutils.IsLinux() {
-		if len(peers) > 0 {
-			local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
-		}
+
+	// if routes are wrong, come back to this, but should work...I would think. Or we should get it working.
+	if len(peers) > 0 {
+		local.SetPeerRoutes(iface, oldPeerAllowedIps, peers)
 	}
 
 	return nil
@@ -263,8 +260,6 @@ func RemoveConf(iface string, printlog bool) error {
 		err = RemoveWithoutWGQuick(iface)
 	case "windows":
 		err = RemoveWindowsConf(iface, printlog)
-	case "darwin":
-		err = RemoveConfMac(iface)
 	default:
 		confPath := ncutils.GetNetclientPathSpecific() + iface + ".conf"
 		err = RemoveWGQuickConf(confPath, printlog)
@@ -282,9 +277,7 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 	var err error
 	switch os {
 	case "windows":
-		ApplyWindowsConf(confPath, isConnected)
-	case "darwin":
-		ApplyMacOSConf(node, ifacename, confPath, isConnected)
+		ApplyWindowsConf(confPath, ifacename, isConnected)
 	case "nowgquick":
 		ApplyWithoutWGQuick(node, ifacename, confPath, isConnected)
 	default:
@@ -469,21 +462,29 @@ func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) er
 	//}
 	//need to split postup/postdown because ini lib adds a quotes which breaks freebsd
 	if node.PostUp != "" {
-		parts := strings.Split(node.PostUp, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostUp").SetValue(part)
+		if node.OS == "freebsd" {
+			parts := strings.Split(node.PostUp, " ; ")
+			for i, part := range parts {
+				if i == 0 {
+					wireguard.Section(section_interface).Key("PostUp").SetValue(part)
+				}
+				wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
 			}
-			wireguard.Section(section_interface).Key("PostUp").AddShadow(part)
+		} else {
+			wireguard.Section(section_interface).Key("PostUp").SetValue(node.PostUp)
 		}
 	}
 	if node.PostDown != "" {
-		parts := strings.Split(node.PostDown, " ; ")
-		for i, part := range parts {
-			if i == 0 {
-				wireguard.Section(section_interface).Key("PostDown").SetValue(part)
+		if node.OS == "freebsd" {
+			parts := strings.Split(node.PostDown, " ; ")
+			for i, part := range parts {
+				if i == 0 {
+					wireguard.Section(section_interface).Key("PostDown").SetValue(part)
+				}
+				wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
 			}
-			wireguard.Section(section_interface).Key("PostDown").AddShadow(part)
+		} else {
+			wireguard.Section(section_interface).Key("PostDown").SetValue(node.PostDown)
 		}
 	}
 	if node.MTU != 0 {

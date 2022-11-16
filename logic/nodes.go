@@ -335,7 +335,7 @@ func CreateNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	// CheckZombies(node)
+	CheckZombies(node)
 
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
@@ -739,6 +739,21 @@ func findNode(ip string) (*models.Node, error) {
 		}
 	}
 	return nil, errors.New("node not found")
+}
+
+// GetNetworkIngresses - gets the gateways of a network
+func GetNetworkIngresses(network string) ([]models.Node, error) {
+	var ingresses []models.Node
+	netNodes, err := GetNetworkNodes(network)
+	if err != nil {
+		return []models.Node{}, err
+	}
+	for i := range netNodes {
+		if netNodes[i].IsIngressGateway == "yes" {
+			ingresses = append(ingresses, netNodes[i])
+		}
+	}
+	return ingresses, nil
 }
 
 // == PRO ==

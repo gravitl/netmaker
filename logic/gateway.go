@@ -265,7 +265,9 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 	}
 	logger.Log(3, "deleting ingress gateway")
 	wasFailover := node.Failover == "yes"
-	node.UDPHolePunch = network.DefaultUDPHolePunch
+	if node.IsServer != "yes" {
+		node.UDPHolePunch = network.DefaultUDPHolePunch
+	}
 	node.LastModified = time.Now().Unix()
 	node.IsIngressGateway = "no"
 	node.IngressGatewayRange = ""
@@ -322,7 +324,7 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 	postUp += "nft add rule ip filter FORWARD oifname " + networkInterface + " counter accept ; "
 	postUp += "nft add table nat ; "
 	postUp += "nft add chain nat postrouting ; "
-	postUp += "nft add rule ip nat postrouting oifname " + networkInterface + " counter masquerade"
+	postUp += "nft add rule ip nat postrouting oifname " + networkInterface + " counter masquerade ; "
 
 	// doesn't remove potentially empty tables or chains
 	postDown := "nft flush table filter ; "

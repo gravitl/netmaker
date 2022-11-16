@@ -8,7 +8,9 @@ import (
 )
 
 // ApplyWindowsConf - applies the WireGuard configuration file on Windows
-func ApplyWindowsConf(confPath string, isConnected bool) error {
+func ApplyWindowsConf(confPath, iface string, isConnected bool) error {
+	RemoveConfGraceful(iface) // have to remove gracefully before applying windows conf
+
 	if !isConnected {
 		return nil
 	}

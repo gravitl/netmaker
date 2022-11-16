@@ -97,7 +97,11 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error saving node", err.Error())
 			return
 		}
-		updateNodePeers(&currentNode)
+		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
+			if err = PublishPeerUpdate(&currentNode, true); err != nil {
+				logger.Log(0, "error updating peers when node", currentNode.Name, currentNode.ID, "informed the server of an interface change", err.Error())
+			}
+		}
 		logger.Log(1, "updated node", id, newNode.Name)
 	}()
 }
@@ -238,10 +242,17 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		// associate ext clients with IDs
 		for i := range attachedClients {
 			extMetric := newMetrics.Connectivity[attachedClients[i].PublicKey]
-			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
-			if extMetric.Connected { // add ext client metrics
-				newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
+			if len(extMetric.NodeName) == 0 &&
+				len(newMetrics.Connectivity[attachedClients[i].ClientID].NodeName) > 0 { // cover server clients
+				extMetric = newMetrics.Connectivity[attachedClients[i].ClientID]
+				if extMetric.TotalReceived > 0 && extMetric.TotalSent > 0 {
+					extMetric.Connected = true
+				}
 			}
+			extMetric.NodeName = attachedClients[i].ClientID
+			extMetric.IsServer = "no"
+			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
+			newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
 		}
 	}
 

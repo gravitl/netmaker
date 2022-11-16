@@ -3,19 +3,19 @@ module github.com/gravitl/netmaker
 go 1.18
 
 require (
-	github.com/eclipse/paho.mqtt.golang v1.4.1
+	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.7
-	github.com/mattn/go-sqlite3 v1.14.15
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.16.3
+	github.com/urfave/cli/v2 v2.23.4
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
@@ -35,11 +35,12 @@ require (
 	github.com/cloverstd/tcping v0.1.1
 	github.com/go-ping/ping v1.1.0
 	github.com/guumaster/hostctl v1.1.3
-	github.com/kr/pretty v0.3.0
+	github.com/kr/pretty v0.3.1
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
 require (
+	github.com/agnivade/levenshtein v1.1.1
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/gorilla/websocket v1.5.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e

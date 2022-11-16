@@ -75,7 +75,7 @@ jobs:
         with:
           context: .
           load: true
-          platforms: linux/armv7l
+          platforms: linux/arm/v7
           tags: ${{ env.TAG }}
           build-args: version=${{ env.TAG }}
       -
@@ -89,7 +89,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          platforms: linux/amd64, linux/arm64, linux/armv7l
+          platforms: linux/amd64, linux/arm64, linux/arm/v7
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}, ${{ github.repository }}:latest
           build-args: version=${{ env.TAG }}
