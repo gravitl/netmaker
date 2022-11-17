@@ -25,7 +25,6 @@ func NewProxy(config Config) *Proxy {
 // proxyToRemote proxies everything from Wireguard to the RemoteKey peer
 func (p *Proxy) ProxyToRemote() {
 
-	peers := common.WgIFaceMap[p.Config.WgInterface.Name]
 	go func() {
 		<-p.Ctx.Done()
 		log.Println("Closing connection for: ", p.LocalConn.LocalAddr().String())
@@ -61,15 +60,15 @@ func (p *Proxy) ProxyToRemote() {
 				continue
 			}
 			//go func(buf []byte, n int) {
-
-			if peerI, ok := peers[p.Config.RemoteKey]; ok {
-				//var srcPeerKeyHash, dstPeerKeyHash string
-				buf, n, _, _ = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
+			ifaceConf := common.WgIFaceMap[p.Config.WgInterface.Name]
+			if peerI, ok := ifaceConf.PeerMap[p.Config.RemoteKey]; ok {
+				var srcPeerKeyHash, dstPeerKeyHash string
+				buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
 				if err != nil {
 					log.Println("failed to process pkt before sending: ", err)
 				}
-				// log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
-				// 	p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
+				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
+					p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
 			} else {
 				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
 				p.Cancel()
@@ -99,9 +98,9 @@ func (p *Proxy) updateEndpoint() error {
 		return err
 	}
 	// add local proxy connection as a Wireguard peer
-	log.Printf("---> ## Updating Peer:  %+v\n", p.Config)
-	err = p.Config.WgInterface.UpdatePeer(p.Config.RemoteKey, p.Config.AllowedIps, wg.DefaultWgKeepAlive,
-		udpAddr, p.Config.PreSharedKey)
+	log.Printf("---> ####### Updating Peer:  %+v\n", p.Config.PeerConf)
+	err = p.Config.WgInterface.UpdatePeer(p.Config.RemoteKey, p.Config.PeerConf.AllowedIPs, wg.DefaultWgKeepAlive,
+		udpAddr, p.Config.PeerConf.PresharedKey)
 	if err != nil {
 		return err
 	}
@@ -113,17 +112,8 @@ func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	p.RemoteConn = remoteConn
 
 	var err error
-	// err = p.Config.WgInterface.GetWgIface(p.Config.WgInterface.Name)
-	// if err != nil {
-	// 	log.Println("Failed to get iface: ", p.Config.WgInterface.Name, err)
-	// 	return err
-	// }
-	// wgAddr, err := GetInterfaceIpv4Addr(p.Config.WgInterface.Name)
-	// if err != nil {
-	// 	log.Println("failed to get interface addr: ", err)
-	// 	return err
-	// }
-	log.Printf("----> WGIFACE: %+v\n", p.Config.WgInterface)
+
+	//log.Printf("----> WGIFACE: %+v\n", p.Config.WgInterface)
 	addr, err := GetFreeIp(common.DefaultCIDR, p.Config.WgInterface.Port)
 	if err != nil {
 		log.Println("Failed to get freeIp: ", err)
@@ -137,7 +127,7 @@ func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	if runtime.GOOS == "darwin" {
 		wgListenAddr.IP = net.ParseIP(addr)
 	}
-	log.Println("--------->#### Wg Listen Addr: ", wgListenAddr.String())
+	//log.Println("--------->#### Wg Listen Addr: ", wgListenAddr.String())
 	p.LocalConn, err = net.DialUDP("udp", &net.UDPAddr{
 		IP:   net.ParseIP(addr),
 		Port: common.NmProxyPort,

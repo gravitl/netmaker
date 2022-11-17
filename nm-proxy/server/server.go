@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -42,9 +43,9 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 		case <-ctx.Done():
 			log.Println("--------->### Shutting down Proxy.....")
 			// clean up proxy connections
-			for iface, peers := range common.WgIFaceMap {
+			for iface, ifaceConf := range common.WgIFaceMap {
 				log.Println("########------------>  CLEANING UP: ", iface)
-				for _, peerI := range peers {
+				for _, peerI := range ifaceConf.PeerMap {
 					peerI.Proxy.Cancel()
 				}
 			}
@@ -114,11 +115,11 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			}
 
 			if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
-				if peers, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
-					if peerI, ok := peers[peerInfo.PeerKey]; ok {
-						// log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-						// 	peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
-						// 	fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
+					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
+						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+							peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
+							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
 						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
 						if err != nil {
 							log.Println("Failed to proxy to Wg local interface: ", err)

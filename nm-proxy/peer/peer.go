@@ -41,7 +41,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 		LocalKey:    wgInterface.Device.PublicKey.String(),
 		RemoteKey:   peer.PublicKey.String(),
 		WgInterface: wgInterface,
-		AllowedIps:  peer.AllowedIPs,
+		PeerConf:    peer,
 	}
 	p := proxy.NewProxy(c)
 	peerPort := common.NmProxyPort
@@ -91,7 +91,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 			LocalKey:    wgInterface.Device.PublicKey.String(),
 			RemoteKey:   peer.PublicKey.String(),
 			WgInterface: wgInterface,
-			AllowedIps:  peer.AllowedIPs,
+			PeerConf:    peer,
 		},
 
 		RemoteConn: remoteConn,
@@ -105,10 +105,15 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 		Proxy:  peerProxy,
 	}
 	if _, ok := common.WgIFaceMap[wgInterface.Name]; ok {
-		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
+		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &peerConn
 	} else {
-		common.WgIFaceMap[wgInterface.Name] = make(map[string]*common.Conn)
-		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
+		ifaceConf := common.WgIfaceConf{
+			Iface:   wgInterface.Device,
+			PeerMap: make(map[string]*common.Conn),
+		}
+
+		common.WgIFaceMap[wgInterface.Name] = ifaceConf
+		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &peerConn
 	}
 	if _, ok := common.PeerAddrMap[wgInterface.Name]; ok {
 		common.PeerAddrMap[wgInterface.Name][peerAddr] = &peerConn

@@ -83,7 +83,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
 			continue
 		}
-		allowedips := getNodeAllowedIPs(node, &peer)
+		allowedips := getNodeAllowedIPs(&peer, node)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
 			// set_keepalive
@@ -96,12 +96,16 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 			PersistentKeepaliveInterval: &keepalive,
 			ReplaceAllowedIPs:           true,
 		})
+		peerConfMap[peer.PublicKey] = manager.PeerConf{
+			Address: peer.PrimaryAddress(),
+		}
 		if !onlyPeers && peer.IsRelayed == "yes" {
 			relayNode := FindRelay(&peer)
 			if relayNode != nil {
 				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
 				if err == nil {
 					peerConfMap[peer.PublicKey] = manager.PeerConf{
+
 						IsRelayed: true,
 						RelayedTo: relayTo,
 						Address:   peer.PrimaryAddress(),

@@ -17,14 +17,13 @@ const (
 )
 
 type Config struct {
-	Port         int
-	BodySize     int
-	Addr         string
-	RemoteKey    string
-	LocalKey     string
-	WgInterface  *wg.WGIface
-	AllowedIps   []net.IPNet
-	PreSharedKey *wgtypes.Key
+	Port        int
+	BodySize    int
+	Addr        string
+	RemoteKey   string
+	LocalKey    string
+	WgInterface *wg.WGIface
+	PeerConf    *wgtypes.PeerConfig
 }
 
 // Proxy -  WireguardProxy proxies
