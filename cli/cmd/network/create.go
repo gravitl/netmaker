@@ -1,8 +1,9 @@
 package network
 
 import (
-	"fmt"
-	"os"
+	"encoding/json"
+	"io/ioutil"
+	"log"
 
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
@@ -11,14 +12,20 @@ import (
 
 // networkCreateCmd represents the networkCreate command
 var networkCreateCmd = &cobra.Command{
-	Use:   "create [network_definition.json]",
+	Use:   "create [/path/to/network_definition.json]",
 	Short: "Create a Network",
 	Long:  `Create a Network`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		content, err := ioutil.ReadFile(args[0])
+		if err != nil {
+			log.Fatal("Error when opening file: ", err)
+		}
 		network := &models.Network{}
-		resp := functions.CreateNetwork(network)
-		fmt.Fprintf(os.Stdout, "Response from `NetworksApi.CreateNetwork`: %v\n", resp)
+		if err := json.Unmarshal(content, network); err != nil {
+			log.Fatal(err)
+		}
+		functions.PrettyPrint(functions.CreateNetwork(network))
 	},
 }
 

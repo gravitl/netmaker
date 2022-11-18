@@ -11,11 +11,11 @@ import (
 )
 
 type Context struct {
-	Endpoint  string
-	Username  string
-	Password  string
-	MasterKey string
-	Current   bool `yaml:"current,omitempty"`
+	Endpoint  string `yaml:"endpoint"`
+	Username  string `yaml:"username,omitempty"`
+	Password  string `yaml:"password,omitempty"`
+	MasterKey string `yaml:"masterkey,omitempty"`
+	Current   bool   `yaml:"current,omitempty"`
 }
 
 var (

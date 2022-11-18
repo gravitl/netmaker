@@ -3,37 +3,75 @@ package functions
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+
+	"github.com/gravitl/netmaker/cli/config"
+	"github.com/gravitl/netmaker/models"
 )
 
-func Request[T any](method, route string, payload any) *T {
-	requestURL := "http://localhost:3000"
+func getAuthToken(ctx config.Context) string {
+	authParams := &models.UserAuthParams{UserName: ctx.Username, Password: ctx.Password}
+	payload, err := json.Marshal(authParams)
+	if err != nil {
+		log.Fatal(err)
+	}
+	res, err := http.Post(ctx.Endpoint+"/api/users/adm/authenticate", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		log.Fatal(err)
+	}
+	resBodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Fatalf("Client could not read response body: %s", err)
+	}
+	if res.StatusCode != http.StatusOK {
+		log.Fatalf("Error response: %s", string(resBodyBytes))
+	}
+	body := new(models.SuccessResponse)
+	if err := json.Unmarshal(resBodyBytes, body); err != nil {
+		log.Fatalf("Error unmarshalling JSON: %s", err)
+	}
+	return body.Response.(map[string]any)["AuthToken"].(string)
+}
+
+func request[T any](method, route string, payload any) *T {
 	var (
+		ctx = config.GetCurrentContext()
 		req *http.Request
 		err error
 	)
 	if payload == nil {
-		req, err = http.NewRequest(method, requestURL+route, nil)
+		req, err = http.NewRequest(method, ctx.Endpoint+route, nil)
+		if err != nil {
+			log.Fatalf("Client could not create request: %s", err)
+		}
 	} else {
 		payloadBytes, jsonErr := json.Marshal(payload)
 		if jsonErr != nil {
 			log.Fatalf("Error in request JSON marshalling: %s", err)
 		}
-		req, err = http.NewRequest(method, requestURL+route, bytes.NewReader(payloadBytes))
+		req, err = http.NewRequest(method, ctx.Endpoint+route, bytes.NewReader(payloadBytes))
+		if err != nil {
+			log.Fatalf("Client could not create request: %s", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
 	}
-	if err != nil {
-		log.Fatalf("Client could not create request: %s", err)
+	if ctx.MasterKey != "" {
+		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx))
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatalf("Client error making http request: %s", err)
 	}
-
-	resBodyBytes, err := ioutil.ReadAll(res.Body)
+	resBodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Fatalf("Client could not read response body: %s", err)
+	}
+	if res.StatusCode != http.StatusOK {
+		log.Fatalf("Error response: %s", string(resBodyBytes))
 	}
 	body := new(T)
 	if err := json.Unmarshal(resBodyBytes, body); err != nil {

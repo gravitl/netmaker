@@ -44,8 +44,7 @@ var contextSetCmd = &cobra.Command{
 }
 
 func init() {
-	contextSetCmd.Flags().StringVar(&endpoint, FlagEndpoint, "", "Endpoint of the API Server (Required)")
-	contextSetCmd.MarkFlagRequired(FlagEndpoint)
+	contextSetCmd.Flags().StringVar(&endpoint, FlagEndpoint, "", "Endpoint of the API Server")
 	contextSetCmd.Flags().StringVar(&username, FlagUsername, "", "Username")
 	contextSetCmd.Flags().StringVar(&password, FlagPassword, "", "Password")
 	contextSetCmd.MarkFlagsRequiredTogether(FlagUsername, FlagPassword)
