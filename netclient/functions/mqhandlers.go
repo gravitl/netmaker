@@ -36,22 +36,23 @@ func ProxyUpdate(client mqtt.Client, msg mqtt.Message) {
 	var network = parseNetworkFromTopic(msg.Topic())
 	nodeCfg.Network = network
 	nodeCfg.ReadConfig()
-
+	logger.Log(0, "---------> Recieved a proxy update")
 	data, dataErr := decryptMsg(&nodeCfg, msg.Payload())
 	if dataErr != nil {
 		return
 	}
 	err := json.Unmarshal([]byte(data), &proxyUpdate)
 	if err != nil {
-		logger.Log(0, "error unmarshalling node update data"+err.Error())
+		logger.Log(0, "error unmarshalling proxy update data"+err.Error())
 		return
 	}
-	logger.Log(0, "---------> recieved a proxy update")
+
 	ProxyMgmChan <- &proxyUpdate
 }
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
 func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
+	logger.Log(0, "----------> RECIEVED NODE UPDDATEEEEE")
 	return
 	var newNode models.Node
 	var nodeCfg config.ClientConfig

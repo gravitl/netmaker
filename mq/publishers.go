@@ -31,6 +31,10 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 		// 	logger.Log(1, "failed to publish proxy update to node", node.Name, "on network", node.Network, ":", err.Error())
 		// }
 		if node.IsServer == "yes" {
+			err := PublishProxyUpdate(manager.AddInterface, &node)
+			if err != nil {
+				logger.Log(0, "failed to send proxy update for server: ", err.Error())
+			}
 			continue
 		}
 		if !publishToSelf && newNode.ID == node.ID {
@@ -114,6 +118,7 @@ func PublishExtPeerUpdate(node *models.Node) error {
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
 	if !servercfg.IsMessageQueueBackend() || node.IsServer == "yes" {
+
 		return nil
 	}
 	logger.Log(3, "publishing node update to "+node.Name)
@@ -154,7 +159,7 @@ func ProxyUpdate(proxyPayload *manager.ManagerAction, node *models.Node) error {
 		return err
 	}
 	if err = publish(node, fmt.Sprintf("proxy/%s/%s", node.Network, node.ID), data); err != nil {
-		logger.Log(2, "error publishing node update to peer ", node.ID, err.Error())
+		logger.Log(2, "error publishing proxy update to peer ", node.ID, err.Error())
 		return err
 	}
 	return nil

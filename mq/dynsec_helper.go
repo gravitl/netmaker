@@ -183,6 +183,12 @@ func FetchNetworkAcls(network string) []Acl {
 			Allow:    true,
 		},
 		{
+			AclType:  "publishClientReceive",
+			Topic:    fmt.Sprintf("proxy/%s/#", network),
+			Priority: -1,
+			Allow:    true,
+		},
+		{
 			AclType:  "subscribePattern",
 			Topic:    "#",
 			Priority: -1,
@@ -203,6 +209,12 @@ func fetchServerAcls() []Acl {
 		{
 			AclType:  "publishClientSend",
 			Topic:    "peers/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientSend",
+			Topic:    "proxy/#",
 			Priority: -1,
 			Allow:    true,
 		},

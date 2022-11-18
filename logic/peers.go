@@ -31,12 +31,16 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 	if !onlyPeers {
 		if node.IsRelayed == "yes" {
 			relayNode := FindRelay(node)
-			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
-			if err != nil {
-				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
+			if relayNode != nil {
+				relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
+				if err != nil {
+					logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
+				}
+				proxyPayload.IsRelayed = true
+				proxyPayload.RelayedTo = relayEndpoint
+			} else {
+				logger.Log(0, "couldn't find relay node for:  ", node.ID, node.PublicKey)
 			}
-			proxyPayload.IsRelayed = true
-			proxyPayload.RelayedTo = relayEndpoint
 
 		}
 		if node.IsRelay == "yes" {

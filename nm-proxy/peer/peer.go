@@ -41,7 +41,8 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 		LocalKey:    wgInterface.Device.PublicKey.String(),
 		RemoteKey:   peer.PublicKey.String(),
 		WgInterface: wgInterface,
-		PeerConf:    peer,
+
+		PeerConf: peer,
 	}
 	p := proxy.NewProxy(c)
 	peerPort := common.NmProxyPort
@@ -81,6 +82,8 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 		RemoteProxyIP:   net.ParseIP(peer.Endpoint.IP.String()),
 		RemoteWgPort:    peer.Endpoint.Port,
 		RemoteProxyPort: common.NmProxyPort,
+		IsRelayed:       isRelayed,
+		RelayedEndpoint: relayTo,
 	}
 
 	peerProxy := common.Proxy{

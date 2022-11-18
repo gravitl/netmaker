@@ -235,9 +235,9 @@ func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 	}
 	if token := client.Subscribe(fmt.Sprintf("proxy/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(ProxyUpdate)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
 		if token.Error() == nil {
-			logger.Log(0, "network:", nodeCfg.Node.Network, "connection timeout")
+			logger.Log(0, "###### network:", nodeCfg.Node.Network, "connection timeout")
 		} else {
-			logger.Log(0, "network:", nodeCfg.Node.Network, token.Error().Error())
+			logger.Log(0, "###### network:", nodeCfg.Node.Network, token.Error().Error())
 		}
 		return
 	}

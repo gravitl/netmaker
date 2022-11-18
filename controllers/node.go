@@ -1121,7 +1121,6 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 
 // updates local peers for a server on a given node's network
 func runServerUpdate(node *models.Node, ifaceDelta bool) error {
-
 	if servercfg.IsClientMode() != "on" || !isServer(node) {
 		return nil
 	}

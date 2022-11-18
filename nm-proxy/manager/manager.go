@@ -57,13 +57,8 @@ type PeerConf struct {
 }
 
 const (
-	AddInterface ProxyAction = "ADD_INTERFACE"
-	DeletePeer   ProxyAction = "DELETE_PEER"
-	UpdatePeer   ProxyAction = "UPDATE_PEER"
-	AddPeer      ProxyAction = "ADD_PEER"
-	RelayPeers   ProxyAction = "RELAY_PEERS"
-	RelayUpdate  ProxyAction = "RELAY_UPDATE"
-	RelayTo      ProxyAction = "RELAY_TO"
+	AddInterface    ProxyAction = "ADD_INTERFACE"
+	DeleteInterface ProxyAction = "DELETE_INTERFACE"
 )
 
 type ManagerAction struct {
@@ -80,27 +75,32 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 			switch mI.Action {
 			case AddInterface:
 
-				common.IsRelay = mI.Payload.IsRelay
-				if mI.Payload.IsRelay {
-					mI.RelayPeers()
-				}
 				mI.ExtClients()
 				err := mI.AddInterfaceToProxy()
 				if err != nil {
 					log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
 				}
-			case UpdatePeer:
-				//mI.UpdatePeerProxy()
-			case DeletePeer:
-
-			case RelayPeers:
-				mI.RelayPeers()
-			case RelayUpdate:
-				mI.RelayUpdate()
+			case DeleteInterface:
+				mI.DeleteInterface()
 			}
 
 		}
 	}
+}
+
+func (m *ManagerAction) DeleteInterface() {
+	var err error
+	if runtime.GOOS == "darwin" {
+		m.Payload.InterfaceName, err = wg.GetRealIface(m.Payload.InterfaceName)
+		if err != nil {
+			log.Println("failed to get real iface: ", err)
+			return
+		}
+	}
+	if wgProxyConf, ok := common.WgIFaceMap[m.Payload.InterfaceName]; ok {
+		cleanUpInterface(wgProxyConf)
+	}
+
 }
 
 func (m *ManagerAction) RelayUpdate() {
@@ -137,6 +137,14 @@ func (m *ManagerAction) RelayPeers() {
 	}
 }
 
+func cleanUpInterface(ifaceConf common.WgIfaceConf) {
+	log.Println("########------------>  CLEANING UP: ", ifaceConf.Iface.Name)
+	for _, peerI := range ifaceConf.PeerMap {
+		peerI.Proxy.Cancel()
+	}
+	delete(common.WgIFaceMap, ifaceConf.Iface.Name)
+}
+
 func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	var err error
 	var wgIface *wg.WGIface
@@ -163,19 +171,26 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	if wgProxyConf, ok = common.WgIFaceMap[m.Payload.InterfaceName]; !ok {
 		return wgIface, nil
 	}
+	if m.Payload.IsRelay {
+		m.RelayPeers()
+	}
+	common.IsRelay = m.Payload.IsRelay
+	// check if node is getting relayed
+	if common.IsRelayed != m.Payload.IsRelayed {
+		common.IsRelayed = m.Payload.IsRelayed
+		cleanUpInterface(wgProxyConf)
+		return wgIface, nil
+	}
+
 	// sync map with wg device config
 	// check if listen port has changed
 	if wgIface.Device.ListenPort != wgProxyConf.Iface.ListenPort {
 		// reset proxy for this interface
-
-		log.Println("########------------>  CLEANING UP: ", m.Payload.InterfaceName)
-		for _, peerI := range wgProxyConf.PeerMap {
-			peerI.Proxy.Cancel()
-		}
-		delete(common.WgIFaceMap, m.Payload.InterfaceName)
+		cleanUpInterface(wgProxyConf)
 		return wgIface, nil
 	}
-	wgProxyConf.Iface = wgIface.Device
+	// check device conf different from proxy
+	//wgProxyConf.Iface = wgIface.Device
 	for i := len(m.Payload.Peers) - 1; i >= 0; i-- {
 		if currentPeer, ok := wgProxyConf.PeerMap[m.Payload.Peers[i].PublicKey.String()]; ok {
 			// check if peer is not connected to proxy
@@ -188,6 +203,22 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 					delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
 					continue
 				}
+			}
+			//check if peer is being relayed
+			if currentPeer.Config.IsRelayed != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsRelayed {
+				log.Println("---------> peer relay status has been changed: ", currentPeer.Config.Key)
+				currentPeer.Proxy.Cancel()
+				delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
+				continue
+			}
+			// check if relay endpoint has been changed
+			if currentPeer.Config.RelayedEndpoint != nil &&
+				m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].RelayedTo != nil &&
+				currentPeer.Config.RelayedEndpoint.String() != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].RelayedTo.String() {
+				log.Println("---------> peer relay endpoint has been changed: ", currentPeer.Config.Key)
+				currentPeer.Proxy.Cancel()
+				delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
+				continue
 			}
 			if !reflect.DeepEqual(m.Payload.Peers[i], *currentPeer.Proxy.Config.PeerConf) {
 				if currentPeer.Proxy.RemoteConn.IP.String() != m.Payload.Peers[i].Endpoint.IP.String() {

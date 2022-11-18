@@ -14,6 +14,7 @@ import (
 var IsHostNetwork bool
 var IsRelay bool
 var IsIngressGateway bool
+var IsRelayed bool
 
 const (
 	NmProxyPort = 51722
@@ -37,6 +38,8 @@ type ConnConfig struct {
 	RemoteWgPort        int
 	RemoteProxyPort     int
 	IsExtClient         bool
+	IsRelayed           bool
+	RelayedEndpoint     *net.UDPAddr
 	IsAttachedExtClient bool
 	IngressGateWay      *net.UDPAddr
 }
