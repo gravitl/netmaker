@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// networkGetCmd represents the networkCreate command
 var networkGetCmd = &cobra.Command{
 	Use:   "get [NAME]",
 	Short: "Get a Network",

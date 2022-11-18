@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// networkListCmd represents the networkCreate command
 var networkListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all Networks",

@@ -7,6 +7,7 @@
     "defaultpostup": "",
     "defaultpostdown": "",
     "defaultkeepalive": 20,
+    "defaultinterface": "nm-test3",
     "accesskeys": [],
     "allowmanualsignup": "no",
     "islocal": "no",
