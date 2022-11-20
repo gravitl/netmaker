@@ -263,13 +263,13 @@ func (w *WGIface) RemovePeer(peerKey string) error {
 }
 
 // UpdatePeer
-func (w *WGIface) Update(peerConf wgtypes.PeerConfig) error {
+func (w *WGIface) Update(peerConf wgtypes.PeerConfig, updateOnly bool) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	var err error
 	log.Printf("---------> NEWWWWWW Updating peer %+v from interface %s ", peerConf, w.Name)
 
-	peerConf.UpdateOnly = true
+	peerConf.UpdateOnly = updateOnly
 	peerConf.ReplaceAllowedIPs = true
 	config := wgtypes.Config{
 		Peers: []wgtypes.PeerConfig{peerConf},

@@ -56,6 +56,7 @@ type Config struct {
 
 // Proxy -  WireguardProxy proxies
 type Proxy struct {
+	Status bool
 	Ctx    context.Context
 	Cancel context.CancelFunc
 

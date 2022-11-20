@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
@@ -82,7 +83,11 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
 			continue
 		}
-		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, peer.LocalListenPort))
+		listenPort := peer.LocalListenPort
+		if listenPort == 0 {
+			listenPort = peer.ListenPort
+		}
+		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, listenPort))
 		if err != nil {
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
 			continue
@@ -93,6 +98,10 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 			// set_keepalive
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
+		proxyStatus := peer.Proxy
+		if peer.Server == "yes" {
+			proxyStatus = servercfg.IsProxyEnabled()
+		}
 		peers = append(peers, wgtypes.PeerConfig{
 			PublicKey:                   pubkey,
 			Endpoint:                    endpoint,
@@ -102,7 +111,9 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 		})
 		peerConfMap[peer.PublicKey] = manager.PeerConf{
 			Address: peer.PrimaryAddress(),
+			Proxy:   proxyStatus,
 		}
+
 		if !onlyPeers && peer.IsRelayed == "yes" {
 			relayNode := FindRelay(&peer)
 			if relayNode != nil {
@@ -113,6 +124,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 						IsRelayed: true,
 						RelayedTo: relayTo,
 						Address:   peer.PrimaryAddress(),
+						Proxy:     proxyStatus,
 					}
 				}
 
@@ -171,9 +183,9 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		return models.PeerUpdate{}, err
 	}
 
-	// if node.IsRelayed == "yes" {
-	// 	return GetPeerUpdateForRelayedNode(node, udppeers)
-	// }
+	if node.IsRelayed == "yes" {
+		return GetPeerUpdateForRelayedNode(node, udppeers)
+	}
 
 	// #1 Set Keepalive values: set_keepalive
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
@@ -195,15 +207,15 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		// if the node is not a server, set the endpoint
 		var setEndpoint = !(node.IsServer == "yes")
 
-		// if peer.IsRelayed == "yes" {
-		// 	if !(node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
-		// 		//skip -- will be added to relay
-		// 		continue
-		// 	} else if node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress()) {
-		// 		// dont set peer endpoint if it's relayed by node
-		// 		setEndpoint = false
-		// 	}
-		// }
+		if peer.IsRelayed == "yes" {
+			if !(node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
+				//skip -- will be added to relay
+				continue
+			} else if node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress()) {
+				// dont set peer endpoint if it's relayed by node
+				setEndpoint = false
+			}
+		}
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(peer.ID)) {
 			//skip if not permitted by acl
 			continue
@@ -478,60 +490,60 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		}
 	}
 	// handle relay gateway peers
-	// if peer.IsRelay == "yes" {
-	// 	for _, ip := range peer.RelayAddrs {
-	// 		//find node ID of relayed peer
-	// 		relayedPeer, err := findNode(ip)
-	// 		if err != nil {
-	// 			logger.Log(0, "failed to find node for ip ", ip, err.Error())
-	// 			continue
-	// 		}
-	// 		if relayedPeer == nil {
-	// 			continue
-	// 		}
-	// 		if relayedPeer.ID == node.ID {
-	// 			//skip self
-	// 			continue
-	// 		}
-	// 		//check if acl permits comms
-	// 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(relayedPeer.ID)) {
-	// 			continue
-	// 		}
-	// 		if iplib.Version(net.ParseIP(ip)) == 4 {
-	// 			relayAddr := net.IPNet{
-	// 				IP:   net.ParseIP(ip),
-	// 				Mask: net.CIDRMask(32, 32),
-	// 			}
-	// 			allowedips = append(allowedips, relayAddr)
-	// 		}
-	// 		if iplib.Version(net.ParseIP(ip)) == 6 {
-	// 			relayAddr := net.IPNet{
-	// 				IP:   net.ParseIP(ip),
-	// 				Mask: net.CIDRMask(128, 128),
-	// 			}
-	// 			allowedips = append(allowedips, relayAddr)
-	// 		}
-	// 		relayedNode, err := findNode(ip)
-	// 		if err != nil {
-	// 			logger.Log(1, "unable to find node for relayed address", ip, err.Error())
-	// 			continue
-	// 		}
-	// 		if relayedNode.IsEgressGateway == "yes" {
-	// 			extAllowedIPs := getEgressIPs(node, relayedNode)
-	// 			allowedips = append(allowedips, extAllowedIPs...)
-	// 		}
-	// 		if relayedNode.IsIngressGateway == "yes" {
-	// 			extPeers, _, err := getExtPeers(relayedNode)
-	// 			if err == nil {
-	// 				for _, extPeer := range extPeers {
-	// 					allowedips = append(allowedips, extPeer.AllowedIPs...)
-	// 				}
-	// 			} else {
-	// 				logger.Log(0, "failed to retrieve extclients from relayed ingress", err.Error())
-	// 			}
-	// 		}
-	// 	}
-	// }
+	if peer.IsRelay == "yes" {
+		for _, ip := range peer.RelayAddrs {
+			//find node ID of relayed peer
+			relayedPeer, err := findNode(ip)
+			if err != nil {
+				logger.Log(0, "failed to find node for ip ", ip, err.Error())
+				continue
+			}
+			if relayedPeer == nil {
+				continue
+			}
+			if relayedPeer.ID == node.ID {
+				//skip self
+				continue
+			}
+			//check if acl permits comms
+			if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID), nodeacls.NodeID(relayedPeer.ID)) {
+				continue
+			}
+			if iplib.Version(net.ParseIP(ip)) == 4 {
+				relayAddr := net.IPNet{
+					IP:   net.ParseIP(ip),
+					Mask: net.CIDRMask(32, 32),
+				}
+				allowedips = append(allowedips, relayAddr)
+			}
+			if iplib.Version(net.ParseIP(ip)) == 6 {
+				relayAddr := net.IPNet{
+					IP:   net.ParseIP(ip),
+					Mask: net.CIDRMask(128, 128),
+				}
+				allowedips = append(allowedips, relayAddr)
+			}
+			relayedNode, err := findNode(ip)
+			if err != nil {
+				logger.Log(1, "unable to find node for relayed address", ip, err.Error())
+				continue
+			}
+			if relayedNode.IsEgressGateway == "yes" {
+				extAllowedIPs := getEgressIPs(node, relayedNode)
+				allowedips = append(allowedips, extAllowedIPs...)
+			}
+			if relayedNode.IsIngressGateway == "yes" {
+				extPeers, _, err := getExtPeers(relayedNode)
+				if err == nil {
+					for _, extPeer := range extPeers {
+						allowedips = append(allowedips, extPeer.AllowedIPs...)
+					}
+				} else {
+					logger.Log(0, "failed to retrieve extclients from relayed ingress", err.Error())
+				}
+			}
+		}
+	}
 	return allowedips
 }
 

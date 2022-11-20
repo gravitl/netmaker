@@ -52,8 +52,6 @@ func ProxyUpdate(client mqtt.Client, msg mqtt.Message) {
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
 func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
-	logger.Log(0, "----------> RECIEVED NODE UPDDATEEEEE")
-	return
 	var newNode models.Node
 	var nodeCfg config.ClientConfig
 	var network = parseNetworkFromTopic(msg.Topic())
@@ -67,6 +65,15 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	err := json.Unmarshal([]byte(data), &newNode)
 	if err != nil {
 		logger.Log(0, "error unmarshalling node update data"+err.Error())
+		return
+	}
+	if newNode.Proxy {
+		if newNode.Proxy != nodeCfg.Node.Proxy {
+			if err := config.Write(&nodeCfg, nodeCfg.Network); err != nil {
+				logger.Log(0, nodeCfg.Node.Network, "error updating node configuration: ", err.Error())
+			}
+		}
+		logger.Log(0, "Node is attached with proxy,ignore this node update...")
 		return
 	}
 
@@ -228,6 +235,11 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		cfg.Server.Version = peerUpdate.ServerVersion
 		config.Write(&cfg, cfg.Network)
 	}
+
+	if cfg.Node.Proxy {
+		ProxyMgmChan <- &peerUpdate.ProxyUpdate
+		return
+	}
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 	internetGateway, err := wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 	if err != nil {
@@ -269,7 +281,7 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 	// 	logger.Log(0, "error syncing wg after peer update: "+err.Error())
 	// 	return
 	// }
-	ProxyMgmChan <- &peerUpdate.ProxyUpdate
+
 	logger.Log(0, "network:", cfg.Node.Network, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Interface, ncutils.IsWindows()); err != nil {

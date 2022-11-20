@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/nm-proxy/manager"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -160,17 +161,20 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 		logger.Log(3, "finished setting wg config on server", node.Name)
 
 	}
-	logger.Log(0, "--------> ADD/Update INTERFACE TO PROXY.....")
-	proxyPayload, err := GetPeersForProxy(node, false)
-	if err != nil {
-		logger.Log(0, "failed to get peers for proxy: ", err.Error())
-	} else {
+	if servercfg.IsProxyEnabled() {
+		logger.Log(0, "--------> ADD/Update INTERFACE TO PROXY.....")
+		proxyPayload, err := GetPeersForProxy(node, false)
+		if err != nil {
+			logger.Log(0, "failed to get peers for proxy: ", err.Error())
+		} else {
 
-		ProxyMgmChan <- &manager.ManagerAction{
-			Action:  manager.AddInterface,
-			Payload: proxyPayload,
+			ProxyMgmChan <- &manager.ManagerAction{
+				Action:  manager.AddInterface,
+				Payload: proxyPayload,
+			}
 		}
 	}
+
 	return nil
 }
 

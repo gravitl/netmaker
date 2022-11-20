@@ -33,7 +33,6 @@ import (
 
 var ProxyMgmChan = make(chan *manager.ManagerAction, 100)
 var messageCache = new(sync.Map)
-var ProxyStatus = "OFF"
 var serverSet map[string]bool
 
 var mqclient mqtt.Client
@@ -125,25 +124,16 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 	go Checkin(ctx, wg)
 
 	if len(networks) != 0 {
-		go func() {
-			cfg := config.ClientConfig{}
-			cfg.Network = networks[0]
-			cfg.ReadConfig()
-			apiHost, _, err := net.SplitHostPort(cfg.Server.API)
-			if err == nil {
-				if ProxyStatus != "ON" {
-					ProxyStatus = "ON"
-					pCtx, pCancel := context.WithCancel(context.Background())
-					go nmproxy.Start(pCtx, ProxyMgmChan, apiHost)
-					quit := make(chan os.Signal, 1)
-					signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
-					<-quit
-					pCancel()
-					logger.Log(0, "Proxy Shutting down....")
-				}
+		cfg := config.ClientConfig{}
+		cfg.Network = networks[0]
+		cfg.ReadConfig()
+		apiHost, _, err := net.SplitHostPort(cfg.Server.API)
+		if err == nil {
+			wg.Add(1)
+			go nmproxy.Start(ctx, ProxyMgmChan, apiHost)
+			logger.Log(0, "Proxy Shutting down....")
 
-			}
-		}()
+		}
 
 	}
 

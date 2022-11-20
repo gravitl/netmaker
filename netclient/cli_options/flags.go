@@ -13,6 +13,13 @@ func GetFlags(hostname string) []cli.Flag {
 			Usage:   "Network to perform specified action against.",
 		},
 		&cli.StringFlag{
+			Name: "proxy",
+			// Aliases: []string{"np"},
+			EnvVars: []string{"NETMAKER_PROXY"},
+			Value:   "off",
+			Usage:   "To enable/disable proxy.",
+		},
+		&cli.StringFlag{
 			Name:    "password",
 			Aliases: []string{"p"},
 			EnvVars: []string{"NETCLIENT_PASSWORD"},

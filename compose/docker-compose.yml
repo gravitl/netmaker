@@ -41,6 +41,7 @@ services:
       PORT_FORWARD_SERVICES: "dns"
       MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
       STUN_PORT: "3478"
+      PROXY: "on"
     ports:
       - "51821-51830:51821-51830/udp"
     expose:
