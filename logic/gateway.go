@@ -230,8 +230,8 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 		}
 	}
 	node.SetLastModified()
-	node.PostUp = postUpCmd
-	node.PostDown = postDownCmd
+	// node.PostUp = postUpCmd
+	// node.PostDown = postDownCmd
 	node.UDPHolePunch = "no"
 	if failover && servercfg.Is_EE {
 		node.Failover = "yes"

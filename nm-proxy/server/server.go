@@ -36,16 +36,16 @@ type ProxyServer struct {
 func (p *ProxyServer) Listen(ctx context.Context) {
 
 	// Buffer with indicated body size
-	buffer := make([]byte, 1532)
+	buffer := make([]byte, 65032)
 	for {
 
 		select {
 		case <-ctx.Done():
 			log.Println("--------->### Shutting down Proxy.....")
 			// clean up proxy connections
-			for iface, peers := range common.WgIFaceMap {
+			for iface, ifaceConf := range common.WgIFaceMap {
 				log.Println("########------------>  CLEANING UP: ", iface)
-				for _, peerI := range peers {
+				for _, peerI := range ifaceConf.PeerMap {
 					peerI.Proxy.Cancel()
 				}
 			}
@@ -54,16 +54,34 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			return
 		default:
 			// Read Packet
+
 			n, source, err := p.Server.ReadFromUDP(buffer)
 			if err != nil { // in future log errors?
 				log.Println("RECV ERROR: ", err)
 				continue
 			}
+			//go func(buffer []byte, source *net.UDPAddr, n int) {
+
 			var srcPeerKeyHash, dstPeerKeyHash string
 			n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
-			//log.Printf("--------> RECV PKT [DSTPORT: %d], [SRCKEYHASH: %s], SourceIP: [%s] \n", localWgPort, srcPeerKeyHash, source.IP.String())
-			if common.IsRelay && dstPeerKeyHash != "" && srcPeerKeyHash != "" {
-				if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
+			//log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
+			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
+				// if common.IsIngressGateway {
+				// 	log.Println("----> fowarding PKT to EXT client...")
+				// 	if val, ok := common.PeerKeyHashMap[dstPeerKeyHash]; ok && val.IsAttachedExtClient {
+
+				// 		log.Printf("-------->Forwarding the pkt to extClient  [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
+				// 			source.String(), srcPeerKeyHash, val.Endpoint.String(), dstPeerKeyHash)
+				// 		_, err = NmProxyServer.Server.WriteToUDP(buffer[:n], val.Endpoint)
+				// 		if err != nil {
+				// 			log.Println("Failed to send to remote: ", err)
+				// 		}
+				// 		continue
+
+				// 	}
+				// }
+
+				if common.IsRelay {
 
 					log.Println("----------> Relaying######")
 					// check for routing map and forward to right proxy
@@ -75,6 +93,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 							if err != nil {
 								log.Println("Failed to send to remote: ", err)
 							}
+							//continue
 						}
 					} else {
 						if remoteMap, ok := common.RelayPeerMap[dstPeerKeyHash]; ok {
@@ -85,30 +104,46 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 								if err != nil {
 									log.Println("Failed to send to remote: ", err)
 								}
+								//continue
 							}
 						}
+
 					}
 
 				}
+
 			}
 
 			if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
-				if peers, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
-					if peerI, ok := peers[peerInfo.PeerKey]; ok {
+				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
+					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
 						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
 							peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
 							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
 						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
 						if err != nil {
 							log.Println("Failed to proxy to Wg local interface: ", err)
-							continue
+							//continue
 						}
 
 					}
 				}
 
 			}
+			// // forward to all interfaces
+			// for _, ifaceCfg := range common.WgIfaceKeyMap {
+			// 	log.Println("###--------> Forwarding Unknown PKT to ", ifaceCfg.Interface)
+			// 	conn, err := net.DialUDP("udp", nil, ifaceCfg.Endpoint)
+			// 	if err == nil {
+			// 		_, err := conn.Write(buffer[:n])
+			// 		if err != nil {
+			// 			log.Println("Failed to forward the unknown pkt to ifcace: ", ifaceCfg.Interface, err)
+			// 		}
+			// 		conn.Close()
+			// 	}
 
+			// }
+			//}(buffer, source, n)
 		}
 
 	}

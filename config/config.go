@@ -77,6 +77,7 @@ type ServerConfig struct {
 	NetmakerAccountID     string `yaml:"netmaker_account_id"`
 	IsEE                  string `yaml:"is_ee"`
 	StunPort              string `yaml:"stun_port"`
+	Proxy                 string `yaml:"proxy"`
 }
 
 // SQLConfig - Generic SQL Config

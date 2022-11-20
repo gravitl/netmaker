@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	//homedir "github.com/mitchellh/go-homedir"
 )
@@ -62,32 +63,44 @@ func Pull(network string, iface bool) (*models.Node, error) {
 			logger.Log(0, "unable to update server config: "+err.Error())
 		}
 	}
-	if nodeGET.Node.ListenPort != cfg.Node.LocalListenPort {
-		if err := wireguard.RemoveConf(resNode.Interface, false); err != nil {
-			logger.Log(0, "error remove interface", resNode.Interface, err.Error())
+	if nodeGET.Node.Proxy {
+		ProxyMgmChan <- &manager.ManagerAction{
+			Action:  manager.AddInterface,
+			Payload: nodeGET.ProxyUpdate,
 		}
-		err = ncutils.ModPort(&resNode)
-		if err != nil {
-			return nil, err
-		}
-		informPortChange(&resNode)
 	}
+	if !nodeGET.Node.Proxy {
+		if nodeGET.Node.ListenPort != cfg.Node.LocalListenPort {
+			if err := wireguard.RemoveConf(resNode.Interface, false); err != nil {
+				logger.Log(0, "error remove interface", resNode.Interface, err.Error())
+			}
+			err = ncutils.ModPort(&resNode)
+			if err != nil {
+				return nil, err
+			}
+			informPortChange(&resNode)
+		}
+	}
+
 	if err = config.ModNodeConfig(&resNode); err != nil {
 		return nil, err
 	}
-	if iface {
-		if err = wireguard.SetWGConfig(network, false, nodeGET.Peers[:]); err != nil {
-			return nil, err
-		}
-	} else {
-		if err = wireguard.SetWGConfig(network, true, nodeGET.Peers[:]); err != nil {
-			if errors.Is(err, os.ErrNotExist) && !ncutils.IsFreeBSD() {
-				return Pull(network, true)
-			} else {
+	if !nodeGET.Node.Proxy {
+		if iface {
+			if err = wireguard.SetWGConfig(network, false, nodeGET.Peers[:]); err != nil {
 				return nil, err
+			}
+		} else {
+			if err = wireguard.SetWGConfig(network, true, nodeGET.Peers[:]); err != nil {
+				if errors.Is(err, os.ErrNotExist) && !ncutils.IsFreeBSD() {
+					return Pull(network, true)
+				} else {
+					return nil, err
+				}
 			}
 		}
 	}
+
 	var bkupErr = config.SaveBackup(network)
 	if bkupErr != nil {
 		logger.Log(0, "unable to update backup file for", network)

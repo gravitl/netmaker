@@ -22,6 +22,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
+	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
@@ -191,6 +192,12 @@ func LeaveNetwork(network string) error {
 	logger.Log(2, "removing dns entries")
 	if err := removeHostDNS(cfg.Node.Interface, ncutils.IsWindows()); err != nil {
 		logger.Log(0, "failed to delete dns entries for", cfg.Node.Interface, err.Error())
+	}
+	ProxyMgmChan <- &manager.ManagerAction{
+		Action: manager.DeleteInterface,
+		Payload: manager.ManagerPayload{
+			InterfaceName: cfg.Node.Interface,
+		},
 	}
 	logger.Log(2, "restarting daemon")
 	return daemon.Restart()

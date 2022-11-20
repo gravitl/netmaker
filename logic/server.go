@@ -175,16 +175,19 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 	if err != nil {
 		return returnNode, err
 	}
-	proxyPayload, err := GetPeersForProxy(node, false)
-	if err != nil && !ncutils.IsEmptyRecord(err) {
-		logger.Log(1, "failed to retrieve peers")
-		return returnNode, err
+	if servercfg.IsProxyEnabled() {
+		proxyPayload, err := GetPeersForProxy(node, false)
+		if err != nil && !ncutils.IsEmptyRecord(err) {
+			logger.Log(1, "failed to retrieve peers")
+			return returnNode, err
+		}
+
+		ProxyMgmChan <- &manager.ManagerAction{
+			Action:  manager.AddInterface,
+			Payload: proxyPayload,
+		}
 	}
 
-	ProxyMgmChan <- &manager.ManagerAction{
-		Action:  manager.AddInterface,
-		Payload: proxyPayload,
-	}
 	return *node, nil
 }
 

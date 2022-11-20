@@ -74,7 +74,7 @@ func (w *WGIface) GetWgIface(iface string) error {
 		return err
 	}
 
-	log.Printf("----> DEVICE: %+v\n", dev)
+	//log.Printf("----> DEVICE: %+v\n", dev)
 	w.Device = dev
 	w.Port = dev.ListenPort
 	return nil
@@ -124,9 +124,9 @@ func (w *WGIface) UpdatePeer(peerKey string, allowedIps []net.IPNet, keepAlive t
 		return err
 	}
 	peer := wgtypes.PeerConfig{
-		PublicKey: peerKeyParsed,
-		// ReplaceAllowedIPs:           true,
-		// AllowedIPs:                  allowedIps,
+		PublicKey:                   peerKeyParsed,
+		ReplaceAllowedIPs:           true,
+		AllowedIPs:                  allowedIps,
 		PersistentKeepaliveInterval: &keepAlive,
 		PresharedKey:                preSharedKey,
 		Endpoint:                    endpoint,
@@ -233,4 +233,74 @@ func RunCmd(command string, printerr bool) (string, error) {
 		log.Println(strings.TrimSuffix(string(out), "\n"))
 	}
 	return string(out), err
+}
+
+// RemovePeer removes a Wireguard Peer from the interface iface
+func (w *WGIface) RemovePeer(peerKey string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	log.Printf("Removing peer %s from interface %s ", peerKey, w.Name)
+
+	peerKeyParsed, err := wgtypes.ParseKey(peerKey)
+	if err != nil {
+		return err
+	}
+
+	peer := wgtypes.PeerConfig{
+		PublicKey: peerKeyParsed,
+		Remove:    true,
+	}
+
+	config := wgtypes.Config{
+		Peers: []wgtypes.PeerConfig{peer},
+	}
+	err = w.configureDevice(config)
+	if err != nil {
+		return fmt.Errorf("received error \"%v\" while removing peer %s from interface %s", err, peerKey, w.Name)
+	}
+	return nil
+}
+
+// UpdatePeer
+func (w *WGIface) Update(peerConf wgtypes.PeerConfig, updateOnly bool) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var err error
+	log.Printf("---------> NEWWWWWW Updating peer %+v from interface %s ", peerConf, w.Name)
+
+	peerConf.UpdateOnly = updateOnly
+	peerConf.ReplaceAllowedIPs = true
+	config := wgtypes.Config{
+		Peers: []wgtypes.PeerConfig{peerConf},
+	}
+	err = w.configureDevice(config)
+	if err != nil {
+		return fmt.Errorf("received error \"%v\" while Updating peer %s from interface %s", err, peerConf.PublicKey.String(), w.Name)
+	}
+	return nil
+}
+
+func GetPeer(ifaceName, peerPubKey string) (wgtypes.Peer, error) {
+	wg, err := wgctrl.New()
+	if err != nil {
+		return wgtypes.Peer{}, err
+	}
+	defer func() {
+		err = wg.Close()
+		if err != nil {
+			log.Printf("got error while closing wgctl: %v", err)
+		}
+	}()
+
+	wgDevice, err := wg.Device(ifaceName)
+	if err != nil {
+		return wgtypes.Peer{}, err
+	}
+	for _, peer := range wgDevice.Peers {
+		if peer.PublicKey.String() == peerPubKey {
+			return peer, nil
+		}
+	}
+	return wgtypes.Peer{}, fmt.Errorf("peer not found")
 }

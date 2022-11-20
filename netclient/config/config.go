@@ -227,6 +227,10 @@ func GetCLIConfig(c *cli.Context) (ClientConfig, string, error) {
 		if c.String("key") != "" {
 			cfg.AccessKey = c.String("key")
 		}
+		if c.String("proxy") != "" {
+			cfg.Node.Proxy = c.String("proxy") == "on"
+		}
+		log.Println("_______________> PROXY:   ", cfg.Node.Proxy)
 		if c.String("network") != "all" {
 			cfg.Network = c.String("network")
 			cfg.Node.Network = c.String("network")

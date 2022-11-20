@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -34,7 +33,6 @@ import (
 
 var ProxyMgmChan = make(chan *manager.ManagerAction, 100)
 var messageCache = new(sync.Map)
-
 var serverSet map[string]bool
 
 var mqclient mqtt.Client
@@ -131,31 +129,35 @@ func startGoRoutines(wg *sync.WaitGroup) context.CancelFunc {
 		cfg.ReadConfig()
 		apiHost, _, err := net.SplitHostPort(cfg.Server.API)
 		if err == nil {
+			wg.Add(1)
 			go nmproxy.Start(ctx, ProxyMgmChan, apiHost)
+			logger.Log(0, "Proxy Shutting down....")
+
 		}
+
 	}
 
 	go func(networks []string) {
 
-		for _, network := range networks {
-			logger.Log(0, "Collecting interface and peers info to configure proxy...")
-			cfg := config.ClientConfig{}
-			cfg.Network = network
-			cfg.ReadConfig()
-			node, err := GetNodeInfo(&cfg)
-			if err != nil {
-				log.Println("Failed to get node info: ", err)
-				continue
-			}
-			ProxyMgmChan <- &manager.ManagerAction{
-				Action: manager.AddInterface,
-				Payload: manager.ManagerPayload{
-					InterfaceName: node.Node.Interface,
-					Peers:         node.Peers,
-				},
-			}
+		// for _, network := range networks {
+		// 	logger.Log(0, "Collecting interface and peers info to configure proxy...")
+		// 	cfg := config.ClientConfig{}
+		// 	cfg.Network = network
+		// 	cfg.ReadConfig()
+		// 	node, err := GetNodeInfo(&cfg)
+		// 	if err != nil {
+		// 		log.Println("Failed to get node info: ", err)
+		// 		continue
+		// 	}
+		// 	ProxyMgmChan <- &manager.ManagerAction{
+		// 		Action: manager.AddInterface,
+		// 		Payload: manager.ManagerPayload{
+		// 			InterfaceName: node.Node.Interface,
+		// 			Peers:         node.Peers,
+		// 		},
+		// 	}
 
-		}
+		// }
 
 	}(networks)
 	return cancel
@@ -223,9 +225,9 @@ func setSubscriptions(client mqtt.Client, nodeCfg *config.ClientConfig) {
 	}
 	if token := client.Subscribe(fmt.Sprintf("proxy/%s/%s", nodeCfg.Node.Network, nodeCfg.Node.ID), 0, mqtt.MessageHandler(ProxyUpdate)); token.WaitTimeout(mq.MQ_TIMEOUT*time.Second) && token.Error() != nil {
 		if token.Error() == nil {
-			logger.Log(0, "network:", nodeCfg.Node.Network, "connection timeout")
+			logger.Log(0, "###### network:", nodeCfg.Node.Network, "connection timeout")
 		} else {
-			logger.Log(0, "network:", nodeCfg.Node.Network, token.Error().Error())
+			logger.Log(0, "###### network:", nodeCfg.Node.Network, token.Error().Error())
 		}
 		return
 	}

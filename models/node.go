@@ -106,6 +106,7 @@ type Node struct {
 	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
 	Failover   string `json:"failover" bson:"failover" yaml:"failover" validate:"checkyesorno"`
+	Proxy      bool   `json:"proxy" bson:"proxy" yaml:"proxy"`
 }
 
 // NodesArray - used for node sorting

@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
-	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
 	"github.com/gravitl/netmaker/nm-proxy/manager"
@@ -37,17 +36,17 @@ func ProxyUpdate(client mqtt.Client, msg mqtt.Message) {
 	var network = parseNetworkFromTopic(msg.Topic())
 	nodeCfg.Network = network
 	nodeCfg.ReadConfig()
-
+	logger.Log(0, "---------> Recieved a proxy update")
 	data, dataErr := decryptMsg(&nodeCfg, msg.Payload())
 	if dataErr != nil {
 		return
 	}
 	err := json.Unmarshal([]byte(data), &proxyUpdate)
 	if err != nil {
-		logger.Log(0, "error unmarshalling node update data"+err.Error())
+		logger.Log(0, "error unmarshalling proxy update data"+err.Error())
 		return
 	}
-	logger.Log(0, "---------> recieved a proxy update")
+
 	ProxyMgmChan <- &proxyUpdate
 }
 
@@ -66,6 +65,15 @@ func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
 	err := json.Unmarshal([]byte(data), &newNode)
 	if err != nil {
 		logger.Log(0, "error unmarshalling node update data"+err.Error())
+		return
+	}
+	if newNode.Proxy {
+		if newNode.Proxy != nodeCfg.Node.Proxy {
+			if err := config.Write(&nodeCfg, nodeCfg.Network); err != nil {
+				logger.Log(0, nodeCfg.Node.Network, "error updating node configuration: ", err.Error())
+			}
+		}
+		logger.Log(0, "Node is attached with proxy,ignore this node update...")
 		return
 	}
 
@@ -227,6 +235,11 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		cfg.Server.Version = peerUpdate.ServerVersion
 		config.Write(&cfg, cfg.Network)
 	}
+
+	if cfg.Node.Proxy {
+		ProxyMgmChan <- &peerUpdate.ProxyUpdate
+		return
+	}
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 	internetGateway, err := wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 	if err != nil {
@@ -252,23 +265,23 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		UpdateLocalListenPort(&cfg)
 		return
 	}
-	queryAddr := cfg.Node.PrimaryAddress()
+	// queryAddr := cfg.Node.PrimaryAddress()
 
 	//err = wireguard.SyncWGQuickConf(cfg.Node.Interface, file)
-	var iface = cfg.Node.Interface
-	if ncutils.IsMac() {
-		iface, err = local.GetMacIface(queryAddr)
-		if err != nil {
-			logger.Log(0, "error retrieving mac iface: "+err.Error())
-			return
-		}
-	}
-	err = wireguard.SetPeers(iface, &cfg.Node, peerUpdate.Peers)
-	if err != nil {
-		logger.Log(0, "error syncing wg after peer update: "+err.Error())
-		return
-	}
-	ProxyMgmChan <- &peerUpdate.ProxyUpdate
+	// var iface = cfg.Node.Interface
+	// if ncutils.IsMac() {
+	// 	iface, err = local.GetMacIface(queryAddr)
+	// 	if err != nil {
+	// 		logger.Log(0, "error retrieving mac iface: "+err.Error())
+	// 		return
+	// 	}
+	// }
+	// err = wireguard.SetPeers(iface, &cfg.Node, peerUpdate.Peers)
+	// if err != nil {
+	// 	logger.Log(0, "error syncing wg after peer update: "+err.Error())
+	// 	return
+	// }
+
 	logger.Log(0, "network:", cfg.Node.Network, "received peer update for node "+cfg.Node.Name+" "+cfg.Node.Network)
 	if cfg.Node.DNSOn == "yes" {
 		if err := setHostDNS(peerUpdate.DNS, cfg.Node.Interface, ncutils.IsWindows()); err != nil {

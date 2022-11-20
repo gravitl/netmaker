@@ -1,7 +1,7 @@
 package peer
 
 import (
-	"crypto/md5"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -33,32 +33,48 @@ type ConnConfig struct {
 	RemoteProxyPort int
 }
 
-func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed bool, relayTo *net.UDPAddr) error {
+func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr string,
+	isRelayed, isExtClient, isAttachedExtClient bool, relayTo *net.UDPAddr) error {
 
 	c := proxy.Config{
 		Port:        peer.Endpoint.Port,
 		LocalKey:    wgInterface.Device.PublicKey.String(),
 		RemoteKey:   peer.PublicKey.String(),
 		WgInterface: wgInterface,
-		AllowedIps:  peer.AllowedIPs,
+
+		PeerConf: peer,
 	}
 	p := proxy.NewProxy(c)
+	peerPort := common.NmProxyPort
+	if isExtClient && isAttachedExtClient {
+		peerPort = peer.Endpoint.Port
 
+	}
 	peerEndpoint := peer.Endpoint.IP.String()
 	if isRelayed {
 		//go server.NmProxyServer.KeepAlive(peer.Endpoint.IP.String(), common.NmProxyPort)
+		if relayTo == nil {
+			return errors.New("relay endpoint is nil")
+		}
 		peerEndpoint = relayTo.IP.String()
 	}
-	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peerEndpoint, common.NmProxyPort))
+
+	remoteConn, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peerEndpoint, peerPort))
 	if err != nil {
 		return err
 	}
 	log.Printf("----> Established Remote Conn with RPeer: %s, ----> RAddr: %s", peer.PublicKey, remoteConn.String())
-	log.Printf("Starting proxy for Peer: %s\n", peer.PublicKey.String())
-	err = p.Start(remoteConn)
-	if err != nil {
-		return err
+
+	if !(isExtClient && isAttachedExtClient) {
+		log.Printf("Starting proxy for Peer: %s\n", peer.PublicKey.String())
+		err = p.Start(remoteConn)
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Println("Not Starting Proxy for Attached ExtClient...")
 	}
+
 	connConf := common.ConnConfig{
 		Key:             peer.PublicKey.String(),
 		LocalKey:        wgInterface.Device.PublicKey.String(),
@@ -66,6 +82,8 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed boo
 		RemoteProxyIP:   net.ParseIP(peer.Endpoint.IP.String()),
 		RemoteWgPort:    peer.Endpoint.Port,
 		RemoteProxyPort: common.NmProxyPort,
+		IsRelayed:       isRelayed,
+		RelayedEndpoint: relayTo,
 	}
 
 	peerProxy := common.Proxy{
@@ -76,7 +94,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed boo
 			LocalKey:    wgInterface.Device.PublicKey.String(),
 			RemoteKey:   peer.PublicKey.String(),
 			WgInterface: wgInterface,
-			AllowedIps:  peer.AllowedIPs,
+			PeerConf:    peer,
 		},
 
 		RemoteConn: remoteConn,
@@ -90,11 +108,22 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, isRelayed boo
 		Proxy:  peerProxy,
 	}
 	if _, ok := common.WgIFaceMap[wgInterface.Name]; ok {
-		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
+		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &peerConn
 	} else {
-		common.WgIFaceMap[wgInterface.Name] = make(map[string]*common.Conn)
-		common.WgIFaceMap[wgInterface.Name][peer.PublicKey.String()] = &peerConn
+		ifaceConf := common.WgIfaceConf{
+			Iface:   wgInterface.Device,
+			PeerMap: make(map[string]*common.Conn),
+		}
+
+		common.WgIFaceMap[wgInterface.Name] = ifaceConf
+		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &peerConn
 	}
-	common.WgIfaceKeyMap[fmt.Sprintf("%x", md5.Sum([]byte(wgInterface.Device.PublicKey.String())))] = struct{}{}
+	if _, ok := common.PeerAddrMap[wgInterface.Name]; ok {
+		common.PeerAddrMap[wgInterface.Name][peerAddr] = &peerConn
+	} else {
+		common.PeerAddrMap[wgInterface.Name] = make(map[string]*common.Conn)
+		common.PeerAddrMap[wgInterface.Name][peerAddr] = &peerConn
+	}
+
 	return nil
 }
