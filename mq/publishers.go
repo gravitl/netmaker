@@ -162,6 +162,7 @@ func ProxyUpdate(proxyPayload *manager.ManagerAction, node *models.Node) error {
 	}
 	if node.IsServer == "yes" {
 		logic.ProxyMgmChan <- proxyPayload
+		return nil
 	}
 	logger.Log(3, "publishing proxy update to "+node.Name)
 

@@ -674,7 +674,7 @@ func GetStunPort() string {
 }
 
 func IsProxyEnabled() bool {
-	var enabled = true //default
+	var enabled = false //default
 	if os.Getenv("PROXY") != "" {
 		enabled = os.Getenv("PROXY") == "on"
 	} else if config.Config.Server.Proxy != "" {

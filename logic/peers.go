@@ -99,7 +99,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
 		proxyStatus := peer.Proxy
-		if peer.Server == "yes" {
+		if peer.IsServer == "yes" {
 			proxyStatus = servercfg.IsProxyEnabled()
 		}
 		peers = append(peers, wgtypes.PeerConfig{
