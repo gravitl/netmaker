@@ -32,6 +32,7 @@ type ProxyAction string
 
 type ManagerPayload struct {
 	InterfaceName   string                 `json:"interface_name"`
+	WgAddr          string                 `json:"wg_addr"`
 	Peers           []wgtypes.PeerConfig   `json:"peers"`
 	PeerMap         map[string]PeerConf    `json:"peer_map"`
 	IsRelayed       bool                   `json:"is_relayed"`
@@ -76,7 +77,7 @@ func StartProxyManager(manageChan chan *ManagerAction) {
 			switch mI.Action {
 			case AddInterface:
 
-				mI.ExtClients()
+				mI.SetIngressGateway()
 				err := mI.AddInterfaceToProxy()
 				if err != nil {
 					log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
@@ -108,7 +109,7 @@ func (m *ManagerAction) RelayUpdate() {
 	common.IsRelay = m.Payload.IsRelay
 }
 
-func (m *ManagerAction) ExtClients() {
+func (m *ManagerAction) SetIngressGateway() {
 	common.IsIngressGateway = m.Payload.IsIngress
 
 }
@@ -367,9 +368,9 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			shouldProceed = true
 		}
 		if peerConf.IsExtClient && peerConf.IsAttachedExtClient && shouldProceed {
-			//ctx, cancel := context.WithCancel(context.Background())
-			//common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
-			//go proxy.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
+			ctx, cancel := context.WithCancel(context.Background())
+			common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
+			go proxy.StartSniffer(ctx, wgInterface.Name, m.Payload.WgAddr, peerConf.Address, wgInterface.Port)
 		}
 
 		if peerConf.IsExtClient && !peerConf.IsAttachedExtClient {
@@ -400,14 +401,14 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			log.Println("Extclient endpoint not updated yet....skipping")
 			// TODO - watch the interface for ext client update
 			go func(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
-				isRelayed bool, relayTo *net.UDPAddr, peerConf PeerConf) {
+				isRelayed bool, relayTo *net.UDPAddr, peerConf PeerConf, ingGwAddr string) {
 				addExtClient := false
 				ctx, cancel := context.WithCancel(context.Background())
 				common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")
-						//go proxy.StartSniffer(ctx, wgInterface.Name, peerConf.Address, wgInterface.Port)
+						go proxy.StartSniffer(ctx, wgInterface.Name, ingGwAddr, peerConf.Address, wgInterface.Port)
 						common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))] = common.RemotePeer{
 							Interface:           wgInterface.Name,
 							PeerKey:             peer.PublicKey.String(),
@@ -443,7 +444,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 
 				}
 
-			}(wgInterface, &peerI, isRelayed, relayedTo, peerConf)
+			}(wgInterface, &peerI, isRelayed, relayedTo, peerConf, m.Payload.WgAddr)
 			continue
 		}
 
