@@ -155,17 +155,18 @@ func StartSniffer(ctx context.Context, ifaceName, ingGwAddr, extClientAddr strin
 					// Checksum, SrcIP, DstIP
 					fmt.Println("#########################")
 					fmt.Printf("From %s to %s\n", ip.SrcIP, ip.DstIP)
-					fmt.Println("Protocol: ", ip.Protocol)
+					fmt.Println("Protocol: ", ip.Protocol.String())
 					if (ip.SrcIP.String() == extClientAddr && ip.DstIP.String() != ingGwAddr) ||
 						(ip.DstIP.String() == extClientAddr && ip.SrcIP.String() != ingGwAddr) {
 
 						log.Println("-----> Fowarding PKT From: ", ip.SrcIP, " to: ", ip.DstIP)
-						c, err := net.Dial(fmt.Sprintf("ip:%s", ip.Protocol), ip.DstIP.String())
+						c, err := net.Dial("ip", ip.DstIP.String())
 						if err == nil {
 							c.Write(ip.Payload)
+							c.Close()
 						} else {
 							log.Println("------> Failed to forward packet from sniffer: ", err)
-							c.Close()
+
 						}
 					}
 
