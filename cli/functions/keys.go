@@ -18,6 +18,6 @@ func CreateKey(networkName string, key *models.AccessKey) *models.AccessKey {
 }
 
 // DeleteKey - delete an access key
-func DeleteKey(networkName, keyName string) *string {
-	return request[string](http.MethodDelete, fmt.Sprintf("/api/networks/%s/keys/%s", networkName, keyName), nil)
+func DeleteKey(networkName, keyName string) {
+	request[string](http.MethodDelete, fmt.Sprintf("/api/networks/%s/keys/%s", networkName, keyName), nil)
 }

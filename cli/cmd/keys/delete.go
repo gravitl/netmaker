@@ -13,9 +13,8 @@ var keysDeleteCmd = &cobra.Command{
 	Short: "Delete a key",
 	Long:  `Delete a key`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if functions.DeleteKey(args[0], args[1]) == nil {
-			fmt.Println("Success")
-		}
+		functions.DeleteKey(args[0], args[1])
+		fmt.Println("Success")
 	},
 }
 
