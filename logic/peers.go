@@ -154,6 +154,11 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 	}
 
 	proxyPayload.IsIngress = node.IsIngressGateway == "yes"
+	addr := node.Address
+	if addr == "" {
+		addr = node.Address6
+	}
+	proxyPayload.WgAddr = addr
 	proxyPayload.Peers = peers
 	proxyPayload.PeerMap = peerConfMap
 	proxyPayload.InterfaceName = node.Interface
