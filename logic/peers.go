@@ -29,6 +29,16 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 	if err != nil {
 		return proxyPayload, err
 	}
+	var metrics *models.Metrics
+	if servercfg.Is_EE {
+		metrics, _ = GetMetrics(node.ID)
+	}
+	if metrics == nil {
+		metrics = &models.Metrics{}
+	}
+	if metrics.FailoverPeers == nil {
+		metrics.FailoverPeers = make(map[string]string)
+	}
 	if !onlyPeers {
 		if node.IsRelayed == "yes" {
 			relayNode := FindRelay(node)
@@ -92,7 +102,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
 			continue
 		}
-		allowedips := getNodeAllowedIPs(&peer, node)
+		allowedips := GetAllowedIPs(node, &peer, metrics, false)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
 			// set_keepalive
@@ -132,14 +142,17 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload
 
 		}
 	}
-	var extPeers []wgtypes.PeerConfig
-	extPeers, peerConfMap, err = getExtPeersForProxy(node, peerConfMap)
-	if err == nil {
-		peers = append(peers, extPeers...)
+	if node.IsIngressGateway == "yes" {
+		var extPeers []wgtypes.PeerConfig
+		extPeers, peerConfMap, err = getExtPeersForProxy(node, peerConfMap)
+		if err == nil {
+			peers = append(peers, extPeers...)
 
-	} else if !database.IsEmptyRecord(err) {
-		logger.Log(1, "error retrieving external clients:", err.Error())
+		} else if !database.IsEmptyRecord(err) {
+			logger.Log(1, "error retrieving external clients:", err.Error())
+		}
 	}
+
 	proxyPayload.IsIngress = node.IsIngressGateway == "yes"
 	proxyPayload.Peers = peers
 	proxyPayload.PeerMap = peerConfMap
@@ -280,7 +293,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			}
 		}
 
-		allowedips := GetAllowedIPs(node, &peer, metrics)
+		allowedips := GetAllowedIPs(node, &peer, metrics, true)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
 			// set_keepalive
@@ -454,7 +467,7 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.Pee
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
-func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
+func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics, fetchRelayedIps bool) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
 
@@ -468,7 +481,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			allowedips = append(allowedips, extPeer.AllowedIPs...)
 		}
 		// if node is a failover node, add allowed ips from nodes it is handling
-		if peer.Failover == "yes" && metrics.FailoverPeers != nil {
+		if metrics != nil && peer.Failover == "yes" && metrics.FailoverPeers != nil {
 			// traverse through nodes that need handling
 			logger.Log(3, "peer", peer.Name, "was found to be failover for", node.Name, "checking failover peers...")
 			for k := range metrics.FailoverPeers {
@@ -490,7 +503,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		}
 	}
 	// handle relay gateway peers
-	if peer.IsRelay == "yes" {
+	if fetchRelayedIps && peer.IsRelay == "yes" {
 		for _, ip := range peer.RelayAddrs {
 			//find node ID of relayed peer
 			relayedPeer, err := findNode(ip)
