@@ -294,17 +294,48 @@ jobs:
       - name: Build
         run: |
           cd netclient
-          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient main.go && upx build/netclient-mipsle/netclient
+          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient-mipsle main.go && upx -o build/netclient-mipsle/netclient-mipsle-upx build/netclient-mipsle/netclient-mipsle
+          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mipsle/netclient-mipsle-softfloat main.go && upx -o build/netclient-mipsle/netclient-mipsle-softfloat-upx build/netclient-mipsle/netclient-mipsle-softfloat
 
       - name: Upload mipsle to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient/build/netclient-mipsle/netclient
+          file: netclient/build/netclient-mipsle/netclient-mipsle
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
           asset_name: netclient-mipsle
+
+      - name: Upload mipsle-upx to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mipsle/netclient-mipsle-upx
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mipsle-upx
+
+      - name: Upload mipsle-softfloat to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mipsle/netclient-mipsle-softfloat
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mipsle-softfloat
+
+      - name: Upload mipsle-softfloat-upx to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mipsle/netclient-mipsle-softfloat-upx 
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mipsle-softfloat-upx 
 
   netclient-mips:
     runs-on: ubuntu-latest
@@ -325,28 +356,48 @@ jobs:
       - name: Build
         run: |
           cd netclient
-          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mips/netclient main.go
-          env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mips-upx/netclient main.go && upx build/netclient-mips-upx/netclient
+          env CGO_ENABLED=0 GOOS=linux GOARCH=mips go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mips/netclient-mips main.go && upx -o build/netclient-mips/netclient-mips-upx build/netclient-mips/netclient-mips 
+          env CGO_ENABLED=0 GOOS=linux GOARCH=mips GOMIPS=softfloat go build -ldflags "-s -w -X 'main.version=$NETMAKER_VERSION'" -o build/netclient-mips/netclient-mips-softfloat main.go && upx -o build/netclient-mips/netclient-mips-softfloat-upx build/netclient-mips/netclient-mips-softfloat 
 
       - name: Upload mips to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient/build/netclient-mips/netclient
+          file: netclient/build/netclient-mips/netclient-mips
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
           asset_name: netclient-mips
 
-      - name: Upload upx compressed version of mips to Release
+      - name: Upload mips-upx to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: netclient/build/netclient-mips-upx/netclient
+          file: netclient/build/netclient-mips/netclient-mips-upx
           tag: ${{ env.NETMAKER_VERSION }}
           overwrite: true
           prerelease: true
           asset_name: netclient-mips-upx
+
+      - name: Upload netclient-mips-softfloat to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mips/netclient-mips-softfloat
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mips-softfloat
+
+      - name: Upload netclient-mips-softfloat-upx to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: netclient/build/netclient-mips/netclient-mips-softfloat-upx
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: netclient-mips-softfloat-upx
 
   netclient-freebsd:
     runs-on: ubuntu-latest
