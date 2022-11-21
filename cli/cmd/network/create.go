@@ -2,8 +2,8 @@ package network
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
@@ -17,7 +17,7 @@ var networkCreateCmd = &cobra.Command{
 	Long:  `Create a Network`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		content, err := ioutil.ReadFile(args[0])
+		content, err := os.ReadFile(args[0])
 		if err != nil {
 			log.Fatal("Error when opening file: ", err)
 		}

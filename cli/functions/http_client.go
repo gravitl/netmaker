@@ -76,7 +76,7 @@ func request[T any](method, route string, payload any) *T {
 	body := new(T)
 	if len(resBodyBytes) > 0 {
 		if err := json.Unmarshal(resBodyBytes, body); err != nil {
-			log.Printf("Error unmarshalling JSON: %s", err)
+			log.Fatalf("Error unmarshalling JSON: %s", err)
 		}
 	}
 	return body
