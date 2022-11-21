@@ -172,12 +172,18 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	var ok bool
 	if wgProxyConf, ok = common.WgIFaceMap[m.Payload.InterfaceName]; !ok {
 		for i := len(m.Payload.Peers) - 1; i >= 0; i-- {
-			if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy {
+			if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy &&
+				!m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
 				log.Println("-----------> skipping peer, proxy is off: ", m.Payload.Peers[i].PublicKey)
 				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
 					log.Println("falied to update peer: ", err)
 				}
 				m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
+			}
+			if m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
+				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
+					log.Println("falied to update peer: ", err)
+				}
 			}
 		}
 		return wgIface, nil
