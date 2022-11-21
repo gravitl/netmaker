@@ -228,7 +228,6 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 				// cleanup proxy connections for the peer
 				currentPeer.Proxy.Cancel()
-				time.Sleep(time.Second * 3)
 				delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
 				// update the peer with actual endpoint
 				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
@@ -245,7 +244,6 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				if devPeer.Endpoint.String() != currentPeer.Proxy.LocalConn.LocalAddr().String() {
 					log.Println("---------> endpoint is not set to proxy: ", currentPeer.Config.Key)
 					currentPeer.Proxy.Cancel()
-					time.Sleep(time.Second * 3)
 					delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
 					continue
 				}
@@ -254,7 +252,6 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			if currentPeer.Config.IsRelayed != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsRelayed {
 				log.Println("---------> peer relay status has been changed: ", currentPeer.Config.Key)
 				currentPeer.Proxy.Cancel()
-				time.Sleep(time.Second * 3)
 				delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
 				continue
 			}
@@ -264,7 +261,6 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				currentPeer.Config.RelayedEndpoint.String() != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].RelayedTo.String() {
 				log.Println("---------> peer relay endpoint has been changed: ", currentPeer.Config.Key)
 				currentPeer.Proxy.Cancel()
-				time.Sleep(time.Second * 3)
 				delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
 				continue
 			}
@@ -272,7 +268,6 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				if currentPeer.Proxy.RemoteConn.IP.String() != m.Payload.Peers[i].Endpoint.IP.String() {
 					log.Println("----------> Resetting proxy for Peer: ", currentPeer.Config.Key, m.Payload.InterfaceName)
 					currentPeer.Proxy.Cancel()
-					time.Sleep(time.Second * 3)
 					delete(wgProxyConf.PeerMap, currentPeer.Config.Key)
 
 				} else {
@@ -312,7 +307,6 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	for _, currPeerI := range wgProxyConf.PeerMap {
 		if _, ok := m.Payload.PeerMap[currPeerI.Config.Key]; !ok {
 			currPeerI.Proxy.Cancel()
-			time.Sleep(time.Second * 3)
 			// delete peer from interface
 			log.Println("CurrPeer Not Found, Deleting Peer from Interface: ", currPeerI.Config.Key)
 			if err := wgIface.RemovePeer(currPeerI.Config.Key); err != nil {
