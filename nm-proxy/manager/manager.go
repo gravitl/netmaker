@@ -209,6 +209,12 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			// handles ext clients
 			if common.IsIngressGateway && m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
 				// check if sniffer already exists otherwise start one
+				if _, ok := common.ExtClientsWaitTh[m.Payload.Peers[i].PublicKey.String()]; ok {
+					log.Println("Ext client th already exists....,removing")
+					m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
+
+				}
+				log.Println("----> Skip Processing ExtClient: ", m.Payload.Peers[i].PublicKey.String())
 				continue
 			}
 			// check if proxy is off for the peer
@@ -288,7 +294,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
 			}
 
-		} else if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy {
+		} else if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy && !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
 			log.Println("-----------> skipping peer, proxy is off: ", m.Payload.Peers[i].PublicKey)
 			if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
 				log.Println("falied to update peer: ", err)
@@ -379,7 +385,10 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 		}
 		if peerConf.IsExtClient && peerConf.IsAttachedExtClient && shouldProceed {
 			ctx, cancel := context.WithCancel(context.Background())
-			common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
+			common.ExtClientsWaitTh[peerI.PublicKey.String()] = common.ExtClientPeer{
+				Endpoint:   peerI.Endpoint,
+				CancelFunc: cancel,
+			}
 			go proxy.StartSniffer(ctx, wgInterface.Name, m.Payload.WgAddr, peerConf.Address, wgInterface.Port)
 		}
 
@@ -414,7 +423,10 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 				isRelayed bool, relayTo *net.UDPAddr, peerConf PeerConf, ingGwAddr string) {
 				addExtClient := false
 				ctx, cancel := context.WithCancel(context.Background())
-				common.ExtClientsWaitTh[wgInterface.Name] = append(common.ExtClientsWaitTh[wgInterface.Name], cancel)
+				common.ExtClientsWaitTh[peerI.PublicKey.String()] = common.ExtClientPeer{
+					Endpoint:   peer.Endpoint,
+					CancelFunc: cancel,
+				}
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")

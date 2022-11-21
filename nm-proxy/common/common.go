@@ -73,6 +73,11 @@ type RemotePeer struct {
 	IsAttachedExtClient bool
 }
 
+type ExtClientPeer struct {
+	Endpoint *net.UDPAddr
+	context.CancelFunc
+}
+
 type WgIfaceConf struct {
 	Iface   *wgtypes.Device
 	PeerMap map[string]*Conn
@@ -86,7 +91,7 @@ var WgIfaceKeyMap = make(map[string]RemotePeer)
 
 var RelayPeerMap = make(map[string]map[string]RemotePeer)
 
-var ExtClientsWaitTh = make(map[string][]context.CancelFunc)
+var ExtClientsWaitTh = make(map[string]ExtClientPeer)
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {
