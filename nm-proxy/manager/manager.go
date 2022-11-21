@@ -205,6 +205,12 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	for i := len(m.Payload.Peers) - 1; i >= 0; i-- {
 
 		if currentPeer, ok := wgProxyConf.PeerMap[m.Payload.Peers[i].PublicKey.String()]; ok {
+
+			// handles ext clients
+			if common.IsIngressGateway && m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
+				// check if sniffer already exists otherwise start one
+				continue
+			}
 			// check if proxy is off for the peer
 			if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy {
 
@@ -290,6 +296,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
 		}
 	}
+	// sync peer map with new update
 	for _, currPeerI := range wgProxyConf.PeerMap {
 		if _, ok := m.Payload.PeerMap[currPeerI.Config.Key]; !ok {
 			currPeerI.Proxy.Cancel()
@@ -303,6 +310,9 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 		}
 	}
+
+	// sync dev peers with new update
+
 	common.WgIFaceMap[m.Payload.InterfaceName] = wgProxyConf
 
 	// if peers, ok := common.WgIFaceMap[iface]; ok {

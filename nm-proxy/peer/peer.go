@@ -118,12 +118,6 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 		common.WgIFaceMap[wgInterface.Name] = ifaceConf
 		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &peerConn
 	}
-	if _, ok := common.PeerAddrMap[wgInterface.Name]; ok {
-		common.PeerAddrMap[wgInterface.Name][peerAddr] = &peerConn
-	} else {
-		common.PeerAddrMap[wgInterface.Name] = make(map[string]*common.Conn)
-		common.PeerAddrMap[wgInterface.Name][peerAddr] = &peerConn
-	}
 
 	return nil
 }
