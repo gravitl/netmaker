@@ -5,8 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var networkName string
-
 // nodeListCmd lists all nodes
 var nodeListCmd = &cobra.Command{
 	Use:   "list",

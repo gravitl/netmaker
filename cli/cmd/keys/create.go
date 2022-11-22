@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"fmt"
 	"log"
 	"strconv"
 
@@ -10,12 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const FlagKeyName = "name"
-
 var keyName string
 
 var keysCreateCmd = &cobra.Command{
-	Use:   fmt.Sprintf("create [NETWORK NAME] [NUM USES] [--%s=test_key]", FlagKeyName),
+	Use:   "create [NETWORK NAME] [NUM USES] [--name=test_key]",
 	Args:  cobra.ExactArgs(2),
 	Short: "Create an access key",
 	Long:  `Create an access key`,
@@ -33,6 +30,6 @@ var keysCreateCmd = &cobra.Command{
 }
 
 func init() {
-	keysCreateCmd.Flags().StringVar(&keyName, FlagKeyName, "", "Name of the key")
+	keysCreateCmd.Flags().StringVar(&keyName, "name", "", "Name of the key")
 	rootCmd.AddCommand(keysCreateCmd)
 }

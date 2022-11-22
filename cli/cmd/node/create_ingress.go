@@ -5,8 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var failover bool
-
 var nodeCreateIngressCmd = &cobra.Command{
 	Use:   "create_ingress [NETWORK NAME] [NODE ID]",
 	Args:  cobra.ExactArgs(2),

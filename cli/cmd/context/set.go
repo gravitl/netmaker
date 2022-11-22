@@ -1,18 +1,10 @@
 package context
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/gravitl/netmaker/cli/config"
 	"github.com/spf13/cobra"
-)
-
-const (
-	FlagEndpoint  = "endpoint"
-	FlagUsername  = "username"
-	FlagPassword  = "password"
-	FlagMasterKey = "master_key"
 )
 
 var (
@@ -24,7 +16,7 @@ var (
 
 // contextSetCmd creates/updates a context
 var contextSetCmd = &cobra.Command{
-	Use:   fmt.Sprintf("set [NAME] [--%s=https://api.netmaker.io] [--%s=admin] [--%s=pass] [--%s=secret]", FlagEndpoint, FlagUsername, FlagPassword, FlagMasterKey),
+	Use:   "set [NAME]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Create a context or update an existing one",
 	Long:  `Create a context or update an existing one`,
@@ -44,11 +36,11 @@ var contextSetCmd = &cobra.Command{
 }
 
 func init() {
-	contextSetCmd.Flags().StringVar(&endpoint, FlagEndpoint, "", "Endpoint of the API Server")
-	contextSetCmd.Flags().StringVar(&username, FlagUsername, "", "Username")
-	contextSetCmd.Flags().StringVar(&password, FlagPassword, "", "Password")
-	contextSetCmd.MarkFlagsRequiredTogether(FlagUsername, FlagPassword)
-	contextSetCmd.Flags().StringVar(&masterKey, FlagMasterKey, "", "Master Key")
+	contextSetCmd.Flags().StringVar(&endpoint, "endpoint", "", "Endpoint of the API Server")
+	contextSetCmd.Flags().StringVar(&username, "username", "", "Username")
+	contextSetCmd.Flags().StringVar(&password, "password", "", "Password")
+	contextSetCmd.MarkFlagsRequiredTogether("username", "password")
+	contextSetCmd.Flags().StringVar(&masterKey, "master_key", "", "Master Key")
 
 	rootCmd.AddCommand(contextSetCmd)
 }

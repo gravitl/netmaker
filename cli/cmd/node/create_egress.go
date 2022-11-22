@@ -8,11 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	networkInterface string
-	natEnabled       bool
-)
-
 var nodeCreateEgressCmd = &cobra.Command{
 	Use:   "create_egress [NETWORK NAME] [NODE ID] [EGRESS GATEWAY ADDRESSES (comma separated)]",
 	Args:  cobra.ExactArgs(3),

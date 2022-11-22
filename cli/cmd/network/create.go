@@ -23,7 +23,7 @@ var (
 
 // networkCreateCmd represents the networkCreate command
 var networkCreateCmd = &cobra.Command{
-	Use:   "create [--flags]",
+	Use:   "create",
 	Short: "Create a Network",
 	Long:  `Create a Network`,
 	Args:  cobra.NoArgs,
