@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
@@ -48,14 +47,12 @@ func createConfigPathIfNotExists() {
 }
 
 func loadConfig() {
-	viper.SetConfigName("config")
-	viper.AddConfigPath(configFilePath)
-	viper.SetConfigType("yml")
-	if err := viper.ReadInConfig(); err != nil {
+	content, err := os.ReadFile(filename)
+	if err != nil {
 		log.Fatalf("Error reading config file: %s", err)
 	}
-	if err := viper.Unmarshal(&contextMap); err != nil {
-		log.Fatalf("Unable to decode into struct: %s", err)
+	if err := yaml.Unmarshal(content, &contextMap); err != nil {
+		log.Fatalf("Unable to decode YAML into struct: %s", err)
 	}
 }
 
