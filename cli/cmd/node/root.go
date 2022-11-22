@@ -1,23 +1,16 @@
-package cmd
+package node
 
 import (
 	"os"
 
-	"github.com/gravitl/netmaker/cli/cmd/acl"
-	"github.com/gravitl/netmaker/cli/cmd/context"
-	"github.com/gravitl/netmaker/cli/cmd/keys"
-	"github.com/gravitl/netmaker/cli/cmd/network"
-	"github.com/gravitl/netmaker/cli/cmd/node"
 	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "netmaker",
-	Short: "CLI for interacting with Netmaker Server",
-	Long:  `CLI for interacting with Netmaker Server`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
+	Use:   "node",
+	Short: "Manage nodes associated with a network",
+	Long:  `Manage nodes associated with a network`,
 	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
@@ -38,17 +31,7 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tctl.yaml)")
-
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
-	// IMP: Bind subcommands here
-	rootCmd.AddCommand(network.GetRoot())
-	rootCmd.AddCommand(context.GetRoot())
-	rootCmd.AddCommand(keys.GetRoot())
-	rootCmd.AddCommand(acl.GetRoot())
-	rootCmd.AddCommand(node.GetRoot())
 }
