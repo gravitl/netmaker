@@ -26,3 +26,11 @@ func GetNetworkDNS(networkName string) *[]models.DNSEntry {
 func CreateDNS(networkName string, payload *models.DNSEntry) *models.DNSEntry {
 	return request[models.DNSEntry](http.MethodPost, "/api/dns/"+networkName, payload)
 }
+
+func PushDNS() *string {
+	return request[string](http.MethodPost, "/api/dns/adm/pushdns", nil)
+}
+
+func DeleteDNS(networkName, domainName string) *string {
+	return request[string](http.MethodDelete, fmt.Sprintf("/api/dns/%s/%s", networkName, domainName), nil)
+}
