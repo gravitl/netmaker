@@ -17,7 +17,12 @@ import (
 func InitEE() {
 	setIsEnterprise()
 	models.SetLogo(retrieveEELogo())
-	controller.HttpHandlers = append(controller.HttpHandlers, ee_controllers.MetricHandlers)
+	controller.HttpHandlers = append(
+		controller.HttpHandlers,
+		ee_controllers.MetricHandlers,
+		ee_controllers.NetworkUsersHandlers,
+		ee_controllers.UserGroupsHandlers,
+	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
 		ValidateLicense()
