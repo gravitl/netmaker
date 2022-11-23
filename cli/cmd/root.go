@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/keys"
 	"github.com/gravitl/netmaker/cli/cmd/network"
 	"github.com/gravitl/netmaker/cli/cmd/node"
+	"github.com/gravitl/netmaker/cli/cmd/server"
 	"github.com/spf13/cobra"
 )
 
@@ -53,4 +54,5 @@ func init() {
 	rootCmd.AddCommand(acl.GetRoot())
 	rootCmd.AddCommand(node.GetRoot())
 	rootCmd.AddCommand(dns.GetRoot())
+	rootCmd.AddCommand(server.GetRoot())
 }
