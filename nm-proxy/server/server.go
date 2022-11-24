@@ -60,11 +60,13 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				log.Println("RECV ERROR: ", err)
 				continue
 			}
+			orgN := n
 			//go func(buffer []byte, source *net.UDPAddr, n int) {
 
 			var srcPeerKeyHash, dstPeerKeyHash string
 			n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
-			//log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
+			log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
+
 			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
 				// if common.IsIngressGateway {
 				// 	log.Println("----> fowarding PKT to EXT client...")
@@ -125,25 +127,45 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 							log.Println("Failed to proxy to Wg local interface: ", err)
 							//continue
 						}
+						continue
 
 					}
 				}
 
 			}
-			// // forward to all interfaces
-			// for _, ifaceCfg := range common.WgIfaceKeyMap {
-			// 	log.Println("###--------> Forwarding Unknown PKT to ", ifaceCfg.Interface)
-			// 	conn, err := net.DialUDP("udp", nil, ifaceCfg.Endpoint)
-			// 	if err == nil {
-			// 		_, err := conn.Write(buffer[:n])
-			// 		if err != nil {
-			// 			log.Println("Failed to forward the unknown pkt to ifcace: ", ifaceCfg.Interface, err)
-			// 		}
-			// 		conn.Close()
-			// 	}
+			if peerInfo, ok := common.ExtSourceIpMap[source.String()]; ok {
+				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
+					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
+						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+							peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
+							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+						_, err = peerI.Proxy.LocalConn.Write(buffer[:orgN])
+						if err != nil {
+							log.Println("Failed to proxy to Wg local interface: ", err)
+							//continue
+						}
+						continue
 
-			// }
-			//}(buffer, source, n)
+					}
+				}
+			}
+			// consume handshake message for ext clients
+			devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
+			if err == nil {
+				peerPubKey, err := packet.ConsumeHandshakeMsg(buffer[:orgN], devPubkey, devPriv)
+				if err != nil {
+					log.Println("---------> @@@ failed to decode HS: ", err)
+				} else {
+					log.Println("--------> Got HandShake from peer: ", peerPubKey, source)
+					if val, ok := common.ExtClientsWaitTh[peerPubKey]; ok {
+						val.CommChan <- source
+					}
+				}
+
+			} else {
+				log.Println("failed to get device keys: ", err)
+			}
+
 		}
 
 	}

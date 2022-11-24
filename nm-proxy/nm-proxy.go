@@ -21,7 +21,6 @@ import (
 func Start(ctx context.Context, mgmChan chan *manager.ManagerAction, apiServerAddr string) {
 	log.Println("Starting Proxy...")
 	common.IsHostNetwork = (os.Getenv("HOST_NETWORK") == "" || os.Getenv("HOST_NETWORK") == "on")
-
 	hInfo := stun.GetHostInfo(apiServerAddr)
 	stun.Host = hInfo
 	log.Printf("HOSTINFO: %+v", hInfo)

@@ -80,18 +80,33 @@ func (w *WGIface) GetWgIface(iface string) error {
 	return nil
 }
 
-func GetWgIfacePubKey(iface string) string {
+func GetWgIfacePubKey(iface string) [32]byte {
 	wgClient, err := wgctrl.New()
 	if err != nil {
 		log.Println("Error fetching pub key: ", iface, err)
-		return ""
+		return [32]byte{}
 	}
 	dev, err := wgClient.Device(iface)
 	if err != nil {
 		log.Println("Error fetching pub key: ", iface, err)
-		return ""
+		return [32]byte{}
 	}
-	return dev.PublicKey.String()
+
+	return dev.PublicKey
+}
+
+func GetWgIfacePrivKey(iface string) [32]byte {
+	wgClient, err := wgctrl.New()
+	if err != nil {
+		log.Println("Error fetching pub key: ", iface, err)
+		return [32]byte{}
+	}
+	dev, err := wgClient.Device(iface)
+	if err != nil {
+		log.Println("Error fetching pub key: ", iface, err)
+		return [32]byte{}
+	}
+	return dev.PrivateKey
 }
 
 // parseAddress parse a string ("1.2.3.4/24") address to WG Address

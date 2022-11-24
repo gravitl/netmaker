@@ -59,14 +59,18 @@ func (p *Proxy) ProxyToRemote() {
 				log.Println("ERRR READ: ", err)
 				continue
 			}
+
 			//go func(buf []byte, n int) {
 			ifaceConf := common.WgIFaceMap[p.Config.WgInterface.Name]
 			if peerI, ok := ifaceConf.PeerMap[p.Config.RemoteKey]; ok {
 				var srcPeerKeyHash, dstPeerKeyHash string
-				buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
-				if err != nil {
-					log.Println("failed to process pkt before sending: ", err)
+				if !p.Config.IsExtClient {
+					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
+					if err != nil {
+						log.Println("failed to process pkt before sending: ", err)
+					}
 				}
+
 				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
 					p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
 			} else {

@@ -15,6 +15,8 @@ var IsHostNetwork bool
 var IsRelay bool
 var IsIngressGateway bool
 var IsRelayed bool
+var IsServer bool
+var InterfaceName string
 
 const (
 	NmProxyPort = 51722
@@ -74,8 +76,8 @@ type RemotePeer struct {
 }
 
 type ExtClientPeer struct {
-	Endpoint *net.UDPAddr
-	context.CancelFunc
+	CancelFunc context.CancelFunc
+	CommChan   chan *net.UDPAddr
 }
 
 type WgIfaceConf struct {
@@ -92,6 +94,8 @@ var WgIfaceKeyMap = make(map[string]RemotePeer)
 var RelayPeerMap = make(map[string]map[string]RemotePeer)
 
 var ExtClientsWaitTh = make(map[string]ExtClientPeer)
+
+var ExtSourceIpMap = make(map[string]RemotePeer)
 
 // RunCmd - runs a local command
 func RunCmd(command string, printerr bool) (string, error) {

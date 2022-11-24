@@ -9,7 +9,6 @@ import (
 	"net"
 	"reflect"
 	"runtime"
-	"time"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	peerpkg "github.com/gravitl/netmaker/nm-proxy/peer"
@@ -163,6 +162,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			log.Println("failed to get real iface: ", err)
 		}
 	}
+	common.InterfaceName = m.Payload.InterfaceName
 	wgIface, err = wg.NewWGIFace(m.Payload.InterfaceName, "127.0.0.1/32", wg.DefaultMTU)
 	if err != nil {
 		log.Println("Failed init new interface: ", err)
@@ -179,6 +179,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 					log.Println("falied to update peer: ", err)
 				}
 				m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
+				continue
 			}
 			if m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
 				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
@@ -220,7 +221,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 					m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
 
 				}
-				log.Println("----> Skip Processing ExtClient: ", m.Payload.Peers[i].PublicKey.String())
+
 				continue
 			}
 			// check if proxy is off for the peer
@@ -384,12 +385,11 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			shouldProceed = true
 		}
 		if peerConf.IsExtClient && peerConf.IsAttachedExtClient && shouldProceed {
-			ctx, cancel := context.WithCancel(context.Background())
-			common.ExtClientsWaitTh[peerI.PublicKey.String()] = common.ExtClientPeer{
-				Endpoint:   peerI.Endpoint,
-				CancelFunc: cancel,
-			}
-			go proxy.StartSniffer(ctx, wgInterface.Name, m.Payload.WgAddr, peerConf.Address, wgInterface.Port)
+			// ctx, cancel := context.WithCancel(context.Background())
+			// common.ExtClientsWaitTh[peerI.PublicKey.String()] = common.ExtClientPeer{
+			// 	CancelFunc: cancel,
+			// }
+			//go proxy.StartSniffer(ctx, wgInterface.Name, m.Payload.WgAddr, peerConf.Address, wgInterface.Port)
 		}
 
 		if peerConf.IsExtClient && !peerConf.IsAttachedExtClient {
@@ -422,16 +422,24 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			go func(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
 				isRelayed bool, relayTo *net.UDPAddr, peerConf PeerConf, ingGwAddr string) {
 				addExtClient := false
+				commChan := make(chan *net.UDPAddr, 100)
 				ctx, cancel := context.WithCancel(context.Background())
 				common.ExtClientsWaitTh[peerI.PublicKey.String()] = common.ExtClientPeer{
-					Endpoint:   peer.Endpoint,
 					CancelFunc: cancel,
+					CommChan:   commChan,
 				}
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")
-						go proxy.StartSniffer(ctx, wgInterface.Name, ingGwAddr, peerConf.Address, wgInterface.Port)
+						//go proxy.StartSniffer(ctx, wgInterface.Name, ingGwAddr, peerConf.Address, wgInterface.Port)
 						common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))] = common.RemotePeer{
+							Interface:           wgInterface.Name,
+							PeerKey:             peer.PublicKey.String(),
+							IsExtClient:         peerConf.IsExtClient,
+							IsAttachedExtClient: peerConf.IsAttachedExtClient,
+							Endpoint:            peer.Endpoint,
+						}
+						common.ExtSourceIpMap[peer.Endpoint.String()] = common.RemotePeer{
 							Interface:           wgInterface.Name,
 							PeerKey:             peer.PublicKey.String(),
 							IsExtClient:         peerConf.IsExtClient,
@@ -441,27 +449,21 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 
 						peerpkg.AddNewPeer(wgInterface, peer, peerConf.Address, isRelayed,
 							peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo)
+
 					}
+					log.Println("Exiting extclient watch Thread for: ", peer.PublicKey.String())
 				}()
 				for {
 					select {
 					case <-ctx.Done():
-						log.Println("Exiting extclient watch Thread for: ", wgInterface.Device.PublicKey.String())
 						return
-					default:
-						wgInterface, err := wg.NewWGIFace(m.Payload.InterfaceName, "127.0.0.1/32", wg.DefaultMTU)
-						if err != nil {
-							log.Println("Failed init new interface: ", err)
+					case endpoint := <-commChan:
+						if endpoint != nil {
+							addExtClient = true
+							peer.Endpoint = endpoint
+							delete(common.ExtClientsWaitTh, peer.PublicKey.String())
 							return
 						}
-						for _, devpeerI := range wgInterface.Device.Peers {
-							if devpeerI.PublicKey.String() == peer.PublicKey.String() && devpeerI.Endpoint != nil {
-								peer.Endpoint = devpeerI.Endpoint
-								addExtClient = true
-								return
-							}
-						}
-						time.Sleep(time.Second * 5)
 					}
 
 				}
