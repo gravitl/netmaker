@@ -69,6 +69,34 @@ func (p *Proxy) ProxyToRemote() {
 					if err != nil {
 						log.Println("failed to process pkt before sending: ", err)
 					}
+				} else {
+					// unknown peer to proxy -> check if extclient and handle it
+					// consume handshake message for ext clients
+					// msgType := binary.LittleEndian.Uint32(buf[:n])
+					// switch msgType {
+					// case models.MessageInitiationType:
+
+					// 	devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
+					// 	if err == nil {
+					// 		err := packet.ConsumeHandshakeInitiationMsg(true, buf[:n], p.RemoteConn, devPubkey, devPriv)
+					// 		if err != nil {
+					// 			log.Println("---------> @@@ failed to decode HS: ", err)
+					// 		}
+					// 	} else {
+					// 		log.Println("failed to get device keys: ", err)
+					// 	}
+					// case models.MessageResponseType:
+					// 	devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
+					// 	if err == nil {
+					// 		err := packet.ConsumeMessageResponse(true, buf[:n], p.RemoteConn, devPubkey, devPriv)
+					// 		if err != nil {
+					// 			log.Println("---------> @@@ failed to decode HS: ", err)
+					// 		}
+					// 	} else {
+					// 		log.Println("failed to get device keys: ", err)
+					// 	}
+
+					// }
 				}
 
 				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",

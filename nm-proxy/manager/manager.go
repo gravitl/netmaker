@@ -172,19 +172,13 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	var ok bool
 	if wgProxyConf, ok = common.WgIFaceMap[m.Payload.InterfaceName]; !ok {
 		for i := len(m.Payload.Peers) - 1; i >= 0; i-- {
-			if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy &&
-				!m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
+			if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy {
 				log.Println("-----------> skipping peer, proxy is off: ", m.Payload.Peers[i].PublicKey)
 				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
 					log.Println("falied to update peer: ", err)
 				}
 				m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
 				continue
-			}
-			if m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
-				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
-					log.Println("falied to update peer: ", err)
-				}
 			}
 		}
 		return wgIface, nil
@@ -212,16 +206,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	for i := len(m.Payload.Peers) - 1; i >= 0; i-- {
 
 		if currentPeer, ok := wgProxyConf.PeerMap[m.Payload.Peers[i].PublicKey.String()]; ok {
-
-			// handles ext clients
-			if common.IsIngressGateway && m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
-				// check if sniffer already exists otherwise start one
-				if _, ok := common.ExtClientsWaitTh[m.Payload.Peers[i].PublicKey.String()]; ok {
-					log.Println("Ext client th already exists....,removing")
-					m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
-
-				}
-
+			if currentPeer.Config.IsAttachedExtClient {
 				continue
 			}
 			// check if proxy is off for the peer
@@ -307,12 +292,22 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	// sync peer map with new update
 	for _, currPeerI := range wgProxyConf.PeerMap {
 		if _, ok := m.Payload.PeerMap[currPeerI.Config.Key]; !ok {
+			if currPeerI.Config.IsAttachedExtClient {
+				log.Println("------> Deleting ExtClient Watch Thread: ", currPeerI.Config.Key)
+				if val, ok := common.ExtClientsWaitTh[currPeerI.Config.Key]; ok {
+					val.CancelFunc()
+					delete(common.ExtClientsWaitTh, currPeerI.Config.Key)
+				}
+				log.Println("-----> Deleting Ext Client from Src Ip Map: ", currPeerI.Config.Key)
+				delete(common.ExtSourceIpMap, currPeerI.Proxy.Config.PeerConf.Endpoint.String())
+			}
 			currPeerI.Proxy.Cancel()
 			// delete peer from interface
 			log.Println("CurrPeer Not Found, Deleting Peer from Interface: ", currPeerI.Config.Key)
 			if err := wgIface.RemovePeer(currPeerI.Config.Key); err != nil {
 				log.Println("failed to remove peer: ", currPeerI.Config.Key, err)
 			}
+			delete(common.PeerKeyHashMap, fmt.Sprintf("%x", md5.Sum([]byte(currPeerI.Config.Key))))
 			delete(wgProxyConf.PeerMap, currPeerI.Config.Key)
 
 		}
@@ -321,21 +316,6 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	// sync dev peers with new update
 
 	common.WgIFaceMap[m.Payload.InterfaceName] = wgProxyConf
-
-	// if peers, ok := common.WgIFaceMap[iface]; ok {
-	// 	log.Println("########------------>  CLEANING UP: ", iface)
-	// 	for _, peerI := range peers {
-	// 		peerI.Proxy.Cancel()
-	// 	}
-	// }
-	// delete(common.WgIFaceMap, iface)
-	// delete(common.PeerAddrMap, iface)
-	// if waitThs, ok := common.ExtClientsWaitTh[iface]; ok {
-	// 	for _, cancelF := range waitThs {
-	// 		cancelF()
-	// 	}
-	// 	delete(common.ExtClientsWaitTh, iface)
-	// }
 
 	log.Println("CLEANED UP..........")
 	return wgIface, nil
@@ -439,6 +419,7 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 							IsAttachedExtClient: peerConf.IsAttachedExtClient,
 							Endpoint:            peer.Endpoint,
 						}
+
 						common.ExtSourceIpMap[peer.Endpoint.String()] = common.RemotePeer{
 							Interface:           wgInterface.Name,
 							PeerKey:             peer.PublicKey.String(),
