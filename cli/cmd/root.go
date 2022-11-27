@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/network"
 	"github.com/gravitl/netmaker/cli/cmd/node"
 	"github.com/gravitl/netmaker/cli/cmd/server"
+	"github.com/gravitl/netmaker/cli/cmd/user"
 	"github.com/spf13/cobra"
 )
 
@@ -57,4 +58,5 @@ func init() {
 	rootCmd.AddCommand(dns.GetRoot())
 	rootCmd.AddCommand(server.GetRoot())
 	rootCmd.AddCommand(ext_client.GetRoot())
+	rootCmd.AddCommand(user.GetRoot())
 }

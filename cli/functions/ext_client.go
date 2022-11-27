@@ -36,3 +36,7 @@ func CreateExtClient(networkName, nodeID, extClientID string) {
 func DeleteExtClient(networkName, clientID string) *models.SuccessResponse {
 	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/extclients/%s/%s", networkName, clientID), nil)
 }
+
+func UpdateExtClient(networkName, clientID string, payload *models.ExtClient) *models.ExtClient {
+	return request[models.ExtClient](http.MethodPut, fmt.Sprintf("/api/extclients/%s/%s", networkName, clientID), payload)
+}
