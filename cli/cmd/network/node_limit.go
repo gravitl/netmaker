@@ -9,7 +9,7 @@ import (
 )
 
 var networkNodeLimitCmd = &cobra.Command{
-	Use:   "node_limit [NAME] [NEW LIMIT]",
+	Use:   "node_limit [NETWORK NAME] [NEW LIMIT]",
 	Short: "Update network nodel limit",
 	Long:  `Update network nodel limit`,
 	Args:  cobra.ExactArgs(2),

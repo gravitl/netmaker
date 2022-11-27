@@ -6,7 +6,7 @@ import (
 )
 
 var networkRefreshKeysCmd = &cobra.Command{
-	Use:   "refresh_keys [NAME]",
+	Use:   "refresh_keys [NETWORK NAME]",
 	Short: "Refresh public and private key pairs of a network",
 	Long:  `Refresh public and private key pairs of a network`,
 	Args:  cobra.ExactArgs(1),

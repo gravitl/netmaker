@@ -6,7 +6,7 @@ import (
 )
 
 var networkGetCmd = &cobra.Command{
-	Use:   "get [NAME]",
+	Use:   "get [NETWORK NAME]",
 	Short: "Get a Network",
 	Long:  `Get a Network`,
 	Args:  cobra.ExactArgs(1),

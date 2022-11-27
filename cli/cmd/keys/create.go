@@ -12,7 +12,7 @@ import (
 var keyName string
 
 var keysCreateCmd = &cobra.Command{
-	Use:   "create [NETWORK NAME] [NUM USES] [--name=test_key]",
+	Use:   "create [NETWORK NAME] [NUM USES]",
 	Args:  cobra.ExactArgs(2),
 	Short: "Create an access key",
 	Long:  `Create an access key`,
