@@ -7,31 +7,11 @@ import (
 	"net"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/models"
 	"github.com/gravitl/netmaker/nm-proxy/proxy"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
-
-type Conn struct {
-	Config ConnConfig
-	Proxy  proxy.Proxy
-}
-
-// ConnConfig is a peer Connection configuration
-type ConnConfig struct {
-
-	// Key is a public key of a remote peer
-	Key string
-	// LocalKey is a public key of a local peer
-	LocalKey string
-
-	ProxyConfig     proxy.Config
-	AllowedIPs      string
-	LocalWgPort     int
-	RemoteProxyIP   net.IP
-	RemoteWgPort    int
-	RemoteProxyPort int
-}
 
 func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr string,
 	isRelayed, isExtClient, isAttachedExtClient bool, relayTo *net.UDPAddr) error {
@@ -45,7 +25,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 		PeerConf:    peer,
 	}
 	p := proxy.NewProxy(c)
-	peerPort := common.NmProxyPort
+	peerPort := models.NmProxyPort
 	if isExtClient && isAttachedExtClient {
 		peerPort = peer.Endpoint.Port
 
@@ -75,48 +55,27 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 	// 	log.Println("Not Starting Proxy for Attached ExtClient...")
 	// }
 
-	connConf := common.ConnConfig{
-		Key:             peer.PublicKey.String(),
-		LocalKey:        wgInterface.Device.PublicKey.String(),
-		LocalWgPort:     wgInterface.Device.ListenPort,
-		RemoteProxyIP:   net.ParseIP(peer.Endpoint.IP.String()),
-		RemoteWgPort:    peer.Endpoint.Port,
-		RemoteProxyPort: common.NmProxyPort,
-		IsRelayed:       isRelayed,
-		RelayedEndpoint: relayTo,
+	connConf := models.ConnConfig{
+		Key:                 peer.PublicKey.String(),
+		IsRelayed:           isRelayed,
+		RelayedEndpoint:     relayTo,
+		IsAttachedExtClient: isAttachedExtClient,
+		PeerConf:            peer,
+		StopConn:            p.Cancel,
+		RemoteConn:          remoteConn,
+		LocalConn:           p.LocalConn,
 	}
 
-	peerProxy := common.Proxy{
-		Ctx:    p.Ctx,
-		Cancel: p.Cancel,
-		Config: common.Config{
-			Port:        peer.Endpoint.Port,
-			LocalKey:    wgInterface.Device.PublicKey.String(),
-			RemoteKey:   peer.PublicKey.String(),
-			WgInterface: wgInterface,
-			PeerConf:    peer,
-		},
-
-		RemoteConn: remoteConn,
-		LocalConn:  p.LocalConn,
-	}
-	if isRelayed {
-		connConf.RemoteProxyIP = relayTo.IP
-	}
-	peerConn := common.Conn{
-		Config: connConf,
-		Proxy:  peerProxy,
-	}
 	if _, ok := common.WgIFaceMap[wgInterface.Name]; ok {
-		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &peerConn
+		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &connConf
 	} else {
-		ifaceConf := common.WgIfaceConf{
+		ifaceConf := models.WgIfaceConf{
 			Iface:   wgInterface.Device,
-			PeerMap: make(map[string]*common.Conn),
+			PeerMap: make(map[string]*models.ConnConfig),
 		}
 
 		common.WgIFaceMap[wgInterface.Name] = ifaceConf
-		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &peerConn
+		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &connConf
 	}
 
 	return nil

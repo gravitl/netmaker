@@ -11,6 +11,7 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/models"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
@@ -65,7 +66,7 @@ func (p *Proxy) ProxyToRemote() {
 			if peerI, ok := ifaceConf.PeerMap[p.Config.RemoteKey]; ok {
 				var srcPeerKeyHash, dstPeerKeyHash string
 				if !p.Config.IsExtClient {
-					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
+					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, ifaceConf.Iface.PublicKey.String(), peerI.Key)
 					if err != nil {
 						log.Println("failed to process pkt before sending: ", err)
 					}
@@ -146,7 +147,7 @@ func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	var err error
 
 	//log.Printf("----> WGIFACE: %+v\n", p.Config.WgInterface)
-	addr, err := GetFreeIp(common.DefaultCIDR, p.Config.WgInterface.Port)
+	addr, err := GetFreeIp(models.DefaultCIDR, p.Config.WgInterface.Port)
 	if err != nil {
 		log.Println("Failed to get freeIp: ", err)
 		return err
@@ -162,7 +163,7 @@ func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	//log.Println("--------->#### Wg Listen Addr: ", wgListenAddr.String())
 	p.LocalConn, err = net.DialUDP("udp", &net.UDPAddr{
 		IP:   net.ParseIP(addr),
-		Port: common.NmProxyPort,
+		Port: models.NmProxyPort,
 	}, wgListenAddr)
 	if err != nil {
 		log.Printf("failed dialing to local Wireguard port,Err: %v\n", err)
@@ -203,7 +204,7 @@ func GetFreeIp(cidrAddr string, dstPort int) (string, error) {
 
 		conn, err := net.DialUDP("udp", &net.UDPAddr{
 			IP:   net.ParseIP(newAddrs.String()),
-			Port: common.NmProxyPort,
+			Port: models.NmProxyPort,
 		}, &net.UDPAddr{
 			IP:   net.ParseIP("127.0.0.1"),
 			Port: dstPort,

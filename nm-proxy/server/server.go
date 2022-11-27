@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/models"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 )
 
@@ -18,7 +19,7 @@ var (
 
 const (
 	defaultBodySize = 10000
-	defaultPort     = common.NmProxyPort
+	defaultPort     = models.NmProxyPort
 )
 
 type Config struct {
@@ -47,7 +48,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			for iface, ifaceConf := range common.WgIFaceMap {
 				log.Println("########------------>  CLEANING UP: ", iface)
 				for _, peerI := range ifaceConf.PeerMap {
-					peerI.Proxy.Cancel()
+					peerI.StopConn()
 				}
 			}
 			// close server connection
@@ -120,9 +121,9 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
 						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-							peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
+							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
 							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
+						_, err = peerI.LocalConn.Write(buffer[:n])
 						if err != nil {
 							log.Println("Failed to proxy to Wg local interface: ", err)
 							//continue
@@ -137,9 +138,9 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
 						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-							peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
+							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
 							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-						_, err = peerI.Proxy.LocalConn.Write(buffer[:origBufferLen])
+						_, err = peerI.LocalConn.Write(buffer[:origBufferLen])
 						if err != nil {
 							log.Println("Failed to proxy to Wg local interface: ", err)
 							//continue
