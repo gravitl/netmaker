@@ -332,7 +332,11 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
+	listenPort := node.ListenPort
+	if node.Proxy {
+		listenPort = 51722
+	}
+	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(listenPort), 10)
 
 	extclient.Enabled = true
 	parentNetwork, err := logic.GetNetwork(networkName)

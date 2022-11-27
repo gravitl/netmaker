@@ -234,6 +234,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 		if currentPeer, ok := wgProxyConf.PeerMap[m.Payload.Peers[i].PublicKey.String()]; ok {
 			if currentPeer.IsAttachedExtClient {
+				m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
 				continue
 			}
 			// check if proxy is off for the peer
@@ -351,42 +352,9 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			log.Println("Endpoint nil for peer: ", peerI.PublicKey.String())
 			continue
 		}
-		if peerConf.IsExtClient && !common.IsIngressGateway {
-			continue
-		}
-		shouldProceed := false
-		if peerConf.IsExtClient && peerConf.IsAttachedExtClient {
-			// check if ext client got endpoint,otherwise continue
-			for _, devpeerI := range wgInterface.Device.Peers {
-				if devpeerI.PublicKey.String() == peerI.PublicKey.String() && devpeerI.Endpoint != nil {
-					peerI.Endpoint = devpeerI.Endpoint
-					shouldProceed = true
-					break
-				}
-			}
-
-		} else {
-			shouldProceed = true
-		}
-		if peerConf.IsExtClient && peerConf.IsAttachedExtClient && shouldProceed {
-			// ctx, cancel := context.WithCancel(context.Background())
-			// common.ExtClientsWaitTh[peerI.PublicKey.String()] = common.ExtClientPeer{
-			// 	CancelFunc: cancel,
-			// }
-			//go proxy.StartSniffer(ctx, wgInterface.Name, m.Payload.WgAddr, peerConf.Address, wgInterface.Port)
-		}
 
 		if peerConf.IsExtClient && !peerConf.IsAttachedExtClient {
 			peerI.Endpoint = peerConf.IngressGatewayEndPoint
-		}
-		if shouldProceed {
-			common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peerI.PublicKey.String())))] = models.RemotePeer{
-				Interface:           m.Payload.InterfaceName,
-				PeerKey:             peerI.PublicKey.String(),
-				IsExtClient:         peerConf.IsExtClient,
-				Endpoint:            peerI.Endpoint,
-				IsAttachedExtClient: peerConf.IsAttachedExtClient,
-			}
 		}
 
 		var isRelayed bool
@@ -400,8 +368,8 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			relayedTo = peerConf.RelayedTo
 
 		}
-		if !shouldProceed && peerConf.IsAttachedExtClient {
-			log.Println("Extclient endpoint not updated yet....skipping")
+		if peerConf.IsAttachedExtClient {
+			log.Println("Extclient Thread...")
 			go func(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig,
 				isRelayed bool, relayTo *net.UDPAddr, peerConf PeerConf, ingGwAddr string) {
 				addExtClient := false
@@ -453,6 +421,13 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 
 			}(wgInterface, &peerI, isRelayed, relayedTo, peerConf, m.Payload.WgAddr)
 			continue
+		}
+		common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peerI.PublicKey.String())))] = models.RemotePeer{
+			Interface:           m.Payload.InterfaceName,
+			PeerKey:             peerI.PublicKey.String(),
+			IsExtClient:         peerConf.IsExtClient,
+			Endpoint:            peerI.Endpoint,
+			IsAttachedExtClient: peerConf.IsAttachedExtClient,
 		}
 
 		peerpkg.AddNewPeer(wgInterface, &peerI, peerConf.Address, isRelayed,

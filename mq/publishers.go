@@ -26,10 +26,7 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 		return err
 	}
 	for _, node := range networkNodes {
-		// err := PublishProxyUpdate(manager.AddInterface, &node)
-		// if err != nil {
-		// 	logger.Log(1, "failed to publish proxy update to node", node.Name, "on network", node.Network, ":", err.Error())
-		// }
+
 		if node.IsServer == "yes" {
 			if servercfg.IsProxyEnabled() {
 				err := PublishProxyUpdate(manager.AddInterface, &node)
