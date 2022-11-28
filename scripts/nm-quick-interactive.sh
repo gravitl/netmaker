@@ -189,7 +189,6 @@ COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
 DOMAIN_TYPE=""
 
 echo "-----------------------------------------------------"
@@ -364,12 +363,22 @@ wait_seconds 3
 
 echo "Configuring netmaker server as ingress gateway"
 
-
-while [ -z "$SERVER_ID" ]; do
-	echo "waiting for server node to become available"
-	wait_seconds 2
+for i in 1 2 3 4 5 6
+do
+	echo "    waiting for server node to become available"
+	wait_seconds 5
 	curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker)
 	SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
+	if [[ "$i" == 6 && -z "$SERVER_ID" ]]; then
+		echo "    Netmaker is having issues configuring itself, please investigate (docker logs netmaker)"
+		echo "    Exiting..."
+		exit 1
+	elif [ -z "$SERVER_ID" ]; then
+		echo "    server node not yet configured, retrying..."
+	else
+		echo "    server node is now availble, continuing"
+		break
+	fi
 done
 
 curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
