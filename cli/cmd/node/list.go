@@ -23,7 +23,7 @@ var nodeListCmd = &cobra.Command{
 			data = *functions.GetNodes()
 		}
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Node Name", "Addresses", "Version", "Network", "Egress Status", "Ingress Status", "Relay Status"})
+		table.SetHeader([]string{"Name", "Addresses", "Version", "Network", "Egress", "Ingress", "Relay", "ID"})
 		for _, d := range data {
 			addresses := ""
 			if d.Address != "" {
@@ -35,7 +35,7 @@ var nodeListCmd = &cobra.Command{
 				}
 				addresses += d.Address6
 			}
-			table.Append([]string{d.Name, addresses, d.Version, d.Network, d.IsEgressGateway, d.IsIngressGateway, d.IsRelay})
+			table.Append([]string{d.Name, addresses, d.Version, d.Network, d.IsEgressGateway, d.IsIngressGateway, d.IsRelay, d.ID})
 		}
 		table.Render()
 	},

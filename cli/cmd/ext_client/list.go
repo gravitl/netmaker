@@ -26,7 +26,7 @@ var extClientListCmd = &cobra.Command{
 			data = *functions.GetAllExtClients()
 		}
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"ClientID", "Network", "IPv4 Address", "IPv6 Address", "Enabled", "Last Modified"})
+		table.SetHeader([]string{"Client ID", "Network", "IPv4 Address", "IPv6 Address", "Enabled", "Last Modified"})
 		for _, d := range data {
 			table.Append([]string{d.ClientID, d.Network, d.Address, d.Address6, strconv.FormatBool(d.Enabled), time.Unix(d.LastModified, 0).String()})
 		}

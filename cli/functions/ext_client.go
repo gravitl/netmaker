@@ -2,8 +2,11 @@ package functions
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 
+	"github.com/gravitl/netmaker/cli/config"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -19,8 +22,26 @@ func GetExtClient(networkName, clientID string) *models.ExtClient {
 	return request[models.ExtClient](http.MethodGet, fmt.Sprintf("/api/extclients/%s/%s", networkName, clientID), nil)
 }
 
-func GetExtClientConfig(networkName, clientID, configType string) *models.ExtClient {
-	return request[models.ExtClient](http.MethodGet, fmt.Sprintf("/api/extclients/%s/%s/%s", networkName, clientID, configType), nil)
+func GetExtClientConfig(networkName, clientID string) string {
+	ctx := config.GetCurrentContext()
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/extclients/%s/%s/file", ctx.Endpoint, networkName, clientID), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if ctx.MasterKey != "" {
+		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx))
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(bodyBytes)
 }
 
 func CreateExtClient(networkName, nodeID, extClientID string) {
