@@ -8,9 +8,12 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/c-robinson/iplib"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/metrics"
 	"github.com/gravitl/netmaker/nm-proxy/models"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 	"github.com/gravitl/netmaker/nm-proxy/server"
@@ -53,6 +56,20 @@ func (p *Proxy) ProxyToRemote() {
 			}
 
 			return
+		case <-time.After(time.Minute):
+			metrics.MetricsMapLock.Lock()
+			metric := metrics.MetricsMap[p.Config.PeerConf.PublicKey.String()]
+			metric.ConnectionStatus = false
+			metrics.MetricsMap[p.Config.PeerConf.PublicKey.String()] = metric
+			metrics.MetricsMapLock.Unlock()
+			pkt, err := packet.CreateMetricPacket(uuid.New().ID(), p.Config.LocalKey, p.Config.PeerConf.PublicKey)
+			if err == nil {
+				_, err = server.NmProxyServer.Server.WriteToUDP(pkt, p.RemoteConn)
+				if err != nil {
+					log.Println("Failed to send to metric pkt: ", err)
+				}
+
+			}
 		default:
 
 			n, err := p.LocalConn.Read(buf)
@@ -61,43 +78,21 @@ func (p *Proxy) ProxyToRemote() {
 				continue
 			}
 
-			//go func(buf []byte, n int) {
 			ifaceConf := common.WgIFaceMap[p.Config.WgInterface.Name]
 			if peerI, ok := ifaceConf.PeerMap[p.Config.RemoteKey]; ok {
+
+				metrics.MetricsMapLock.Lock()
+				metric := metrics.MetricsMap[peerI.Key.String()]
+				metric.TrafficSent += uint64(n)
+				metrics.MetricsMap[peerI.Key.String()] = metric
+				metrics.MetricsMapLock.Unlock()
+
 				var srcPeerKeyHash, dstPeerKeyHash string
 				if !p.Config.IsExtClient {
-					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, ifaceConf.Iface.PublicKey.String(), peerI.Key)
+					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, ifaceConf.Iface.PublicKey.String(), peerI.Key.String())
 					if err != nil {
 						log.Println("failed to process pkt before sending: ", err)
 					}
-				} else {
-					// unknown peer to proxy -> check if extclient and handle it
-					// consume handshake message for ext clients
-					// msgType := binary.LittleEndian.Uint32(buf[:n])
-					// switch msgType {
-					// case models.MessageInitiationType:
-
-					// 	devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
-					// 	if err == nil {
-					// 		err := packet.ConsumeHandshakeInitiationMsg(true, buf[:n], p.RemoteConn, devPubkey, devPriv)
-					// 		if err != nil {
-					// 			log.Println("---------> @@@ failed to decode HS: ", err)
-					// 		}
-					// 	} else {
-					// 		log.Println("failed to get device keys: ", err)
-					// 	}
-					// case models.MessageResponseType:
-					// 	devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
-					// 	if err == nil {
-					// 		err := packet.ConsumeMessageResponse(true, buf[:n], p.RemoteConn, devPubkey, devPriv)
-					// 		if err != nil {
-					// 			log.Println("---------> @@@ failed to decode HS: ", err)
-					// 		}
-					// 	} else {
-					// 		log.Println("failed to get device keys: ", err)
-					// 	}
-
-					// }
 				}
 
 				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
@@ -107,13 +102,11 @@ func (p *Proxy) ProxyToRemote() {
 				p.Cancel()
 				return
 			}
-			//test(n, buf)
 
 			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], p.RemoteConn)
 			if err != nil {
 				log.Println("Failed to send to remote: ", err)
 			}
-			//}(buf, n)
 
 		}
 	}

@@ -16,7 +16,7 @@ const (
 type ConnConfig struct {
 
 	// Key is a public key of a remote peer
-	Key                 string
+	Key                 wgtypes.Key
 	IsExtClient         bool
 	IsRelayed           bool
 	RelayedEndpoint     *net.UDPAddr

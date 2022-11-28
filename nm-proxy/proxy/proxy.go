@@ -21,7 +21,7 @@ type Config struct {
 	BodySize    int
 	Addr        string
 	RemoteKey   string
-	LocalKey    string
+	LocalKey    wgtypes.Key
 	WgInterface *wg.WGIface
 	IsExtClient bool
 	PeerConf    *wgtypes.PeerConfig

@@ -242,7 +242,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 				// cleanup proxy connections for the peer
 				currentPeer.StopConn()
-				delete(wgProxyConf.PeerMap, currentPeer.Key)
+				delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 				// update the peer with actual endpoint
 				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
 					log.Println("falied to update peer: ", err)
@@ -252,13 +252,13 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 			}
 			// check if peer is not connected to proxy
-			devPeer, err := wg.GetPeer(m.Payload.InterfaceName, currentPeer.Key)
+			devPeer, err := wg.GetPeer(m.Payload.InterfaceName, currentPeer.Key.String())
 			if err == nil {
 				log.Printf("---------> COMAPRING ENDPOINT: DEV: %s, Proxy: %s", devPeer.Endpoint.String(), currentPeer.LocalConn.LocalAddr().String())
 				if devPeer.Endpoint.String() != currentPeer.LocalConn.LocalAddr().String() {
 					log.Println("---------> endpoint is not set to proxy: ", currentPeer.Key)
 					currentPeer.StopConn()
-					delete(wgProxyConf.PeerMap, currentPeer.Key)
+					delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 					continue
 				}
 			}
@@ -266,7 +266,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			if currentPeer.IsRelayed != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsRelayed {
 				log.Println("---------> peer relay status has been changed: ", currentPeer.Key)
 				currentPeer.StopConn()
-				delete(wgProxyConf.PeerMap, currentPeer.Key)
+				delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 				continue
 			}
 			// check if relay endpoint has been changed
@@ -275,14 +275,14 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				currentPeer.RelayedEndpoint.String() != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].RelayedTo.String() {
 				log.Println("---------> peer relay endpoint has been changed: ", currentPeer.Key)
 				currentPeer.StopConn()
-				delete(wgProxyConf.PeerMap, currentPeer.Key)
+				delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 				continue
 			}
 			if !reflect.DeepEqual(m.Payload.Peers[i], *currentPeer.PeerConf) {
 				if currentPeer.RemoteConn.IP.String() != m.Payload.Peers[i].Endpoint.IP.String() {
 					log.Println("----------> Resetting proxy for Peer: ", currentPeer.Key, m.Payload.InterfaceName)
 					currentPeer.StopConn()
-					delete(wgProxyConf.PeerMap, currentPeer.Key)
+					delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 
 				} else {
 
@@ -296,7 +296,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 						log.Println("failed to update peer: ", currentPeer.Key, err)
 					}
 					currentPeer.PeerConf = &m.Payload.Peers[i]
-					wgProxyConf.PeerMap[currentPeer.Key] = currentPeer
+					wgProxyConf.PeerMap[currentPeer.Key.String()] = currentPeer
 					// delete the peer from the list
 					log.Println("-----------> deleting peer from list: ", m.Payload.Peers[i].PublicKey)
 					m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)

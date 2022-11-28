@@ -14,7 +14,7 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	"golang.org/x/crypto/blake2s"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.zx2c4.com/wireguard/tai64n"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func ConsumeHandshakeInitiationMsg(initiator bool, buf []byte, src *net.UDPAddr, devicePubKey NoisePublicKey, devicePrivKey NoisePrivateKey) error {
@@ -64,12 +64,12 @@ func ConsumeHandshakeInitiationMsg(initiator bool, buf []byte, src *net.UDPAddr,
 	return nil
 }
 
-func CreateMetricPacket(id uint64, sender, reciever NoisePublicKey) ([]byte, error) {
+func CreateMetricPacket(id uint32, sender, reciever wgtypes.Key) ([]byte, error) {
 	msg := MetricMessage{
 		ID:        id,
 		Sender:    sender,
 		Reciever:  reciever,
-		TimeStamp: tai64n.Now(),
+		TimeStamp: time.Now().UnixMilli(),
 	}
 	var buff [MessageMetricSize]byte
 	writer := bytes.NewBuffer(buff[:0])
@@ -79,6 +79,22 @@ func CreateMetricPacket(id uint64, sender, reciever NoisePublicKey) ([]byte, err
 	}
 	packet := writer.Bytes()
 	return packet, nil
+}
+
+func ConsumeMetricPacket(buf []byte) (*MetricMessage, error) {
+	var msg MetricMessage
+	var err error
+	reader := bytes.NewReader(buf[:])
+	err = binary.Read(reader, binary.LittleEndian, &msg)
+	if err != nil {
+		log.Println("Failed to decode metric message")
+		return nil, err
+	}
+
+	if msg.Type != MessageMetricsType {
+		return nil, errors.New("not  metric message")
+	}
+	return &msg, nil
 }
 
 func ProcessPacketBeforeSending(buf []byte, n int, srckey, dstKey string) ([]byte, int, string, string) {

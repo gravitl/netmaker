@@ -5,6 +5,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 	"golang.zx2c4.com/wireguard/tai64n"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var (
@@ -30,8 +31,8 @@ type MessageInitiation struct {
 
 type MetricMessage struct {
 	Type      uint32
-	ID        uint64
-	Sender    NoisePublicKey
-	Reciever  NoisePublicKey
-	TimeStamp tai64n.Timestamp
+	ID        uint32
+	Sender    wgtypes.Key
+	Reciever  wgtypes.Key
+	TimeStamp int64
 }

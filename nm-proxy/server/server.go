@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/metrics"
 	"github.com/gravitl/netmaker/nm-proxy/models"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 )
@@ -120,6 +121,12 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
 				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
+						metrics.MetricsMapLock.Lock()
+						metric := metrics.MetricsMap[peerInfo.PeerKey]
+						metric.TrafficRecieved += uint64(n)
+						metric.ConnectionStatus = true
+						metrics.MetricsMap[peerInfo.PeerKey] = metric
+						metrics.MetricsMapLock.Unlock()
 						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
 							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
 							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
@@ -137,6 +144,12 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			if peerInfo, ok := common.ExtSourceIpMap[source.String()]; ok {
 				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
+						metrics.MetricsMapLock.Lock()
+						metric := metrics.MetricsMap[peerInfo.PeerKey]
+						metric.TrafficRecieved += uint64(n)
+						metric.ConnectionStatus = true
+						metrics.MetricsMap[peerInfo.PeerKey] = metric
+						metrics.MetricsMapLock.Unlock()
 						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
 							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
 							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
@@ -154,6 +167,20 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			// consume handshake message for ext clients
 			msgType := binary.LittleEndian.Uint32(buffer[:4])
 			switch msgType {
+			case packet.MessageMetricsType:
+				metricMsg, err := packet.ConsumeMetricPacket(buffer[:origBufferLen])
+				// calc latency
+				if err == nil {
+					latency := time.Now().UnixMilli() - metricMsg.TimeStamp
+					metrics.MetricsMapLock.Lock()
+					metric := metrics.MetricsMap[metricMsg.Reciever.PublicKey().String()]
+					metric.LastRecordedLatency = latency
+					metric.ConnectionStatus = true
+					metric.TrafficRecieved += uint64(origBufferLen)
+					metrics.MetricsMap[metricMsg.Reciever.PublicKey().String()] = metric
+					metrics.MetricsMapLock.Unlock()
+				}
+
 			case packet.MessageInitiationType:
 
 				devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
