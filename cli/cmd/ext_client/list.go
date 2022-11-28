@@ -1,7 +1,13 @@
 package ext_client
 
 import (
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/gravitl/netmaker/cli/functions"
+	"github.com/gravitl/netmaker/models"
+	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -13,11 +19,18 @@ var extClientListCmd = &cobra.Command{
 	Short: "List External Clients",
 	Long:  `List External Clients`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var data []models.ExtClient
 		if networkName != "" {
-			functions.PrettyPrint(functions.GetNetworkExtClients(networkName))
+			data = *functions.GetNetworkExtClients(networkName)
 		} else {
-			functions.PrettyPrint(functions.GetAllExtClients())
+			data = *functions.GetAllExtClients()
 		}
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"ClientID", "Network", "IPv4 Address", "IPv6 Address", "Enabled", "Last Modified"})
+		for _, d := range data {
+			table.Append([]string{d.ClientID, d.Network, d.Address, d.Address6, strconv.FormatBool(d.Enabled), time.Unix(d.LastModified, 0).String()})
+		}
+		table.Render()
 	},
 }
 

@@ -2,8 +2,11 @@ package dns
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/gravitl/netmaker/cli/functions"
+	"github.com/gravitl/netmaker/models"
+	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -13,20 +16,27 @@ var dnsListCmd = &cobra.Command{
 	Short: "List DNS entries",
 	Long:  `List DNS entries`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var data []models.DNSEntry
 		if networkName != "" {
 			switch dnsType {
 			case "node":
-				functions.PrettyPrint(functions.GetNodeDNS(networkName))
+				data = *functions.GetNodeDNS(networkName)
 			case "custom":
-				functions.PrettyPrint(functions.GetCustomDNS(networkName))
+				data = *functions.GetCustomDNS(networkName)
 			case "network", "":
-				functions.PrettyPrint(functions.GetNetworkDNS(networkName))
+				data = *functions.GetNetworkDNS(networkName)
 			default:
 				fmt.Println("Invalid DNS type provided ", dnsType)
 			}
 		} else {
-			functions.PrettyPrint(functions.GetDNS())
+			data = *functions.GetDNS()
 		}
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"Name", "Network", "IPv4 Address", "IPv6 Address"})
+		for _, d := range data {
+			table.Append([]string{d.Name, d.Network, d.Address, d.Address6})
+		}
+		table.Render()
 	},
 }
 
