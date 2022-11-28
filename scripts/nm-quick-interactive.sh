@@ -257,10 +257,13 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 
 fi
 
-unset EMAIL
-while [ -z ${EMAIL} ]; do
-     read -p "Email Address (for LetsEncrypt): " EMAIL
-done
+unset GET_EMAIL
+unset RAND_EMAIL
+RAND_EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
+read -p "Email Address for Domain Registration (click 'enter' to use $RAND_EMAIL): " GET_EMAIL
+if [ -n "$GET_EMAIL" ]; then
+  EMAIL=$RAND_EMAIL
+fi
 
 wait_seconds 2
 
@@ -302,6 +305,7 @@ echo "Setting docker-compose and Caddyfile..."
 
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
+sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 

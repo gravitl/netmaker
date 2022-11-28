@@ -56,11 +56,13 @@ services:
     image: caddy:2.6.2
     container_name: caddy
     restart: unless-stopped
-    network_mode: host
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_conf:/config
+    ports:
+      - "80:80"
+      - "443:443"
   coredns:
     container_name: coredns
     image: coredns/coredns
