@@ -46,6 +46,7 @@ type NodeCheckin struct {
 	Ifaces    []Iface
 }
 
+// Iface struct for local interfaces of a node
 type Iface struct {
 	Name    string
 	Address net.IPNet
