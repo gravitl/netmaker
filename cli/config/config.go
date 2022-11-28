@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Context maintains configuration for interaction with Netmaker API
 type Context struct {
 	Endpoint  string `yaml:"endpoint"`
 	Username  string `yaml:"username,omitempty"`
@@ -56,18 +57,7 @@ func loadConfig() {
 	}
 }
 
-func GetCurrentContext() (ret Context) {
-	for _, ctx := range contextMap {
-		if ctx.Current {
-			ret = ctx
-			return
-		}
-	}
-	log.Fatalf("No current context set, do so via `netmaker context use <name>`")
-	return
-}
-
-func SaveContext() {
+func saveContext() {
 	bodyBytes, err := yaml.Marshal(&contextMap)
 	if err != nil {
 		log.Fatalf("Error marshalling into YAML %s", err)
@@ -84,6 +74,19 @@ func SaveContext() {
 	}
 }
 
+// GetCurrentContext - returns current set context
+func GetCurrentContext() (ret Context) {
+	for _, ctx := range contextMap {
+		if ctx.Current {
+			ret = ctx
+			return
+		}
+	}
+	log.Fatalf("No current context set, do so via `netmaker context use <name>`")
+	return
+}
+
+// SetCurrentContext - sets a given context as current context
 func SetCurrentContext(ctxName string) {
 	if _, ok := contextMap[ctxName]; !ok {
 		log.Fatalf("No such context %s", ctxName)
@@ -92,26 +95,29 @@ func SetCurrentContext(ctxName string) {
 		ctx.Current = key == ctxName
 		contextMap[key] = ctx
 	}
-	SaveContext()
+	saveContext()
 }
 
+// SetContext - updates an existing context or creates a new one
 func SetContext(ctxName string, ctx Context) {
 	if oldCtx, ok := contextMap[ctxName]; ok && oldCtx.Current {
 		ctx.Current = true
 	}
 	contextMap[ctxName] = ctx
-	SaveContext()
+	saveContext()
 }
 
+// DeleteContext - deletes a context
 func DeleteContext(ctxName string) {
 	if _, ok := contextMap[ctxName]; ok {
 		delete(contextMap, ctxName)
-		SaveContext()
+		saveContext()
 	} else {
 		log.Fatalf("No such context %s", ctxName)
 	}
 }
 
+// ListAll - lists all contexts
 func ListAll() {
 	for key, ctx := range contextMap {
 		fmt.Print("\n", key, " -> ", ctx.Endpoint)

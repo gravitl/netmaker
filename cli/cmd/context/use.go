@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// contextUseCmd sets the current context
 var contextUseCmd = &cobra.Command{
 	Use:   "use [NAME]",
 	Args:  cobra.ExactArgs(1),

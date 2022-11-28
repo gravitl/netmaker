@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// contextListCmd lists all contexts
 var contextListCmd = &cobra.Command{
 	Use:   "list",
 	Args:  cobra.NoArgs,

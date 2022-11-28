@@ -16,6 +16,7 @@ var rootCmd = &cobra.Command{
 	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
+// GetRoot returns the root subcommand
 func GetRoot() *cobra.Command {
 	return rootCmd
 }

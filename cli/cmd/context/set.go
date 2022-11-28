@@ -14,7 +14,6 @@ var (
 	masterKey string
 )
 
-// contextSetCmd creates/updates a context
 var contextSetCmd = &cobra.Command{
 	Use:   "set [NAME]",
 	Args:  cobra.ExactArgs(1),
@@ -41,6 +40,5 @@ func init() {
 	contextSetCmd.Flags().StringVar(&password, "password", "", "Password")
 	contextSetCmd.MarkFlagsRequiredTogether("username", "password")
 	contextSetCmd.Flags().StringVar(&masterKey, "master_key", "", "Master Key")
-
 	rootCmd.AddCommand(contextSetCmd)
 }

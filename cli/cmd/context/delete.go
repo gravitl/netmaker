@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// contextDeleteCmd deletes a contex
 var contextDeleteCmd = &cobra.Command{
 	Use:   "delete [NAME]",
 	Args:  cobra.ExactArgs(1),
