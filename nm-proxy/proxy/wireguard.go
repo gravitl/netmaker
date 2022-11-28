@@ -11,6 +11,7 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/models"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 	"github.com/gravitl/netmaker/nm-proxy/server"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
@@ -59,14 +60,46 @@ func (p *Proxy) ProxyToRemote() {
 				log.Println("ERRR READ: ", err)
 				continue
 			}
+
 			//go func(buf []byte, n int) {
 			ifaceConf := common.WgIFaceMap[p.Config.WgInterface.Name]
 			if peerI, ok := ifaceConf.PeerMap[p.Config.RemoteKey]; ok {
 				var srcPeerKeyHash, dstPeerKeyHash string
-				buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, peerI.Config.LocalKey, peerI.Config.Key)
-				if err != nil {
-					log.Println("failed to process pkt before sending: ", err)
+				if !p.Config.IsExtClient {
+					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, ifaceConf.Iface.PublicKey.String(), peerI.Key)
+					if err != nil {
+						log.Println("failed to process pkt before sending: ", err)
+					}
+				} else {
+					// unknown peer to proxy -> check if extclient and handle it
+					// consume handshake message for ext clients
+					// msgType := binary.LittleEndian.Uint32(buf[:n])
+					// switch msgType {
+					// case models.MessageInitiationType:
+
+					// 	devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
+					// 	if err == nil {
+					// 		err := packet.ConsumeHandshakeInitiationMsg(true, buf[:n], p.RemoteConn, devPubkey, devPriv)
+					// 		if err != nil {
+					// 			log.Println("---------> @@@ failed to decode HS: ", err)
+					// 		}
+					// 	} else {
+					// 		log.Println("failed to get device keys: ", err)
+					// 	}
+					// case models.MessageResponseType:
+					// 	devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
+					// 	if err == nil {
+					// 		err := packet.ConsumeMessageResponse(true, buf[:n], p.RemoteConn, devPubkey, devPriv)
+					// 		if err != nil {
+					// 			log.Println("---------> @@@ failed to decode HS: ", err)
+					// 		}
+					// 	} else {
+					// 		log.Println("failed to get device keys: ", err)
+					// 	}
+
+					// }
 				}
+
 				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
 					p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
 			} else {
@@ -114,7 +147,7 @@ func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	var err error
 
 	//log.Printf("----> WGIFACE: %+v\n", p.Config.WgInterface)
-	addr, err := GetFreeIp(common.DefaultCIDR, p.Config.WgInterface.Port)
+	addr, err := GetFreeIp(models.DefaultCIDR, p.Config.WgInterface.Port)
 	if err != nil {
 		log.Println("Failed to get freeIp: ", err)
 		return err
@@ -130,7 +163,7 @@ func (p *Proxy) Start(remoteConn *net.UDPAddr) error {
 	//log.Println("--------->#### Wg Listen Addr: ", wgListenAddr.String())
 	p.LocalConn, err = net.DialUDP("udp", &net.UDPAddr{
 		IP:   net.ParseIP(addr),
-		Port: common.NmProxyPort,
+		Port: models.NmProxyPort,
 	}, wgListenAddr)
 	if err != nil {
 		log.Printf("failed dialing to local Wireguard port,Err: %v\n", err)
@@ -171,7 +204,7 @@ func GetFreeIp(cidrAddr string, dstPort int) (string, error) {
 
 		conn, err := net.DialUDP("udp", &net.UDPAddr{
 			IP:   net.ParseIP(newAddrs.String()),
-			Port: common.NmProxyPort,
+			Port: models.NmProxyPort,
 		}, &net.UDPAddr{
 			IP:   net.ParseIP("127.0.0.1"),
 			Port: dstPort,

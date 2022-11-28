@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/models"
 	"gortc.io/stun"
 )
 
@@ -29,7 +29,7 @@ func GetHostInfo(stunHostAddr string) (info HostInfo) {
 	}
 	l := &net.UDPAddr{
 		IP:   net.ParseIP(""),
-		Port: common.NmProxyPort,
+		Port: models.NmProxyPort,
 	}
 	conn, err := net.DialUDP("udp", l, s)
 	if err != nil {

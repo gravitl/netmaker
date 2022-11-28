@@ -23,14 +23,14 @@ type Config struct {
 	RemoteKey   string
 	LocalKey    string
 	WgInterface *wg.WGIface
+	IsExtClient bool
 	PeerConf    *wgtypes.PeerConfig
 }
 
 // Proxy -  WireguardProxy proxies
 type Proxy struct {
-	Ctx    context.Context
-	Cancel context.CancelFunc
-
+	Ctx        context.Context
+	Cancel     context.CancelFunc
 	Config     Config
 	RemoteConn *net.UDPAddr
 	LocalConn  net.Conn
@@ -102,7 +102,7 @@ func getBoardCastAddress() ([]net.Addr, error) {
 	return nil, errors.New("couldn't obtain the broadcast addr")
 }
 
-// func StartSniffer(ctx context.Context, ifaceName, extClientAddr string, port int) {
+// func StartSniffer(ctx context.Context, ifaceName, ingGwAddr, extClientAddr string, port int) {
 // 	log.Println("Starting Packet Sniffer for iface: ", ifaceName)
 // 	var (
 // 		snapshotLen int32 = 1024
@@ -150,13 +150,17 @@ func getBoardCastAddress() ([]net.Addr, error) {
 // 					// Checksum, SrcIP, DstIP
 // 					fmt.Println("#########################")
 // 					fmt.Printf("From %s to %s\n", ip.SrcIP, ip.DstIP)
-// 					fmt.Println("Protocol: ", ip.Protocol)
-// 					if ip.DstIP.String() == extClientAddr || ip.SrcIP.String() == extClientAddr {
-// 						if ifacePeers, ok := common.PeerAddrMap[ifaceName]; ok {
-// 							if peerConf, ok := ifacePeers[ip.DstIP.String()]; ok {
-// 								log.Println("-----> Fowarding PKT From ExtClient: ", extClientAddr, " to: ", peerConf)
-// 								//server.NmProxyServer.Server.WriteTo(packet.Data(),  )
-// 							}
+// 					fmt.Println("Protocol: ", ip.Protocol.String())
+// 					if (ip.SrcIP.String() == extClientAddr && ip.DstIP.String() != ingGwAddr) ||
+// 						(ip.DstIP.String() == extClientAddr && ip.SrcIP.String() != ingGwAddr) {
+
+// 						log.Println("-----> Fowarding PKT From: ", ip.SrcIP, " to: ", ip.DstIP)
+// 						c, err := net.Dial("ip", ip.DstIP.String())
+// 						if err == nil {
+// 							c.Write(ip.Payload)
+// 							c.Close()
+// 						} else {
+// 							log.Println("------> Failed to forward packet from sniffer: ", err)
 
 // 						}
 // 					}

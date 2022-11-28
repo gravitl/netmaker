@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
 	"time"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
+	"github.com/gravitl/netmaker/nm-proxy/models"
 	"github.com/gravitl/netmaker/nm-proxy/packet"
 )
 
@@ -17,7 +19,7 @@ var (
 
 const (
 	defaultBodySize = 10000
-	defaultPort     = common.NmProxyPort
+	defaultPort     = models.NmProxyPort
 )
 
 type Config struct {
@@ -46,7 +48,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			for iface, ifaceConf := range common.WgIFaceMap {
 				log.Println("########------------>  CLEANING UP: ", iface)
 				for _, peerI := range ifaceConf.PeerMap {
-					peerI.Proxy.Cancel()
+					peerI.StopConn()
 				}
 			}
 			// close server connection
@@ -61,10 +63,11 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				continue
 			}
 			//go func(buffer []byte, source *net.UDPAddr, n int) {
-
+			origBufferLen := n
 			var srcPeerKeyHash, dstPeerKeyHash string
 			n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
 			//log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
+
 			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
 				// if common.IsIngressGateway {
 				// 	log.Println("----> fowarding PKT to EXT client...")
@@ -118,32 +121,52 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
 					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
 						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-							peerI.Proxy.LocalConn.RemoteAddr(), peerI.Proxy.LocalConn.LocalAddr(),
+							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
 							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-						_, err = peerI.Proxy.LocalConn.Write(buffer[:n])
+						_, err = peerI.LocalConn.Write(buffer[:n])
 						if err != nil {
 							log.Println("Failed to proxy to Wg local interface: ", err)
 							//continue
 						}
+						continue
 
 					}
 				}
 
 			}
-			// // forward to all interfaces
-			// for _, ifaceCfg := range common.WgIfaceKeyMap {
-			// 	log.Println("###--------> Forwarding Unknown PKT to ", ifaceCfg.Interface)
-			// 	conn, err := net.DialUDP("udp", nil, ifaceCfg.Endpoint)
-			// 	if err == nil {
-			// 		_, err := conn.Write(buffer[:n])
-			// 		if err != nil {
-			// 			log.Println("Failed to forward the unknown pkt to ifcace: ", ifaceCfg.Interface, err)
-			// 		}
-			// 		conn.Close()
-			// 	}
+			if peerInfo, ok := common.ExtSourceIpMap[source.String()]; ok {
+				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
+					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
+						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
+							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+						_, err = peerI.LocalConn.Write(buffer[:origBufferLen])
+						if err != nil {
+							log.Println("Failed to proxy to Wg local interface: ", err)
+							//continue
+						}
+						continue
 
-			// }
-			//}(buffer, source, n)
+					}
+				}
+			}
+			// unknown peer to proxy -> check if extclient and handle it
+			// consume handshake message for ext clients
+			msgType := binary.LittleEndian.Uint32(buffer[:4])
+			switch msgType {
+			case packet.MessageInitiationType:
+
+				devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
+				if err == nil {
+					err := packet.ConsumeHandshakeInitiationMsg(false, buffer[:origBufferLen], source, devPubkey, devPriv)
+					if err != nil {
+						log.Println("---------> @@@ failed to decode HS: ", err)
+					}
+				} else {
+					log.Println("failed to get device keys: ", err)
+				}
+			}
+
 		}
 
 	}
