@@ -260,8 +260,11 @@ unset GET_EMAIL
 unset RAND_EMAIL
 RAND_EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
 read -p "Email Address for Domain Registration (click 'enter' to use $RAND_EMAIL): " GET_EMAIL
-if [ -n "$GET_EMAIL" ]; then
-  EMAIL=$RAND_EMAIL
+if [ -z "$GET_EMAIL" ]; then
+  echo "using rand email"
+  EMAIL="$RAND_EMAIL"
+else
+  EMAIL="$GET_EMAIL"
 fi
 
 wait_seconds 2
@@ -292,11 +295,13 @@ wait_seconds 3
 echo "Pulling config files..."
 
 COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/compose/docker-compose.yml" 
+CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/Caddyfile"
 if [ "$INSTALL_TYPE" = "ee" ]; then
 	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/compose/docker-compose.ee.yml" 
+	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/Caddyfile-EE"
 fi
 
-wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/mosquitto.conf && wget -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/Caddyfile && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/wait.sh && chmod +x /root/wait.sh
+wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/wait.sh && chmod +x /root/wait.sh
 
 mkdir -p /etc/netmaker
 
