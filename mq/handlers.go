@@ -52,6 +52,7 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 		node.SetLastCheckIn()
 		node.Version = checkin.Version
 		node.Connected = checkin.Connected
+		node.Interfaces = checkin.Ifaces
 		if err := logic.UpdateNode(&node, &node); err != nil {
 			logger.Log(0, "error updating node", node.Name, node.ID, " on checkin", err.Error())
 			return

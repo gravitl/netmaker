@@ -46,7 +46,7 @@ require (
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
 )
 
-require github.com/matryer/is v1.4.0 // indirect
+require github.com/matryer/is v1.4.0
 
 require (
 	cloud.google.com/go/compute v1.7.0 // indirect
