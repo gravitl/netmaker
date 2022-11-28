@@ -294,14 +294,14 @@ wait_seconds 3
 
 echo "Pulling config files..."
 
-COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/compose/docker-compose.yml" 
-CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/Caddyfile"
+COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml" 
+CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile"
 if [ "$INSTALL_TYPE" = "ee" ]; then
-	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/compose/docker-compose.ee.yml" 
-	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/Caddyfile-EE"
+	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.ee.yml" 
+	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile-EE"
 fi
 
-wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/wait.sh && chmod +x /root/wait.sh
+wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh && chmod +x /root/wait.sh
 
 mkdir -p /etc/netmaker
 

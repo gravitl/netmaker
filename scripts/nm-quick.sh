@@ -127,15 +127,15 @@ sleep 5
 
 echo "setting mosquitto.conf..."
 
-wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/mosquitto.conf
-wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/Caddyfile
-wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/docker/wait.sh
+wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
+wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile
+wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
 chmod +x /root/wait.sh
 echo "setting docker-compose..."
 
 mkdir -p /etc/netmaker
 
-wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/test_v0.17.0_compose/compose/docker-compose.yml
+wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml

@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:testing-ee
+    image: gravitl/netmaker:0.17.0-ee
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -47,7 +47,7 @@ services:
       - "51821-51830:51821-51830/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:testing
+    image: gravitl/netmaker-ui:0.17.0
     depends_on:
       - netmaker
     links:
