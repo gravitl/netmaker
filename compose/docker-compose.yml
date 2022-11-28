@@ -88,7 +88,8 @@ services:
       - "1883:1883"
       - "8883:8883"
 volumes:
-  traefik_certs: {}
+  caddy_data: {}
+  caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_data: {}
