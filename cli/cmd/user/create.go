@@ -8,14 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	username string
-	password string
-	admin    bool
-	networks string
-	groups   string
-)
-
 var userCreateCmd = &cobra.Command{
 	Use:   "create",
 	Args:  cobra.NoArgs,
