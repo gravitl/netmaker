@@ -17,6 +17,11 @@ cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
 
+if [ $(id -u) -ne 0 ]; then
+   echo "This script must be run as root"
+   exit 1
+fi
+
 if [ -z "$1" ]; then
 	echo "-----------------------------------------------------"
 	echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
@@ -61,16 +66,11 @@ confirm() {(
       read -p 'Does everything look right? [y/n]: ' yn
       case $yn in
           [Yy]* ) override="true"; break;;
-          [Nn]* ) echo "exiting..."; exit;;
+          [Nn]* ) echo "exiting..."; exit 1;;
           * ) echo "Please answer yes or no.";;
       esac
   done
 )}
-
-if [ $(id -u) -ne 0 ]; then
-   echo "This script must be run as root"
-   exit 1
-fi
 
 echo "checking dependencies..."
 
@@ -124,6 +124,9 @@ if [ -z "${install_cmd}" ]; then
 fi
 
 set -- $dependencies
+
+${update_cmd}
+
 while [ -n "$1" ]; do
 	if [ "${OS}" = "FreeBSD" ]; then
 		is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
@@ -291,16 +294,16 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.ee.yml" 
 fi
 
-wget -O docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh && chmod +x wait.sh
+wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh && chmod +x /root/wait.sh
 
 mkdir -p /etc/netmaker
 
-echo "Setting docker-compose..."
+echo "Setting docker-compose and Caddyfile..."
 
-sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
+sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
-sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/docker-compose.yml
+sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 
 if [ "$INSTALL_TYPE" = "ee" ]; then
 	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml 
@@ -314,13 +317,13 @@ sleep 2
 
 test_connection() {
 
-echo "Testing Traefik setup (please be patient, this may take 1-2 minutes)"
+echo "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
 for i in 1 2 3 4 5 6
 do
 curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
 
 if [[ "$i" == 6 ]]; then
-  echo "    Traefik is having an issue setting up certificates, please investigate (docker logs traefik)"
+  echo "    Caddy is having an issue setting up certificates, please investigate (docker logs caddy)"
   echo "    Exiting..."
   exit 1
 elif [[ "$curlresponse" == *"failed to verify the legitimacy of the server"* ]]; then
