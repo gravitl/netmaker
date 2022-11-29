@@ -128,6 +128,7 @@ sleep 5
 echo "setting mosquitto.conf..."
 
 wget -q -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
+wget -q -O /root/Caddyfile https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile
 wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
 chmod +x /root/wait.sh
 echo "setting docker-compose..."
@@ -136,10 +137,11 @@ mkdir -p /etc/netmaker
 
 wget -q -O /root/docker-compose.yml https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
+sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
 sed -i "s/COREDNS_IP/$COREDNS_IP/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
-sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/docker-compose.yml
+sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_ADMIN_PASSWORD/g" /root/docker-compose.yml
 echo "starting containers..."
 
