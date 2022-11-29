@@ -13,7 +13,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.18
+          go-version: 1.19
       - name: Build
         run: |
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build main.go
@@ -31,9 +31,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.18
+          go-version: 1.19
       - name: Build
         run: |
+         sudo apt-get update
          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=gui main.go
   mac-gui:
@@ -44,7 +45,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.18
+          go-version: 1.19
       - name: Build mac
         run: |
           env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -tags=gui main.go
@@ -56,7 +57,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.18
+          go-version: 1.19
       - name: Mysys2 setup
         uses: msys2/setup-msys2@v2
         with:
@@ -76,13 +77,14 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.18
+          go-version: 1.19
       - name: run tests
         run: |
-            sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev 
-            go test -p 1 ./... -v
-            go install honnef.co/go/tools/cmd/staticcheck@latest
-            { ~/go/bin/staticcheck  -tags=ee ./... ; }
+          apt update
+          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
+          go test -p 1 ./... -v
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          { ~/go/bin/staticcheck  -tags=ee ./... ; }
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"
