@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/keys"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
+	"github.com/gravitl/netmaker/cli/cmd/network_user"
 	"github.com/gravitl/netmaker/cli/cmd/node"
 	"github.com/gravitl/netmaker/cli/cmd/server"
 	"github.com/gravitl/netmaker/cli/cmd/user"
@@ -27,6 +28,7 @@ var rootCmd = &cobra.Command{
 	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
+// GetRoot returns the root of all subcommands
 func GetRoot() *cobra.Command {
 	return rootCmd
 }
@@ -63,4 +65,5 @@ func init() {
 	rootCmd.AddCommand(user.GetRoot())
 	rootCmd.AddCommand(usergroup.GetRoot())
 	rootCmd.AddCommand(metrics.GetRoot())
+	rootCmd.AddCommand(network_user.GetRoot())
 }
