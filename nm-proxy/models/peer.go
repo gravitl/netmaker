@@ -41,6 +41,7 @@ type ExtClientPeer struct {
 }
 
 type WgIfaceConf struct {
-	Iface   *wgtypes.Device
-	PeerMap map[string]*ConnConfig
+	Iface        *wgtypes.Device
+	IfaceKeyHash string
+	PeerMap      map[string]*ConnConfig
 }

@@ -46,12 +46,12 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 		case <-ctx.Done():
 			log.Println("--------->### Shutting down Proxy.....")
 			// clean up proxy connections
-			for iface, ifaceConf := range common.WgIFaceMap {
-				log.Println("########------------>  CLEANING UP: ", iface)
-				for _, peerI := range ifaceConf.PeerMap {
-					peerI.StopConn()
-				}
+
+			log.Println("########------------>  CLEANING UP Interface ")
+			for _, peerI := range common.WgIfaceMap.PeerMap {
+				peerI.StopConn()
 			}
+
 			// close server connection
 			NmProxyServer.Server.Close()
 			return
@@ -65,62 +65,21 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			}
 			//go func(buffer []byte, source *net.UDPAddr, n int) {
 			origBufferLen := n
+			fromProxy := true
 			var srcPeerKeyHash, dstPeerKeyHash string
-			n, srcPeerKeyHash, dstPeerKeyHash = packet.ExtractInfo(buffer, n)
-			//log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
-
-			if _, ok := common.WgIfaceKeyMap[dstPeerKeyHash]; !ok {
-				// if common.IsIngressGateway {
-				// 	log.Println("----> fowarding PKT to EXT client...")
-				// 	if val, ok := common.PeerKeyHashMap[dstPeerKeyHash]; ok && val.IsAttachedExtClient {
-
-				// 		log.Printf("-------->Forwarding the pkt to extClient  [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
-				// 			source.String(), srcPeerKeyHash, val.Endpoint.String(), dstPeerKeyHash)
-				// 		_, err = NmProxyServer.Server.WriteToUDP(buffer[:n], val.Endpoint)
-				// 		if err != nil {
-				// 			log.Println("Failed to send to remote: ", err)
-				// 		}
-				// 		continue
-
-				// 	}
-				// }
-
-				if common.IsRelay {
-
-					log.Println("----------> Relaying######")
-					// check for routing map and forward to right proxy
-					if remoteMap, ok := common.RelayPeerMap[srcPeerKeyHash]; ok {
-						if conf, ok := remoteMap[dstPeerKeyHash]; ok {
-							log.Printf("--------> Relaying PKT [ SourceIP: %s:%d ], [ SourceKeyHash: %s ], [ DstIP: %s:%d ], [ DstHashKey: %s ] \n",
-								source.IP.String(), source.Port, srcPeerKeyHash, conf.Endpoint.String(), conf.Endpoint.Port, dstPeerKeyHash)
-							_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
-							if err != nil {
-								log.Println("Failed to send to remote: ", err)
-							}
-							//continue
-						}
-					} else {
-						if remoteMap, ok := common.RelayPeerMap[dstPeerKeyHash]; ok {
-							if conf, ok := remoteMap[dstPeerKeyHash]; ok {
-								log.Printf("--------> Relaying BACK TO RELAYED NODE PKT [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
-									source.String(), srcPeerKeyHash, conf.Endpoint.String(), dstPeerKeyHash)
-								_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+32], conf.Endpoint)
-								if err != nil {
-									log.Println("Failed to send to remote: ", err)
-								}
-								//continue
-							}
-						}
-
-					}
-
-				}
-
+			n, srcPeerKeyHash, dstPeerKeyHash, err = packet.ExtractInfo(buffer, n)
+			if err != nil {
+				log.Println("proxy message not found: ", err)
+				fromProxy = false
 			}
+			if fromProxy {
+				proxyIncomingPacket(buffer[:], source, n, srcPeerKeyHash, dstPeerKeyHash)
+				continue
 
-			if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
-				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
-					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
+			} else {
+				// unknown peer to proxy -> check if extclient and handle it
+				if peerInfo, ok := common.ExtSourceIpMap[source.String()]; ok {
+					if peerI, ok := common.WgIfaceMap.PeerMap[peerInfo.PeerKey]; ok {
 						metrics.MetricsMapLock.Lock()
 						metric := metrics.MetricsMap[peerInfo.PeerKey]
 						metric.TrafficRecieved += uint64(n)
@@ -138,65 +97,113 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 						continue
 
 					}
-				}
 
-			}
-			if peerInfo, ok := common.ExtSourceIpMap[source.String()]; ok {
-				if ifaceConf, ok := common.WgIFaceMap[peerInfo.Interface]; ok {
-					if peerI, ok := ifaceConf.PeerMap[peerInfo.PeerKey]; ok {
-						metrics.MetricsMapLock.Lock()
-						metric := metrics.MetricsMap[peerInfo.PeerKey]
-						metric.TrafficRecieved += uint64(n)
-						metric.ConnectionStatus = true
-						metrics.MetricsMap[peerInfo.PeerKey] = metric
-						metrics.MetricsMapLock.Unlock()
-						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
-							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-						_, err = peerI.LocalConn.Write(buffer[:origBufferLen])
-						if err != nil {
-							log.Println("Failed to proxy to Wg local interface: ", err)
-							//continue
-						}
-						continue
-
-					}
 				}
 			}
-			// unknown peer to proxy -> check if extclient and handle it
-			// consume handshake message for ext clients
+
 			msgType := binary.LittleEndian.Uint32(buffer[:4])
 			switch msgType {
 			case packet.MessageMetricsType:
 				metricMsg, err := packet.ConsumeMetricPacket(buffer[:origBufferLen])
 				// calc latency
 				if err == nil {
-					latency := time.Now().UnixMilli() - metricMsg.TimeStamp
-					metrics.MetricsMapLock.Lock()
-					metric := metrics.MetricsMap[metricMsg.Reciever.PublicKey().String()]
-					metric.LastRecordedLatency = latency
-					metric.ConnectionStatus = true
-					metric.TrafficRecieved += uint64(origBufferLen)
-					metrics.MetricsMap[metricMsg.Reciever.PublicKey().String()] = metric
-					metrics.MetricsMapLock.Unlock()
+					log.Printf("------->$$$$$ Recieved Metric Pkt: %+v, FROM:%s\n", metricMsg, source.String())
+					if metricMsg.Sender == common.WgIfaceMap.Iface.PublicKey {
+						latency := time.Now().UnixMilli() - metricMsg.TimeStamp
+						log.Println("----------------> LAtency$$$$$$: ", latency)
+						metrics.MetricsMapLock.Lock()
+						metric := metrics.MetricsMap[metricMsg.Reciever.String()]
+						metric.LastRecordedLatency = uint64(latency)
+						metric.ConnectionStatus = true
+						metric.TrafficRecieved += uint64(origBufferLen)
+						metrics.MetricsMap[metricMsg.Reciever.String()] = metric
+						metrics.MetricsMapLock.Unlock()
+					} else if metricMsg.Reciever == common.WgIfaceMap.Iface.PublicKey {
+						// proxy it back to the sender
+						log.Println("------------> $$$ SENDING back the metric pkt to the source: ", source.String())
+						_, err = NmProxyServer.Server.WriteToUDP(buffer[:origBufferLen], source)
+						if err != nil {
+							log.Println("Failed to send metric packet to remote: ", err)
+						}
+						metrics.MetricsMapLock.Lock()
+						metric := metrics.MetricsMap[metricMsg.Sender.String()]
+						metric.ConnectionStatus = true
+						metric.TrafficRecieved += uint64(origBufferLen)
+						metrics.MetricsMap[metricMsg.Sender.String()] = metric
+						metrics.MetricsMapLock.Unlock()
+					}
 				}
-
+			// consume handshake message for ext clients
 			case packet.MessageInitiationType:
 
-				devPriv, devPubkey, err := packet.GetDeviceKeys(common.InterfaceName)
-				if err == nil {
-					err := packet.ConsumeHandshakeInitiationMsg(false, buffer[:origBufferLen], source, devPubkey, devPriv)
-					if err != nil {
-						log.Println("---------> @@@ failed to decode HS: ", err)
-					}
-				} else {
-					log.Println("failed to get device keys: ", err)
+				err := packet.ConsumeHandshakeInitiationMsg(false, buffer[:origBufferLen], source,
+					packet.NoisePublicKey(common.WgIfaceMap.Iface.PublicKey), packet.NoisePrivateKey(common.WgIfaceMap.Iface.PrivateKey))
+				if err != nil {
+					log.Println("---------> @@@ failed to decode HS: ", err)
 				}
+
 			}
 
 		}
 
 	}
+}
+
+func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHash, dstPeerKeyHash string) {
+	var err error
+	//log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
+
+	if common.WgIfaceMap.IfaceKeyHash != dstPeerKeyHash && common.IsRelay {
+
+		log.Println("----------> Relaying######")
+		// check for routing map and forward to right proxy
+		if remoteMap, ok := common.RelayPeerMap[srcPeerKeyHash]; ok {
+			if conf, ok := remoteMap[dstPeerKeyHash]; ok {
+				log.Printf("--------> Relaying PKT [ SourceIP: %s:%d ], [ SourceKeyHash: %s ], [ DstIP: %s:%d ], [ DstHashKey: %s ] \n",
+					source.IP.String(), source.Port, srcPeerKeyHash, conf.Endpoint.String(), conf.Endpoint.Port, dstPeerKeyHash)
+				_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+packet.MessageProxySize], conf.Endpoint)
+				if err != nil {
+					log.Println("Failed to send to remote: ", err)
+				}
+				return
+			}
+		} else {
+			if remoteMap, ok := common.RelayPeerMap[dstPeerKeyHash]; ok {
+				if conf, ok := remoteMap[dstPeerKeyHash]; ok {
+					log.Printf("--------> Relaying BACK TO RELAYED NODE PKT [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
+						source.String(), srcPeerKeyHash, conf.Endpoint.String(), dstPeerKeyHash)
+					_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+packet.MessageProxySize], conf.Endpoint)
+					if err != nil {
+						log.Println("Failed to send to remote: ", err)
+					}
+					return
+				}
+			}
+
+		}
+	}
+
+	if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
+		if peerI, ok := common.WgIfaceMap.PeerMap[peerInfo.PeerKey]; ok {
+			metrics.MetricsMapLock.Lock()
+			metric := metrics.MetricsMap[peerInfo.PeerKey]
+			metric.TrafficRecieved += uint64(n)
+			metric.ConnectionStatus = true
+			metrics.MetricsMap[peerInfo.PeerKey] = metric
+			metrics.MetricsMapLock.Unlock()
+			log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+				peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
+				fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+			_, err = peerI.LocalConn.Write(buffer[:n])
+			if err != nil {
+				log.Println("Failed to proxy to Wg local interface: ", err)
+				//continue
+			}
+			return
+		}
+
+	}
+
 }
 
 // Create - creats a proxy listener

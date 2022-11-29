@@ -66,11 +66,13 @@ func ConsumeHandshakeInitiationMsg(initiator bool, buf []byte, src *net.UDPAddr,
 
 func CreateMetricPacket(id uint32, sender, reciever wgtypes.Key) ([]byte, error) {
 	msg := MetricMessage{
+		Type:      MessageMetricsType,
 		ID:        id,
 		Sender:    sender,
 		Reciever:  reciever,
 		TimeStamp: time.Now().UnixMilli(),
 	}
+	log.Printf("----------> $$$$$$ CREATED PACKET: %+v\n", msg)
 	var buff [MessageMetricSize]byte
 	writer := bytes.NewBuffer(buff[:0])
 	err := binary.Write(writer, binary.LittleEndian, msg)
@@ -101,26 +103,45 @@ func ProcessPacketBeforeSending(buf []byte, n int, srckey, dstKey string) ([]byt
 
 	srcKeymd5 := md5.Sum([]byte(srckey))
 	dstKeymd5 := md5.Sum([]byte(dstKey))
-	if n > len(buf)-len(srcKeymd5)-len(dstKeymd5) {
-		buf = append(buf, srcKeymd5[:]...)
-		buf = append(buf, dstKeymd5[:]...)
-	} else {
-		copy(buf[n:n+len(srcKeymd5)], srcKeymd5[:])
-		copy(buf[n+len(srcKeymd5):n+len(srcKeymd5)+len(dstKeymd5)], dstKeymd5[:])
+	m := ProxyMessage{
+		Type:     MessageProxyType,
+		Sender:   srcKeymd5,
+		Reciever: dstKeymd5,
 	}
-	n += len(srcKeymd5)
-	n += len(dstKeymd5)
+	var msgBuffer [MessageProxySize]byte
+	writer := bytes.NewBuffer(msgBuffer[:0])
+	err := binary.Write(writer, binary.LittleEndian, m)
+	if err != nil {
+		log.Println(err)
+	}
+	if n > len(buf)-MessageProxySize {
+		buf = append(buf, msgBuffer[:]...)
+
+	} else {
+		copy(buf[n:n+MessageProxySize], msgBuffer[:])
+	}
+	n += MessageProxySize
 
 	return buf, n, fmt.Sprintf("%x", srcKeymd5), fmt.Sprintf("%x", dstKeymd5)
 }
 
-func ExtractInfo(buffer []byte, n int) (int, string, string) {
+func ExtractInfo(buffer []byte, n int) (int, string, string, error) {
 	data := buffer[:n]
-	if len(data) < 32 {
-		return 0, "", ""
+	if len(data) < 36 {
+		return 0, "", "", errors.New("proxy message not found")
 	}
-	srcKeyHash := data[n-32 : n-16]
-	dstKeyHash := data[n-16:]
-	n -= 32
-	return n, fmt.Sprintf("%x", srcKeyHash), fmt.Sprintf("%x", dstKeyHash)
+	var msg ProxyMessage
+	var err error
+	reader := bytes.NewReader(buffer[n-MessageProxySize:])
+	err = binary.Read(reader, binary.LittleEndian, &msg)
+	if err != nil {
+		log.Println("Failed to decode proxy message")
+		return n, "", "", err
+	}
+
+	if msg.Type != MessageProxyType {
+		return n, "", "", errors.New("not a proxy message")
+	}
+	n -= MessageProxySize
+	return n, fmt.Sprintf("%x", msg.Sender), fmt.Sprintf("%x", msg.Reciever), nil
 }

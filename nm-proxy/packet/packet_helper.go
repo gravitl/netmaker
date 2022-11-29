@@ -36,3 +36,9 @@ type MetricMessage struct {
 	Reciever  wgtypes.Key
 	TimeStamp int64
 }
+
+type ProxyMessage struct {
+	Type     uint32
+	Sender   [16]byte
+	Reciever [16]byte
+}

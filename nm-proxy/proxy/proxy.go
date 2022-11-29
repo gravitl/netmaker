@@ -20,7 +20,7 @@ type Config struct {
 	Port        int
 	BodySize    int
 	Addr        string
-	RemoteKey   string
+	RemoteKey   wgtypes.Key
 	LocalKey    wgtypes.Key
 	WgInterface *wg.WGIface
 	IsExtClient bool

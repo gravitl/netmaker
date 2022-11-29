@@ -13,13 +13,18 @@ import (
 const (
 	MessageInitiationType = 1
 	MessageMetricsType    = 5
-	NoisePublicKeySize    = 32
-	NoisePrivateKeySize   = 32
-	MessageMetricSize     = 148
-	NoiseConstruction     = "Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s"
-	WGIdentifier          = "WireGuard v1 zx2c4 Jason@zx2c4.com"
-	WGLabelMAC1           = "mac1----"
-	WGLabelCookie         = "cookie--"
+	MessageProxyType      = 6
+
+	NoisePublicKeySize  = 32
+	NoisePrivateKeySize = 32
+
+	MessageMetricSize = 148
+	MessageProxySize  = 36
+
+	NoiseConstruction = "Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s"
+	WGIdentifier      = "WireGuard v1 zx2c4 Jason@zx2c4.com"
+	WGLabelMAC1       = "mac1----"
+	WGLabelCookie     = "cookie--"
 )
 
 func mixKey(dst, c *[blake2s.Size]byte, data []byte) {

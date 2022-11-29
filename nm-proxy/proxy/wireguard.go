@@ -28,13 +28,16 @@ func NewProxy(config Config) *Proxy {
 
 // proxyToRemote proxies everything from Wireguard to the RemoteKey peer
 func (p *Proxy) ProxyToRemote() {
-
+	ticker := time.NewTicker(time.Minute)
+	buf := make([]byte, 65000)
 	go func() {
 		<-p.Ctx.Done()
 		log.Println("Closing connection for: ", p.LocalConn.LocalAddr().String())
+		ticker.Stop()
+		buf = nil
 		p.LocalConn.Close()
 	}()
-	buf := make([]byte, 65000)
+
 	for {
 		select {
 		case <-p.Ctx.Done():
@@ -56,14 +59,15 @@ func (p *Proxy) ProxyToRemote() {
 			}
 
 			return
-		case <-time.After(time.Minute):
+		case <-ticker.C:
 			metrics.MetricsMapLock.Lock()
-			metric := metrics.MetricsMap[p.Config.PeerConf.PublicKey.String()]
+			metric := metrics.MetricsMap[p.Config.RemoteKey.String()]
 			metric.ConnectionStatus = false
-			metrics.MetricsMap[p.Config.PeerConf.PublicKey.String()] = metric
+			metrics.MetricsMap[p.Config.RemoteKey.String()] = metric
 			metrics.MetricsMapLock.Unlock()
-			pkt, err := packet.CreateMetricPacket(uuid.New().ID(), p.Config.LocalKey, p.Config.PeerConf.PublicKey)
+			pkt, err := packet.CreateMetricPacket(uuid.New().ID(), p.Config.LocalKey, p.Config.RemoteKey)
 			if err == nil {
+				log.Printf("-----------> ##### $$$$$ SENDING METRIC PACKET TO: %s\n", p.RemoteConn.String())
 				_, err = server.NmProxyServer.Server.WriteToUDP(pkt, p.RemoteConn)
 				if err != nil {
 					log.Println("Failed to send to metric pkt: ", err)
@@ -78,18 +82,17 @@ func (p *Proxy) ProxyToRemote() {
 				continue
 			}
 
-			ifaceConf := common.WgIFaceMap[p.Config.WgInterface.Name]
-			if peerI, ok := ifaceConf.PeerMap[p.Config.RemoteKey]; ok {
+			if _, ok := common.WgIfaceMap.PeerMap[p.Config.RemoteKey.String()]; ok {
 
 				metrics.MetricsMapLock.Lock()
-				metric := metrics.MetricsMap[peerI.Key.String()]
+				metric := metrics.MetricsMap[p.Config.RemoteKey.String()]
 				metric.TrafficSent += uint64(n)
-				metrics.MetricsMap[peerI.Key.String()] = metric
+				metrics.MetricsMap[p.Config.RemoteKey.String()] = metric
 				metrics.MetricsMapLock.Unlock()
 
 				var srcPeerKeyHash, dstPeerKeyHash string
 				if !p.Config.IsExtClient {
-					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, ifaceConf.Iface.PublicKey.String(), peerI.Key.String())
+					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, common.WgIfaceMap.Iface.PublicKey.String(), p.Config.RemoteKey.String())
 					if err != nil {
 						log.Println("failed to process pkt before sending: ", err)
 					}
@@ -125,7 +128,7 @@ func (p *Proxy) updateEndpoint() error {
 	}
 	// add local proxy connection as a Wireguard peer
 	log.Printf("---> ####### Updating Peer:  %+v\n", p.Config.PeerConf)
-	err = p.Config.WgInterface.UpdatePeer(p.Config.RemoteKey, p.Config.PeerConf.AllowedIPs, wg.DefaultWgKeepAlive,
+	err = p.Config.WgInterface.UpdatePeer(p.Config.RemoteKey.String(), p.Config.PeerConf.AllowedIPs, wg.DefaultWgKeepAlive,
 		udpAddr, p.Config.PeerConf.PresharedKey)
 	if err != nil {
 		return err

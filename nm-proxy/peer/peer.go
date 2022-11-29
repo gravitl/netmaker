@@ -19,7 +19,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 	c := proxy.Config{
 		Port:        peer.Endpoint.Port,
 		LocalKey:    wgInterface.Device.PublicKey,
-		RemoteKey:   peer.PublicKey.String(),
+		RemoteKey:   peer.PublicKey,
 		WgInterface: wgInterface,
 		IsExtClient: isExtClient,
 		PeerConf:    peer,
@@ -66,17 +66,7 @@ func AddNewPeer(wgInterface *wg.WGIface, peer *wgtypes.PeerConfig, peerAddr stri
 		LocalConn:           p.LocalConn,
 	}
 
-	if _, ok := common.WgIFaceMap[wgInterface.Name]; ok {
-		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &connConf
-	} else {
-		ifaceConf := models.WgIfaceConf{
-			Iface:   wgInterface.Device,
-			PeerMap: make(map[string]*models.ConnConfig),
-		}
-
-		common.WgIFaceMap[wgInterface.Name] = ifaceConf
-		common.WgIFaceMap[wgInterface.Name].PeerMap[peer.PublicKey.String()] = &connConf
-	}
+	common.WgIfaceMap.PeerMap[peer.PublicKey.String()] = &connConf
 
 	return nil
 }
