@@ -10,16 +10,26 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-const (
-	MessageInitiationType = 1
-	MessageMetricsType    = 5
-	MessageProxyType      = 6
+type MessageType uint32
+type ProxyActionType uint32
 
+const (
+	MessageInitiationType  MessageType = 1
+	MessageMetricsType     MessageType = 5
+	MessageProxyType       MessageType = 6
+	MessageProxyUpdateType MessageType = 7
+)
+
+const (
+	UpdateListenPort ProxyActionType = 1
+)
+const (
 	NoisePublicKeySize  = 32
 	NoisePrivateKeySize = 32
 
-	MessageMetricSize = 148
-	MessageProxySize  = 36
+	MessageMetricSize      = 148
+	MessageProxyUpdateSize = 148
+	MessageProxySize       = 36
 
 	NoiseConstruction = "Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s"
 	WGIdentifier      = "WireGuard v1 zx2c4 Jason@zx2c4.com"

@@ -64,6 +64,18 @@ func ConsumeHandshakeInitiationMsg(initiator bool, buf []byte, src *net.UDPAddr,
 	return nil
 }
 
+func CreateProxyUpdatePacket(msg *ProxyUpdateMessage) ([]byte, error) {
+	var buff [MessageProxyUpdateSize]byte
+	writer := bytes.NewBuffer(buff[:0])
+	err := binary.Write(writer, binary.LittleEndian, msg)
+	if err != nil {
+		return nil, err
+	}
+	packet := writer.Bytes()
+	return packet, nil
+
+}
+
 func CreateMetricPacket(id uint32, sender, reciever wgtypes.Key) ([]byte, error) {
 	msg := MetricMessage{
 		Type:      MessageMetricsType,

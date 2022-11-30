@@ -20,7 +20,7 @@ func init() {
 }
 
 type MessageInitiation struct {
-	Type      uint32
+	Type      MessageType
 	Sender    uint32
 	Ephemeral NoisePublicKey
 	Static    [NoisePublicKeySize + poly1305.TagSize]byte
@@ -30,7 +30,7 @@ type MessageInitiation struct {
 }
 
 type MetricMessage struct {
-	Type      uint32
+	Type      MessageType
 	ID        uint32
 	Sender    wgtypes.Key
 	Reciever  wgtypes.Key
@@ -38,7 +38,13 @@ type MetricMessage struct {
 }
 
 type ProxyMessage struct {
-	Type     uint32
+	Type     MessageType
 	Sender   [16]byte
 	Reciever [16]byte
+}
+
+type ProxyUpdateMessage struct {
+	Type       MessageType
+	Action     ProxyActionType
+	ListenPort uint32
 }

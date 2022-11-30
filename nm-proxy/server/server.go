@@ -102,7 +102,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			}
 
 			msgType := binary.LittleEndian.Uint32(buffer[:4])
-			switch msgType {
+			switch packet.MessageType(msgType) {
 			case packet.MessageMetricsType:
 				metricMsg, err := packet.ConsumeMetricPacket(buffer[:origBufferLen])
 				// calc latency

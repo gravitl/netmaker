@@ -14,8 +14,10 @@ var IsIngressGateway bool
 var IsRelayed bool
 var IsServer bool
 var InterfaceName string
+var BehindNAT bool
 
 var WgIfaceMap = models.WgIfaceConf{
+	Iface:   nil,
 	PeerMap: make(map[string]*models.ConnConfig),
 }
 
