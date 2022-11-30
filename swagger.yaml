@@ -1272,24 +1272,6 @@ paths:
             summary: Update keys for a network.
             tags:
                 - networks
-    /api/networks/{networkname}/nodelimit:
-        put:
-            operationId: updateNetworkNodeLimit
-            parameters:
-                - description: Network Name
-                  in: path
-                  name: networkname
-                  required: true
-                  type: string
-                  x-go-name: NetworkName
-            responses:
-                "200":
-                    $ref: '#/responses/networkBodyResponse'
-            schemes:
-                - https
-            summary: Update a network's node limit.
-            tags:
-                - networks
     /api/nodes:
         get:
             operationId: getAllNodes
@@ -1600,17 +1582,6 @@ paths:
             schemes:
                 - https
             summary: Authenticate to make further API calls related to a network.
-            tags:
-                - nodes
-    /api/nodes/adm/{network}/lastmodified:
-        get:
-            operationId: getLastModified
-            responses:
-                "200":
-                    $ref: '#/responses/nodeLastModifiedResponse'
-            schemes:
-                - https
-            summary: Get the time that a network of nodes was last modified.
             tags:
                 - nodes
     /api/oauth/login:
