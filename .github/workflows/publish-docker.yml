@@ -56,7 +56,7 @@ jobs:
         name: Set tag
         run: |
             if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-              docker/build-push-action@v3.tag }}
+               TAG=${{ github.event.inputs.tag }}
             elif [[ "${{ github.ref_name }}" == 'master' ]]; then
               TAG="latest"
             else
