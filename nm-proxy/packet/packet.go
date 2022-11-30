@@ -76,6 +76,21 @@ func CreateProxyUpdatePacket(msg *ProxyUpdateMessage) ([]byte, error) {
 
 }
 
+func ConsumeProxyUpdateMsg(buf []byte) (*ProxyUpdateMessage, error) {
+	var msg ProxyUpdateMessage
+	reader := bytes.NewReader(buf[:])
+	err := binary.Read(reader, binary.LittleEndian, &msg)
+	if err != nil {
+		log.Println("Failed to decode proxy update message")
+		return nil, err
+	}
+
+	if msg.Type != MessageProxyUpdateType {
+		return nil, errors.New("not proxy update message")
+	}
+	return &msg, nil
+}
+
 func CreateMetricPacket(id uint32, sender, reciever wgtypes.Key) ([]byte, error) {
 	msg := MetricMessage{
 		Type:      MessageMetricsType,

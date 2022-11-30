@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"net"
 	"time"
@@ -65,14 +64,14 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			}
 			//go func(buffer []byte, source *net.UDPAddr, n int) {
 			origBufferLen := n
-			fromProxy := true
+			proxyTransportMsg := true
 			var srcPeerKeyHash, dstPeerKeyHash string
 			n, srcPeerKeyHash, dstPeerKeyHash, err = packet.ExtractInfo(buffer, n)
 			if err != nil {
-				log.Println("proxy message not found: ", err)
-				fromProxy = false
+				log.Println("proxy transport message not found: ", err)
+				proxyTransportMsg = false
 			}
-			if fromProxy {
+			if proxyTransportMsg {
 				proxyIncomingPacket(buffer[:], source, n, srcPeerKeyHash, dstPeerKeyHash)
 				continue
 
@@ -86,14 +85,15 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 						metric.ConnectionStatus = true
 						metrics.MetricsMap[peerInfo.PeerKey] = metric
 						metrics.MetricsMapLock.Unlock()
-						log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-							peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
-							fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-						_, err = peerI.LocalConn.Write(buffer[:n])
-						if err != nil {
-							log.Println("Failed to proxy to Wg local interface: ", err)
-							//continue
-						}
+						peerI.RecieverChan <- buffer[:n]
+						// log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+						// 	peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
+						// 	fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+						// _, err = peerI.LocalConn.Write(buffer[:n])
+						// if err != nil {
+						// 	log.Println("Failed to proxy to Wg local interface: ", err)
+						// 	//continue
+						// }
 						continue
 
 					}
@@ -131,6 +131,23 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 						metric.TrafficRecieved += uint64(origBufferLen)
 						metrics.MetricsMap[metricMsg.Sender.String()] = metric
 						metrics.MetricsMapLock.Unlock()
+					}
+				}
+			case packet.MessageProxyUpdateType:
+				msg, err := packet.ConsumeProxyUpdateMsg(buffer[:origBufferLen])
+				if err == nil {
+					switch msg.Action {
+					case packet.UpdateListenPort:
+						if peer, ok := common.WgIfaceMap.PeerMap[msg.Sender.String()]; ok {
+							if peer.PeerListenPort != msg.ListenPort {
+								// update peer conn
+								peer.PeerListenPort = msg.ListenPort
+								common.WgIfaceMap.PeerMap[msg.Sender.String()] = peer
+								log.Println("--------> Resetting Proxy Conn For Peer ", msg.Sender.String())
+								peer.ResetConn()
+							}
+
+						}
 					}
 				}
 			// consume handshake message for ext clients
@@ -191,14 +208,15 @@ func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHa
 			metric.ConnectionStatus = true
 			metrics.MetricsMap[peerInfo.PeerKey] = metric
 			metrics.MetricsMapLock.Unlock()
-			log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-				peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
-				fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-			_, err = peerI.LocalConn.Write(buffer[:n])
-			if err != nil {
-				log.Println("Failed to proxy to Wg local interface: ", err)
-				//continue
-			}
+			peerI.RecieverChan <- buffer[:n]
+			// log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+			// 	peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
+			// 	fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+			// _, err = peerI.LocalConn.Write(buffer[:n])
+			// if err != nil {
+			// 	log.Println("Failed to proxy to Wg local interface: ", err)
+			// 	//continue
+			// }
 			return
 		}
 

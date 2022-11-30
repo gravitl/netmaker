@@ -22,9 +22,12 @@ type ConnConfig struct {
 	RelayedEndpoint     *net.UDPAddr
 	IsAttachedExtClient bool
 	PeerConf            *wgtypes.PeerConfig
-	StopConn            context.CancelFunc
-	RemoteConn          *net.UDPAddr
-	LocalConn           net.Conn
+	StopConn            func()
+	ResetConn           func()
+	PeerListenPort      uint32
+	RemoteConnAddr      *net.UDPAddr
+	LocalConnAddr       *net.UDPAddr
+	RecieverChan        chan []byte
 }
 
 type RemotePeer struct {

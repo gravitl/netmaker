@@ -255,8 +255,8 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			// check if peer is not connected to proxy
 			devPeer, err := wg.GetPeer(m.Payload.InterfaceName, currentPeer.Key.String())
 			if err == nil {
-				log.Printf("---------> COMAPRING ENDPOINT: DEV: %s, Proxy: %s", devPeer.Endpoint.String(), currentPeer.LocalConn.LocalAddr().String())
-				if devPeer.Endpoint.String() != currentPeer.LocalConn.LocalAddr().String() {
+				log.Printf("---------> COMAPRING ENDPOINT: DEV: %s, Proxy: %s", devPeer.Endpoint.String(), currentPeer.LocalConnAddr.String())
+				if devPeer.Endpoint.String() != currentPeer.LocalConnAddr.String() {
 					log.Println("---------> endpoint is not set to proxy: ", currentPeer.Key)
 					currentPeer.StopConn()
 					delete(wgProxyConf.PeerMap, currentPeer.Key.String())
@@ -280,7 +280,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				continue
 			}
 			if !reflect.DeepEqual(m.Payload.Peers[i], *currentPeer.PeerConf) {
-				if currentPeer.RemoteConn.IP.String() != m.Payload.Peers[i].Endpoint.IP.String() {
+				if currentPeer.RemoteConnAddr.IP.String() != m.Payload.Peers[i].Endpoint.IP.String() {
 					log.Println("----------> Resetting proxy for Peer: ", currentPeer.Key, m.Payload.InterfaceName)
 					currentPeer.StopConn()
 					delete(wgProxyConf.PeerMap, currentPeer.Key.String())
@@ -289,7 +289,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 					log.Println("----->##### Updating Peer on Interface: ", m.Payload.InterfaceName, currentPeer.Key)
 					updatePeerConf := m.Payload.Peers[i]
-					localUdpAddr, err := net.ResolveUDPAddr("udp", currentPeer.LocalConn.LocalAddr().String())
+					localUdpAddr, err := net.ResolveUDPAddr("udp", currentPeer.LocalConnAddr.String())
 					if err == nil {
 						updatePeerConf.Endpoint = localUdpAddr
 					}

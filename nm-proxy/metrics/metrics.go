@@ -19,6 +19,19 @@ type Metric struct {
 	TrafficRecieved     uint64
 }
 
+type MetricsPayload struct {
+	MetricType MetricsUpdateType
+	Value      interface{}
+}
+
+type MetricsUpdateType uint32
+
+const (
+	LatencyUpdate         MetricsUpdateType = 1
+	TrafficSentUpdate     MetricsUpdateType = 2
+	TrafficRecievedUpdate MetricsUpdateType = 3
+)
+
 var MetricsMapLock = &sync.Mutex{}
 
 var MetricsMap = make(map[string]Metric)
