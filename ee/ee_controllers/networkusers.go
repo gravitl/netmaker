@@ -1,4 +1,4 @@
-package controller
+package ee_controllers
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 )
 
-func networkUsersHandlers(r *mux.Router) {
+func NetworkUsersHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networkusers", logic.SecurityCheck(true, http.HandlerFunc(getAllNetworkUsers))).Methods("GET")
 	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUsers))).Methods("GET")
 	r.HandleFunc("/api/networkusers/{network}/{networkuser}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUser))).Methods("GET")

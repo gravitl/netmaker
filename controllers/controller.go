@@ -27,8 +27,6 @@ var HttpHandlers = []interface{}{
 	extClientHandlers,
 	ipHandlers,
 	loggerHandlers,
-	userGroupsHandlers,
-	networkUsersHandlers,
 }
 
 // HandleRESTRequests - handles the rest requests

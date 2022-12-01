@@ -101,7 +101,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	}
 	clients := []models.ExtClient{}
 	var err error
-	if networksSlice[0] == logic.ALL_NETWORK_ACCESS {
+	if len(networksSlice) > 0 && networksSlice[0] == logic.ALL_NETWORK_ACCESS {
 		clients, err = functions.GetAllExtClients()
 		if err != nil && !database.IsEmptyRecord(err) {
 			logger.Log(0, "failed to get all extclients: ", err.Error())

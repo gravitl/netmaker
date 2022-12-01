@@ -162,7 +162,7 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	if len(netname) > 0 && (!authenticateNetworkUser(netname, userNetworks) || len(userNetworks) == 0) {
 		return nil, username, Unauthorized_Err
 	}
-	if !pro.IsUserNetAdmin(netname, username) {
+	if isEE && !pro.IsUserNetAdmin(netname, username) {
 		return nil, "", Unauthorized_Err
 	}
 	return userNetworks, username, nil

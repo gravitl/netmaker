@@ -12,12 +12,13 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/stun"
 )
 
-// Comm Channel to configure proxy
-/* Actions -
-   1. Add - new interface and its peers
-   2. Delete - remove close all conns for the interface,cleanup
-
+/*
+	TODO:
+		1. Mutex locks for maps
+		2. CRUD funcs on Maps
+		3. Comments
 */
+
 func Start(ctx context.Context, mgmChan chan *manager.ManagerAction, apiServerAddr string) {
 	log.Println("Starting Proxy...")
 	common.IsHostNetwork = (os.Getenv("HOST_NETWORK") == "" || os.Getenv("HOST_NETWORK") == "on")

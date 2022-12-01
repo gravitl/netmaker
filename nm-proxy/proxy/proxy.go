@@ -4,59 +4,88 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
+	"runtime"
 
 	"github.com/gravitl/netmaker/nm-proxy/common"
-	"github.com/gravitl/netmaker/nm-proxy/wg"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"github.com/gravitl/netmaker/nm-proxy/models"
 )
-
-const (
-	defaultBodySize = 10000
-	defaultPort     = 51722
-)
-
-type Config struct {
-	Port        int
-	BodySize    int
-	Addr        string
-	RemoteKey   string
-	LocalKey    string
-	WgInterface *wg.WGIface
-	IsExtClient bool
-	PeerConf    *wgtypes.PeerConfig
-}
 
 // Proxy -  WireguardProxy proxies
 type Proxy struct {
 	Ctx        context.Context
 	Cancel     context.CancelFunc
-	Config     Config
+	Config     models.ProxyConfig
 	RemoteConn *net.UDPAddr
 	LocalConn  net.Conn
 }
 
-func GetInterfaceIpv4Addr(interfaceName string) (addr string, err error) {
-	var (
-		ief      *net.Interface
-		addrs    []net.Addr
-		ipv4Addr net.IP
-	)
-	if ief, err = net.InterfaceByName(interfaceName); err != nil { // get interface
-		return
+func (p *Proxy) Start() error {
+
+	var err error
+	p.RemoteConn = p.Config.PeerEndpoint
+	log.Printf("----> Established Remote Conn with RPeer: %s, ----> RAddr: %s", p.Config.RemoteKey.String(), p.RemoteConn.String())
+	addr, err := GetFreeIp(models.DefaultCIDR, p.Config.WgInterface.Port)
+	if err != nil {
+		log.Println("Failed to get freeIp: ", err)
+		return err
 	}
-	if addrs, err = ief.Addrs(); err != nil { // get addresses
-		return
+	wgListenAddr, err := GetInterfaceListenAddr(p.Config.WgInterface.Port)
+	if err != nil {
+		log.Println("failed to get wg listen addr: ", err)
+		return err
 	}
-	for _, addr := range addrs { // get ipv4 address
-		if ipv4Addr = addr.(*net.IPNet).IP.To4(); ipv4Addr != nil {
-			break
+	if runtime.GOOS == "darwin" {
+		wgListenAddr.IP = net.ParseIP(addr)
+	}
+	p.LocalConn, err = net.DialUDP("udp", &net.UDPAddr{
+		IP:   net.ParseIP(addr),
+		Port: models.NmProxyPort,
+	}, wgListenAddr)
+	if err != nil {
+		log.Printf("failed dialing to local Wireguard port,Err: %v\n", err)
+		return err
+	}
+
+	log.Printf("Dialing to local Wireguard port %s --> %s\n", p.LocalConn.LocalAddr().String(), p.LocalConn.RemoteAddr().String())
+	err = p.updateEndpoint()
+	if err != nil {
+		log.Printf("error while updating Wireguard peer endpoint [%s] %v\n", p.Config.RemoteKey, err)
+		return err
+	}
+	localAddr, err := net.ResolveUDPAddr("udp", p.LocalConn.LocalAddr().String())
+	if err != nil {
+		log.Println("failed to resolve local addr: ", err)
+		return err
+	}
+	p.Config.LocalConnAddr = localAddr
+	p.Config.RemoteConnAddr = p.RemoteConn
+	go p.ProxyPeer()
+
+	return nil
+}
+
+func (p *Proxy) Close() {
+	log.Println("------> Closing Proxy for ", p.Config.RemoteKey.String())
+	p.Cancel()
+	p.LocalConn.Close()
+	if runtime.GOOS == "darwin" {
+		host, _, err := net.SplitHostPort(p.LocalConn.LocalAddr().String())
+		if err != nil {
+			log.Println("Failed to split host: ", p.LocalConn.LocalAddr().String(), err)
+			return
 		}
+
+		if host != "127.0.0.1" {
+			_, err = common.RunCmd(fmt.Sprintf("ifconfig lo0 -alias %s 255.255.255.255", host), true)
+			if err != nil {
+				log.Println("Failed to add alias: ", err)
+			}
+		}
+
 	}
-	if ipv4Addr == nil {
-		return "", errors.New(fmt.Sprintf("interface %s don't have an ipv4 address\n", interfaceName))
-	}
-	return ipv4Addr.String(), nil
+	close(p.Config.RecieverChan)
 }
 
 func GetInterfaceListenAddr(port int) (*net.UDPAddr, error) {

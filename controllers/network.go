@@ -22,7 +22,6 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(networks_l, http.HandlerFunc(createNetwork)))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(getNetwork))).Methods("GET")
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(updateNetwork))).Methods("PUT")
-	r.HandleFunc("/api/networks/{networkname}/nodelimit", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkNodeLimit))).Methods("PUT")
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).Methods("DELETE")
 	r.HandleFunc("/api/networks/{networkname}/keyupdate", logic.SecurityCheck(true, http.HandlerFunc(keyUpdate))).Methods("POST")
 	r.HandleFunc("/api/networks/{networkname}/keys", logic.SecurityCheck(false, http.HandlerFunc(createAccessKey))).Methods("POST")
@@ -57,7 +56,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 	allnetworks := []models.Network{}
 	var err error
-	if networksSlice[0] == logic.ALL_NETWORK_ACCESS {
+	if len(networksSlice) > 0 && networksSlice[0] == logic.ALL_NETWORK_ACCESS {
 		allnetworks, err = logic.GetNetworks()
 		if err != nil && !database.IsEmptyRecord(err) {
 			logger.Log(0, r.Header.Get("user"), "failed to fetch networks: ", err.Error())
@@ -276,56 +275,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetwork)
-}
-
-// swagger:route PUT /api/networks/{networkname}/nodelimit networks updateNetworkNodeLimit
-//
-// Update a network's node limit.
-//
-//		Schemes: https
-//
-// 		Security:
-//   		oauth
-//
-//		Responses:
-//			200: networkBodyResponse
-func updateNetworkNodeLimit(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	var network models.Network
-	netname := params["networkname"]
-	network, err := logic.GetParentNetwork(netname)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to get network [%s] nodes: %v",
-				network.NetID, err.Error()))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	var networkChange models.Network
-
-	err = json.NewDecoder(r.Body).Decode(&networkChange)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	if networkChange.NodeLimit != 0 {
-		network.NodeLimit = networkChange.NodeLimit
-		data, err := json.Marshal(&network)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				"error marshalling resp: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-		database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		logger.Log(1, r.Header.Get("user"), "updated network node limit on", netname)
-	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(network)
 }
 
 // swagger:route PUT /api/networks/{networkname}/acls networks updateNetworkACL

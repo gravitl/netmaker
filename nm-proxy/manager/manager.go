@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/common"
 	"github.com/gravitl/netmaker/nm-proxy/models"
 	peerpkg "github.com/gravitl/netmaker/nm-proxy/peer"
-	"github.com/gravitl/netmaker/nm-proxy/proxy"
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -99,8 +98,8 @@ func (m *ManagerAction) DeleteInterface() {
 			return
 		}
 	}
-	if wgProxyConf, ok := common.WgIFaceMap[m.Payload.InterfaceName]; ok {
-		cleanUpInterface(wgProxyConf)
+	if common.WgIfaceMap.Iface.Name == m.Payload.InterfaceName {
+		cleanUpInterface()
 	}
 
 }
@@ -139,12 +138,15 @@ func (m *ManagerAction) RelayPeers() {
 	}
 }
 
-func cleanUpInterface(ifaceConf models.WgIfaceConf) {
-	log.Println("########------------>  CLEANING UP: ", ifaceConf.Iface.Name)
-	for _, peerI := range ifaceConf.PeerMap {
+func cleanUpInterface() {
+	log.Println("########------------>  CLEANING UP: ", common.WgIfaceMap.Iface.Name)
+	for _, peerI := range common.WgIfaceMap.PeerMap {
+		peerI.Mutex.Lock()
 		peerI.StopConn()
+		peerI.Mutex.Unlock()
+		delete(common.WgIfaceMap.PeerMap, peerI.Key.String())
 	}
-	delete(common.WgIFaceMap, ifaceConf.Iface.Name)
+	common.WgIfaceMap.PeerMap = make(map[string]*models.Conn)
 }
 
 func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
@@ -169,9 +171,8 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 		log.Println("Failed init new interface: ", err)
 		return nil, err
 	}
-	var wgProxyConf models.WgIfaceConf
-	var ok bool
-	if wgProxyConf, ok = common.WgIFaceMap[m.Payload.InterfaceName]; !ok {
+
+	if common.WgIfaceMap.Iface == nil {
 		for i := len(m.Payload.Peers) - 1; i >= 0; i-- {
 			if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy {
 				log.Println("-----------> skipping peer, proxy is off: ", m.Payload.Peers[i].PublicKey)
@@ -182,8 +183,11 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				continue
 			}
 		}
+		common.WgIfaceMap.Iface = wgIface.Device
+		common.WgIfaceMap.IfaceKeyHash = fmt.Sprintf("%x", md5.Sum([]byte(wgIface.Device.PublicKey.String())))
 		return wgIface, nil
 	}
+	wgProxyConf := common.WgIfaceMap
 	if m.Payload.IsRelay {
 		m.RelayPeers()
 	}
@@ -191,7 +195,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	// check if node is getting relayed
 	if common.IsRelayed != m.Payload.IsRelayed {
 		common.IsRelayed = m.Payload.IsRelayed
-		cleanUpInterface(wgProxyConf)
+		cleanUpInterface()
 		return wgIface, nil
 	}
 
@@ -199,7 +203,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	// check if listen port has changed
 	if wgIface.Device.ListenPort != wgProxyConf.Iface.ListenPort {
 		// reset proxy for this interface
-		cleanUpInterface(wgProxyConf)
+		cleanUpInterface()
 		return wgIface, nil
 	}
 	// check device conf different from proxy
@@ -208,6 +212,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 	for _, currPeerI := range wgProxyConf.Iface.Peers {
 		if _, ok := m.Payload.PeerMap[currPeerI.PublicKey.String()]; !ok {
 			if val, ok := wgProxyConf.PeerMap[currPeerI.PublicKey.String()]; ok {
+				val.Mutex.Lock()
 				if val.IsAttachedExtClient {
 					log.Println("------> Deleting ExtClient Watch Thread: ", currPeerI.PublicKey.String())
 					if val, ok := common.ExtClientsWaitTh[currPeerI.PublicKey.String()]; ok {
@@ -215,9 +220,11 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 						delete(common.ExtClientsWaitTh, currPeerI.PublicKey.String())
 					}
 					log.Println("-----> Deleting Ext Client from Src Ip Map: ", currPeerI.PublicKey.String())
-					delete(common.ExtSourceIpMap, val.PeerConf.Endpoint.String())
+					delete(common.ExtSourceIpMap, val.Config.PeerConf.Endpoint.String())
 				}
 				val.StopConn()
+				val.Mutex.Unlock()
+				delete(wgProxyConf.PeerMap, currPeerI.PublicKey.String())
 			}
 
 			// delete peer from interface
@@ -225,14 +232,15 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			if err := wgIface.RemovePeer(currPeerI.PublicKey.String()); err != nil {
 				log.Println("failed to remove peer: ", currPeerI.PublicKey.String(), err)
 			}
+
 			delete(common.PeerKeyHashMap, fmt.Sprintf("%x", md5.Sum([]byte(currPeerI.PublicKey.String()))))
-			delete(wgProxyConf.PeerMap, currPeerI.PublicKey.String())
 
 		}
 	}
 	for i := len(m.Payload.Peers) - 1; i >= 0; i-- {
 
 		if currentPeer, ok := wgProxyConf.PeerMap[m.Payload.Peers[i].PublicKey.String()]; ok {
+			currentPeer.Mutex.Lock()
 			if currentPeer.IsAttachedExtClient {
 				m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
 				continue
@@ -242,7 +250,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 				// cleanup proxy connections for the peer
 				currentPeer.StopConn()
-				delete(wgProxyConf.PeerMap, currentPeer.Key)
+				delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 				// update the peer with actual endpoint
 				if err := wgIface.Update(m.Payload.Peers[i], false); err != nil {
 					log.Println("falied to update peer: ", err)
@@ -252,13 +260,13 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 			}
 			// check if peer is not connected to proxy
-			devPeer, err := wg.GetPeer(m.Payload.InterfaceName, currentPeer.Key)
+			devPeer, err := wg.GetPeer(m.Payload.InterfaceName, currentPeer.Key.String())
 			if err == nil {
-				log.Printf("---------> COMAPRING ENDPOINT: DEV: %s, Proxy: %s", devPeer.Endpoint.String(), currentPeer.LocalConn.LocalAddr().String())
-				if devPeer.Endpoint.String() != currentPeer.LocalConn.LocalAddr().String() {
+				log.Printf("---------> COMAPRING ENDPOINT: DEV: %s, Proxy: %s", devPeer.Endpoint.String(), currentPeer.Config.LocalConnAddr.String())
+				if devPeer.Endpoint.String() != currentPeer.Config.LocalConnAddr.String() {
 					log.Println("---------> endpoint is not set to proxy: ", currentPeer.Key)
 					currentPeer.StopConn()
-					delete(wgProxyConf.PeerMap, currentPeer.Key)
+					delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 					continue
 				}
 			}
@@ -266,7 +274,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 			if currentPeer.IsRelayed != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsRelayed {
 				log.Println("---------> peer relay status has been changed: ", currentPeer.Key)
 				currentPeer.StopConn()
-				delete(wgProxyConf.PeerMap, currentPeer.Key)
+				delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 				continue
 			}
 			// check if relay endpoint has been changed
@@ -275,28 +283,29 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				currentPeer.RelayedEndpoint.String() != m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].RelayedTo.String() {
 				log.Println("---------> peer relay endpoint has been changed: ", currentPeer.Key)
 				currentPeer.StopConn()
-				delete(wgProxyConf.PeerMap, currentPeer.Key)
+				delete(wgProxyConf.PeerMap, currentPeer.Key.String())
 				continue
 			}
-			if !reflect.DeepEqual(m.Payload.Peers[i], *currentPeer.PeerConf) {
-				if currentPeer.RemoteConn.IP.String() != m.Payload.Peers[i].Endpoint.IP.String() {
+			if !reflect.DeepEqual(m.Payload.Peers[i], *currentPeer.Config.PeerConf) {
+				if currentPeer.Config.RemoteConnAddr.IP.String() != m.Payload.Peers[i].Endpoint.IP.String() {
 					log.Println("----------> Resetting proxy for Peer: ", currentPeer.Key, m.Payload.InterfaceName)
 					currentPeer.StopConn()
-					delete(wgProxyConf.PeerMap, currentPeer.Key)
-
+					currentPeer.Mutex.Unlock()
+					delete(wgProxyConf.PeerMap, currentPeer.Key.String())
+					continue
 				} else {
 
 					log.Println("----->##### Updating Peer on Interface: ", m.Payload.InterfaceName, currentPeer.Key)
 					updatePeerConf := m.Payload.Peers[i]
-					localUdpAddr, err := net.ResolveUDPAddr("udp", currentPeer.LocalConn.LocalAddr().String())
+					localUdpAddr, err := net.ResolveUDPAddr("udp", currentPeer.Config.LocalConnAddr.String())
 					if err == nil {
 						updatePeerConf.Endpoint = localUdpAddr
 					}
 					if err := wgIface.Update(updatePeerConf, true); err != nil {
 						log.Println("failed to update peer: ", currentPeer.Key, err)
 					}
-					currentPeer.PeerConf = &m.Payload.Peers[i]
-					wgProxyConf.PeerMap[currentPeer.Key] = currentPeer
+					currentPeer.Config.PeerConf = &m.Payload.Peers[i]
+					wgProxyConf.PeerMap[currentPeer.Key.String()] = currentPeer
 					// delete the peer from the list
 					log.Println("-----------> deleting peer from list: ", m.Payload.Peers[i].PublicKey)
 					m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
@@ -308,6 +317,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 				log.Println("-----------> No updates observed so deleting peer: ", m.Payload.Peers[i].PublicKey)
 				m.Payload.Peers = append(m.Payload.Peers[:i], m.Payload.Peers[i+1:]...)
 			}
+			currentPeer.Mutex.Unlock()
 
 		} else if !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].Proxy && !m.Payload.PeerMap[m.Payload.Peers[i].PublicKey.String()].IsAttachedExtClient {
 			log.Println("-----------> skipping peer, proxy is off: ", m.Payload.Peers[i].PublicKey)
@@ -320,7 +330,7 @@ func (m *ManagerAction) processPayload() (*wg.WGIface, error) {
 
 	// sync dev peers with new update
 
-	common.WgIFaceMap[m.Payload.InterfaceName] = wgProxyConf
+	common.WgIfaceMap = wgProxyConf
 
 	log.Println("CLEANED UP..........")
 	return wgIface, nil
@@ -335,16 +345,6 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 	}
 
 	log.Printf("wg: %+v\n", wgInterface)
-	wgListenAddr, err := proxy.GetInterfaceListenAddr(wgInterface.Port)
-	if err != nil {
-		log.Println("failed to get wg listen addr: ", err)
-		return err
-	}
-	common.WgIfaceKeyMap[fmt.Sprintf("%x", md5.Sum([]byte(wgInterface.Device.PublicKey.String())))] = models.RemotePeer{
-		PeerKey:   wgInterface.Device.PublicKey.String(),
-		Interface: wgInterface.Name,
-		Endpoint:  wgListenAddr,
-	}
 	for _, peerI := range m.Payload.Peers {
 
 		peerConf := m.Payload.PeerMap[peerI.PublicKey.String()]
@@ -382,13 +382,6 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 				defer func() {
 					if addExtClient {
 						log.Println("GOT ENDPOINT for Extclient adding peer...")
-						common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peer.PublicKey.String())))] = models.RemotePeer{
-							Interface:           wgInterface.Name,
-							PeerKey:             peer.PublicKey.String(),
-							IsExtClient:         peerConf.IsExtClient,
-							IsAttachedExtClient: peerConf.IsAttachedExtClient,
-							Endpoint:            peer.Endpoint,
-						}
 
 						common.ExtSourceIpMap[peer.Endpoint.String()] = models.RemotePeer{
 							Interface:           wgInterface.Name,
@@ -422,19 +415,10 @@ func (m *ManagerAction) AddInterfaceToProxy() error {
 			}(wgInterface, &peerI, isRelayed, relayedTo, peerConf, m.Payload.WgAddr)
 			continue
 		}
-		common.PeerKeyHashMap[fmt.Sprintf("%x", md5.Sum([]byte(peerI.PublicKey.String())))] = models.RemotePeer{
-			Interface:           m.Payload.InterfaceName,
-			PeerKey:             peerI.PublicKey.String(),
-			IsExtClient:         peerConf.IsExtClient,
-			Endpoint:            peerI.Endpoint,
-			IsAttachedExtClient: peerConf.IsAttachedExtClient,
-		}
 
 		peerpkg.AddNewPeer(wgInterface, &peerI, peerConf.Address, isRelayed,
 			peerConf.IsExtClient, peerConf.IsAttachedExtClient, relayedTo)
+
 	}
-	log.Printf("------> PEERHASHMAP: %+v\n", common.PeerKeyHashMap)
-	log.Printf("-------> WgKeyHashMap: %+v\n", common.WgIfaceKeyMap)
-	log.Printf("-------> WgIFaceMap: %+v\n", common.WgIFaceMap)
 	return nil
 }
