@@ -1,4 +1,4 @@
-package controller
+package ee_controllers
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 )
 
-func userGroupsHandlers(r *mux.Router) {
+func UserGroupsHandlers(r *mux.Router) {
 	r.HandleFunc("/api/usergroups", logic.SecurityCheck(true, http.HandlerFunc(getUserGroups))).Methods("GET")
 	r.HandleFunc("/api/usergroups/{usergroup}", logic.SecurityCheck(true, http.HandlerFunc(createUserGroup))).Methods("POST")
 	r.HandleFunc("/api/usergroups/{usergroup}", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods("DELETE")

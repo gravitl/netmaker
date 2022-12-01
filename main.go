@@ -69,7 +69,7 @@ func initialize() { // Client Mode Prereq Check
 	}
 
 	if err = database.InitializeDatabase(); err != nil {
-		logger.FatalLog("Error connecting to database")
+		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
 	logger.Log(0, "database successfully connected")
 	if err = logic.AddServerIDIfNotPresent(); err != nil {

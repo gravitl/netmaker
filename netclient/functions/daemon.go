@@ -290,7 +290,7 @@ func setupMQTTSingleton(cfg *config.ClientConfig) error {
 	if err != nil {
 		return fmt.Errorf("could not read secrets file %w", err)
 	}
-	opts.AddBroker("mqtts://" + server + ":" + port)
+	opts.AddBroker("wss://" + server + ":" + port)
 	opts.SetUsername(cfg.Node.ID)
 	opts.SetPassword(string(pass))
 	mqclient = mqtt.NewClient(opts)
@@ -317,7 +317,7 @@ func setupMQTT(cfg *config.ClientConfig) error {
 	if err != nil {
 		return fmt.Errorf("could not read secrets file %w", err)
 	}
-	opts.AddBroker(fmt.Sprintf("mqtts://%s:%s", server, port))
+	opts.AddBroker(fmt.Sprintf("wss://%s:%s", server, port))
 	opts.SetUsername(cfg.Node.ID)
 	opts.SetPassword(string(pass))
 	opts.SetClientID(ncutils.MakeRandomString(23))
