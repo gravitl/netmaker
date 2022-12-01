@@ -140,6 +140,14 @@ func Hello(nodeCfg *config.ClientConfig) {
 	var checkin models.NodeCheckin
 	checkin.Version = ncutils.Version
 	checkin.Connected = nodeCfg.Node.Connected
+	ip, err := getInterfaces()
+	if err != nil {
+		logger.Log(0, "failed to retrieve local interfaces", err.Error())
+	} else {
+		nodeCfg.Node.Interfaces = *ip
+		config.Write(nodeCfg, nodeCfg.Network)
+	}
+	checkin.Ifaces = nodeCfg.Node.Interfaces
 	data, err := json.Marshal(checkin)
 	if err != nil {
 		logger.Log(0, "unable to marshal checkin data", err.Error())

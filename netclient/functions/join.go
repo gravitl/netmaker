@@ -238,6 +238,14 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 			logger.Log(1, "network:", cfg.Network, "error retrieving private address: ", err.Error())
 		}
 	}
+	if len(cfg.Node.Interfaces) == 0 {
+		ip, err := getInterfaces()
+		if err != nil {
+			logger.Log(0, "failed to retrive local interfaces", err.Error())
+		} else {
+			cfg.Node.Interfaces = *ip
+		}
+	}
 
 	// set endpoint if blank. set to local if local net, retrieve from function if not
 	if cfg.Node.Endpoint == "" {
