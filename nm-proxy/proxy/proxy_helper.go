@@ -53,7 +53,7 @@ func (p *Proxy) proxyToRemote(wg *sync.WaitGroup) {
 			go func(n int, peerKey string) {
 				metrics.MetricsMapLock.Lock()
 				metric := metrics.MetricsMap[peerKey]
-				metric.TrafficSent += uint64(n)
+				metric.TrafficSent += float64(n) / (1 << 20)
 				metrics.MetricsMap[peerKey] = metric
 				metrics.MetricsMapLock.Unlock()
 			}(n, p.Config.RemoteKey.String())

@@ -15,8 +15,8 @@ import (
 type Metric struct {
 	LastRecordedLatency uint64
 	ConnectionStatus    bool
-	TrafficSent         uint64
-	TrafficRecieved     uint64
+	TrafficSent         float64
+	TrafficRecieved     float64
 }
 
 type MetricsPayload struct {

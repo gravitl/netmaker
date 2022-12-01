@@ -75,7 +75,7 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 				proxyTransportMsg = false
 			}
 			if proxyTransportMsg {
-				proxyIncomingPacket(buffer[:], source, n, srcPeerKeyHash, dstPeerKeyHash)
+				p.proxyIncomingPacket(buffer[:], source, n, srcPeerKeyHash, dstPeerKeyHash)
 				continue
 			} else {
 				// unknown peer to proxy -> check if extclient and handle it
@@ -101,12 +101,11 @@ func handleMsgs(buffer []byte, n int, source *net.UDPAddr) {
 			log.Printf("------->$$$$$ Recieved Metric Pkt: %+v, FROM:%s\n", metricMsg, source.String())
 			if metricMsg.Sender == common.WgIfaceMap.Iface.PublicKey {
 				latency := time.Now().UnixMilli() - metricMsg.TimeStamp
-				log.Println("----------------> LAtency$$$$$$: ", latency)
 				metrics.MetricsMapLock.Lock()
 				metric := metrics.MetricsMap[metricMsg.Reciever.String()]
 				metric.LastRecordedLatency = uint64(latency)
 				metric.ConnectionStatus = true
-				metric.TrafficRecieved += uint64(n)
+				metric.TrafficRecieved += float64(n) / (1 << 20)
 				metrics.MetricsMap[metricMsg.Reciever.String()] = metric
 				metrics.MetricsMapLock.Unlock()
 			} else if metricMsg.Reciever == common.WgIfaceMap.Iface.PublicKey {
@@ -119,7 +118,7 @@ func handleMsgs(buffer []byte, n int, source *net.UDPAddr) {
 				metrics.MetricsMapLock.Lock()
 				metric := metrics.MetricsMap[metricMsg.Sender.String()]
 				metric.ConnectionStatus = true
-				metric.TrafficRecieved += uint64(n)
+				metric.TrafficRecieved += float64(n) / (1 << 20)
 				metrics.MetricsMap[metricMsg.Sender.String()] = metric
 				metrics.MetricsMapLock.Unlock()
 			}
@@ -164,7 +163,7 @@ func handleExtClients(buffer []byte, n int, source *net.UDPAddr) bool {
 			peerI.Config.RecieverChan <- buffer[:n]
 			metrics.MetricsMapLock.Lock()
 			metric := metrics.MetricsMap[peerInfo.PeerKey]
-			metric.TrafficRecieved += uint64(n)
+			metric.TrafficRecieved += float64(n) / (1 << 20)
 			metric.ConnectionStatus = true
 			metrics.MetricsMap[peerInfo.PeerKey] = metric
 			metrics.MetricsMapLock.Unlock()
@@ -176,7 +175,7 @@ func handleExtClients(buffer []byte, n int, source *net.UDPAddr) bool {
 	return isExtClient
 }
 
-func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHash, dstPeerKeyHash string) {
+func (p *ProxyServer) proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHash, dstPeerKeyHash string) {
 	var err error
 	//log.Printf("--------> RECV PKT , [SRCKEYHASH: %s], SourceIP: [%s] \n", srcPeerKeyHash, source.IP.String())
 
@@ -188,7 +187,7 @@ func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHa
 			if conf, ok := remoteMap[dstPeerKeyHash]; ok {
 				log.Printf("--------> Relaying PKT [ SourceIP: %s:%d ], [ SourceKeyHash: %s ], [ DstIP: %s:%d ], [ DstHashKey: %s ] \n",
 					source.IP.String(), source.Port, srcPeerKeyHash, conf.Endpoint.String(), conf.Endpoint.Port, dstPeerKeyHash)
-				_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+packet.MessageProxySize], conf.Endpoint)
+				_, err = p.Server.WriteToUDP(buffer[:n+packet.MessageProxySize], conf.Endpoint)
 				if err != nil {
 					log.Println("Failed to send to remote: ", err)
 				}
@@ -199,7 +198,7 @@ func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHa
 				if conf, ok := remoteMap[dstPeerKeyHash]; ok {
 					log.Printf("--------> Relaying BACK TO RELAYED NODE PKT [ SourceIP: %s ], [ SourceKeyHash: %s ], [ DstIP: %s ], [ DstHashKey: %s ] \n",
 						source.String(), srcPeerKeyHash, conf.Endpoint.String(), dstPeerKeyHash)
-					_, err = NmProxyServer.Server.WriteToUDP(buffer[:n+packet.MessageProxySize], conf.Endpoint)
+					_, err = p.Server.WriteToUDP(buffer[:n+packet.MessageProxySize], conf.Endpoint)
 					if err != nil {
 						log.Println("Failed to send to remote: ", err)
 					}
@@ -224,7 +223,7 @@ func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHa
 		go func(n int, peerKey string) {
 			metrics.MetricsMapLock.Lock()
 			metric := metrics.MetricsMap[peerKey]
-			metric.TrafficRecieved += uint64(n)
+			metric.TrafficRecieved += float64(n) / (1 << 20)
 			metric.ConnectionStatus = true
 			metrics.MetricsMap[peerKey] = metric
 			metrics.MetricsMapLock.Unlock()
