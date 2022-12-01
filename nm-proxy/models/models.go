@@ -3,7 +3,10 @@ package models
 import (
 	"context"
 	"net"
+	"sync"
+	"time"
 
+	"github.com/gravitl/netmaker/nm-proxy/wg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -12,8 +15,21 @@ const (
 	DefaultCIDR = "127.0.0.1/8"
 )
 
-// ConnConfig is a peer Connection configuration
-type ConnConfig struct {
+type ProxyConfig struct {
+	RemoteKey           wgtypes.Key
+	LocalKey            wgtypes.Key
+	WgInterface         *wg.WGIface
+	IsExtClient         bool
+	PersistentKeepalive *time.Duration
+	RecieverChan        chan []byte
+	PeerConf            *wgtypes.PeerConfig
+	PeerEndpoint        *net.UDPAddr
+	RemoteConnAddr      *net.UDPAddr
+	LocalConnAddr       *net.UDPAddr
+}
+
+// Conn is a peer Connection configuration
+type Conn struct {
 
 	// Key is a public key of a remote peer
 	Key                 wgtypes.Key
@@ -21,13 +37,11 @@ type ConnConfig struct {
 	IsRelayed           bool
 	RelayedEndpoint     *net.UDPAddr
 	IsAttachedExtClient bool
-	PeerConf            *wgtypes.PeerConfig
+	Config              ProxyConfig
 	StopConn            func()
 	ResetConn           func()
-	PeerListenPort      uint32
-	RemoteConnAddr      *net.UDPAddr
-	LocalConnAddr       *net.UDPAddr
-	RecieverChan        chan []byte
+	LocalConn           net.Conn
+	Mutex               *sync.RWMutex
 }
 
 type RemotePeer struct {
@@ -36,6 +50,7 @@ type RemotePeer struct {
 	Endpoint            *net.UDPAddr
 	IsExtClient         bool
 	IsAttachedExtClient bool
+	LocalConn           net.Conn
 }
 
 type ExtClientPeer struct {
@@ -46,5 +61,5 @@ type ExtClientPeer struct {
 type WgIfaceConf struct {
 	Iface        *wgtypes.Device
 	IfaceKeyHash string
-	PeerMap      map[string]*ConnConfig
+	PeerMap      map[string]*Conn
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -34,36 +35,38 @@ type ProxyServer struct {
 	Server *net.UDPConn
 }
 
+func (p *ProxyServer) Close() {
+	log.Println("--------->### Shutting down Proxy.....")
+	// clean up proxy connections
+	for _, peerI := range common.WgIfaceMap.PeerMap {
+		peerI.Mutex.Lock()
+		peerI.StopConn()
+		peerI.Mutex.Unlock()
+	}
+	// close server connection
+	NmProxyServer.Server.Close()
+}
+
 // Proxy.Listen - begins listening for packets
 func (p *ProxyServer) Listen(ctx context.Context) {
 
 	// Buffer with indicated body size
-	buffer := make([]byte, 65032)
+	buffer := make([]byte, 65036)
 	for {
 
 		select {
 		case <-ctx.Done():
-			log.Println("--------->### Shutting down Proxy.....")
-			// clean up proxy connections
-
-			log.Println("########------------>  CLEANING UP Interface ")
-			for _, peerI := range common.WgIfaceMap.PeerMap {
-				peerI.StopConn()
-			}
-
-			// close server connection
-			NmProxyServer.Server.Close()
+			p.Close()
 			return
 		default:
 			// Read Packet
 
 			n, source, err := p.Server.ReadFromUDP(buffer)
-			if err != nil { // in future log errors?
+			if err != nil || source == nil { // in future log errors?
 				log.Println("RECV ERROR: ", err)
 				continue
 			}
 			//go func(buffer []byte, source *net.UDPAddr, n int) {
-			origBufferLen := n
 			proxyTransportMsg := true
 			var srcPeerKeyHash, dstPeerKeyHash string
 			n, srcPeerKeyHash, dstPeerKeyHash, err = packet.ExtractInfo(buffer, n)
@@ -74,96 +77,103 @@ func (p *ProxyServer) Listen(ctx context.Context) {
 			if proxyTransportMsg {
 				proxyIncomingPacket(buffer[:], source, n, srcPeerKeyHash, dstPeerKeyHash)
 				continue
-
 			} else {
 				// unknown peer to proxy -> check if extclient and handle it
-				if peerInfo, ok := common.ExtSourceIpMap[source.String()]; ok {
-					if peerI, ok := common.WgIfaceMap.PeerMap[peerInfo.PeerKey]; ok {
-						metrics.MetricsMapLock.Lock()
-						metric := metrics.MetricsMap[peerInfo.PeerKey]
-						metric.TrafficRecieved += uint64(n)
-						metric.ConnectionStatus = true
-						metrics.MetricsMap[peerInfo.PeerKey] = metric
-						metrics.MetricsMapLock.Unlock()
-						peerI.RecieverChan <- buffer[:n]
-						// log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-						// 	peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
-						// 	fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-						// _, err = peerI.LocalConn.Write(buffer[:n])
-						// if err != nil {
-						// 	log.Println("Failed to proxy to Wg local interface: ", err)
-						// 	//continue
-						// }
-						continue
-
-					}
-
+				if handleExtClients(buffer[:], n, source) {
+					continue
 				}
+
 			}
+			handleMsgs(buffer, n, source)
 
-			msgType := binary.LittleEndian.Uint32(buffer[:4])
-			switch packet.MessageType(msgType) {
-			case packet.MessageMetricsType:
-				metricMsg, err := packet.ConsumeMetricPacket(buffer[:origBufferLen])
-				// calc latency
-				if err == nil {
-					log.Printf("------->$$$$$ Recieved Metric Pkt: %+v, FROM:%s\n", metricMsg, source.String())
-					if metricMsg.Sender == common.WgIfaceMap.Iface.PublicKey {
-						latency := time.Now().UnixMilli() - metricMsg.TimeStamp
-						log.Println("----------------> LAtency$$$$$$: ", latency)
-						metrics.MetricsMapLock.Lock()
-						metric := metrics.MetricsMap[metricMsg.Reciever.String()]
-						metric.LastRecordedLatency = uint64(latency)
-						metric.ConnectionStatus = true
-						metric.TrafficRecieved += uint64(origBufferLen)
-						metrics.MetricsMap[metricMsg.Reciever.String()] = metric
-						metrics.MetricsMapLock.Unlock()
-					} else if metricMsg.Reciever == common.WgIfaceMap.Iface.PublicKey {
-						// proxy it back to the sender
-						log.Println("------------> $$$ SENDING back the metric pkt to the source: ", source.String())
-						_, err = NmProxyServer.Server.WriteToUDP(buffer[:origBufferLen], source)
-						if err != nil {
-							log.Println("Failed to send metric packet to remote: ", err)
-						}
-						metrics.MetricsMapLock.Lock()
-						metric := metrics.MetricsMap[metricMsg.Sender.String()]
-						metric.ConnectionStatus = true
-						metric.TrafficRecieved += uint64(origBufferLen)
-						metrics.MetricsMap[metricMsg.Sender.String()] = metric
-						metrics.MetricsMapLock.Unlock()
-					}
-				}
-			case packet.MessageProxyUpdateType:
-				msg, err := packet.ConsumeProxyUpdateMsg(buffer[:origBufferLen])
-				if err == nil {
-					switch msg.Action {
-					case packet.UpdateListenPort:
-						if peer, ok := common.WgIfaceMap.PeerMap[msg.Sender.String()]; ok {
-							if peer.PeerListenPort != msg.ListenPort {
-								// update peer conn
-								peer.PeerListenPort = msg.ListenPort
-								common.WgIfaceMap.PeerMap[msg.Sender.String()] = peer
-								log.Println("--------> Resetting Proxy Conn For Peer ", msg.Sender.String())
-								peer.ResetConn()
-							}
+		}
+	}
+}
 
-						}
-					}
-				}
-			// consume handshake message for ext clients
-			case packet.MessageInitiationType:
+func handleMsgs(buffer []byte, n int, source *net.UDPAddr) {
 
-				err := packet.ConsumeHandshakeInitiationMsg(false, buffer[:origBufferLen], source,
-					packet.NoisePublicKey(common.WgIfaceMap.Iface.PublicKey), packet.NoisePrivateKey(common.WgIfaceMap.Iface.PrivateKey))
+	msgType := binary.LittleEndian.Uint32(buffer[:4])
+	switch packet.MessageType(msgType) {
+	case packet.MessageMetricsType:
+		metricMsg, err := packet.ConsumeMetricPacket(buffer[:n])
+		// calc latency
+		if err == nil {
+			log.Printf("------->$$$$$ Recieved Metric Pkt: %+v, FROM:%s\n", metricMsg, source.String())
+			if metricMsg.Sender == common.WgIfaceMap.Iface.PublicKey {
+				latency := time.Now().UnixMilli() - metricMsg.TimeStamp
+				log.Println("----------------> LAtency$$$$$$: ", latency)
+				metrics.MetricsMapLock.Lock()
+				metric := metrics.MetricsMap[metricMsg.Reciever.String()]
+				metric.LastRecordedLatency = uint64(latency)
+				metric.ConnectionStatus = true
+				metric.TrafficRecieved += uint64(n)
+				metrics.MetricsMap[metricMsg.Reciever.String()] = metric
+				metrics.MetricsMapLock.Unlock()
+			} else if metricMsg.Reciever == common.WgIfaceMap.Iface.PublicKey {
+				// proxy it back to the sender
+				log.Println("------------> $$$ SENDING back the metric pkt to the source: ", source.String())
+				_, err = NmProxyServer.Server.WriteToUDP(buffer[:n], source)
 				if err != nil {
-					log.Println("---------> @@@ failed to decode HS: ", err)
+					log.Println("Failed to send metric packet to remote: ", err)
 				}
-
+				metrics.MetricsMapLock.Lock()
+				metric := metrics.MetricsMap[metricMsg.Sender.String()]
+				metric.ConnectionStatus = true
+				metric.TrafficRecieved += uint64(n)
+				metrics.MetricsMap[metricMsg.Sender.String()] = metric
+				metrics.MetricsMapLock.Unlock()
 			}
+		}
+	case packet.MessageProxyUpdateType:
+		msg, err := packet.ConsumeProxyUpdateMsg(buffer[:n])
+		if err == nil {
+			switch msg.Action {
+			case packet.UpdateListenPort:
+				if peer, ok := common.WgIfaceMap.PeerMap[msg.Sender.String()]; ok {
+					peer.Mutex.Lock()
+					if peer.Config.PeerEndpoint.Port != int(msg.ListenPort) {
+						// update peer conn
+						peer.Config.PeerEndpoint.Port = int(msg.ListenPort)
+						common.WgIfaceMap.PeerMap[msg.Sender.String()] = peer
+						log.Println("--------> Resetting Proxy Conn For Peer ", msg.Sender.String())
+						peer.Mutex.Unlock()
+						peer.ResetConn()
+						return
+					}
+					peer.Mutex.Unlock()
 
+				}
+			}
+		}
+	// consume handshake message for ext clients
+	case packet.MessageInitiationType:
+
+		err := packet.ConsumeHandshakeInitiationMsg(false, buffer[:n], source,
+			packet.NoisePublicKey(common.WgIfaceMap.Iface.PublicKey), packet.NoisePrivateKey(common.WgIfaceMap.Iface.PrivateKey))
+		if err != nil {
+			log.Println("---------> @@@ failed to decode HS: ", err)
+		}
+	}
+}
+
+func handleExtClients(buffer []byte, n int, source *net.UDPAddr) bool {
+	isExtClient := false
+	if peerInfo, ok := common.ExtSourceIpMap[source.String()]; ok {
+		if peerI, ok := common.WgIfaceMap.PeerMap[peerInfo.PeerKey]; ok {
+			peerI.Mutex.RLock()
+			peerI.Config.RecieverChan <- buffer[:n]
+			metrics.MetricsMapLock.Lock()
+			metric := metrics.MetricsMap[peerInfo.PeerKey]
+			metric.TrafficRecieved += uint64(n)
+			metric.ConnectionStatus = true
+			metrics.MetricsMap[peerInfo.PeerKey] = metric
+			metrics.MetricsMapLock.Unlock()
+			peerI.Mutex.RUnlock()
+			isExtClient = true
 		}
 
 	}
+	return isExtClient
 }
 
 func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHash, dstPeerKeyHash string) {
@@ -201,24 +211,25 @@ func proxyIncomingPacket(buffer []byte, source *net.UDPAddr, n int, srcPeerKeyHa
 	}
 
 	if peerInfo, ok := common.PeerKeyHashMap[srcPeerKeyHash]; ok {
-		if peerI, ok := common.WgIfaceMap.PeerMap[peerInfo.PeerKey]; ok {
+
+		log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
+			peerInfo.LocalConn.RemoteAddr(), peerInfo.LocalConn.LocalAddr(),
+			fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
+		_, err = peerInfo.LocalConn.Write(buffer[:n])
+		if err != nil {
+			log.Println("Failed to proxy to Wg local interface: ", err)
+			//continue
+		}
+
+		go func(n int, peerKey string) {
 			metrics.MetricsMapLock.Lock()
-			metric := metrics.MetricsMap[peerInfo.PeerKey]
+			metric := metrics.MetricsMap[peerKey]
 			metric.TrafficRecieved += uint64(n)
 			metric.ConnectionStatus = true
-			metrics.MetricsMap[peerInfo.PeerKey] = metric
+			metrics.MetricsMap[peerKey] = metric
 			metrics.MetricsMapLock.Unlock()
-			peerI.RecieverChan <- buffer[:n]
-			// log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s <<<<<<<< %s   [[ RECV PKT [SRCKEYHASH: %s], [DSTKEYHASH: %s], SourceIP: [%s] ]]\n",
-			// 	peerI.LocalConn.RemoteAddr(), peerI.LocalConn.LocalAddr(),
-			// 	fmt.Sprintf("%s:%d", source.IP.String(), source.Port), srcPeerKeyHash, dstPeerKeyHash, source.IP.String())
-			// _, err = peerI.LocalConn.Write(buffer[:n])
-			// if err != nil {
-			// 	log.Println("Failed to proxy to Wg local interface: ", err)
-			// 	//continue
-			// }
-			return
-		}
+		}(n, peerInfo.PeerKey)
+		return
 
 	}
 

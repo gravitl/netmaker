@@ -32,7 +32,7 @@ const (
 	TrafficRecievedUpdate MetricsUpdateType = 3
 )
 
-var MetricsMapLock = &sync.Mutex{}
+var MetricsMapLock = &sync.RWMutex{}
 
 var MetricsMap = make(map[string]Metric)
 

@@ -154,8 +154,8 @@ func ProcessPacketBeforeSending(buf []byte, n int, srckey, dstKey string) ([]byt
 
 func ExtractInfo(buffer []byte, n int) (int, string, string, error) {
 	data := buffer[:n]
-	if len(data) < 36 {
-		return 0, "", "", errors.New("proxy message not found")
+	if len(data) < MessageProxySize {
+		return n, "", "", errors.New("proxy message not found")
 	}
 	var msg ProxyMessage
 	var err error

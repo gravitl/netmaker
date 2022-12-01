@@ -22,31 +22,10 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/wg"
 )
 
-func NewProxy(config Config) *Proxy {
+func NewProxy(config models.ProxyConfig) *Proxy {
 	p := &Proxy{Config: config}
 	p.Ctx, p.Cancel = context.WithCancel(context.Background())
 	return p
-}
-
-func (p *Proxy) proxyToLocal(wg *sync.WaitGroup, ticker *time.Ticker) {
-
-	defer wg.Done()
-
-	for {
-		select {
-		case <-p.Ctx.Done():
-			return
-		case buffer := <-p.Config.RecieverChan:
-			ticker.Reset(*p.Config.PersistentKeepalive + time.Second*5)
-			log.Printf("PROXING TO LOCAL!!!---> %s <<<< %s  \n",
-				p.LocalConn.RemoteAddr(), p.LocalConn.LocalAddr())
-			_, err := p.LocalConn.Write(buffer[:])
-			if err != nil {
-				log.Println("Failed to proxy to Wg local interface: ", err)
-			}
-		}
-	}
-
 }
 
 func (p *Proxy) proxyToRemote(wg *sync.WaitGroup) {
@@ -58,21 +37,6 @@ func (p *Proxy) proxyToRemote(wg *sync.WaitGroup) {
 		select {
 		case <-p.Ctx.Done():
 			return
-		case <-ticker.C:
-			metrics.MetricsMapLock.Lock()
-			metric := metrics.MetricsMap[p.Config.RemoteKey.String()]
-			metric.ConnectionStatus = false
-			metrics.MetricsMap[p.Config.RemoteKey.String()] = metric
-			metrics.MetricsMapLock.Unlock()
-			pkt, err := packet.CreateMetricPacket(uuid.New().ID(), p.Config.LocalKey, p.Config.RemoteKey)
-			if err == nil {
-				log.Printf("-----------> ##### $$$$$ SENDING METRIC PACKET TO: %s\n", p.RemoteConn.String())
-				_, err = server.NmProxyServer.Server.WriteToUDP(pkt, p.RemoteConn)
-				if err != nil {
-					log.Println("Failed to send to metric pkt: ", err)
-				}
-
-			}
 		default:
 
 			n, err := p.LocalConn.Read(buf)
@@ -81,29 +45,29 @@ func (p *Proxy) proxyToRemote(wg *sync.WaitGroup) {
 				continue
 			}
 
-			if _, ok := common.WgIfaceMap.PeerMap[p.Config.RemoteKey.String()]; ok {
-
+			// if _, found := common.GetPeer(p.Config.RemoteKey); !found {
+			// 	log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
+			// 	p.Close()
+			// 	return
+			// }
+			go func(n int, peerKey string) {
 				metrics.MetricsMapLock.Lock()
-				metric := metrics.MetricsMap[p.Config.RemoteKey.String()]
+				metric := metrics.MetricsMap[peerKey]
 				metric.TrafficSent += uint64(n)
-				metrics.MetricsMap[p.Config.RemoteKey.String()] = metric
+				metrics.MetricsMap[peerKey] = metric
 				metrics.MetricsMapLock.Unlock()
+			}(n, p.Config.RemoteKey.String())
 
-				var srcPeerKeyHash, dstPeerKeyHash string
-				if !p.Config.IsExtClient {
-					buf, n, srcPeerKeyHash, dstPeerKeyHash = packet.ProcessPacketBeforeSending(buf, n, common.WgIfaceMap.Iface.PublicKey.String(), p.Config.RemoteKey.String())
-					if err != nil {
-						log.Println("failed to process pkt before sending: ", err)
-					}
+			//var srcPeerKeyHash, dstPeerKeyHash string
+			if !p.Config.IsExtClient {
+				buf, n, _, _ = packet.ProcessPacketBeforeSending(buf, n, p.Config.WgInterface.Device.PublicKey.String(), p.Config.RemoteKey.String())
+				if err != nil {
+					log.Println("failed to process pkt before sending: ", err)
 				}
-
-				log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
-					p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
-			} else {
-				log.Printf("Peer: %s not found in config\n", p.Config.RemoteKey)
-				p.Close()
-				return
 			}
+
+			// log.Printf("PROXING TO REMOTE!!!---> %s >>>>> %s >>>>> %s [[ SrcPeerHash: %s, DstPeerHash: %s ]]\n",
+			// 	p.LocalConn.LocalAddr(), server.NmProxyServer.Server.LocalAddr().String(), p.RemoteConn.String(), srcPeerKeyHash, dstPeerKeyHash)
 
 			_, err = server.NmProxyServer.Server.WriteToUDP(buf[:n], p.RemoteConn)
 			if err != nil {
@@ -117,14 +81,52 @@ func (p *Proxy) proxyToRemote(wg *sync.WaitGroup) {
 
 func (p *Proxy) Reset() {
 	p.Close()
-	p.pullLatestConfig()
+	if err := p.pullLatestConfig(); err != nil {
+		log.Println("couldn't perform reset: ", err)
+		return
+	}
 	p.Start()
 
 }
 
-func (p *Proxy) pullLatestConfig() {
-	if peer, ok := common.WgIfaceMap.PeerMap[p.Config.RemoteKey.String()]; ok {
-		p.Config.PeerPort = peer.PeerListenPort
+func (p *Proxy) pullLatestConfig() error {
+	peer, found := common.GetPeer(p.Config.RemoteKey)
+	if found {
+		p.Config.PeerEndpoint.Port = peer.Config.PeerEndpoint.Port
+	} else {
+		return errors.New("peer not found")
+	}
+	return nil
+
+}
+
+func (p *Proxy) startMetricsThread(wg *sync.WaitGroup, rTicker *time.Ticker) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	defer wg.Done()
+	for {
+		select {
+		case <-p.Ctx.Done():
+			return
+		case <-ticker.C:
+			metrics.MetricsMapLock.Lock()
+			metric := metrics.MetricsMap[p.Config.RemoteKey.String()]
+			if metric.ConnectionStatus {
+				rTicker.Reset(*p.Config.PersistentKeepalive)
+			}
+			metric.ConnectionStatus = false
+			metrics.MetricsMap[p.Config.RemoteKey.String()] = metric
+			metrics.MetricsMapLock.Unlock()
+			pkt, err := packet.CreateMetricPacket(uuid.New().ID(), p.Config.LocalKey, p.Config.RemoteKey)
+			if err == nil {
+				log.Printf("-----------> ##### $$$$$ SENDING METRIC PACKET TO: %s\n", p.RemoteConn.String())
+				_, err = server.NmProxyServer.Server.WriteToUDP(pkt, p.RemoteConn)
+				if err != nil {
+					log.Println("Failed to send to metric pkt: ", err)
+				}
+
+			}
+		}
 	}
 }
 
@@ -162,10 +164,10 @@ func (p *Proxy) ProxyPeer() {
 	defer ticker.Stop()
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go p.proxyToLocal(wg, ticker)
-	wg.Add(1)
 	go p.proxyToRemote(wg)
 	// if common.BehindNAT {
+	wg.Add(1)
+	go p.startMetricsThread(wg, ticker)
 	wg.Add(1)
 	go p.peerUpdates(wg, ticker)
 	// }

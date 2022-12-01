@@ -12,6 +12,13 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/stun"
 )
 
+/*
+	TODO:
+		1. Mutex locks for maps
+		2. CRUD funcs on Maps
+		3. Comments
+*/
+
 func Start(ctx context.Context, mgmChan chan *manager.ManagerAction, apiServerAddr string) {
 	log.Println("Starting Proxy...")
 	common.IsHostNetwork = (os.Getenv("HOST_NETWORK") == "" || os.Getenv("HOST_NETWORK") == "on")

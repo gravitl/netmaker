@@ -18,7 +18,7 @@ var BehindNAT bool
 
 var WgIfaceMap = models.WgIfaceConf{
 	Iface:   nil,
-	PeerMap: make(map[string]*models.ConnConfig),
+	PeerMap: make(map[string]*models.Conn),
 }
 
 var PeerKeyHashMap = make(map[string]models.RemotePeer)
