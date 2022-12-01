@@ -83,7 +83,11 @@ spec:
           value: "Kubernetes"
         - name: VERBOSITY
           value: "3"
+<<<<<<< HEAD
         image: gravitl/netmaker:v0.17.0
+=======
+        image: gravitl/netmaker:v0.16.3
+>>>>>>> 407c6ed20a427153acb4901db7e61d3016823cc4
         imagePullPolicy: Always
         name: netmaker
         ports:

@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,8 +23,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// RELAY_NODE_ERR - error to return if relay node is unfound
-const RELAY_NODE_ERR = "could not find relay for node"
+const (
+	// RELAY_NODE_ERR - error to return if relay node is unfound
+	RELAY_NODE_ERR = "could not find relay for node"
+	// NodePurgeTime time to wait for node to response to a NODE_DELETE actions
+	NodePurgeTime = time.Second * 10
+	// NodePurgeCheckTime is how often to check nodes for Pending Delete
+	NodePurgeCheckTime = time.Second * 30
+)
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
@@ -160,8 +167,31 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	return fmt.Errorf("failed to update node " + currentNode.ID + ", cannot change ID.")
 }
 
-// DeleteNodeByID - deletes a node from database or moves into delete nodes table
-func DeleteNodeByID(node *models.Node, exterminate bool) error {
+// DeleteNode - marks node for deletion if called by UI or deletes node if called by node
+func DeleteNode(node *models.Node, purge bool) error {
+	if !purge {
+		newnode := node
+		newnode.PendingDelete = true
+		newnode.Action = models.NODE_DELETE
+		if err := UpdateNode(node, newnode); err != nil {
+			return err
+		}
+		return nil
+	}
+	if err := DeleteNodeByID(node); err != nil {
+		return err
+	}
+	if servercfg.Is_EE {
+		if err := EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
+			logger.Log(0, "failed to reset failover lists during node delete for node", node.Name, node.Network)
+		}
+	}
+
+	return nil
+}
+
+// DeleteNodeByID - deletes a node from database
+func DeleteNodeByID(node *models.Node) error {
 	var err error
 	var key = node.ID
 	//delete any ext clients as required
@@ -170,27 +200,11 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 			logger.Log(0, "failed to deleted ext clients", err.Error())
 		}
 	}
-	if !exterminate {
-		node.Action = models.NODE_DELETE
-		nodedata, err := json.Marshal(&node)
-		if err != nil {
-			return err
-		}
-		err = database.Insert(key, string(nodedata), database.DELETED_NODES_TABLE_NAME)
-		if err != nil {
-			return err
-		}
-	} else {
-		if err := database.DeleteRecord(database.DELETED_NODES_TABLE_NAME, key); err != nil {
-			logger.Log(2, err.Error())
-		}
-	}
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		if !database.IsEmptyRecord(err) {
 			return err
 		}
 	}
-
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
@@ -200,7 +214,6 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 			logger.Log(0, "failed to dissasociate", node.OwnerID, "from node", node.ID, ":", err.Error())
 		}
 	}
-
 	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID))
 	if err != nil {
 		// ignoring for now, could hit a nil pointer if delete called twice
@@ -210,11 +223,9 @@ func DeleteNodeByID(node *models.Node, exterminate bool) error {
 	if err = DeleteMetrics(node.ID); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID, err.Error())
 	}
-
 	if node.IsServer == "yes" {
 		return removeLocalServer(node)
 	}
-
 	return nil
 }
 
@@ -324,6 +335,9 @@ func CreateNode(node *models.Node) error {
 	}
 
 	node.ID = uuid.NewString()
+	if node.IsServer == "yes" {
+		node.HostID = uuid.NewString()
+	}
 
 	//Create a JWT for the node
 	tokenString, _ := CreateJWT(node.ID, node.MacAddress, node.Network)
@@ -768,6 +782,36 @@ func updateProNodeACLS(node *models.Node) error {
 		return err
 	}
 	return nil
+}
+
+func PurgePendingNodes(ctx context.Context) {
+	ticker := time.NewTicker(NodePurgeCheckTime)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			nodes, err := GetAllNodes()
+			if err != nil {
+				logger.Log(0, "PurgePendingNodes failed to retrieve nodes", err.Error())
+				continue
+			}
+			for _, node := range nodes {
+				if node.PendingDelete {
+					modified := time.Unix(node.LastModified, 0)
+					if time.Since(modified) > NodePurgeTime {
+						if err := DeleteNode(&node, true); err != nil {
+							logger.Log(0, "failed to purge node", node.ID, err.Error())
+						} else {
+							logger.Log(0, "purged node ", node.ID)
+						}
+
+					}
+				}
+			}
+		}
+	}
 }
 
 // == END PRO ==

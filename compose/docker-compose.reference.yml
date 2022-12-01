@@ -3,7 +3,11 @@ version: "3.4"
 services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
+<<<<<<< HEAD
     image: gravitl/netmaker:v0.17.0
+=======
+    image: gravitl/netmaker:v0.16.3
+>>>>>>> 407c6ed20a427153acb4901db7e61d3016823cc4
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -54,7 +58,11 @@ services:
       - "51821-51830:51821-51830/udp" # wireguard ports
   netmaker-ui:  # The Netmaker UI Component
     container_name: netmaker-ui
+<<<<<<< HEAD
     image: gravitl/netmaker-ui:v0.17.0
+=======
+    image: gravitl/netmaker-ui:v0.16.3
+>>>>>>> 407c6ed20a427153acb4901db7e61d3016823cc4
     depends_on:
       - netmaker
     links:
@@ -82,6 +90,29 @@ services:
     restart: always
     volumes:
       - dnsconfig:/root/dnsconfig
+<<<<<<< HEAD
+=======
+  traefik: # the default proxy - can be replaced with caddy or nginx, but requires careful configuration
+    image: traefik:v2.9
+    container_name: traefik
+    command:
+      - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
+      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.http.acme.tlschallenge=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certResolver=http"
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--serverstransport.insecureskipverify=true"
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
+    ports:
+      - "443:443"
+>>>>>>> 407c6ed20a427153acb4901db7e61d3016823cc4
   mq: # the MQTT broker for netmaker
     container_name: mq
     image: eclipse-mosquitto:2.0.15-openssl
@@ -93,9 +124,21 @@ services:
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
       - shared_certs:/mosquitto/certs
+<<<<<<< HEAD
     ports:
       - "1883:1883"
       - "8883:8883"
+=======
+    expose:
+      - "8883"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mqtt_websocket.rule=Host(`broker.NETMAKER_BASE_DOMAIN`)
+      - traefik.http.routers.mqtt_websocket.entrypoints=websecure
+      - traefik.http.routers.mqtt_websocket.tls.passthrough=true
+      - traefik.http.services.mqtts-svc.loadbalancer.server.port=8883
+      - traefik.http.routers.mqtt_websocket.service=mqtts-svc
+>>>>>>> 407c6ed20a427153acb4901db7e61d3016823cc4
 volumes:
   caddy_data: {} # runtime data for caddy
   caddy_conf: {} # configuration file for Caddy

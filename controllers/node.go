@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -40,13 +41,13 @@ func nodeHandlers(r *mux.Router) {
 //
 // Authenticate to make further API calls related to a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
@@ -343,13 +344,13 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 //
 // Gets all nodes associated with network including pending nodes.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeSliceResponse
+//			Responses:
+//				200: nodeSliceResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -382,13 +383,14 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 //
 // Get all nodes across all networks.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeSliceResponse
+//			Responses:
+//				200: nodeSliceResponse
+//
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -439,13 +441,13 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 //
 // Get an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -500,17 +502,53 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+<<<<<<< HEAD
+=======
+// swagger:route GET /api/nodes/adm/{network}/lastmodified nodes getLastModified
+//
+// Get the time that a network of nodes was last modified.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeLastModifiedResponse
+//
+// TODO: This needs to be refactored
+// Potential way to do this: On UpdateNode, set a new field for "LastModified"
+// If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
+func getLastModified(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+	networkName := params["network"]
+	network, err := logic.GetNetwork(networkName)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching network [%s] info: %v", networkName, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logger.Log(2, r.Header.Get("user"), "called last modified")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(network.NodesLastModified)
+}
+
+>>>>>>> 407c6ed20a427153acb4901db7e61d3016823cc4
 // swagger:route POST /api/nodes/{network} nodes createNode
 //
 // Create a node on a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeGetResponse
+//			Responses:
+//				200: nodeGetResponse
 func createNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -543,6 +581,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&node)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if !logic.IsVersionComptatible(node.Version) {
+		err := errors.New("incomatible netclient version")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -631,7 +675,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 		if !updatedUserNode { // user was found but not updated, so delete node
 			logger.Log(0, "failed to add node to user", keyName)
-			logic.DeleteNodeByID(&node, true)
+			logic.DeleteNode(&node, true)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
@@ -645,12 +689,12 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create client for this node in Mq
+	// Create client for this host in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
 			{ // delete if any client exists already
 				Command:  mq.DeleteClientCmd,
-				Username: node.ID,
+				Username: node.HostID,
 			},
 			{
 				Command:  mq.CreateRoleCmd,
@@ -660,7 +704,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			},
 			{
 				Command:  mq.CreateClientCmd,
-				Username: node.ID,
+				Username: node.HostID,
 				Password: nodePassword,
 				Textname: node.Name,
 				Roles: []mq.MqDynSecRole{
@@ -700,13 +744,14 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 //
 // Takes a node out of pending state.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
+//
 // Takes node out of pending state
 // TODO: May want to use cordon/uncordon terminology instead of "ispending".
 func uncordonNode(w http.ResponseWriter, r *http.Request) {
@@ -733,13 +778,13 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 //
 // Create an egress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	var params = mux.Vars(r)
@@ -772,13 +817,13 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an egress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -806,13 +851,13 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Create an ingress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -850,13 +895,13 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an ingress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -888,13 +933,13 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Update an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -998,13 +1043,13 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -1013,22 +1058,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var nodeid = params["nodeid"]
 	fromNode := r.Header.Get("requestfrom") == "node"
-	var node, err = logic.GetNodeByID(nodeid)
+	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		if fromNode {
-			node, err = logic.GetDeletedNodeByID(nodeid)
-			if err != nil {
-				logger.Log(0, r.Header.Get("user"),
-					fmt.Sprintf("error fetching node from deleted nodes [ %s ] info: %v", nodeid, err))
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		} else {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
+		logger.Log(0, "error retrieving node to delete", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
 	if isServer(&node) {
 		err := fmt.Errorf("cannot delete server node")
@@ -1044,34 +1078,35 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	//send update to node to be deleted before deleting on server otherwise message cannot be sent
-	node.Action = models.NODE_DELETE
-
-	err = logic.DeleteNodeByID(&node, fromNode)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	if err := logic.DeleteNode(&node, fromNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
 	if fromNode {
-		// deletes node related role and client
-		event := mq.MqDynsecPayload{
-			Commands: []mq.MqDynSecCmd{
-				{
-					Command:  mq.DeleteClientCmd,
-					Username: nodeid,
+		//check if server should be removed from mq
+		found := false
+		// err is irrelevent
+		nodes, _ := logic.GetAllNodes()
+		for _, nodetocheck := range nodes {
+			if nodetocheck.HostID == node.HostID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// deletes node related role and client
+			event := mq.MqDynsecPayload{
+				Commands: []mq.MqDynSecCmd{
+					{
+						Command:  mq.DeleteClientCmd,
+						Username: node.HostID,
+					},
 				},
-			},
-		}
-
-		if err := mq.PublishEventToDynSecTopic(event); err != nil {
-			logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-				event.Commands, err.Error()))
-		}
-	}
-
-	if servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node delete for node", node.Name, node.Network)
+			}
+			if err := mq.PublishEventToDynSecTopic(event); err != nil {
+				logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
+					event.Commands, err.Error()))
+			}
 		}
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")

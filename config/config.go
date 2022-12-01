@@ -1,7 +1,7 @@
-//Environment file for getting variables
-//Currently the only thing it does is set the master password
-//Should probably have it take over functions from OS such as port and mongodb connection details
-//Reads from the config/environments/dev.yaml file by default
+// Environment file for getting variables
+// Currently the only thing it does is set the master password
+// Should probably have it take over functions from OS such as port and mongodb connection details
+// Reads from the config/environments/dev.yaml file by default
 package config
 
 import (
@@ -69,6 +69,7 @@ type ServerConfig struct {
 	MQPort                string `yaml:"mqport"`
 	MQServerPort          string `yaml:"mqserverport"`
 	Server                string `yaml:"server"`
+	Broker                string `yam:"broker"`
 	PublicIPService       string `yaml:"publicipservice"`
 	MQAdminPassword       string `yaml:"mqadminpassword"`
 	MetricsExporter       string `yaml:"metrics_exporter"`
