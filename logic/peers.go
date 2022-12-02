@@ -9,19 +9,19 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
+	"github.com/gravitl/netclient/nm-proxy/manager"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ManagerPayload, error) {
-	proxyPayload := manager.ManagerPayload{}
+func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPayload, error) {
+	proxyPayload := manager.ProxyManagerPayload{}
 	var peers []wgtypes.PeerConfig
 	peerConfMap := make(map[string]manager.PeerConf)
 	var err error

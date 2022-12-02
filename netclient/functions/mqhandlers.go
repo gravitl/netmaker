@@ -236,10 +236,10 @@ func UpdatePeers(client mqtt.Client, msg mqtt.Message) {
 		config.Write(&cfg, cfg.Network)
 	}
 
-	if cfg.Node.Proxy {
-		ProxyMgmChan <- &peerUpdate.ProxyUpdate
-		return
-	}
+	// if cfg.Node.Proxy {
+	// 	ProxyMgmChan <- &peerUpdate.ProxyUpdate
+	// 	return
+	// }
 	file := ncutils.GetNetclientPathSpecific() + cfg.Node.Interface + ".conf"
 	internetGateway, err := wireguard.UpdateWgPeers(file, peerUpdate.Peers)
 	if err != nil {

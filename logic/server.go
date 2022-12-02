@@ -9,17 +9,17 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/gravitl/netclient/nm-proxy/manager"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var ProxyMgmChan = make(chan *manager.ManagerAction, 100)
+var ProxyMgmChan = make(chan *manager.ProxyManagerPayload, 100)
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []func()
@@ -181,11 +181,8 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 			logger.Log(1, "failed to retrieve peers")
 			return returnNode, err
 		}
+		ProxyMgmChan <- &proxyPayload
 
-		ProxyMgmChan <- &manager.ManagerAction{
-			Action:  manager.AddInterface,
-			Payload: proxyPayload,
-		}
 	}
 
 	return *node, nil

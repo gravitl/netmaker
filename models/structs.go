@@ -5,7 +5,7 @@ import (
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/gravitl/netmaker/nm-proxy/manager"
+	"github.com/gravitl/netclient/nm-proxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -203,11 +203,11 @@ type TrafficKeys struct {
 
 // NodeGet - struct for a single node get response
 type NodeGet struct {
-	Node         Node                   `json:"node" bson:"node" yaml:"node"`
-	Peers        []wgtypes.PeerConfig   `json:"peers" bson:"peers" yaml:"peers"`
-	ServerConfig ServerConfig           `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
-	PeerIDs      PeerMap                `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
-	ProxyUpdate  manager.ManagerPayload `json:"proxy_update,omitempty" bson:"proxy_update,omitempty" yaml:"proxy_update,omitempty"`
+	Node         Node                        `json:"node" bson:"node" yaml:"node"`
+	Peers        []wgtypes.PeerConfig        `json:"peers" bson:"peers" yaml:"peers"`
+	ServerConfig ServerConfig                `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
+	PeerIDs      PeerMap                     `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
+	ProxyUpdate  manager.ProxyManagerPayload `json:"proxy_update,omitempty" bson:"proxy_update,omitempty" yaml:"proxy_update,omitempty"`
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient

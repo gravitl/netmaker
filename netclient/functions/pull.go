@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	//homedir "github.com/mitchellh/go-homedir"
 )
@@ -63,12 +62,12 @@ func Pull(network string, iface bool) (*models.Node, error) {
 			logger.Log(0, "unable to update server config: "+err.Error())
 		}
 	}
-	if nodeGET.Node.Proxy {
-		ProxyMgmChan <- &manager.ManagerAction{
-			Action:  manager.AddInterface,
-			Payload: nodeGET.ProxyUpdate,
-		}
-	}
+	// if nodeGET.Node.Proxy {
+	// 	ProxyMgmChan <- &manager.ManagerAction{
+	// 		Action:  manager.AddInterface,
+	// 		Payload: nodeGET.ProxyUpdate,
+	// 	}
+	// }
 	if !nodeGET.Node.Proxy {
 		if nodeGET.Node.ListenPort != cfg.Node.LocalListenPort {
 			if err := wireguard.RemoveConf(resNode.Interface, false); err != nil {

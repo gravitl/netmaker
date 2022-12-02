@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gravitl/netclient/nm-proxy/manager"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/metrics"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 )
@@ -29,7 +29,7 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 
 		if node.IsServer == "yes" {
 			if servercfg.IsProxyEnabled() {
-				err := PublishProxyUpdate(manager.AddInterface, &node)
+				err := PublishProxyUpdate(&node)
 				if err != nil {
 					logger.Log(0, "failed to send proxy update for server: ", err.Error())
 				}
@@ -50,14 +50,12 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 	return err
 }
 
-func PublishProxyUpdate(action manager.ProxyAction, node *models.Node) error {
+func PublishProxyUpdate(node *models.Node) error {
 	peerUpdates, err := logic.GetPeersForProxy(node, false)
 	if err != nil {
 		return err
 	}
-	err = ProxyUpdate(&manager.ManagerAction{
-		Action:  action,
-		Payload: peerUpdates}, node)
+	err = ProxyUpdate(&peerUpdates, node)
 	if err != nil {
 		logger.Log(1, "failed to send proxy update: ", err.Error())
 		return err
@@ -77,10 +75,8 @@ func PublishSinglePeerUpdate(node *models.Node) error {
 		if err != nil {
 			return err
 		}
-		peerUpdate.ProxyUpdate = manager.ManagerAction{
-			Action:  manager.AddInterface,
-			Payload: proxyUpdate,
-		}
+		peerUpdate.ProxyUpdate = proxyUpdate
+
 	}
 
 	data, err := json.Marshal(&peerUpdate)
@@ -132,28 +128,27 @@ func NodeUpdate(node *models.Node) error {
 		node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent (don't need to spread access keys around the network; we need to know how to reach other nodes, not become them)
 	}
 
+	data, err := json.Marshal(node)
+	if err != nil {
+		logger.Log(2, "error marshalling node update ", err.Error())
+		return err
+	}
+	if err = publish(node, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
+		logger.Log(2, "error publishing node update to peer ", node.ID, err.Error())
+		return err
+	}
 	if node.Proxy {
-		err = PublishProxyUpdate(manager.AddInterface, node)
+		err = PublishProxyUpdate(node)
 		if err != nil {
 			logger.Log(1, "failed to publish proxy update to node", node.Name, "on network", node.Network, ":", err.Error())
-		}
-	} else {
-		data, err := json.Marshal(node)
-		if err != nil {
-			logger.Log(2, "error marshalling node update ", err.Error())
-			return err
-		}
-		if err = publish(node, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
-			logger.Log(2, "error publishing node update to peer ", node.ID, err.Error())
-			return err
 		}
 	}
 
 	return nil
 }
 
-//ProxyUpdate -- publishes updates to peers related to proxy
-func ProxyUpdate(proxyPayload *manager.ManagerAction, node *models.Node) error {
+// ProxyUpdate -- publishes updates to peers related to proxy
+func ProxyUpdate(proxyPayload *manager.ProxyManagerPayload, node *models.Node) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}

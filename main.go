@@ -23,7 +23,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	nmproxy "github.com/gravitl/netmaker/nm-proxy"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	stunserver "github.com/gravitl/netmaker/stun-server"
@@ -181,10 +180,10 @@ func startControllers() {
 		waitnetwork.Add(1)
 		go func() {
 			defer waitnetwork.Done()
-			ctx, cancel := context.WithCancel(context.Background())
+			_, cancel := context.WithCancel(context.Background())
 			waitnetwork.Add(1)
 
-			go nmproxy.Start(ctx, logic.ProxyMgmChan, servercfg.GetAPIHost())
+			//go nmproxy.Start(ctx, logic.ProxyMgmChan, servercfg.GetAPIHost())
 			err := serverctl.SyncServerNetworkWithProxy()
 			if err != nil {
 				logger.Log(0, "failed to sync proxy with server interfaces: ", err.Error())

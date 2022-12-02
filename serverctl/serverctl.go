@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"github.com/gravitl/netmaker/nm-proxy/manager"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -87,11 +86,8 @@ func SyncServerNetworkWithProxy() error {
 				logger.Log(1, "failed to retrieve peers for server node: ", serverNode.ID)
 				continue
 			}
-			logger.Log(0, "----> HEREEEEEEEE1")
-			logic.ProxyMgmChan <- &manager.ManagerAction{
-				Action:  manager.AddInterface,
-				Payload: proxyPayload,
-			}
+			logic.ProxyMgmChan <- &proxyPayload
+
 		}
 
 	}
