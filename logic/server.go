@@ -208,7 +208,7 @@ func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
 
 	var err = ServerPull(serverNode, ifaceDelta)
 	if isDeleteError(err) {
-		return DeleteNodeByID(serverNode, true)
+		return DeleteNode(serverNode, true)
 	} else if err != nil && !ifaceDelta {
 		err = ServerPull(serverNode, true)
 		if err != nil {
@@ -239,7 +239,7 @@ func checkNodeActions(node *models.Node) string {
 		}
 	}
 	if node.Action == models.NODE_DELETE {
-		err := DeleteNodeByID(node, true)
+		err := DeleteNode(node, true)
 		if err != nil {
 			logger.Log(1, "error deleting locally:", err.Error())
 		}

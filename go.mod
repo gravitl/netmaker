@@ -50,6 +50,8 @@ require (
 	gortc.io/stun v1.23.0
 )
 
+require github.com/matryer/is v1.4.0
+
 require (
 	cloud.google.com/go/compute v1.7.0 // indirect
 	fyne.io/systray v1.10.1-0.20220621085403-9a2652634e93 // indirect
@@ -77,6 +79,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
+	github.com/hashicorp/go-version v1.6.0
 	github.com/josharian/native v1.0.0 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/kr/text v0.2.0 // indirect

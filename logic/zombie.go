@@ -74,7 +74,7 @@ func ManageZombies(ctx context.Context) {
 						continue
 					}
 					if time.Since(time.Unix(node.LastCheckIn, 0)) > time.Minute*ZOMBIE_DELETE_TIME {
-						if err := DeleteNodeByID(&node, true); err != nil {
+						if err := DeleteNode(&node, true); err != nil {
 							logger.Log(1, "error deleting zombie node", zombies[i], err.Error())
 							continue
 						}
