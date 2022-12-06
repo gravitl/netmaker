@@ -1,6 +1,6 @@
 module github.com/gravitl/netmaker
 
-go 1.18
+go 1.19
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.2
@@ -15,7 +15,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.1
 	github.com/txn2/txeh v1.3.0
-	github.com/urfave/cli/v2 v2.23.4
+	github.com/urfave/cli/v2 v2.23.5
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
@@ -30,7 +30,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0
-	fyne.io/fyne/v2 v2.2.3
+	fyne.io/fyne/v2 v2.2.4
 	github.com/c-robinson/iplib v1.0.3
 	github.com/cloverstd/tcping v0.1.1
 	github.com/go-ping/ping v1.1.0

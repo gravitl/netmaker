@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
-    image: gravitl/netmaker:v0.16.3
+    image: gravitl/netmaker:v0.17.0
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -52,17 +52,9 @@ services:
       OIDC_ISSUER: "" # https://oidc.yourprovider.com - URL of oidc provider
     ports:
       - "51821-51830:51821-51830/udp" # wireguard ports
-    expose:
-      - "8081" # api port
-    labels: # only for use with traefik proxy (default)
-      - traefik.enable=true
-      - traefik.http.routers.netmaker-api.entrypoints=websecure
-      - traefik.http.routers.netmaker-api.rule=Host(`api.NETMAKER_BASE_DOMAIN`)
-      - traefik.http.routers.netmaker-api.service=netmaker-api
-      - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
   netmaker-ui:  # The Netmaker UI Component
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.16.3
+    image: gravitl/netmaker-ui:v0.17.0
     depends_on:
       - netmaker
     links:
@@ -70,21 +62,17 @@ services:
     restart: always
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN" # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
-    expose:
-      - "80"
-    labels:
-      - traefik.enable=true
-      - traefik.http.middlewares.nmui-security.headers.accessControlAllowOriginList=*.NETMAKER_BASE_DOMAIN
-      - traefik.http.middlewares.nmui-security.headers.stsSeconds=31536000
-      - traefik.http.middlewares.nmui-security.headers.browserXssFilter=true
-      - traefik.http.middlewares.nmui-security.headers.customFrameOptionsValue=SAMEORIGIN
-      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.X-Robots-Tag=none
-      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.Server= # Remove the server name
-      - traefik.http.routers.netmaker-ui.entrypoints=websecure
-      - traefik.http.routers.netmaker-ui.middlewares=nmui-security@docker
-      - traefik.http.routers.netmaker-ui.rule=Host(`dashboard.NETMAKER_BASE_DOMAIN`)
-      - traefik.http.routers.netmaker-ui.service=netmaker-ui
-      - traefik.http.services.netmaker-ui.loadbalancer.server.port=80
+  caddy: # The reverse proxy that manages traffic for Netmaker
+    image: caddy:2.6.2
+    container_name: caddy
+    restart: unless-stopped
+    volumes:
+      - /root/Caddyfile:/etc/caddy/Caddyfile # Config file for Caddy
+      - caddy_data:/data
+      - caddy_conf:/config
+    ports:
+      - "80:80"
+      - "443:443"
   coredns: # The DNS Server. CoreDNS can be removed unless doing special advanced use cases
     container_name: coredns
     image: coredns/coredns
@@ -94,29 +82,9 @@ services:
     restart: always
     volumes:
       - dnsconfig:/root/dnsconfig
-  traefik: # the default proxy - can be replaced with caddy or nginx, but requires careful configuration
-    image: traefik:v2.6
-    container_name: traefik
-    command:
-      - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
-      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.http.acme.tlschallenge=true"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.websecure.http.tls=true"
-      - "--entrypoints.websecure.http.tls.certResolver=http"
-      - "--log.level=INFO"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedByDefault=false"
-      - "--serverstransport.insecureskipverify=true"
-    restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_certs:/letsencrypt
-    ports:
-      - "443:443"
   mq: # the MQTT broker for netmaker
     container_name: mq
-    image: eclipse-mosquitto:2.0.11-openssl
+    image: eclipse-mosquitto:2.0.15-openssl
     depends_on:
       - netmaker
     restart: unless-stopped
@@ -125,17 +93,12 @@ services:
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
       - shared_certs:/mosquitto/certs
-    expose:
-      - "8883"
-    labels:
-      - traefik.enable=true
-      - traefik.tcp.routers.mqtts.rule=HostSNI(`broker.NETMAKER_BASE_DOMAIN`)
-      - traefik.tcp.routers.mqtts.tls.passthrough=true
-      - traefik.tcp.services.mqtts-svc.loadbalancer.server.port=8883
-      - traefik.tcp.routers.mqtts.service=mqtts-svc
-      - traefik.tcp.routers.mqtts.entrypoints=websecure
+    ports:
+      - "1883:1883"
+      - "8883:8883"
 volumes:
-  traefik_certs: {} # ssl certificates - auto generated
+  caddy_data: {} # runtime data for caddy
+  caddy_conf: {} # configuration file for Caddy
   shared_certs: {} # netmaker certs generated for MQ comms - used by nodes/servers
   sqldata: {} # storage for embedded sqlite
   dnsconfig: {} # storage for coredns

@@ -106,6 +106,7 @@ jobs:
 
       - name: build gui
         run: |
+          sudo apt-get update
           sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
           go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-gui .
 

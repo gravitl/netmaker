@@ -7,9 +7,9 @@ COPY . .
 ENV GO111MODULE=auto
 
 RUN apk add git
-RUN GOOS=linux CGO_ENABLED=1 go build ${tags} -ldflags="-s -X 'main.version=${version}'" .
+RUN GOOS=linux CGO_ENABLED=1 go build -tags ${tags} -ldflags="-s -X 'main.version=${version}'" .
 # RUN go build -tags=ee . -o netmaker main.go
-FROM alpine:3.15.2
+FROM alpine:3.16.2
 
 # add a c lib
 RUN apk add gcompat iptables wireguard-tools
