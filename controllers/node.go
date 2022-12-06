@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netclient/nm-proxy/manager"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -115,7 +116,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			},
 			{
 				Command:  mq.CreateClientCmd,
-				Username: result.ID,
+				Username: result.HostID,
 				Password: authRequest.Password,
 				Textname: result.Name,
 				Roles: []mq.MqDynSecRole{
@@ -618,6 +619,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 	// consume password before hashing for mq client creation
 	nodePassword := node.Password
+	node.Server = servercfg.GetServer()
 	err = logic.CreateNode(&node)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -1045,6 +1047,12 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	if err := logic.DeleteNode(&node, fromNode); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
+	}
+	if node.Proxy {
+		mq.ProxyUpdate(&manager.ProxyManagerPayload{
+			Action:  manager.DeleteNetwork,
+			Network: node.Network,
+		}, &node)
 	}
 	if fromNode {
 		//check if server should be removed from mq

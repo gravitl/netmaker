@@ -21,6 +21,7 @@ services:
     environment:
       BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
+      STUN_DOMAIN: "stun.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
@@ -45,6 +46,7 @@ services:
       PROXY: "on"
     ports:
       - "51821-51830:51821-51830/udp"
+      - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
     image: gravitl/netmaker-ui:v0.17.0

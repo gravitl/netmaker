@@ -475,7 +475,7 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.Failover == "" {
 		newNode.Failover = currentNode.Failover
 	}
-
+	newNode.Proxy = currentNode.Proxy
 	newNode.TrafficKeys = currentNode.TrafficKeys
 }
 

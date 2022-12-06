@@ -108,6 +108,7 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.Is_EE = Is_EE
+	cfg.StunHost = GetStunAddr()
 	cfg.StunPort = GetStunPort()
 
 	return cfg
@@ -192,6 +193,17 @@ func GetAPIPort() string {
 		apiport = config.Config.Server.APIPort
 	}
 	return apiport
+}
+
+// GetStunAddr - gets the stun host address
+func GetStunAddr() string {
+	stunAddr := ""
+	if os.Getenv("STUN_DOMAIN") != "" {
+		stunAddr = os.Getenv("STUN_DOMAIN")
+	} else if config.Config.Server.StunHost != "" {
+		stunAddr = config.Config.Server.StunHost
+	}
+	return stunAddr
 }
 
 // GetDefaultNodeLimit - get node limit if one is set

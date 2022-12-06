@@ -223,6 +223,7 @@ type ServerConfig struct {
 	Broker      string `yaml:"broker"`
 	Is_EE       bool   `yaml:"isee"`
 	StunPort    string `yaml:"stun_port"`
+	StunHost    string `yaml:"stun_host"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not

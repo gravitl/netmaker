@@ -4,19 +4,21 @@ ARG version
 ARG tags 
 WORKDIR /app
 COPY . .
+# RUN mkdir -p /Users/abhishekk/go/src/github.com/gravitl
+# ADD ../netclient /Users/abhishekk/go/src/github.com/gravitl
 ENV GO111MODULE=auto
 
-RUN apk add git libpcap-dev
-RUN GOOS=linux CGO_ENABLED=1 go build ${tags} -ldflags="-s -X 'main.version=${version}'" .
+# RUN apk add git
+# RUN GOOS=linux CGO_ENABLED=1 go build ${tags} -ldflags="-s -X 'main.version=${version}'" .
 # RUN go build -tags=ee . -o netmaker main.go
 FROM alpine:3.16.2
 
 # add a c lib
-RUN apk add gcompat iptables wireguard-tools libpcap-dev
+RUN apk add gcompat iptables wireguard-tools
 # set the working directory
 WORKDIR /root/
 RUN mkdir -p /etc/netclient/config
-COPY --from=builder /app/netmaker .
+COPY --from=builder /app/bin/netmaker .
 COPY --from=builder /app/config config
 EXPOSE 8081
 ENTRYPOINT ["./netmaker"]

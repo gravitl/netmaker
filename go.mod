@@ -53,28 +53,8 @@ require (
 )
 
 require (
-	github.com/gravitl/netclient v0.0.0-20221130181441-8e24c4c15dec
+	github.com/gravitl/netclient v0.0.0-20221205113827-847146e217b3
 	github.com/matryer/is v1.4.0
-)
-
-require (
-	github.com/devilcove/httpclient v0.6.0 // indirect
-	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/inconshreveable/mousetrap v1.0.1 // indirect
-	github.com/magiconair/properties v1.8.6 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
-	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.6.0 // indirect
-	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.13.0 // indirect
-	github.com/subosito/gotenv v1.4.1 // indirect
-	github.com/vishvananda/netlink v1.1.0 // indirect
-	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
-	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
-	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 )
 
 require (
