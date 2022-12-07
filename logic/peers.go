@@ -202,7 +202,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		return models.PeerUpdate{}, err
 	}
 
-	if node.IsRelayed == "yes" {
+	if node.IsRelayed == "yes" && !node.Proxy {
 		return GetPeerUpdateForRelayedNode(node, udppeers)
 	}
 
@@ -227,7 +227,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		var setEndpoint = !(node.IsServer == "yes")
 
 		if peer.IsRelayed == "yes" {
-			if !(node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
+			if !peer.Proxy && !(node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
 				//skip -- will be added to relay
 				continue
 			} else if node.IsRelay == "yes" && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress()) {
@@ -298,8 +298,11 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 				return models.PeerUpdate{}, err
 			}
 		}
-
-		allowedips := GetAllowedIPs(node, &peer, metrics, true)
+		fetchRelayedIps := true
+		if node.Proxy {
+			fetchRelayedIps = false
+		}
+		allowedips := GetAllowedIPs(node, &peer, metrics, fetchRelayedIps)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
 			// set_keepalive
