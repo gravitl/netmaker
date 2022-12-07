@@ -162,29 +162,18 @@ func GetPublicIP(api string) (string, error) {
 		iplist = append([]string{api}, iplist...)
 	}
 
-	var bodies []*http.Response
-	defer func() {
-		for _, res := range bodies {
-			if res != nil {
-				_ = res.Body.Close()
-			}
-		}
-	}()
-
 	endpoint := ""
 	var err error
 	for _, ipserver := range iplist {
 		client := &http.Client{
 			Timeout: time.Second * 10,
 		}
-
 		var resp *http.Response
 		resp, err = client.Get(ipserver)
 		if err != nil {
 			continue
 		}
-
-		bodies = append(bodies, resp)
+		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
 			var bodyBytes []byte
 			bodyBytes, err = io.ReadAll(resp.Body)
