@@ -118,7 +118,7 @@ func VerifyUserToken(tokenString string) (username string, networks []string, is
 		// check that user exists
 		user, err = GetUser(claims.UserName)
 		if err != nil {
-			return "", nil, false, errors.New("user does not exist")
+			return "", nil, false, err
 		}
 
 		if user.UserName != "" {
