@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -36,13 +37,13 @@ func networkHandlers(r *mux.Router) {
 //
 // Lists all networks.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: getNetworksSliceResponse
+//			Responses:
+//				200: getNetworksSliceResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	headerNetworks := r.Header.Get("networks")
@@ -87,13 +88,13 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 //
 // Get a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -118,13 +119,13 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Update keys for a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -158,13 +159,13 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 //
 // Update a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -281,13 +282,13 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Update a network ACL (Access Control List).
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: aclContainerResponse
+//			Responses:
+//				200: aclContainerResponse
 func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -339,13 +340,13 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 //
 // Get a network ACL (Access Control List).
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: aclContainerResponse
+//			Responses:
+//				200: aclContainerResponse
 func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -367,13 +368,13 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a network.  Will not delete if there are any nodes that belong to the network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: stringJSONResponse
+//			Responses:
+//				200: stringJSONResponse
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -414,13 +415,13 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Create a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -463,18 +464,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
+	if err = mq.PublishEventToDynSecTopic(event); err != nil {
 		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
 			event.Commands, err.Error()))
 	}
 
 	if servercfg.IsClientMode() != "off" {
-		_, err := logic.ServerJoin(&network)
-		if err != nil {
-			logic.DeleteNetwork(network.NetID)
-			if err == nil {
-				err = errors.New("Failed to add server to network " + network.NetID)
-			}
+		if _, err = logic.ServerJoin(&network); err != nil {
+			_ = logic.DeleteNetwork(network.NetID)
 			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 				err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -491,20 +488,20 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Create a network access key.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: accessKeyBodyResponse
+//			Responses:
+//				200: accessKeyBodyResponse
 //
 // BEGIN KEY MANAGEMENT SECTION
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	var accesskey models.AccessKey
-	//start here
+	// start here
 	netname := params["networkname"]
 	network, err := logic.GetParentNetwork(netname)
 	if err != nil {
@@ -545,13 +542,13 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 //
 // Get network access keys for a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: accessKeySliceBodyResponse
+//			Responses:
+//				200: accessKeySliceBodyResponse
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -575,14 +572,14 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a network access key.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200:
-//			*: stringJSONResponse
+//			Responses:
+//				200:
+//				*: stringJSONResponse
 //
 // delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
