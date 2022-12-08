@@ -60,7 +60,7 @@ type Node struct {
 	Address6                string               `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty"`
 	Interfaces              []Iface              `json:"interfaces" yaml:"interfaces"`
-	Name                    string               `json:"name" bson:"name" yaml:"name"`
+	Name                    string               `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
 	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort              int32                `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	LocalListenPort         int32                `json:"locallistenport" bson:"locallistenport" yaml:"locallistenport" validate:"numeric,min=0,max=65535"`
@@ -112,11 +112,11 @@ type Node struct {
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 	Connected       string      `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
 	PendingDelete   bool        `json:"pendingdelete" bson:"pendingdelete" yaml:"pendingdelete"`
+	Proxy           bool        `json:"proxy" bson:"proxy" yaml:"proxy"`
 	// == PRO ==
 	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
 	Failover   string `json:"failover" bson:"failover" yaml:"failover" validate:"checkyesorno"`
-	Proxy      bool   `json:"proxy" bson:"proxy" yaml:"proxy"`
 }
 
 // NodesArray - used for node sorting
