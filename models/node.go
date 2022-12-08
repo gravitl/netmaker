@@ -94,6 +94,7 @@ type Node struct {
 	FailoverNode            string               `json:"failovernode" bson:"failovernode" yaml:"failovernode"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
+	ExtClientsCidr          string               `json:"extclients_cidr" bson:"extclients_cidr" yaml:"extclients_cidr"`
 	// IsStatic - refers to if the Endpoint is set manually or dynamically
 	IsStatic        string      `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
 	UDPHolePunch    string      `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`

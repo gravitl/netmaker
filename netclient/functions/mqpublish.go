@@ -193,7 +193,7 @@ func publishMetrics(nodeCfg *config.ClientConfig) {
 		return
 	}
 
-	metrics, err := metrics.Collect(nodeCfg.Node.Interface, nodeGET.PeerIDs)
+	metrics, err := metrics.Collect(nodeCfg.Node.Interface, nodeGET.Node.Network, nodeGET.Node.Proxy, nodeGET.PeerIDs)
 	if err != nil {
 		logger.Log(0, "failed metric collection for node", nodeCfg.Node.Name, err.Error())
 	}

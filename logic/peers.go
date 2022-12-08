@@ -329,7 +329,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		}
 	}
 	if node.IsIngressGateway == "yes" {
-		extPeers, idsAndAddr, err := getExtPeers(node)
+		extPeers, idsAndAddr, err := getExtPeers(node, true)
 		if err == nil {
 			peers = append(peers, extPeers...)
 			for i := range idsAndAddr {
@@ -349,7 +349,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	return peerUpdate, nil
 }
 
-func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
+func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -387,6 +387,13 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 			if addr6.IP != nil && addr6.Mask != nil {
 				allowedips = append(allowedips, addr6)
 			}
+		}
+		if !forIngressNode && extPeer.InternalIP != "" {
+			peerInternalAddr := net.IPNet{
+				IP:   net.ParseIP(extPeer.InternalIP),
+				Mask: net.CIDRMask(32, 32),
+			}
+			allowedips = append(allowedips, peerInternalAddr)
 		}
 
 		primaryAddr := extPeer.Address
@@ -456,8 +463,9 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.Pee
 		}
 
 		extConf := manager.PeerConf{
-			IsExtClient: true,
-			Address:     extPeer.Address,
+			IsExtClient:   true,
+			Address:       extPeer.Address,
+			ExtInternalIp: extPeer.InternalIP,
 		}
 		if extPeer.IngressGatewayID == node.ID {
 			extConf.IsAttachedExtClient = true
@@ -482,7 +490,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics, fetchRelaye
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway == "yes" {
-		extPeers, _, err := getExtPeers(peer)
+		extPeers, _, err := getExtPeers(peer, false)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.Name, err.Error())
 		}
@@ -555,7 +563,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics, fetchRelaye
 				allowedips = append(allowedips, extAllowedIPs...)
 			}
 			if relayedNode.IsIngressGateway == "yes" {
-				extPeers, _, err := getExtPeers(relayedNode)
+				extPeers, _, err := getExtPeers(relayedNode, false)
 				if err == nil {
 					for _, extPeer := range extPeers {
 						allowedips = append(allowedips, extPeer.AllowedIPs...)
@@ -719,7 +727,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	}
 	//if ingress add extclients
 	if node.IsIngressGateway == "yes" {
-		extPeers, _, err := getExtPeers(node)
+		extPeers, _, err := getExtPeers(node, true)
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
