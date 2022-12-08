@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	proxy "github.com/gravitl/netclient/nm-proxy/metrics"
+	proxy "github.com/gravitl/netclient/nmproxy/metrics"
 )
 
 // Metrics - metrics struct

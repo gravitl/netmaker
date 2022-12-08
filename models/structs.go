@@ -5,7 +5,7 @@ import (
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/gravitl/netclient/nm-proxy/manager"
+	"github.com/gravitl/netclient/nmproxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
