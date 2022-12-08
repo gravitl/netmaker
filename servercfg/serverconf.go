@@ -692,11 +692,14 @@ func GetNetmakerAccountID() string {
 	return netmakerAccountID
 }
 
-func GetStunPort() string {
-	port := "3478" //default
+func GetStunPort() int {
+	port := 3478 //default
 	if os.Getenv("STUN_PORT") != "" {
-		port = os.Getenv("STUN_PORT")
-	} else if config.Config.Server.StunPort != "" {
+		portInt, err := strconv.Atoi(os.Getenv("STUN_PORT"))
+		if err == nil {
+			port = portInt
+		}
+	} else if config.Config.Server.StunPort != 0 {
 		port = config.Config.Server.StunPort
 	}
 	return port
