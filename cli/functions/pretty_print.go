@@ -6,6 +6,7 @@ import (
 	"log"
 )
 
+// PrettyPrint - print JSON with indentation
 func PrettyPrint(data any) {
 	body, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
