@@ -538,6 +538,10 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if !validName(node.Name) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidNodeName, "badrequest"))
+		return
+	}
 
 	node.Network = networkName
 
@@ -909,6 +913,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if !validName(newNode.Name) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidNodeName, "badrequest"))
 		return
 	}
 	relayupdate := false
