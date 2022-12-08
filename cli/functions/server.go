@@ -12,7 +12,7 @@ import (
 
 // GetLogs - fetch Netmaker server logs
 func GetLogs() string {
-	ctx := config.GetCurrentContext()
+	_, ctx := config.GetCurrentContext()
 	req, err := http.NewRequest(http.MethodGet, ctx.Endpoint+"/api/logs", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -20,7 +20,7 @@ func GetLogs() string {
 	if ctx.MasterKey != "" {
 		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
 	} else {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx))
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -45,7 +45,7 @@ func GetServerConfig() *cfg.ServerConfig {
 
 // GetServerHealth - fetch server current health status
 func GetServerHealth() string {
-	ctx := config.GetCurrentContext()
+	_, ctx := config.GetCurrentContext()
 	req, err := http.NewRequest(http.MethodGet, ctx.Endpoint+"/api/server/health", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -53,7 +53,7 @@ func GetServerHealth() string {
 	if ctx.MasterKey != "" {
 		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
 	} else {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx))
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

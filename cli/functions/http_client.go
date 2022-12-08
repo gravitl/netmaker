@@ -11,7 +11,10 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-func getAuthToken(ctx config.Context) string {
+func getAuthToken(ctx config.Context, force bool) string {
+	if !force && ctx.AuthToken != "" {
+		return ctx.AuthToken
+	}
 	authParams := &models.UserAuthParams{UserName: ctx.Username, Password: ctx.Password}
 	payload, err := json.Marshal(authParams)
 	if err != nil {
@@ -32,14 +35,16 @@ func getAuthToken(ctx config.Context) string {
 	if err := json.Unmarshal(resBodyBytes, body); err != nil {
 		log.Fatalf("Error unmarshalling JSON: %s", err)
 	}
-	return body.Response.(map[string]any)["AuthToken"].(string)
+	authToken := body.Response.(map[string]any)["AuthToken"].(string)
+	config.SetAuthToken(authToken)
+	return authToken
 }
 
 func request[T any](method, route string, payload any) *T {
 	var (
-		ctx = config.GetCurrentContext()
-		req *http.Request
-		err error
+		_, ctx = config.GetCurrentContext()
+		req    *http.Request
+		err    error
 	)
 	if payload == nil {
 		req, err = http.NewRequest(method, ctx.Endpoint+route, nil)
@@ -60,18 +65,24 @@ func request[T any](method, route string, payload any) *T {
 	if ctx.MasterKey != "" {
 		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
 	} else {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx))
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, false))
 	}
+retry:
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatalf("Client error making http request: %s", err)
+	}
+	// refresh JWT token
+	if res.StatusCode == http.StatusUnauthorized {
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
+		goto retry
 	}
 	resBodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Fatalf("Client could not read response body: %s", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Fatalf("Error response: %s", string(resBodyBytes))
+		log.Fatalf("Error Status: %d Response: %s", http.StatusOK, string(resBodyBytes))
 	}
 	body := new(T)
 	if len(resBodyBytes) > 0 {

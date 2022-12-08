@@ -27,7 +27,7 @@ func GetExtClient(networkName, clientID string) *models.ExtClient {
 
 // GetExtClientConfig - fetch a wireguard config of an external client
 func GetExtClientConfig(networkName, clientID string) string {
-	ctx := config.GetCurrentContext()
+	_, ctx := config.GetCurrentContext()
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/extclients/%s/%s/file", ctx.Endpoint, networkName, clientID), nil)
 	if err != nil {
 		log.Fatal(err)
@@ -35,7 +35,7 @@ func GetExtClientConfig(networkName, clientID string) string {
 	if ctx.MasterKey != "" {
 		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
 	} else {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx))
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

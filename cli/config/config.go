@@ -16,6 +16,7 @@ type Context struct {
 	Password  string `yaml:"password,omitempty"`
 	MasterKey string `yaml:"masterkey,omitempty"`
 	Current   bool   `yaml:"current,omitempty"`
+	AuthToken string `yaml:"auth_token,omitempty"`
 }
 
 var (
@@ -75,10 +76,10 @@ func saveContext() {
 }
 
 // GetCurrentContext - returns current set context
-func GetCurrentContext() (ret Context) {
-	for _, ctx := range contextMap {
-		if ctx.Current {
-			ret = ctx
+func GetCurrentContext() (name string, ctx Context) {
+	for n, c := range contextMap {
+		if c.Current {
+			name, ctx = n, c
 			return
 		}
 	}
@@ -105,6 +106,16 @@ func SetContext(ctxName string, ctx Context) {
 	}
 	contextMap[ctxName] = ctx
 	saveContext()
+}
+
+// SetAuthToken - saves the auth token
+func SetAuthToken(authToken string) {
+	ctxName, _ := GetCurrentContext()
+	if ctx, ok := contextMap[ctxName]; ok {
+		ctx.AuthToken = authToken
+		contextMap[ctxName] = ctx
+		saveContext()
+	}
 }
 
 // DeleteContext - deletes a context
