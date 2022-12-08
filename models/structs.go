@@ -222,7 +222,7 @@ type ServerConfig struct {
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	Is_EE       bool   `yaml:"isee"`
-	StunPort    string `yaml:"stun_port"`
+	StunPort    int    `yaml:"stun_port"`
 	StunHost    string `yaml:"stun_host"`
 }
 
