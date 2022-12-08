@@ -2,11 +2,8 @@ package functions
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 
-	"github.com/gravitl/netmaker/cli/config"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -27,25 +24,7 @@ func GetExtClient(networkName, clientID string) *models.ExtClient {
 
 // GetExtClientConfig - fetch a wireguard config of an external client
 func GetExtClientConfig(networkName, clientID string) string {
-	_, ctx := config.GetCurrentContext()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/extclients/%s/%s/file", ctx.Endpoint, networkName, clientID), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if ctx.MasterKey != "" {
-		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
-	} else {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	bodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return string(bodyBytes)
+	return get(fmt.Sprintf("/api/extclients/%s/%s/file", networkName, clientID))
 }
 
 // CreateExtClient - create an external client

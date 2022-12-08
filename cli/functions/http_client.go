@@ -92,3 +92,25 @@ retry:
 	}
 	return body
 }
+
+func get(route string) string {
+	_, ctx := config.GetCurrentContext()
+	req, err := http.NewRequest(http.MethodGet, ctx.Endpoint+route, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if ctx.MasterKey != "" {
+		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(bodyBytes)
+}
