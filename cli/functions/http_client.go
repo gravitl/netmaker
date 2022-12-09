@@ -74,7 +74,7 @@ retry:
 		log.Fatalf("Client error making http request: %s", err)
 	}
 	// refresh JWT token
-	if res.StatusCode == http.StatusUnauthorized && !retried {
+	if res.StatusCode == http.StatusUnauthorized && !retried && ctx.MasterKey == "" {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 		retried = true
 		goto retry
