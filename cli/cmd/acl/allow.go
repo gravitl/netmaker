@@ -22,11 +22,11 @@ var aclAllowCmd = &cobra.Command{
 		}
 		fromNodeID, ok := nameIDMap[strings.ToLower(args[1])]
 		if !ok {
-			log.Fatalf("Node %s doesn't exists", args[1])
+			log.Fatalf("Node %s doesn't exist", args[1])
 		}
 		toNodeID, ok := nameIDMap[strings.ToLower(args[2])]
 		if !ok {
-			log.Fatalf("Node %s doesn't exists", args[2])
+			log.Fatalf("Node %s doesn't exist", args[2])
 		}
 		payload := acls.ACLContainer(map[acls.AclID]acls.ACL{
 			acls.AclID(fromNodeID): map[acls.AclID]byte{
