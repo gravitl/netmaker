@@ -51,6 +51,7 @@ Wants=network-online.target
 [Service]
 User=root
 Type=simple
+ExecStartPre=/bin/sleep 17
 ExecStart=/sbin/netclient daemon
 Restart=on-failure
 RestartSec=15s
