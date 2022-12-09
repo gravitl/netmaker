@@ -29,7 +29,7 @@ func getAuthToken(ctx config.Context, force bool) string {
 		log.Fatalf("Client could not read response body: %s", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Fatalf("Error response: %s", string(resBodyBytes))
+		log.Fatalf("Error Status: %d Response: %s", res.StatusCode, string(resBodyBytes))
 	}
 	body := new(models.SuccessResponse)
 	if err := json.Unmarshal(resBodyBytes, body); err != nil {
@@ -67,14 +67,16 @@ func request[T any](method, route string, payload any) *T {
 	} else {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, false))
 	}
+	retried := false
 retry:
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatalf("Client error making http request: %s", err)
 	}
 	// refresh JWT token
-	if res.StatusCode == http.StatusUnauthorized {
+	if res.StatusCode == http.StatusUnauthorized && !retried {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
+		retried = true
 		goto retry
 	}
 	resBodyBytes, err := io.ReadAll(res.Body)
@@ -82,7 +84,7 @@ retry:
 		log.Fatalf("Client could not read response body: %s", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Fatalf("Error Status: %d Response: %s", http.StatusOK, string(resBodyBytes))
+		log.Fatalf("Error Status: %d Response: %s", res.StatusCode, string(resBodyBytes))
 	}
 	body := new(T)
 	if len(resBodyBytes) > 0 {
