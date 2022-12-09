@@ -32,6 +32,9 @@ var aclAllowCmd = &cobra.Command{
 			acls.AclID(fromNodeID): map[acls.AclID]byte{
 				acls.AclID(toNodeID): acls.Allowed,
 			},
+			acls.AclID(toNodeID): map[acls.AclID]byte{
+				acls.AclID(fromNodeID): acls.Allowed,
+			},
 		})
 		functions.UpdateACL(args[0], &payload)
 		fmt.Println("Success")
