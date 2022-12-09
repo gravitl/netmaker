@@ -159,10 +159,10 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 		return []string{ALL_NETWORK_ACCESS}, username, nil
 	}
 	// check network admin access
-	if len(netname) > 0 && (!authenticateNetworkUser(netname, userNetworks) || len(userNetworks) == 0) {
+	if len(netname) > 0 && (len(userNetworks) == 0 || !authenticateNetworkUser(netname, userNetworks)) {
 		return nil, username, Unauthorized_Err
 	}
-	if isEE && !pro.IsUserNetAdmin(netname, username) {
+	if isEE && len(netname) > 0 && !pro.IsUserNetAdmin(netname, username) {
 		return nil, "", Unauthorized_Err
 	}
 	return userNetworks, username, nil
@@ -181,7 +181,7 @@ func authenticateNetworkUser(network string, userNetworks []string) bool {
 	return StringSliceContains(userNetworks, network)
 }
 
-//Consider a more secure way of setting master key
+// Consider a more secure way of setting master key
 func authenticateDNSToken(tokenString string) bool {
 	tokens := strings.Split(tokenString, " ")
 	if len(tokens) < 2 {
