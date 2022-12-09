@@ -320,6 +320,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&CustomExtClient)
 
 	if err == nil {
+		if !validName(CustomExtClient.ClientID) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
+			return
+		}
 		extclient.ClientID = CustomExtClient.ClientID
 	}
 
@@ -411,6 +415,10 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to get record key for client [%s], network [%s]: %v",
 				clientid, network, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if !validName(newExtClient.ClientID) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
 		return
 	}
 	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
