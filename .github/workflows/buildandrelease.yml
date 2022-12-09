@@ -575,7 +575,7 @@ jobs:
     needs: [version, netclient-x86, netclient-arm]
     steps:
       - name: Repository Dispatch
-        uses: peter-evans/repository-dispatch@v2.0.0
+        uses: peter-evans/repository-dispatch@v2.1.0
         with:
           token: ${{ secrets.PERS_TOKEN_FOR_NETMAKER_DEVOPS}}
           repository: gravitl/netmaker-devops
