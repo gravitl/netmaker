@@ -1,16 +1,16 @@
 //go:build !freebsd
-// +build !freebsd
 
 package functions
 
 import (
 	"strconv"
 
+	"golang.zx2c4.com/wireguard/wgctrl"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
 // GetLocalListenPort - Gets the port running on the local interface

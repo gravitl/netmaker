@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"time"
 
-	validator "github.com/go-playground/validator/v10"
+	"github.com/go-playground/validator/v10"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // HasAdmin - checks if server has an admin
@@ -176,7 +177,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	} else if authRequest.Password == "" {
 		return "", errors.New("password can't be empty")
 	}
-	//Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
+	// Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
 	if err != nil {
 		return "", errors.New("error retrieving user from db: " + err.Error())
@@ -192,7 +193,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 		return "", errors.New("incorrect credentials")
 	}
 
-	//Create a new JWT for the node
+	// Create a new JWT for the node
 	tokenString, _ := CreateProUserJWT(authRequest.UserName, result.Networks, result.Groups, result.IsAdmin)
 	return tokenString, nil
 }
@@ -254,7 +255,7 @@ func UpdateUserNetworks(newNetworks, newGroups []string, isadmin bool, currentUs
 
 // UpdateUser - updates a given user
 func UpdateUser(userchange models.User, user models.User) (models.User, error) {
-	//check if user exists
+	// check if user exists
 	if _, err := GetUser(user.UserName); err != nil {
 		return models.User{}, err
 	}
@@ -403,13 +404,17 @@ func SetState(state string) error {
 // deletes state after call is made to clean up, should only be called once per sign-in
 func IsStateValid(state string) (string, bool) {
 	s, err := GetState(state)
-	if s.Value != "" {
-		delState(state)
-	}
 	if err != nil {
 		logger.Log(2, "error retrieving oauth state:", err.Error())
+		return "", false
 	}
-	return s.Value, err == nil
+	if s.Value != "" {
+		if err = delState(state); err != nil {
+			logger.Log(2, "error deleting oauth state:", err.Error())
+			return "", false
+		}
+	}
+	return s.Value, true
 }
 
 // delState - removes a state from cache/db
@@ -438,7 +443,7 @@ func AdjustGroupPermissions(user *models.ReturnUser) error {
 	return nil
 }
 
-// AdjustGroupPermissions - adjusts a given user's network access based on group changes
+// AdjustNetworkUserPermissions - adjusts a given user's network access based on group changes
 func AdjustNetworkUserPermissions(user *models.ReturnUser, network *models.Network) error {
 	networkUser, err := pro.GetNetworkUser(
 		network.NetID,

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/global_settings"
@@ -131,9 +132,9 @@ func IsIPTablesPresent() bool {
 
 // IsKernel - checks if running kernel WireGuard
 func IsKernel() bool {
-	//TODO
-	//Replace && true with some config file value
-	//This value should be something like kernelmode, which should be 'on' by default.
+	// TODO
+	// Replace && true with some config file value
+	// This value should be something like kernelmode, which should be 'on' by default.
 	return IsLinux() && os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION") == ""
 }
 
@@ -167,13 +168,15 @@ func GetPublicIP(api string) (string, error) {
 		client := &http.Client{
 			Timeout: time.Second * 10,
 		}
-		resp, err := client.Get(ipserver)
+		var resp *http.Response
+		resp, err = client.Get(ipserver)
 		if err != nil {
 			continue
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := io.ReadAll(resp.Body)
+			var bodyBytes []byte
+			bodyBytes, err = io.ReadAll(resp.Body)
 			if err != nil {
 				continue
 			}
@@ -259,7 +262,7 @@ func GetNetworkIPMask(networkstring string) (string, string, error) {
 	ipstring := ip.String()
 	mask := ipnet.Mask
 	maskstring := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
-	//maskstring := ipnet.Mask.String()
+	// maskstring := ipnet.Mask.String()
 	return ipstring, maskstring, err
 }
 
@@ -437,7 +440,7 @@ func Copy(src, dst string) error {
 func RunCmds(commands []string, printerr bool) error {
 	var err error
 	for _, command := range commands {
-		//prevent panic
+		// prevent panic
 		if len(strings.Trim(command, " ")) == 0 {
 			continue
 		}
@@ -474,7 +477,7 @@ func GetSystemNetworks() ([]string, error) {
 		return nil, err
 	}
 	for _, file := range files {
-		//don't want files such as *.bak, *.swp
+		// don't want files such as *.bak, *.swp
 		if filepath.Ext(file) != "" {
 			continue
 		}

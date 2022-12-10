@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -18,33 +19,31 @@ func ipHandlers(r *mux.Router) {
 //
 // Get the current public IP address.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: byteArrayResponse
-//
+//			Responses:
+//				200: byteArrayResponse
 func getPublicIP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Set("Connection", "close")
 	ip, err := parseIP(r)
 	if err != nil {
 		w.WriteHeader(400)
-		if ip != "" {
-			w.Write([]byte("ip is invalid: " + ip))
-			return
-		} else {
-			w.Write([]byte("no ip found"))
-			return
-		}
-	} else {
-		if err != nil {
+		switch {
+		case ip != "":
+			_, _ = w.Write([]byte("ip is invalid: " + ip))
+		case ip == "":
+			_, _ = w.Write([]byte("no ip found"))
+		default:
 			fmt.Println(err)
 		}
+		return
 	}
+
 	w.WriteHeader(200)
-	w.Write([]byte(ip))
+	_, _ = w.Write([]byte(ip))
 }
 
 func parseIP(r *http.Request) (string, error) {

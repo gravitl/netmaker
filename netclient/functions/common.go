@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.zx2c4.com/wireguard/wgctrl"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -22,7 +24,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
 // LINUX_APP_DATA_PATH - linux path
@@ -61,27 +62,27 @@ func ListPorts() error {
 
 func getPrivateAddr() (string, error) {
 
-	var local string
+	var localIPStr string
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err == nil {
 		defer conn.Close()
 
 		localAddr := conn.LocalAddr().(*net.UDPAddr)
 		localIP := localAddr.IP
-		local = localIP.String()
+		localIPStr = localIP.String()
 	}
-	if local == "" {
-		local, err = getPrivateAddrBackup()
+	if localIPStr == "" {
+		localIPStr, err = getPrivateAddrBackup()
 	}
 
-	if local == "" {
+	if localIPStr == "" {
 		err = errors.New("could not find local ip")
 	}
-	if net.ParseIP(local).To16() != nil {
-		local = "[" + local + "]"
+	if net.ParseIP(localIPStr).To16() != nil {
+		localIPStr = "[" + localIPStr + "]"
 	}
 
-	return local, err
+	return localIPStr, err
 }
 
 func getPrivateAddrBackup() (string, error) {
