@@ -185,12 +185,12 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 
 	var postUpCmd, postDownCmd string
 	node, err := GetNodeByID(nodeid)
-	if node.OS != "linux" { // add in darwin later
-		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
-	}
-	if node.OS == "linux" && node.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
-	}
+	// if node.OS != "linux" { // add in darwin later
+	// 	return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
+	// }
+	// if node.OS == "linux" && node.FirewallInUse == models.FIREWALL_NONE {
+	// 	return models.Node{}, errors.New("firewall is not supported for ingress gateways")
+	// }
 
 	if err != nil {
 		return models.Node{}, err

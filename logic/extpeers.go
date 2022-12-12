@@ -138,6 +138,12 @@ func CreateExtClient(extclient *models.ExtClient) error {
 				return err
 			}
 			extclient.Address = newAddress
+
+			extclientInternalAddr, err := UniqueAddress(extclient.Network, true)
+			if err != nil {
+				return err
+			}
+			extclient.InternalIPAddr = extclientInternalAddr
 		}
 	}
 
@@ -148,6 +154,11 @@ func CreateExtClient(extclient *models.ExtClient) error {
 				return err
 			}
 			extclient.Address6 = addr6
+			extclientInternalAddr6, err := UniqueAddress6(extclient.Network, true)
+			if err != nil {
+				return err
+			}
+			extclient.InternalIPAddr6 = extclientInternalAddr6
 		}
 	}
 

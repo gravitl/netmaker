@@ -284,9 +284,6 @@ Endpoint = %s
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
 }
-func getFreeIpFromIngressExtCIDR() string {
-	return "10.235.166.20"
-}
 
 // swagger:route POST /api/extclients/{network}/{nodeid} ext_client createExtClient
 //
@@ -323,7 +320,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	extclient.Network = networkName
 	extclient.IngressGatewayID = nodeid
-	extclient.InternalIP = getFreeIpFromIngressExtCIDR()
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),

@@ -84,10 +84,18 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
 			continue
 		}
+		proxyStatus := peer.Proxy
 		listenPort := peer.LocalListenPort
-		if listenPort == 0 {
+		if proxyStatus {
+			listenPort = peer.ProxyListenPort
+			if listenPort == 0 {
+				listenPort = proxy_models.NmProxyPort
+			}
+		} else if listenPort == 0 {
 			listenPort = peer.ListenPort
+
 		}
+
 		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, listenPort))
 		if err != nil {
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
@@ -99,7 +107,6 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			// set_keepalive
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
-		proxyStatus := peer.Proxy
 		if peer.IsServer == "yes" {
 			proxyStatus = servercfg.IsProxyEnabled()
 		}
@@ -111,9 +118,9 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			ReplaceAllowedIPs:           true,
 		})
 		peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
-			Address:         net.ParseIP(peer.PrimaryAddress()),
-			Proxy:           proxyStatus,
-			ProxyListenPort: peer.ProxyListenPort,
+			Address:          net.ParseIP(peer.PrimaryAddress()),
+			Proxy:            proxyStatus,
+			PublicListenPort: listenPort,
 		}
 
 		if !onlyPeers && peer.IsRelayed == "yes" {
@@ -123,11 +130,11 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 				if err == nil {
 					peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
 
-						IsRelayed:       true,
-						RelayedTo:       relayTo,
-						Address:         net.ParseIP(peer.PrimaryAddress()),
-						Proxy:           proxyStatus,
-						ProxyListenPort: peer.ProxyListenPort,
+						IsRelayed:        true,
+						RelayedTo:        relayTo,
+						Address:          net.ParseIP(peer.PrimaryAddress()),
+						Proxy:            proxyStatus,
+						PublicListenPort: listenPort,
 					}
 				}
 
@@ -362,7 +369,7 @@ func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, 
 
 		var allowedips []net.IPNet
 		var peer wgtypes.PeerConfig
-		if extPeer.Address != "" {
+		if forIngressNode && extPeer.Address != "" {
 			var peeraddr = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address),
 				Mask: net.CIDRMask(32, 32),
@@ -372,7 +379,7 @@ func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, 
 			}
 		}
 
-		if extPeer.Address6 != "" {
+		if forIngressNode && extPeer.Address6 != "" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
@@ -381,19 +388,31 @@ func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, 
 				allowedips = append(allowedips, addr6)
 			}
 		}
-		if !forIngressNode && extPeer.InternalIP != "" {
-			peerInternalAddr := net.IPNet{
-				IP:   net.ParseIP(extPeer.InternalIP),
-				Mask: net.CIDRMask(32, 32),
+		if !forIngressNode {
+			if extPeer.InternalIPAddr != "" {
+				peerInternalAddr := net.IPNet{
+					IP:   net.ParseIP(extPeer.InternalIPAddr),
+					Mask: net.CIDRMask(32, 32),
+				}
+				if peerInternalAddr.IP != nil && peerInternalAddr.Mask != nil {
+					allowedips = append(allowedips, peerInternalAddr)
+				}
 			}
-			allowedips = append(allowedips, peerInternalAddr)
+			if extPeer.InternalIPAddr6 != "" {
+				peerInternalAddr6 := net.IPNet{
+					IP:   net.ParseIP(extPeer.InternalIPAddr6),
+					Mask: net.CIDRMask(32, 32),
+				}
+				if peerInternalAddr6.IP != nil && peerInternalAddr6.Mask != nil {
+					allowedips = append(allowedips, peerInternalAddr6)
+				}
+			}
 		}
 
 		primaryAddr := extPeer.Address
 		if primaryAddr == "" {
 			primaryAddr = extPeer.Address6
 		}
-
 		peer = wgtypes.PeerConfig{
 			PublicKey:         pubkey,
 			ReplaceAllowedIPs: true,
@@ -454,11 +473,14 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_model
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        allowedips,
 		}
-
+		extInternalPrimaryAddr := extPeer.InternalIPAddr
+		if extInternalPrimaryAddr == "" {
+			extInternalPrimaryAddr = extPeer.InternalIPAddr6
+		}
 		extConf := proxy_models.PeerConf{
 			IsExtClient:   true,
 			Address:       net.ParseIP(extPeer.Address),
-			ExtInternalIp: net.ParseIP(extPeer.InternalIP),
+			ExtInternalIp: net.ParseIP(extInternalPrimaryAddr),
 		}
 		if extPeer.IngressGatewayID == node.ID {
 			extConf.IsAttachedExtClient = true
