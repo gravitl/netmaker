@@ -17,6 +17,7 @@ var Limits = GlobalLimits{
 	Users:    0,
 	Nodes:    0,
 	Clients:  0,
+	Networks: 0,
 	FreeTier: false,
 }
 
