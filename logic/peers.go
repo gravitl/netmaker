@@ -30,16 +30,6 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 	if err != nil {
 		return proxyPayload, err
 	}
-	var metrics *models.Metrics
-	if servercfg.Is_EE {
-		metrics, _ = GetMetrics(node.ID)
-	}
-	if metrics == nil {
-		metrics = &models.Metrics{}
-	}
-	if metrics.FailoverPeers == nil {
-		metrics.FailoverPeers = make(map[string]string)
-	}
 	if !onlyPeers {
 		if node.IsRelayed == "yes" {
 			relayNode := FindRelay(node)
@@ -94,22 +84,29 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
 			continue
 		}
-		listenPort := peer.LocalListenPort
+		proxyStatus := peer.Proxy
+		var listenPort int32
+		if proxyStatus {
+			listenPort = peer.ProxyListenPort
+		} else {
+			listenPort = peer.LocalListenPort
+		}
 		if listenPort == 0 {
 			listenPort = peer.ListenPort
 		}
+
 		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, listenPort))
 		if err != nil {
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
 			continue
 		}
-		allowedips := GetAllowedIPs(node, &peer, metrics, false)
+		allowedips := GetAllowedIPs(node, &peer, nil, false)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
 			// set_keepalive
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
-		proxyStatus := peer.Proxy
+
 		if peer.IsServer == "yes" {
 			proxyStatus = servercfg.IsProxyEnabled()
 		}
