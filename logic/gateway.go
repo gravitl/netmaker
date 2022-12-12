@@ -176,10 +176,6 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	return node, nil
 }
 
-func getCidrforExtClients() string {
-	return "10.10.10.0/24"
-}
-
 // CreateIngressGateway - creates an ingress gateway
 func CreateIngressGateway(netid string, nodeid string, failover bool) (models.Node, error) {
 
@@ -201,7 +197,6 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = "yes"
-	node.ExtClientsCidr = getCidrforExtClients()
 	cidrs := []string{}
 	cidrs = append(cidrs, network.AddressRange)
 	cidrs = append(cidrs, network.AddressRange6)
