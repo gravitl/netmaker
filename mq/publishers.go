@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netclient/nm-proxy/manager"
+	"github.com/gravitl/netclient/nmproxy/manager"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/metrics"

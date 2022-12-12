@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/gravitl/netclient/nm-proxy/manager"
+	"github.com/gravitl/netclient/nmproxy/manager"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 

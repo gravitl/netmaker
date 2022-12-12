@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netclient/nm-proxy/manager"
+	"github.com/gravitl/netclient/nmproxy/manager"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -23,7 +24,7 @@ import (
 func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPayload, error) {
 	proxyPayload := manager.ProxyManagerPayload{}
 	var peers []wgtypes.PeerConfig
-	peerConfMap := make(map[string]manager.PeerConf)
+	peerConfMap := make(map[string]proxy_models.PeerConf)
 	var err error
 	currentPeers, err := GetNetworkNodes(node.Network)
 	if err != nil {
@@ -61,13 +62,13 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 				proxyPayload.IsRelay = false
 			} else {
 
-				relayPeersMap := make(map[string]manager.RelayedConf)
+				relayPeersMap := make(map[string]proxy_models.RelayedConf)
 				for _, relayedNode := range relayedNodes {
 					payload, err := GetPeersForProxy(&relayedNode, true)
 					if err == nil {
 						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedNode.Endpoint, relayedNode.LocalListenPort))
 						if udpErr == nil {
-							relayPeersMap[relayedNode.PublicKey] = manager.RelayedConf{
+							relayPeersMap[relayedNode.PublicKey] = proxy_models.RelayedConf{
 								RelayedPeerEndpoint: relayedEndpoint,
 								RelayedPeerPubKey:   relayedNode.PublicKey,
 								Peers:               payload.Peers,
@@ -119,8 +120,8 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			PersistentKeepaliveInterval: &keepalive,
 			ReplaceAllowedIPs:           true,
 		})
-		peerConfMap[peer.PublicKey] = manager.PeerConf{
-			Address: peer.PrimaryAddress(),
+		peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
+			Address: net.ParseIP(peer.PrimaryAddress()),
 			Proxy:   proxyStatus,
 		}
 
@@ -129,11 +130,11 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			if relayNode != nil {
 				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
 				if err == nil {
-					peerConfMap[peer.PublicKey] = manager.PeerConf{
+					peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
 
 						IsRelayed: true,
 						RelayedTo: relayTo,
-						Address:   peer.PrimaryAddress(),
+						Address:   net.ParseIP(peer.PrimaryAddress()),
 						Proxy:     proxyStatus,
 					}
 				}
@@ -416,7 +417,7 @@ func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, 
 
 }
 
-func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.PeerConf) ([]wgtypes.PeerConfig, map[string]manager.PeerConf, error) {
+func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_models.PeerConf) ([]wgtypes.PeerConfig, map[string]proxy_models.PeerConf, error) {
 	var peers []wgtypes.PeerConfig
 
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -462,10 +463,10 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.Pee
 			AllowedIPs:        allowedips,
 		}
 
-		extConf := manager.PeerConf{
+		extConf := proxy_models.PeerConf{
 			IsExtClient:   true,
-			Address:       extPeer.Address,
-			ExtInternalIp: extPeer.InternalIP,
+			Address:       net.ParseIP(extPeer.Address),
+			ExtInternalIp: net.ParseIP(extPeer.InternalIP),
 		}
 		if extPeer.IngressGatewayID == node.ID {
 			extConf.IsAttachedExtClient = true

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/go-ping/ping"
-	proxy_metrics "github.com/gravitl/netclient/nm-proxy/metrics"
+	proxy_metrics "github.com/gravitl/netclient/nmproxy/metrics"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
