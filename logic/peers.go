@@ -84,17 +84,10 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
 			continue
 		}
-		proxyStatus := peer.Proxy
-		var listenPort int32
-		if proxyStatus {
-			listenPort = peer.ProxyListenPort
-		} else {
-			listenPort = peer.LocalListenPort
-		}
+		listenPort := peer.LocalListenPort
 		if listenPort == 0 {
 			listenPort = peer.ListenPort
 		}
-
 		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, listenPort))
 		if err != nil {
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
@@ -106,7 +99,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			// set_keepalive
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
-
+		proxyStatus := peer.Proxy
 		if peer.IsServer == "yes" {
 			proxyStatus = servercfg.IsProxyEnabled()
 		}
@@ -118,8 +111,9 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			ReplaceAllowedIPs:           true,
 		})
 		peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
-			Address: net.ParseIP(peer.PrimaryAddress()),
-			Proxy:   proxyStatus,
+			Address:         net.ParseIP(peer.PrimaryAddress()),
+			Proxy:           proxyStatus,
+			ProxyListenPort: peer.ProxyListenPort,
 		}
 
 		if !onlyPeers && peer.IsRelayed == "yes" {
@@ -129,10 +123,11 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 				if err == nil {
 					peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
 
-						IsRelayed: true,
-						RelayedTo: relayTo,
-						Address:   net.ParseIP(peer.PrimaryAddress()),
-						Proxy:     proxyStatus,
+						IsRelayed:       true,
+						RelayedTo:       relayTo,
+						Address:         net.ParseIP(peer.PrimaryAddress()),
+						Proxy:           proxyStatus,
+						ProxyListenPort: peer.ProxyListenPort,
 					}
 				}
 
