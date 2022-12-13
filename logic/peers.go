@@ -153,11 +153,12 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 		}
 	}
 
-	proxyPayload.IsIngress = node.IsIngressGateway == "yes"
 	addr := node.Address
 	if addr == "" {
 		addr = node.Address6
 	}
+	proxyPayload.IsIngress = node.IsIngressGateway == "yes"
+	proxyPayload.IsEgress = node.IsEgressGateway == "yes"
 	proxyPayload.WgAddr = addr
 	proxyPayload.Peers = peers
 	proxyPayload.PeerMap = peerConfMap
@@ -484,10 +485,6 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_model
 		}
 		if extPeer.IngressGatewayID == node.ID {
 			extConf.IsAttachedExtClient = true
-		}
-		ingGatewayUdpAddr, err := net.ResolveUDPAddr("udp", extPeer.IngressGatewayEndpoint)
-		if err == nil {
-			extConf.IngressGatewayEndPoint = ingGatewayUdpAddr
 		}
 
 		proxyPeerConf[peer.PublicKey.String()] = extConf

@@ -51,7 +51,7 @@ require (
 )
 
 require (
-	github.com/gravitl/netclient v0.0.0-20221212172659-bdf676e4250a
+	github.com/gravitl/netclient v0.0.0-20221213182626-f178377104e9
 	github.com/matryer/is v1.4.0
 )
 
