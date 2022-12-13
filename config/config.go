@@ -1,7 +1,7 @@
-//Environment file for getting variables
-//Currently the only thing it does is set the master password
-//Should probably have it take over functions from OS such as port and mongodb connection details
-//Reads from the config/environments/dev.yaml file by default
+// Environment file for getting variables
+// Currently the only thing it does is set the master password
+// Should probably have it take over functions from OS such as port and mongodb connection details
+// Reads from the config/environments/dev.yaml file by default
 package config
 
 import (
@@ -32,50 +32,50 @@ type EnvironmentConfig struct {
 
 // ServerConfig - server conf struct
 type ServerConfig struct {
-	CoreDNSAddr           string `yaml:"corednsaddr"`
-	APIConnString         string `yaml:"apiconn"`
-	APIHost               string `yaml:"apihost"`
-	APIPort               string `yaml:"apiport"`
-	MQHOST                string `yaml:"mqhost"`
-	MasterKey             string `yaml:"masterkey"`
-	DNSKey                string `yaml:"dnskey"`
-	AllowedOrigin         string `yaml:"allowedorigin"`
-	NodeID                string `yaml:"nodeid"`
-	RestBackend           string `yaml:"restbackend"`
-	AgentBackend          string `yaml:"agentbackend"`
-	MessageQueueBackend   string `yaml:"messagequeuebackend"`
-	ClientMode            string `yaml:"clientmode"`
-	DNSMode               string `yaml:"dnsmode"`
-	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
-	Version               string `yaml:"version"`
-	SQLConn               string `yaml:"sqlconn"`
-	Platform              string `yaml:"platform"`
-	Database              string `yaml:"database"`
-	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
-	Verbosity             int32  `yaml:"verbosity"`
-	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
-	AuthProvider          string `yaml:"authprovider"`
-	OIDCIssuer            string `yaml:"oidcissuer"`
-	ClientID              string `yaml:"clientid"`
-	ClientSecret          string `yaml:"clientsecret"`
-	FrontendURL           string `yaml:"frontendurl"`
-	DisplayKeys           string `yaml:"displaykeys"`
-	AzureTenant           string `yaml:"azuretenant"`
-	RCE                   string `yaml:"rce"`
-	Telemetry             string `yaml:"telemetry"`
-	ManageIPTables        string `yaml:"manageiptables"`
-	PortForwardServices   string `yaml:"portforwardservices"`
-	HostNetwork           string `yaml:"hostnetwork"`
-	MQPort                string `yaml:"mqport"`
-	MQServerPort          string `yaml:"mqserverport"`
-	Server                string `yaml:"server"`
-	PublicIPService       string `yaml:"publicipservice"`
-	MQAdminPassword       string `yaml:"mqadminpassword"`
-	MetricsExporter       string `yaml:"metrics_exporter"`
-	BasicAuth             string `yaml:"basic_auth"`
-	LicenseValue          string `yaml:"license_value"`
-	NetmakerAccountID     string `yaml:"netmaker_account_id"`
-	IsEE                  string `yaml:"is_ee"`
+	CoreDNSAddr           string   `yaml:"corednsaddr"`
+	APIConnString         string   `yaml:"apiconn"`
+	APIHost               string   `yaml:"apihost"`
+	APIPort               string   `yaml:"apiport"`
+	MQHOST                string   `yaml:"mqhost"`
+	MasterKey             string   `yaml:"masterkey"`
+	DNSKey                string   `yaml:"dnskey"`
+	AllowedOrigin         []string `yaml:"allowedorigin"`
+	NodeID                string   `yaml:"nodeid"`
+	RestBackend           string   `yaml:"restbackend"`
+	AgentBackend          string   `yaml:"agentbackend"`
+	MessageQueueBackend   string   `yaml:"messagequeuebackend"`
+	ClientMode            string   `yaml:"clientmode"`
+	DNSMode               string   `yaml:"dnsmode"`
+	DisableRemoteIPCheck  string   `yaml:"disableremoteipcheck"`
+	Version               string   `yaml:"version"`
+	SQLConn               string   `yaml:"sqlconn"`
+	Platform              string   `yaml:"platform"`
+	Database              string   `yaml:"database"`
+	DefaultNodeLimit      int32    `yaml:"defaultnodelimit"`
+	Verbosity             int32    `yaml:"verbosity"`
+	ServerCheckinInterval int64    `yaml:"servercheckininterval"`
+	AuthProvider          string   `yaml:"authprovider"`
+	OIDCIssuer            string   `yaml:"oidcissuer"`
+	ClientID              string   `yaml:"clientid"`
+	ClientSecret          string   `yaml:"clientsecret"`
+	FrontendURL           string   `yaml:"frontendurl"`
+	DisplayKeys           string   `yaml:"displaykeys"`
+	AzureTenant           string   `yaml:"azuretenant"`
+	RCE                   string   `yaml:"rce"`
+	Telemetry             string   `yaml:"telemetry"`
+	ManageIPTables        string   `yaml:"manageiptables"`
+	PortForwardServices   string   `yaml:"portforwardservices"`
+	HostNetwork           string   `yaml:"hostnetwork"`
+	MQPort                string   `yaml:"mqport"`
+	MQServerPort          string   `yaml:"mqserverport"`
+	Server                string   `yaml:"server"`
+	PublicIPService       string   `yaml:"publicipservice"`
+	MQAdminPassword       string   `yaml:"mqadminpassword"`
+	MetricsExporter       string   `yaml:"metrics_exporter"`
+	BasicAuth             string   `yaml:"basic_auth"`
+	LicenseValue          string   `yaml:"license_value"`
+	NetmakerAccountID     string   `yaml:"netmaker_account_id"`
+	IsEE                  string   `yaml:"is_ee"`
 }
 
 // SQLConfig - Generic SQL Config

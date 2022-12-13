@@ -38,7 +38,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	// Currently allowed dev origin is all. Should change in prod
 	// should consider analyzing the allowed methods further
 	headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization"})
-	originsOk := handlers.AllowedOrigins([]string{servercfg.GetAllowedOrigin()})
+	originsOk := handlers.AllowedOrigins(servercfg.GetAllowedOrigin())
 	methodsOk := handlers.AllowedMethods([]string{"GET", "PUT", "POST", "DELETE"})
 
 	for _, handler := range HttpHandlers {
