@@ -51,7 +51,7 @@ require (
 )
 
 require (
-	github.com/gravitl/netclient v0.0.0-20221208194139-5b7afd6e65c3
+	github.com/gravitl/netclient v0.0.0-20221212172659-bdf676e4250a
 	github.com/matryer/is v1.4.0
 )
 
@@ -59,6 +59,7 @@ require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/devilcove/httpclient v0.6.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/google/gopacket v1.1.19 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
@@ -71,6 +72,7 @@ require (
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
@@ -91,6 +93,7 @@ require (
 	github.com/wailsapp/wails/v2 v2.2.0 // indirect
 	golang.design/x/clipboard v0.6.3 // indirect
 	golang.org/x/exp/shiny v0.0.0-20221208044002-44028be4359e // indirect
+	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 )

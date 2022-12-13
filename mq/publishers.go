@@ -110,6 +110,13 @@ func PublishExtPeerUpdate(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	if node.Proxy {
+		proxyUpdate, err := logic.GetPeersForProxy(node, false)
+		if err == nil {
+			peerUpdate.ProxyUpdate = proxyUpdate
+		}
+	}
+
 	if err = publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
 		return err
 	}

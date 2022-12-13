@@ -153,7 +153,7 @@ func Start(wg *sync.WaitGroup) {
 		<-quit
 		cancel()
 	}()
-	normalized := normalize(fmt.Sprintf("0.0.0.0:%s", servercfg.GetStunPort()))
+	normalized := normalize(fmt.Sprintf("0.0.0.0:%d", servercfg.GetStunPort()))
 	logger.Log(0, "netmaker-stun listening on", normalized, "via udp")
 	err := listenUDPAndServe(ctx, "udp", normalized)
 	if err != nil {

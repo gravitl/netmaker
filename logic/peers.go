@@ -10,6 +10,7 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netclient/nmproxy/manager"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -23,21 +24,11 @@ import (
 func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPayload, error) {
 	proxyPayload := manager.ProxyManagerPayload{}
 	var peers []wgtypes.PeerConfig
-	peerConfMap := make(map[string]manager.PeerConf)
+	peerConfMap := make(map[string]proxy_models.PeerConf)
 	var err error
 	currentPeers, err := GetNetworkNodes(node.Network)
 	if err != nil {
 		return proxyPayload, err
-	}
-	var metrics *models.Metrics
-	if servercfg.Is_EE {
-		metrics, _ = GetMetrics(node.ID)
-	}
-	if metrics == nil {
-		metrics = &models.Metrics{}
-	}
-	if metrics.FailoverPeers == nil {
-		metrics.FailoverPeers = make(map[string]string)
 	}
 	if !onlyPeers {
 		if node.IsRelayed == "yes" {
@@ -61,13 +52,13 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 				proxyPayload.IsRelay = false
 			} else {
 
-				relayPeersMap := make(map[string]manager.RelayedConf)
+				relayPeersMap := make(map[string]proxy_models.RelayedConf)
 				for _, relayedNode := range relayedNodes {
 					payload, err := GetPeersForProxy(&relayedNode, true)
 					if err == nil {
 						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedNode.Endpoint, relayedNode.LocalListenPort))
 						if udpErr == nil {
-							relayPeersMap[relayedNode.PublicKey] = manager.RelayedConf{
+							relayPeersMap[relayedNode.PublicKey] = proxy_models.RelayedConf{
 								RelayedPeerEndpoint: relayedEndpoint,
 								RelayedPeerPubKey:   relayedNode.PublicKey,
 								Peers:               payload.Peers,
@@ -93,22 +84,29 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			logger.Log(1, "failed to parse node pub key: ", peer.ID)
 			continue
 		}
+		proxyStatus := peer.Proxy
 		listenPort := peer.LocalListenPort
-		if listenPort == 0 {
+		if proxyStatus {
+			listenPort = peer.ProxyListenPort
+			if listenPort == 0 {
+				listenPort = proxy_models.NmProxyPort
+			}
+		} else if listenPort == 0 {
 			listenPort = peer.ListenPort
+
 		}
+
 		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.Endpoint, listenPort))
 		if err != nil {
 			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID, peer.Endpoint, err.Error())
 			continue
 		}
-		allowedips := GetAllowedIPs(node, &peer, metrics, false)
+		allowedips := GetAllowedIPs(node, &peer, nil, false)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
 			// set_keepalive
 			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
 		}
-		proxyStatus := peer.Proxy
 		if peer.IsServer == "yes" {
 			proxyStatus = servercfg.IsProxyEnabled()
 		}
@@ -119,9 +117,10 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			PersistentKeepaliveInterval: &keepalive,
 			ReplaceAllowedIPs:           true,
 		})
-		peerConfMap[peer.PublicKey] = manager.PeerConf{
-			Address: peer.PrimaryAddress(),
-			Proxy:   proxyStatus,
+		peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
+			Address:          net.ParseIP(peer.PrimaryAddress()),
+			Proxy:            proxyStatus,
+			PublicListenPort: listenPort,
 		}
 
 		if !onlyPeers && peer.IsRelayed == "yes" {
@@ -129,12 +128,13 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 			if relayNode != nil {
 				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.Endpoint, relayNode.LocalListenPort))
 				if err == nil {
-					peerConfMap[peer.PublicKey] = manager.PeerConf{
+					peerConfMap[peer.PublicKey] = proxy_models.PeerConf{
 
-						IsRelayed: true,
-						RelayedTo: relayTo,
-						Address:   peer.PrimaryAddress(),
-						Proxy:     proxyStatus,
+						IsRelayed:        true,
+						RelayedTo:        relayTo,
+						Address:          net.ParseIP(peer.PrimaryAddress()),
+						Proxy:            proxyStatus,
+						PublicListenPort: listenPort,
 					}
 				}
 
@@ -329,7 +329,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		}
 	}
 	if node.IsIngressGateway == "yes" {
-		extPeers, idsAndAddr, err := getExtPeers(node)
+		extPeers, idsAndAddr, err := getExtPeers(node, true)
 		if err == nil {
 			peers = append(peers, extPeers...)
 			for i := range idsAndAddr {
@@ -349,7 +349,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	return peerUpdate, nil
 }
 
-func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
+func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -369,7 +369,7 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 
 		var allowedips []net.IPNet
 		var peer wgtypes.PeerConfig
-		if extPeer.Address != "" {
+		if forIngressNode && extPeer.Address != "" {
 			var peeraddr = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address),
 				Mask: net.CIDRMask(32, 32),
@@ -379,7 +379,7 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 			}
 		}
 
-		if extPeer.Address6 != "" {
+		if forIngressNode && extPeer.Address6 != "" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
@@ -388,12 +388,31 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 				allowedips = append(allowedips, addr6)
 			}
 		}
+		if !forIngressNode {
+			if extPeer.InternalIPAddr != "" {
+				peerInternalAddr := net.IPNet{
+					IP:   net.ParseIP(extPeer.InternalIPAddr),
+					Mask: net.CIDRMask(32, 32),
+				}
+				if peerInternalAddr.IP != nil && peerInternalAddr.Mask != nil {
+					allowedips = append(allowedips, peerInternalAddr)
+				}
+			}
+			if extPeer.InternalIPAddr6 != "" {
+				peerInternalAddr6 := net.IPNet{
+					IP:   net.ParseIP(extPeer.InternalIPAddr6),
+					Mask: net.CIDRMask(32, 32),
+				}
+				if peerInternalAddr6.IP != nil && peerInternalAddr6.Mask != nil {
+					allowedips = append(allowedips, peerInternalAddr6)
+				}
+			}
+		}
 
 		primaryAddr := extPeer.Address
 		if primaryAddr == "" {
 			primaryAddr = extPeer.Address6
 		}
-
 		peer = wgtypes.PeerConfig{
 			PublicKey:         pubkey,
 			ReplaceAllowedIPs: true,
@@ -409,7 +428,7 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 
 }
 
-func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.PeerConf) ([]wgtypes.PeerConfig, map[string]manager.PeerConf, error) {
+func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_models.PeerConf) ([]wgtypes.PeerConfig, map[string]proxy_models.PeerConf, error) {
 	var peers []wgtypes.PeerConfig
 
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -454,10 +473,14 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]manager.Pee
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        allowedips,
 		}
-
-		extConf := manager.PeerConf{
-			IsExtClient: true,
-			Address:     extPeer.Address,
+		extInternalPrimaryAddr := extPeer.InternalIPAddr
+		if extInternalPrimaryAddr == "" {
+			extInternalPrimaryAddr = extPeer.InternalIPAddr6
+		}
+		extConf := proxy_models.PeerConf{
+			IsExtClient:   true,
+			Address:       net.ParseIP(extPeer.Address),
+			ExtInternalIp: net.ParseIP(extInternalPrimaryAddr),
 		}
 		if extPeer.IngressGatewayID == node.ID {
 			extConf.IsAttachedExtClient = true
@@ -482,7 +505,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics, fetchRelaye
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway == "yes" {
-		extPeers, _, err := getExtPeers(peer)
+		extPeers, _, err := getExtPeers(peer, false)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.Name, err.Error())
 		}
@@ -555,7 +578,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics, fetchRelaye
 				allowedips = append(allowedips, extAllowedIPs...)
 			}
 			if relayedNode.IsIngressGateway == "yes" {
-				extPeers, _, err := getExtPeers(relayedNode)
+				extPeers, _, err := getExtPeers(relayedNode, false)
 				if err == nil {
 					for _, extPeer := range extPeers {
 						allowedips = append(allowedips, extPeer.AllowedIPs...)
@@ -719,7 +742,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	}
 	//if ingress add extclients
 	if node.IsIngressGateway == "yes" {
-		extPeers, _, err := getExtPeers(node)
+		extPeers, _, err := getExtPeers(node, true)
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {

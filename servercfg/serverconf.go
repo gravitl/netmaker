@@ -41,6 +41,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
+	cfg.StunHost = GetStunAddr()
+	cfg.StunPort = GetStunPort()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
