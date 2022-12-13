@@ -267,11 +267,11 @@ func GetDNSKey() string {
 }
 
 // GetAllowedOrigin - get the allowed origin
-func GetAllowedOrigin() []string {
-	allowedorigin := []string{"*"}
+func GetAllowedOrigin() string {
+	allowedorigin := "*"
 	if os.Getenv("CORS_ALLOWED_ORIGIN") != "" {
-		allowedorigin = strings.Split(os.Getenv("CORS_ALLOWED_ORIGIN"), ",")
-	} else if len(config.Config.Server.AllowedOrigin) > 0 {
+		allowedorigin = os.Getenv("CORS_ALLOWED_ORIGIN")
+	} else if config.Config.Server.AllowedOrigin != "" {
 		allowedorigin = config.Config.Server.AllowedOrigin
 	}
 	return allowedorigin
