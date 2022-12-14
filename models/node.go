@@ -48,8 +48,9 @@ type NodeCheckin struct {
 
 // Iface struct for local interfaces of a node
 type Iface struct {
-	Name    string
-	Address net.IPNet
+	Name          string    `json:"name"`
+	Address       net.IPNet `json:"address"`
+	AddressString string    `json:"addressString"`
 }
 
 // Node - struct for node model
