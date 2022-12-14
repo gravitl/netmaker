@@ -283,7 +283,8 @@ func UpdateUser(userchange models.User, user models.User) (models.User, error) {
 
 		user.Password = userchange.Password
 	}
-	if userchange.IsAdmin != user.IsAdmin {
+
+	if (userchange.IsAdmin != user.IsAdmin) && !user.IsAdmin {
 		user.IsAdmin = userchange.IsAdmin
 	}
 
@@ -340,7 +341,11 @@ func DeleteUser(user string) (bool, error) {
 	// == pro - remove user from all network user instances ==
 	currentNets, err := GetNetworks()
 	if err != nil {
-		return true, err
+		if database.IsEmptyRecord(err) {
+			currentNets = []models.Network{}
+		} else {
+			return true, err
+		}
 	}
 
 	for i := range currentNets {
