@@ -1,6 +1,7 @@
 name: Integration Test
 
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, reopened]
 
