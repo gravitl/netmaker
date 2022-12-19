@@ -21,16 +21,16 @@ func TestCreateEgressGateway(t *testing.T) {
 	createNet()
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := logic.CreateEgressGateway(gateway)
-		assert.Equal(t, models.Node{}, node)
+		assert.Equal(t, models.LegacyNode{}, node)
 		assert.EqualError(t, err, "could not find any records")
 	})
 	t.Run("Non-linux node", func(t *testing.T) {
-		createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "windows"}
+		createnode := models.LegacyNode{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "windows"}
 		err := logic.CreateNode(&createnode)
 		assert.Nil(t, err)
 		gateway.NodeID = createnode.ID
 		node, err := logic.CreateEgressGateway(gateway)
-		assert.Equal(t, models.Node{}, node)
+		assert.Equal(t, models.LegacyNode{}, node)
 		assert.EqualError(t, err, "windows is unsupported for egress gateways")
 	})
 	t.Run("Success-Nat-Enabled", func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestDeleteEgressGateway(t *testing.T) {
 	t.Run("BadNode", func(t *testing.T) {
 		node, err := logic.DeleteEgressGateway(gateway.NetID, "01:02:03")
 		assert.EqualError(t, err, "no result found")
-		assert.Equal(t, models.Node{}, node)
+		assert.Equal(t, models.LegacyNode{}, node)
 		deleteAllNodes()
 	})
 }
@@ -136,7 +136,7 @@ func TestGetNetworkNodes(t *testing.T) {
 		createTestNode()
 		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.NotEqual(t, []models.Node(nil), node)
+		assert.NotEqual(t, []models.LegacyNode(nil), node)
 	})
 
 }
@@ -147,7 +147,7 @@ func TestUncordonNode(t *testing.T) {
 	node := createTestNode()
 	t.Run("BadID", func(t *testing.T) {
 		resp, err := logic.UncordonNode("blahblah")
-		assert.Equal(t, models.Node{}, resp)
+		assert.Equal(t, models.LegacyNode{}, resp)
 		assert.EqualError(t, err, "no result found")
 	})
 	t.Run("Success", func(t *testing.T) {
@@ -181,8 +181,8 @@ func TestValidateEgressGateway(t *testing.T) {
 
 func TestNodeACLs(t *testing.T) {
 	deleteAllNodes()
-	node1 := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.50", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "linux"}
-	node2 := models.Node{PublicKey: "DM5qhLAE20FG7BbfBCger+Ac9D2NDOwCtY1rbYDXf14=", Name: "testnode", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
+	node1 := models.LegacyNode{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.50", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "linux"}
+	node2 := models.LegacyNode{PublicKey: "DM5qhLAE20FG7BbfBCger+Ac9D2NDOwCtY1rbYDXf14=", Name: "testnode", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
 	logic.CreateNode(&node1)
 	logic.CreateNode(&node2)
 	t.Run("acls not present", func(t *testing.T) {
@@ -222,7 +222,7 @@ func TestNodeACLs(t *testing.T) {
 		currentACL.Save(acls.ContainerID(node1.Network))
 	})
 	t.Run("node acls correct after add new node not allowed", func(t *testing.T) {
-		node3 := models.Node{PublicKey: "this-is-not-valid", Name: "testnode3", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
+		node3 := models.LegacyNode{PublicKey: "this-is-not-valid", Name: "testnode3", Endpoint: "10.0.0.100", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet", OS: "linux"}
 		logic.CreateNode(&node3)
 		var currentACL, err = nodeacls.FetchAllACLs(nodeacls.NetworkID(node3.Network))
 		assert.Nil(t, err)
@@ -249,8 +249,8 @@ func deleteAllNodes() {
 	database.DeleteAllRecords(database.NODES_TABLE_NAME)
 }
 
-func createTestNode() *models.Node {
-	createnode := models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "linux"}
+func createTestNode() *models.LegacyNode {
+	createnode := models.LegacyNode{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.1", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet", OS: "linux"}
 	logic.CreateNode(&createnode)
 	return &createnode
 }

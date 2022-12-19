@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 const (
@@ -53,8 +55,46 @@ type Iface struct {
 	AddressString string    `json:"addressString"`
 }
 
-// Node - struct for node model
+// CommonNode - represents a commonn node data elements shared by netmaker and netclient
+type CommonNode struct {
+	ID                  uuid.UUID            `json:"id" yaml:"id"`
+	Network             string               `json:"network" yaml:"network"`
+	NetworkRange        net.IPNet            `json:"networkrange" yaml:"networkrange"`
+	NetworkRange6       net.IPNet            `json:"networkrange6" yaml:"networkrange6"`
+	InternetGateway     *net.UDPAddr         `json:"internetgateway" yaml:"internetgateway"`
+	Server              string               `json:"server" yaml:"server"`
+	Connected           bool                 `json:"connected" yaml:"connected"`
+	Interfaces          []Iface              `json:"interfaces" yaml:"interfaces"`
+	EndpointIP          net.IP               `json:"endpointip" yaml:"endpointip"`
+	Address             net.IPNet            `json:"address" yaml:"address"`
+	Address6            net.IPNet            `json:"address6" yaml:"address6"`
+	PostUp              string               `json:"postup" yaml:"postup"`
+	PostDown            string               `json:"postdown" yaml:"postdown"`
+	Action              string               `json:"action" yaml:"action"`
+	IsServer            bool                 `json:"isserver" yaml:"isserver"`
+	IsLocal             bool                 `json:"islocal" yaml:"islocal"`
+	IsEgressGateway     bool                 `json:"isegressgateway" yaml:"isegressgateway"`
+	IsIngressGateway    bool                 `json:"isingressgateway" yaml:"isingressgateway"`
+	IsStatic            bool                 `json:"isstatic" yaml:"isstatic"`
+	IsPending           bool                 `json:"ispending" yaml:"ispending"`
+	DNSOn               bool                 `json:"dnson" yaml:"dnson"`
+	IsHub               bool                 `json:"ishub" yaml:"ishub"`
+	PersistentKeepalive int                  `json:"persistentkeepalive" yaml:"persistentkeepalive"`
+	Peers               []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
+	Proxy               bool                 `json:"proxy" bson:"proxy" yaml:"proxy"`
+}
+
+// Node - a model of a network node
 type Node struct {
+	CommonNode
+	PendingDelete bool `json:"pendingdelete" bson:"pendingdelete" yaml:"pendingdelete"`
+	// == PRO ==
+	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
+}
+
+// LegacyNode - legacy struct for node model
+type LegacyNode struct {
 	ID                      string               `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5,id_unique"`
 	HostID                  string               `json:"hostid,omitempty" bson:"id,omitempty" yaml:"hostid,omitempty" validate:"required,min=5,id_unique"`
 	Address                 string               `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
@@ -122,7 +162,7 @@ type Node struct {
 }
 
 // NodesArray - used for node sorting
-type NodesArray []Node
+type NodesArray []LegacyNode
 
 // NodesArray.Len - gets length of node array
 func (a NodesArray) Len() int { return len(a) }
@@ -140,7 +180,7 @@ func isLess(ipA string, ipB string) bool {
 }
 
 // Node.PrimaryAddress - return ipv4 address if present, else return ipv6
-func (node *Node) PrimaryAddress() string {
+func (node *LegacyNode) PrimaryAddress() string {
 	if node.Address != "" {
 		return node.Address
 	}
@@ -148,7 +188,7 @@ func (node *Node) PrimaryAddress() string {
 }
 
 // Node.SetDefaultConnected
-func (node *Node) SetDefaultConnected() {
+func (node *LegacyNode) SetDefaultConnected() {
 	if node.Connected == "" {
 		node.Connected = "yes"
 	}
@@ -158,84 +198,84 @@ func (node *Node) SetDefaultConnected() {
 }
 
 // Node.SetDefaultACL
-func (node *Node) SetDefaultACL() {
+func (node *LegacyNode) SetDefaultACL() {
 	if node.DefaultACL == "" {
 		node.DefaultACL = "yes"
 	}
 }
 
 // Node.SetDefaultMTU - sets default MTU of a node
-func (node *Node) SetDefaultMTU() {
+func (node *LegacyNode) SetDefaultMTU() {
 	if node.MTU == 0 {
 		node.MTU = 1280
 	}
 }
 
 // Node.SetDefaultNFTablesPresent - sets default for nftables check
-func (node *Node) SetDefaultNFTablesPresent() {
+func (node *LegacyNode) SetDefaultNFTablesPresent() {
 	if node.FirewallInUse == "" {
 		node.FirewallInUse = FIREWALL_IPTABLES // default to iptables
 	}
 }
 
 // Node.SetDefaulIsPending - sets ispending default
-func (node *Node) SetDefaulIsPending() {
+func (node *LegacyNode) SetDefaulIsPending() {
 	if node.IsPending == "" {
 		node.IsPending = "no"
 	}
 }
 
 // Node.SetDefaultIsRelayed - set default is relayed
-func (node *Node) SetDefaultIsRelayed() {
+func (node *LegacyNode) SetDefaultIsRelayed() {
 	if node.IsRelayed == "" {
 		node.IsRelayed = "no"
 	}
 }
 
 // Node.SetDefaultIsRelayed - set default is relayed
-func (node *Node) SetDefaultIsHub() {
+func (node *LegacyNode) SetDefaultIsHub() {
 	if node.IsHub == "" {
 		node.IsHub = "no"
 	}
 }
 
 // Node.SetDefaultIsRelay - set default isrelay
-func (node *Node) SetDefaultIsRelay() {
+func (node *LegacyNode) SetDefaultIsRelay() {
 	if node.IsRelay == "" {
 		node.IsRelay = "no"
 	}
 }
 
 // Node.SetDefaultIsDocker - set default isdocker
-func (node *Node) SetDefaultIsDocker() {
+func (node *LegacyNode) SetDefaultIsDocker() {
 	if node.IsDocker == "" {
 		node.IsDocker = "no"
 	}
 }
 
 // Node.SetDefaultIsK8S - set default isk8s
-func (node *Node) SetDefaultIsK8S() {
+func (node *LegacyNode) SetDefaultIsK8S() {
 	if node.IsK8S == "" {
 		node.IsK8S = "no"
 	}
 }
 
 // Node.SetDefaultEgressGateway - sets default egress gateway status
-func (node *Node) SetDefaultEgressGateway() {
+func (node *LegacyNode) SetDefaultEgressGateway() {
 	if node.IsEgressGateway == "" {
 		node.IsEgressGateway = "no"
 	}
 }
 
 // Node.SetDefaultIngressGateway - sets default ingress gateway status
-func (node *Node) SetDefaultIngressGateway() {
+func (node *LegacyNode) SetDefaultIngressGateway() {
 	if node.IsIngressGateway == "" {
 		node.IsIngressGateway = "no"
 	}
 }
 
 // Node.SetDefaultAction - sets default action status
-func (node *Node) SetDefaultAction() {
+func (node *LegacyNode) SetDefaultAction() {
 	if node.Action == "" {
 		node.Action = NODE_NOOP
 	}
@@ -249,35 +289,35 @@ func (node *Node) SetDefaultAction() {
 //}
 
 // Node.SetIPForwardingDefault - set ip forwarding default
-func (node *Node) SetIPForwardingDefault() {
+func (node *LegacyNode) SetIPForwardingDefault() {
 	if node.IPForwarding == "" {
 		node.IPForwarding = "yes"
 	}
 }
 
 // Node.SetIsLocalDefault - set is local default
-func (node *Node) SetIsLocalDefault() {
+func (node *LegacyNode) SetIsLocalDefault() {
 	if node.IsLocal == "" {
 		node.IsLocal = "no"
 	}
 }
 
 // Node.SetDNSOnDefault - sets dns on default
-func (node *Node) SetDNSOnDefault() {
+func (node *LegacyNode) SetDNSOnDefault() {
 	if node.DNSOn == "" {
 		node.DNSOn = "yes"
 	}
 }
 
 // Node.SetIsServerDefault - sets node isserver default
-func (node *Node) SetIsServerDefault() {
+func (node *LegacyNode) SetIsServerDefault() {
 	if node.IsServer != "yes" {
 		node.IsServer = "no"
 	}
 }
 
 // Node.SetIsStaticDefault - set is static default
-func (node *Node) SetIsStaticDefault() {
+func (node *LegacyNode) SetIsStaticDefault() {
 	if node.IsServer == "yes" {
 		node.IsStatic = "yes"
 	} else if node.IsStatic != "yes" {
@@ -286,41 +326,41 @@ func (node *Node) SetIsStaticDefault() {
 }
 
 // Node.SetLastModified - set last modified initial time
-func (node *Node) SetLastModified() {
+func (node *LegacyNode) SetLastModified() {
 	node.LastModified = time.Now().Unix()
 }
 
 // Node.SetLastCheckIn - time.Now().Unix()
-func (node *Node) SetLastCheckIn() {
+func (node *LegacyNode) SetLastCheckIn() {
 	node.LastCheckIn = time.Now().Unix()
 }
 
 // Node.SetLastPeerUpdate - sets last peer update time
-func (node *Node) SetLastPeerUpdate() {
+func (node *LegacyNode) SetLastPeerUpdate() {
 	node.LastPeerUpdate = time.Now().Unix()
 }
 
 // Node.SetExpirationDateTime - sets node expiry time
-func (node *Node) SetExpirationDateTime() {
+func (node *LegacyNode) SetExpirationDateTime() {
 	node.ExpirationDateTime = time.Now().Unix() + TEN_YEARS_IN_SECONDS
 }
 
 // Node.SetDefaultName - sets a random name to node
-func (node *Node) SetDefaultName() {
+func (node *LegacyNode) SetDefaultName() {
 	if node.Name == "" {
 		node.Name = GenerateNodeName()
 	}
 }
 
 // Node.SetDefaultFailover - sets default value of failover status to no if not set
-func (node *Node) SetDefaultFailover() {
+func (node *LegacyNode) SetDefaultFailover() {
 	if node.Failover == "" {
 		node.Failover = "no"
 	}
 }
 
 // Node.Fill - fills other node data into calling node data if not set on calling node
-func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftables present
+func (newNode *LegacyNode) Fill(currentNode *LegacyNode) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
 
 	if newNode.Address == "" {
@@ -498,7 +538,7 @@ func IsIpv4Net(host string) bool {
 }
 
 // Node.NameInNodeCharset - returns if name is in charset below or not
-func (node *Node) NameInNodeCharSet() bool {
+func (node *LegacyNode) NameInNodeCharSet() bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-"
 
@@ -513,11 +553,91 @@ func (node *Node) NameInNodeCharSet() bool {
 // == PRO ==
 
 // Node.DoesACLAllow - checks if default ACL on node is "yes"
-func (node *Node) DoesACLAllow() bool {
+func (node *LegacyNode) DoesACLAllow() bool {
 	return node.DefaultACL == "yes"
 }
 
 // Node.DoesACLDeny - checks if default ACL on node is "no"
-func (node *Node) DoesACLDeny() bool {
+func (node *LegacyNode) DoesACLDeny() bool {
 	return node.DefaultACL == "no"
+}
+
+func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
+	var node Node
+	//host:= logic.GetHost(node.HostID)
+	var host Host
+	if host.ID.String() == "" {
+		host.ID = uuid.New()
+		host.FirewallInUse = ln.FirewallInUse
+		host.Version = ln.Version
+		host.IPForwarding = parseBool(ln.IPForwarding)
+		host.HostPass = ln.Password
+		host.Name = ln.Name
+		host.ListenPort = int(ln.ListenPort)
+		_, cidr, _ := net.ParseCIDR(ln.LocalAddress)
+		host.LocalAddress = *cidr
+		_, cidr, _ = net.ParseCIDR(ln.LocalRange)
+		host.LocalRange = *cidr
+		host.LocalListenPort = int(ln.LocalListenPort)
+		host.ProxyListenPort = int(ln.ProxyListenPort)
+		host.MTU = int(ln.MTU)
+		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
+		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
+		host.TrafficKeyPublic = ln.TrafficKeys.Mine
+		gateway, _ := net.ResolveUDPAddr("udp", ln.InternetGateway)
+		host.InternetGateway = *gateway
+		id, _ := uuid.Parse(ln.ID)
+		host.Nodes = append(host.Nodes, id)
+	}
+	id, _ := uuid.Parse(ln.ID)
+	node.ID = id
+	node.Network = ln.Network
+	_, cidr, _ := net.ParseCIDR(ln.NetworkSettings.AddressRange)
+	node.NetworkRange = *cidr
+	_, cidr, _ = net.ParseCIDR(ln.NetworkSettings.AddressRange6)
+	node.NetworkRange6 = *cidr
+	node.Server = ln.Server
+	node.Connected = parseBool(ln.Connected)
+	node.Interfaces = ln.Interfaces
+	node.EndpointIP = net.ParseIP(ln.Endpoint)
+	_, cidr, _ = net.ParseCIDR(ln.Address)
+	node.Address = *cidr
+	_, cidr, _ = net.ParseCIDR(ln.Address6)
+	node.Address6 = *cidr
+	node.PostUp = ln.PostUp
+	node.PostDown = ln.PostDown
+	node.Action = ln.Action
+	node.IsServer = parseBool(ln.IsServer)
+	node.IsLocal = parseBool(ln.IsLocal)
+	node.IsEgressGateway = parseBool(ln.IsEgressGateway)
+	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
+	node.IsStatic = parseBool(ln.IsStatic)
+	node.DNSOn = parseBool(ln.DNSOn)
+	node.PersistentKeepalive = int(ln.PersistentKeepalive)
+	node.Proxy = ln.Proxy
+
+	return &host, &node
+}
+
+// Node.NetworkSettings updates a node with network settings
+func (node *Node) NetworkSettings(n Network) {
+	_, cidr, _ := net.ParseCIDR(n.AddressRange)
+	node.NetworkRange = *cidr
+
+}
+
+func parseBool(s string) bool {
+	b := false
+	if s == "yes" {
+		b = true
+	}
+	return b
+}
+
+func formatBool(b bool) string {
+	s := "no"
+	if b {
+		s = "yes"
+	}
+	return s
 }

@@ -33,11 +33,11 @@ const (
 )
 
 // GetNetworkNodes - gets the nodes of a network
-func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes []models.Node
+func GetNetworkNodes(network string) ([]models.LegacyNode, error) {
+	var nodes []models.LegacyNode
 	allnodes, err := GetAllNodes()
 	if err != nil {
-		return []models.Node{}, err
+		return []models.LegacyNode{}, err
 	}
 	for _, node := range allnodes {
 		if node.Network == network {
@@ -48,18 +48,18 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 }
 
 // GetSortedNetworkServerNodes - gets nodes of a network, except sorted by update time
-func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
-	var nodes []models.Node
+func GetSortedNetworkServerNodes(network string) ([]models.LegacyNode, error) {
+	var nodes []models.LegacyNode
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
+			return []models.LegacyNode{}, nil
 		}
 		return nodes, err
 	}
 	for _, value := range collection {
 
-		var node models.Node
+		var node models.LegacyNode
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			continue
@@ -73,8 +73,8 @@ func GetSortedNetworkServerNodes(network string) ([]models.Node, error) {
 }
 
 // GetServerNodes - gets the server nodes of a network
-func GetServerNodes(network string) []models.Node {
-	var serverNodes = make([]models.Node, 0)
+func GetServerNodes(network string) []models.LegacyNode {
+	var serverNodes = make([]models.LegacyNode, 0)
 	var nodes, err = GetNetworkNodes(network)
 	if err != nil {
 		return serverNodes
@@ -88,10 +88,10 @@ func GetServerNodes(network string) []models.Node {
 }
 
 // UncordonNode - approves a node to join a network
-func UncordonNode(nodeid string) (models.Node, error) {
+func UncordonNode(nodeid string) (models.LegacyNode, error) {
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	node.SetLastModified()
 	node.IsPending = "no"
@@ -105,14 +105,14 @@ func UncordonNode(nodeid string) (models.Node, error) {
 }
 
 // SetIfLeader - gets the peers of a given server node
-func SetPeersIfLeader(node *models.Node) {
+func SetPeersIfLeader(node *models.LegacyNode) {
 	if IsLeader(node) {
 		setNetworkServerPeers(node)
 	}
 }
 
 // IsLeader - determines if a given server node is a leader
-func IsLeader(node *models.Node) bool {
+func IsLeader(node *models.LegacyNode) bool {
 	nodes, err := GetSortedNetworkServerNodes(node.Network)
 	if err != nil {
 		logger.Log(0, "ERROR: COULD NOT RETRIEVE SERVER NODES. THIS WILL BREAK HOLE PUNCHING.")
@@ -129,7 +129,7 @@ func IsLeader(node *models.Node) bool {
 // == DB related functions ==
 
 // UpdateNode - takes a node and updates another node with it's values
-func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
+func UpdateNode(currentNode *models.LegacyNode, newNode *models.LegacyNode) error {
 	if newNode.Address != currentNode.Address {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
 			if !IsAddressInCIDR(newNode.Address, network.AddressRange) {
@@ -168,7 +168,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 }
 
 // DeleteNode - marks node for deletion if called by UI or deletes node if called by node
-func DeleteNode(node *models.Node, purge bool) error {
+func DeleteNode(node *models.LegacyNode, purge bool) error {
 	if !purge {
 		newnode := node
 		newnode.PendingDelete = true
@@ -191,7 +191,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 }
 
 // DeleteNodeByID - deletes a node from database
-func DeleteNodeByID(node *models.Node) error {
+func DeleteNodeByID(node *models.LegacyNode) error {
 	var err error
 	var key = node.ID
 	//delete any ext clients as required
@@ -230,13 +230,13 @@ func DeleteNodeByID(node *models.Node) error {
 }
 
 // IsNodeIDUnique - checks if node id is unique
-func IsNodeIDUnique(node *models.Node) (bool, error) {
+func IsNodeIDUnique(node *models.LegacyNode) (bool, error) {
 	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID)
 	return database.IsEmptyRecord(err), err
 }
 
 // ValidateNode - validates node values
-func ValidateNode(node *models.Node, isUpdate bool) error {
+func ValidateNode(node *models.LegacyNode, isUpdate bool) error {
 	v := validator.New()
 	_ = v.RegisterValidation("id_unique", func(fl validator.FieldLevel) bool {
 		if isUpdate {
@@ -279,7 +279,7 @@ func IsFailoverPresent(network string) bool {
 }
 
 // CreateNode - creates a node in database
-func CreateNode(node *models.Node) error {
+func CreateNode(node *models.LegacyNode) error {
 
 	//encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(node.Password), 5)
@@ -387,21 +387,21 @@ func CreateNode(node *models.Node) error {
 }
 
 // GetAllNodes - returns all nodes in the DB
-func GetAllNodes() ([]models.Node, error) {
-	var nodes []models.Node
+func GetAllNodes() ([]models.LegacyNode, error) {
+	var nodes []models.LegacyNode
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
+			return []models.LegacyNode{}, nil
 		}
-		return []models.Node{}, err
+		return []models.LegacyNode{}, err
 	}
 
 	for _, value := range collection {
-		var node models.Node
+		var node models.LegacyNode
 		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			return []models.Node{}, err
+			return []models.LegacyNode{}, err
 		}
 		// add node to our array
 		nodes = append(nodes, node)
@@ -411,13 +411,13 @@ func GetAllNodes() ([]models.Node, error) {
 }
 
 // CheckIsServer - check if a node is the server node
-func CheckIsServer(node *models.Node) bool {
+func CheckIsServer(node *models.LegacyNode) bool {
 	nodeData, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return false
 	}
 	for _, value := range nodeData {
-		var tmpNode models.Node
+		var tmpNode models.LegacyNode
 		if err := json.Unmarshal([]byte(value), &tmpNode); err != nil {
 			continue
 		}
@@ -443,7 +443,7 @@ func GetNetworkByNode(node *models.Node) (models.Network, error) {
 }
 
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
-func SetNodeDefaults(node *models.Node) {
+func SetNodeDefaults(node *models.LegacyNode) {
 
 	//TODO: Maybe I should make Network a part of the node struct. Then we can just query the Network object for stuff.
 	parentNetwork, _ := GetNetworkByNode(node)
@@ -524,9 +524,9 @@ func GetRecordKey(id string, network string) (string, error) {
 }
 
 // GetNodeByMacAddress - gets a node by mac address
-func GetNodeByMacAddress(network string, macaddress string) (models.Node, error) {
+func GetNodeByMacAddress(network string, macaddress string) (models.LegacyNode, error) {
 
-	var node models.Node
+	var node models.LegacyNode
 
 	key, err := GetRecordKey(macaddress, network)
 	if err != nil {
@@ -535,11 +535,11 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 
 	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	SetNodeDefaults(&node)
@@ -548,11 +548,11 @@ func GetNodeByMacAddress(network string, macaddress string) (models.Node, error)
 }
 
 // GetNodesByAddress - gets a node by mac address
-func GetNodesByAddress(network string, addresses []string) ([]models.Node, error) {
-	var nodes []models.Node
+func GetNodesByAddress(network string, addresses []string) ([]models.LegacyNode, error) {
+	var nodes []models.LegacyNode
 	allnodes, err := GetAllNodes()
 	if err != nil {
-		return []models.Node{}, err
+		return []models.LegacyNode{}, err
 	}
 	for _, node := range allnodes {
 		if node.Network == network && ncutils.StringSliceContains(addresses, node.Address) {
@@ -563,9 +563,9 @@ func GetNodesByAddress(network string, addresses []string) ([]models.Node, error
 }
 
 // GetDeletedNodeByMacAddress - get a deleted node
-func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node, error) {
+func GetDeletedNodeByMacAddress(network string, macaddress string) (models.LegacyNode, error) {
 
-	var node models.Node
+	var node models.LegacyNode
 
 	key, err := GetRecordKey(macaddress, network)
 	if err != nil {
@@ -574,11 +574,11 @@ func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node,
 
 	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	SetNodeDefaults(&node)
@@ -587,9 +587,9 @@ func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node,
 }
 
 // GetNodeRelay - gets the relay node of a given network
-func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
+func GetNodeRelay(network string, relayedNodeAddr string) (models.LegacyNode, error) {
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	var relay models.Node
+	var relay models.LegacyNode
 	if err != nil {
 		if database.IsEmptyRecord(err) {
 			return relay, nil
@@ -614,30 +614,30 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
 }
 
-func GetNodeByID(uuid string) (models.Node, error) {
+func GetNodeByID(uuid string) (models.LegacyNode, error) {
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
-	var node models.Node
+	var node models.LegacyNode
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	return node, nil
 }
 
 // GetDeletedNodeByID - get a deleted node
-func GetDeletedNodeByID(uuid string) (models.Node, error) {
+func GetDeletedNodeByID(uuid string) (models.LegacyNode, error) {
 
-	var node models.Node
+	var node models.LegacyNode
 
 	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, uuid)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	SetNodeDefaults(&node)
@@ -646,39 +646,39 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 }
 
 // GetNetworkServerNodeID - get network server node ID if exists
-func GetNetworkServerLeader(network string) (models.Node, error) {
+func GetNetworkServerLeader(network string) (models.LegacyNode, error) {
 	nodes, err := GetSortedNetworkServerNodes(network)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	for _, node := range nodes {
 		if IsLeader(&node) {
 			return node, nil
 		}
 	}
-	return models.Node{}, errors.New("could not find server leader")
+	return models.LegacyNode{}, errors.New("could not find server leader")
 }
 
 // GetNetworkServerNodeID - get network server node ID if exists
-func GetNetworkServerLocal(network string) (models.Node, error) {
+func GetNetworkServerLocal(network string) (models.LegacyNode, error) {
 	nodes, err := GetSortedNetworkServerNodes(network)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	mac := servercfg.GetNodeID()
 	if mac == "" {
-		return models.Node{}, fmt.Errorf("error retrieving local server node: server node ID is unset")
+		return models.LegacyNode{}, fmt.Errorf("error retrieving local server node: server node ID is unset")
 	}
 	for _, node := range nodes {
 		if mac == node.MacAddress {
 			return node, nil
 		}
 	}
-	return models.Node{}, errors.New("could not find node for local server")
+	return models.LegacyNode{}, errors.New("could not find node for local server")
 }
 
 // IsLocalServer - get network server node ID if exists
-func IsLocalServer(node *models.Node) bool {
+func IsLocalServer(node *models.LegacyNode) bool {
 	var islocal bool
 	local, err := GetNetworkServerLocal(node.Network)
 	if err != nil {
@@ -688,15 +688,15 @@ func IsLocalServer(node *models.Node) bool {
 }
 
 // validateServer - make sure servers dont change port or address
-func validateServer(currentNode, newNode *models.Node) bool {
+func validateServer(currentNode, newNode *models.LegacyNode) bool {
 	return (newNode.Address == currentNode.Address &&
 		newNode.ListenPort == currentNode.ListenPort &&
 		newNode.IsServer == "yes")
 }
 
 // unsetHub - unset hub on network nodes
-func UnsetHub(networkName string) (*models.Node, error) {
-	var nodesToUpdate models.Node
+func UnsetHub(networkName string) (*models.LegacyNode, error) {
+	var nodesToUpdate models.LegacyNode
 	nodes, err := GetNetworkNodes(networkName)
 	if err != nil {
 		return &nodesToUpdate, err
@@ -718,7 +718,7 @@ func UnsetHub(networkName string) (*models.Node, error) {
 }
 
 // FindRelay - returns the node that is the relay for a relayed node
-func FindRelay(node *models.Node) *models.Node {
+func FindRelay(node *models.LegacyNode) *models.LegacyNode {
 	if node.IsRelayed == "no" {
 		return nil
 	}
@@ -739,7 +739,7 @@ func FindRelay(node *models.Node) *models.Node {
 	return nil
 }
 
-func findNode(ip string) (*models.Node, error) {
+func findNode(ip string) (*models.LegacyNode, error) {
 	nodes, err := GetAllNodes()
 	if err != nil {
 		return nil, err
@@ -756,11 +756,11 @@ func findNode(ip string) (*models.Node, error) {
 }
 
 // GetNetworkIngresses - gets the gateways of a network
-func GetNetworkIngresses(network string) ([]models.Node, error) {
-	var ingresses []models.Node
+func GetNetworkIngresses(network string) ([]models.LegacyNode, error) {
+	var ingresses []models.LegacyNode
 	netNodes, err := GetNetworkNodes(network)
 	if err != nil {
-		return []models.Node{}, err
+		return []models.LegacyNode{}, err
 	}
 	for i := range netNodes {
 		if netNodes[i].IsIngressGateway == "yes" {
@@ -772,7 +772,7 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 
 // == PRO ==
 
-func updateProNodeACLS(node *models.Node) error {
+func updateProNodeACLS(node *models.LegacyNode) error {
 	// == PRO node ACLs ==
 	networkNodes, err := GetNetworkNodes(node.Network)
 	if err != nil {

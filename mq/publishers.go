@@ -16,7 +16,7 @@ import (
 )
 
 // PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
-func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
+func PublishPeerUpdate(newNode *models.LegacyNode, publishToSelf bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -50,7 +50,7 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 	return err
 }
 
-func PublishProxyPeerUpdate(node *models.Node) error {
+func PublishProxyPeerUpdate(node *models.LegacyNode) error {
 	proxyUpdate, err := logic.GetPeersForProxy(node, false)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func PublishProxyPeerUpdate(node *models.Node) error {
 }
 
 // PublishSinglePeerUpdate --- determines and publishes a peer update to one node
-func PublishSinglePeerUpdate(node *models.Node) error {
+func PublishSinglePeerUpdate(node *models.LegacyNode) error {
 
 	peerUpdate, err := logic.GetPeerUpdate(node)
 	if err != nil {
@@ -89,7 +89,7 @@ func PublishSinglePeerUpdate(node *models.Node) error {
 }
 
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
-func PublishExtPeerUpdate(node *models.Node) error {
+func PublishExtPeerUpdate(node *models.LegacyNode) error {
 	var err error
 	if logic.IsLocalServer(node) {
 		if err = logic.ServerUpdate(node, false); err != nil {
@@ -125,7 +125,7 @@ func PublishExtPeerUpdate(node *models.Node) error {
 }
 
 // NodeUpdate -- publishes a node update
-func NodeUpdate(node *models.Node) error {
+func NodeUpdate(node *models.LegacyNode) error {
 	var err error
 	if !servercfg.IsMessageQueueBackend() || node.IsServer == "yes" {
 
@@ -157,7 +157,7 @@ func NodeUpdate(node *models.Node) error {
 }
 
 // ProxyUpdate -- publishes updates to peers related to proxy
-func ProxyUpdate(proxyPayload *manager.ProxyManagerPayload, node *models.Node) error {
+func ProxyUpdate(proxyPayload *manager.ProxyManagerPayload, node *models.LegacyNode) error {
 	if !servercfg.IsMessageQueueBackend() || !node.Proxy {
 		return nil
 	}

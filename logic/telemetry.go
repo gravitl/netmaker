@@ -111,7 +111,7 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions
-func getClientCount(nodes []models.Node) clientCount {
+func getClientCount(nodes []models.LegacyNode) clientCount {
 	var count clientCount
 	for _, node := range nodes {
 		switch node.OS {

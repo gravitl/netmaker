@@ -20,7 +20,7 @@ import (
 )
 
 // Pull - pulls the latest config from the server, if manual it will overwrite
-func Pull(network string, iface bool) (*models.Node, error) {
+func Pull(network string, iface bool) (*models.LegacyNode, error) {
 	cfg, err := config.ReadConfig(network)
 	if err != nil {
 		return nil, err

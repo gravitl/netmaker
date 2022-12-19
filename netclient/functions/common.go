@@ -160,7 +160,7 @@ func getInterfaces() (*[]models.Iface, error) {
 }
 
 // GetNode - gets node locally
-func GetNode(network string) models.Node {
+func GetNode(network string) models.LegacyNode {
 
 	modcfg, err := config.ReadConfig(network)
 	if err != nil {
@@ -422,7 +422,7 @@ func SetServerInfo(cfg *config.ClientConfig) error {
 	return nil
 }
 
-func informPortChange(node *models.Node) {
+func informPortChange(node *models.LegacyNode) {
 	if node.ListenPort == 0 {
 		logger.Log(0, "network:", node.Network, "UDP hole punching enabled for node", node.Name)
 	} else {

@@ -21,7 +21,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPayload, error) {
+func GetPeersForProxy(node *models.LegacyNode, onlyPeers bool) (manager.ProxyManagerPayload, error) {
 	proxyPayload := manager.ProxyManagerPayload{}
 	var peers []wgtypes.PeerConfig
 	peerConfMap := make(map[string]proxy_models.PeerConf)
@@ -167,7 +167,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 }
 
 // GetPeerUpdate - gets a wireguard peer config for each peer of a node
-func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
+func GetPeerUpdate(node *models.LegacyNode) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate
 	var peers []wgtypes.PeerConfig
 	var serverNodeAddresses = []models.ServerAddr{}
@@ -349,7 +349,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	return peerUpdate, nil
 }
 
-func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
+func getExtPeers(node *models.LegacyNode, forIngressNode bool) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -428,7 +428,7 @@ func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, 
 
 }
 
-func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_models.PeerConf) ([]wgtypes.PeerConfig, map[string]proxy_models.PeerConf, error) {
+func getExtPeersForProxy(node *models.LegacyNode, proxyPeerConf map[string]proxy_models.PeerConf) ([]wgtypes.PeerConfig, map[string]proxy_models.PeerConf, error) {
 	var peers []wgtypes.PeerConfig
 
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -499,7 +499,7 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_model
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
-func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics, fetchRelayedIps bool) []net.IPNet {
+func GetAllowedIPs(node, peer *models.LegacyNode, metrics *models.Metrics, fetchRelayedIps bool) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
 
@@ -611,7 +611,7 @@ func getPeerDNS(network string) string {
 
 // GetPeerUpdateForRelayedNode - calculates peer update for a relayed node by getting the relay
 // copying the relay node's allowed ips and making appropriate substitutions
-func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) (models.PeerUpdate, error) {
+func GetPeerUpdateForRelayedNode(node *models.LegacyNode, udppeers map[string]string) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate
 	var peers []wgtypes.PeerConfig
 	var serverNodeAddresses = []models.ServerAddr{}
@@ -757,7 +757,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	return peerUpdate, nil
 }
 
-func getEgressIPs(node, peer *models.Node) []net.IPNet {
+func getEgressIPs(node, peer *models.LegacyNode) []net.IPNet {
 	//check for internet gateway
 	internetGateway := false
 	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::/0") {
@@ -789,7 +789,7 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 	return allowedips
 }
 
-func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
+func getNodeAllowedIPs(peer, node *models.LegacyNode) []net.IPNet {
 	var allowedips = []net.IPNet{}
 
 	if peer.Address != "" {

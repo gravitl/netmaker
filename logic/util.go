@@ -147,7 +147,7 @@ func StringSliceContains(slice []string, item string) bool {
 // == private ==
 
 // sets the network server peers of a given node
-func setNetworkServerPeers(serverNode *models.Node) {
+func setNetworkServerPeers(serverNode *models.LegacyNode) {
 	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
 		if currentPeersList == nil {
 			currentPeersList = make(map[string]string)
@@ -161,7 +161,7 @@ func setNetworkServerPeers(serverNode *models.Node) {
 }
 
 // ShouldPublishPeerPorts - Gets ports from iface, sets, and returns true if they are different
-func ShouldPublishPeerPorts(serverNode *models.Node) bool {
+func ShouldPublishPeerPorts(serverNode *models.LegacyNode) bool {
 	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
 		if database.SetPeers(currentPeersList, serverNode.Network) {
 			logger.Log(1, "set new peers on network", serverNode.Network)

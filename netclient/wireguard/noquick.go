@@ -19,7 +19,7 @@ import (
 const disconnect_error = "node disconnected"
 
 // ApplyWithoutWGQuick - Function for running the equivalent of "wg-quick up" for linux if wg-quick is missing
-func ApplyWithoutWGQuick(node *models.Node, ifacename, confPath string, isConnected bool) error {
+func ApplyWithoutWGQuick(node *models.LegacyNode, ifacename, confPath string, isConnected bool) error {
 
 	ipExec, err := exec.LookPath("ip")
 	if err != nil {

@@ -53,7 +53,7 @@ func nodeHandlers(r *mux.Router) {
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
-	var result models.Node
+	var result models.LegacyNode
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
@@ -357,7 +357,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var nodes []models.Node
+	var nodes []models.LegacyNode
 	var params = mux.Vars(r)
 	networkName := params["network"]
 
@@ -403,7 +403,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var nodes []models.Node
+	var nodes []models.LegacyNode
 	if user.IsAdmin || r.Header.Get("ismasterkey") == "yes" {
 		nodes, err = logic.GetAllNodes()
 		if err != nil {
@@ -426,8 +426,8 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(nodes)
 }
 
-func getUsersNodes(user models.User) ([]models.Node, error) {
-	var nodes []models.Node
+func getUsersNodes(user models.User) ([]models.LegacyNode, error) {
+	var nodes []models.LegacyNode
 	var err error
 	for _, networkName := range user.Networks {
 		tmpNodes, err := logic.GetNetworkNodes(networkName)
@@ -479,8 +479,8 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.NodeGet{
-		Node:         node,
-		Peers:        peerUpdate.Peers,
+		Node: node,
+		//Peers:        peerUpdate.Peers,
 		ServerConfig: servercfg.GetServerInfo(),
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
@@ -541,60 +541,47 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var node = models.Node{}
-
-	//get node from body of request
-	err = json.NewDecoder(r.Body).Decode(&node)
+	//get data from body of request
+	data := models.JoinData{}
+	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	if !logic.IsVersionComptatible(node.Version) {
+	if !logic.IsVersionComptatible(data.Host.Version) {
 		err := errors.New("incomatible netclient version")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	node.Network = networkName
+	data.Node.Network = networkName
 
-	network, err := logic.GetNetworkByNode(&node)
+	networkSettings, err := logic.GetNetworkSettings(networkName)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to get network [%s] info: %v", node.Network, err))
+			fmt.Sprintf("failed to get network [%s] settings: %v", networkName, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to get network [%s] settings: %v", node.Network, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	keyName, validKey := logic.IsKeyValid(networkName, node.AccessKey)
+	data.Node.NetworkSettings(networkSettings)
+	keyName, validKey := logic.IsKeyValid(networkName, data.Key)
 	if !validKey {
-		// Check to see if network will allow manual sign up
-		// may want to switch this up with the valid key check and avoid a DB call that way.
-		if network.AllowManualSignUp == "yes" {
-			node.IsPending = "yes"
-		} else {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
-			}
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to create node on network [%s]: %s",
-					node.Network, errorResponse.Message))
-			logic.ReturnErrorResponse(w, r, errorResponse)
-			return
+		errorResponse = models.ErrorResponse{
+			Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
 		}
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create node on network [%s]: %s",
+				data.Node.Network, errorResponse.Message))
+		logic.ReturnErrorResponse(w, r, errorResponse)
+		return
 	}
 	user, err := pro.GetNetworkUser(networkName, promodels.NetworkUserID(keyName))
 	if err == nil {
 		if user.ID != "" {
 			logger.Log(1, "associating new node with user", keyName)
-			node.OwnerID = string(user.ID)
+			data.Node.OwnerID = string(user.ID)
 		}
 	}
 
@@ -609,23 +596,22 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if node.TrafficKeys.Mine == nil {
+	if data.Host.TrafficKeyPublic == nil {
 		logger.Log(0, "error: node traffic key is nil")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	node.TrafficKeys = models.TrafficKeys{
-		Mine:   node.TrafficKeys.Mine,
-		Server: key,
-	}
+	server := servercfg.GetServerInfo()
+	server.TrafficKey = key
 	// consume password before hashing for mq client creation
-	nodePassword := node.Password
-	node.Server = servercfg.GetServer()
-	err = logic.CreateNode(&node)
+	nodePassword := data.Host.HostPass
+	data.Node.Server = servercfg.GetServer()
+
+	err = logic.CreateNode(&data.Node)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create node on network [%s]: %s",
-				node.Network, err))
+				networkName, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -635,52 +621,53 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	// if it fails remove the node and fail request
 	if user != nil {
 		var updatedUserNode bool
-		user.Nodes = append(user.Nodes, node.ID) // add new node to user
+		user.Nodes = append(user.Nodes, data.Node.ID.String()) // add new node to user
 		if err = pro.UpdateNetworkUser(networkName, user); err == nil {
-			logger.Log(1, "added node", node.ID, node.Name, "to user", string(user.ID))
+			logger.Log(1, "added node", data.Node.ID.String(), data.Host.Name, "to user", string(user.ID))
 			updatedUserNode = true
 		}
 		if !updatedUserNode { // user was found but not updated, so delete node
 			logger.Log(0, "failed to add node to user", keyName)
-			logic.DeleteNode(&node, true)
+			logic.DeleteNode(&data.Node, true)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
 
-	peerUpdate, err := logic.GetPeerUpdate(&node)
+	peerUpdate, err := logic.GetPeerUpdate(&data.Node)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", node.ID, err))
+			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", data.Node.ID.String(), err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	data.Node.Peers = peerUpdate.Peers
 
 	// Create client for this host in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
 			{ // delete if any client exists already
 				Command:  mq.DeleteClientCmd,
-				Username: node.HostID,
+				Username: data.Host.ID.String(),
 			},
 			{
 				Command:  mq.CreateRoleCmd,
-				RoleName: node.Network,
+				RoleName: networkName,
 				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(node.Network),
+				Acls:     mq.FetchNetworkAcls(networkName),
 			},
 			{
 				Command:  mq.CreateClientCmd,
-				Username: node.HostID,
+				Username: data.Host.ID.String(),
 				Password: nodePassword,
-				Textname: node.Name,
+				Textname: data.Host.Name,
 				Roles: []mq.MqDynSecRole{
 					{
 						Rolename: mq.NodeRole,
 						Priority: -1,
 					},
 					{
-						Rolename: node.Network,
+						Rolename: networkName,
 						Priority: -1,
 					},
 				},
@@ -695,16 +682,26 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.NodeGet{
-		Node:         node,
-		Peers:        peerUpdate.Peers,
-		ServerConfig: servercfg.GetServerInfo(),
+		Node: data.Node,
+		//Peers:        peerUpdate.Peers,
+		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
 
-	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
+	//host, newNode := node.ConvertToNewNode()
+	logic.SaveHost(data.Host)
+	logic.SaveNode(data.Node)
+
+	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-	runForceServerUpdate(&node, true)
+
+	go func() {
+		if err := mq.PublishPeerUpdate(data.Node, true); err != nil {
+			logger.Log(1, "failed a peer update after creation of node", data.Host.Name)
+		}
+	}()
+	//runForceServerUpdate(&data.Node, true)
 }
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/approve nodes uncordonNode
@@ -912,7 +909,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 
-	var node models.Node
+	var node models.LegacyNode
 	//start here
 	nodeid := params["nodeid"]
 	node, err := logic.GetNodeByID(nodeid)
@@ -923,7 +920,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newNode models.Node
+	var newNode models.LegacyNode
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&newNode)
 	if err != nil {
@@ -1088,7 +1085,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	runForceServerUpdate(&node, false)
 }
 
-func runUpdates(node *models.Node, ifaceDelta bool) {
+func runUpdates(node *models.LegacyNode, ifaceDelta bool) {
 	go func() { // don't block http response
 		// publish node update if not server
 		if err := mq.NodeUpdate(node); err != nil {
@@ -1103,7 +1100,7 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 }
 
 // updates local peers for a server on a given node's network
-func runServerUpdate(node *models.Node, ifaceDelta bool) error {
+func runServerUpdate(node *models.LegacyNode, ifaceDelta bool) error {
 	if servercfg.IsClientMode() != "on" || !isServer(node) {
 		return nil
 	}
@@ -1126,7 +1123,7 @@ func runServerUpdate(node *models.Node, ifaceDelta bool) error {
 	return nil
 }
 
-func runForceServerUpdate(node *models.Node, publishPeerUpdateToNode bool) {
+func runForceServerUpdate(node *models.LegacyNode, publishPeerUpdateToNode bool) {
 	go func() {
 		if err := mq.PublishPeerUpdate(node, publishPeerUpdateToNode); err != nil {
 			logger.Log(1, "failed a peer update after creation of node", node.Name)
@@ -1141,11 +1138,11 @@ func runForceServerUpdate(node *models.Node, publishPeerUpdateToNode bool) {
 	}()
 }
 
-func isServer(node *models.Node) bool {
+func isServer(node *models.LegacyNode) bool {
 	return node.IsServer == "yes"
 }
 
-func updateRelay(oldnode, newnode *models.Node) {
+func updateRelay(oldnode, newnode *models.LegacyNode) {
 	relay := logic.FindRelay(oldnode)
 	newrelay := relay
 	//check if node's address has been updated and if so, update the relayAddrs of the relay node with the updated address of the relayed node

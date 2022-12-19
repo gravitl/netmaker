@@ -243,21 +243,21 @@ type aclContainerResponse struct {
 type nodeSliceResponse struct {
 	// Nodes
 	// in: body
-	Nodes []models.Node `json:"nodes"`
+	Nodes []models.LegacyNode `json:"nodes"`
 }
 
 // swagger:response nodeResponse
 type nodeResponse struct {
 	// Node
 	// in: body
-	Node models.Node `json:"node"`
+	Node models.LegacyNode `json:"node"`
 }
 
 // swagger:parameters updateNode deleteNode
 type nodeBodyParam struct {
 	// Node
 	// in: body
-	Node models.Node `json:"node"`
+	Node models.LegacyNode `json:"node"`
 }
 
 // swagger:parameters createRelay

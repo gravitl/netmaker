@@ -175,7 +175,7 @@ func RemoveAllNetworkUsers(network string) error {
 
 // IsUserNodeAllowed - given a list of nodes, determine if the user's node is allowed based on ID
 // Checks if node is in given nodes list as well as being in user's list
-func IsUserNodeAllowed(nodes []models.Node, network, userID, nodeID string) bool {
+func IsUserNodeAllowed(nodes []models.LegacyNode, network, userID, nodeID string) bool {
 
 	netUser, err := GetNetworkUser(network, promodels.NetworkUserID(userID))
 	if err != nil {

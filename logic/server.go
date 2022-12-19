@@ -25,7 +25,7 @@ var ProxyMgmChan = make(chan *manager.ProxyManagerPayload, 100)
 var EnterpriseCheckFuncs []func()
 
 // EnterpriseFailoverFunc - interface to control failover funcs
-var EnterpriseFailoverFunc func(node *models.Node) error
+var EnterpriseFailoverFunc func(node *models.LegacyNode) error
 
 // EnterpriseResetFailoverFunc - interface to control reset failover funcs
 var EnterpriseResetFailoverFunc func(network string) error
@@ -42,8 +42,8 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // ServerJoin - responsible for joining a server to a network
-func ServerJoin(networkSettings *models.Network) (models.Node, error) {
-	var returnNode models.Node
+func ServerJoin(networkSettings *models.Network) (models.LegacyNode, error) {
+	var returnNode models.LegacyNode
 	if networkSettings == nil || networkSettings.NetID == "" {
 		return returnNode, errors.New("no network provided")
 	}
@@ -73,7 +73,7 @@ func ServerJoin(networkSettings *models.Network) (models.Node, error) {
 			}
 		}
 	}
-	var node = &models.Node{
+	var node = &models.LegacyNode{
 		IsServer:        "yes",
 		DNSOn:           "no",
 		IsStatic:        "yes",
@@ -197,7 +197,7 @@ func EnterpriseCheck() {
 
 // ServerUpdate - updates the server
 // replaces legacy Checkin code
-func ServerUpdate(serverNode *models.Node, ifaceDelta bool) error {
+func ServerUpdate(serverNode *models.LegacyNode, ifaceDelta bool) error {
 	if !IsLocalServer(serverNode) {
 		logger.Log(1, "skipping server update as not the leader")
 		return nil
@@ -227,7 +227,7 @@ func isDeleteError(err error) bool {
 	return err != nil && strings.Contains(err.Error(), models.NODE_DELETE)
 }
 
-func checkNodeActions(node *models.Node) string {
+func checkNodeActions(node *models.LegacyNode) string {
 	if node.Action == models.NODE_UPDATE_KEY {
 		err := setWGKeyConfig(node)
 		if err != nil {
@@ -248,7 +248,7 @@ func checkNodeActions(node *models.Node) string {
 // == Private ==
 
 // ServerPull - performs a server pull
-func ServerPull(serverNode *models.Node, ifaceDelta bool) error {
+func ServerPull(serverNode *models.LegacyNode, ifaceDelta bool) error {
 	if serverNode.IsServer != "yes" {
 		return fmt.Errorf("attempted pull from non-server node: %s - %s", serverNode.Name, serverNode.ID)
 	}
@@ -313,7 +313,7 @@ func getServerLocalIP(networkSettings *models.Network) (string, error) {
 	return "", errors.New("could not find a local ip for server")
 }
 
-func serverPush(serverNode *models.Node) error {
+func serverPush(serverNode *models.LegacyNode) error {
 	serverNode.OS = runtime.GOOS
 	serverNode.SetLastCheckIn()
 	return UpdateNode(serverNode, serverNode)

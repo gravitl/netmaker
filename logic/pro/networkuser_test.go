@@ -18,8 +18,8 @@ func TestNetworkUserLogic(t *testing.T) {
 		NetID:        "skynet",
 		AddressRange: "192.168.0.0/24",
 	}
-	nodes := []models.Node{
-		models.Node{ID: "coolnode"},
+	nodes := []models.LegacyNode{
+		models.LegacyNode{ID: "coolnode"},
 	}
 
 	clients := []models.ExtClient{

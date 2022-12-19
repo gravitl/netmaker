@@ -7,7 +7,7 @@ import (
 )
 
 // AdjustNodeAcls - adjusts ACLs based on a node's default value
-func AdjustNodeAcls(node *models.Node, networkNodes []models.Node) error {
+func AdjustNodeAcls(node *models.LegacyNode, networkNodes []models.LegacyNode) error {
 	networkID := nodeacls.NetworkID(node.Network)
 	nodeID := nodeacls.NodeID(node.ID)
 	currentACLs, err := nodeacls.FetchAllACLs(networkID)

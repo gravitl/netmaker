@@ -12,19 +12,19 @@ import (
 )
 
 // CreateRelay - creates a relay
-func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) {
-	var returnnodes []models.Node
+func CreateRelay(relay models.RelayRequest) ([]models.LegacyNode, models.LegacyNode, error) {
+	var returnnodes []models.LegacyNode
 
 	node, err := GetNodeByID(relay.NodeID)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return returnnodes, models.LegacyNode{}, err
 	}
 	if node.OS != "linux" {
-		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
+		return returnnodes, models.LegacyNode{}, fmt.Errorf("only linux machines can be relay nodes")
 	}
 	err = ValidateRelay(relay)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return returnnodes, models.LegacyNode{}, err
 	}
 	node.IsRelay = "yes"
 	node.RelayAddrs = relay.RelayAddrs
@@ -35,7 +35,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 		return returnnodes, node, err
 	}
 	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
-		return returnnodes, models.Node{}, err
+		return returnnodes, models.LegacyNode{}, err
 	}
 	returnnodes, err = SetRelayedNodes(true, node.Network, node.RelayAddrs)
 	if err != nil {
@@ -45,8 +45,8 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 }
 
 // SetRelayedNodes- set relayed nodes
-func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]models.Node, error) {
-	var returnnodes []models.Node
+func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]models.LegacyNode, error) {
+	var returnnodes []models.LegacyNode
 	networkNodes, err := GetNetworkNodes(networkName)
 	if err != nil {
 		return returnnodes, err
@@ -72,8 +72,8 @@ func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]mod
 	}
 	return returnnodes, nil
 }
-func GetRelayedNodes(relayNode *models.Node) ([]models.Node, error) {
-	var returnnodes []models.Node
+func GetRelayedNodes(relayNode *models.LegacyNode) ([]models.LegacyNode, error) {
+	var returnnodes []models.LegacyNode
 	networkNodes, err := GetNetworkNodes(relayNode.Network)
 	if err != nil {
 		return returnnodes, err
@@ -102,8 +102,8 @@ func ValidateRelay(relay models.RelayRequest) error {
 }
 
 // UpdateRelay - updates a relay
-func UpdateRelay(network string, oldAddrs []string, newAddrs []string) []models.Node {
-	var returnnodes []models.Node
+func UpdateRelay(network string, oldAddrs []string, newAddrs []string) []models.LegacyNode {
+	var returnnodes []models.LegacyNode
 	time.Sleep(time.Second / 4)
 	_, err := SetRelayedNodes(false, network, oldAddrs)
 	if err != nil {
@@ -117,11 +117,11 @@ func UpdateRelay(network string, oldAddrs []string, newAddrs []string) []models.
 }
 
 // DeleteRelay - deletes a relay
-func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
-	var returnnodes []models.Node
+func DeleteRelay(network, nodeid string) ([]models.LegacyNode, models.LegacyNode, error) {
+	var returnnodes []models.LegacyNode
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return returnnodes, models.LegacyNode{}, err
 	}
 	returnnodes, err = SetRelayedNodes(false, node.Network, node.RelayAddrs)
 	if err != nil {
@@ -134,10 +134,10 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return returnnodes, models.LegacyNode{}, err
 	}
 	if err = database.Insert(nodeid, string(data), database.NODES_TABLE_NAME); err != nil {
-		return returnnodes, models.Node{}, err
+		return returnnodes, models.LegacyNode{}, err
 	}
 	return returnnodes, node, nil
 }

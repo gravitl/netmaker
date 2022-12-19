@@ -142,7 +142,7 @@ func createTable(tableName string) error {
 // IsJSONString - checks if valid json
 func IsJSONString(value string) bool {
 	var jsonInt interface{}
-	var nodeInt models.Node
+	var nodeInt models.LegacyNode
 	return json.Unmarshal([]byte(value), &jsonInt) == nil || json.Unmarshal([]byte(value), &nodeInt) == nil
 }
 

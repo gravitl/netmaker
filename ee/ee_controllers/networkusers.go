@@ -34,9 +34,9 @@ type NetworkUserDataMap map[NetworkName]NetworkUserData
 
 // NetworkUserData - data struct for network users
 type NetworkUserData struct {
-	Nodes    []models.Node         `json:"nodes" bson:"nodes" yaml:"nodes"`
+	Nodes    []models.LegacyNode   `json:"nodes" bson:"nodes" yaml:"nodes"`
 	Clients  []models.ExtClient    `json:"clients" bson:"clients" yaml:"clients"`
-	Vpn      []models.Node         `json:"vpns" bson:"vpns" yaml:"vpns"`
+	Vpn      []models.LegacyNode   `json:"vpns" bson:"vpns" yaml:"vpns"`
 	Networks []models.Network      `json:"networks" bson:"networks" yaml:"networks"`
 	User     promodels.NetworkUser `json:"user" bson:"user" yaml:"user"`
 }
@@ -80,9 +80,9 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 
 		netID := networks[i].NetID
 		newData := NetworkUserData{
-			Nodes:    []models.Node{},
+			Nodes:    []models.LegacyNode{},
 			Clients:  []models.ExtClient{},
-			Vpn:      []models.Node{},
+			Vpn:      []models.LegacyNode{},
 			Networks: []models.Network{},
 		}
 		netUser, err := pro.GetNetworkUser(netID, promodels.NetworkUserID(networkUserName))

@@ -53,7 +53,7 @@ func TestGetNodeDNS(t *testing.T) {
 		assert.Equal(t, "10.0.0.1", dns[0].Address)
 	})
 	t.Run("MultipleNodes", func(t *testing.T) {
-		createnode := &models.Node{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.100.100.3", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet"}
+		createnode := &models.LegacyNode{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Endpoint: "10.100.100.3", MacAddress: "01:02:03:04:05:07", Password: "password", Network: "skynet"}
 		err := logic.CreateNode(createnode)
 		assert.Nil(t, err)
 		dns, err := logic.GetNodeDNS("skynet")
@@ -249,33 +249,33 @@ func TestGetDNSEntry(t *testing.T) {
 	})
 }
 
-// func TestUpdateDNS(t *testing.T) {
-// 	var newentry models.DNSEntry
-// 	database.InitializeDatabase()
-// 	deleteAllDNS(t)
-// 	deleteAllNetworks()
-// 	createNet()
-// 	entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
-// 	CreateDNS(entry)
-// 	t.Run("change address", func(t *testing.T) {
-// 		newentry.Address = "10.0.0.75"
-// 		updated, err := UpdateDNS(newentry, entry)
-// 		assert.Nil(t, err)
-// 		assert.Equal(t, newentry.Address, updated.Address)
-// 	})
-// 	t.Run("change name", func(t *testing.T) {
-// 		newentry.Name = "newname"
-// 		updated, err := UpdateDNS(newentry, entry)
-// 		assert.Nil(t, err)
-// 		assert.Equal(t, newentry.Name, updated.Name)
-// 	})
-// 	t.Run("change network", func(t *testing.T) {
-// 		newentry.Network = "wirecat"
-// 		updated, err := UpdateDNS(newentry, entry)
-// 		assert.Nil(t, err)
-// 		assert.NotEqual(t, newentry.Network, updated.Network)
-// 	})
-// }
+//	func TestUpdateDNS(t *testing.T) {
+//		var newentry models.DNSEntry
+//		database.InitializeDatabase()
+//		deleteAllDNS(t)
+//		deleteAllNetworks()
+//		createNet()
+//		entry := models.DNSEntry{"10.0.0.2", "newhost", "skynet"}
+//		CreateDNS(entry)
+//		t.Run("change address", func(t *testing.T) {
+//			newentry.Address = "10.0.0.75"
+//			updated, err := UpdateDNS(newentry, entry)
+//			assert.Nil(t, err)
+//			assert.Equal(t, newentry.Address, updated.Address)
+//		})
+//		t.Run("change name", func(t *testing.T) {
+//			newentry.Name = "newname"
+//			updated, err := UpdateDNS(newentry, entry)
+//			assert.Nil(t, err)
+//			assert.Equal(t, newentry.Name, updated.Name)
+//		})
+//		t.Run("change network", func(t *testing.T) {
+//			newentry.Network = "wirecat"
+//			updated, err := UpdateDNS(newentry, entry)
+//			assert.Nil(t, err)
+//			assert.NotEqual(t, newentry.Network, updated.Network)
+//		})
+//	}
 func TestDeleteDNS(t *testing.T) {
 	database.InitializeDatabase()
 	deleteAllDNS(t)

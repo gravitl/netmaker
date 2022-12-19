@@ -90,7 +90,7 @@ func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models
 }
 
 // GetExchangedBytesForNode - get exchanged bytes for current node peers
-func GetExchangedBytesForNode(node *models.Node, metrics *models.Metrics) error {
+func GetExchangedBytesForNode(node *models.LegacyNode, metrics *models.Metrics) error {
 
 	peers, err := logic.GetPeerUpdate(node)
 	if err != nil {

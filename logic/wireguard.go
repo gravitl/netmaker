@@ -23,7 +23,7 @@ func RemoveConf(iface string, printlog bool) error {
 }
 
 // HasPeerConnected - checks if a client node has connected over WG
-func HasPeerConnected(node *models.Node) bool {
+func HasPeerConnected(node *models.LegacyNode) bool {
 	client, err := wgctrl.New()
 	if err != nil {
 		return false
@@ -44,7 +44,7 @@ func HasPeerConnected(node *models.Node) bool {
 }
 
 // IfaceDelta - checks if the new node causes an interface change
-func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
+func IfaceDelta(currentNode *models.LegacyNode, newNode *models.LegacyNode) bool {
 	// single comparison statements
 	if newNode.Endpoint != currentNode.Endpoint ||
 		newNode.PublicKey != currentNode.PublicKey ||
@@ -99,7 +99,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 // == Private Functions ==
 
 // gets the server peers locally
-func getSystemPeers(node *models.Node) (map[string]string, error) {
+func getSystemPeers(node *models.LegacyNode) (map[string]string, error) {
 	peers := make(map[string]string)
 
 	client, err := wgctrl.New()
@@ -127,7 +127,7 @@ func removeWGQuickConf(confPath string, printlog bool) error {
 	return nil
 }
 
-func setWGConfig(node *models.Node, peerupdate bool) error {
+func setWGConfig(node *models.LegacyNode, peerupdate bool) error {
 	peers, err := GetPeerUpdate(node)
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ func setWGConfig(node *models.Node, peerupdate bool) error {
 	return nil
 }
 
-func setWGKeyConfig(node *models.Node) error {
+func setWGKeyConfig(node *models.LegacyNode) error {
 
 	privatekey, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
@@ -195,7 +195,7 @@ func setWGKeyConfig(node *models.Node) error {
 	return setWGConfig(node, false)
 }
 
-func removeLocalServer(node *models.Node) error {
+func removeLocalServer(node *models.LegacyNode) error {
 
 	var err error
 	var ifacename = node.Interface

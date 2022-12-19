@@ -85,7 +85,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return
 		}
-		var newNode models.Node
+		var newNode models.LegacyNode
 		if err := json.Unmarshal(decrypted, &newNode); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
@@ -205,7 +205,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	}()
 }
 
-func updateNodePeers(currentNode *models.Node) {
+func updateNodePeers(currentNode *models.LegacyNode) {
 	currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
 	if err != nil {
 		logger.Log(1, "failed to get server node failed update\n", err.Error())
@@ -223,7 +223,7 @@ func updateNodePeers(currentNode *models.Node) {
 	}
 }
 
-func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) bool {
+func updateNodeMetrics(currentNode *models.LegacyNode, newMetrics *models.Metrics) bool {
 	if newMetrics.FailoverPeers == nil {
 		newMetrics.FailoverPeers = make(map[string]string)
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 // GetExtPeersList - gets the ext peers lists
-func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
+func GetExtPeersList(node *models.LegacyNode) ([]models.ExtPeersResponse, error) {
 
 	var peers []models.ExtPeersResponse
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
@@ -50,7 +50,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		return []string{}, err
 	}
 	for _, nodeData := range nodesData {
-		var currentNode models.Node
+		var currentNode models.LegacyNode
 		if err = json.Unmarshal([]byte(nodeData), &currentNode); err != nil {
 			continue
 		}

@@ -25,7 +25,7 @@ var (
 // ClientConfig - struct for dealing with client configuration
 type ClientConfig struct {
 	Server          models.ServerConfig `yaml:"server"`
-	Node            models.Node         `yaml:"node"`
+	Node            models.LegacyNode   `yaml:"node"`
 	NetworkSettings models.Network      `yaml:"networksettings"`
 	Network         string              `yaml:"network"`
 	Daemon          string              `yaml:"daemon"`
@@ -138,7 +138,7 @@ func (config *ClientConfig) ReadConfig() {
 }
 
 // ModNodeConfig - overwrites the node inside client config on disk
-func ModNodeConfig(node *models.Node) error {
+func ModNodeConfig(node *models.LegacyNode) error {
 	network := node.Network
 	if network == "" {
 		return errors.New("no network provided")
@@ -339,13 +339,13 @@ func FileExists(f string) bool {
 }
 
 // GetNode - parses a network specified client config for node data
-func GetNode(network string) models.Node {
+func GetNode(network string) models.LegacyNode {
 
 	modcfg, err := ReadConfig(network)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-	var node models.Node
+	var node models.LegacyNode
 	node.Fill(&modcfg.Node)
 
 	return node

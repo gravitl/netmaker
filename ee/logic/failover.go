@@ -7,7 +7,7 @@ import (
 )
 
 // SetFailover - finds a suitable failover candidate and sets it
-func SetFailover(node *models.Node) error {
+func SetFailover(node *models.LegacyNode) error {
 	failoverNode := determineFailoverCandidate(node)
 	if failoverNode != nil {
 		return setFailoverNode(failoverNode, node)
@@ -36,7 +36,7 @@ func ResetFailover(network string) error {
 
 // determineFailoverCandidate - returns a list of nodes that
 // are suitable for relaying a given node
-func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
+func determineFailoverCandidate(nodeToBeRelayed *models.LegacyNode) *models.LegacyNode {
 
 	currentNetworkNodes, err := logic.GetNetworkNodes(nodeToBeRelayed.Network)
 	if err != nil {
@@ -49,7 +49,7 @@ func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
 	}
 
 	minLatency := int64(9223372036854775807) // max signed int64 value
-	var fastestCandidate *models.Node
+	var fastestCandidate *models.LegacyNode
 	for i := range currentNetworkNodes {
 		if currentNetworkNodes[i].ID == nodeToBeRelayed.ID {
 			continue
@@ -67,7 +67,7 @@ func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
 }
 
 // setFailoverNode - changes node's failover node
-func setFailoverNode(failoverNode, node *models.Node) error {
+func setFailoverNode(failoverNode, node *models.LegacyNode) error {
 
 	node.FailoverNode = failoverNode.ID
 	nodeToUpdate, err := logic.GetNodeByID(node.ID)

@@ -14,31 +14,31 @@ import (
 )
 
 // CreateEgressGateway - creates an egress gateway
-func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
+func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.LegacyNode, error) {
 	for i, cidr := range gateway.Ranges {
 		normalized, err := NormalizeCIDR(cidr)
 		if err != nil {
-			return models.Node{}, err
+			return models.LegacyNode{}, err
 		}
 		gateway.Ranges[i] = normalized
 
 	}
 	node, err := GetNodeByID(gateway.NodeID)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	if node.OS != "linux" && node.OS != "freebsd" { // add in darwin later
-		return models.Node{}, errors.New(node.OS + " is unsupported for egress gateways")
+		return models.LegacyNode{}, errors.New(node.OS + " is unsupported for egress gateways")
 	}
 	if node.OS == "linux" && node.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("firewall is not supported for egress gateways")
+		return models.LegacyNode{}, errors.New("firewall is not supported for egress gateways")
 	}
 	if gateway.NatEnabled == "" {
 		gateway.NatEnabled = "yes"
 	}
 	err = ValidateEgressGateway(gateway)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	node.IsEgressGateway = "yes"
 	node.EgressGatewayRanges = gateway.Ranges
@@ -109,7 +109,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		return node, err
 	}
 	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	return node, nil
 }
@@ -130,11 +130,11 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 }
 
 // DeleteEgressGateway - deletes egress from node
-func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
+func DeleteEgressGateway(network, nodeid string) (models.LegacyNode, error) {
 
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	node.IsEgressGateway = "no"
@@ -168,31 +168,31 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	if err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME); err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	return node, nil
 }
 
 // CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, nodeid string, failover bool) (models.Node, error) {
+func CreateIngressGateway(netid string, nodeid string, failover bool) (models.LegacyNode, error) {
 
 	var postUpCmd, postDownCmd string
 	node, err := GetNodeByID(nodeid)
 
 	if node.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
+		return models.LegacyNode{}, errors.New("firewall is not supported for ingress gateways")
 	}
 
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 
 	network, err := GetParentNetwork(netid)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	node.IsIngressGateway = "yes"
 	cidrs := []string{}
@@ -236,30 +236,30 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	}
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	if err != nil {
-		return models.Node{}, err
+		return models.LegacyNode{}, err
 	}
 	err = SetNetworkNodesLastModified(netid)
 	return node, err
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool, error) {
+func DeleteIngressGateway(networkName string, nodeid string) (models.LegacyNode, bool, error) {
 
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.Node{}, false, err
+		return models.LegacyNode{}, false, err
 	}
 	network, err := GetParentNetwork(networkName)
 	if err != nil {
-		return models.Node{}, false, err
+		return models.LegacyNode{}, false, err
 	}
 	// delete ext clients belonging to ingress gateway
 	if err = DeleteGatewayExtClients(node.ID, networkName); err != nil {
-		return models.Node{}, false, err
+		return models.LegacyNode{}, false, err
 	}
 	logger.Log(3, "deleting ingress gateway")
 	wasFailover := node.Failover == "yes"
@@ -286,11 +286,11 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.Node{}, false, err
+		return models.LegacyNode{}, false, err
 	}
 	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
 	if err != nil {
-		return models.Node{}, wasFailover, err
+		return models.LegacyNode{}, wasFailover, err
 	}
 	err = SetNetworkNodesLastModified(networkName)
 	return node, wasFailover, err

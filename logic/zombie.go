@@ -23,7 +23,7 @@ var (
 
 // CheckZombies - checks if new node has same macaddress as existing node
 // if so, existing node is added to zombie node quarantine list
-func CheckZombies(newnode *models.Node) {
+func CheckZombies(newnode *models.LegacyNode) {
 	nodes, err := GetNetworkNodes(newnode.Network)
 	if err != nil {
 		logger.Log(1, "Failed to retrieve network nodes", newnode.Network, err.Error())

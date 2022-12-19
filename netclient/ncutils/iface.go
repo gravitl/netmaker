@@ -7,7 +7,7 @@ import (
 )
 
 // IfaceDelta - checks if the new node causes an interface change
-func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
+func IfaceDelta(currentNode *models.LegacyNode, newNode *models.LegacyNode) bool {
 	// single comparison statements
 	if newNode.Endpoint != currentNode.Endpoint ||
 		newNode.PublicKey != currentNode.PublicKey ||

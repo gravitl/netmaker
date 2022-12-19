@@ -11,7 +11,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+func decryptMsg(node *models.LegacyNode, msg []byte) ([]byte, error) {
 	if len(msg) <= 24 { // make sure message is of appropriate length
 		return nil, fmt.Errorf("recieved invalid message from broker %v", msg)
 	}
@@ -36,7 +36,7 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	return ncutils.DeChunk(msg, nodePubTKey, serverPrivTKey)
 }
 
-func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+func encryptMsg(node *models.LegacyNode, msg []byte) ([]byte, error) {
 	// fetch server public key to be certain hasn't changed in transit
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey()
 	if trafficErr != nil {
@@ -60,7 +60,7 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
 }
 
-func publish(node *models.Node, dest string, msg []byte) error {
+func publish(node *models.LegacyNode, dest string, msg []byte) error {
 	encrypted, encryptErr := encryptMsg(node, msg)
 	if encryptErr != nil {
 		return encryptErr

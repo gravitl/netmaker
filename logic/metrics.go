@@ -40,10 +40,10 @@ func DeleteMetrics(nodeid string) error {
 }
 
 // CollectServerMetrics - collects metrics for given server node
-func CollectServerMetrics(serverID string, networkNodes []models.Node) *models.Metrics {
+func CollectServerMetrics(serverID string, networkNodes []models.LegacyNode) *models.Metrics {
 	newServerMetrics := models.Metrics{}
 	newServerMetrics.Connectivity = make(map[string]models.Metric)
-	var serverNode models.Node
+	var serverNode models.LegacyNode
 	for i := range networkNodes {
 		currNodeID := networkNodes[i].ID
 		if currNodeID == serverID {

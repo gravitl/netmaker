@@ -395,7 +395,7 @@ func JoinNetwork(cfg *config.ClientConfig, privateKey string) error {
 }
 
 // format name appropriately. Set to blank on failure
-func formatName(node models.Node) string {
+func formatName(node models.LegacyNode) string {
 	// Logic to properly format name
 	if !node.NameInNodeCharSet() {
 		node.Name = ncutils.DNSFormatString(node.Name)

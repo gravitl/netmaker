@@ -52,7 +52,7 @@ func ProxyUpdate(client mqtt.Client, msg mqtt.Message) {
 
 // NodeUpdate -- mqtt message handler for /update/<NodeID> topic
 func NodeUpdate(client mqtt.Client, msg mqtt.Message) {
-	var newNode models.Node
+	var newNode models.LegacyNode
 	var nodeCfg config.ClientConfig
 	var network = parseNetworkFromTopic(msg.Topic())
 	nodeCfg.Network = network

@@ -135,7 +135,7 @@ func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 		return count, err
 	}
 	for _, value := range collection {
-		var node models.Node
+		var node models.LegacyNode
 		if err = json.Unmarshal([]byte(value), &node); err != nil {
 			return count, err
 		} else {
@@ -231,7 +231,7 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 	}
 
 	for _, value := range collection { // filter
-		var node models.Node
+		var node models.LegacyNode
 		if err = json.Unmarshal([]byte(value), &node); err != nil {
 			continue
 		}
@@ -295,7 +295,7 @@ func UniqueAddress6(networkName string, reverse bool) (string, error) {
 }
 
 // GetLocalIP - gets the local ip
-func GetLocalIP(node models.Node) string {
+func GetLocalIP(node models.LegacyNode) string {
 
 	var local string
 
@@ -361,7 +361,7 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 
 	for _, value := range collection {
 
-		var node models.Node
+		var node models.LegacyNode
 
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
@@ -426,7 +426,7 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 
 	for _, value := range collections {
 
-		var node models.Node
+		var node models.LegacyNode
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			fmt.Println("error in node address assignment!")
@@ -455,7 +455,7 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 
 	for _, value := range collections {
 
-		var node models.Node
+		var node models.LegacyNode
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			logger.Log(1, "error in node ipv4 address assignment!")
@@ -496,7 +496,7 @@ func UpdateNetworkNodeAddresses6(networkName string) error {
 
 	for _, value := range collections {
 
-		var node models.Node
+		var node models.LegacyNode
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			logger.Log(1, "error in node ipv6 address assignment!")
@@ -687,7 +687,7 @@ func networkNodesUpdateAction(networkName string, action string) error {
 	}
 
 	for _, value := range collections {
-		var node models.Node
+		var node models.LegacyNode
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
 			fmt.Println("error in node address assignment!")

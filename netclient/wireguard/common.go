@@ -24,7 +24,7 @@ const (
 )
 
 // SetPeers - sets peers on a given WireGuard interface
-func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error {
+func SetPeers(iface string, node *models.LegacyNode, peers []wgtypes.PeerConfig) error {
 	var devicePeers []wgtypes.Peer
 	var keepalive = node.PersistentKeepalive
 	var oldPeerAllowedIps = make(map[string]bool, len(peers))
@@ -120,7 +120,7 @@ func SetPeers(iface string, node *models.Node, peers []wgtypes.PeerConfig) error
 }
 
 // Initializes a WireGuard interface
-func InitWireguard(node *models.Node, privkey string, peers []wgtypes.PeerConfig) error {
+func InitWireguard(node *models.LegacyNode, privkey string, peers []wgtypes.PeerConfig) error {
 
 	key, err := wgtypes.ParseKey(privkey)
 	if err != nil {
@@ -268,7 +268,7 @@ func RemoveConf(iface string, printlog bool) error {
 }
 
 // ApplyConf - applys a conf on disk to WireGuard interface
-func ApplyConf(node *models.Node, ifacename string, confPath string) error {
+func ApplyConf(node *models.LegacyNode, ifacename string, confPath string) error {
 	os := runtime.GOOS
 	if ncutils.IsLinux() && !ncutils.HasWgQuick() {
 		os = "nowgquick"
@@ -305,7 +305,7 @@ func ApplyConf(node *models.Node, ifacename string, confPath string) error {
 }
 
 // WriteWgConfig - creates a wireguard config file
-func WriteWgConfig(node *models.Node, privateKey string, peers []wgtypes.PeerConfig) error {
+func WriteWgConfig(node *models.LegacyNode, privateKey string, peers []wgtypes.PeerConfig) error {
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
 		AllowShadows:           true,
@@ -434,7 +434,7 @@ func UpdateWgPeers(file string, peers []wgtypes.PeerConfig) (*net.UDPAddr, error
 }
 
 // UpdateWgInterface - updates the interface section of a wireguard config file
-func UpdateWgInterface(file, privateKey, nameserver string, node models.Node) error {
+func UpdateWgInterface(file, privateKey, nameserver string, node models.LegacyNode) error {
 	options := ini.LoadOptions{
 		AllowNonUniqueSections: true,
 		AllowShadows:           true,
