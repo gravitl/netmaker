@@ -144,20 +144,20 @@ func normalize(address string) string {
 	return address
 }
 
+// Start - starts the stun server
 func Start(wg *sync.WaitGroup) {
-	defer wg.Done()
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 		<-quit
 		cancel()
-	}()
+	}(wg)
 	normalized := normalize(fmt.Sprintf("0.0.0.0:%d", servercfg.GetStunPort()))
 	logger.Log(0, "netmaker-stun listening on", normalized, "via udp")
 	err := listenUDPAndServe(ctx, "udp", normalized)
 	if err != nil {
 		logger.Log(0, "failed to start stun server: ", err.Error())
 	}
-
 }

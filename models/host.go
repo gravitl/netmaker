@@ -30,5 +30,5 @@ type Host struct {
 	MacAddress       net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
 	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"trafficekeypublic"`
 	InternetGateway  net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
-	Nodes            []Node           `json:"nodes" yaml:"nodes"`
+	Nodes            []string         `json:"nodes" yaml:"nodes"`
 }
