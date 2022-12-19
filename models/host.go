@@ -7,6 +7,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// Host - represents a host on the network
 type Host struct {
 	ID               uuid.UUID        `json:"id" yaml:"id"`
 	Verbosity        int              `json:"verbosity" yaml:"verbosity"`
