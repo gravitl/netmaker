@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -190,6 +191,9 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version
+	sort.SliceStable(peers[:], func(i, j int) bool {
+		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
+	})
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
 	peerUpdate.DNS = getPeerDNS(node.Network)
@@ -253,8 +257,10 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 			Address: primaryAddr,
 		})
 	}
+	sort.SliceStable(peers[:], func(i, j int) bool {
+		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
+	})
 	return peers, idsAndAddr, nil
-
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
@@ -510,6 +516,9 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	}
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version
+	sort.SliceStable(peers[:], func(i, j int) bool {
+		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
+	})
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
 	peerUpdate.DNS = getPeerDNS(node.Network)
