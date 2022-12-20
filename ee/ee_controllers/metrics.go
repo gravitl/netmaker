@@ -60,12 +60,12 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range networkNodes {
 		id := networkNodes[i].ID
-		metrics, err := logic.GetMetrics(id)
+		metrics, err := logic.GetMetrics(id.String())
 		if err != nil {
-			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id, "during network metrics fetch", err.Error())
+			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during network metrics fetch", err.Error())
 			continue
 		}
-		networkMetrics.Nodes[id] = *metrics
+		networkMetrics.Nodes[id.String()] = *metrics
 	}
 
 	logger.Log(1, r.Header.Get("user"), "fetched metrics for network", network)
@@ -101,9 +101,9 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range ingresses {
 		id := ingresses[i].ID
-		ingressMetrics, err := logic.GetMetrics(id)
+		ingressMetrics, err := logic.GetMetrics(id.String())
 		if err != nil {
-			logger.Log(1, r.Header.Get("user"), "failed to append external client metrics from ingress node", id, err.Error())
+			logger.Log(1, r.Header.Get("user"), "failed to append external client metrics from ingress node", id.String(), err.Error())
 			continue
 		}
 		if ingressMetrics.Connectivity == nil {
@@ -142,12 +142,12 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range allNodes {
 		id := allNodes[i].ID
-		metrics, err := logic.GetMetrics(id)
+		metrics, err := logic.GetMetrics(id.String())
 		if err != nil {
-			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id, "during all nodes metrics fetch", err.Error())
+			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during all nodes metrics fetch", err.Error())
 			continue
 		}
-		networkMetrics.Nodes[id] = *metrics
+		networkMetrics.Nodes[id.String()] = *metrics
 	}
 
 	logger.Log(1, r.Header.Get("user"), "fetched metrics for all nodes on server")

@@ -35,7 +35,7 @@ func checkIngressExists(nodeID string) bool {
 	if err != nil {
 		return false
 	}
-	return node.IsIngressGateway == "yes"
+	return node.IsIngressGateway
 }
 
 // swagger:route GET /api/extclients/{network} ext_client getNetworkExtClients
@@ -184,6 +184,13 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	host, err := logic.GetHost(gwnode.HostID.String())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get host for ingress gateway node [%s] info: %v", client.IngressGatewayID, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
 	network, err := logic.GetParentNetwork(client.Network)
 	if err != nil {
@@ -207,7 +214,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
-	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
+	gwendpoint := gwnode.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" && network.AddressRange6 != "" {
 		newAllowedIPs += ","
@@ -226,8 +233,8 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defaultMTU := 1420
-	if gwnode.MTU != 0 {
-		defaultMTU = int(gwnode.MTU)
+	if host.MTU != 0 {
+		defaultMTU = host.MTU
 	}
 	config := fmt.Sprintf(`[Interface]
 Address = %s
@@ -245,7 +252,7 @@ Endpoint = %s
 		client.PrivateKey,
 		defaultMTU,
 		defaultDNS,
-		gwnode.PublicKey,
+		host.PublicKey,
 		newAllowedIPs,
 		gwendpoint,
 		keepalive)
@@ -327,11 +334,16 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	listenPort := node.LocalListenPort
+	host, err := logic.GetHost(node.HostID.String())
+	logger.Log(0, r.Header.Get("user"),
+		fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", nodeid, err))
+	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	return
+	listenPort := host.LocalListenPort
 	if node.Proxy {
-		listenPort = node.ProxyListenPort
+		listenPort = host.ProxyListenPort
 	}
-	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(listenPort), 10)
+	extclient.IngressGatewayEndpoint = node.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
 
 	extclient.Enabled = true
 	parentNetwork, err := logic.GetNetwork(networkName)
@@ -462,7 +474,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
 			if err = mq.PublishExtPeerUpdate(&ingressNode); err != nil {
-				logger.Log(1, "error setting ext peers on", ingressNode.ID, ":", err.Error())
+				logger.Log(1, "error setting ext peers on", ingressNode.ID.String(), ":", err.Error())
 			}
 		}
 	}
@@ -534,7 +546,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 
 	err = mq.PublishExtPeerUpdate(&ingressnode)
 	if err != nil {
-		logger.Log(1, "error setting ext peers on "+ingressnode.ID+": "+err.Error())
+		logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
 	}
 
 	logger.Log(0, r.Header.Get("user"),

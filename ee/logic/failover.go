@@ -1,13 +1,14 @@
 package logic
 
 import (
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
 
 // SetFailover - finds a suitable failover candidate and sets it
-func SetFailover(node *models.LegacyNode) error {
+func SetFailover(node *models.Node) error {
 	failoverNode := determineFailoverCandidate(node)
 	if failoverNode != nil {
 		return setFailoverNode(failoverNode, node)
@@ -24,11 +25,11 @@ func ResetFailover(network string) error {
 	for _, node := range nodes {
 		err = SetFailover(&node)
 		if err != nil {
-			logger.Log(2, "error setting failover for node", node.Name, ":", err.Error())
+			logger.Log(2, "error setting failover for node", node.ID.String(), ":", err.Error())
 		}
-		err = WipeFailover(node.ID)
+		err = WipeFailover(node.ID.String())
 		if err != nil {
-			logger.Log(2, "error wiping failover for node", node.Name, ":", err.Error())
+			logger.Log(2, "error wiping failover for node", node.ID.String(), ":", err.Error())
 		}
 	}
 	return nil
@@ -36,29 +37,29 @@ func ResetFailover(network string) error {
 
 // determineFailoverCandidate - returns a list of nodes that
 // are suitable for relaying a given node
-func determineFailoverCandidate(nodeToBeRelayed *models.LegacyNode) *models.LegacyNode {
+func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
 
 	currentNetworkNodes, err := logic.GetNetworkNodes(nodeToBeRelayed.Network)
 	if err != nil {
 		return nil
 	}
 
-	currentMetrics, err := logic.GetMetrics(nodeToBeRelayed.ID)
+	currentMetrics, err := logic.GetMetrics(nodeToBeRelayed.ID.String())
 	if err != nil || currentMetrics == nil || currentMetrics.Connectivity == nil {
 		return nil
 	}
 
 	minLatency := int64(9223372036854775807) // max signed int64 value
-	var fastestCandidate *models.LegacyNode
+	var fastestCandidate *models.Node
 	for i := range currentNetworkNodes {
 		if currentNetworkNodes[i].ID == nodeToBeRelayed.ID {
 			continue
 		}
 
-		if currentMetrics.Connectivity[currentNetworkNodes[i].ID].Connected && (currentNetworkNodes[i].Failover == "yes") {
-			if currentMetrics.Connectivity[currentNetworkNodes[i].ID].Latency < int64(minLatency) {
+		if currentMetrics.Connectivity[currentNetworkNodes[i].ID.String()].Connected && (currentNetworkNodes[i].Failover) {
+			if currentMetrics.Connectivity[currentNetworkNodes[i].ID.String()].Latency < int64(minLatency) {
 				fastestCandidate = &currentNetworkNodes[i]
-				minLatency = currentMetrics.Connectivity[currentNetworkNodes[i].ID].Latency
+				minLatency = currentMetrics.Connectivity[currentNetworkNodes[i].ID.String()].Latency
 			}
 		}
 	}
@@ -67,10 +68,10 @@ func determineFailoverCandidate(nodeToBeRelayed *models.LegacyNode) *models.Lega
 }
 
 // setFailoverNode - changes node's failover node
-func setFailoverNode(failoverNode, node *models.LegacyNode) error {
+func setFailoverNode(failoverNode, node *models.Node) error {
 
 	node.FailoverNode = failoverNode.ID
-	nodeToUpdate, err := logic.GetNodeByID(node.ID)
+	nodeToUpdate, err := logic.GetNodeByID(node.ID.String())
 	if err != nil {
 		return err
 	}
@@ -95,25 +96,25 @@ func WipeFailover(nodeid string) error {
 
 // WipeAffectedFailoversOnly - wipes failovers for nodes that have given node (ID)
 // in their respective failover lists
-func WipeAffectedFailoversOnly(nodeid, network string) error {
+func WipeAffectedFailoversOnly(nodeid uuid.UUID, network string) error {
 	currentNetworkNodes, err := logic.GetNetworkNodes(network)
 	if err != nil {
 		return nil
 	}
-	WipeFailover(nodeid)
+	WipeFailover(nodeid.String())
 
 	for i := range currentNetworkNodes {
 		currNodeID := currentNetworkNodes[i].ID
 		if currNodeID == nodeid {
 			continue
 		}
-		currMetrics, err := logic.GetMetrics(currNodeID)
+		currMetrics, err := logic.GetMetrics(currNodeID.String())
 		if err != nil || currMetrics == nil {
 			continue
 		}
 		if currMetrics.FailoverPeers != nil {
-			if len(currMetrics.FailoverPeers[nodeid]) > 0 {
-				WipeFailover(currNodeID)
+			if len(currMetrics.FailoverPeers[nodeid.String()]) > 0 {
+				WipeFailover(currNodeID.String())
 			}
 		}
 	}

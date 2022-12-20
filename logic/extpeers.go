@@ -11,7 +11,7 @@ import (
 )
 
 // GetExtPeersList - gets the ext peers lists
-func GetExtPeersList(node *models.LegacyNode) ([]models.ExtPeersResponse, error) {
+func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 
 	var peers []models.ExtPeersResponse
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
@@ -34,7 +34,7 @@ func GetExtPeersList(node *models.LegacyNode) ([]models.ExtPeersResponse, error)
 			continue
 		}
 
-		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
+		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID.String() {
 			peers = append(peers, peer)
 		}
 	}
@@ -50,14 +50,14 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		return []string{}, err
 	}
 	for _, nodeData := range nodesData {
-		var currentNode models.LegacyNode
+		var currentNode models.Node
 		if err = json.Unmarshal([]byte(nodeData), &currentNode); err != nil {
 			continue
 		}
 		if currentNode.Network != client.Network {
 			continue
 		}
-		if currentNode.IsEgressGateway == "yes" { // add the egress gateway range(s) to the result
+		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
 			if len(currentNode.EgressGatewayRanges) > 0 {
 				result = append(result, currentNode.EgressGatewayRanges...)
 			}
@@ -137,13 +137,13 @@ func CreateExtClient(extclient *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			extclient.Address = newAddress
+			extclient.Address = newAddress.String()
 
 			extclientInternalAddr, err := UniqueAddress(extclient.Network, true)
 			if err != nil {
 				return err
 			}
-			extclient.InternalIPAddr = extclientInternalAddr
+			extclient.InternalIPAddr = extclientInternalAddr.String()
 		}
 	}
 
@@ -153,12 +153,12 @@ func CreateExtClient(extclient *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			extclient.Address6 = addr6
+			extclient.Address6 = addr6.String()
 			extclientInternalAddr6, err := UniqueAddress6(extclient.Network, true)
 			if err != nil {
 				return err
 			}
-			extclient.InternalIPAddr6 = extclientInternalAddr6
+			extclient.InternalIPAddr6 = extclientInternalAddr6.String()
 		}
 	}
 

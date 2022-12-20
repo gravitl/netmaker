@@ -14,46 +14,47 @@ import (
 )
 
 // CreateEgressGateway - creates an egress gateway
-func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.LegacyNode, error) {
+func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
+	node, err := GetNodeByID(gateway.NodeID)
+	if err != nil {
+		return models.Node{}, err
+	}
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return models.Node{}, err
+	}
 	for i, cidr := range gateway.Ranges {
 		normalized, err := NormalizeCIDR(cidr)
 		if err != nil {
-			return models.LegacyNode{}, err
+			return models.Node{}, err
 		}
 		gateway.Ranges[i] = normalized
 
 	}
-	node, err := GetNodeByID(gateway.NodeID)
-	if err != nil {
-		return models.LegacyNode{}, err
+	if host.OS != "linux" && host.OS != "freebsd" { // add in darwin later
+		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
-	if node.OS != "linux" && node.OS != "freebsd" { // add in darwin later
-		return models.LegacyNode{}, errors.New(node.OS + " is unsupported for egress gateways")
-	}
-	if node.OS == "linux" && node.FirewallInUse == models.FIREWALL_NONE {
-		return models.LegacyNode{}, errors.New("firewall is not supported for egress gateways")
+	if host.OS == "linux" && host.FirewallInUse == models.FIREWALL_NONE {
+		return models.Node{}, errors.New("firewall is not supported for egress gateways")
 	}
 	if gateway.NatEnabled == "" {
 		gateway.NatEnabled = "yes"
 	}
 	err = ValidateEgressGateway(gateway)
 	if err != nil {
-		return models.LegacyNode{}, err
+		return models.Node{}, err
 	}
-	node.IsEgressGateway = "yes"
+	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
 	node.EgressGatewayNatEnabled = gateway.NatEnabled
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	postUpCmd := ""
 	postDownCmd := ""
 	ipv4, ipv6 := getNetworkProtocols(gateway.Ranges)
-	//no support for ipv6 and ip6tables in netmaker container
-	if node.IsServer == "yes" {
-		ipv6 = false
-	}
-	logger.Log(3, "creating egress gateway firewall in use is '", node.FirewallInUse, "'")
-	if node.OS == "linux" {
-		switch node.FirewallInUse {
+	logger.Log(3, "creating egress gateway firewall in use is '", host.FirewallInUse, "'")
+	iface := "netmaker"
+	if host.OS == "linux" {
+		switch host.FirewallInUse {
 		case models.FIREWALL_NFTABLES:
 			// nftables only supported on Linux
 			// assumes chains eg FORWARD and postrouting already exist
@@ -62,14 +63,14 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.LegacyNode
 			// removing the chain with rules in it would remove all rules in that section (not safe
 			// if there are remaining rules on the host that need to stay).  In practice the chain is removed
 			// when non-empty even though the removal of a non-empty chain should not be possible per nftables wiki.
-			postUpCmd, postDownCmd = firewallNFTCommandsCreateEgress(node.Interface, gateway.Interface, gateway.Ranges, node.EgressGatewayNatEnabled, ipv4, ipv6)
+			postUpCmd, postDownCmd = firewallNFTCommandsCreateEgress(iface, gateway.Interface, gateway.Ranges, node.EgressGatewayNatEnabled, ipv4, ipv6)
 
 		default: // iptables assumed
 			logger.Log(3, "creating egress gateway nftables is not present")
-			postUpCmd, postDownCmd = firewallIPTablesCommandsCreateEgress(node.Interface, gateway.Interface, node.EgressGatewayNatEnabled, ipv4, ipv6)
+			postUpCmd, postDownCmd = firewallIPTablesCommandsCreateEgress(iface, gateway.Interface, node.EgressGatewayNatEnabled, ipv4, ipv6)
 		}
 	}
-	if node.OS == "freebsd" {
+	if host.OS == "freebsd" {
 		// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 		postUpCmd = "kldload ipfw ipfw_nat ; "
 		postUpCmd += "ipfw disable one_pass ; "
@@ -108,8 +109,8 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.LegacyNode
 	if err != nil {
 		return node, err
 	}
-	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
-		return models.LegacyNode{}, err
+	if err = database.Insert(node.ID.String(), string(nodeData), database.NODES_TABLE_NAME); err != nil {
+		return models.Node{}, err
 	}
 	return node, nil
 }
@@ -130,14 +131,17 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 }
 
 // DeleteEgressGateway - deletes egress from node
-func DeleteEgressGateway(network, nodeid string) (models.LegacyNode, error) {
-
+func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.LegacyNode{}, err
+		return models.Node{}, err
 	}
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return models.Node{}, err
 
-	node.IsEgressGateway = "no"
+	}
+	node.IsEgressGateway = false
 	node.EgressGatewayRanges = []string{}
 	node.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
 	// needed in case we don't preserve a gateway (i.e., no ingress to preserve)
@@ -147,19 +151,20 @@ func DeleteEgressGateway(network, nodeid string) (models.LegacyNode, error) {
 	cidrs = append(cidrs, node.IngressGatewayRange)
 	cidrs = append(cidrs, node.IngressGatewayRange6)
 	ipv4, ipv6 := getNetworkProtocols(cidrs)
-	logger.Log(3, "deleting egress gateway firewall in use is '", node.FirewallInUse, "'")
-	if node.IsIngressGateway == "yes" { // check if node is still an ingress gateway before completely deleting postdown/up rules
+	logger.Log(3, "deleting egress gateway firewall in use is '", host.FirewallInUse, "'")
+	if node.IsIngressGateway { // check if node is still an ingress gateway before completely deleting postdown/up rules
 		// still have an ingress gateway so preserve it
-		if node.OS == "linux" {
-			switch node.FirewallInUse {
+		iface := "netmaker"
+		if host.OS == "linux" {
+			switch host.FirewallInUse {
 			case models.FIREWALL_NFTABLES:
 				// nftables only supported on Linux
 				// assumes chains eg FORWARD and postrouting already exist
 				logger.Log(3, "deleting egress gateway nftables is present")
-				node.PostUp, node.PostDown = firewallNFTCommandsCreateIngress(node.Interface)
+				node.PostUp, node.PostDown = firewallNFTCommandsCreateIngress(iface)
 			default:
 				logger.Log(3, "deleting egress gateway nftables is not present")
-				node.PostUp, node.PostDown = firewallIPTablesCommandsCreateIngress(node.Interface, ipv4, ipv6)
+				node.PostUp, node.PostDown = firewallIPTablesCommandsCreateIngress(iface, ipv4, ipv6)
 			}
 		}
 		// no need to preserve ingress gateway on FreeBSD as ingress is not supported on that OS
@@ -168,53 +173,52 @@ func DeleteEgressGateway(network, nodeid string) (models.LegacyNode, error) {
 
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.LegacyNode{}, err
+		return models.Node{}, err
 	}
-	if err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME); err != nil {
-		return models.LegacyNode{}, err
+	if err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME); err != nil {
+		return models.Node{}, err
 	}
 	return node, nil
 }
 
 // CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, nodeid string, failover bool) (models.LegacyNode, error) {
+func CreateIngressGateway(netid string, nodeid string, failover bool) (models.Node, error) {
 
 	var postUpCmd, postDownCmd string
 	node, err := GetNodeByID(nodeid)
-
-	if node.FirewallInUse == models.FIREWALL_NONE {
-		return models.LegacyNode{}, errors.New("firewall is not supported for ingress gateways")
-	}
-
 	if err != nil {
-		return models.LegacyNode{}, err
+		return models.Node{}, err
+	}
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return models.Node{}, err
+	}
+	if host.FirewallInUse == models.FIREWALL_NONE {
+		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
 	}
 
 	network, err := GetParentNetwork(netid)
 	if err != nil {
-		return models.LegacyNode{}, err
+		return models.Node{}, err
 	}
-	node.IsIngressGateway = "yes"
+	node.IsIngressGateway = true
 	cidrs := []string{}
 	cidrs = append(cidrs, network.AddressRange)
 	cidrs = append(cidrs, network.AddressRange6)
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	ipv4, ipv6 := getNetworkProtocols(cidrs)
-	//no support for ipv6 and ip6tables in netmaker container
-	if node.IsServer == "yes" {
-		ipv6 = false
-	}
-	logger.Log(3, "creating ingress gateway firewall in use is '", node.FirewallInUse, "'")
-	switch node.FirewallInUse {
+	logger.Log(3, "creating ingress gateway firewall in use is '", host.FirewallInUse, "'")
+	iface := "netmaker"
+	switch host.FirewallInUse {
 	case models.FIREWALL_NFTABLES:
 		// nftables only supported on Linux
 		// assumes chains eg FORWARD and postrouting already exist
 		logger.Log(3, "creating ingress gateway nftables is present")
-		postUpCmd, postDownCmd = firewallNFTCommandsCreateIngress(node.Interface)
+		postUpCmd, postDownCmd = firewallNFTCommandsCreateIngress(iface)
 	default:
 		logger.Log(3, "creating ingress gateway using nftables is not present")
-		postUpCmd, postDownCmd = firewallIPTablesCommandsCreateIngress(node.Interface, ipv4, ipv6)
+		postUpCmd, postDownCmd = firewallIPTablesCommandsCreateIngress(iface, ipv4, ipv6)
 	}
 
 	if node.PostUp != "" {
@@ -230,52 +234,51 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.Le
 	node.SetLastModified()
 	node.PostUp = postUpCmd
 	node.PostDown = postDownCmd
-	node.UDPHolePunch = "no"
 	if failover && servercfg.Is_EE {
-		node.Failover = "yes"
+		node.Failover = true
 	}
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.LegacyNode{}, err
+		return models.Node{}, err
 	}
-	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
-		return models.LegacyNode{}, err
+		return models.Node{}, err
 	}
 	err = SetNetworkNodesLastModified(netid)
 	return node, err
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(networkName string, nodeid string) (models.LegacyNode, bool, error) {
-
+func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool, error) {
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.LegacyNode{}, false, err
+		return models.Node{}, false, err
 	}
-	network, err := GetParentNetwork(networkName)
+	//host, err := GetHost(node.ID.String())
+	//if err != nil {
+	//return models.Node{}, false, err
+	//}
+	//network, err := GetParentNetwork(networkName)
 	if err != nil {
-		return models.LegacyNode{}, false, err
+		return models.Node{}, false, err
 	}
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(node.ID, networkName); err != nil {
-		return models.LegacyNode{}, false, err
+	if err = DeleteGatewayExtClients(node.ID.String(), networkName); err != nil {
+		return models.Node{}, false, err
 	}
 	logger.Log(3, "deleting ingress gateway")
-	wasFailover := node.Failover == "yes"
-	if node.IsServer != "yes" {
-		node.UDPHolePunch = network.DefaultUDPHolePunch
-	}
-	node.LastModified = time.Now().Unix()
-	node.IsIngressGateway = "no"
+	wasFailover := node.Failover == true
+	node.LastModified = time.Now()
+	node.IsIngressGateway = false
 	node.IngressGatewayRange = ""
-	node.Failover = "no"
+	node.Failover = false
 
 	// default to removing postup and postdown
 	node.PostUp = ""
 	node.PostDown = ""
 
-	logger.Log(3, "deleting ingress gateway firewall in use is '", node.FirewallInUse, "' and isEgressGateway is", node.IsEgressGateway)
+	//logger.Log(3, "deleting ingress gateway firewall in use is '", host.FirewallInUse, "' and isEgressGateway is", node.IsEgressGateway)
 	if node.EgressGatewayRequest.NodeID != "" {
 		_, err := CreateEgressGateway(node.EgressGatewayRequest)
 		if err != nil {
@@ -286,11 +289,11 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.LegacyNode,
 
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return models.LegacyNode{}, false, err
+		return models.Node{}, false, err
 	}
-	err = database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
-		return models.LegacyNode{}, wasFailover, err
+		return models.Node{}, wasFailover, err
 	}
 	err = SetNetworkNodesLastModified(networkName)
 	return node, wasFailover, err

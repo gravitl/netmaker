@@ -45,6 +45,5 @@ func getCurrentServerLimit() (limits LicenseLimits) {
 	if err == nil {
 		limits.Users = len(users)
 	}
-	limits.Servers = logic.GetServerCount()
 	return
 }

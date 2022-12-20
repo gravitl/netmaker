@@ -34,9 +34,9 @@ type NetworkUserDataMap map[NetworkName]NetworkUserData
 
 // NetworkUserData - data struct for network users
 type NetworkUserData struct {
-	Nodes    []models.LegacyNode   `json:"nodes" bson:"nodes" yaml:"nodes"`
+	Nodes    []models.Node         `json:"nodes" bson:"nodes" yaml:"nodes"`
 	Clients  []models.ExtClient    `json:"clients" bson:"clients" yaml:"clients"`
-	Vpn      []models.LegacyNode   `json:"vpns" bson:"vpns" yaml:"vpns"`
+	Vpn      []models.Node         `json:"vpns" bson:"vpns" yaml:"vpns"`
 	Networks []models.Network      `json:"networks" bson:"networks" yaml:"networks"`
 	User     promodels.NetworkUser `json:"user" bson:"user" yaml:"user"`
 }
@@ -80,9 +80,9 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 
 		netID := networks[i].NetID
 		newData := NetworkUserData{
-			Nodes:    []models.LegacyNode{},
+			Nodes:    []models.Node{},
 			Clients:  []models.ExtClient{},
-			Vpn:      []models.LegacyNode{},
+			Vpn:      []models.Node{},
 			Networks: []models.Network{},
 		}
 		netUser, err := pro.GetNetworkUser(netID, promodels.NetworkUserID(networkUserName))
@@ -110,16 +110,16 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 						// if access level is NODE_ACCESS, filter nodes
 						if netUser.AccessLevel == pro.NODE_ACCESS {
 							for i := range netNodes {
-								if logic.StringSliceContains(netUser.Nodes, netNodes[i].ID) {
+								if logic.StringSliceContains(netUser.Nodes, netNodes[i].ID.String()) {
 									newData.Nodes = append(newData.Nodes, netNodes[i])
 								}
 							}
 						} else { // net admin so, get all nodes and ext clients on network...
 							newData.Nodes = netNodes
 							for i := range netNodes {
-								if netNodes[i].IsIngressGateway == "yes" {
+								if netNodes[i].IsIngressGateway {
 									newData.Vpn = append(newData.Vpn, netNodes[i])
-									if clients, err := logic.GetExtClientsByID(netNodes[i].ID, netID); err == nil {
+									if clients, err := logic.GetExtClientsByID(netNodes[i].ID.String(), netID); err == nil {
 										newData.Clients = append(newData.Clients, clients...)
 									}
 								}
@@ -134,7 +134,7 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 						for i := range netNodes {
-							if netNodes[i].IsIngressGateway == "yes" {
+							if netNodes[i].IsIngressGateway {
 								newData.Vpn = append(newData.Vpn, netNodes[i])
 							}
 						}

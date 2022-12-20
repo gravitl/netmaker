@@ -75,7 +75,7 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 
 	for _, value := range collection {
 		var entry models.DNSEntry
-		var node models.LegacyNode
+		var node models.Node
 		if err = json.Unmarshal([]byte(value), &node); err != nil {
 			continue
 		}
