@@ -21,13 +21,13 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 		return nil
 	}
 	networkNodes, err := logic.GetNetworkNodes(newNode.Network)
-	sort.Slice(networkNodes, func(i, j int) bool {
-		return networkNodes[i].PublicKey < networkNodes[j].PublicKey
-	})
 	if err != nil {
 		logger.Log(1, "err getting Network Nodes", err.Error())
 		return err
 	}
+	sort.Slice(networkNodes, func(i, j int) bool {
+		return networkNodes[i].PublicKey < networkNodes[j].PublicKey
+	})
 	for _, node := range networkNodes {
 
 		if node.IsServer == "yes" {
