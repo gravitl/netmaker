@@ -408,7 +408,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		nodes, err = getUsersNodes(user)
+		nodes, err = getUsersNodes(*user)
 		if err != nil {
 			logger.Log(0, r.Header.Get("user"),
 				"error fetching nodes: ", err.Error())

@@ -22,3 +22,4 @@ data/
 .vscode/
 .idea/
 netmaker.exe
+netmaker.code-workspace

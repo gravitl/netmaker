@@ -11,17 +11,17 @@ import (
 )
 
 // GetUser - gets a user
-func GetUser(username string) (models.User, error) {
+func GetUser(username string) (*models.User, error) {
 
 	var user models.User
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
 	if err != nil {
-		return user, err
+		return &user, err
 	}
 	if err = json.Unmarshal([]byte(record), &user); err != nil {
-		return models.User{}, err
+		return &models.User{}, err
 	}
-	return user, err
+	return &user, err
 }
 
 // GetGroupUsers - gets users in a group
