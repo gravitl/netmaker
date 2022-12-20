@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
@@ -20,6 +21,9 @@ func PublishPeerUpdate(newNode *models.Node, publishToSelf bool) error {
 		return nil
 	}
 	networkNodes, err := logic.GetNetworkNodes(newNode.Network)
+	sort.Slice(networkNodes, func(i, j int) bool {
+		return networkNodes[i].PublicKey < networkNodes[j].PublicKey
+	})
 	if err != nil {
 		logger.Log(1, "err getting Network Nodes", err.Error())
 		return err
