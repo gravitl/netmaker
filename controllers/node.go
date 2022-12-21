@@ -607,7 +607,13 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	// consume password before hashing for mq client creation
 	nodePassword := data.Host.HostPass
 	data.Node.Server = servercfg.GetServer()
-
+	if _, err := logic.GetHost(data.Node.HostID.String()); err != nil {
+		if err := logic.CreateHost(&data.Host); err != nil {
+			logger.Log(0, "error creating host", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
 	err = logic.CreateNode(&data.Node)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
