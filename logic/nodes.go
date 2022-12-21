@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/validation"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -161,6 +162,9 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := GetNetworkByNode(node)
 		return err == nil
+	})
+	_ = v.RegisterValidation("checkyesornoorunset", func(f1 validator.FieldLevel) bool {
+		return validation.CheckYesOrNoOrUnset(f1)
 	})
 	err := v.Struct(node)
 	return err
