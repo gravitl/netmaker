@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -145,9 +146,39 @@ func RemoveHost(h *models.Host) error {
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 }
 
-// host.UpdatePass updates and saves host.HostPass
-// Password saved on server needs to be the hashedPassword, whereas the raw password belongs to client
-func UpdatePass(h *models.Host, pass string) error {
-	h.HostPass = pass
-	return UpsertHost(h)
+// UpdateHostNetworks - updates a given host's networks
+func UpdateHostNetworks(h *models.Host, nets []string) error {
+	if len(h.Nodes) > 0 {
+		for i := range h.Nodes {
+			n, err := GetNodeByID(h.Nodes[i])
+			if err != nil {
+				return err
+			}
+			// loop through networks and remove need for updating existing networks
+			found := false
+			for j := range nets {
+				if len(nets[j]) > 0 && nets[j] == n.Network {
+					nets[j] = "" // mark as ignore
+					found = true
+				}
+			}
+			if !found { // remove the node/host from that network
+				if err = DeleteNodeByID(&n); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		h.Nodes = []string{}
+	}
+
+	for i := range nets {
+		// create a node for each non zero network remaining
+		if len(nets[i]) > 0 {
+			// TODO create a node with given hostid
+			logger.Log(0, "I will create a node here")
+		}
+	}
+
+	return nil
 }
