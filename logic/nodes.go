@@ -326,10 +326,14 @@ func GetNetworkByNode(node *models.Node) (models.Network, error) {
 func SetNodeDefaults(node *models.Node) {
 
 	parentNetwork, _ := GetNetworkByNode(node)
-	_, cidr, _ := net.ParseCIDR(parentNetwork.AddressRange)
-	node.NetworkRange = *cidr
-	_, cidr, _ = net.ParseCIDR(parentNetwork.AddressRange6)
-	node.NetworkRange6 = *cidr
+	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
+	if err == nil {
+		node.NetworkRange = *cidr
+	}
+	_, cidr, err = net.ParseCIDR(parentNetwork.AddressRange6)
+	if err == nil {
+		node.NetworkRange6 = *cidr
+	}
 	node.ExpirationDateTime = time.Now().Add(models.TEN_YEARS_IN_SECONDS)
 
 	if node.DefaultACL == "" {
