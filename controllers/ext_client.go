@@ -411,7 +411,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if newExtClient.ClientID != "" && !validName(newExtClient.ClientID) {
+	if !validName(newExtClient.ClientID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
 		return
 	}
