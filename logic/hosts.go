@@ -2,11 +2,14 @@ package logic
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/crypto/bcrypt"
 )
+
+var ErrHostExists error = errors.New("host already exists")
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
@@ -61,9 +64,14 @@ func GetHost(hostid string) (*models.Host, error) {
 func CreateHost(h *models.Host) error {
 	_, err := GetHost(h.ID.String())
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
-		return fmt.Errorf("host already exists")
+		return ErrHostExists
 	}
-
+	//encrypt that password so we never see it
+	hash, err := bcrypt.GenerateFromPassword([]byte(h.HostPass), 5)
+	if err != nil {
+		return err
+	}
+	h.HostPass = string(hash)
 	return UpsertHost(h)
 }
 
@@ -135,4 +143,11 @@ func RemoveHost(h *models.Host) error {
 		}
 	}
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
+}
+
+// host.UpdatePass updates and saves host.HostPass
+// Password saved on server needs to be the hashedPassword, whereas the raw password belongs to client
+func UpdatePass(h *models.Host, pass string) error {
+	h.HostPass = pass
+	return UpsertHost(h)
 }
