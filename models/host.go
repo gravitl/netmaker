@@ -34,4 +34,10 @@ type Host struct {
 	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"trafficekeypublic"`
 	InternetGateway  net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes            []string         `json:"nodes" yaml:"nodes"`
+	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
+	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
+	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
+	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
+	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
+	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`
 }
