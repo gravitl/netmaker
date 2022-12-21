@@ -100,3 +100,65 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.ExpirationDateTime = time.Unix(a.ExpirationDateTime, 0)
 	return &convertedNode
 }
+
+// Node.ConvertToAPINode - converts a node to an API node
+func (nm *Node) ConvertToAPINode() *ApiNode {
+	apiNode := ApiNode{}
+	apiNode.ID = nm.ID.String()
+	apiNode.HostID = nm.ID.String()
+	apiNode.Address = nm.Address.String()
+	if isEmptyAddr(apiNode.Address) {
+		apiNode.Address = ""
+	}
+	apiNode.Address6 = nm.Address6.String()
+	if isEmptyAddr(apiNode.Address6) {
+		apiNode.Address6 = ""
+	}
+	apiNode.PostDown = nm.PostDown
+	apiNode.PostUp = nm.PostUp
+	apiNode.AllowedIPs = nm.AllowedIPs
+	apiNode.PersistentKeepalive = int32(nm.PersistentKeepalive)
+	apiNode.LastModified = nm.LastModified.Unix()
+	apiNode.LastCheckIn = nm.LastCheckIn.Unix()
+	apiNode.LastPeerUpdate = nm.LastPeerUpdate.Unix()
+	apiNode.Network = nm.Network
+	apiNode.NetworkRange = nm.NetworkRange.String()
+	if isEmptyAddr(apiNode.NetworkRange) {
+		apiNode.NetworkRange = ""
+	}
+	apiNode.NetworkRange6 = nm.NetworkRange6.String()
+	if isEmptyAddr(apiNode.NetworkRange6) {
+		apiNode.NetworkRange6 = ""
+	}
+	apiNode.IsRelayed = nm.IsRelayed
+	apiNode.IsRelay = nm.IsRelay
+	apiNode.IsEgressGateway = nm.IsEgressGateway
+	apiNode.IsIngressGateway = nm.IsIngressGateway
+	apiNode.EgressGatewayRanges = nm.EgressGatewayRanges
+	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
+	apiNode.RelayAddrs = nm.RelayAddrs
+	apiNode.FailoverNode = nm.FailoverNode.String()
+	if isUUIDSet(apiNode.FailoverNode) {
+		apiNode.FailoverNode = ""
+	}
+	apiNode.DNSOn = nm.DNSOn
+	apiNode.IsLocal = nm.IsLocal
+	apiNode.Server = nm.Server
+	apiNode.InternetGateway = nm.InternetGateway.String()
+	if isEmptyAddr(apiNode.InternetGateway) {
+		apiNode.InternetGateway = ""
+	}
+	apiNode.Connected = nm.Connected
+	apiNode.PendingDelete = nm.PendingDelete
+	apiNode.DefaultACL = nm.DefaultACL
+	apiNode.Failover = nm.Failover
+	return &apiNode
+}
+
+func isEmptyAddr(addr string) bool {
+	return addr == "<nil>" || addr == ":0"
+}
+
+func isUUIDSet(uuid string) bool {
+	return uuid != "00000000-0000-0000-0000-000000000000"
+}
