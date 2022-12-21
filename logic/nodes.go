@@ -230,8 +230,9 @@ func CreateNode(node *models.Node) error {
 				return err
 			}
 			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
-	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
-		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
+		} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
+			return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
+		}
 	}
 
 	if node.Address6.IP == nil {
