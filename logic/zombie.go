@@ -2,8 +2,10 @@ package logic
 
 import (
 	"context"
+	"net"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
@@ -16,22 +18,26 @@ const (
 )
 
 var (
-	zombies      []string
-	removeZombie chan string = make(chan (string), 10)
-	newZombie    chan string = make(chan (string), 10)
+	zombies      []uuid.UUID
+	removeZombie chan uuid.UUID = make(chan (uuid.UUID), 10)
+	newZombie    chan uuid.UUID = make(chan (uuid.UUID), 10)
 )
 
 // CheckZombies - checks if new node has same macaddress as existing node
 // if so, existing node is added to zombie node quarantine list
-func CheckZombies(newnode *models.Node) {
+func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 	nodes, err := GetNetworkNodes(newnode.Network)
 	if err != nil {
 		logger.Log(1, "Failed to retrieve network nodes", newnode.Network, err.Error())
 		return
 	}
 	for _, node := range nodes {
-		if node.MacAddress == newnode.MacAddress {
-			logger.Log(0, "adding ", node.ID, " to zombie list")
+		host, err := GetHost(node.HostID.String())
+		if err != nil {
+
+		}
+		if host.MacAddress.String() == mac.String() {
+			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
 			newZombie <- node.ID
 		}
 	}
@@ -46,14 +52,14 @@ func ManageZombies(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case id := <-newZombie:
-			logger.Log(1, "adding", id, "to zombie quaratine list")
+			logger.Log(1, "adding", id.String(), "to zombie quaratine list")
 			zombies = append(zombies, id)
 		case id := <-removeZombie:
 			found := false
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
 					if zombies[i] == id {
-						logger.Log(1, "removing zombie from quaratine list", zombies[i])
+						logger.Log(1, "removing zombie from quaratine list", zombies[i].String())
 						zombies = append(zombies[:i], zombies[i+1:]...)
 						found = true
 					}
@@ -66,19 +72,19 @@ func ManageZombies(ctx context.Context) {
 			logger.Log(3, "checking for zombie nodes")
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
-					node, err := GetNodeByID(zombies[i])
+					node, err := GetNodeByID(zombies[i].String())
 					if err != nil {
-						logger.Log(1, "error retrieving zombie node", zombies[i], err.Error())
-						logger.Log(1, "deleting ", node.Name, " from zombie list")
+						logger.Log(1, "error retrieving zombie node", zombies[i].String(), err.Error())
+						logger.Log(1, "deleting ", node.ID.String(), " from zombie list")
 						zombies = append(zombies[:i], zombies[i+1:]...)
 						continue
 					}
-					if time.Since(time.Unix(node.LastCheckIn, 0)) > time.Minute*ZOMBIE_DELETE_TIME {
+					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
 						if err := DeleteNode(&node, true); err != nil {
-							logger.Log(1, "error deleting zombie node", zombies[i], err.Error())
+							logger.Log(1, "error deleting zombie node", zombies[i].String(), err.Error())
 							continue
 						}
-						logger.Log(1, "deleting zombie node", node.Name)
+						logger.Log(1, "deleting zombie node", node.ID.String())
 						zombies = append(zombies[:i], zombies[i+1:]...)
 					}
 				}
@@ -104,13 +110,13 @@ func InitializeZombies() {
 			if node.ID == othernode.ID {
 				continue
 			}
-			if node.MacAddress == othernode.MacAddress {
-				if node.LastCheckIn > othernode.LastCheckIn {
+			if node.HostID == othernode.HostID {
+				if node.LastCheckIn.After(othernode.LastCheckIn) {
 					zombies = append(zombies, othernode.ID)
-					logger.Log(1, "adding ", othernode.Name, " with ID ", othernode.ID, " to zombie list")
+					logger.Log(1, "adding", othernode.ID.String(), "to zombie list")
 				} else {
 					zombies = append(zombies, node.ID)
-					logger.Log(1, "adding ", node.Name, " with ID ", node.ID, " to zombie list")
+					logger.Log(1, "adding", node.ID.String(), "to zombie list")
 				}
 			}
 		}

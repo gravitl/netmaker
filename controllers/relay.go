@@ -16,13 +16,13 @@ import (
 //
 // Create a relay.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createRelay(w http.ResponseWriter, r *http.Request) {
 	var relay models.RelayRequest
 	var params = mux.Vars(r)
@@ -48,7 +48,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 
 		err = mq.NodeUpdate(&relayedNode)
 		if err != nil {
-			logger.Log(1, "error sending update to relayed node ", relayedNode.Name, "on network", relay.NetID, ": ", err.Error())
+			logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", relay.NetID, ": ", err.Error())
 		}
 	}
 
@@ -61,13 +61,13 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 //
 // Remove a relay.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -83,7 +83,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	for _, relayedNode := range updatenodes {
 		err = mq.NodeUpdate(&relayedNode)
 		if err != nil {
-			logger.Log(1, "error sending update to relayed node ", relayedNode.Name, "on network", netid, ": ", err.Error())
+			logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", netid, ": ", err.Error())
 		}
 	}
 	w.WriteHeader(http.StatusOK)

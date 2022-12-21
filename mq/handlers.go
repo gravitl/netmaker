@@ -41,7 +41,7 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 		}
 		decrypted, decryptErr := decryptMsg(&node, msg.Payload())
 		if decryptErr != nil {
-			logger.Log(0, "error decrypting when updating node ", node.ID, decryptErr.Error())
+			logger.Log(0, "error decrypting when updating node ", node.ID.String(), decryptErr.Error())
 			return
 		}
 		var checkin models.NodeCheckin
@@ -49,19 +49,24 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, "error retrieving host for node ", node.ID.String(), err.Error())
+			return
+		}
 		node.SetLastCheckIn()
-		node.Version = checkin.Version
+		host.Version = checkin.Version
 		node.Connected = checkin.Connected
 		node.Interfaces = checkin.Ifaces
 		for i := range node.Interfaces {
 			node.Interfaces[i].AddressString = node.Interfaces[i].Address.String()
 		}
 		if err := logic.UpdateNode(&node, &node); err != nil {
-			logger.Log(0, "error updating node", node.Name, node.ID, " on checkin", err.Error())
+			logger.Log(0, "error updating node", node.ID.String(), " on checkin", err.Error())
 			return
 		}
 
-		logger.Log(3, "ping processed for node", node.Name, node.ID)
+		logger.Log(3, "ping processed for node", node.ID.String())
 		// --TODO --set client version once feature is implemented.
 		//node.SetClientVersion(msg.Payload())
 	}()
@@ -92,8 +97,8 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		}
 		ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
 		if servercfg.Is_EE && ifaceDelta {
-			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
-				logger.Log(1, "failed to reset failover list during node update", currentNode.Name, currentNode.Network)
+			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+				logger.Log(1, "failed to reset failover list during node update", currentNode.ID.String(), currentNode.Network)
 			}
 		}
 		newNode.SetLastCheckIn()
@@ -102,12 +107,13 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-			if err = PublishPeerUpdate(&currentNode, true); err != nil {
-				logger.Log(0, "error updating peers when node", currentNode.Name, currentNode.ID, "informed the server of an interface change", err.Error())
+			if err = PublishPeerUpdate(currentNode.Network, true); err != nil {
+				logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 			}
 		}
 
-		logger.Log(1, "updated node", id, newNode.Name)
+		logger.Log(1, "updated node", id, newNode.ID.String())
+
 	}()
 }
 
@@ -140,31 +146,31 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			shouldUpdate := updateNodeMetrics(&currentNode, &newMetrics)
 
 			if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
-				logger.Log(1, "faield to update node metrics", id, currentNode.Name, err.Error())
+				logger.Log(1, "faield to update node metrics", id, err.Error())
 				return
 			}
 			if servercfg.IsMetricsExporter() {
 				if err := pushMetricsToExporter(newMetrics); err != nil {
 					logger.Log(2, fmt.Sprintf("failed to push node: [%s] metrics to exporter, err: %v",
-						currentNode.Name, err))
+						currentNode.ID, err))
 				}
 			}
 
 			if newMetrics.Connectivity != nil {
 				err := logic.EnterpriseFailoverFunc(&currentNode)
 				if err != nil {
-					logger.Log(0, "failed to failover for node", currentNode.Name, "on network", currentNode.Network, "-", err.Error())
+					logger.Log(0, "failed to failover for node", currentNode.ID.String(), "on network", currentNode.Network, "-", err.Error())
 				}
 			}
 
 			if shouldUpdate {
-				logger.Log(2, "updating peers after node", currentNode.Name, currentNode.Network, "detected connectivity issues")
+				logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
 				if err = PublishSinglePeerUpdate(&currentNode); err != nil {
-					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.Name, currentNode.Network)
+					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
 				}
 			}
 
-			logger.Log(1, "updated node metrics", id, currentNode.Name)
+			logger.Log(1, "updated node metrics", id)
 		}()
 	}
 }
@@ -189,37 +195,19 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 		}
 		switch decrypted[0] {
 		case ncutils.ACK:
-			currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
-			if err != nil {
-				return
-			}
-			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
-				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
-				return
-			}
+			//do we still need this
 		case ncutils.DONE:
 			updateNodePeers(&currentNode)
 		}
 
-		logger.Log(1, "sent peer updates after signal received from", id, currentNode.Name)
+		logger.Log(1, "sent peer updates after signal received from", id)
 	}()
 }
 
 func updateNodePeers(currentNode *models.Node) {
-	currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
-	if err != nil {
-		logger.Log(1, "failed to get server node failed update\n", err.Error())
+	if err := PublishPeerUpdate(currentNode.Network, false); err != nil {
+		logger.Log(1, "error publishing peer update ", err.Error())
 		return
-	}
-	if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
-		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
-		return
-	}
-	if logic.IsLeader(&currentServerNode) {
-		if err := PublishPeerUpdate(currentNode, false); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-			return
-		}
 	}
 }
 
@@ -227,9 +215,9 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 	if newMetrics.FailoverPeers == nil {
 		newMetrics.FailoverPeers = make(map[string]string)
 	}
-	oldMetrics, err := logic.GetMetrics(currentNode.ID)
+	oldMetrics, err := logic.GetMetrics(currentNode.ID.String())
 	if err != nil {
-		logger.Log(1, "error finding old metrics for node", currentNode.ID, currentNode.Name)
+		logger.Log(1, "error finding old metrics for node", currentNode.ID.String())
 		return false
 	}
 	if oldMetrics.FailoverPeers == nil {
@@ -237,8 +225,8 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 	}
 
 	var attachedClients []models.ExtClient
-	if currentNode.IsIngressGateway == "yes" {
-		clients, err := logic.GetExtClientsByID(currentNode.ID, currentNode.Network)
+	if currentNode.IsIngressGateway {
+		clients, err := logic.GetExtClientsByID(currentNode.ID.String(), currentNode.Network)
 		if err == nil {
 			attachedClients = clients
 		}
@@ -292,12 +280,12 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		return false
 	}
 	for _, node := range nodes {
-		if !newMetrics.Connectivity[node.ID].Connected &&
-			len(newMetrics.Connectivity[node.ID].NodeName) > 0 &&
-			node.Connected == "yes" &&
+		if !newMetrics.Connectivity[node.ID.String()].Connected &&
+			len(newMetrics.Connectivity[node.ID.String()].NodeName) > 0 &&
+			node.Connected == true &&
 			len(node.FailoverNode) > 0 &&
-			node.Failover != "yes" {
-			newMetrics.FailoverPeers[node.ID] = node.FailoverNode
+			!node.Failover {
+			newMetrics.FailoverPeers[node.ID.String()] = node.FailoverNode.String()
 		}
 	}
 	shouldUpdate := len(oldMetrics.FailoverPeers) == 0 && len(newMetrics.FailoverPeers) > 0

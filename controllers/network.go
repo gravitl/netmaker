@@ -36,13 +36,13 @@ func networkHandlers(r *mux.Router) {
 //
 // Lists all networks.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: getNetworksSliceResponse
+//			Responses:
+//				200: getNetworksSliceResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	headerNetworks := r.Header.Get("networks")
@@ -87,13 +87,13 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 //
 // Get a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -118,13 +118,13 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Update keys for a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -145,11 +145,9 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range nodes {
-		logger.Log(2, "updating node ", node.Name, " for a key update")
-		if node.IsServer != "yes" {
-			if err = mq.NodeUpdate(&node); err != nil {
-				logger.Log(1, "failed to send update to node during a network wide key update", node.Name, node.ID, err.Error())
-			}
+		logger.Log(2, "updating node ", node.ID.String(), " for a key update")
+		if err = mq.NodeUpdate(&node); err != nil {
+			logger.Log(1, "failed to send update to node during a network wide key update", node.ID.String(), err.Error())
 		}
 	}
 }
@@ -158,13 +156,13 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 //
 // Update a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -248,16 +246,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if holepunchupdate {
-		err = logic.UpdateNetworkHolePunching(network.NetID, newNetwork.DefaultUDPHolePunch)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to update network [%s] hole punching: %v",
-					network.NetID, err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
 	if rangeupdate4 || rangeupdate6 || localrangeupdate || holepunchupdate {
 		nodes, err := logic.GetNetworkNodes(network.NetID)
 		if err != nil {
@@ -281,13 +269,13 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Update a network ACL (Access Control List).
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: aclContainerResponse
+//			Responses:
+//				200: aclContainerResponse
 func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -318,19 +306,10 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 
 	// send peer updates
 	if servercfg.IsMessageQueueBackend() {
-		serverNode, err := logic.GetNetworkServerLocal(netname)
-		if err != nil {
-			logger.Log(1, "failed to find server node after ACL update on", netname)
-		} else {
-			if err = logic.ServerUpdate(&serverNode, false); err != nil {
-				logger.Log(1, "failed to update server node after ACL update on", netname)
-			}
-			if err = mq.PublishPeerUpdate(&serverNode, false); err != nil {
-				logger.Log(0, "failed to publish peer update after ACL update on", netname)
-			}
+		if err = mq.PublishPeerUpdate(netname, false); err != nil {
+			logger.Log(0, "failed to publish peer update after ACL update on", netname)
 		}
 	}
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetACL)
 }
@@ -339,13 +318,13 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 //
 // Get a network ACL (Access Control List).
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: aclContainerResponse
+//			Responses:
+//				200: aclContainerResponse
 func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -367,13 +346,13 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a network.  Will not delete if there are any nodes that belong to the network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: stringJSONResponse
+//			Responses:
+//				200: stringJSONResponse
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -414,13 +393,13 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Create a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: networkBodyResponse
+//			Responses:
+//				200: networkBodyResponse
 func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -468,20 +447,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			event.Commands, err.Error()))
 	}
 
-	if servercfg.IsClientMode() != "off" {
-		_, err := logic.ServerJoin(&network)
-		if err != nil {
-			logic.DeleteNetwork(network.NetID)
-			if err == nil {
-				err = errors.New("Failed to add server to network " + network.NetID)
-			}
-			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
-				err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
@@ -491,13 +456,13 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 //
 // Create a network access key.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: accessKeyBodyResponse
+//			Responses:
+//				200: accessKeyBodyResponse
 //
 // BEGIN KEY MANAGEMENT SECTION
 func createAccessKey(w http.ResponseWriter, r *http.Request) {
@@ -545,13 +510,13 @@ func createAccessKey(w http.ResponseWriter, r *http.Request) {
 //
 // Get network access keys for a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: accessKeySliceBodyResponse
+//			Responses:
+//				200: accessKeySliceBodyResponse
 func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -575,14 +540,14 @@ func getAccessKeys(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a network access key.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200:
-//			*: stringJSONResponse
+//			Responses:
+//				200:
+//				*: stringJSONResponse
 //
 // delete key. Has to do a little funky logic since it's not a collection item
 func deleteAccessKey(w http.ResponseWriter, r *http.Request) {

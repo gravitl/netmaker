@@ -102,7 +102,7 @@ func GetExchangedBytesForNode(node *models.Node, metrics *models.Metrics) error 
 		return err
 	}
 	defer wgclient.Close()
-	device, err := wgclient.Device(node.Interface)
+	device, err := wgclient.Device(models.WIREGUARD_INTERFACE)
 	if err != nil {
 		return err
 	}

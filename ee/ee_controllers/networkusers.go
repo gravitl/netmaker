@@ -110,16 +110,16 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 						// if access level is NODE_ACCESS, filter nodes
 						if netUser.AccessLevel == pro.NODE_ACCESS {
 							for i := range netNodes {
-								if logic.StringSliceContains(netUser.Nodes, netNodes[i].ID) {
+								if logic.StringSliceContains(netUser.Nodes, netNodes[i].ID.String()) {
 									newData.Nodes = append(newData.Nodes, netNodes[i])
 								}
 							}
 						} else { // net admin so, get all nodes and ext clients on network...
 							newData.Nodes = netNodes
 							for i := range netNodes {
-								if netNodes[i].IsIngressGateway == "yes" {
+								if netNodes[i].IsIngressGateway {
 									newData.Vpn = append(newData.Vpn, netNodes[i])
-									if clients, err := logic.GetExtClientsByID(netNodes[i].ID, netID); err == nil {
+									if clients, err := logic.GetExtClientsByID(netNodes[i].ID.String(), netID); err == nil {
 										newData.Clients = append(newData.Clients, clients...)
 									}
 								}
@@ -134,7 +134,7 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 						for i := range netNodes {
-							if netNodes[i].IsIngressGateway == "yes" {
+							if netNodes[i].IsIngressGateway {
 								newData.Vpn = append(newData.Vpn, netNodes[i])
 							}
 						}

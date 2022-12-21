@@ -9,14 +9,14 @@ import (
 // AdjustNodeAcls - adjusts ACLs based on a node's default value
 func AdjustNodeAcls(node *models.Node, networkNodes []models.Node) error {
 	networkID := nodeacls.NetworkID(node.Network)
-	nodeID := nodeacls.NodeID(node.ID)
+	nodeID := nodeacls.NodeID(node.ID.String())
 	currentACLs, err := nodeacls.FetchAllACLs(networkID)
 	if err != nil {
 		return err
 	}
 
 	for i := range networkNodes {
-		currentNodeID := nodeacls.NodeID(networkNodes[i].ID)
+		currentNodeID := nodeacls.NodeID(networkNodes[i].ID.String())
 		if currentNodeID == nodeID {
 			continue
 		}

@@ -39,7 +39,7 @@ func main() {
 		pretty.Println(string(bytes))
 	}
 	defer response.Body.Close()
-	node := models.Node{}
+	node := models.LegacyNode{}
 	if err := json.NewDecoder(response.Body).Decode(&node); err != nil {
 		fmt.Println(err)
 	}

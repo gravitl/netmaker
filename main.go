@@ -71,9 +71,6 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
 	logger.Log(0, "database successfully connected")
-	if err = logic.AddServerIDIfNotPresent(); err != nil {
-		logger.Log(1, "failed to save server ID")
-	}
 
 	logic.SetJWTSecret()
 
@@ -111,9 +108,6 @@ func initialize() { // Client Mode Prereq Check
 		}
 		if uid != 0 {
 			logger.FatalLog("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
-		}
-		if err := serverctl.InitServerNetclient(); err != nil {
-			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
 		}
 	}
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
@@ -184,10 +178,6 @@ func startControllers() {
 			waitnetwork.Add(1)
 
 			//go nmproxy.Start(ctx, logic.ProxyMgmChan, servercfg.GetAPIHost())
-			err := serverctl.SyncServerNetworkWithProxy()
-			if err != nil {
-				logger.Log(0, "failed to sync proxy with server interfaces: ", err.Error())
-			}
 			quit := make(chan os.Signal, 1)
 			signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 			<-quit

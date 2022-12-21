@@ -19,14 +19,18 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	if node.OS != "linux" {
+	host, err := GetHost(node.ID.String())
+	if err != nil {
+		return returnnodes, models.Node{}, err
+	}
+	if host.OS != "linux" {
 		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
 	}
 	err = ValidateRelay(relay)
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	node.IsRelay = "yes"
+	node.IsRelay = true
 	node.RelayAddrs = relay.RelayAddrs
 
 	node.SetLastModified()
@@ -34,7 +38,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err != nil {
 		return returnnodes, node, err
 	}
-	if err = database.Insert(node.ID, string(nodeData), database.NODES_TABLE_NAME); err != nil {
+	if err = database.Insert(node.ID.String(), string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return returnnodes, models.Node{}, err
 	}
 	returnnodes, err = SetRelayedNodes(true, node.Network, node.RelayAddrs)
@@ -52,21 +56,19 @@ func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]mod
 		return returnnodes, err
 	}
 	for _, node := range networkNodes {
-		if node.IsServer != "yes" {
-			for _, addr := range addrs {
-				if addr == node.Address || addr == node.Address6 {
-					if setRelayed {
-						node.IsRelayed = "yes"
-					} else {
-						node.IsRelayed = "no"
-					}
-					data, err := json.Marshal(&node)
-					if err != nil {
-						return returnnodes, err
-					}
-					database.Insert(node.ID, string(data), database.NODES_TABLE_NAME)
-					returnnodes = append(returnnodes, node)
+		for _, addr := range addrs {
+			if addr == node.Address.IP.String() || addr == node.Address6.IP.String() {
+				if setRelayed {
+					node.IsRelayed = true
+				} else {
+					node.IsRelayed = false
 				}
+				data, err := json.Marshal(&node)
+				if err != nil {
+					return returnnodes, err
+				}
+				database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+				returnnodes = append(returnnodes, node)
 			}
 		}
 	}
@@ -79,11 +81,9 @@ func GetRelayedNodes(relayNode *models.Node) ([]models.Node, error) {
 		return returnnodes, err
 	}
 	for _, node := range networkNodes {
-		if node.IsServer != "yes" {
-			for _, addr := range relayNode.RelayAddrs {
-				if addr == node.Address || addr == node.Address6 {
-					returnnodes = append(returnnodes, node)
-				}
+		for _, addr := range relayNode.RelayAddrs {
+			if addr == node.Address.IP.String() || addr == node.Address6.IP.String() {
+				returnnodes = append(returnnodes, node)
 			}
 		}
 	}
@@ -128,7 +128,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 		return returnnodes, node, err
 	}
 
-	node.IsRelay = "no"
+	node.IsRelay = false
 	node.RelayAddrs = []string{}
 	node.SetLastModified()
 

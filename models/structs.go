@@ -176,8 +176,8 @@ type RelayRequest struct {
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {
-	UpdatePeers bool `json:"updatepeers" bson:"updatepeers"`
-	Node        Node `json:"servernode" bson:"servernode"`
+	UpdatePeers bool       `json:"updatepeers" bson:"updatepeers"`
+	Node        LegacyNode `json:"servernode" bson:"servernode"`
 }
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
@@ -203,8 +203,18 @@ type TrafficKeys struct {
 
 // NodeGet - struct for a single node get response
 type NodeGet struct {
-	Node         Node                        `json:"node" bson:"node" yaml:"node"`
+	Node         LegacyNode                  `json:"node" bson:"node" yaml:"node"`
+	Host         Host                        `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig        `json:"peers" bson:"peers" yaml:"peers"`
+	ServerConfig ServerConfig                `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
+	PeerIDs      PeerMap                     `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
+	ProxyUpdate  manager.ProxyManagerPayload `json:"proxy_update,omitempty" bson:"proxy_update,omitempty" yaml:"proxy_update,omitempty"`
+}
+
+// NodeJoinResponse data returned to node in response to join
+type NodeJoinResponse struct {
+	Node         Node                        `json:"node" bson:"node" yaml:"node"`
+	Host         Host                        `json:"host" yaml:"host"`
 	ServerConfig ServerConfig                `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
 	PeerIDs      PeerMap                     `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
 	ProxyUpdate  manager.ProxyManagerPayload `json:"proxy_update,omitempty" bson:"proxy_update,omitempty" yaml:"proxy_update,omitempty"`
@@ -224,6 +234,7 @@ type ServerConfig struct {
 	Is_EE       bool   `yaml:"isee"`
 	StunPort    int    `yaml:"stun_port"`
 	StunHost    string `yaml:"stun_host"`
+	TrafficKey  []byte `yaml:"traffickey"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -240,4 +251,11 @@ func (user *User) NameInCharSet() bool {
 // ServerIDs - struct to hold server ids.
 type ServerIDs struct {
 	ServerIDs []string `json:"server_ids"`
+}
+
+// JoinData - struct to hold data required for node to join a network on server
+type JoinData struct {
+	Host Host   `json:"host" yaml:"host"`
+	Node Node   `json:"node" yaml:"node"`
+	Key  string `json:"key" yaml:"key"`
 }

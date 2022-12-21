@@ -29,7 +29,6 @@ import (
 	serverconfigpkg "github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/config"
 )
 
 var _ = useUnused() // "use" the function to prevent "unused function" errors
@@ -243,21 +242,21 @@ type aclContainerResponse struct {
 type nodeSliceResponse struct {
 	// Nodes
 	// in: body
-	Nodes []models.Node `json:"nodes"`
+	Nodes []models.LegacyNode `json:"nodes"`
 }
 
 // swagger:response nodeResponse
 type nodeResponse struct {
 	// Node
 	// in: body
-	Node models.Node `json:"node"`
+	Node models.LegacyNode `json:"node"`
 }
 
 // swagger:parameters updateNode deleteNode
 type nodeBodyParam struct {
 	// Node
 	// in: body
-	Node models.Node `json:"node"`
+	Node models.LegacyNode `json:"node"`
 }
 
 // swagger:parameters createRelay
@@ -303,18 +302,18 @@ type nodeLastModifiedResponse struct {
 }
 
 // swagger:parameters register
-type registerRequestBodyParam struct {
-	// Register Request
-	// in: body
-	RegisterRequest config.RegisterRequest `json:"register_request"`
-}
-
-// swagger:response registerResponse
-type registerResponse struct {
-	// Register Response
-	// in: body
-	RegisterResponse config.RegisterResponse `json:"register_response"`
-}
+//type registerRequestBodyParam struct {
+//	// Register Request
+//	// in: body
+//	RegisterRequest config.RegisterRequest `json:"register_request"`
+//}
+//
+//// swagger:response registerResponse
+//type registerResponse struct {
+//	// Register Response
+//	// in: body
+//	RegisterResponse config.RegisterResponse `json:"register_response"`
+//}
 
 // swagger:response boolResponse
 type boolResponse struct {
@@ -388,8 +387,8 @@ func useUnused() bool {
 	_ = serverConfigResponse{}
 	_ = nodeGetResponse{}
 	_ = nodeLastModifiedResponse{}
-	_ = registerRequestBodyParam{}
-	_ = registerResponse{}
+	//	_ = registerRequestBodyParam{}
+	//	_ = registerResponse{}
 	_ = boolResponse{}
 	_ = userBodyParam{}
 	_ = userBodyResponse{}

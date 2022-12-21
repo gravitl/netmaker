@@ -75,7 +75,6 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	newHost.OS = currentHost.OS
 	newHost.IPForwarding = currentHost.IPForwarding
 	newHost.HostPass = currentHost.HostPass
-	newHost.NodePassword = currentHost.NodePassword
 	newHost.MacAddress = currentHost.MacAddress
 	newHost.Debug = currentHost.Debug
 	newHost.Nodes = currentHost.Nodes

@@ -15,6 +15,10 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	if len(msg) <= 24 { // make sure message is of appropriate length
 		return nil, fmt.Errorf("recieved invalid message from broker %v", msg)
 	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		return nil, err
+	}
 
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey() // get server private key
 	if trafficErr != nil {
@@ -24,12 +28,12 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodePubTKey, err := ncutils.ConvertBytesToKey(node.TrafficKeys.Mine)
+	nodePubTKey, err := ncutils.ConvertBytesToKey(host.TrafficKeyPublic)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.Contains(node.Version, "0.10.0") {
+	if strings.Contains(host.Version, "0.10.0") {
 		return ncutils.BoxDecrypt(msg, nodePubTKey, serverPrivTKey)
 	}
 
@@ -48,12 +52,16 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	nodePubKey, err := ncutils.ConvertBytesToKey(node.TrafficKeys.Mine)
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		return nil, err
+	}
+	nodePubKey, err := ncutils.ConvertBytesToKey(host.TrafficKeyPublic)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.Contains(node.Version, "0.10.0") {
+	if strings.Contains(host.Version, "0.10.0") {
 		return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
 	}
 

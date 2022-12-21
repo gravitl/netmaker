@@ -7,6 +7,9 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// WIREGUARD_INTERFACE name of wireguard interface
+const WIREGUARD_INTERFACE = "netmaker"
+
 // Host - represents a host on the network
 type Host struct {
 	ID               uuid.UUID        `json:"id" yaml:"id"`
@@ -18,8 +21,8 @@ type Host struct {
 	HostPass         string           `json:"hostpass" yaml:"hostpass"`
 	Name             string           `json:"name" yaml:"name"`
 	OS               string           `json:"os" yaml:"os"`
+	Interface        string           `json:"interface" yaml:"interface"`
 	Debug            bool             `json:"debug" yaml:"debug"`
-	NodePassword     string           `json:"nodepassword" yaml:"nodepassword"`
 	ListenPort       int              `json:"listenport" yaml:"listenport"`
 	LocalAddress     net.IPNet        `json:"localaddress" yaml:"localaddress"`
 	LocalRange       net.IPNet        `json:"localrange" yaml:"localrange"`
