@@ -629,10 +629,14 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 
 // Node.NetworkSettings updates a node with network settings
 func (node *Node) NetworkSettings(n Network) {
-	_, cidr, _ := net.ParseCIDR(n.AddressRange)
-	node.NetworkRange = *cidr
-	_, cidr, _ = net.ParseCIDR(n.AddressRange6)
-	node.NetworkRange6 = *cidr
+	_, cidr, err := net.ParseCIDR(n.AddressRange)
+	if err == nil {
+		node.NetworkRange = *cidr
+	}
+	_, cidr, err = net.ParseCIDR(n.AddressRange6)
+	if err == nil {
+		node.NetworkRange6 = *cidr
+	}
 }
 
 func parseBool(s string) bool {
