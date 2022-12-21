@@ -245,9 +245,9 @@ func CreateNode(node *models.Node) error {
 				return err
 			}
 			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
+		} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
+			return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
 		}
-	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
-		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
 	}
 
 	node.ID = uuid.New()
