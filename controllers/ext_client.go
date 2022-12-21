@@ -43,14 +43,13 @@ func checkIngressExists(nodeID string) bool {
 // Get all extclients associated with network.
 // Gets all extclients associated with network, including pending extclients.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientSliceResponse
-//
+//			Responses:
+//				200: extClientSliceResponse
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -75,14 +74,13 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 //
 // A separate function to get all extclients, not just extclients for a particular network.
 //
+//			Schemes: https
 //
-//		Schemes: https
+//			Security:
+//	  		oauth
 //
-// 		Security:
-//   		oauth
-//
-//		Responses:
-//			200: extClientSliceResponse
+//			Responses:
+//				200: extClientSliceResponse
 //
 // Not quite sure if this is necessary. Probably necessary based on front end but may
 // want to review after iteration 1 if it's being used or not
@@ -126,14 +124,13 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 //
 // Get an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientResponse
-//
+//			Responses:
+//				200: extClientResponse
 func getExtClient(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -158,14 +155,13 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // Get an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientResponse
-//
+//			Responses:
+//				200: extClientResponse
 func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -293,11 +289,10 @@ Endpoint = %s
 //
 // Create an individual extclient.  Must have valid key and be unique.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
-//
+//			Security:
+//	  		oauth
 func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -320,7 +315,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&CustomExtClient)
 
 	if err == nil {
-		if !validName(CustomExtClient.ClientID) {
+		if CustomExtClient.ClientID != "" && !validName(CustomExtClient.ClientID) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
 			return
 		}
@@ -385,14 +380,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // Update an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: extClientResponse
-//
+//			Responses:
+//				200: extClientResponse
 func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -417,7 +411,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if !validName(newExtClient.ClientID) {
+	if newExtClient.ClientID != "" && !validName(newExtClient.ClientID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
 		return
 	}
@@ -484,14 +478,13 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an individual extclient.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
-//
+//			Responses:
+//				200: successResponse
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
