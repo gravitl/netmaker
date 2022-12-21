@@ -64,8 +64,6 @@ type CommonNode struct {
 	InternetGateway     *net.UDPAddr         `json:"internetgateway" yaml:"internetgateway"`
 	Server              string               `json:"server" yaml:"server"`
 	Connected           bool                 `json:"connected" yaml:"connected"`
-	Interfaces          []Iface              `json:"interfaces" yaml:"interfaces"`
-	EndpointIP          net.IP               `json:"endpointip" yaml:"endpointip"`
 	Address             net.IPNet            `json:"address" yaml:"address"`
 	Address6            net.IPNet            `json:"address6" yaml:"address6"`
 	PostUp              string               `json:"postup" yaml:"postup"`
@@ -74,11 +72,9 @@ type CommonNode struct {
 	IsLocal             bool                 `json:"islocal" yaml:"islocal"`
 	IsEgressGateway     bool                 `json:"isegressgateway" yaml:"isegressgateway"`
 	IsIngressGateway    bool                 `json:"isingressgateway" yaml:"isingressgateway"`
-	IsStatic            bool                 `json:"isstatic" yaml:"isstatic"`
 	DNSOn               bool                 `json:"dnson" yaml:"dnson"`
 	PersistentKeepalive int                  `json:"persistentkeepalive" yaml:"persistentkeepalive"`
 	Peers               []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
-	Proxy               bool                 `json:"proxy" bson:"proxy" yaml:"proxy"`
 }
 
 // Node - a model of a network node
@@ -91,15 +87,13 @@ type Node struct {
 	ExpirationDateTime      time.Time            `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
 	AllowedIPs              []string             `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
 	EgressGatewayRanges     []string             `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	EgressGatewayNatEnabled string               `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
+	EgressGatewayNatEnabled bool                 `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
 	IsRelayed               bool                 `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	IsRelay                 bool                 `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
 	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
-	IsDocker                bool                 `json:"isdocker" bson:"isdocker" yaml:"isdocker"`
-	IsK8S                   bool                 `json:"isk8s" bson:"isk8s" yaml:"isk8s"`
 	// == PRO ==
 	DefaultACL   string    `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID      string    `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
@@ -423,9 +417,6 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.IngressGatewayRange6 == "" {
 		newNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	}
-	if newNode.IsStatic != currentNode.IsStatic {
-		newNode.IsStatic = currentNode.IsStatic
-	}
 	if newNode.DNSOn != currentNode.DNSOn {
 		newNode.DNSOn = currentNode.DNSOn
 	}
@@ -444,12 +435,6 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.IsRelayed == currentNode.IsRelayed {
 		newNode.IsRelayed = currentNode.IsRelayed
 	}
-	if newNode.IsDocker == currentNode.IsDocker {
-		newNode.IsDocker = currentNode.IsDocker
-	}
-	if newNode.IsK8S != currentNode.IsK8S {
-		newNode.IsK8S = currentNode.IsK8S
-	}
 	if newNode.Server == "" {
 		newNode.Server = currentNode.Server
 	}
@@ -462,7 +447,6 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.Failover != currentNode.Failover {
 		newNode.Failover = currentNode.Failover
 	}
-	newNode.Proxy = currentNode.Proxy
 }
 
 // StringWithCharset - returns random string inside defined charset
@@ -532,6 +516,9 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.InternetGateway = *gateway
 		id, _ := uuid.Parse(ln.ID)
 		host.Nodes = append(host.Nodes, id.String())
+		host.Interfaces = ln.Interfaces
+		host.EndpointIP = net.ParseIP(ln.Endpoint)
+		// host.ProxyEnabled = ln.Proxy // this will always be false..
 	}
 	id, _ := uuid.Parse(ln.ID)
 	node.ID = id
@@ -542,8 +529,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 	node.NetworkRange6 = *cidr
 	node.Server = ln.Server
 	node.Connected = parseBool(ln.Connected)
-	node.Interfaces = ln.Interfaces
-	node.EndpointIP = net.ParseIP(ln.Endpoint)
 	_, cidr, _ = net.ParseCIDR(ln.Address)
 	node.Address = *cidr
 	_, cidr, _ = net.ParseCIDR(ln.Address6)
@@ -554,10 +539,8 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 	node.IsLocal = parseBool(ln.IsLocal)
 	node.IsEgressGateway = parseBool(ln.IsEgressGateway)
 	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
-	node.IsStatic = parseBool(ln.IsStatic)
 	node.DNSOn = parseBool(ln.DNSOn)
 	node.PersistentKeepalive = int(ln.PersistentKeepalive)
-	node.Proxy = ln.Proxy
 
 	return &host, &node
 }
@@ -570,14 +553,14 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.Address = n.Address.String()
 	l.Address6 = n.Address6.String()
 	l.LocalAddress = h.LocalAddress.String()
-	l.Interfaces = n.Interfaces
+	l.Interfaces = h.Interfaces
 	l.Name = h.Name
 	l.NetworkSettings = *net
 	l.ListenPort = int32(h.ListenPort)
 	l.LocalListenPort = int32(h.LocalListenPort)
 	l.ProxyListenPort = int32(h.ProxyListenPort)
 	l.PublicKey = h.PublicKey.String()
-	l.Endpoint = n.EndpointIP.String()
+	l.Endpoint = h.EndpointIP.String()
 	l.PostUp = n.PostUp
 	l.PostDown = n.PostDown
 	//l.AllowedIPs =
@@ -603,7 +586,7 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	//l.FailoverNode = n.FailoverNode
 	//l.IngressGatewayRange = n.IngressGatewayRange
 	//l.IngressGatewayRange6 = n.IngressGatewayRange6
-	l.IsStatic = formatBool(n.IsStatic)
+	l.IsStatic = formatBool(h.IsStatic)
 	l.UDPHolePunch = formatBool(true)
 	l.DNSOn = formatBool(n.DNSOn)
 	l.Action = n.Action
@@ -620,7 +603,7 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.InternetGateway = h.InternetGateway.String()
 	l.Connected = formatBool(n.Connected)
 	//l.PendingDelete = formatBool(n.PendingDelete)
-	l.Proxy = n.Proxy
+	l.Proxy = h.ProxyEnabled
 	l.DefaultACL = n.DefaultACL
 	l.OwnerID = n.OwnerID
 	//l.Failover = n.Failover

@@ -1,59 +1,102 @@
 package models
 
+import (
+	"net"
+	"time"
+
+	"github.com/google/uuid"
+)
+
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                      string               `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5,id_unique"`
-	HostID                  string               `json:"hostid,omitempty" bson:"id,omitempty" yaml:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                 string               `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
-	Address6                string               `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
-	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty"`
-	Interfaces              []Iface              `json:"interfaces" yaml:"interfaces"`
-	Name                    string               `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
-	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
-	ListenPort              int                  `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
-	LocalListenPort         int32                `json:"locallistenport" bson:"locallistenport" yaml:"locallistenport" validate:"numeric,min=0,max=65535"`
-	ProxyListenPort         int32                `json:"proxy_listen_port" bson:"proxy_listen_port" yaml:"proxy_listen_port" validate:"numeric,min=0,max=65535"`
-	PublicKey               string               `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
-	Endpoint                string               `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`
-	PostUp                  string               `json:"postup" bson:"postup" yaml:"postup"`
-	PostDown                string               `json:"postdown" bson:"postdown" yaml:"postdown"`
-	AllowedIPs              []string             `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
-	PersistentKeepalive     int32                `json:"persistentkeepalive" bson:"persistentkeepalive" yaml:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
-	IsHub                   string               `json:"ishub" bson:"ishub" yaml:"ishub" validate:"checkyesorno"`
-	LastModified            int64                `json:"lastmodified" bson:"lastmodified" yaml:"lastmodified"`
-	ExpirationDateTime      int64                `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
-	LastCheckIn             int64                `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
-	MacAddress              string               `json:"macaddress" bson:"macaddress" yaml:"macaddress"`
-	Network                 string               `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
-	IsRelayed               bool                 `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	IsPending               bool                 `json:"ispending" bson:"ispending" yaml:"ispending"`
-	IsRelay                 bool                 `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
-	IsDocker                bool                 `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
-	IsK8S                   bool                 `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
-	IsEgressGateway         bool                 `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway" validate:"checkyesorno"`
-	IsIngressGateway        bool                 `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway" validate:"checkyesorno"`
-	EgressGatewayRanges     []string             `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	EgressGatewayNatEnabled string               `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
-	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
-	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
-	FailoverNode            string               `json:"failovernode" bson:"failovernode" yaml:"failovernode"`
-	IsStatic                string               `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
-	DNSOn                   bool                 `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
-	IsLocal                 bool                 `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange              string               `json:"localrange" bson:"localrange" yaml:"localrange"`
-	IPForwarding            bool                 `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
-	OS                      string               `json:"os" bson:"os" yaml:"os"`
-	MTU                     int32                `json:"mtu" bson:"mtu" yaml:"mtu"`
-	Version                 string               `json:"version" bson:"version" yaml:"version"`
-	Server                  string               `json:"server" bson:"server" yaml:"server"`
-	TrafficKeys             TrafficKeys          `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
-	FirewallInUse           string               `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
-	InternetGateway         string               `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
-	Connected               bool                 `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
-	PendingDelete           bool                 `json:"pendingdelete" bson:"pendingdelete" yaml:"pendingdelete"`
-	Proxy                   bool                 `json:"proxy" bson:"proxy" yaml:"proxy"`
-
+	ID                      string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	HostID                  string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address                 string   `json:"address" validate:"omitempty,ipv4"`
+	Address6                string   `json:"address6" validate:"omitempty,ipv6"`
+	PostUp                  string   `json:"postup"`
+	PostDown                string   `json:"postdown"`
+	AllowedIPs              []string `json:"allowedips"`
+	PersistentKeepalive     int32    `json:"persistentkeepalive"`
+	LastModified            int64    `json:"lastmodified"`
+	ExpirationDateTime      int64    `json:"expdatetime"`
+	LastCheckIn             int64    `json:"lastcheckin"`
+	LastPeerUpdate          int64    `json:"lastpeerupdate"`
+	Network                 string   `json:"network"`
+	NetworkRange            string   `json:"networkrange"`
+	NetworkRange6           string   `json:"networkrange6"`
+	IsRelayed               bool     `json:"isrelayed"`
+	IsRelay                 bool     `json:"isrelay"`
+	IsEgressGateway         bool     `json:"isegressgateway"`
+	IsIngressGateway        bool     `json:"isingressgateway"`
+	EgressGatewayRanges     []string `json:"egressgatewayranges"`
+	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
+	RelayAddrs              []string `json:"relayaddrs"`
+	FailoverNode            string   `json:"failovernode"`
+	DNSOn                   bool     `json:"dnson"`
+	IsLocal                 bool     `json:"islocal"`
+	Server                  string   `json:"server"`
+	InternetGateway         string   `json:"internetgateway"`
+	Connected               bool     `json:"connected"`
+	PendingDelete           bool     `json:"pendingdelete"`
 	// == PRO ==
-	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	Failover   string `json:"failover" bson:"failover" yaml:"failover" validate:"checkyesorno"`
+	DefaultACL string `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	Failover   bool   `json:"failover"`
+}
+
+// ApiNode.ConvertToServerNode - converts an api node to a server node
+func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
+	convertedNode := Node{}
+	convertedNode.Network = a.Network
+	convertedNode.Server = a.Server
+	convertedNode.Action = currentNode.Action
+	convertedNode.Connected = a.Connected
+	convertedNode.AllowedIPs = a.AllowedIPs
+	convertedNode.ID, _ = uuid.Parse(a.ID)
+	convertedNode.HostID, _ = uuid.Parse(a.HostID)
+	convertedNode.PostUp = a.PostUp
+	convertedNode.PostDown = a.PostDown
+	convertedNode.IsLocal = a.IsLocal
+	convertedNode.IsRelay = a.IsRelay
+	convertedNode.IsRelayed = a.IsRelayed
+	convertedNode.PendingDelete = a.PendingDelete
+	convertedNode.Peers = currentNode.Peers
+	convertedNode.Failover = a.Failover
+	convertedNode.IsEgressGateway = a.IsEgressGateway
+	convertedNode.IsIngressGateway = a.IsIngressGateway
+	convertedNode.EgressGatewayRanges = a.EgressGatewayRanges
+	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
+	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
+	convertedNode.DNSOn = a.DNSOn
+	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
+	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
+	convertedNode.PersistentKeepalive = int(a.PersistentKeepalive)
+	convertedNode.RelayAddrs = a.RelayAddrs
+	convertedNode.DefaultACL = a.DefaultACL
+	convertedNode.OwnerID = currentNode.OwnerID
+	_, networkRange, err := net.ParseCIDR(a.NetworkRange)
+	if err == nil {
+		convertedNode.NetworkRange = *networkRange
+	}
+	_, networkRange6, err := net.ParseCIDR(a.NetworkRange6)
+	if err == nil {
+		convertedNode.NetworkRange6 = *networkRange6
+	}
+	udpAddr, err := net.ResolveUDPAddr("udp", a.InternetGateway)
+	if err == nil {
+		convertedNode.InternetGateway = udpAddr
+	}
+	_, addr, err := net.ParseCIDR(a.Address)
+	if err == nil {
+		convertedNode.Address = *addr
+	}
+	_, addr6, err := net.ParseCIDR(a.Address6)
+	if err == nil {
+		convertedNode.Address = *addr6
+	}
+	convertedNode.FailoverNode, _ = uuid.Parse(a.FailoverNode)
+	convertedNode.LastModified = time.Unix(a.LastModified, 0)
+	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
+	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
+	convertedNode.ExpirationDateTime = time.Unix(a.ExpirationDateTime, 0)
+	return &convertedNode
 }
