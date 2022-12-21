@@ -10,7 +10,7 @@ type ApiNode struct {
 	Interfaces              []Iface              `json:"interfaces" yaml:"interfaces"`
 	Name                    string               `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
 	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
-	ListenPort              int32                `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
+	ListenPort              int                  `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	LocalListenPort         int32                `json:"locallistenport" bson:"locallistenport" yaml:"locallistenport" validate:"numeric,min=0,max=65535"`
 	ProxyListenPort         int32                `json:"proxy_listen_port" bson:"proxy_listen_port" yaml:"proxy_listen_port" validate:"numeric,min=0,max=65535"`
 	PublicKey               string               `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
@@ -25,25 +25,23 @@ type ApiNode struct {
 	LastCheckIn             int64                `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	MacAddress              string               `json:"macaddress" bson:"macaddress" yaml:"macaddress"`
 	Network                 string               `json:"network" bson:"network" yaml:"network" validate:"network_exists"`
-	IsRelayed               string               `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	IsPending               string               `json:"ispending" bson:"ispending" yaml:"ispending"`
-	IsRelay                 string               `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
-	IsDocker                string               `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
-	IsK8S                   string               `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
-	IsEgressGateway         string               `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway" validate:"checkyesorno"`
-	IsIngressGateway        string               `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway" validate:"checkyesorno"`
+	IsRelayed               bool                 `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	IsPending               bool                 `json:"ispending" bson:"ispending" yaml:"ispending"`
+	IsRelay                 bool                 `json:"isrelay" bson:"isrelay" yaml:"isrelay" validate:"checkyesorno"`
+	IsDocker                bool                 `json:"isdocker" bson:"isdocker" yaml:"isdocker" validate:"checkyesorno"`
+	IsK8S                   bool                 `json:"isk8s" bson:"isk8s" yaml:"isk8s" validate:"checkyesorno"`
+	IsEgressGateway         bool                 `json:"isegressgateway" bson:"isegressgateway" yaml:"isegressgateway" validate:"checkyesorno"`
+	IsIngressGateway        bool                 `json:"isingressgateway" bson:"isingressgateway" yaml:"isingressgateway" validate:"checkyesorno"`
 	EgressGatewayRanges     []string             `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	EgressGatewayNatEnabled string               `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	FailoverNode            string               `json:"failovernode" bson:"failovernode" yaml:"failovernode"`
 	IsStatic                string               `json:"isstatic" bson:"isstatic" yaml:"isstatic" validate:"checkyesorno"`
-	UDPHolePunch            string               `json:"udpholepunch" bson:"udpholepunch" yaml:"udpholepunch" validate:"checkyesorno"`
-	DNSOn                   string               `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
-	IsServer                string               `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	IsLocal                 string               `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
+	DNSOn                   bool                 `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
+	IsLocal                 bool                 `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
 	LocalRange              string               `json:"localrange" bson:"localrange" yaml:"localrange"`
-	IPForwarding            string               `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
+	IPForwarding            bool                 `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS                      string               `json:"os" bson:"os" yaml:"os"`
 	MTU                     int32                `json:"mtu" bson:"mtu" yaml:"mtu"`
 	Version                 string               `json:"version" bson:"version" yaml:"version"`
@@ -51,7 +49,7 @@ type ApiNode struct {
 	TrafficKeys             TrafficKeys          `json:"traffickeys" bson:"traffickeys" yaml:"traffickeys"`
 	FirewallInUse           string               `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway         string               `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
-	Connected               string               `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
+	Connected               bool                 `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
 	PendingDelete           bool                 `json:"pendingdelete" bson:"pendingdelete" yaml:"pendingdelete"`
 	Proxy                   bool                 `json:"proxy" bson:"proxy" yaml:"proxy"`
 
