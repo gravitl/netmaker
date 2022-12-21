@@ -225,7 +225,11 @@ func CreateNode(node *models.Node) error {
 			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
 				return err
 			}
-		}
+			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
+			if err != nil {
+				return err
+			}
+			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
 	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
 	}
@@ -235,6 +239,11 @@ func CreateNode(node *models.Node) error {
 			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
 				return err
 			}
+			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
+			if err != nil {
+				return err
+			}
+			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
 	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
