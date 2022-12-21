@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// ErrHostExists error indicating that host exists when trying to create new host
 var ErrHostExists error = errors.New("host already exists")
 
 // GetAllHosts - returns all hosts in flat list or error
