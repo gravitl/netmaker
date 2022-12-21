@@ -46,7 +46,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
-	node.EgressGatewayNatEnabled = gateway.NatEnabled
+	node.EgressGatewayNatEnabled = gateway.NatEnabled == "yes"
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	postUpCmd := ""
 	postDownCmd := ""
@@ -335,7 +335,7 @@ func firewallNFTCommandsCreateIngress(networkInterface string) (string, string) 
 }
 
 // firewallNFTCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the nftables firewall.
-func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface string, gatewayranges []string, egressNatEnabled string, ipv4, ipv6 bool) (string, string) {
+func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface string, gatewayranges []string, egressNatEnabled bool, ipv4, ipv6 bool) (string, string) {
 	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 	postUp := ""
 	postDown := ""
@@ -351,7 +351,7 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 
 		postDown += "nft flush table filter ; "
 
-		if egressNatEnabled == "yes" {
+		if egressNatEnabled {
 			postUp += "nft add table nat ; "
 			postUp += "nft add chain nat postrouting ; "
 			postUp += "nft add rule ip nat postrouting oifname " + gatewayInterface + " counter masquerade ; "
@@ -368,7 +368,7 @@ func firewallNFTCommandsCreateEgress(networkInterface string, gatewayInterface s
 
 		postDown += "nft flush table ip6 filter ; "
 
-		if egressNatEnabled == "yes" {
+		if egressNatEnabled {
 			postUp += "nft add table ip6 nat ; "
 			postUp += "nft 'add chain ip6 nat prerouting { type nat hook prerouting priority 0 ;}' ; "
 			postUp += "nft 'add chain ip6 nat postrouting { type nat hook postrouting priority 0 ;}' ; "
@@ -411,7 +411,7 @@ func firewallIPTablesCommandsCreateIngress(networkInterface string, ipv4, ipv6 b
 }
 
 // firewallIPTablesCommandsCreateEgress - used to centralize firewall command maintenance for creating an egress gateway using the iptables firewall.
-func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled string, ipv4, ipv6 bool) (string, string) {
+func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterface string, egressNatEnabled bool, ipv4, ipv6 bool) (string, string) {
 	// spacing around ; is important for later parsing of postup/postdown in wireguard/common.go
 	postUp := ""
 	postDown := ""
@@ -421,7 +421,7 @@ func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterf
 		postDown += "iptables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "iptables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
 
-		if egressNatEnabled == "yes" {
+		if egressNatEnabled {
 			postUp += "iptables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
 			postDown += "iptables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
 		}
@@ -432,7 +432,7 @@ func firewallIPTablesCommandsCreateEgress(networkInterface string, gatewayInterf
 		postDown += "ip6tables -D FORWARD -i " + networkInterface + " -j ACCEPT ; "
 		postDown += "ip6tables -D FORWARD -o " + networkInterface + " -j ACCEPT ; "
 
-		if egressNatEnabled == "yes" {
+		if egressNatEnabled {
 			postUp += "ip6tables -t nat -A POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
 			postDown += "ip6tables -t nat -D POSTROUTING -o " + gatewayInterface + " -j MASQUERADE ; "
 		}
