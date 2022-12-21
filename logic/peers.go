@@ -183,7 +183,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 	proxyPayload.Network = node.Network
 	//proxyPayload.InterfaceName = node.Interface
 	//hardcode or read from host ??
-	proxyPayload.InterfaceName = "netmaker"
+	proxyPayload.InterfaceName = models.WIREGUARD_INTERFACE
 
 	return proxyPayload, nil
 }

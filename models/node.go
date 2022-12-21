@@ -583,7 +583,7 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	//l.AllowedIPs =
 	l.PersistentKeepalive = int32(n.PersistentKeepalive)
 	l.AccessKey = ""
-	l.Interface = "netmaker"
+	l.Interface = WIREGUARD_INTERFACE
 	//l.LastModified =
 	//l.ExpirationDateTime
 	//l.LastPeerUpdate

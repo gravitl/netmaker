@@ -52,7 +52,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	postDownCmd := ""
 	ipv4, ipv6 := getNetworkProtocols(gateway.Ranges)
 	logger.Log(3, "creating egress gateway firewall in use is '", host.FirewallInUse, "'")
-	iface := "netmaker"
+	iface := models.WIREGUARD_INTERFACE
 	if host.OS == "linux" {
 		switch host.FirewallInUse {
 		case models.FIREWALL_NFTABLES:
@@ -154,7 +154,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	logger.Log(3, "deleting egress gateway firewall in use is '", host.FirewallInUse, "'")
 	if node.IsIngressGateway { // check if node is still an ingress gateway before completely deleting postdown/up rules
 		// still have an ingress gateway so preserve it
-		iface := "netmaker"
+		iface := models.WIREGUARD_INTERFACE
 		if host.OS == "linux" {
 			switch host.FirewallInUse {
 			case models.FIREWALL_NFTABLES:
@@ -209,7 +209,7 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	node.IngressGatewayRange6 = network.AddressRange6
 	ipv4, ipv6 := getNetworkProtocols(cidrs)
 	logger.Log(3, "creating ingress gateway firewall in use is '", host.FirewallInUse, "'")
-	iface := "netmaker"
+	iface := models.WIREGUARD_INTERFACE
 	switch host.FirewallInUse {
 	case models.FIREWALL_NFTABLES:
 		// nftables only supported on Linux
