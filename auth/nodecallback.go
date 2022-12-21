@@ -257,5 +257,5 @@ func isUserIsAllowed(username, network string, shouldAddUser bool) (*models.User
 		}
 	}
 
-	return &user, nil
+	return user, nil
 }

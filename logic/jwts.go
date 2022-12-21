@@ -114,7 +114,7 @@ func VerifyUserToken(tokenString string) (username string, networks []string, is
 	})
 
 	if token != nil && token.Valid {
-		var user models.User
+		var user *models.User
 		// check that user exists
 		user, err = GetUser(claims.UserName)
 		if err != nil {

@@ -171,7 +171,7 @@ func addUser(email string) error {
 		Password: newPass,
 	}
 	if !hasAdmin { // must be first attempt, create an admin
-		if newUser, err = logic.CreateAdmin(newUser); err != nil {
+		if err = logic.CreateAdmin(&newUser); err != nil {
 			logger.Log(1, "error creating admin from user,", email, "; user not added")
 		} else {
 			logger.Log(1, "admin created from user,", email, "; was first user added")
@@ -179,7 +179,7 @@ func addUser(email string) error {
 	} else { // otherwise add to db as admin..?
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
-		if newUser, err = logic.CreateUser(newUser); err != nil {
+		if err = logic.CreateUser(&newUser); err != nil {
 			logger.Log(1, "error creating user,", email, "; user not added")
 		} else {
 			logger.Log(0, "user created from ", email)
