@@ -149,13 +149,13 @@ docker-compose -f /root/docker-compose.yml up -d
 
 test_connection() {
 
-echo "testing Traefik setup (please be patient, this may take 1-2 minutes)"
-for i in 1 2 3 4 5 6
+echo "testing Caddy setup (please be patient, this may take 1-2 minutes)"
+for i in 1 2 3 4 5 6 7 8
 do
 curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
 
-if [[ "$i" == 6 ]]; then
-  echo "    Traefik is having an issue setting up certificates, please investigate (docker logs traefik)"
+if [[ "$i" == 8 ]]; then
+  echo "    Caddy is having an issue setting up certificates, please investigate (docker logs caddy)"
   echo "    exiting..."
   exit 1
 elif [[ "$curlresponse" == *"failed to verify the legitimacy of the server"* ]]; then
