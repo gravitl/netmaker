@@ -47,7 +47,9 @@ jobs:
           platforms: linux/amd64, linux/arm64, linux/arm/v7
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}, ${{ github.repository }}:latest
-          build-args: version=${{ env.TAG }}, tags="-tags=ce"
+          build-args: | 
+            version=${{ env.TAG }}
+            tags=ce
 
   docker-ee:
     runs-on: ubuntu-latest
@@ -56,7 +58,7 @@ jobs:
         name: Set tag
         run: |
             if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-              docker/build-push-action@v3.tag }}
+              TAG=${{ github.event.inputs.tag }}
             elif [[ "${{ github.ref_name }}" == 'master' ]]; then
               TAG="latest"
             else
@@ -71,7 +73,7 @@ jobs:
         uses: docker/setup-qemu-action@v2
       - 
         name: Set up Docker Buildx
-        uses: docker/build-push-action@v3
+        uses: docker/setup-buildx-action@v2
       - 
         name: Login to DockerHub
         uses: docker/login-action@v2
@@ -86,4 +88,6 @@ jobs:
           platforms: linux/amd64, linux/arm64, linux/arm/v7
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}-ee
-          build-args: version=${{ env.TAG }}, tags="-tags=ee"
+          build-args: |
+            version=${{ env.TAG }}
+            tags=ee
