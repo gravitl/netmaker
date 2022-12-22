@@ -40,6 +40,7 @@ type Host struct {
 	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
 	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`
+	IsDefault        bool             `json:"isdefault" yaml:"isdefault"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
