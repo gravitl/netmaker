@@ -6,7 +6,7 @@ COPY . .
 
 ENV GO111MODULE=auto
 
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient-app netclient/main.go
+RUN GOOS=linux CGO_ENABLED=0 /usr/local/go/bin/go build -ldflags="-w -s" -o netclient-app netclient/main.go
 
 WORKDIR /root/
 

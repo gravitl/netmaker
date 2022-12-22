@@ -86,9 +86,6 @@ services:
       - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-    ports:
-      - "1883:1883"
-      - "8883:8883"
 volumes:
   caddy_data: {}
   caddy_conf: {}
