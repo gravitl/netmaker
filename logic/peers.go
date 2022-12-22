@@ -40,12 +40,16 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 	if !onlyPeers {
 		if node.IsRelayed {
 			relayNode := FindRelay(node)
+			relayHost, err := GetHost(relayNode.ID.String())
+			if err != nil {
+				return proxyPayload, err
+			}
 			if relayNode != nil {
 				host, err := GetHost(relayNode.HostID.String())
 				if err != nil {
 					logger.Log(0, "error retrieving host for relay node", relayNode.HostID.String(), err.Error())
 				}
-				relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.EndpointIP, host.LocalListenPort))
+				relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, host.LocalListenPort))
 				if err != nil {
 					logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
 				}
@@ -74,7 +78,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 						if err != nil {
 							logger.Log(0, "error retrieving host for relayNode", relayedNode.ID.String(), err.Error())
 						}
-						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedNode.EndpointIP, host.LocalListenPort))
+						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, host.LocalListenPort))
 						if udpErr == nil {
 							relayPeersMap[host.PublicKey.String()] = proxy_models.RelayedConf{
 								RelayedPeerEndpoint: relayedEndpoint,
@@ -101,7 +105,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 		if err != nil {
 			continue
 		}
-		proxyStatus := peer.Proxy
+		proxyStatus := host.ProxyEnabled
 		listenPort := host.LocalListenPort
 		if proxyStatus {
 			listenPort = host.ProxyListenPort
@@ -113,9 +117,9 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 
 		}
 
-		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", peer.EndpointIP, listenPort))
+		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", host.EndpointIP, listenPort))
 		if err != nil {
-			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID.String(), peer.EndpointIP.String(), err.Error())
+			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID.String(), host.EndpointIP.String(), err.Error())
 			continue
 		}
 		allowedips := GetAllowedIPs(node, &peer, nil, false)
@@ -145,7 +149,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 					logger.Log(0, "error retrieving host for relayNode", relayNode.ID.String(), err.Error())
 					continue
 				}
-				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayNode.EndpointIP, relayHost.LocalListenPort))
+				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, relayHost.LocalListenPort))
 				if err == nil {
 					peerConfMap[host.PublicKey.String()] = proxy_models.PeerConf{
 
@@ -215,8 +219,11 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	if err != nil {
 		return models.PeerUpdate{}, err
 	}
-
-	if node.IsRelayed && !node.Proxy {
+	host, err := GetHost(node.ID.String())
+	if err != nil {
+		return peerUpdate, err
+	}
+	if node.IsRelayed && !host.ProxyEnabled {
 		return GetPeerUpdateForRelayedNode(node, udppeers)
 	}
 
@@ -224,6 +231,11 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
 	for _, peer := range currentPeers {
+		peerHost, err := GetHost(peer.ID.String())
+		if err != nil {
+			logger.Log(0, "error retrieving host for peer", node.ID.String(), err.Error())
+			return models.PeerUpdate{}, err
+		}
 		if peer.ID == node.ID {
 			//skip yourself
 			continue
@@ -237,7 +249,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		var setEndpoint = true
 
 		if peer.IsRelayed {
-			if !peer.Proxy && !(node.IsRelay && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
+			if !peerHost.ProxyEnabled && !(node.IsRelay && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
 				//skip -- will be added to relay
 				continue
 			} else if node.IsRelay && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress()) {
@@ -261,16 +273,11 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 			logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
 			return models.PeerUpdate{}, err
 		}
-		peerHost, err := GetHost(peer.HostID.String())
-		if err != nil {
-			logger.Log(0, "error retrieving host for peer", node.ID.String(), err.Error())
-			return models.PeerUpdate{}, err
-		}
-		if node.EndpointIP.String() == peer.EndpointIP.String() {
+		if host.EndpointIP.String() == peerHost.EndpointIP.String() {
 			//peer is on same network
 			// set_local
 			if host.LocalAddress.String() != peerHost.LocalAddress.String() && peerHost.LocalAddress.IP != nil {
-				peer.EndpointIP = peerHost.LocalAddress.IP
+				peerHost.EndpointIP = peerHost.LocalAddress.IP
 				if peerHost.LocalListenPort != 0 {
 					peerHost.ListenPort = peerHost.LocalListenPort
 				}
@@ -308,14 +315,14 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 				peerHost.ListenPort = peerHost.LocalListenPort
 			}
 
-			endpoint := peer.EndpointIP.String() + ":" + strconv.FormatInt(int64(peerHost.ListenPort), 10)
+			endpoint := peerHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(peerHost.ListenPort), 10)
 			address, err = net.ResolveUDPAddr("udp", endpoint)
 			if err != nil {
 				return models.PeerUpdate{}, err
 			}
 		}
 		fetchRelayedIps := true
-		if node.Proxy {
+		if host.ProxyEnabled {
 			fetchRelayedIps = false
 		}
 		allowedips := GetAllowedIPs(node, &peer, metrics, fetchRelayedIps)
@@ -741,7 +748,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 		listenPort = relayHost.LocalListenPort
 	}
 
-	endpoint := relay.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
+	endpoint := relayHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
 	address, err := net.ResolveUDPAddr("udp", endpoint)
 	if err != nil {
 		return models.PeerUpdate{}, err
@@ -781,6 +788,11 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 	if err != nil {
 		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
 	}
+	peerHost, err := GetHost(peer.ID.String())
+	if err != nil {
+		logger.Log(0, "error retrieving host for peer", peer.ID.String(), err.Error())
+	}
+
 	//check for internet gateway
 	internetGateway := false
 	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::/0") {
@@ -793,9 +805,9 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 			logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
 			continue // if can't parse CIDR
 		}
-		nodeEndpointArr := strings.Split(peer.EndpointIP.String(), ":")          // getting the public ip of node
+		nodeEndpointArr := strings.Split(peerHost.EndpointIP.String(), ":")      // getting the public ip of node
 		if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) && !internetGateway { // ensuring egress gateway range does not contain endpoint of node
-			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.EndpointIP.String(), ", omitting")
+			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", host.EndpointIP.String(), ", omitting")
 			continue // skip adding egress range if overlaps with node's ip
 		}
 		// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
@@ -814,11 +826,13 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 
 func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
-
+	host, err := GetHost(node.ID.String())
+	if err != nil {
+		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
+	}
 	if peer.Address.IP != nil {
 		allowedips = append(allowedips, peer.Address)
 	}
-
 	if peer.Address6.IP != nil {
 		allowedips = append(allowedips, peer.Address6)
 	}
@@ -827,7 +841,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 
 		// parsing as a CIDR first. If valid CIDR, append
 		if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
-			nodeEndpointArr := strings.Split(node.EndpointIP.String(), ":")
+			nodeEndpointArr := strings.Split(host.EndpointIP.String(), ":")
 			if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address.IP.String() { // don't need to add an allowed ip that already exists..
 				allowedips = append(allowedips, *ipnet)
 			}
