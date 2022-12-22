@@ -49,12 +49,16 @@ func PublishProxyPeerUpdate(node *models.Node) error {
 
 // PublishSinglePeerUpdate --- determines and publishes a peer update to one node
 func PublishSinglePeerUpdate(node *models.Node) error {
+	host, err := logic.GetHost(node.ID.String())
+	if err != nil {
+		return nil
+	}
 
 	peerUpdate, err := logic.GetPeerUpdate(node)
 	if err != nil {
 		return err
 	}
-	if node.Proxy {
+	if host.ProxyEnabled {
 		proxyUpdate, err := logic.GetPeersForProxy(node, false)
 		if err != nil {
 			return err
@@ -73,7 +77,10 @@ func PublishSinglePeerUpdate(node *models.Node) error {
 
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
 func PublishExtPeerUpdate(node *models.Node) error {
-	var err error
+	host, err := logic.GetHost(node.ID.String())
+	if err != nil {
+		return nil
+	}
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -85,7 +92,7 @@ func PublishExtPeerUpdate(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	if node.Proxy {
+	if host.ProxyEnabled {
 		proxyUpdate, err := logic.GetPeersForProxy(node, false)
 		if err == nil {
 			peerUpdate.ProxyUpdate = proxyUpdate
@@ -101,7 +108,10 @@ func PublishExtPeerUpdate(node *models.Node) error {
 
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
-	var err error
+	host, err := logic.GetHost(node.ID.String())
+	if err != nil {
+		return nil
+	}
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -120,7 +130,7 @@ func NodeUpdate(node *models.Node) error {
 		logger.Log(2, "error publishing node update to peer ", node.ID.String(), err.Error())
 		return err
 	}
-	if node.Proxy {
+	if host.ProxyEnabled {
 		err = PublishProxyPeerUpdate(node)
 		if err != nil {
 			logger.Log(1, "failed to publish proxy update to node", node.ID.String(), "on network", node.Network, ":", err.Error())
@@ -132,7 +142,11 @@ func NodeUpdate(node *models.Node) error {
 
 // ProxyUpdate -- publishes updates to peers related to proxy
 func ProxyUpdate(proxyPayload *manager.ProxyManagerPayload, node *models.Node) error {
-	if !servercfg.IsMessageQueueBackend() || !node.Proxy {
+	host, err := logic.GetHost(node.ID.String())
+	if err != nil {
+		return nil
+	}
+	if !servercfg.IsMessageQueueBackend() || !host.ProxyEnabled {
 		return nil
 	}
 	logger.Log(3, "publishing proxy update to "+node.ID.String())

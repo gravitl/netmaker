@@ -95,6 +95,14 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		}
 	}
 	host, err := logic.GetHost(result.HostID.String())
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error retrieving host: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
 	if err != nil {
@@ -485,7 +493,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
-	if node.Proxy {
+	if host.ProxyEnabled {
 		proxyPayload, err := logic.GetPeersForProxy(&node, false)
 		if err == nil {
 			response.ProxyUpdate = proxyPayload
@@ -985,6 +993,12 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
 		if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
@@ -996,7 +1010,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
-	if node.Proxy {
+	if host.ProxyEnabled {
 		mq.ProxyUpdate(&manager.ProxyManagerPayload{
 			Action:  manager.DeleteNetwork,
 			Network: node.Network,
