@@ -25,6 +25,7 @@ type ApiHost struct {
 	InternetGateway string   `json:"internetgateway"`
 	Nodes           []string `json:"nodes"`
 	ProxyEnabled    bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
+	IsDefault       bool     `json:"isdefault" yaml:"isdefault"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -60,6 +61,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.PublicKey = h.PublicKey.String()
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
+	a.IsDefault = h.IsDefault
 
 	return &a
 }
@@ -109,6 +111,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 		h.LocalRange = currentHost.LocalRange
 	}
 	h.ProxyEnabled = a.ProxyEnabled
+	h.IsDefault = a.IsDefault
 
 	return &h
 }
