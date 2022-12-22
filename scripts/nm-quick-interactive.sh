@@ -314,7 +314,8 @@ sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 
 if [ "$INSTALL_TYPE" = "ee" ]; then
- 
+	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
+	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
 fi
 echo "Starting containers..."
 
