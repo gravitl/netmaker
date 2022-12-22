@@ -20,7 +20,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -191,13 +190,6 @@ func CreateNode(node *models.Node) error {
 		return err
 	}
 
-	//encrypt that password so we never see it
-	hash, err := bcrypt.GenerateFromPassword([]byte(host.HostPass), 5)
-	if err != nil {
-		return err
-	}
-	//set password to encrypted password
-	host.HostPass = string(hash)
 	if !node.DNSOn {
 		if servercfg.IsDNSMode() {
 			node.DNSOn = true
