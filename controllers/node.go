@@ -373,10 +373,11 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Returns all the nodes in JSON format
+	// returns all the nodes in JSON/API format
+	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(nodes)
+	json.NewEncoder(w).Encode(apiNodes)
 }
 
 // swagger:route GET /api/nodes nodes getAllNodes
@@ -418,10 +419,11 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	//Return all the nodes in JSON format
+	// return all the nodes in JSON/API format
+	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(nodes)
+	json.NewEncoder(w).Encode(apiNodes)
 }
 
 func getUsersNodes(user models.User) ([]models.Node, error) {
@@ -755,9 +757,10 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
@@ -787,9 +790,10 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
@@ -833,9 +837,10 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
@@ -871,9 +876,10 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
@@ -894,10 +900,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 
-	var node models.Node
 	//start here
 	nodeid := params["nodeid"]
-	node, err := logic.GetNodeByID(nodeid)
+	currentNode, err := logic.GetNodeByID(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
@@ -905,44 +910,45 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newNode models.Node
+	var newData models.ApiNode
 	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(&newNode)
+	err = json.NewDecoder(r.Body).Decode(&newData)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	newNode := newData.ConvertToServerNode(&currentNode)
 	relayupdate := false
-	if node.IsRelay && len(newNode.RelayAddrs) > 0 {
-		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {
+	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
+		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
 			relayupdate = true
 		} else {
 			for i, addr := range newNode.RelayAddrs {
-				if addr != node.RelayAddrs[i] {
+				if addr != currentNode.RelayAddrs[i] {
 					relayupdate = true
 				}
 			}
 		}
 	}
 	relayedUpdate := false
-	if node.IsRelayed && (node.Address.String() != newNode.Address.String() || node.Address6.String() != newNode.Address6.String()) {
+	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
 		relayedUpdate = true
 	}
 
 	if !servercfg.GetRce() {
-		newNode.PostDown = node.PostDown
-		newNode.PostUp = node.PostUp
+		newNode.PostDown = currentNode.PostDown
+		newNode.PostUp = currentNode.PostUp
 	}
-	ifaceDelta := logic.IfaceDelta(&node, &newNode)
+	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 
 	if ifaceDelta && servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node update for node", node.ID.String(), node.Network)
+		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
 		}
 	}
 
-	err = logic.UpdateNode(&node, &newNode)
+	err = logic.UpdateNode(&currentNode, newNode)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
@@ -950,7 +956,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		updatenodes := logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
+		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
 		if len(updatenodes) > 0 {
 			for _, relayedNode := range updatenodes {
 				runUpdates(&relayedNode, false)
@@ -958,16 +964,18 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if relayedUpdate {
-		updateRelay(&node, &newNode)
+		updateRelay(&currentNode, newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
 	}
-	logger.Log(1, r.Header.Get("user"), "updated node", node.ID.String(), "on network", node.Network)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newNode)
 
-	runUpdates(&newNode, ifaceDelta)
+	apiNode := newNode.ConvertToAPINode()
+	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(apiNode)
+
+	runUpdates(newNode, ifaceDelta)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
