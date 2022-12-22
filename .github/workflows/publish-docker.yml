@@ -47,7 +47,9 @@ jobs:
           platforms: linux/amd64, linux/arm64, linux/arm/v7
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}, ${{ github.repository }}:latest
-          build-args: version=${{ env.TAG }}, tags=ce
+          build-args: | 
+            version=${{ env.TAG }}
+            tags=ce
 
   docker-ee:
     runs-on: ubuntu-latest
@@ -86,4 +88,6 @@ jobs:
           platforms: linux/amd64, linux/arm64, linux/arm/v7
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}-ee
-          build-args: version=${{ env.TAG }}, tags=ee
+          build-args: |
+            version=${{ env.TAG }}
+            tags=ee
