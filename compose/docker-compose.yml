@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.17.0
+    image: gravitl/netmaker:v0.17.1
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -44,7 +44,7 @@ services:
       - "51821-51830:51821-51830/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.17.0
+    image: gravitl/netmaker-ui:v0.17.1
     depends_on:
       - netmaker
     links:
@@ -86,9 +86,6 @@ services:
       - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-    ports:
-      - "1883:1883"
-      - "8883:8883"
 volumes:
   caddy_data: {}
   caddy_conf: {}
