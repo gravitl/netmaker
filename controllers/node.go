@@ -26,6 +26,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods("GET")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods("PUT")
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", authorize(true, true, "node", http.HandlerFunc(nodeNodeUpdate))).Methods("PUT")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods("DELETE")
@@ -882,6 +883,101 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
+}
+
+// swagger:route PUT /api/nodes/{network}/{nodeid}/migrate nodes migrateNode
+//
+// Used to migrate a legacy node.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeResponse
+func nodeNodeUpdate(w http.ResponseWriter, r *http.Request) {
+	// should only be used by nodes
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+
+	//start here
+	nodeid := params["nodeid"]
+	currentNode, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		logger.Log(0,
+			fmt.Sprintf("error fetching node [ %s ] info: %v during migrate", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	var newNode models.Node
+	// we decode our body request params
+	err = json.NewDecoder(r.Body).Decode(&newNode)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	relayupdate := false
+	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
+		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
+			relayupdate = true
+		} else {
+			for i, addr := range newNode.RelayAddrs {
+				if addr != currentNode.RelayAddrs[i] {
+					relayupdate = true
+				}
+			}
+		}
+	}
+	relayedUpdate := false
+	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
+		relayedUpdate = true
+	}
+
+	if !servercfg.GetRce() {
+		newNode.PostDown = currentNode.PostDown
+		newNode.PostUp = currentNode.PostUp
+	}
+
+	ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
+
+	if ifaceDelta && servercfg.Is_EE {
+		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
+		}
+	}
+
+	err = logic.UpdateNode(&currentNode, &newNode)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if relayupdate {
+		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
+		if len(updatenodes) > 0 {
+			for _, relayedNode := range updatenodes {
+				runUpdates(&relayedNode, false)
+			}
+		}
+	}
+	if relayedUpdate {
+		updateRelay(&currentNode, &newNode)
+	}
+	if servercfg.IsDNSMode() {
+		logic.SetDNS()
+	}
+
+	apiNode := newNode.ConvertToAPINode()
+	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(apiNode)
+
+	runUpdates(&newNode, ifaceDelta)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
