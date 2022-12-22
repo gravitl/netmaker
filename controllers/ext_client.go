@@ -214,7 +214,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
-	gwendpoint := gwnode.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
+	gwendpoint := host.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" && network.AddressRange6 != "" {
 		newAllowedIPs += ","
@@ -338,12 +338,11 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"),
 		fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", nodeid, err))
 	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	return
 	listenPort := host.LocalListenPort
-	if node.Proxy {
+	if host.ProxyEnabled {
 		listenPort = host.ProxyListenPort
 	}
-	extclient.IngressGatewayEndpoint = node.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
+	extclient.IngressGatewayEndpoint = host.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
 
 	extclient.Enabled = true
 	parentNetwork, err := logic.GetNetwork(networkName)

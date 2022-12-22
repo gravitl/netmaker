@@ -46,7 +46,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
-	node.EgressGatewayNatEnabled = gateway.NatEnabled == "yes"
+	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	postUpCmd := ""
 	postDownCmd := ""

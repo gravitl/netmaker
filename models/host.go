@@ -41,3 +41,21 @@ type Host struct {
 	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`
 }
+
+// FormatBool converts a boolean to a [yes|no] string
+func FormatBool(b bool) string {
+	s := "no"
+	if b {
+		s = "yes"
+	}
+	return s
+}
+
+// ParseBool parses a [yes|no] string to boolean value
+func ParseBool(s string) bool {
+	b := false
+	if s == "yes" {
+		b = true
+	}
+	return b
+}
