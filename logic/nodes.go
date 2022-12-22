@@ -574,6 +574,16 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 	return ingresses, nil
 }
 
+// GetAllNodesAPI - get all nodes for api usage
+func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
+	apiNodes := []models.ApiNode{}
+	for i := range nodes {
+		newApiNode := nodes[i].ConvertToAPINode()
+		apiNodes = append(apiNodes, *newApiNode)
+	}
+	return apiNodes[:]
+}
+
 // == PRO ==
 
 func updateProNodeACLS(node *models.Node) error {

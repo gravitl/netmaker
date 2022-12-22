@@ -28,6 +28,16 @@ func GetAllHosts() ([]models.Host, error) {
 	return currentHosts, nil
 }
 
+// GetAllHostsAPI - get's all the hosts in an API usable format
+func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
+	apiHosts := []models.ApiHost{}
+	for i := range hosts {
+		newApiHost := hosts[i].ConvertNMHostToAPI()
+		apiHosts = append(apiHosts, *newApiHost)
+	}
+	return apiHosts[:]
+}
+
 // GetHostsMap - gets all the current hosts on machine in a map
 func GetHostsMap() (map[string]*models.Host, error) {
 	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)

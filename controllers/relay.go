@@ -52,8 +52,9 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(&node, true)
 }
 
@@ -86,7 +87,8 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", netid, ": ", err.Error())
 		}
 	}
+	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(&node, true)
 }

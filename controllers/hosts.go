@@ -39,9 +39,11 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// return JSON/API formatted hosts
+	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(currentHosts)
+	json.NewEncoder(w).Encode(apiHosts)
 }
 
 // swagger:route PUT /api/hosts/{hostid} hosts updateHost
@@ -56,7 +58,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: updateHostResponse
 func updateHost(w http.ResponseWriter, r *http.Request) {
-	var newHostData models.Host
+	var newHostData models.ApiHost
 	err := json.NewDecoder(r.Body).Decode(&newHostData)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
@@ -65,23 +67,26 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// confirm host exists
-	currHost, err := logic.GetHost(newHostData.ID.String())
+	currHost, err := logic.GetHost(newHostData.ID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	logic.UpdateHost(&newHostData, currHost) // update the in memory struct values
-	if err = logic.UpsertHost(&newHostData); err != nil {
+	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
+
+	logic.UpdateHost(newHost, currHost) // update the in memory struct values
+	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	logger.Log(2, r.Header.Get("user"), "updated host", newHostData.ID.String())
+	apiHostData := newHost.ConvertNMHostToAPI()
+	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newHostData)
+	json.NewEncoder(w).Encode(apiHostData)
 }
 
 // swagger:route DELETE /api/hosts/{hostid} hosts deleteHost
@@ -112,9 +117,10 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(currHost)
+	json.NewEncoder(w).Encode(apiHostData)
 }
 
 // swagger:route PUT /api/hosts hosts updateHostNetworks
@@ -147,7 +153,9 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log(2, r.Header.Get("user"), "updated host", currHost.Name)
+	// TODO: add and remove hosts to networks (nodes)
+
+	logger.Log(2, r.Header.Get("user"), "updated host networks", currHost.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(payload)
 }
