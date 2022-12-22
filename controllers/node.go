@@ -972,10 +972,9 @@ func nodeNodeUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.SetDNS()
 	}
 
-	apiNode := newNode.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
+	json.NewEncoder(w).Encode(newNode)
 
 	runUpdates(&newNode, ifaceDelta)
 }
