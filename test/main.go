@@ -8,10 +8,11 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/kr/pretty"
+
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/functions"
-	"github.com/kr/pretty"
 )
 
 func main() {
@@ -32,11 +33,11 @@ func main() {
 	}
 	fmt.Println(response.StatusCode, response.Status)
 	if response.StatusCode != http.StatusOK {
-		bytes, err := io.ReadAll(response.Body)
+		resBytes, err := io.ReadAll(response.Body)
 		if err != nil {
 			fmt.Println(err)
 		}
-		pretty.Println(string(bytes))
+		_, _ = pretty.Println(string(resBytes))
 	}
 	defer response.Body.Close()
 	node := models.Node{}

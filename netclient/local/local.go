@@ -1,7 +1,7 @@
 package local
 
 import (
-	//"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 	"errors"
 	"log"
 	"net"
@@ -15,9 +15,9 @@ import (
 
 // SetIPForwarding - Sets IP forwarding if it's mac or linux
 func SetIPForwarding() error {
-	os := runtime.GOOS
+	runtimeOS := runtime.GOOS
 	var err error
-	switch os {
+	switch runtimeOS {
 	case "linux":
 		err = SetIPForwardingUnix()
 	case "freebsd":

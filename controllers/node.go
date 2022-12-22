@@ -33,7 +33,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods("DELETE")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(false, true, "user", http.HandlerFunc(uncordonNode))).Methods("POST")
 	r.HandleFunc("/api/nodes/{network}", nodeauth(checkFreeTierLimits(node_l, http.HandlerFunc(createNode)))).Methods("POST")
-	r.HandleFunc("/api/nodes/adm/{network}/lastmodified", authorize(false, true, "network", http.HandlerFunc(getLastModified))).Methods("GET")
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods("POST")
 }
 
@@ -409,7 +408,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		nodes, err = getUsersNodes(user)
+		nodes, err = getUsersNodes(*user)
 		if err != nil {
 			logger.Log(0, r.Header.Get("user"),
 				"error fetching nodes: ", err.Error())
@@ -491,38 +490,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-}
-
-// swagger:route GET /api/nodes/adm/{network}/lastmodified nodes getLastModified
-//
-// Get the time that a network of nodes was last modified.
-//
-//		Schemes: https
-//
-// 		Security:
-//   		oauth
-//
-//		Responses:
-//			200: nodeLastModifiedResponse
-// TODO: This needs to be refactored
-// Potential way to do this: On UpdateNode, set a new field for "LastModified"
-// If we go with the existing way, we need to at least set network.NodesLastModified on UpdateNode
-func getLastModified(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-	networkName := params["network"]
-	network, err := logic.GetNetwork(networkName)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching network [%s] info: %v", networkName, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	logger.Log(2, r.Header.Get("user"), "called last modified")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(network.NodesLastModified)
 }
 
 // swagger:route POST /api/nodes/{network} nodes createNode

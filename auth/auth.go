@@ -3,17 +3,19 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/oauth2"
 )
 
 // == consts ==
@@ -94,12 +96,12 @@ func InitializeAuthProvider() string {
 	return authInfo[0]
 }
 
-// Not included in API reference as part of the OAuth process itself.
 // HandleAuthCallback - handles oauth callback
+// Note: not included in API reference as part of the OAuth process itself.
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintln(w, oauthNotConfigured)
+		_, _ = fmt.Fprintln(w, oauthNotConfigured)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
@@ -108,7 +110,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	state, _ := getStateAndCode(r)
 	_, err := netcache.Get(state) // if in netcache proceeed with node registration login
-	if err == nil || len(state) == node_signin_length || (err != nil && strings.Contains(err.Error(), "expired")) {
+	if err == nil || len(state) == node_signin_length || errors.Is(err, netcache.ErrExpired) {
 		logger.Log(0, "proceeding with node SSO callback")
 		HandleNodeSSOCallback(w, r)
 	} else { // handle normal login
@@ -120,10 +122,10 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 //
 // Handles OAuth login.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
 		var referer = r.Header.Get("referer")
@@ -132,7 +134,7 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintln(w, oauthNotConfigured)
+		_, _ = fmt.Fprintln(w, oauthNotConfigured)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
@@ -169,7 +171,7 @@ func addUser(email string) error {
 		Password: newPass,
 	}
 	if !hasAdmin { // must be first attempt, create an admin
-		if newUser, err = logic.CreateAdmin(newUser); err != nil {
+		if err = logic.CreateAdmin(&newUser); err != nil {
 			logger.Log(1, "error creating admin from user,", email, "; user not added")
 		} else {
 			logger.Log(1, "admin created from user,", email, "; was first user added")
@@ -177,7 +179,7 @@ func addUser(email string) error {
 	} else { // otherwise add to db as admin..?
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
-		if newUser, err = logic.CreateUser(newUser); err != nil {
+		if err = logic.CreateUser(&newUser); err != nil {
 			logger.Log(1, "error creating user,", email, "; user not added")
 		} else {
 			logger.Log(0, "user created from ", email)

@@ -43,6 +43,13 @@ var seededRand *rand.Rand = rand.New(
 type NodeCheckin struct {
 	Version   string
 	Connected string
+	Ifaces    []Iface
+}
+
+// Iface struct for local interfaces of a node
+type Iface struct {
+	Name    string
+	Address net.IPNet
 }
 
 // Node - struct for node model
@@ -51,6 +58,7 @@ type Node struct {
 	Address                 string               `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6                string               `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty"`
+	Interfaces              []Iface              `json:"interfaces" yaml:"interfaces"`
 	Name                    string               `json:"name" bson:"name" yaml:"name" validate:"omitempty,max=62,in_charset"`
 	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort              int32                `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`

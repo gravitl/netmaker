@@ -327,7 +327,7 @@ func initialize() {
 }
 
 func createAdminUser() {
-	logic.CreateAdmin(models.User{
+	logic.CreateAdmin(&models.User{
 		UserName: "admin",
 		Password: "password",
 		IsAdmin:  true,

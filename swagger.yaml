@@ -746,7 +746,7 @@ info:
 
         API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
     title: Netmaker
-    version: 0.17.0
+    version: 0.17.1
 paths:
     /api/dns:
         get:
@@ -1272,24 +1272,6 @@ paths:
             summary: Update keys for a network.
             tags:
                 - networks
-    /api/networks/{networkname}/nodelimit:
-        put:
-            operationId: updateNetworkNodeLimit
-            parameters:
-                - description: Network Name
-                  in: path
-                  name: networkname
-                  required: true
-                  type: string
-                  x-go-name: NetworkName
-            responses:
-                "200":
-                    $ref: '#/responses/networkBodyResponse'
-            schemes:
-                - https
-            summary: Update a network's node limit.
-            tags:
-                - networks
     /api/nodes:
         get:
             operationId: getAllNodes
@@ -1600,17 +1582,6 @@ paths:
             schemes:
                 - https
             summary: Authenticate to make further API calls related to a network.
-            tags:
-                - nodes
-    /api/nodes/adm/{network}/lastmodified:
-        get:
-            operationId: getLastModified
-            responses:
-                "200":
-                    $ref: '#/responses/nodeLastModifiedResponse'
-            schemes:
-                - https
-            summary: Get the time that a network of nodes was last modified.
             tags:
                 - nodes
     /api/oauth/login:
