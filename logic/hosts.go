@@ -208,7 +208,7 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 		return ErrInvalidHostID
 	}
 	n.HostID = h.ID
-	err := CreateNode(n)
+	err := createNode(n)
 	if err != nil {
 		return err
 	}

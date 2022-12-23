@@ -186,109 +186,6 @@ func IsFailoverPresent(network string) bool {
 	return false
 }
 
-// CreateNode - creates a node in database
-func CreateNode(node *models.Node) error {
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return err
-	}
-
-	if !node.DNSOn {
-		if servercfg.IsDNSMode() {
-			node.DNSOn = true
-		} else {
-			node.DNSOn = false
-		}
-	}
-
-	SetNodeDefaults(node)
-
-	defaultACLVal := acls.Allowed
-	parentNetwork, err := GetNetwork(node.Network)
-	if err == nil {
-		if parentNetwork.DefaultACL != "yes" {
-			defaultACLVal = acls.NotAllowed
-		}
-	}
-
-	if node.DefaultACL == "" {
-		node.DefaultACL = "unset"
-	}
-
-	if node.Address.IP == nil {
-		if parentNetwork.IsIPv4 == "yes" {
-			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
-				return err
-			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-			if err != nil {
-				return err
-			}
-			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
-		}
-	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
-		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
-	}
-
-	if node.Address6.IP == nil {
-		if parentNetwork.IsIPv6 == "yes" {
-			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
-				return err
-			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
-			if err != nil {
-				return err
-			}
-			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
-		}
-	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
-		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
-	}
-
-	node.ID = uuid.New()
-	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.ID.String(), host.MacAddress.String(), node.Network)
-	if tokenString == "" {
-		//logic.ReturnErrorResponse(w, r, errorResponse)
-		return err
-	}
-	err = ValidateNode(node, false)
-	if err != nil {
-		return err
-	}
-	CheckZombies(node, host.MacAddress)
-
-	nodebytes, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-
-	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
-	if err != nil {
-		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
-		return err
-	}
-
-	if err = updateProNodeACLS(node); err != nil {
-		logger.Log(1, "failed to apply node level ACLs during creation of node", node.ID.String(), "-", err.Error())
-		return err
-	}
-
-	if err = UpdateMetrics(node.ID.String(), &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {
-		logger.Log(1, "failed to initialize metrics for node", node.ID.String(), err.Error())
-	}
-
-	SetNetworkNodesLastModified(node.Network)
-	if servercfg.IsDNSMode() {
-		err = SetDNS()
-	}
-	return err
-}
-
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
 	var nodes []models.Node
@@ -628,6 +525,109 @@ func PurgePendingNodes(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// createNode - creates a node in database
+func createNode(node *models.Node) error {
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return err
+	}
+
+	if !node.DNSOn {
+		if servercfg.IsDNSMode() {
+			node.DNSOn = true
+		} else {
+			node.DNSOn = false
+		}
+	}
+
+	SetNodeDefaults(node)
+
+	defaultACLVal := acls.Allowed
+	parentNetwork, err := GetNetwork(node.Network)
+	if err == nil {
+		if parentNetwork.DefaultACL != "yes" {
+			defaultACLVal = acls.NotAllowed
+		}
+	}
+
+	if node.DefaultACL == "" {
+		node.DefaultACL = "unset"
+	}
+
+	if node.Address.IP == nil {
+		if parentNetwork.IsIPv4 == "yes" {
+			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
+				return err
+			}
+			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
+			if err != nil {
+				return err
+			}
+			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
+		}
+	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
+		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
+	}
+
+	if node.Address6.IP == nil {
+		if parentNetwork.IsIPv6 == "yes" {
+			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
+				return err
+			}
+			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
+			if err != nil {
+				return err
+			}
+			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
+		}
+	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
+		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
+	}
+
+	node.ID = uuid.New()
+	//Create a JWT for the node
+	tokenString, _ := CreateJWT(node.ID.String(), host.MacAddress.String(), node.Network)
+	if tokenString == "" {
+		//logic.ReturnErrorResponse(w, r, errorResponse)
+		return err
+	}
+	err = ValidateNode(node, false)
+	if err != nil {
+		return err
+	}
+	CheckZombies(node, host.MacAddress)
+
+	nodebytes, err := json.Marshal(&node)
+	if err != nil {
+		return err
+	}
+	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
+	if err != nil {
+		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
+		return err
+	}
+
+	if err = updateProNodeACLS(node); err != nil {
+		logger.Log(1, "failed to apply node level ACLs during creation of node", node.ID.String(), "-", err.Error())
+		return err
+	}
+
+	if err = UpdateMetrics(node.ID.String(), &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {
+		logger.Log(1, "failed to initialize metrics for node", node.ID.String(), err.Error())
+	}
+
+	SetNetworkNodesLastModified(node.Network)
+	if servercfg.IsDNSMode() {
+		err = SetDNS()
+	}
+	return err
 }
 
 // == END PRO ==
