@@ -100,8 +100,7 @@ func InitializeAuthProvider() string {
 // Note: not included in API reference as part of the OAuth process itself.
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = fmt.Fprintln(w, oauthNotConfigured)
+		handleOauthNotConfigured(w)
 		return
 	}
 	var functions = getCurrentAuthFunctions()

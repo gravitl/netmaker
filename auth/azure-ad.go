@@ -38,12 +38,12 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
 	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil {
-		logic.HandleOauthNotConfigured(w)
+		handleOauthNotConfigured(w)
 		return
 	}
 
 	if err := logic.SetState(oauth_state_string); err != nil {
-		logic.HandleOauthNotConfigured(w)
+		handleOauthNotConfigured(w)
 		return
 	}
 
@@ -57,7 +57,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getAzureUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from azure:", err.Error())
-		logic.HandleOauthNotConfigured(w)
+		handleOauthNotConfigured(w)
 		return
 	}
 	_, err = logic.GetUser(content.UserPrincipalName)

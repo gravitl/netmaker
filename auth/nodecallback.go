@@ -40,7 +40,7 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 	var userClaims, err = functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
-		logic.HandleOauthNotConfigured(w)
+		handleOauthNotConfigured(w)
 		return
 	}
 

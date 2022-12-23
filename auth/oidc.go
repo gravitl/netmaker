@@ -51,12 +51,12 @@ func initOIDC(redirectURL string, clientID string, clientSecret string, issuer s
 func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil {
-		logic.HandleOauthNotConfigured(w)
+		handleOauthNotConfigured(w)
 		return
 	}
 
 	if err := logic.SetState(oauth_state_string); err != nil {
-		logic.HandleOauthNotConfigured(w)
+		handleOauthNotConfigured(w)
 		return
 	}
 	var url = auth_provider.AuthCodeURL(oauth_state_string)
@@ -70,7 +70,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getOIDCUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from callback:", err.Error())
-		logic.HandleOauthNotConfigured(w)
+		handleOauthNotConfigured(w)
 		return
 	}
 	_, err = logic.GetUser(content.Email)

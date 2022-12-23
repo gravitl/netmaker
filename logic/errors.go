@@ -56,10 +56,3 @@ func ReturnErrorResponse(response http.ResponseWriter, request *http.Request, er
 	response.WriteHeader(errorMessage.Code)
 	response.Write(jsonResponse)
 }
-
-// HandleOauthNotConfigured - returns an appropriate html page when oauth is not configured on netmaker server but an oauth login was attempted
-func HandleOauthNotConfigured(response http.ResponseWriter) {
-	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	response.WriteHeader(http.StatusInternalServerError)
-	response.Write([]byte("<html><body><h1>OAuth Login Failed, check if server is configured for OAuth.</h1></body></html>"))
-}
