@@ -661,7 +661,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Node.Peers = peerUpdate.Peers
-
 	// Create client for this host in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{

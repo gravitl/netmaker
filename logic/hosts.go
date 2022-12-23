@@ -3,15 +3,21 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ErrHostExists error indicating that host exists when trying to create new host
-var ErrHostExists error = errors.New("host already exists")
+var (
+	// ErrHostExists error indicating that host exists when trying to create new host
+	ErrHostExists error = errors.New("host already exists")
+	// ErrInvalidHostID
+	ErrInvalidHostID error = errors.New("invalid host id")
+)
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
@@ -192,4 +198,45 @@ func UpdateHostNetworks(h *models.Host, nets []string) error {
 	}
 
 	return nil
+}
+
+// AssociateNodeToHost - associates and creates a node with a given host
+func AssociateNodeToHost(n *models.Node, h *models.Host) error {
+	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
+		return ErrInvalidHostID
+	}
+	n.HostID = h.ID
+	err := CreateNode(n)
+	if err != nil {
+		return err
+	}
+	h.Nodes = append(h.Nodes, n.ID.String())
+	return UpsertHost(h)
+}
+
+// DissasociateNodeFromHost - deletes a node and removes from host nodes
+func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
+	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
+		return ErrInvalidHostID
+	}
+	if n.HostID != h.ID { // check if node actually belongs to host
+		return fmt.Errorf("node is not associated with host")
+	}
+	if len(h.Nodes) == 0 {
+		return fmt.Errorf("no nodes present in given host")
+	}
+	index := -1
+	for i := range h.Nodes {
+		if h.Nodes[i] == n.ID.String() {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		if len(h.Nodes) == 0 {
+			return fmt.Errorf("node %s, not found in host, %s", n.ID.String(), h.ID.String())
+		}
+	}
+	h.Nodes = RemoveStringSlice(h.Nodes, index)
+	return UpsertHost(h)
 }

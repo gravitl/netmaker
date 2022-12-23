@@ -200,3 +200,9 @@ func CheckIfFileExists(filePath string) bool {
 	}
 	return true
 }
+
+// RemoveStringSlice - removes an element at given index i
+// from a given string slice
+func RemoveStringSlice(slice []string, i int) []string {
+	return append(slice[:i], slice[i+1:]...)
+}
