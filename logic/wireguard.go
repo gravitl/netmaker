@@ -14,8 +14,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.IsRelay != currentNode.IsRelay ||
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		newNode.DNSOn != currentNode.DNSOn ||
-		newNode.Connected != currentNode.Connected ||
-		len(newNode.AllowedIPs) != len(currentNode.AllowedIPs) {
+		newNode.Connected != currentNode.Connected {
 		return true
 	}
 	// multi-comparison statements
@@ -37,11 +36,6 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 			if !StringSliceContains(currentNode.RelayAddrs, address) {
 				return true
 			}
-		}
-	}
-	for _, address := range newNode.AllowedIPs {
-		if !StringSliceContains(currentNode.AllowedIPs, address) {
-			return true
 		}
 	}
 	return false

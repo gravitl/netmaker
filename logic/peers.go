@@ -276,8 +276,8 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		if host.EndpointIP.String() == peerHost.EndpointIP.String() {
 			//peer is on same network
 			// set_local
-			if host.LocalAddress.String() != peerHost.LocalAddress.String() && peerHost.LocalAddress.IP != nil {
-				peerHost.EndpointIP = peerHost.LocalAddress.IP
+			if node.LocalAddress.String() != peer.LocalAddress.String() && peer.LocalAddress.IP != nil {
+				peerHost.EndpointIP = peer.LocalAddress.IP
 				if peerHost.LocalListenPort != 0 {
 					peerHost.ListenPort = peerHost.LocalListenPort
 				}
@@ -811,8 +811,8 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 			continue // skip adding egress range if overlaps with node's ip
 		}
 		// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
-		if ipnet.Contains(net.ParseIP(host.LocalAddress.String())) && !internetGateway { // ensuring egress gateway range does not contain public ip of node
-			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", host.LocalAddress.String(), ", omitting")
+		if ipnet.Contains(net.ParseIP(node.LocalAddress.String())) && !internetGateway { // ensuring egress gateway range does not contain public ip of node
+			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.LocalAddress.String(), ", omitting")
 			continue // skip adding egress range if overlaps with node's local ip
 		}
 		if err != nil {
@@ -826,41 +826,11 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 
 func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
-	host, err := GetHost(node.ID.String())
-	if err != nil {
-		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
-	}
 	if peer.Address.IP != nil {
 		allowedips = append(allowedips, peer.Address)
 	}
 	if peer.Address6.IP != nil {
 		allowedips = append(allowedips, peer.Address6)
-	}
-	// handle manually set peers
-	for _, allowedIp := range peer.AllowedIPs {
-
-		// parsing as a CIDR first. If valid CIDR, append
-		if _, ipnet, err := net.ParseCIDR(allowedIp); err == nil {
-			nodeEndpointArr := strings.Split(host.EndpointIP.String(), ":")
-			if !ipnet.Contains(net.IP(nodeEndpointArr[0])) && ipnet.IP.String() != peer.Address.IP.String() { // don't need to add an allowed ip that already exists..
-				allowedips = append(allowedips, *ipnet)
-			}
-
-		} else { // parsing as an IP second. If valid IP, check if ipv4 or ipv6, then append
-			if iplib.Version(net.ParseIP(allowedIp)) == 4 && allowedIp != peer.Address.IP.String() {
-				ipnet := net.IPNet{
-					IP:   net.ParseIP(allowedIp),
-					Mask: net.CIDRMask(32, 32),
-				}
-				allowedips = append(allowedips, ipnet)
-			} else if iplib.Version(net.ParseIP(allowedIp)) == 6 && allowedIp != peer.Address6.IP.String() {
-				ipnet := net.IPNet{
-					IP:   net.ParseIP(allowedIp),
-					Mask: net.CIDRMask(128, 128),
-				}
-				allowedips = append(allowedips, ipnet)
-			}
-		}
 	}
 	// handle egress gateway peers
 	if peer.IsEgressGateway {

@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 type hostNetworksUpdatePayload struct {
@@ -15,7 +16,7 @@ type hostNetworksUpdatePayload struct {
 }
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(false, http.HandlerFunc(getHosts))).Methods("GET")
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods("GET")
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods("PUT")
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods("DELETE")
 	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods("PUT")
@@ -153,7 +154,11 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: add and remove hosts to networks (nodes)
+	if err = logic.UpdateHostNetworks(currHost, servercfg.GetServer(), payload.Networks); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update host networks:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
 	logger.Log(2, r.Header.Get("user"), "updated host networks", currHost.Name)
 	w.WriteHeader(http.StatusOK)

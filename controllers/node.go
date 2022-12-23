@@ -627,7 +627,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = logic.CreateNode(&data.Node)
+	err = logic.AssociateNodeToHost(&data.Node, &data.Host)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create node on network [%s]: %s",
@@ -661,7 +661,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Node.Peers = peerUpdate.Peers
-
 	// Create client for this host in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
@@ -1132,6 +1131,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
+		// TODO: Address how to remove host
 		if !found {
 			// deletes node related role and client
 			event := mq.MqDynsecPayload{
