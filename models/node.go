@@ -69,6 +69,7 @@ type CommonNode struct {
 	PostUp              string               `json:"postup" yaml:"postup"`
 	PostDown            string               `json:"postdown" yaml:"postdown"`
 	Action              string               `json:"action" yaml:"action"`
+	LocalAddress        net.IPNet            `json:"localaddress" yaml:"localaddress"`
 	IsLocal             bool                 `json:"islocal" yaml:"islocal"`
 	IsEgressGateway     bool                 `json:"isegressgateway" yaml:"isegressgateway"`
 	IsIngressGateway    bool                 `json:"isingressgateway" yaml:"isingressgateway"`
@@ -85,7 +86,6 @@ type Node struct {
 	LastCheckIn             time.Time            `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	LastPeerUpdate          time.Time            `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	ExpirationDateTime      time.Time            `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
-	AllowedIPs              []string             `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
 	EgressGatewayRanges     []string             `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	EgressGatewayNatEnabled bool                 `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
@@ -381,8 +381,8 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.PostDown == "" {
 		newNode.PostDown = currentNode.PostDown
 	}
-	if newNode.AllowedIPs == nil {
-		newNode.AllowedIPs = currentNode.AllowedIPs
+	if newNode.PersistentKeepalive < 0 {
+		newNode.PersistentKeepalive = currentNode.PersistentKeepalive
 	}
 	if newNode.LastModified != currentNode.LastModified {
 		newNode.LastModified = currentNode.LastModified
@@ -500,7 +500,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
 		_, cidr, _ := net.ParseCIDR(ln.LocalAddress)
-		host.LocalAddress = *cidr
 		_, cidr, _ = net.ParseCIDR(ln.LocalRange)
 		host.LocalRange = *cidr
 		host.LocalListenPort = int(ln.LocalListenPort)
@@ -548,7 +547,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.HostID = h.ID.String()
 	l.Address = n.Address.String()
 	l.Address6 = n.Address6.String()
-	l.LocalAddress = h.LocalAddress.String()
 	l.Interfaces = h.Interfaces
 	l.Name = h.Name
 	l.NetworkSettings = *net

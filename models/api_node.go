@@ -13,6 +13,7 @@ type ApiNode struct {
 	HostID                  string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
 	Address                 string   `json:"address" validate:"omitempty,ipv4"`
 	Address6                string   `json:"address6" validate:"omitempty,ipv6"`
+	LocalAddress            string   `json:"localaddress" validate:"omitempty,ipv4"`
 	PostUp                  string   `json:"postup"`
 	PostDown                string   `json:"postdown"`
 	AllowedIPs              []string `json:"allowedips"`
@@ -50,7 +51,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.Server = a.Server
 	convertedNode.Action = currentNode.Action
 	convertedNode.Connected = a.Connected
-	convertedNode.AllowedIPs = a.AllowedIPs
 	convertedNode.ID, _ = uuid.Parse(a.ID)
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
 	convertedNode.PostUp = a.PostUp
@@ -80,6 +80,14 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	_, networkRange6, err := net.ParseCIDR(a.NetworkRange6)
 	if err == nil {
 		convertedNode.NetworkRange6 = *networkRange6
+	}
+	if len(a.LocalAddress) > 0 {
+		_, localAddr, err := net.ParseCIDR(a.LocalAddress)
+		if err == nil {
+			convertedNode.LocalAddress = *localAddr
+		}
+	} else if !isEmptyAddr(currentNode.LocalAddress.String()) {
+		convertedNode.LocalAddress = currentNode.LocalAddress
 	}
 	udpAddr, err := net.ResolveUDPAddr("udp", a.InternetGateway)
 	if err == nil {
@@ -114,9 +122,12 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	if isEmptyAddr(apiNode.Address6) {
 		apiNode.Address6 = ""
 	}
+	apiNode.LocalAddress = nm.LocalAddress.String()
+	if isEmptyAddr(apiNode.LocalAddress) {
+		apiNode.LocalAddress = ""
+	}
 	apiNode.PostDown = nm.PostDown
 	apiNode.PostUp = nm.PostUp
-	apiNode.AllowedIPs = nm.AllowedIPs
 	apiNode.PersistentKeepalive = int32(nm.PersistentKeepalive)
 	apiNode.LastModified = nm.LastModified.Unix()
 	apiNode.LastCheckIn = nm.LastCheckIn.Unix()
