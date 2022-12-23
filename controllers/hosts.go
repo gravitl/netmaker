@@ -16,9 +16,9 @@ type hostNetworksUpdatePayload struct {
 
 func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts", logic.SecurityCheck(false, http.HandlerFunc(getHosts))).Methods("GET")
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods("PUT")
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods("PUT")
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods("DELETE")
-	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods("PUT")
+	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods("PUT")
 }
 
 // swagger:route GET /api/hosts hosts getHosts
