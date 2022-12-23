@@ -116,10 +116,6 @@ func UpdateHost(newHost, currentHost *models.Host) {
 		newHost.Name = currentHost.Name
 	}
 
-	if newHost.LocalAddress.String() != currentHost.LocalAddress.String() {
-		newHost.LocalAddress = currentHost.LocalAddress
-	}
-
 	if newHost.LocalRange.String() != currentHost.LocalRange.String() {
 		newHost.LocalRange = currentHost.LocalRange
 	}
