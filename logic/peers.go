@@ -237,11 +237,11 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 			//peer is on same network
 			// set to localaddress
 			uselocal = true
-			if peerHost.LocalAddress.IP == nil {
+			if node.LocalAddress.IP == nil {
 				// use public endpint
 				uselocal = false
 			}
-			if host.LocalAddress.String() == peerHost.LocalAddress.String() {
+			if node.LocalAddress.String() == peer.LocalAddress.String() {
 				uselocal = false
 			}
 		}
@@ -250,7 +250,7 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 			Port: peerHost.ListenPort,
 		}
 		if uselocal {
-			peerConfig.Endpoint.IP = peerHost.LocalAddress.IP
+			peerConfig.Endpoint.IP = peer.LocalAddress.IP
 		}
 		allowedips := getNodeAllowedIPs(&peer, node)
 		if peer.IsIngressGateway {
