@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/kr/pretty"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -661,8 +660,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Node.Peers = peerUpdate.Peers
-	pretty.Println(data.Node.Peers)
-
 	// Create client for this host in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{
@@ -706,13 +703,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
-
-	//host, newNode := node.ConvertToNewNode()
-
-	logic.UpsertHost(&data.Host)
-	//logic.CreateNode()
-	//logic.SaveNode(data.Node)
-
 	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
