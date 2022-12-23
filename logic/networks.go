@@ -222,11 +222,11 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 			continue
 		}
 		if isIpv6 {
-			if node.Address6.String() == ip && node.Network == network {
+			if node.Address6.IP.String() == ip && node.Network == network {
 				return false
 			}
 		} else {
-			if node.Address.String() == ip && node.Network == network {
+			if node.Address.IP.String() == ip && node.Network == network {
 				return false
 			}
 		}

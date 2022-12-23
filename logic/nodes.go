@@ -570,7 +570,6 @@ func createNode(node *models.Node) error {
 	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
 	}
-
 	if node.Address6.IP == nil {
 		if parentNetwork.IsIPv6 == "yes" {
 			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
@@ -585,7 +584,6 @@ func createNode(node *models.Node) error {
 	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
 	}
-
 	node.ID = uuid.New()
 	//Create a JWT for the node
 	tokenString, _ := CreateJWT(node.ID.String(), host.MacAddress.String(), node.Network)
