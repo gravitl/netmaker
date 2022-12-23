@@ -49,12 +49,12 @@ func PublishProxyPeerUpdate(node *models.Node) error {
 
 // PublishSinglePeerUpdate --- determines and publishes a peer update to one node
 func PublishSinglePeerUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.ID.String())
+	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return nil
 	}
 
-	peerUpdate, err := logic.GetPeerUpdate(node)
+	peerUpdate, err := logic.GetPeerUpdate(node, host)
 	if err != nil {
 		return err
 	}
@@ -77,14 +77,14 @@ func PublishSinglePeerUpdate(node *models.Node) error {
 
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
 func PublishExtPeerUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.ID.String())
+	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return nil
 	}
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	peerUpdate, err := logic.GetPeerUpdate(node)
+	peerUpdate, err := logic.GetPeerUpdate(node, host)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func PublishExtPeerUpdate(node *models.Node) error {
 
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.ID.String())
+	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return nil
 	}
@@ -142,7 +142,7 @@ func NodeUpdate(node *models.Node) error {
 
 // ProxyUpdate -- publishes updates to peers related to proxy
 func ProxyUpdate(proxyPayload *manager.ProxyManagerPayload, node *models.Node) error {
-	host, err := logic.GetHost(node.ID.String())
+	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return nil
 	}

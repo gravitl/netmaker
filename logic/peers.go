@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -40,7 +41,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 	if !onlyPeers {
 		if node.IsRelayed {
 			relayNode := FindRelay(node)
-			relayHost, err := GetHost(relayNode.ID.String())
+			relayHost, err := GetHost(relayNode.HostID.String())
 			if err != nil {
 				return proxyPayload, err
 			}
@@ -126,7 +127,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
 			// set_keepalive
-			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
+			keepalive = node.PersistentKeepalive
 		}
 		peers = append(peers, wgtypes.PeerConfig{
 			PublicKey:                   host.PublicKey,
@@ -193,7 +194,103 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPa
 }
 
 // GetPeerUpdate - gets a wireguard peer config for each peer of a node
-func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
+func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, error) {
+	log.Println("peer update for node ", node.ID)
+	peerUpdate := models.PeerUpdate{
+		Network:       node.Network,
+		ServerVersion: ncutils.Version,
+		DNS:           getPeerDNS(node.Network),
+	}
+	currentPeers, err := GetNetworkNodes(node.Network)
+	if err != nil {
+		log.Println("no network nodes")
+		return models.PeerUpdate{}, err
+	}
+	for _, peer := range currentPeers {
+		var peerConfig wgtypes.PeerConfig
+		peerHost, err := GetHost(peer.HostID.String())
+		if err != nil {
+			log.Println("no peer host", err)
+			return models.PeerUpdate{}, err
+		}
+		if peer.ID == node.ID {
+			log.Println("peer update, skipping self")
+			//skip yourself
+
+			continue
+		}
+		if !peer.Connected {
+			log.Println("peer update, skipping unconnected node")
+			//skip unconnected nodes
+			continue
+		}
+		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
+			log.Println("peer update, skipping node for acl")
+			//skip if not permitted by acl
+			continue
+		}
+		peerConfig.PublicKey = peerHost.PublicKey
+		peerConfig.PersistentKeepaliveInterval = &peer.PersistentKeepalive
+		peerConfig.ReplaceAllowedIPs = true
+		uselocal := false
+		if host.EndpointIP.String() == peerHost.EndpointIP.String() {
+			//peer is on same network
+			// set to localaddress
+			uselocal = true
+			if node.LocalAddress.IP == nil {
+				// use public endpint
+				uselocal = false
+			}
+			if node.LocalAddress.String() == peer.LocalAddress.String() {
+				uselocal = false
+			}
+		}
+		peerConfig.Endpoint = &net.UDPAddr{
+			IP:   peerHost.EndpointIP,
+			Port: peerHost.ListenPort,
+		}
+		if uselocal {
+			peerConfig.Endpoint.IP = peer.LocalAddress.IP
+		}
+		allowedips := getNodeAllowedIPs(&peer, node)
+		if peer.IsIngressGateway {
+			for _, entry := range peer.IngressGatewayRange {
+				_, cidr, err := net.ParseCIDR(string(entry))
+				if err == nil {
+					allowedips = append(allowedips, *cidr)
+				}
+			}
+		}
+		if peer.IsRelay {
+			allowedips = append(allowedips, getRelayAllowedIPs(node, &peer)...)
+		}
+		if peer.IsEgressGateway {
+			allowedips = append(allowedips, getEgressIPs(node, &peer)...)
+		}
+		peerConfig.AllowedIPs = allowedips
+		peerUpdate.Peers = append(peerUpdate.Peers, peerConfig)
+	}
+	return peerUpdate, nil
+}
+
+func getRelayAllowedIPs(node, peer *models.Node) []net.IPNet {
+	var allowedips []net.IPNet
+	var allowedip net.IPNet
+	for _, addr := range peer.RelayAddrs {
+		if node.Address.IP.String() == addr {
+			continue
+		}
+		if node.Address6.IP.String() == addr {
+			continue
+		}
+		allowedip.IP = net.ParseIP(addr)
+		allowedips = append(allowedips, allowedip)
+	}
+	return allowedips
+}
+
+// GetPeerUpdateLegacy - gets a wireguard peer config for each peer of a node
+func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 	var peerUpdate models.PeerUpdate
 	var peers []wgtypes.PeerConfig
 	var serverNodeAddresses = []models.ServerAddr{}
@@ -219,7 +316,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	if err != nil {
 		return models.PeerUpdate{}, err
 	}
-	host, err := GetHost(node.ID.String())
+	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return peerUpdate, err
 	}
@@ -231,7 +328,7 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
 	// #3 Set allowedips: set_allowedips
 	for _, peer := range currentPeers {
-		peerHost, err := GetHost(peer.ID.String())
+		peerHost, err := GetHost(peer.HostID.String())
 		if err != nil {
 			logger.Log(0, "error retrieving host for peer", node.ID.String(), err.Error())
 			return models.PeerUpdate{}, err
@@ -328,8 +425,9 @@ func GetPeerUpdate(node *models.Node) (models.PeerUpdate, error) {
 		allowedips := GetAllowedIPs(node, &peer, metrics, fetchRelayedIps)
 		var keepalive time.Duration
 		if node.PersistentKeepalive != 0 {
+
 			// set_keepalive
-			keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
+			keepalive = node.PersistentKeepalive
 		}
 		var peerData = wgtypes.PeerConfig{
 			PublicKey:                   peerHost.PublicKey,
@@ -664,7 +762,11 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 		allowedips = append(allowedips, relayIP6)
 	}
 	//get PeerUpdate for relayed node
-	relayPeerUpdate, err := GetPeerUpdate(relay)
+	relayHost, err := GetHost(relay.HostID.String())
+	if err != nil {
+		return models.PeerUpdate{}, err
+	}
+	relayPeerUpdate, err := GetPeerUpdate(relay, relayHost)
 	if err != nil {
 		return models.PeerUpdate{}, err
 	}
@@ -721,13 +823,6 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 		}
 		allowedips = append(allowedips, *ip)
 	}
-	relayHost, err := GetHost(relay.HostID.String())
-	if err != nil {
-		logger.Log(0, "error retrieving host for relay node", node.ID.String(), err.Error())
-	}
-	if err != nil {
-		return models.PeerUpdate{}, err
-	}
 	var setUDPPort = false
 	var listenPort int
 	if CheckEndpoint(udppeers[relayHost.PublicKey.String()]) {
@@ -756,7 +851,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	var keepalive time.Duration
 	if node.PersistentKeepalive != 0 {
 		// set_keepalive
-		keepalive, _ = time.ParseDuration(strconv.FormatInt(int64(node.PersistentKeepalive), 10) + "s")
+		keepalive = node.PersistentKeepalive
 	}
 	var peerData = wgtypes.PeerConfig{
 		PublicKey:                   relayHost.PublicKey,
@@ -788,7 +883,7 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 	if err != nil {
 		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
 	}
-	peerHost, err := GetHost(peer.ID.String())
+	peerHost, err := GetHost(peer.HostID.String())
 	if err != nil {
 		logger.Log(0, "error retrieving host for peer", peer.ID.String(), err.Error())
 	}
@@ -826,6 +921,11 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 
 func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
+	}
+
 	if peer.Address.IP != nil {
 		allowedips = append(allowedips, peer.Address)
 	}

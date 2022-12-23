@@ -69,7 +69,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.DNSOn = a.DNSOn
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
-	convertedNode.PersistentKeepalive = int(a.PersistentKeepalive)
+	convertedNode.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
 	convertedNode.RelayAddrs = a.RelayAddrs
 	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID

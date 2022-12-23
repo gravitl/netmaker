@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/kr/pretty"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -466,18 +467,17 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
-	peerUpdate, err := logic.GetPeerUpdate(&node)
-	if err != nil && !database.IsEmptyRecord(err) {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching host for node [ %s ] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	peerUpdate, err := logic.GetPeerUpdate(&node, host)
+	if err != nil && !database.IsEmptyRecord(err) {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -653,7 +653,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	peerUpdate, err := logic.GetPeerUpdate(&data.Node)
+	peerUpdate, err := logic.GetPeerUpdate(&data.Node, &data.Host)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", data.Node.ID.String(), err))
@@ -661,6 +661,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Node.Peers = peerUpdate.Peers
+	pretty.Println(data.Node.Peers)
+
 	// Create client for this host in Mq
 	event := mq.MqDynsecPayload{
 		Commands: []mq.MqDynSecCmd{

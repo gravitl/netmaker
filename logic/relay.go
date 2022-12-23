@@ -19,7 +19,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	host, err := GetHost(node.ID.String())
+	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
