@@ -37,16 +37,13 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 
 func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
 	var oauth_state_string = logic.RandomString(user_signin_length)
-	if auth_provider == nil && servercfg.GetFrontendURL() != "" {
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
-		return
-	} else if auth_provider == nil {
-		fmt.Fprintf(w, "%s", []byte("no frontend URL was provided and an OAuth login was attempted\nplease reconfigure server to use OAuth or use basic credentials"))
+	if auth_provider == nil {
+		logic.HandleOauthNotConfigured(w)
 		return
 	}
 
 	if err := logic.SetState(oauth_state_string); err != nil {
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
+		logic.HandleOauthNotConfigured(w)
 		return
 	}
 
@@ -60,7 +57,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getAzureUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from azure:", err.Error())
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
+		logic.HandleOauthNotConfigured(w)
 		return
 	}
 	_, err = logic.GetUser(content.UserPrincipalName)
