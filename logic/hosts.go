@@ -154,7 +154,7 @@ func RemoveHost(h *models.Host) error {
 			id := h.Nodes[i]
 			n, err := GetNodeByID(id)
 			if err == nil {
-				if err = DeleteNodeByID(&n); err != nil {
+				if err = DissasociateNodeFromHost(&n, h); err != nil {
 					return err // must remove associated nodes before removing a host
 				}
 			}
@@ -164,7 +164,7 @@ func RemoveHost(h *models.Host) error {
 }
 
 // UpdateHostNetworks - updates a given host's networks
-func UpdateHostNetworks(h *models.Host, nets []string) error {
+func UpdateHostNetworks(h *models.Host, server string, nets []string) error {
 	if len(h.Nodes) > 0 {
 		for i := range h.Nodes {
 			n, err := GetNodeByID(h.Nodes[i])
@@ -180,7 +180,7 @@ func UpdateHostNetworks(h *models.Host, nets []string) error {
 				}
 			}
 			if !found { // remove the node/host from that network
-				if err = DeleteNodeByID(&n); err != nil {
+				if err = DissasociateNodeFromHost(&n, h); err != nil {
 					return err
 				}
 			}
@@ -192,8 +192,13 @@ func UpdateHostNetworks(h *models.Host, nets []string) error {
 	for i := range nets {
 		// create a node for each non zero network remaining
 		if len(nets[i]) > 0 {
-			// TODO create a node with given hostid
-			logger.Log(0, "I will create a node here")
+			newNode := models.Node{}
+			newNode.Server = server
+			newNode.Network = nets[i]
+			if err := AssociateNodeToHost(&newNode, h); err != nil {
+				return err
+			}
+			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 		}
 	}
 
@@ -201,6 +206,7 @@ func UpdateHostNetworks(h *models.Host, nets []string) error {
 }
 
 // AssociateNodeToHost - associates and creates a node with a given host
+// should be the only way nodes get created as of 0.18
 func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
@@ -215,6 +221,7 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 }
 
 // DissasociateNodeFromHost - deletes a node and removes from host nodes
+// should be the only way nodes are deleted as of 0.18
 func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
@@ -236,6 +243,9 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 		if len(h.Nodes) == 0 {
 			return fmt.Errorf("node %s, not found in host, %s", n.ID.String(), h.ID.String())
 		}
+	}
+	if err := deleteNodeByID(n); err != nil {
+		return err
 	}
 	h.Nodes = RemoveStringSlice(h.Nodes, index)
 	return UpsertHost(h)

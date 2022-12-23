@@ -85,19 +85,22 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 // DeleteNode - marks node for deletion if called by UI or deletes node if called by node
 func DeleteNode(node *models.Node, purge bool) error {
 	if !purge {
-		newnode := node
+		newnode := *node
 		newnode.PendingDelete = true
 		newnode.Action = models.NODE_DELETE
-		if err := UpdateNode(node, newnode); err != nil {
+		if err := UpdateNode(node, &newnode); err != nil {
 			return err
 		}
 		return nil
 	}
-	if err := DeleteNodeByID(node); err != nil {
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return err
+	}
+	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
 	if servercfg.Is_EE {
-		host, _ := GetHost(node.HostID.String())
 		if err := EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node delete for node", host.Name, node.Network)
 		}
@@ -106,8 +109,8 @@ func DeleteNode(node *models.Node, purge bool) error {
 	return nil
 }
 
-// DeleteNodeByID - deletes a node from database
-func DeleteNodeByID(node *models.Node) error {
+// deleteNodeByID - deletes a node from database
+func deleteNodeByID(node *models.Node) error {
 	var err error
 	var key = node.ID.String()
 	//delete any ext clients as required
@@ -620,7 +623,6 @@ func PurgePendingNodes(ctx context.Context) {
 						} else {
 							logger.Log(0, "purged node ", node.ID.String())
 						}
-
 					}
 				}
 			}
