@@ -246,3 +246,18 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	h.Nodes = RemoveStringSlice(h.Nodes, index)
 	return UpsertHost(h)
 }
+
+// GetDefaultHosts - retrieve all hosts marked as default from DB
+func GetDefaultHosts() []models.Host {
+	defaultHostList := []models.Host{}
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return defaultHostList
+	}
+	for i := range hosts {
+		if hosts[i].IsDefault {
+			defaultHostList = append(defaultHostList, hosts[i])
+		}
+	}
+	return defaultHostList[:]
+}
