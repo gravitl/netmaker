@@ -73,7 +73,7 @@ type CommonNode struct {
 	IsEgressGateway     bool                 `json:"isegressgateway" yaml:"isegressgateway"`
 	IsIngressGateway    bool                 `json:"isingressgateway" yaml:"isingressgateway"`
 	DNSOn               bool                 `json:"dnson" yaml:"dnson"`
-	PersistentKeepalive int                  `json:"persistentkeepalive" yaml:"persistentkeepalive"`
+	PersistentKeepalive time.Duration        `json:"persistentkeepalive" yaml:"persistentkeepalive"`
 	Peers               []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
 }
 
@@ -384,9 +384,6 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.AllowedIPs == nil {
 		newNode.AllowedIPs = currentNode.AllowedIPs
 	}
-	if newNode.PersistentKeepalive < 0 {
-		newNode.PersistentKeepalive = currentNode.PersistentKeepalive
-	}
 	if newNode.LastModified != currentNode.LastModified {
 		newNode.LastModified = currentNode.LastModified
 	}
@@ -540,7 +537,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 	node.IsEgressGateway = parseBool(ln.IsEgressGateway)
 	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
 	node.DNSOn = parseBool(ln.DNSOn)
-	node.PersistentKeepalive = int(ln.PersistentKeepalive)
 
 	return &host, &node
 }
@@ -564,7 +560,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.PostUp = n.PostUp
 	l.PostDown = n.PostDown
 	//l.AllowedIPs =
-	l.PersistentKeepalive = int32(n.PersistentKeepalive)
 	l.AccessKey = ""
 	l.Interface = WIREGUARD_INTERFACE
 	//l.LastModified =
