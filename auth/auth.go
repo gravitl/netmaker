@@ -72,10 +72,6 @@ func InitializeAuthProvider() string {
 		logger.Log(0, err.Error())
 		return ""
 	}
-	var currentFrontendURL = servercfg.GetFrontendURL()
-	if currentFrontendURL == "" {
-		return ""
-	}
 	var authInfo = servercfg.GetAuthProviderInfo()
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
@@ -131,6 +127,10 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
+		return
+	}
+	if servercfg.GetFrontendURL() == "" {
+		handleOauthNotConfigured(w)
 		return
 	}
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
