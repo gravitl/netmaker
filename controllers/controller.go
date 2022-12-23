@@ -40,7 +40,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	// should consider analyzing the allowed methods further
 	headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization"})
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
-	methodsOk := handlers.AllowedMethods([]string{"GET", "PUT", "POST", "DELETE"})
+	methodsOk := handlers.AllowedMethods([]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete})
 
 	for _, handler := range HttpHandlers {
 		handler.(func(*mux.Router))(r)
