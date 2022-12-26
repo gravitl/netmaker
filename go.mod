@@ -30,7 +30,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0
-	fyne.io/fyne/v2 v2.2.4
+	fyne.io/fyne/v2 v2.3.0
 	github.com/c-robinson/iplib v1.0.4
 	github.com/cloverstd/tcping v0.1.1
 	github.com/go-ping/ping v1.1.0
@@ -52,9 +52,10 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.7.0 // indirect
-	fyne.io/systray v1.10.1-0.20220621085403-9a2652634e93 // indirect
+	fyne.io/systray v1.10.1-0.20221115204952-d16a6177e6f1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
+	github.com/benoitkugler/textlayout v0.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
@@ -62,18 +63,19 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
-	github.com/fredbi/uri v0.0.0-20181227131451-3dcfdacbaaf3 // indirect
+	github.com/fredbi/uri v0.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/fyne-io/gl-js v0.0.0-20220119005834-d2da28d9ccfe // indirect
 	github.com/fyne-io/glfw-js v0.0.0-20220120001248-ee7290d23504 // indirect
 	github.com/fyne-io/image v0.0.0-20220602074514-4956b0afb3d2 // indirect
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20211213063430-748e38ca8aec // indirect
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20221017161538-93cebf72946b // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
+	github.com/go-text/typesetting v0.0.0-20221212183139-1eb938670a1f // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/goki/freetype v0.0.0-20181231101311-fa8a33aabaff // indirect
+	github.com/goki/freetype v0.0.0-20220119013949-7a161fd3728c // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
@@ -96,8 +98,8 @@ require (
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/srwiley/oksvg v0.0.0-20200311192757-870daf9aa564 // indirect
-	github.com/srwiley/rasterx v0.0.0-20200120212402-85cb7272f5e9 // indirect
+	github.com/srwiley/oksvg v0.0.0-20220731023508-a61f04f16b76 // indirect
+	github.com/srwiley/rasterx v0.0.0-20210519020934-456a8d69b780 // indirect
 	github.com/tevino/abool v1.2.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
