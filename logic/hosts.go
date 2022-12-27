@@ -235,15 +235,17 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 			break
 		}
 	}
-
-	if index == -1 {
-		return fmt.Errorf("node %s, not found in host, %s", n.ID.String(), h.ID.String())
+	if index < 0 {
+		if len(h.Nodes) == 0 {
+			return fmt.Errorf("node %s, not found in host, %s", n.ID.String(), h.ID.String())
+		}
+	} else {
+		h.Nodes = RemoveStringSlice(h.Nodes, index)
 	}
-
 	if err := deleteNodeByID(n); err != nil {
 		return err
 	}
-	h.Nodes = RemoveStringSlice(h.Nodes, index)
+
 	return UpsertHost(h)
 }
 
