@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-ping/ping"
 	proxy_metrics "github.com/gravitl/netclient/nmproxy/metrics"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -26,7 +27,7 @@ func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models
 		fillUnconnectedData(&metrics, peerMap)
 		return &metrics, err
 	}
-	metrics.ProxyMetrics = make(map[string]proxy_metrics.Metric)
+	metrics.ProxyMetrics = make(map[string]proxy_models.Metric)
 
 	// TODO handle freebsd??
 	for i := range device.Peers {

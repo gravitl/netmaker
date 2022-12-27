@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netclient/nmproxy/manager"
 	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -29,8 +28,8 @@ import (
 // TODO ==========================
 // TODO ==========================
 // revisit this logic with new host/node models.
-func GetPeersForProxy(node *models.Node, onlyPeers bool) (manager.ProxyManagerPayload, error) {
-	proxyPayload := manager.ProxyManagerPayload{}
+func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyManagerPayload, error) {
+	proxyPayload := proxy_models.ProxyManagerPayload{}
 	var peers []wgtypes.PeerConfig
 	peerConfMap := make(map[string]proxy_models.PeerConf)
 	var err error

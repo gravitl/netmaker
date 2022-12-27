@@ -245,6 +245,10 @@ github.com/gravitl/netclient v0.0.0-20221212172659-bdf676e4250a h1:1c8zoEJS7BeQ3
 github.com/gravitl/netclient v0.0.0-20221212172659-bdf676e4250a/go.mod h1:FzorTqDHIx2RZSij15VDPc1lafn/3R6ppYcOK0n7szk=
 github.com/gravitl/netclient v0.0.0-20221223224636-19a8b2eaa550 h1:jfZbpaawwQg99IMcS6wvQie482uwoFEu9wbRRTLbEqc=
 github.com/gravitl/netclient v0.0.0-20221223224636-19a8b2eaa550/go.mod h1:u8eW0nZTg1Xcn8kfxJyrvIruXrVTP4mVbThxq8to7FU=
+github.com/gravitl/netclient v0.0.0-20221227161428-ed82d1320d97 h1:a9fyFLv11O+F/hSXAMiQY9/Gk+BeWuhSYRmTHCLswVE=
+github.com/gravitl/netclient v0.0.0-20221227161428-ed82d1320d97/go.mod h1:u8eW0nZTg1Xcn8kfxJyrvIruXrVTP4mVbThxq8to7FU=
+github.com/gravitl/netclient v0.0.0-20221227162300-436737fad273 h1:kJJX/Otaje40hsCs27jnt+k+gJCOHSsVJgXBrhiyioA=
+github.com/gravitl/netclient v0.0.0-20221227162300-436737fad273/go.mod h1:u8eW0nZTg1Xcn8kfxJyrvIruXrVTP4mVbThxq8to7FU=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/guumaster/hostctl v1.1.3 h1:b/yR3svkYsbr5VBdvfdyLXUl2xaKopSzgE/Xi7+1WRo=
 github.com/guumaster/hostctl v1.1.3/go.mod h1:h5rDx5Z8Hj2bYZfDt/eX4BNS2RSq7iRcGVQqfROJyH8=

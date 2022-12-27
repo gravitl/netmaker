@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netclient/nmproxy/manager"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -1112,8 +1112,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if host.ProxyEnabled {
-		mq.ProxyUpdate(&manager.ProxyManagerPayload{
-			Action:  manager.DeleteNetwork,
+		mq.ProxyUpdate(&proxy_models.ProxyManagerPayload{
+			Action:  proxy_models.DeleteNetwork,
 			Network: node.Network,
 		}, &node)
 	}
