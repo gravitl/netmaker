@@ -922,18 +922,18 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
 	if peer.Address.IP != nil {
-		allowedips = append(allowedips,
-			net.IPNet{
-				IP:   peer.Address.IP,
-				Mask: net.CIDRMask(32, 32),
-			})
+		allowed := net.IPNet{
+			IP:   peer.Address.IP,
+			Mask: net.CIDRMask(32, 32),
+		}
+		allowedips = append(allowedips, allowed)
 	}
 	if peer.Address6.IP != nil {
-		allowedips = append(allowedips,
-			net.IPNet{
-				IP:   peer.Address6.IP,
-				Mask: net.CIDRMask(128, 128),
-			})
+		allowed := net.IPNet{
+			IP:   peer.Address6.IP,
+			Mask: net.CIDRMask(128, 128),
+		}
+		allowedips = append(allowedips, allowed)
 	}
 	// handle egress gateway peers
 	if peer.IsEgressGateway {
