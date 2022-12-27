@@ -447,15 +447,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			event.Commands, err.Error()))
 	}
 
-	// add default hosts to network
-	defaultHosts := logic.GetDefaultHosts()
-	for i := range defaultHosts {
-		newNode := models.Node{}
-		newNode.Network = network.NetID
-		newNode.Server = servercfg.GetServer()
-		if err = logic.AssociateNodeToHost(&newNode, &defaultHosts[i]); err != nil {
-			logger.Log(0, "error occurred when adding network", network.NetID, "to host", defaultHosts[i].Name)
-		}
+	if err = logic.AddDefaultHostsToNetwork(network.NetID, servercfg.GetServer()); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to add default hosts to network [%v]: %v",
+			network.NetID, err.Error()))
 	}
 
 	// TODO: Send message notifying host of new peers/network conf
