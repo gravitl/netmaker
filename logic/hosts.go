@@ -261,3 +261,18 @@ func GetDefaultHosts() []models.Host {
 	}
 	return defaultHostList[:]
 }
+
+// AddDefaultHostsToNetwork - adds a node to network for every default host on Netmaker server
+func AddDefaultHostsToNetwork(network, server string) error {
+	// add default hosts to network
+	defaultHosts := GetDefaultHosts()
+	for i := range defaultHosts {
+		newNode := models.Node{}
+		newNode.Network = network
+		newNode.Server = server
+		if err := AssociateNodeToHost(&newNode, &defaultHosts[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
