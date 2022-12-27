@@ -104,7 +104,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-
 	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
@@ -626,7 +625,13 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = logic.AssociateNodeToHost(&data.Node, &data.Host)
+	host, err := logic.GetHost(data.Host.ID.String())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to find host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	err = logic.AssociateNodeToHost(&data.Node, host)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create node on network [%s]: %s",
