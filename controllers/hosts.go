@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -154,10 +155,18 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = logic.UpdateHostNetworks(currHost, servercfg.GetServer(), payload.Networks); err != nil {
+	if err = logic.UpdateHostNetworks(currHost, servercfg.GetServer(), payload.Networks[:]); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update host networks:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	if err = mq.ModifyClient(&mq.MqClient{
+		ID:       currHost.ID.String(),
+		Text:     currHost.Name,
+		Networks: payload.Networks,
+	}); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
 	}
 
 	logger.Log(2, r.Header.Get("user"), "updated host networks", currHost.Name)

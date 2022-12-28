@@ -19,6 +19,8 @@ const (
 	exporterRole = "exporter"
 	// constant for node role
 	NodeRole = "node"
+	// HostRole constant for host role
+	HostRole = "host"
 
 	// const for dynamic security file
 	dynamicSecurityFile = "dynamic-security.json"
@@ -64,7 +66,7 @@ var (
 				Acls:     fetchServerAcls(),
 			},
 			{
-				Rolename: NodeRole,
+				Rolename: HostRole,
 				Acls:     fetchNodeAcls(),
 			},
 			exporterMQRole,
@@ -201,6 +203,38 @@ func FetchNetworkAcls(network string) []Acl {
 			Allow:    true,
 		},
 	}
+}
+
+// DeleteNetworkRole - deletes a network role from DynSec system
+func DeleteNetworkRole(network string) error {
+	// Deletes the network role from MQ
+	event := MqDynsecPayload{
+		Commands: []MqDynSecCmd{
+			{
+				Command:  DeleteRoleCmd,
+				RoleName: network,
+			},
+		},
+	}
+
+	return publishEventToDynSecTopic(event)
+}
+
+// CreateNetworkRole - createss a network role from DynSec system
+func CreateNetworkRole(network string) error {
+	// Create Role with acls for the network
+	event := MqDynsecPayload{
+		Commands: []MqDynSecCmd{
+			{
+				Command:  CreateRoleCmd,
+				RoleName: network,
+				Textname: "Network wide role with Acls for nodes",
+				Acls:     FetchNetworkAcls(network),
+			},
+		},
+	}
+
+	return publishEventToDynSecTopic(event)
 }
 
 // serverAcls - fetches server role related acls
