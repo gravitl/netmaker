@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netclient/nmproxy/manager"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -493,14 +493,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		Peers:        peerUpdate.Peers,
 		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
-	}
-	if host.ProxyEnabled {
-		proxyPayload, err := logic.GetPeersForProxy(&node, false)
-		if err == nil {
-			response.ProxyUpdate = proxyPayload
-		} else {
-			logger.Log(0, "failed to get proxy update: ", err.Error())
-		}
 	}
 
 	if servercfg.Is_EE && nodeRequest {
@@ -1112,8 +1104,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if host.ProxyEnabled {
-		mq.ProxyUpdate(&manager.ProxyManagerPayload{
-			Action:  manager.DeleteNetwork,
+		mq.ProxyUpdate(&proxy_models.ProxyManagerPayload{
+			Action:  proxy_models.DeleteNetwork,
 			Network: node.Network,
 		}, &node)
 	}

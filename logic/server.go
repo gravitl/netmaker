@@ -3,11 +3,8 @@ package logic
 import (
 	"strings"
 
-	"github.com/gravitl/netclient/nmproxy/manager"
 	"github.com/gravitl/netmaker/models"
 )
-
-var ProxyMgmChan = make(chan *manager.ProxyManagerPayload, 100)
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []func()
