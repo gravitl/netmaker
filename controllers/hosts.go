@@ -85,6 +85,17 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	newNetworks := logic.GetHostNetworks(newHost.ID.String())
+	if len(newNetworks) > 0 {
+		if err = mq.ModifyClient(&mq.MqClient{
+			ID:       currHost.ID.String(),
+			Text:     currHost.Name,
+			Networks: newNetworks,
+		}); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
+		}
+	}
+
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
