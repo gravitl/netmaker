@@ -494,14 +494,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
-	if host.ProxyEnabled {
-		proxyPayload, err := logic.GetPeersForProxy(&node, false)
-		if err == nil {
-			response.ProxyUpdate = proxyPayload
-		} else {
-			logger.Log(0, "failed to get proxy update: ", err.Error())
-		}
-	}
 
 	if servercfg.Is_EE && nodeRequest {
 		if err = logic.EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
