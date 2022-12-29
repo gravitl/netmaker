@@ -571,11 +571,20 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	// consume password before hashing for mq client creation
 	hostPassword := data.Host.HostPass
 	data.Node.Server = servercfg.GetServer()
-	modifyMqClient := false
+
 	if err := logic.CreateHost(&data.Host); err != nil {
 		if errors.Is(err, logic.ErrHostExists) {
 			logger.Log(3, "host exists .. no need to create")
-			modifyMqClient = true
+			networks := logic.GetHostNetworks(data.Host.ID.String())
+			if err := mq.ModifyClient(&mq.MqClient{
+				ID:       data.Host.ID.String(),
+				Text:     data.Host.Name,
+				Networks: networks,
+			}); err != nil {
+				logger.Log(0, fmt.Sprintf("failed to modify DynSec client: %v", err.Error()))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
 		} else {
 			logger.Log(0, "error creating host", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -601,18 +610,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if modifyMqClient {
-		networks := logic.GetHostNetworks(data.Host.ID.String())
-		if err := mq.ModifyClient(&mq.MqClient{
-			ID:       host.ID.String(),
-			Text:     host.Name,
-			Networks: networks,
-		}); err != nil {
-			logger.Log(0, fmt.Sprintf("failed to modify DynSec client: %v", err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
+
 	err = logic.AssociateNodeToHost(&data.Node, host)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
