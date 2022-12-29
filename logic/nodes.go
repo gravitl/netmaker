@@ -84,10 +84,10 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 
 // DeleteNode - marks node for deletion if called by UI or deletes node if called by node
 func DeleteNode(node *models.Node, purge bool) error {
+	node.Action = models.NODE_DELETE
 	if !purge {
 		newnode := *node
 		newnode.PendingDelete = true
-		newnode.Action = models.NODE_DELETE
 		if err := UpdateNode(node, &newnode); err != nil {
 			return err
 		}
