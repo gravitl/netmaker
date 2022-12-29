@@ -370,20 +370,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errtype))
 		return
 	}
-	// Deletes the network role from MQ
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{
-				Command:  mq.DeleteRoleCmd,
-				RoleName: network,
-			},
-		},
+
+	if err := mq.DeleteNetworkRole(network); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to remove network DynSec role: %v", err.Error()))
 	}
 
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")
@@ -430,21 +421,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// Create Role with acls for the network
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: network.NetID,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(network.NetID),
-			},
-		},
-	}
 
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
+	if err = mq.CreateNetworkRole(network.NetID); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to create network DynSec role:",
+			err.Error())
 	}
 
 	if err = logic.AddDefaultHostsToNetwork(network.NetID, servercfg.GetServer()); err != nil {

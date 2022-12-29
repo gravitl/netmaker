@@ -278,3 +278,20 @@ func AddDefaultHostsToNetwork(network, server string) error {
 	}
 	return nil
 }
+
+// GetHostNetworks - fetches all the networks
+func GetHostNetworks(hostID string) []string {
+	currHost, err := GetHost(hostID)
+	if err != nil {
+		return nil
+	}
+	nets := []string{}
+	for i := range currHost.Nodes {
+		n, err := GetNodeByID(currHost.Nodes[i])
+		if err != nil {
+			return nil
+		}
+		nets = append(nets, n.Network)
+	}
+	return nets
+}
