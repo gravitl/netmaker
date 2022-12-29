@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netclient/nmproxy/manager"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -113,43 +114,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	// creates network role,node client (added here to resolve any missing configuration in MQ)
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: result.Network,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(result.Network),
-			},
-			{
-				Command:  mq.CreateClientCmd,
-				Username: result.HostID.String(),
-				Password: authRequest.Password,
-				Textname: host.Name,
-				Roles: []mq.MqDynSecRole{
-					{
-						Rolename: mq.NodeRole,
-						Priority: -1,
-					},
-					{
-						Rolename: result.Network,
-						Priority: -1,
-					},
-				},
-				Groups: make([]mq.MqDynSecGroup, 0),
-			},
-		},
-	}
-
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-		errorResponse.Code = http.StatusInternalServerError
-		errorResponse.Message = fmt.Sprintf("could not create mq client for node [%s]: %v", result.ID, err)
-		return
-	}
 
 	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
 	if tokenString == "" {
@@ -182,7 +146,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
-
 }
 
 // auth middleware for api calls from nodes where node is has not yet joined the server (register, join)
@@ -494,14 +457,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
-	if host.ProxyEnabled {
-		proxyPayload, err := logic.GetPeersForProxy(&node, false)
-		if err == nil {
-			response.ProxyUpdate = proxyPayload
-		} else {
-			logger.Log(0, "failed to get proxy update: ", err.Error())
-		}
-	}
 
 	if servercfg.Is_EE && nodeRequest {
 		if err = logic.EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
@@ -614,7 +569,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
 	// consume password before hashing for mq client creation
-	nodePassword := data.Host.HostPass
+	hostPassword := data.Host.HostPass
 	data.Node.Server = servercfg.GetServer()
 	if err := logic.CreateHost(&data.Host); err != nil {
 		if errors.Is(err, logic.ErrHostExists) {
@@ -622,6 +577,18 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		} else {
 			logger.Log(0, "error creating host", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	} else {
+		// Create client for this host in Mq
+		if err := mq.CreateMqClient(&mq.MqClient{
+			ID:       data.Host.ID.String(),
+			Text:     data.Host.Name,
+			Password: hostPassword,
+			Networks: []string{networkName},
+		}); err != nil {
+			logger.Log(0, fmt.Sprintf("failed to create DynSec client: %v", err.Error()))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
@@ -665,43 +632,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Node.Peers = peerUpdate.Peers
-	// Create client for this host in Mq
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{ // delete if any client exists already
-				Command:  mq.DeleteClientCmd,
-				Username: data.Host.ID.String(),
-			},
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: networkName,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(networkName),
-			},
-			{
-				Command:  mq.CreateClientCmd,
-				Username: data.Host.ID.String(),
-				Password: nodePassword,
-				Textname: data.Host.Name,
-				Roles: []mq.MqDynSecRole{
-					{
-						Rolename: mq.NodeRole,
-						Priority: -1,
-					},
-					{
-						Rolename: networkName,
-						Priority: -1,
-					},
-				},
-				Groups: make([]mq.MqDynSecGroup, 0),
-			},
-		},
-	}
-
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
 
 	response := models.NodeJoinResponse{
 		Node:         data.Node,
@@ -1112,36 +1042,33 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if host.ProxyEnabled {
-		mq.ProxyUpdate(&manager.ProxyManagerPayload{
-			Action:  manager.DeleteNetwork,
+		mq.ProxyUpdate(&proxy_models.ProxyManagerPayload{
+			Action:  proxy_models.DeleteNetwork,
 			Network: node.Network,
 		}, &node)
 	}
 	if fromNode {
-		//check if server should be removed from mq
-		found := false
+		// check if server should be removed from mq
 		// err is irrelevent
 		nodes, _ := logic.GetAllNodes()
+		var foundNode models.Node
 		for _, nodetocheck := range nodes {
 			if nodetocheck.HostID == node.HostID {
-				found = true
+				foundNode = nodetocheck
 				break
 			}
 		}
 		// TODO: Address how to remove host
-		if !found {
-			// deletes node related role and client
-			event := mq.MqDynsecPayload{
-				Commands: []mq.MqDynSecCmd{
-					{
-						Command:  mq.DeleteClientCmd,
-						Username: node.HostID.String(),
-					},
-				},
-			}
-			if err := mq.PublishEventToDynSecTopic(event); err != nil {
-				logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-					event.Commands, err.Error()))
+		if foundNode.HostID != uuid.Nil {
+			if err = logic.DissasociateNodeFromHost(&foundNode, host); err == nil {
+				currNets := logic.GetHostNetworks(host.ID.String())
+				if len(currNets) > 0 {
+					mq.ModifyClient(&mq.MqClient{
+						ID:       host.ID.String(),
+						Text:     host.Name,
+						Networks: currNets,
+					})
+				}
 			}
 		}
 	}

@@ -370,20 +370,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errtype))
 		return
 	}
-	// Deletes the network role from MQ
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{
-				Command:  mq.DeleteRoleCmd,
-				RoleName: network,
-			},
-		},
+
+	if err := mq.DeleteNetworkRole(network); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to remove network DynSec role: %v", err.Error()))
 	}
 
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")
@@ -430,32 +421,15 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// Create Role with acls for the network
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: network.NetID,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(network.NetID),
-			},
-		},
+
+	if err = mq.CreateNetworkRole(network.NetID); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to create network DynSec role:",
+			err.Error())
 	}
 
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
-
-	// add default hosts to network
-	defaultHosts := logic.GetDefaultHosts()
-	for i := range defaultHosts {
-		newNode := models.Node{}
-		newNode.Network = network.NetID
-		newNode.Server = servercfg.GetServer()
-		if err = logic.AssociateNodeToHost(&newNode, &defaultHosts[i]); err != nil {
-			logger.Log(0, "error occurred when adding network", network.NetID, "to host", defaultHosts[i].Name)
-		}
+	if err = logic.AddDefaultHostsToNetwork(network.NetID, servercfg.GetServer()); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to add default hosts to network [%v]: %v",
+			network.NetID, err.Error()))
 	}
 
 	// TODO: Send message notifying host of new peers/network conf

@@ -189,8 +189,8 @@ func Configure() error {
 	return os.WriteFile(path, data, 0755)
 }
 
-// PublishEventToDynSecTopic - publishes the message to dynamic security topic
-func PublishEventToDynSecTopic(payload MqDynsecPayload) error {
+// publishes the message to dynamic security topic
+func publishEventToDynSecTopic(payload MqDynsecPayload) error {
 
 	d, err := json.Marshal(payload)
 	if err != nil {

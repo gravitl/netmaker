@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netclient/nmproxy/manager"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -38,7 +38,7 @@ func PublishProxyPeerUpdate(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	proxyUpdate.Action = manager.AddNetwork
+	proxyUpdate.Action = proxy_models.AddNetwork
 	err = ProxyUpdate(&proxyUpdate, node)
 	if err != nil {
 		logger.Log(1, "failed to send proxy update: ", err.Error())
@@ -63,7 +63,7 @@ func PublishSinglePeerUpdate(node *models.Node) error {
 		if err != nil {
 			return err
 		}
-		proxyUpdate.Action = manager.AddNetwork
+		proxyUpdate.Action = proxy_models.AddNetwork
 		peerUpdate.ProxyUpdate = proxyUpdate
 
 	}
@@ -141,7 +141,7 @@ func NodeUpdate(node *models.Node) error {
 }
 
 // ProxyUpdate -- publishes updates to peers related to proxy
-func ProxyUpdate(proxyPayload *manager.ProxyManagerPayload, node *models.Node) error {
+func ProxyUpdate(proxyPayload *proxy_models.ProxyManagerPayload, node *models.Node) error {
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return nil
