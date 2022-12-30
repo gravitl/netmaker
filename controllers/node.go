@@ -1089,7 +1089,14 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	if !fromNode {
 		runUpdates(&node, false)
+		return
 	}
+	go func() {
+		if err := mq.PublishPeerUpdate(node.Network, false); err != nil {
+			logger.Log(1, "error publishing peer update ", err.Error())
+			return
+		}
+	}()
 
 }
 
