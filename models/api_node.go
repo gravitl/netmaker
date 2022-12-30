@@ -69,7 +69,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.DNSOn = a.DNSOn
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
-	convertedNode.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
+	convertedNode.PersistentKeepalive = time.Second * time.Duration(a.PersistentKeepalive)
 	convertedNode.RelayAddrs = a.RelayAddrs
 	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
@@ -128,7 +128,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	}
 	apiNode.PostDown = nm.PostDown
 	apiNode.PostUp = nm.PostUp
-	apiNode.PersistentKeepalive = int32(nm.PersistentKeepalive)
+	apiNode.PersistentKeepalive = int32(nm.PersistentKeepalive.Seconds())
 	apiNode.LastModified = nm.LastModified.Unix()
 	apiNode.LastCheckIn = nm.LastCheckIn.Unix()
 	apiNode.LastPeerUpdate = nm.LastPeerUpdate.Unix()
