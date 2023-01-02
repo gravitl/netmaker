@@ -3,17 +3,91 @@ package functions
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/cli/config"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	nmconfig "github.com/gravitl/netmaker/netclient/config"
 )
+
+func ssoLogin(endpoint string) string {
+	var (
+		accessToken *models.AccessToken
+		interrupt   = make(chan os.Signal, 1)
+		socketURL   = fmt.Sprintf("wss://%s/api/oauth/headless", endpoint)
+	)
+	signal.Notify(interrupt, os.Interrupt)
+	conn, _, err := websocket.DefaultDialer.Dial(socketURL, nil)
+	if err != nil {
+		log.Fatal("error connecting to endpoint: ", err.Error())
+	}
+	defer conn.Close()
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		log.Fatal("error reading from server: ", err.Error())
+	}
+	fmt.Printf("Please visit:\n %s \n to authenticate", string(msg))
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			msgType, msg, err := conn.ReadMessage()
+			if err != nil {
+				if msgType < 0 {
+					done <- struct{}{}
+					return
+				}
+				if !strings.Contains(err.Error(), "normal") {
+					log.Fatal("read error: ", err.Error())
+				}
+				return
+			}
+			if msgType == websocket.CloseMessage {
+				done <- struct{}{}
+				return
+			}
+			if strings.Contains(string(msg), "AccessToken: ") {
+				// Access was granted
+				rxToken := strings.TrimPrefix(string(msg), "AccessToken: ")
+				if accessToken, err = nmconfig.ParseAccessToken(rxToken); err != nil {
+					log.Fatalf("failed to parse received access token %s,err=%s\n", accessToken, err.Error())
+				}
+			} else {
+				logger.Log(0, "Message from server:", string(msg))
+				return
+			}
+		}
+	}()
+	for {
+		select {
+		case <-done:
+			return accessToken.Key
+		case <-interrupt:
+			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "write close:", err.Error())
+			}
+			return accessToken.Key
+		}
+	}
+}
 
 func getAuthToken(ctx config.Context, force bool) string {
 	if !force && ctx.AuthToken != "" {
 		return ctx.AuthToken
+	}
+	if ctx.SSO {
+		authToken := ssoLogin(ctx.Endpoint)
+		config.SetAuthToken(authToken)
+		return authToken
 	}
 	authParams := &models.UserAuthParams{UserName: ctx.Username, Password: ctx.Password}
 	payload, err := json.Marshal(authParams)

@@ -2,15 +2,18 @@ package auth
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 
+	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
@@ -43,7 +46,10 @@ type OAuthUser struct {
 	AccessToken       string `json:"accesstoken" bson:"accesstoken"`
 }
 
-var auth_provider *oauth2.Config
+var (
+	auth_provider *oauth2.Config
+	upgrader      = websocket.Upgrader{}
+)
 
 func getCurrentAuthFunctions() map[string]interface{} {
 	var authInfo = servercfg.GetAuthProviderInfo()
@@ -152,6 +158,80 @@ func IsOauthUser(user *models.User) error {
 	}
 	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
 	return bCryptErr
+}
+
+// HandleHeadlessSSO - handles the OAuth login flow for headless interfaces such as Netmaker CLI via websocket
+func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Log(0, "error during connection upgrade for node sign-in:", err.Error())
+		return
+	}
+	if conn == nil {
+		logger.Log(0, "failed to establish web-socket connection during node sign-in")
+		return
+	}
+	defer conn.Close()
+
+	req := &netcache.CValue{User: "", Pass: ""}
+	stateStr := hex.EncodeToString([]byte(logic.RandomString(node_signin_length)))
+	if err = netcache.Set(stateStr, req); err != nil {
+		logger.Log(0, "Failed to process sso request -", err.Error())
+		return
+	}
+
+	timeout := make(chan bool, 1)
+	answer := make(chan string, 1)
+	defer close(answer)
+	defer close(timeout)
+
+	if auth_provider == nil {
+		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
+			logger.Log(0, "error during message writing:", err.Error())
+		}
+		return
+	}
+	redirectUrl = fmt.Sprintf("https://%s/api/oauth/register/%s", servercfg.GetAPIConnString(), stateStr)
+	if err = conn.WriteMessage(websocket.TextMessage, []byte(redirectUrl)); err != nil {
+		logger.Log(0, "error during message writing:", err.Error())
+	}
+
+	go func() {
+		for {
+			cachedReq, err := netcache.Get(stateStr)
+			if err != nil {
+				if strings.Contains(err.Error(), "expired") {
+					logger.Log(0, "timeout occurred while waiting for SSO")
+					timeout <- true
+					break
+				}
+				continue
+			} else if cachedReq.Pass != "" {
+				logger.Log(0, "SSO process completed for user ", cachedReq.User)
+				answer <- cachedReq.Pass
+				break
+			}
+			time.Sleep(500) // try it 2 times per second to see if auth is completed
+		}
+	}()
+
+	select {
+	case result := <-answer:
+		if err = conn.WriteMessage(websocket.TextMessage, []byte(result)); err != nil {
+			logger.Log(0, "Error during message writing:", err.Error())
+		}
+	case <-timeout:
+		logger.Log(0, "Authentication server time out for headless SSO login")
+		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
+			logger.Log(0, "Error during message writing:", err.Error())
+		}
+	}
+	if err = netcache.Del(stateStr); err != nil {
+		logger.Log(0, "failed to remove node SSO cache entry", err.Error())
+	}
+	if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
+		logger.Log(0, "write close:", err.Error())
+	}
 }
 
 // == private methods ==
