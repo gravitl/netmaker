@@ -2,7 +2,6 @@ package auth
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -183,7 +182,7 @@ func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	req := &netcache.CValue{User: "", Pass: ""}
-	stateStr := hex.EncodeToString([]byte(logic.RandomString(headless_signin_length)))
+	stateStr := logic.RandomString(headless_signin_length)
 	if err = netcache.Set(stateStr, req); err != nil {
 		logger.Log(0, "Failed to process sso request -", err.Error())
 		return
