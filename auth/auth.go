@@ -235,7 +235,7 @@ func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err = netcache.Del(stateStr); err != nil {
-		logger.Log(0, "failed to remove node SSO cache entry", err.Error())
+		logger.Log(0, "failed to remove SSO cache entry", err.Error())
 	}
 	if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
 		logger.Log(0, "write close:", err.Error())

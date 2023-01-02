@@ -35,7 +35,7 @@ func ssoLogin(endpoint string) string {
 	if err != nil {
 		log.Fatal("error reading from server: ", err.Error())
 	}
-	fmt.Printf("Please visit:\n %s \n to authenticate", string(msg))
+	fmt.Printf("Please visit:\n %s \n to authenticate\n", string(msg))
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
@@ -56,7 +56,6 @@ func ssoLogin(endpoint string) string {
 				return
 			}
 			if strings.Contains(string(msg), "JWT: ") {
-				// Access was granted
 				authToken = strings.TrimPrefix(string(msg), "JWT: ")
 			} else {
 				logger.Log(0, "Message from server:", string(msg))
