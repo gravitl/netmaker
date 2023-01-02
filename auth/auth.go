@@ -35,6 +35,7 @@ const (
 	auth_key               = "netmaker_auth"
 	user_signin_length     = 16
 	node_signin_length     = 64
+	headless_signin_length = 32
 )
 
 // OAuthUser - generic OAuth strategy user
@@ -116,9 +117,17 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	state, _ := getStateAndCode(r)
 	_, err := netcache.Get(state) // if in netcache proceeed with node registration login
-	if err == nil || len(state) == node_signin_length || errors.Is(err, netcache.ErrExpired) {
-		logger.Log(0, "proceeding with node SSO callback")
-		HandleNodeSSOCallback(w, r)
+	if err == nil || errors.Is(err, netcache.ErrExpired) {
+		switch len(state) {
+		case node_signin_length:
+			logger.Log(0, "proceeding with node SSO callback")
+			HandleNodeSSOCallback(w, r)
+		case headless_signin_length:
+			logger.Log(0, "proceeding with headless SSO callback")
+			HandleHeadlessSSOCallback(w, r)
+		default:
+			logger.Log(1, "invalid state length: ", fmt.Sprintf("%d", len(state)))
+		}
 	} else { // handle normal login
 		functions[handle_callback].(func(http.ResponseWriter, *http.Request))(w, r)
 	}
@@ -174,7 +183,7 @@ func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	req := &netcache.CValue{User: "", Pass: ""}
-	stateStr := hex.EncodeToString([]byte(logic.RandomString(node_signin_length)))
+	stateStr := hex.EncodeToString([]byte(logic.RandomString(headless_signin_length)))
 	if err = netcache.Set(stateStr, req); err != nil {
 		logger.Log(0, "Failed to process sso request -", err.Error())
 		return
