@@ -17,6 +17,7 @@ type Context struct {
 	MasterKey string `yaml:"masterkey,omitempty"`
 	Current   bool   `yaml:"current,omitempty"`
 	AuthToken string `yaml:"auth_token,omitempty"`
+	SSO       bool   `yaml:"sso,omitempty"`
 }
 
 var (
