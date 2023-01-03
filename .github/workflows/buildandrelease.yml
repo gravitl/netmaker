@@ -83,10 +83,10 @@ jobs:
       - name: Build
         run: |
           cd cli
-          GOOS=linux GOARCH=amd64 go build -o nmctl-linux-amd64
-          GOOS=darwin GOARCH=amd64 go build -o nmctl-darwin-amd64
-          GOOS=darwin GOARCH=arm64 go build -o nmctl-darwin-arm64
-          GOOS=windows GOARCH=amd64 go build -o nmctl-windows-amd64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o nmctl-linux-amd64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o nmctl-darwin-amd64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o nmctl-darwin-arm64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o nmctl-windows-amd64
       - name: Upload nmctl-linux-amd64 to Release
         continue-on-error: true
         uses: svenstaro/upload-release-action@v2
