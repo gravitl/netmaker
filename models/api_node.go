@@ -113,7 +113,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode := ApiNode{}
 	apiNode.ID = nm.ID.String()
-	apiNode.HostID = nm.ID.String()
+	apiNode.HostID = nm.HostID.String()
 	apiNode.Address = nm.Address.String()
 	if isEmptyAddr(apiNode.Address) {
 		apiNode.Address = ""
