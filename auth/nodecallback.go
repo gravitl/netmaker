@@ -135,7 +135,9 @@ func setNetcache(ncache *netcache.CValue, state string) error {
 
 func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []byte {
 	var response bytes.Buffer
-	ncache.Pass = message
+	if ncache != nil {
+		ncache.Pass = message
+	}
 	err := ssoErrCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
 		User: uname,
 		Verb: message,
