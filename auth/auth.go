@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -73,10 +72,6 @@ func InitializeAuthProvider() string {
 		logger.Log(0, err.Error())
 		return ""
 	}
-	var currentFrontendURL = servercfg.GetFrontendURL()
-	if currentFrontendURL == "" {
-		return ""
-	}
 	var authInfo = servercfg.GetAuthProviderInfo()
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
@@ -100,8 +95,7 @@ func InitializeAuthProvider() string {
 // Note: not included in API reference as part of the OAuth process itself.
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = fmt.Fprintln(w, oauthNotConfigured)
+		handleOauthNotConfigured(w)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
@@ -128,17 +122,15 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
-		var referer = r.Header.Get("referer")
-		if referer != "" {
-			http.Redirect(w, r, referer+"login?oauth=callback-error", http.StatusTemporaryRedirect)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = fmt.Fprintln(w, oauthNotConfigured)
+		handleOauthNotConfigured(w)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
+		return
+	}
+	if servercfg.GetFrontendURL() == "" {
+		handleOauthNotConfigured(w)
 		return
 	}
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)

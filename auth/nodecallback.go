@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 var (
@@ -41,7 +40,7 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 	var userClaims, err = functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
+		handleOauthNotConfigured(w)
 		return
 	}
 
