@@ -20,7 +20,7 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "netmaker",
+	Use:   "nmctl",
 	Short: "CLI for interacting with Netmaker Server",
 	Long:  `CLI for interacting with Netmaker Server`,
 	// Uncomment the following line if your bare application

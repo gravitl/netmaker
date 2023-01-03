@@ -71,6 +71,62 @@ jobs:
           prerelease: true
           asset_name: netmaker
 
+  nmctl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: Build
+        run: |
+          cd cli
+          GOOS=linux GOARCH=amd64 go build -o nmctl-linux-amd64
+          GOOS=darwin GOARCH=amd64 go build -o nmctl-darwin-amd64
+          GOOS=darwin GOARCH=arm64 go build -o nmctl-darwin-arm64
+          GOOS=windows GOARCH=amd64 go build -o nmctl-windows-amd64
+      - name: Upload nmctl-linux-amd64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-linux-amd64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-linux-amd64
+      - name: Upload nmctl-darwin-amd64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-darwin-amd64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-darwin-amd64
+      - name: Upload nmctl-darwin-arm64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-darwin-arm64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-darwin-arm64
+      - name: Upload nmctl-windows-amd64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-windows-amd64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-windows-amd64
   netclient-x86:
     runs-on: ubuntu-latest
     needs: version

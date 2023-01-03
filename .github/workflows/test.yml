@@ -24,6 +24,22 @@ jobs:
          env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build main.go
          env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build main.go
          env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build main.go
+  nmctl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: Build
+        run: |
+          cd cli
+          GOOS=linux GOARCH=amd64 go build -o nmctl
+          GOOS=darwin GOARCH=amd64 go build -o nmctl
+          GOOS=darwin GOARCH=arm64 go build -o nmctl
+          GOOS=windows GOARCH=amd64 go build -o nmctl
   linux-gui:
     runs-on: ubuntu-latest
     steps:
