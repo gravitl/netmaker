@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // HandleHeadlessSSOCallback - handle OAuth callback for headless logins such as Netmaker CLI
@@ -26,7 +25,8 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	userClaims, err := functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Failed to retrieve OAuth user claims"))
 		return
 	}
 

@@ -172,11 +172,11 @@ func IsOauthUser(user *models.User) error {
 func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logger.Log(0, "error during connection upgrade for node sign-in:", err.Error())
+		logger.Log(0, "error during connection upgrade for headless sign-in:", err.Error())
 		return
 	}
 	if conn == nil {
-		logger.Log(0, "failed to establish web-socket connection during node sign-in")
+		logger.Log(0, "failed to establish web-socket connection during headless sign-in")
 		return
 	}
 	defer conn.Close()
