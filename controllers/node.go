@@ -571,10 +571,16 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	// consume password before hashing for mq client creation
 	hostPassword := data.Host.HostPass
 	data.Node.Server = servercfg.GetServer()
-
 	if err := logic.CreateHost(&data.Host); err != nil {
 		if errors.Is(err, logic.ErrHostExists) {
 			logger.Log(3, "host exists .. no need to create")
+			host, err := logic.GetHost(data.Host.ID.String())
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to find host:", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			logic.UpdateHost(&data.Host, host) // update the in memory struct values
 			networks := logic.GetHostNetworks(data.Host.ID.String())
 			if err := mq.ModifyClient(&mq.MqClient{
 				ID:       data.Host.ID.String(),
@@ -585,6 +591,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
+
 		} else {
 			logger.Log(0, "error creating host", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -604,14 +611,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	host, err := logic.GetHost(data.Host.ID.String())
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to find host:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	err = logic.AssociateNodeToHost(&data.Node, host)
+	err = logic.AssociateNodeToHost(&data.Node, &data.Host)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create node on network [%s]: %s",

@@ -248,6 +248,9 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 			IP:   peerHost.EndpointIP,
 			Port: peerHost.ListenPort,
 		}
+		if !host.ProxyEnabled && peerHost.ProxyEnabled {
+			peerConfig.Endpoint.Port = peerHost.ProxyListenPort
+		}
 		if uselocal {
 			peerConfig.Endpoint.IP = peer.LocalAddress.IP
 		}
