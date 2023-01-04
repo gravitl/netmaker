@@ -7,6 +7,7 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/context"
 	"github.com/gravitl/netmaker/cli/cmd/dns"
 	"github.com/gravitl/netmaker/cli/cmd/ext_client"
+	"github.com/gravitl/netmaker/cli/cmd/host"
 	"github.com/gravitl/netmaker/cli/cmd/keys"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
@@ -66,4 +67,5 @@ func init() {
 	rootCmd.AddCommand(usergroup.GetRoot())
 	rootCmd.AddCommand(metrics.GetRoot())
 	rootCmd.AddCommand(network_user.GetRoot())
+	rootCmd.AddCommand(host.GetRoot())
 }
