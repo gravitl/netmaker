@@ -58,6 +58,7 @@ type Iface struct {
 type CommonNode struct {
 	ID                  uuid.UUID            `json:"id" yaml:"id"`
 	HostID              uuid.UUID            `json:"hostid" yaml:"hostid"`
+	Name                string               `json:"name" yaml:"name"`
 	Network             string               `json:"network" yaml:"network"`
 	NetworkRange        net.IPNet            `json:"networkrange" yaml:"networkrange"`
 	NetworkRange6       net.IPNet            `json:"networkrange6" yaml:"networkrange6"`

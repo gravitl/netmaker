@@ -16,6 +16,20 @@ type PeerUpdate struct {
 	ProxyUpdate   proxy_models.ProxyManagerPayload `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
 }
 
+// HostPeerUpdate
+type HostPeerUpdate struct {
+	Network     map[string]NetworkInfo           `json:"network" bson:"network" yaml:"network"`
+	Peers       []wgtypes.PeerConfig             `json:"peers" bson:"peers" yaml:"peers"`
+	PeerIDs     HostPeerMap                      `json:"peerids" bson:"peerids" yaml:"peerids"`
+	ProxyUpdate proxy_models.ProxyManagerPayload `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
+}
+
+type NetworkInfo struct {
+	ServerVersion string `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
+	ServerAddr    string `json:"serveraddr" bson:"serveraddr" yaml:"serveraddr"`
+	DNS           string `json:"dns" bson:"dns" yaml:"dns"`
+}
+
 // KeyUpdate - key update struct
 type KeyUpdate struct {
 	Network   string `json:"network" bson:"network"`
