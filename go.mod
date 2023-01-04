@@ -44,7 +44,16 @@ require (
 
 require (
 	github.com/gravitl/netclient v0.0.0-20221228022055-5bdb0bc7861d
+	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.0
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/spf13/cobra v1.6.0
+)
+
+require (
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/rivo/uniseg v0.1.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 )
 
 require (
