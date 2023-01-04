@@ -174,7 +174,7 @@ func fetchHostAcls(hostID string) []Acl {
 	return []Acl{
 		{
 			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("peers/host/%s", hostID),
+			Topic:    fmt.Sprintf("peers/host/%s/#", hostID),
 			Priority: -1,
 			Allow:    true,
 		},

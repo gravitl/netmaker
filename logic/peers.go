@@ -194,8 +194,10 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 
 func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 	hostPeerUpdate := models.HostPeerUpdate{
-		Network: make(map[string]models.NetworkInfo),
-		PeerIDs: make(models.HostPeerMap),
+		Network:       make(map[string]models.NetworkInfo),
+		PeerIDs:       make(models.HostPeerMap),
+		ServerVersion: servercfg.GetVersion(),
+		ServerAddrs:   []models.ServerAddr{},
 	}
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
@@ -205,9 +207,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		}
 		log.Println("peer update for node ", node.ID)
 		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
-			ServerVersion: servercfg.GetVersion(),
-			ServerAddr:    node.Server,
-			DNS:           getPeerDNS(node.Network),
+			DNS: getPeerDNS(node.Network),
 		}
 		currentPeers, err := GetNetworkNodes(node.Network)
 		if err != nil {

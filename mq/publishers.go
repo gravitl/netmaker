@@ -69,7 +69,7 @@ func PublishSingleHostUpdate(host *models.Host) error {
 	if err != nil {
 		return err
 	}
-	return publish(host, "peers/host", data)
+	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
