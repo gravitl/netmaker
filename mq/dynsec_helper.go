@@ -232,6 +232,20 @@ func DeleteNetworkRole(network string) error {
 	return publishEventToDynSecTopic(event)
 }
 
+func deleteHostRole(hostID string) error {
+	// Deletes the hostID role from MQ
+	event := MqDynsecPayload{
+		Commands: []MqDynSecCmd{
+			{
+				Command:  DeleteRoleCmd,
+				RoleName: getHostRoleName(hostID),
+			},
+		},
+	}
+
+	return publishEventToDynSecTopic(event)
+}
+
 // CreateNetworkRole - createss a network role from DynSec system
 func CreateNetworkRole(network string) error {
 	// Create Role with acls for the network

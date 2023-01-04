@@ -43,6 +43,7 @@ func ModifyClient(client *MqClient) error {
 
 // DeleteMqClient - removes a client from the DynSec system
 func DeleteMqClient(hostID string) error {
+	deleteHostRole(hostID)
 	event := MqDynsecPayload{
 		Commands: []MqDynSecCmd{
 			{
