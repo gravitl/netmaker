@@ -19,8 +19,8 @@ const (
 	exporterRole = "exporter"
 	// constant for node role
 	NodeRole = "node"
-	// HostRole constant for host role
-	HostRole = "host"
+	// HostGenericRole constant for host role
+	HostGenericRole = "host"
 
 	// const for dynamic security file
 	dynamicSecurityFile = "dynamic-security.json"
@@ -66,7 +66,7 @@ var (
 				Acls:     fetchServerAcls(),
 			},
 			{
-				Rolename: HostRole,
+				Rolename: HostGenericRole,
 				Acls:     fetchNodeAcls(),
 			},
 			exporterMQRole,
@@ -169,6 +169,18 @@ func ListClients(client mqtt.Client) (ListClientsData, error) {
 	return resp, errors.New("resp not found")
 }
 
+// fetches host related acls
+func fetchHostAcls(hostID string) []Acl {
+	return []Acl{
+		{
+			AclType:  "publishClientReceive",
+			Topic:    fmt.Sprintf("peers/host/%s", hostID),
+			Priority: -1,
+			Allow:    true,
+		},
+	}
+}
+
 // FetchNetworkAcls - fetches network acls
 func FetchNetworkAcls(network string) []Acl {
 	return []Acl{
@@ -237,6 +249,27 @@ func CreateNetworkRole(network string) error {
 	return publishEventToDynSecTopic(event)
 }
 
+// creates role for the host with ID.
+func createHostRole(hostID string) error {
+	// Create Role with acls for the host
+	event := MqDynsecPayload{
+		Commands: []MqDynSecCmd{
+			{
+				Command:  CreateRoleCmd,
+				RoleName: getHostRoleName(hostID),
+				Textname: "host  role with Acls for hosts",
+				Acls:     fetchHostAcls(hostID),
+			},
+		},
+	}
+
+	return publishEventToDynSecTopic(event)
+}
+
+func getHostRoleName(hostID string) string {
+	return fmt.Sprintf("host-%s", hostID)
+}
+
 // serverAcls - fetches server role related acls
 func fetchServerAcls() []Acl {
 	return []Acl{
@@ -249,6 +282,12 @@ func fetchServerAcls() []Acl {
 		{
 			AclType:  "publishClientSend",
 			Topic:    "proxy/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientSend",
+			Topic:    "peers/host/#",
 			Priority: -1,
 			Allow:    true,
 		},
@@ -329,6 +368,12 @@ func fetchNodeAcls() []Acl {
 		{
 			AclType:  "publishClientSend",
 			Topic:    "metrics/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientReceive",
+			Topic:    "peers/host",
 			Priority: -1,
 			Allow:    true,
 		},

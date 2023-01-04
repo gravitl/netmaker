@@ -40,7 +40,7 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	return ncutils.DeChunk(msg, nodePubTKey, serverPrivTKey)
 }
 
-func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 	// fetch server public key to be certain hasn't changed in transit
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey()
 	if trafficErr != nil {
@@ -52,10 +52,6 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return nil, err
-	}
 	nodePubKey, err := ncutils.ConvertBytesToKey(host.TrafficKeyPublic)
 	if err != nil {
 		return nil, err
@@ -68,8 +64,8 @@ func encryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
 }
 
-func publish(node *models.Node, dest string, msg []byte) error {
-	encrypted, encryptErr := encryptMsg(node, msg)
+func publish(host *models.Host, dest string, msg []byte) error {
+	encrypted, encryptErr := encryptMsg(host, msg)
 	if encryptErr != nil {
 		return encryptErr
 	}

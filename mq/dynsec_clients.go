@@ -13,7 +13,7 @@ func ModifyClient(client *MqClient) error {
 
 	roles := []MqDynSecRole{
 		{
-			Rolename: HostRole,
+			Rolename: HostGenericRole,
 			Priority: -1,
 		},
 	}
@@ -57,9 +57,17 @@ func DeleteMqClient(hostID string) error {
 // CreateMqClient - creates an MQ DynSec client
 func CreateMqClient(client *MqClient) error {
 
+	err := createHostRole(client.ID)
+	if err != nil {
+		return err
+	}
 	roles := []MqDynSecRole{
 		{
-			Rolename: HostRole,
+			Rolename: HostGenericRole,
+			Priority: -1,
+		},
+		{
+			Rolename: getHostRoleName(client.ID),
 			Priority: -1,
 		},
 	}
