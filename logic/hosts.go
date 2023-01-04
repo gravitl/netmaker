@@ -63,6 +63,26 @@ func GetHostsMap() (map[string]*models.Host, error) {
 	return currHostMap, nil
 }
 
+func GetNetworkHosts(network string) ([]models.Host, error) {
+	networkHosts := []models.Host{}
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return networkHosts, err
+	}
+	for _, host := range hosts {
+		for _, nodeID := range host.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil {
+				if node.Network == network {
+					networkHosts = append(networkHosts, host)
+					break
+				}
+			}
+		}
+	}
+	return networkHosts, nil
+}
+
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
 	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)

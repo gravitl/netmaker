@@ -271,7 +271,7 @@ func createHostRole(hostID string) error {
 			{
 				Command:  CreateRoleCmd,
 				RoleName: getHostRoleName(hostID),
-				Textname: "host  role with Acls for hosts",
+				Textname: "host role with Acls for hosts",
 				Acls:     fetchHostAcls(hostID),
 			},
 		},

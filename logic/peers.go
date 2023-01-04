@@ -199,13 +199,13 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 	}
+	log.Println("peer update for host ", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
 		}
-		log.Println("peer update for node ", node.ID)
 		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
 			DNS: getPeerDNS(node.Network),
 		}
@@ -279,10 +279,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				allowedips = append(allowedips, getEgressIPs(&node, &peer)...)
 			}
 			peerConfig.AllowedIPs = allowedips
+
 			if _, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
-			}
-			if _, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
