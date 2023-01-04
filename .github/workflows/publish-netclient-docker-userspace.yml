@@ -44,7 +44,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64, linux/arm64, linux/arm/v7
           file: ./docker/Dockerfile-netclient-multiarch-userspace
           push: true
           tags: gravitl/netclient-go:${{ env.TAG }}, gravitl/netclient-userspace:latest

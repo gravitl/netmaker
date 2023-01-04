@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.16.3
+    image: gravitl/netmaker:v0.17.1
     cap_add: 
       - NET_ADMIN
       - NET_RAW
@@ -43,17 +43,9 @@ services:
       MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
     ports:
       - "51821-51830:51821-51830/udp"
-    expose:
-      - "8081"
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.netmaker-api.entrypoints=websecure
-      - traefik.http.routers.netmaker-api.rule=Host(`api.NETMAKER_BASE_DOMAIN`)
-      - traefik.http.routers.netmaker-api.service=netmaker-api
-      - traefik.http.services.netmaker-api.loadbalancer.server.port=8081
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.16.3
+    image: gravitl/netmaker-ui:v0.17.1
     depends_on:
       - netmaker
     links:
@@ -61,21 +53,17 @@ services:
     restart: always
     environment:
       BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
-    expose:
-      - "80"
-    labels:
-      - traefik.enable=true
-      - traefik.http.middlewares.nmui-security.headers.accessControlAllowOriginList=*.NETMAKER_BASE_DOMAIN
-      - traefik.http.middlewares.nmui-security.headers.stsSeconds=31536000
-      - traefik.http.middlewares.nmui-security.headers.browserXssFilter=true
-      - traefik.http.middlewares.nmui-security.headers.customFrameOptionsValue=SAMEORIGIN
-      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.X-Robots-Tag=none
-      - traefik.http.middlewares.nmui-security.headers.customResponseHeaders.Server= # Remove the server name
-      - traefik.http.routers.netmaker-ui.entrypoints=websecure
-      - traefik.http.routers.netmaker-ui.middlewares=nmui-security@docker
-      - traefik.http.routers.netmaker-ui.rule=Host(`dashboard.NETMAKER_BASE_DOMAIN`)
-      - traefik.http.routers.netmaker-ui.service=netmaker-ui
-      - traefik.http.services.netmaker-ui.loadbalancer.server.port=80
+  caddy:
+    image: caddy:2.6.2
+    container_name: caddy
+    restart: unless-stopped
+    volumes:
+      - /root/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_conf:/config
+    ports:
+      - "80:80"
+      - "443:443"
   coredns:
     container_name: coredns
     image: coredns/coredns
@@ -85,26 +73,6 @@ services:
     restart: always
     volumes:
       - dnsconfig:/root/dnsconfig
-  traefik:
-    image: traefik:v2.9
-    container_name: traefik
-    command:
-      - "--certificatesresolvers.http.acme.email=YOUR_EMAIL"
-      - "--certificatesresolvers.http.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.http.acme.tlschallenge=true"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.websecure.http.tls=true"
-      - "--entrypoints.websecure.http.tls.certResolver=http"
-      - "--log.level=INFO"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedByDefault=false"
-      - "--serverstransport.insecureskipverify=true"
-    restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_certs:/letsencrypt
-    ports:
-      - "443:443"
   mq:
     container_name: mq
     image: eclipse-mosquitto:2.0.15-openssl
@@ -119,16 +87,9 @@ services:
       - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
-    expose:
-      - "8883"
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.mqtt_websocket.rule=Host(`broker.NETMAKER_BASE_DOMAIN`)
-      - traefik.http.routers.mqtt_websocket.entrypoints=websecure
-      - traefik.http.routers.mqtt_websocket.tls.certresolver=http
-      - traefik.http.services.mqtt_websocket.loadbalancer.server.port=8883
 volumes:
-  traefik_certs: {}
+  caddy_data: {}
+  caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_data: {}

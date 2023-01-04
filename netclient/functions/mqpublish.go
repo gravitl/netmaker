@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cloverstd/tcping/ping"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/metrics"
 	"github.com/gravitl/netmaker/models"
@@ -105,7 +106,7 @@ func checkin() {
 				}
 			}
 		}
-		//check version
+		// check version
 		if nodeCfg.Node.Version != ncutils.Version {
 			nodeCfg.Node.Version = ncutils.Version
 			config.Write(&nodeCfg, nodeCfg.Network)
@@ -140,6 +141,14 @@ func Hello(nodeCfg *config.ClientConfig) {
 	var checkin models.NodeCheckin
 	checkin.Version = ncutils.Version
 	checkin.Connected = nodeCfg.Node.Connected
+	ip, err := getInterfaces()
+	if err != nil {
+		logger.Log(0, "failed to retrieve local interfaces", err.Error())
+	} else {
+		nodeCfg.Node.Interfaces = *ip
+		config.Write(nodeCfg, nodeCfg.Network)
+	}
+	checkin.Ifaces = nodeCfg.Node.Interfaces
 	data, err := json.Marshal(checkin)
 	if err != nil {
 		logger.Log(0, "unable to marshal checkin data", err.Error())
@@ -185,15 +194,16 @@ func publishMetrics(nodeCfg *config.ClientConfig) {
 		return
 	}
 
-	metrics, err := metrics.Collect(nodeCfg.Node.Interface, nodeGET.PeerIDs)
+	collected, err := metrics.Collect(nodeCfg.Node.Interface, nodeGET.PeerIDs)
 	if err != nil {
 		logger.Log(0, "failed metric collection for node", nodeCfg.Node.Name, err.Error())
+		return
 	}
-	metrics.Network = nodeCfg.Node.Network
-	metrics.NodeName = nodeCfg.Node.Name
-	metrics.NodeID = nodeCfg.Node.ID
-	metrics.IsServer = "no"
-	data, err := json.Marshal(metrics)
+	collected.Network = nodeCfg.Node.Network
+	collected.NodeName = nodeCfg.Node.Name
+	collected.NodeID = nodeCfg.Node.ID
+	collected.IsServer = "no"
+	data, err := json.Marshal(collected)
 	if err != nil {
 		logger.Log(0, "something went wrong when marshalling metrics data for node", nodeCfg.Node.Name, err.Error())
 	}
@@ -209,15 +219,15 @@ func publishMetrics(nodeCfg *config.ClientConfig) {
 			err = json.Unmarshal(val.([]byte), &oldMetrics)
 			if err == nil {
 				for k := range oldMetrics.Connectivity {
-					currentMetric := metrics.Connectivity[k]
+					currentMetric := collected.Connectivity[k]
 					if currentMetric.Latency == 0 {
 						currentMetric.Latency = oldMetrics.Connectivity[k].Latency
 					}
 					currentMetric.Uptime += oldMetrics.Connectivity[k].Uptime
 					currentMetric.TotalTime += oldMetrics.Connectivity[k].TotalTime
-					metrics.Connectivity[k] = currentMetric
+					collected.Connectivity[k] = currentMetric
 				}
-				newData, err := json.Marshal(metrics)
+				newData, err := json.Marshal(collected)
 				if err == nil {
 					metricsCache.Store(nodeCfg.Node.ID, newData)
 				}

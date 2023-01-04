@@ -64,7 +64,7 @@ func GetFlags(hostname string) []cli.Flag {
 			Aliases: []string{"os"},
 			EnvVars: []string{"NETCLIENT_OS"},
 			Value:   "",
-			Usage:   "Identifiable name for machine within Netmaker network.",
+			Usage:   "Operating system of machine (linux, darwin, windows, freebsd).",
 		},
 		&cli.StringFlag{
 			Name:    "publicipservice",

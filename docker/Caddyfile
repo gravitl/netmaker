@@ -1,5 +1,6 @@
 {
-        # LetsEncrypt account
+        # ZeroSSL account
+        acme_ca https://acme.zerossl.com/v2/DV90
         email YOUR_EMAIL
 }
 
@@ -27,4 +28,9 @@ https://dashboard.NETMAKER_BASE_DOMAIN {
 # API
 https://api.NETMAKER_BASE_DOMAIN {
         reverse_proxy http://netmaker:8081
+}
+
+# MQ
+wss://broker.NETMAKER_BASE_DOMAIN {
+        reverse_proxy ws://mq:8883
 }

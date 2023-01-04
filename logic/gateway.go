@@ -47,7 +47,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	postUpCmd := ""
 	postDownCmd := ""
 	ipv4, ipv6 := getNetworkProtocols(gateway.Ranges)
-	//no support for ipv6 and ip6tables in netmaker container
+	// no support for ipv6 and ip6tables in netmaker container
 	if node.IsServer == "yes" {
 		ipv6 = false
 	}
@@ -181,15 +181,16 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 
 	var postUpCmd, postDownCmd string
 	node, err := GetNodeByID(nodeid)
+
+	if err != nil {
+		return models.Node{}, err
+	}
+
 	if node.OS != "linux" { // add in darwin later
 		return models.Node{}, errors.New(node.OS + " is unsupported for ingress gateways")
 	}
 	if node.OS == "linux" && node.FirewallInUse == models.FIREWALL_NONE {
 		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
-	}
-
-	if err != nil {
-		return models.Node{}, err
 	}
 
 	network, err := GetParentNetwork(netid)
@@ -203,7 +204,7 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	ipv4, ipv6 := getNetworkProtocols(cidrs)
-	//no support for ipv6 and ip6tables in netmaker container
+	// no support for ipv6 and ip6tables in netmaker container
 	if node.IsServer == "yes" {
 		ipv6 = false
 	}

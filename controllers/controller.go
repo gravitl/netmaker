@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -38,8 +39,8 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	// Currently allowed dev origin is all. Should change in prod
 	// should consider analyzing the allowed methods further
 	headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization"})
-	originsOk := handlers.AllowedOrigins([]string{servercfg.GetAllowedOrigin()})
-	methodsOk := handlers.AllowedMethods([]string{"GET", "PUT", "POST", "DELETE"})
+	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
+	methodsOk := handlers.AllowedMethods([]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete})
 
 	for _, handler := range HttpHandlers {
 		handler.(func(*mux.Router))(r)

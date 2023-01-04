@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/go-playground/validator/v10 v10.11.1
-	github.com/golang-jwt/jwt/v4 v4.4.2
+	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
@@ -43,11 +43,16 @@ require (
 	github.com/agnivade/levenshtein v1.1.1
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/gorilla/websocket v1.5.0
+	github.com/guumaster/tablewriter v0.0.10
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/spf13/cobra v1.6.1
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
 )
 
 require github.com/matryer/is v1.4.0
+
+require github.com/inconshreveable/mousetrap v1.0.1 // indirect
 
 require (
 	cloud.google.com/go/compute v1.7.0 // indirect
@@ -81,6 +86,7 @@ require (
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
+	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/mdlayher/genetlink v1.2.0 // indirect
 	github.com/mdlayher/netlink v1.6.0 // indirect
 	github.com/mdlayher/socket v0.1.1 // indirect
@@ -88,10 +94,12 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rivo/uniseg v0.1.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/srwiley/oksvg v0.0.0-20200311192757-870daf9aa564 // indirect
 	github.com/srwiley/rasterx v0.0.0-20200120212402-85cb7272f5e9 // indirect
 	github.com/tevino/abool v1.2.0 // indirect

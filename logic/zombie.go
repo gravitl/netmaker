@@ -63,7 +63,7 @@ func ManageZombies(ctx context.Context) {
 				logger.Log(3, "no zombies found")
 			}
 		case <-time.After(time.Second * ZOMBIE_TIMEOUT):
-			logger.Log(0, "checking for zombie nodes")
+			logger.Log(3, "checking for zombie nodes")
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
 					node, err := GetNodeByID(zombies[i])

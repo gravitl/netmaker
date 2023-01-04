@@ -1,8 +1,9 @@
 name: Integration Test
 
 on:
+  workflow_dispatch:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, synchronize, reopened]
 
 jobs:
   build:
@@ -11,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
@@ -23,17 +24,34 @@ jobs:
          env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build main.go
          env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build main.go
          env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build main.go
+  nmctl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: Build
+        run: |
+          cd cli
+          GOOS=linux GOARCH=amd64 go build -o nmctl
+          GOOS=darwin GOARCH=amd64 go build -o nmctl
+          GOOS=darwin GOARCH=arm64 go build -o nmctl
+          GOOS=windows GOARCH=amd64 go build -o nmctl
   linux-gui:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
         run: |
+         sudo apt-get update
          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=gui main.go
   mac-gui:
@@ -42,7 +60,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build mac
@@ -54,7 +72,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Mysys2 setup
@@ -74,15 +92,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: run tests
         run: |
-            sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev 
-            go test -p 1 ./... -v
-            go install honnef.co/go/tools/cmd/staticcheck@latest
-            { ~/go/bin/staticcheck  -tags=ee ./... ; }
+          sudo apt update
+          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
+          go test -p 1 ./... -v
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          { ~/go/bin/staticcheck  -tags=ee ./... ; }
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.zx2c4.com/wireguard/wgctrl"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
@@ -22,7 +24,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/local"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/netclient/wireguard"
-	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
 // LINUX_APP_DATA_PATH - linux path
@@ -61,27 +62,27 @@ func ListPorts() error {
 
 func getPrivateAddr() (string, error) {
 
-	var local string
+	var localIPStr string
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err == nil {
 		defer conn.Close()
 
 		localAddr := conn.LocalAddr().(*net.UDPAddr)
 		localIP := localAddr.IP
-		local = localIP.String()
+		localIPStr = localIP.String()
 	}
-	if local == "" {
-		local, err = getPrivateAddrBackup()
+	if localIPStr == "" {
+		localIPStr, err = getPrivateAddrBackup()
 	}
 
-	if local == "" {
+	if localIPStr == "" {
 		err = errors.New("could not find local ip")
 	}
-	if net.ParseIP(local).To16() != nil {
-		local = "[" + local + "]"
+	if net.ParseIP(localIPStr).To16() != nil {
+		localIPStr = "[" + localIPStr + "]"
 	}
 
-	return local, err
+	return localIPStr, err
 }
 
 func getPrivateAddrBackup() (string, error) {
@@ -125,6 +126,37 @@ func getPrivateAddrBackup() (string, error) {
 		return "", err
 	}
 	return local, err
+}
+
+func getInterfaces() (*[]models.Iface, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	var data []models.Iface
+	var link models.Iface
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		for _, addr := range addrs {
+			link.Name = iface.Name
+			_, cidr, err := net.ParseCIDR(addr.String())
+			if err != nil {
+				continue
+			}
+			link.Address = *cidr
+			data = append(data, link)
+		}
+	}
+	return &data, nil
 }
 
 // GetNode - gets node locally

@@ -1,0 +1,31 @@
+{
+    "addressrange": "10.120.130.0/24",
+    "addressrange6": "",
+    "netid": "test3",
+    "defaultlistenport": 51821,
+    "nodelimit": 999999999,
+    "defaultpostup": "",
+    "defaultpostdown": "",
+    "defaultkeepalive": 20,
+    "defaultinterface": "nm-test3",
+    "accesskeys": [],
+    "allowmanualsignup": "no",
+    "islocal": "no",
+    "isipv4": "yes",
+    "isipv6": "no",
+    "ispointtosite": "no",
+    "localrange": "",
+    "defaultudpholepunch": "yes",
+    "defaultextclientdns": "",
+    "defaultmtu": 1280,
+    "defaultacl": "yes",
+    "prosettings": {
+      "defaultaccesslevel": 3,
+      "defaultusernodelimit": 0,
+      "defaultuserclientlimit": 0,
+      "allowedusers": [],
+      "allowedgroups": [
+        "*"
+      ]
+    }
+  }

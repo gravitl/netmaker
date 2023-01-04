@@ -17,6 +17,11 @@ cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
 
+if [ $(id -u) -ne 0 ]; then
+   echo "This script must be run as root"
+   exit 1
+fi
+
 if [ -z "$1" ]; then
 	echo "-----------------------------------------------------"
 	echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
@@ -61,16 +66,11 @@ confirm() {(
       read -p 'Does everything look right? [y/n]: ' yn
       case $yn in
           [Yy]* ) override="true"; break;;
-          [Nn]* ) echo "exiting..."; exit;;
+          [Nn]* ) echo "exiting..."; exit 1;;
           * ) echo "Please answer yes or no.";;
       esac
   done
 )}
-
-if [ $(id -u) -ne 0 ]; then
-   echo "This script must be run as root"
-   exit 1
-fi
 
 echo "checking dependencies..."
 
@@ -124,6 +124,9 @@ if [ -z "${install_cmd}" ]; then
 fi
 
 set -- $dependencies
+
+${update_cmd}
+
 while [ -n "$1" ]; do
 	if [ "${OS}" = "FreeBSD" ]; then
 		is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
@@ -186,7 +189,6 @@ COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
 DOMAIN_TYPE=""
 
 echo "-----------------------------------------------------"
@@ -254,10 +256,16 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 
 fi
 
-unset EMAIL
-while [ -z ${EMAIL} ]; do
-     read -p "Email Address (for LetsEncrypt): " EMAIL
-done
+unset GET_EMAIL
+unset RAND_EMAIL
+RAND_EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
+read -p "Email Address for Domain Registration (click 'enter' to use $RAND_EMAIL): " GET_EMAIL
+if [ -z "$GET_EMAIL" ]; then
+  echo "using rand email"
+  EMAIL="$RAND_EMAIL"
+else
+  EMAIL="$GET_EMAIL"
+fi
 
 wait_seconds 2
 
@@ -287,24 +295,27 @@ wait_seconds 3
 echo "Pulling config files..."
 
 COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml" 
+CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile"
 if [ "$INSTALL_TYPE" = "ee" ]; then
 	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.ee.yml" 
+	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile-EE"
 fi
 
-wget -O docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh && chmod +x wait.sh
+wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh && chmod +x /root/wait.sh
 
 mkdir -p /etc/netmaker
 
-echo "Setting docker-compose..."
+echo "Setting docker-compose and Caddyfile..."
 
-sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
+sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
+sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
-sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/docker-compose.yml
+sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 
 if [ "$INSTALL_TYPE" = "ee" ]; then
-	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml 
-	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml 
+	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
+	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
 fi
 echo "Starting containers..."
 
@@ -314,13 +325,13 @@ sleep 2
 
 test_connection() {
 
-echo "Testing Traefik setup (please be patient, this may take 1-2 minutes)"
-for i in 1 2 3 4 5 6
+echo "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
+for i in 1 2 3 4 5 6 7 8
 do
 curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
 
-if [[ "$i" == 6 ]]; then
-  echo "    Traefik is having an issue setting up certificates, please investigate (docker logs traefik)"
+if [[ "$i" == 8 ]]; then
+  echo "    Caddy is having an issue setting up certificates, please investigate (docker logs caddy)"
   echo "    Exiting..."
   exit 1
 elif [[ "$curlresponse" == *"failed to verify the legitimacy of the server"* ]]; then
@@ -340,7 +351,7 @@ done
 
 setup_mesh() {( set -e
 
-wait_seconds 5
+wait_seconds 15
 
 echo "Creating netmaker network (10.101.0.0/16)"
 
@@ -357,16 +368,32 @@ wait_seconds 3
 
 echo "Configuring netmaker server as ingress gateway"
 
-
-while [ -z "$SERVER_ID" ]; do
-	echo "waiting for server node to become available"
-	wait_seconds 2
+for i in 1 2 3 4 5 6
+do
+	echo "    waiting for server node to become available"
+	wait_seconds 10
 	curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker)
 	SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
+	echo "    Server ID: $SERVER_ID"
+	if [ $SERVER_ID == "null" ]; then
+		SERVER_ID=""
+	fi
+	if [[ "$i" -ge "6" && -z "$SERVER_ID" ]]; then
+		echo "    Netmaker is having issues configuring itself, please investigate (docker logs netmaker)"
+		echo "    Exiting..."
+		exit 1
+	elif [ -z "$SERVER_ID" ]; then
+		echo "    server node not yet configured, retrying..."
+	elif [[ ! -z "$SERVER_ID" ]]; then
+		echo "    server node is now availble, continuing"
+		break
+	fi
 done
 
-curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
 
+if [[ ! -z "$SERVER_ID"  ]]; then
+	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
+fi 
 )}
 
 set +e

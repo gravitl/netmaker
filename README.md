@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.16.3-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.17.1-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
@@ -52,10 +52,14 @@
 
 (For production-grade installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/master/install.html).)  
 
-1. Get a cloud VM with Ubuntu 20.04 and a public IP.
-2. Open ports 443 and 51821-51830/udp on the VM firewall and in cloud security settings.
-3. Run the script: `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash`  
-3.a. (with custom domain + email): `wget -qO - https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh | sudo bash -s -- -d mynetmaker.domain.com -e example@email.com`    
+1. Get a cloud VM with Ubuntu 22.04 and a public IP.
+2. Open ports 443, 80, and 51821-51830/udp on the VM firewall and in cloud security settings.
+3. (optional) Prepare DNS - Set a wildcard subdomain in your DNS for Netmaker, e.g. *.netmaker.example.com
+4. Run the script: 
+
+`sudo wget -qO /root/nm-quick-interactive.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick-interactive.sh && sudo chmod +x /root/nm-quick-interactive.sh && sudo /root/nm-quick-interactive.sh`  
+
+This script gives you the option to deploy the Community or Enterprise version of Netmaker. If deploying Enterprise, you get a free account with a 50 node limit by default. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
 
 <p float="left" align="middle">
 <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />

@@ -1,0 +1,50 @@
+{
+        # LetsEncrypt account
+        email YOUR_EMAIL
+}
+
+# Dashboard
+https://dashboard.NETMAKER_BASE_DOMAIN {
+        # Apply basic security headers
+        header {
+                # Enable cross origin access to *.NETMAKER_BASE_DOMAIN
+                Access-Control-Allow-Origin *.NETMAKER_BASE_DOMAIN
+                # Enable HTTP Strict Transport Security (HSTS)
+                Strict-Transport-Security "max-age=31536000;"
+                # Enable cross-site filter (XSS) and tell browser to block detected attacks
+                X-XSS-Protection "1; mode=block"
+                # Disallow the site to be rendered within a frame on a foreign domain (clickjacking protection)
+                X-Frame-Options "SAMEORIGIN"
+                # Prevent search engines from indexing
+                X-Robots-Tag "none"
+                # Remove the server name
+                -Server
+        }
+
+        reverse_proxy http://netmaker-ui
+}
+
+# Netmaker Exporter
+https://netmaker-exporter.NETMAKER_BASE_DOMAIN {
+        reverse_proxy http://netmaker-exporter:8085
+}
+
+# Prometheus
+https://prometheus.NETMAKER_BASE_DOMAIN {
+        reverse_proxy http://prometheus:9090
+}
+
+# Grafana
+https://grafana.NETMAKER_BASE_DOMAIN {
+        reverse_proxy http://grafana:3000
+}
+
+# API
+https://api.NETMAKER_BASE_DOMAIN {
+        reverse_proxy http://netmaker:8081
+}
+
+# MQ
+wss://broker.NETMAKER_BASE_DOMAIN {
+        reverse_proxy ws://mq:8883
+}

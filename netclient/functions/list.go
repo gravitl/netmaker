@@ -6,11 +6,12 @@ import (
 	"io"
 	"net/http"
 
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/config"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // Peer - the peer struct for list
@@ -77,11 +78,11 @@ func getNetwork(network string) (Network, error) {
 	if err != nil {
 		return Network{}, fmt.Errorf("reading configuration for network %v: %w", network, err)
 	}
-	//peers, err := getPeers(network)
+	// peers, err := getPeers(network)
 	peers := []Peer{}
-	if err != nil {
+	/*	if err != nil {
 		return Network{}, fmt.Errorf("listing peers for network %v: %w", network, err)
-	}
+	}*/
 	return Network{
 		Name:  network,
 		ID:    cfg.Node.ID,

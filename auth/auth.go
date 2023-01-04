@@ -3,17 +3,21 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
+
+	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/oauth2"
 )
 
 // == consts ==
@@ -30,6 +34,7 @@ const (
 	auth_key               = "netmaker_auth"
 	user_signin_length     = 16
 	node_signin_length     = 64
+	headless_signin_length = 32
 )
 
 // OAuthUser - generic OAuth strategy user
@@ -41,7 +46,10 @@ type OAuthUser struct {
 	AccessToken       string `json:"accesstoken" bson:"accesstoken"`
 }
 
-var auth_provider *oauth2.Config
+var (
+	auth_provider *oauth2.Config
+	upgrader      = websocket.Upgrader{}
+)
 
 func getCurrentAuthFunctions() map[string]interface{} {
 	var authInfo = servercfg.GetAuthProviderInfo()
@@ -71,10 +79,6 @@ func InitializeAuthProvider() string {
 		logger.Log(0, err.Error())
 		return ""
 	}
-	var currentFrontendURL = servercfg.GetFrontendURL()
-	if currentFrontendURL == "" {
-		return ""
-	}
 	var authInfo = servercfg.GetAuthProviderInfo()
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
@@ -94,12 +98,11 @@ func InitializeAuthProvider() string {
 	return authInfo[0]
 }
 
-// Not included in API reference as part of the OAuth process itself.
 // HandleAuthCallback - handles oauth callback
+// Note: not included in API reference as part of the OAuth process itself.
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintln(w, oauthNotConfigured)
+		handleOauthNotConfigured(w)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
@@ -108,9 +111,17 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	state, _ := getStateAndCode(r)
 	_, err := netcache.Get(state) // if in netcache proceeed with node registration login
-	if err == nil || len(state) == node_signin_length || (err != nil && strings.Contains(err.Error(), "expired")) {
-		logger.Log(0, "proceeding with node SSO callback")
-		HandleNodeSSOCallback(w, r)
+	if err == nil || errors.Is(err, netcache.ErrExpired) {
+		switch len(state) {
+		case node_signin_length:
+			logger.Log(0, "proceeding with node SSO callback")
+			HandleNodeSSOCallback(w, r)
+		case headless_signin_length:
+			logger.Log(0, "proceeding with headless SSO callback")
+			HandleHeadlessSSOCallback(w, r)
+		default:
+			logger.Log(1, "invalid state length: ", fmt.Sprintf("%d", len(state)))
+		}
 	} else { // handle normal login
 		functions[handle_callback].(func(http.ResponseWriter, *http.Request))(w, r)
 	}
@@ -120,23 +131,21 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 //
 // Handles OAuth login.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
-		var referer = r.Header.Get("referer")
-		if referer != "" {
-			http.Redirect(w, r, referer+"login?oauth=callback-error", http.StatusTemporaryRedirect)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintln(w, oauthNotConfigured)
+		handleOauthNotConfigured(w)
 		return
 	}
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
+		return
+	}
+	if servercfg.GetFrontendURL() == "" {
+		handleOauthNotConfigured(w)
 		return
 	}
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
@@ -150,6 +159,80 @@ func IsOauthUser(user *models.User) error {
 	}
 	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
 	return bCryptErr
+}
+
+// HandleHeadlessSSO - handles the OAuth login flow for headless interfaces such as Netmaker CLI via websocket
+func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Log(0, "error during connection upgrade for headless sign-in:", err.Error())
+		return
+	}
+	if conn == nil {
+		logger.Log(0, "failed to establish web-socket connection during headless sign-in")
+		return
+	}
+	defer conn.Close()
+
+	req := &netcache.CValue{User: "", Pass: ""}
+	stateStr := logic.RandomString(headless_signin_length)
+	if err = netcache.Set(stateStr, req); err != nil {
+		logger.Log(0, "Failed to process sso request -", err.Error())
+		return
+	}
+
+	timeout := make(chan bool, 1)
+	answer := make(chan string, 1)
+	defer close(answer)
+	defer close(timeout)
+
+	if auth_provider == nil {
+		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
+			logger.Log(0, "error during message writing:", err.Error())
+		}
+		return
+	}
+	redirectUrl = fmt.Sprintf("https://%s/api/oauth/register/%s", servercfg.GetAPIConnString(), stateStr)
+	if err = conn.WriteMessage(websocket.TextMessage, []byte(redirectUrl)); err != nil {
+		logger.Log(0, "error during message writing:", err.Error())
+	}
+
+	go func() {
+		for {
+			cachedReq, err := netcache.Get(stateStr)
+			if err != nil {
+				if strings.Contains(err.Error(), "expired") {
+					logger.Log(0, "timeout occurred while waiting for SSO")
+					timeout <- true
+					break
+				}
+				continue
+			} else if cachedReq.Pass != "" {
+				logger.Log(0, "SSO process completed for user ", cachedReq.User)
+				answer <- cachedReq.Pass
+				break
+			}
+			time.Sleep(500) // try it 2 times per second to see if auth is completed
+		}
+	}()
+
+	select {
+	case result := <-answer:
+		if err = conn.WriteMessage(websocket.TextMessage, []byte(result)); err != nil {
+			logger.Log(0, "Error during message writing:", err.Error())
+		}
+	case <-timeout:
+		logger.Log(0, "Authentication server time out for headless SSO login")
+		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
+			logger.Log(0, "Error during message writing:", err.Error())
+		}
+	}
+	if err = netcache.Del(stateStr); err != nil {
+		logger.Log(0, "failed to remove SSO cache entry", err.Error())
+	}
+	if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
+		logger.Log(0, "write close:", err.Error())
+	}
 }
 
 // == private methods ==
@@ -169,7 +252,7 @@ func addUser(email string) error {
 		Password: newPass,
 	}
 	if !hasAdmin { // must be first attempt, create an admin
-		if newUser, err = logic.CreateAdmin(newUser); err != nil {
+		if err = logic.CreateAdmin(&newUser); err != nil {
 			logger.Log(1, "error creating admin from user,", email, "; user not added")
 		} else {
 			logger.Log(1, "admin created from user,", email, "; was first user added")
@@ -177,7 +260,7 @@ func addUser(email string) error {
 	} else { // otherwise add to db as admin..?
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
-		if newUser, err = logic.CreateUser(newUser); err != nil {
+		if err = logic.CreateUser(&newUser); err != nil {
 			logger.Log(1, "error creating user,", email, "; user not added")
 		} else {
 			logger.Log(0, "user created from ", email)

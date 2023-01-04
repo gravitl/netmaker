@@ -48,6 +48,9 @@ func setControllerLimits() {
 	logic.Clients_Limit = Limits.Clients
 	logic.Free_Tier = Limits.FreeTier
 	servercfg.Is_EE = true
+	if logic.Free_Tier {
+		logic.Networks_Limit = 3
+	}
 }
 
 func resetFailover() {

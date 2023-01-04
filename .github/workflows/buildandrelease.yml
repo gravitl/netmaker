@@ -55,7 +55,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
@@ -71,6 +71,62 @@ jobs:
           prerelease: true
           asset_name: netmaker
 
+  nmctl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: Build
+        run: |
+          cd cli
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o nmctl-linux-amd64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o nmctl-darwin-amd64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o nmctl-darwin-arm64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o nmctl-windows-amd64
+      - name: Upload nmctl-linux-amd64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-linux-amd64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-linux-amd64
+      - name: Upload nmctl-darwin-amd64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-darwin-amd64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-darwin-amd64
+      - name: Upload nmctl-darwin-arm64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-darwin-arm64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-darwin-arm64
+      - name: Upload nmctl-windows-amd64 to Release
+        continue-on-error: true
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: cli/nmctl-windows-amd64
+          tag: ${{ env.NETMAKER_VERSION }}
+          overwrite: true
+          prerelease: true
+          asset_name: nmctl-windows-amd64
   netclient-x86:
     runs-on: ubuntu-latest
     needs: version
@@ -84,7 +140,7 @@ jobs:
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
 
@@ -106,6 +162,7 @@ jobs:
 
       - name: build gui
         run: |
+          sudo apt-get update
           sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
           go build -tags=gui -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netclient-gui .
 
@@ -188,7 +245,7 @@ jobs:
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
@@ -288,7 +345,7 @@ jobs:
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
@@ -350,7 +407,7 @@ jobs:
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
@@ -412,7 +469,7 @@ jobs:
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
@@ -487,7 +544,7 @@ jobs:
           echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
           echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
@@ -574,7 +631,7 @@ jobs:
     needs: [version, netclient-x86, netclient-arm]
     steps:
       - name: Repository Dispatch
-        uses: peter-evans/repository-dispatch@v2.0.0
+        uses: peter-evans/repository-dispatch@v2.1.1
         with:
           token: ${{ secrets.PERS_TOKEN_FOR_NETMAKER_DEVOPS}}
           repository: gravitl/netmaker-devops
