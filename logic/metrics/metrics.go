@@ -1,19 +1,19 @@
 package metrics
 
 import (
-	"runtime"
 	"time"
 
 	"github.com/go-ping/ping"
+	proxy_metrics "github.com/gravitl/netclient/nmproxy/metrics"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
 // Collect - collects metrics
-func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
+func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models.Metrics, error) {
 	var metrics models.Metrics
 	metrics.Connectivity = make(map[string]models.Metric)
 	var wgclient, err = wgctrl.New()
@@ -22,19 +22,13 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 		return &metrics, err
 	}
 	defer wgclient.Close()
-
-	if runtime.GOOS == "darwin" {
-		iface, err = wireguard.GetRealIface(iface)
-		if err != nil {
-			fillUnconnectedData(&metrics, peerMap)
-			return &metrics, err
-		}
-	}
 	device, err := wgclient.Device(iface)
 	if err != nil {
 		fillUnconnectedData(&metrics, peerMap)
 		return &metrics, err
 	}
+	metrics.ProxyMetrics = make(map[string]proxy_models.Metric)
+
 	// TODO handle freebsd??
 	for i := range device.Peers {
 		currPeer := device.Peers[i]
@@ -88,6 +82,8 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 
 		newMetric.TotalTime = 1
 		metrics.Connectivity[id] = newMetric
+		metrics.ProxyMetrics[id] = proxy_metrics.GetMetric(network, currPeer.PublicKey.String())
+		proxy_metrics.ResetMetricsForPeer(network, currPeer.PublicKey.String())
 	}
 
 	fillUnconnectedData(&metrics, peerMap)
@@ -96,8 +92,11 @@ func Collect(iface string, peerMap models.PeerMap) (*models.Metrics, error) {
 
 // GetExchangedBytesForNode - get exchanged bytes for current node peers
 func GetExchangedBytesForNode(node *models.Node, metrics *models.Metrics) error {
-
-	peers, err := logic.GetPeerUpdate(node)
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		return err
+	}
+	peers, err := logic.GetPeerUpdate(node, host)
 	if err != nil {
 		logger.Log(0, "Failed to get peers: ", err.Error())
 		return err
@@ -107,7 +106,7 @@ func GetExchangedBytesForNode(node *models.Node, metrics *models.Metrics) error 
 		return err
 	}
 	defer wgclient.Close()
-	device, err := wgclient.Device(node.Interface)
+	device, err := wgclient.Device(models.WIREGUARD_INTERFACE)
 	if err != nil {
 		return err
 	}

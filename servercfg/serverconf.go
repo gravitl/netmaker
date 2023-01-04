@@ -41,6 +41,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
+	cfg.StunHost = GetStunAddr()
+	cfg.StunPort = GetStunPort()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -96,6 +98,8 @@ func GetServerConfig() config.ServerConfig {
 // GetServerConfig - gets the server config into memory from file or env
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
+	cfg.Server = GetServer()
+	cfg.Broker = GetBroker()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
@@ -105,8 +109,9 @@ func GetServerInfo() models.ServerConfig {
 		cfg.DNSMode = "on"
 	}
 	cfg.Version = GetVersion()
-	cfg.Server = GetServer()
 	cfg.Is_EE = Is_EE
+	cfg.StunHost = GetStunAddr()
+	cfg.StunPort = GetStunPort()
 
 	return cfg
 }
@@ -190,6 +195,17 @@ func GetAPIPort() string {
 		apiport = config.Config.Server.APIPort
 	}
 	return apiport
+}
+
+// GetStunAddr - gets the stun host address
+func GetStunAddr() string {
+	stunAddr := ""
+	if os.Getenv("STUN_DOMAIN") != "" {
+		stunAddr = os.Getenv("STUN_DOMAIN")
+	} else if config.Config.Server.StunHost != "" {
+		stunAddr = config.Config.Server.StunHost
+	}
+	return stunAddr
 }
 
 // GetDefaultNodeLimit - get node limit if one is set
@@ -380,6 +396,17 @@ func GetServer() string {
 		server = os.Getenv("SERVER_NAME")
 	} else if config.Config.Server.Server != "" {
 		server = config.Config.Server.Server
+	}
+	return server
+}
+
+// GetBroker - gets the broker name
+func GetBroker() string {
+	server := ""
+	if os.Getenv("BROKER_NAME") != "" {
+		server = os.Getenv("BROKER_NAME")
+	} else if config.Config.Server.Broker != "" {
+		server = config.Config.Server.Broker
 	}
 	return server
 }
@@ -665,4 +692,27 @@ func GetNetmakerAccountID() string {
 		netmakerAccountID = config.Config.Server.LicenseValue
 	}
 	return netmakerAccountID
+}
+
+func GetStunPort() int {
+	port := 3478 //default
+	if os.Getenv("STUN_PORT") != "" {
+		portInt, err := strconv.Atoi(os.Getenv("STUN_PORT"))
+		if err == nil {
+			port = portInt
+		}
+	} else if config.Config.Server.StunPort != 0 {
+		port = config.Config.Server.StunPort
+	}
+	return port
+}
+
+func IsProxyEnabled() bool {
+	var enabled = false //default
+	if os.Getenv("PROXY") != "" {
+		enabled = os.Getenv("PROXY") == "on"
+	} else if config.Config.Server.Proxy != "" {
+		enabled = config.Config.Server.Proxy == "on"
+	}
+	return enabled
 }

@@ -146,11 +146,9 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range nodes {
-		logger.Log(2, "updating node ", node.Name, " for a key update")
-		if node.IsServer != "yes" {
-			if err = mq.NodeUpdate(&node); err != nil {
-				logger.Log(1, "failed to send update to node during a network wide key update", node.Name, node.ID, err.Error())
-			}
+		logger.Log(2, "updating node ", node.ID.String(), " for a key update")
+		if err = mq.NodeUpdate(&node); err != nil {
+			logger.Log(1, "failed to send update to node during a network wide key update", node.ID.String(), err.Error())
 		}
 	}
 }
@@ -249,16 +247,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if holepunchupdate {
-		err = logic.UpdateNetworkHolePunching(network.NetID, newNetwork.DefaultUDPHolePunch)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to update network [%s] hole punching: %v",
-					network.NetID, err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
 	if rangeupdate4 || rangeupdate6 || localrangeupdate || holepunchupdate {
 		nodes, err := logic.GetNetworkNodes(network.NetID)
 		if err != nil {
@@ -319,19 +307,10 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 
 	// send peer updates
 	if servercfg.IsMessageQueueBackend() {
-		serverNode, err := logic.GetNetworkServerLocal(netname)
-		if err != nil {
-			logger.Log(1, "failed to find server node after ACL update on", netname)
-		} else {
-			if err = logic.ServerUpdate(&serverNode, false); err != nil {
-				logger.Log(1, "failed to update server node after ACL update on", netname)
-			}
-			if err = mq.PublishPeerUpdate(&serverNode, false); err != nil {
-				logger.Log(0, "failed to publish peer update after ACL update on", netname)
-			}
+		if err = mq.PublishPeerUpdate(netname, false); err != nil {
+			logger.Log(0, "failed to publish peer update after ACL update on", netname)
 		}
 	}
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetACL)
 }
@@ -392,20 +371,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errtype))
 		return
 	}
-	// Deletes the network role from MQ
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{
-				Command:  mq.DeleteRoleCmd,
-				RoleName: network,
-			},
-		},
+
+	if err := mq.DeleteNetworkRole(network); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to remove network DynSec role: %v", err.Error()))
 	}
 
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")
@@ -452,32 +422,18 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// Create Role with acls for the network
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: network.NetID,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(network.NetID),
-			},
-		},
+
+	if err = mq.CreateNetworkRole(network.NetID); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to create network DynSec role:",
+			err.Error())
 	}
 
-	if err = mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
+	if err = logic.AddDefaultHostsToNetwork(network.NetID, servercfg.GetServer()); err != nil {
+		logger.Log(0, fmt.Sprintf("failed to add default hosts to network [%v]: %v",
+			network.NetID, err.Error()))
 	}
 
-	if servercfg.IsClientMode() != "off" {
-		if _, err = logic.ServerJoin(&network); err != nil {
-			_ = logic.DeleteNetwork(network.NetID)
-			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
-				err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
+	// TODO: Send message notifying host of new peers/network conf
 
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)

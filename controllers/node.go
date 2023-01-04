@@ -2,11 +2,14 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -24,6 +27,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", authorize(true, true, "node", http.HandlerFunc(nodeNodeUpdate))).Methods("PUT")
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
@@ -31,7 +35,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(false, http.HandlerFunc(createIngressGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/approve", authorize(false, true, "user", http.HandlerFunc(uncordonNode))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}", nodeauth(checkFreeTierLimits(node_l, http.HandlerFunc(createNode)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 }
@@ -40,13 +44,13 @@ func nodeHandlers(r *mux.Router) {
 //
 // Authenticate to make further API calls related to a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
@@ -92,51 +96,22 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password))
+	host, err := logic.GetHost(result.HostID.String())
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error retrieving host: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
 		logger.Log(0, request.Header.Get("user"),
 			"error validating user password: ", err.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
-		return
-	}
-	// creates network role,node client (added here to resolve any missing configuration in MQ)
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: result.Network,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(result.Network),
-			},
-			{
-				Command:  mq.CreateClientCmd,
-				Username: result.ID,
-				Password: authRequest.Password,
-				Textname: result.Name,
-				Roles: []mq.MqDynSecRole{
-					{
-						Rolename: mq.NodeRole,
-						Priority: -1,
-					},
-					{
-						Rolename: result.Network,
-						Priority: -1,
-					},
-				},
-				Groups: make([]mq.MqDynSecGroup, 0),
-			},
-		},
-	}
-
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-		errorResponse.Code = http.StatusInternalServerError
-		errorResponse.Message = fmt.Sprintf("could not create mq client for node [%s]: %v", result.ID, err)
 		return
 	}
 
@@ -171,7 +146,6 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
-
 }
 
 // auth middleware for api calls from nodes where node is has not yet joined the server (register, join)
@@ -343,21 +317,17 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 //
 // Gets all nodes associated with network including pending nodes.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeSliceResponse
+//			Responses:
+//				200: nodeSliceResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
-
-	var nodes []models.Node
 	var params = mux.Vars(r)
 	networkName := params["network"]
-
 	nodes, err := logic.GetNetworkNodes(networkName)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -366,29 +336,25 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, node := range nodes {
-		if len(node.NetworkSettings.AccessKeys) > 0 {
-			node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent back to client; client already knows how to join the network
-		}
-	}
-
-	//Returns all the nodes in JSON format
+	// returns all the nodes in JSON/API format
+	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(nodes)
+	json.NewEncoder(w).Encode(apiNodes)
 }
 
 // swagger:route GET /api/nodes nodes getAllNodes
 //
 // Get all nodes across all networks.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeSliceResponse
+//			Responses:
+//				200: nodeSliceResponse
+//
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -416,10 +382,11 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	//Return all the nodes in JSON format
+	// return all the nodes in JSON/API format
+	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(nodes)
+	json.NewEncoder(w).Encode(apiNodes)
 }
 
 func getUsersNodes(user models.User) ([]models.Node, error) {
@@ -439,13 +406,13 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 //
 // Get an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -461,29 +428,39 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
-	peerUpdate, err := logic.GetPeerUpdate(&node)
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching host for node [ %s ] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	peerUpdate, err := logic.GetPeerUpdate(&node, host)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
-	if len(node.NetworkSettings.AccessKeys) > 0 {
-		node.NetworkSettings.AccessKeys = []models.AccessKey{} // not to be sent back to client; client already knows how to join the network
+	server := servercfg.GetServerInfo()
+	network, err := logic.GetNetwork(node.Network)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching network for node [ %s ] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
-
+	legacy := node.Legacy(host, &server, &network)
 	response := models.NodeGet{
-		Node:         node,
+		Node:         *legacy,
 		Peers:        peerUpdate.Peers,
-		ServerConfig: servercfg.GetServerInfo(),
+		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
 
 	if servercfg.Is_EE && nodeRequest {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during node config pull", node.Name, node.Network)
+		if err = logic.EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
+			logger.Log(1, "failed to reset failover list during node config pull", node.ID.String(), node.Network)
 		}
 	}
 
@@ -496,13 +473,13 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 //
 // Create a node on a network.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeGetResponse
+//			Responses:
+//				200: nodeGetResponse
 func createNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -529,54 +506,47 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var node = models.Node{}
-
-	//get node from body of request
-	err = json.NewDecoder(r.Body).Decode(&node)
+	//get data from body of request
+	data := models.JoinData{}
+	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	node.Network = networkName
+	if !logic.IsVersionComptatible(data.Host.Version) {
+		err := errors.New("incomatible netclient version")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 
-	network, err := logic.GetNetworkByNode(&node)
+	data.Node.Network = networkName
+
+	networkSettings, err := logic.GetNetworkSettings(networkName)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to get network [%s] info: %v", node.Network, err))
+			fmt.Sprintf("failed to get network [%s] settings: %v", networkName, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	node.NetworkSettings, err = logic.GetNetworkSettings(node.Network)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to get network [%s] settings: %v", node.Network, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	keyName, validKey := logic.IsKeyValid(networkName, node.AccessKey)
+	data.Node.NetworkSettings(networkSettings)
+	keyName, validKey := logic.IsKeyValid(networkName, data.Key)
 	if !validKey {
-		// Check to see if network will allow manual sign up
-		// may want to switch this up with the valid key check and avoid a DB call that way.
-		if network.AllowManualSignUp == "yes" {
-			node.IsPending = "yes"
-		} else {
-			errorResponse = models.ErrorResponse{
-				Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
-			}
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to create node on network [%s]: %s",
-					node.Network, errorResponse.Message))
-			logic.ReturnErrorResponse(w, r, errorResponse)
-			return
+		errorResponse = models.ErrorResponse{
+			Code: http.StatusUnauthorized, Message: "W1R3: Key invalid, or none provided.",
 		}
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create node on network [%s]: %s",
+				data.Node.Network, errorResponse.Message))
+		logic.ReturnErrorResponse(w, r, errorResponse)
+		return
 	}
 	user, err := pro.GetNetworkUser(networkName, promodels.NetworkUserID(keyName))
 	if err == nil {
 		if user.ID != "" {
 			logger.Log(1, "associating new node with user", keyName)
-			node.OwnerID = string(user.ID)
+			data.Node.OwnerID = string(user.ID)
 		}
 	}
 
@@ -591,22 +561,61 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if node.TrafficKeys.Mine == nil {
+	if data.Host.TrafficKeyPublic == nil {
 		logger.Log(0, "error: node traffic key is nil")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	node.TrafficKeys = models.TrafficKeys{
-		Mine:   node.TrafficKeys.Mine,
-		Server: key,
-	}
+	server := servercfg.GetServerInfo()
+	server.TrafficKey = key
 	// consume password before hashing for mq client creation
-	nodePassword := node.Password
-	err = logic.CreateNode(&node)
+	hostPassword := data.Host.HostPass
+	data.Node.Server = servercfg.GetServer()
+	if err := logic.CreateHost(&data.Host); err != nil {
+		if errors.Is(err, logic.ErrHostExists) {
+			logger.Log(3, "host exists .. no need to create")
+			host, err := logic.GetHost(data.Host.ID.String())
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to find host:", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			logic.UpdateHost(&data.Host, host) // update the in memory struct values
+			networks := logic.GetHostNetworks(data.Host.ID.String())
+			if err := mq.ModifyClient(&mq.MqClient{
+				ID:       data.Host.ID.String(),
+				Text:     data.Host.Name,
+				Networks: networks,
+			}); err != nil {
+				logger.Log(0, fmt.Sprintf("failed to modify DynSec client: %v", err.Error()))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+
+		} else {
+			logger.Log(0, "error creating host", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	} else {
+		// Create client for this host in Mq
+		if err := mq.CreateMqClient(&mq.MqClient{
+			ID:       data.Host.ID.String(),
+			Text:     data.Host.Name,
+			Password: hostPassword,
+			Networks: []string{networkName},
+		}); err != nil {
+			logger.Log(0, fmt.Sprintf("failed to create DynSec client: %v", err.Error()))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
+	err = logic.AssociateNodeToHost(&data.Node, &data.Host)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create node on network [%s]: %s",
-				node.Network, err))
+				networkName, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -616,107 +625,42 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	// if it fails remove the node and fail request
 	if user != nil {
 		var updatedUserNode bool
-		user.Nodes = append(user.Nodes, node.ID) // add new node to user
+		user.Nodes = append(user.Nodes, data.Node.ID.String()) // add new node to user
 		if err = pro.UpdateNetworkUser(networkName, user); err == nil {
-			logger.Log(1, "added node", node.ID, node.Name, "to user", string(user.ID))
+			logger.Log(1, "added node", data.Node.ID.String(), data.Host.Name, "to user", string(user.ID))
 			updatedUserNode = true
 		}
 		if !updatedUserNode { // user was found but not updated, so delete node
 			logger.Log(0, "failed to add node to user", keyName)
-			logic.DeleteNodeByID(&node, true)
+			logic.DeleteNode(&data.Node, true)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
-
-	peerUpdate, err := logic.GetPeerUpdate(&node)
+	peerUpdate, err := logic.GetPeerUpdate(&data.Node, &data.Host)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", node.ID, err))
+			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", data.Node.ID.String(), err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	data.Node.Peers = peerUpdate.Peers
 
-	// Create client for this node in Mq
-	event := mq.MqDynsecPayload{
-		Commands: []mq.MqDynSecCmd{
-			{ // delete if any client exists already
-				Command:  mq.DeleteClientCmd,
-				Username: node.ID,
-			},
-			{
-				Command:  mq.CreateRoleCmd,
-				RoleName: node.Network,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     mq.FetchNetworkAcls(node.Network),
-			},
-			{
-				Command:  mq.CreateClientCmd,
-				Username: node.ID,
-				Password: nodePassword,
-				Textname: node.Name,
-				Roles: []mq.MqDynSecRole{
-					{
-						Rolename: mq.NodeRole,
-						Priority: -1,
-					},
-					{
-						Rolename: node.Network,
-						Priority: -1,
-					},
-				},
-				Groups: make([]mq.MqDynSecGroup, 0),
-			},
-		},
-	}
-
-	if err := mq.PublishEventToDynSecTopic(event); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-			event.Commands, err.Error()))
-	}
-
-	response := models.NodeGet{
-		Node:         node,
-		Peers:        peerUpdate.Peers,
-		ServerConfig: servercfg.GetServerInfo(),
+	response := models.NodeJoinResponse{
+		Node:         data.Node,
+		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
-
-	logger.Log(1, r.Header.Get("user"), "created new node", node.Name, "on network", node.Network)
+	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-	runForceServerUpdate(&node, true)
-}
 
-// swagger:route POST /api/nodes/{network}/{nodeid}/approve nodes uncordonNode
-//
-// Takes a node out of pending state.
-//
-//		Schemes: https
-//
-// 		Security:
-//   		oauth
-//
-//		Responses:
-//			200: nodeResponse
-// Takes node out of pending state
-// TODO: May want to use cordon/uncordon terminology instead of "ispending".
-func uncordonNode(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	var nodeid = params["nodeid"]
-	node, err := logic.UncordonNode(nodeid)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to uncordon node [%s]: %v", node.Name, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	logger.Log(1, r.Header.Get("user"), "uncordoned node", node.Name)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("SUCCESS")
-
-	runUpdates(&node, false)
+	go func() {
+		if err := mq.PublishPeerUpdate(data.Node.Network, true); err != nil {
+			logger.Log(1, "failed a peer update after creation of node", data.Host.Name)
+		}
+	}()
+	//runForceServerUpdate(&data.Node, true)
 }
 
 // == EGRESS ==
@@ -725,13 +669,13 @@ func uncordonNode(w http.ResponseWriter, r *http.Request) {
 //
 // Create an egress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	var params = mux.Vars(r)
@@ -753,9 +697,10 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
@@ -764,13 +709,13 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an egress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -785,9 +730,10 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
@@ -798,13 +744,13 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Create an ingress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -827,13 +773,14 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 
 	if servercfg.Is_EE && failoverReqBody.Failover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during failover create", node.Name, node.Network)
+			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
@@ -842,13 +789,13 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 //
 // Delete an ingress gateway.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -865,40 +812,41 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 
 	if servercfg.Is_EE && wasFailover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during failover create", node.Name, node.Network)
+			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
 	}
 
+	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(node)
+	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
 }
 
-// swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
+// swagger:route PUT /api/nodes/{network}/{nodeid}/migrate nodes migrateNode
 //
-// Update an individual node.
+// Used to migrate a legacy node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
-func updateNode(w http.ResponseWriter, r *http.Request) {
+//			Responses:
+//				200: nodeResponse
+func nodeNodeUpdate(w http.ResponseWriter, r *http.Request) {
+	// should only be used by nodes
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
 
-	var node models.Node
 	//start here
 	nodeid := params["nodeid"]
-	node, err := logic.GetNodeByID(nodeid)
+	currentNode, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
+		logger.Log(0,
+			fmt.Sprintf("error fetching node [ %s ] info: %v during migrate", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -912,53 +860,36 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	relayupdate := false
-	if node.IsRelay == "yes" && len(newNode.RelayAddrs) > 0 {
-		if len(newNode.RelayAddrs) != len(node.RelayAddrs) {
+	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
+		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
 			relayupdate = true
 		} else {
 			for i, addr := range newNode.RelayAddrs {
-				if addr != node.RelayAddrs[i] {
+				if addr != currentNode.RelayAddrs[i] {
 					relayupdate = true
 				}
 			}
 		}
 	}
 	relayedUpdate := false
-	if node.IsRelayed == "yes" && (node.Address != newNode.Address || node.Address6 != newNode.Address6) {
+	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
 		relayedUpdate = true
 	}
 
 	if !servercfg.GetRce() {
-		newNode.PostDown = node.PostDown
-		newNode.PostUp = node.PostUp
+		newNode.PostDown = currentNode.PostDown
+		newNode.PostUp = currentNode.PostUp
 	}
 
-	ifaceDelta := logic.IfaceDelta(&node, &newNode)
-	// for a hub change also need to update the existing hub
-	if newNode.IsHub == "yes" && node.IsHub != "yes" {
-		nodeToUpdate, err := logic.UnsetHub(newNode.Network)
-		if err != nil {
-			logger.Log(2, "failed to unset hubs", err.Error())
-		}
-		if err := mq.NodeUpdate(nodeToUpdate); err != nil {
-			logger.Log(2, "failed to update hub node", nodeToUpdate.Name, err.Error())
-		}
-		if nodeToUpdate.IsServer == "yes" {
-			// set ifacdelta true to force server to update peeers
-			if err := logic.ServerUpdate(nodeToUpdate, true); err != nil {
-				logger.Log(2, "failed to update server node on hub change", err.Error())
-			}
-
-		}
-	}
+	ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
 
 	if ifaceDelta && servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node update for node", node.Name, node.Network)
+		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
 		}
 	}
 
-	err = logic.UpdateNode(&node, &newNode)
+	err = logic.UpdateNode(&currentNode, &newNode)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
@@ -966,7 +897,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		updatenodes := logic.UpdateRelay(node.Network, node.RelayAddrs, newNode.RelayAddrs)
+		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
 		if len(updatenodes) > 0 {
 			for _, relayedNode := range updatenodes {
 				runUpdates(&relayedNode, false)
@@ -974,30 +905,124 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if relayedUpdate {
-		updateRelay(&node, &newNode)
+		updateRelay(&currentNode, &newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
 	}
 
-	logger.Log(1, r.Header.Get("user"), "updated node", node.ID, "on network", node.Network)
+	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNode)
 
 	runUpdates(&newNode, ifaceDelta)
 }
 
+// swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
+//
+// Update an individual node.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeResponse
+func updateNode(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+
+	//start here
+	nodeid := params["nodeid"]
+	currentNode, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	var newData models.ApiNode
+	// we decode our body request params
+	err = json.NewDecoder(r.Body).Decode(&newData)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	newNode := newData.ConvertToServerNode(&currentNode)
+	relayupdate := false
+	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
+		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
+			relayupdate = true
+		} else {
+			for i, addr := range newNode.RelayAddrs {
+				if addr != currentNode.RelayAddrs[i] {
+					relayupdate = true
+				}
+			}
+		}
+	}
+	relayedUpdate := false
+	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
+		relayedUpdate = true
+	}
+
+	if !servercfg.GetRce() {
+		newNode.PostDown = currentNode.PostDown
+		newNode.PostUp = currentNode.PostUp
+	}
+	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
+
+	if ifaceDelta && servercfg.Is_EE {
+		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
+		}
+	}
+
+	err = logic.UpdateNode(&currentNode, newNode)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if relayupdate {
+		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
+		if len(updatenodes) > 0 {
+			for _, relayedNode := range updatenodes {
+				runUpdates(&relayedNode, false)
+			}
+		}
+	}
+	if relayedUpdate {
+		updateRelay(&currentNode, newNode)
+	}
+	if servercfg.IsDNSMode() {
+		logic.SetDNS()
+	}
+
+	apiNode := newNode.ConvertToAPINode()
+	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(apiNode)
+
+	runUpdates(newNode, ifaceDelta)
+}
+
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
 //
 // Delete an individual node.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: nodeResponse
+//			Responses:
+//				200: nodeResponse
 func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -1006,27 +1031,15 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	var nodeid = params["nodeid"]
 	fromNode := r.Header.Get("requestfrom") == "node"
-	var node, err = logic.GetNodeByID(nodeid)
+	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		if fromNode {
-			node, err = logic.GetDeletedNodeByID(nodeid)
-			if err != nil {
-				logger.Log(0, r.Header.Get("user"),
-					fmt.Sprintf("error fetching node from deleted nodes [ %s ] info: %v", nodeid, err))
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		} else {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("error fetching node [ %s ] info: %v", nodeid, err))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
+		logger.Log(0, "error retrieving node to delete", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
-	if isServer(&node) {
-		err := fmt.Errorf("cannot delete server node")
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to delete node [ %s ]: %v", nodeid, err))
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -1037,118 +1050,83 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	//send update to node to be deleted before deleting on server otherwise message cannot be sent
-	node.Action = models.NODE_DELETE
-
-	err = logic.DeleteNodeByID(&node, fromNode)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	if err := logic.DeleteNode(&node, fromNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
+	if host.ProxyEnabled {
+		mq.ProxyUpdate(&proxy_models.ProxyManagerPayload{
+			Action:  proxy_models.DeleteNetwork,
+			Network: node.Network,
+		}, &node)
+	}
 	if fromNode {
-		// deletes node related role and client
-		event := mq.MqDynsecPayload{
-			Commands: []mq.MqDynSecCmd{
-				{
-					Command:  mq.DeleteClientCmd,
-					Username: nodeid,
-				},
-			},
+		// check if server should be removed from mq
+		// err is irrelevent
+		nodes, _ := logic.GetAllNodes()
+		var foundNode models.Node
+		for _, nodetocheck := range nodes {
+			if nodetocheck.HostID == node.HostID {
+				foundNode = nodetocheck
+				break
+			}
 		}
-
-		if err := mq.PublishEventToDynSecTopic(event); err != nil {
-			logger.Log(0, fmt.Sprintf("failed to send DynSec command [%v]: %v",
-				event.Commands, err.Error()))
+		// TODO: Address how to remove host
+		if foundNode.HostID != uuid.Nil {
+			if err = logic.DissasociateNodeFromHost(&foundNode, host); err == nil {
+				currNets := logic.GetHostNetworks(host.ID.String())
+				if len(currNets) > 0 {
+					mq.ModifyClient(&mq.MqClient{
+						ID:       host.ID.String(),
+						Text:     host.Name,
+						Networks: currNets,
+					})
+				}
+			}
 		}
 	}
-
-	if servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node delete for node", node.Name, node.Network)
-		}
-	}
-
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	runUpdates(&node, false)
-	runForceServerUpdate(&node, false)
+	if !fromNode {
+		runUpdates(&node, false)
+		return
+	}
+	go func() {
+		if err := mq.PublishPeerUpdate(node.Network, false); err != nil {
+			logger.Log(1, "error publishing peer update ", err.Error())
+			return
+		}
+	}()
+
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
 	go func() { // don't block http response
 		// publish node update if not server
 		if err := mq.NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update to node", node.Name, node.ID, err.Error())
-		}
-
-		if err := runServerUpdate(node, ifaceDelta); err != nil {
-			logger.Log(1, "error running server update", err.Error())
+			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
 		}
 	}()
-}
-
-// updates local peers for a server on a given node's network
-func runServerUpdate(node *models.Node, ifaceDelta bool) error {
-
-	if servercfg.IsClientMode() != "on" || !isServer(node) {
-		return nil
-	}
-
-	currentServerNode, err := logic.GetNetworkServerLocal(node.Network)
-	if err != nil {
-		return err
-	}
-
-	if ifaceDelta && logic.IsLeader(&currentServerNode) {
-		if err := mq.PublishPeerUpdate(&currentServerNode, false); err != nil {
-			logger.Log(1, "failed to publish peer update "+err.Error())
-		}
-	}
-
-	if err := logic.ServerUpdate(&currentServerNode, ifaceDelta); err != nil {
-		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
-		return err
-	}
-	return nil
-}
-
-func runForceServerUpdate(node *models.Node, publishPeerUpdateToNode bool) {
-	go func() {
-		if err := mq.PublishPeerUpdate(node, publishPeerUpdateToNode); err != nil {
-			logger.Log(1, "failed a peer update after creation of node", node.Name)
-		}
-
-		var currentServerNode, getErr = logic.GetNetworkServerLeader(node.Network)
-		if getErr == nil {
-			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
-				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
-			}
-		}
-	}()
-}
-
-func isServer(node *models.Node) bool {
-	return node.IsServer == "yes"
 }
 
 func updateRelay(oldnode, newnode *models.Node) {
 	relay := logic.FindRelay(oldnode)
 	newrelay := relay
 	//check if node's address has been updated and if so, update the relayAddrs of the relay node with the updated address of the relayed node
-	if oldnode.Address != newnode.Address {
+	if oldnode.Address.String() != newnode.Address.String() {
 		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address {
+			if ip == oldnode.Address.IP.String() {
 				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], relay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address)
+				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address.IP.String())
 			}
 		}
 	}
 	//check if node's address(v6) has been updated and if so, update the relayAddrs of the relay node with the updated address(v6) of the relayed node
-	if oldnode.Address6 != newnode.Address6 {
+	if oldnode.Address6.String() != newnode.Address6.String() {
 		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address {
+			if ip == oldnode.Address.IP.String() {
 				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], newrelay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address6)
+				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address6.IP.String())
 			}
 		}
 	}

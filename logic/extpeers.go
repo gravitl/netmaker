@@ -34,7 +34,7 @@ func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 			continue
 		}
 
-		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
+		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID.String() {
 			peers = append(peers, peer)
 		}
 	}
@@ -57,7 +57,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		if currentNode.Network != client.Network {
 			continue
 		}
-		if currentNode.IsEgressGateway == "yes" { // add the egress gateway range(s) to the result
+		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
 			if len(currentNode.EgressGatewayRanges) > 0 {
 				result = append(result, currentNode.EgressGatewayRanges...)
 			}
@@ -137,7 +137,13 @@ func CreateExtClient(extclient *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			extclient.Address = newAddress
+			extclient.Address = newAddress.String()
+
+			extclientInternalAddr, err := UniqueAddress(extclient.Network, true)
+			if err != nil {
+				return err
+			}
+			extclient.InternalIPAddr = extclientInternalAddr.String()
 		}
 	}
 
@@ -147,7 +153,12 @@ func CreateExtClient(extclient *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			extclient.Address6 = addr6
+			extclient.Address6 = addr6.String()
+			extclientInternalAddr6, err := UniqueAddress6(extclient.Network, true)
+			if err != nil {
+				return err
+			}
+			extclient.InternalIPAddr6 = extclientInternalAddr6.String()
 		}
 	}
 

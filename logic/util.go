@@ -16,7 +16,6 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
@@ -146,31 +145,6 @@ func StringSliceContains(slice []string, item string) bool {
 
 // == private ==
 
-// sets the network server peers of a given node
-func setNetworkServerPeers(serverNode *models.Node) {
-	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
-		if currentPeersList == nil {
-			currentPeersList = make(map[string]string)
-		}
-		if database.SetPeers(currentPeersList, serverNode.Network) {
-			logger.Log(1, "set new peers on network", serverNode.Network)
-		}
-	} else {
-		logger.Log(1, "could not set peers on network", serverNode.Network, ":", err.Error())
-	}
-}
-
-// ShouldPublishPeerPorts - Gets ports from iface, sets, and returns true if they are different
-func ShouldPublishPeerPorts(serverNode *models.Node) bool {
-	if currentPeersList, err := getSystemPeers(serverNode); err == nil {
-		if database.SetPeers(currentPeersList, serverNode.Network) {
-			logger.Log(1, "set new peers on network", serverNode.Network)
-			return true
-		}
-	}
-	return false
-}
-
 // NormalCIDR - returns the first address of CIDR
 func NormalizeCIDR(address string) (string, error) {
 	ip, IPNet, err := net.ParseCIDR(address)
@@ -225,4 +199,10 @@ func CheckIfFileExists(filePath string) bool {
 		return false
 	}
 	return true
+}
+
+// RemoveStringSlice - removes an element at given index i
+// from a given string slice
+func RemoveStringSlice(slice []string, i int) []string {
+	return append(slice[:i], slice[i+1:]...)
 }

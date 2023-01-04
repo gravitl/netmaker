@@ -25,6 +25,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
+	stunserver "github.com/gravitl/netmaker/stun-server"
 )
 
 var version = "dev"
@@ -70,9 +71,6 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
 	logger.Log(0, "database successfully connected")
-	if err = logic.AddServerIDIfNotPresent(); err != nil {
-		logger.Log(1, "failed to save server ID")
-	}
 
 	logic.SetJWTSecret()
 
@@ -110,9 +108,6 @@ func initialize() { // Client Mode Prereq Check
 		}
 		if uid != 0 {
 			logger.FatalLog("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
-		}
-		if err := serverctl.InitServerNetclient(); err != nil {
-			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
 		}
 	}
 	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
@@ -171,6 +166,25 @@ func startControllers() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
+	// starts the stun server
+	waitnetwork.Add(1)
+	go stunserver.Start(&waitnetwork)
+	if servercfg.IsProxyEnabled() {
+
+		waitnetwork.Add(1)
+		go func() {
+			defer waitnetwork.Done()
+			_, cancel := context.WithCancel(context.Background())
+			waitnetwork.Add(1)
+
+			//go nmproxy.Start(ctx, logic.ProxyMgmChan, servercfg.GetAPIHost())
+			quit := make(chan os.Signal, 1)
+			signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+			<-quit
+			cancel()
+		}()
+	}
+
 	waitnetwork.Wait()
 }
 
@@ -184,6 +198,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
 	go logic.ManageZombies(ctx)
+	go logic.PurgePendingNodes(ctx)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	<-quit

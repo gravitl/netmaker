@@ -84,7 +84,7 @@ func fetchTelemetryData() (telemetryData, error) {
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
-	data.Servers = GetServerCount()
+	//data.Servers = GetServerCount()
 	nodes, err := GetAllNodes()
 	if err == nil {
 		data.Nodes = len(nodes)
@@ -114,7 +114,11 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 func getClientCount(nodes []models.Node) clientCount {
 	var count clientCount
 	for _, node := range nodes {
-		switch node.OS {
+		host, err := GetHost(node.HostID.String())
+		if err != nil {
+			continue
+		}
+		switch host.OS {
 		case "darwin":
 			count.MacOS += 1
 		case "windows":
@@ -123,9 +127,6 @@ func getClientCount(nodes []models.Node) clientCount {
 			count.Linux += 1
 		case "freebsd":
 			count.FreeBSD += 1
-		}
-		if !(node.IsServer == "yes") {
-			count.NonServer += 1
 		}
 	}
 	return count

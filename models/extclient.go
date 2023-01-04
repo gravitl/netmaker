@@ -14,4 +14,6 @@ type ExtClient struct {
 	LastModified           int64  `json:"lastmodified" bson:"lastmodified"`
 	Enabled                bool   `json:"enabled" bson:"enabled"`
 	OwnerID                string `json:"ownerid" bson:"ownerid"`
+	InternalIPAddr         string `json:"internal_ip_addr" bson:"internal_ip_addr"`
+	InternalIPAddr6        string `json:"internal_ip_addr6" bson:"internal_ip_addr6"`
 }

@@ -183,7 +183,7 @@ func IsUserNodeAllowed(nodes []models.Node, network, userID, nodeID string) bool
 	}
 
 	for i := range nodes {
-		if nodes[i].ID == nodeID {
+		if nodes[i].ID.String() == nodeID {
 			for j := range netUser.Nodes {
 				if netUser.Nodes[j] == nodeID {
 					return true

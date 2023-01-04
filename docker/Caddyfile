@@ -30,6 +30,12 @@ https://api.NETMAKER_BASE_DOMAIN {
         reverse_proxy http://netmaker:8081
 }
 
+# STUN
+https://stun.NETMAKER_BASE_DOMAIN {
+	reverse_proxy netmaker:3478
+}
+
+
 # MQ
 wss://broker.NETMAKER_BASE_DOMAIN {
         reverse_proxy ws://mq:8883
