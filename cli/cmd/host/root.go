@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "host",
 	Short: "Manage hosts",
 	Long:  `Manage hosts`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

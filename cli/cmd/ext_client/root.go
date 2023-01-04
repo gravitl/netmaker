@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "ext_client",
 	Short: "Manage External Clients",
 	Long:  `Manage External Clients`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

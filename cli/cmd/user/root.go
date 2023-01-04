@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "user",
 	Short: "Manage users and permissions",
 	Long:  `Manage users and permissions`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

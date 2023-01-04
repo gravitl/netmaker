@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "dns",
 	Short: "Manage DNS entries associated with a network",
 	Long:  `Manage DNS entries associated with a network`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

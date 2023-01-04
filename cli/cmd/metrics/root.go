@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "metrics",
 	Short: "Fetch metrics of nodes/networks",
 	Long:  `Fetch metrics of nodes/networks`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

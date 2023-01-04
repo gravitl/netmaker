@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "network_user",
 	Short: "Manage Network Users",
 	Long:  `Manage Network Users`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

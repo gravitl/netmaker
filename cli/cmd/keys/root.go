@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "keys",
 	Short: "Manage access keys associated with a network",
 	Long:  `Manage access keys associated with a network`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

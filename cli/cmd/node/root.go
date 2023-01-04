@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "node",
 	Short: "Manage nodes associated with a network",
 	Long:  `Manage nodes associated with a network`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

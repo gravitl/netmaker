@@ -11,9 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "network",
 	Short: "Manage Netmaker Networks",
 	Long:  `Manage Netmaker Networks`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

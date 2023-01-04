@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "context",
 	Short: "Manage various netmaker server configurations",
 	Long:  `Manage various netmaker server configurations`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

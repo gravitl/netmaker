@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "acl",
 	Short: "Manage Access Control Lists (ACLs)",
 	Long:  `Manage Access Control Lists (ACLs)`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

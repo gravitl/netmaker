@@ -11,7 +11,6 @@ var rootCmd = &cobra.Command{
 	Use:   "usergroup",
 	Short: "Manage User Groups",
 	Long:  `Manage User Groups`,
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root subcommand

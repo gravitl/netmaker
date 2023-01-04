@@ -24,9 +24,6 @@ var rootCmd = &cobra.Command{
 	Use:   "nmctl",
 	Short: "CLI for interacting with Netmaker Server",
 	Long:  `CLI for interacting with Netmaker Server`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root of all subcommands
