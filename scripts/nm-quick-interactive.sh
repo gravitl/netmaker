@@ -314,8 +314,8 @@ sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
 sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 
 if [ "$INSTALL_TYPE" = "ee" ]; then
-	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml 
-	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml 
+	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
+	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
 fi
 echo "Starting containers..."
 
@@ -326,11 +326,11 @@ sleep 2
 test_connection() {
 
 echo "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
-for i in 1 2 3 4 5 6
+for i in 1 2 3 4 5 6 7 8
 do
 curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
 
-if [[ "$i" == 6 ]]; then
+if [[ "$i" == 8 ]]; then
   echo "    Caddy is having an issue setting up certificates, please investigate (docker logs caddy)"
   echo "    Exiting..."
   exit 1
@@ -351,7 +351,7 @@ done
 
 setup_mesh() {( set -e
 
-wait_seconds 5
+wait_seconds 15
 
 echo "Creating netmaker network (10.101.0.0/16)"
 
@@ -371,23 +371,29 @@ echo "Configuring netmaker server as ingress gateway"
 for i in 1 2 3 4 5 6
 do
 	echo "    waiting for server node to become available"
-	wait_seconds 5
+	wait_seconds 10
 	curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker)
 	SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
-	if [[ "$i" == 6 && -z "$SERVER_ID" ]]; then
+	echo "    Server ID: $SERVER_ID"
+	if [ $SERVER_ID == "null" ]; then
+		SERVER_ID=""
+	fi
+	if [[ "$i" -ge "6" && -z "$SERVER_ID" ]]; then
 		echo "    Netmaker is having issues configuring itself, please investigate (docker logs netmaker)"
 		echo "    Exiting..."
 		exit 1
 	elif [ -z "$SERVER_ID" ]; then
 		echo "    server node not yet configured, retrying..."
-	else
+	elif [[ ! -z "$SERVER_ID" ]]; then
 		echo "    server node is now availble, continuing"
 		break
 	fi
 done
 
-curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
 
+if [[ ! -z "$SERVER_ID"  ]]; then
+	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
+fi 
 )}
 
 set +e

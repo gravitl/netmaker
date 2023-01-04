@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -462,6 +463,9 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version
+	sort.SliceStable(peers[:], func(i, j int) bool {
+		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
+	})
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
 	peerUpdate.DNS = getPeerDNS(node.Network)
@@ -874,6 +878,9 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	}
 	peerUpdate.Network = node.Network
 	peerUpdate.ServerVersion = servercfg.Version
+	sort.SliceStable(peers[:], func(i, j int) bool {
+		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
+	})
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
 	peerUpdate.DNS = getPeerDNS(node.Network)

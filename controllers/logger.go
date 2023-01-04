@@ -11,7 +11,7 @@ import (
 )
 
 func loggerHandlers(r *mux.Router) {
-	r.HandleFunc("/api/logs", logic.SecurityCheck(true, http.HandlerFunc(getLogs))).Methods("GET")
+	r.HandleFunc("/api/logs", logic.SecurityCheck(true, http.HandlerFunc(getLogs))).Methods(http.MethodGet)
 }
 
 func getLogs(w http.ResponseWriter, r *http.Request) {

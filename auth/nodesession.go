@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -45,7 +44,7 @@ func SessionHandler(conn *websocket.Conn) {
 	req.Pass = ""
 	req.User = ""
 	// Add any extra parameter provided in the configuration to the Authorize Endpoint request??
-	stateStr := hex.EncodeToString([]byte(logic.RandomString(node_signin_length)))
+	stateStr := logic.RandomString(node_signin_length)
 	if err := netcache.Set(stateStr, req); err != nil {
 		logger.Log(0, "Failed to process sso request -", err.Error())
 		return
