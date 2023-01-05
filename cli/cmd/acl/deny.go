@@ -9,7 +9,7 @@ import (
 )
 
 var aclDenyCmd = &cobra.Command{
-	Use:   "deny [NETWORK NAME] [FROM_NODE_NAME] [TO_NODE_NAME]",
+	Use:   "deny [NETWORK NAME] [NODE_1_ID] [NODE_2_ID]",
 	Args:  cobra.ExactArgs(3),
 	Short: "Deny access from one node to another",
 	Long:  `Deny access from one node to another`,
