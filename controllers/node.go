@@ -442,6 +442,13 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(host)
+	if err != nil && !database.IsEmptyRecord(err) {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	server := servercfg.GetServerInfo()
 	network, err := logic.GetNetwork(node.Network)
 	if err != nil {
@@ -453,7 +460,9 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	legacy := node.Legacy(host, &server, &network)
 	response := models.NodeGet{
 		Node:         *legacy,
+		Host:         *host,
 		Peers:        peerUpdate.Peers,
+		HostPeers:    hostPeerUpdate.Peers,
 		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
@@ -644,11 +653,11 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	data.Host.Peers = hostPeerUpdate.Peers
 	response := models.NodeJoinResponse{
 		Node:         data.Node,
 		ServerConfig: server,
 		Host:         data.Host,
+		Peers:        hostPeerUpdate.Peers,
 	}
 	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
 	w.WriteHeader(http.StatusOK)
