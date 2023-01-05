@@ -644,15 +644,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	peerUpdate, err := logic.GetPeerUpdate(&data.Node, &data.Host)
-	if err != nil && !database.IsEmptyRecord(err) {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", data.Node.ID.String(), err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
 	data.Host.Peers = hostPeerUpdate.Peers
-	data.Node.Peers = peerUpdate.Peers
 	response := models.NodeJoinResponse{
 		Node:         data.Node,
 		ServerConfig: server,
