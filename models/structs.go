@@ -206,6 +206,7 @@ type NodeGet struct {
 	Host         Host                 `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
+	PeerIDs      PeerMap              `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
 }
 
 // NodeJoinResponse data returned to node in response to join

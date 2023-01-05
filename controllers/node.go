@@ -435,7 +435,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	peerUpdate, err := logic.GetPeerUpdateForHost(host)
+	peerUpdate, err := logic.GetPeerUpdate(&node, host)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
@@ -455,6 +455,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		Node:         *legacy,
 		Peers:        peerUpdate.Peers,
 		ServerConfig: server,
+		PeerIDs:      peerUpdate.PeerIDs,
 	}
 
 	if servercfg.Is_EE && nodeRequest {
