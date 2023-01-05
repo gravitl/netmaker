@@ -365,7 +365,7 @@ func (node *LegacyNode) SetDefaultFailover() {
 // Node.Fill - fills other node data into calling node data if not set on calling node
 func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
-
+	newNode.HostID = currentNode.HostID
 	// Revisit the logic for boolean values
 	// TODO ---- !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// TODO ---- !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -499,17 +499,23 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.HostPass = ln.Password
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
-		_, cidr, _ := net.ParseCIDR(ln.LocalAddress)
-		_, cidr, _ = net.ParseCIDR(ln.LocalRange)
-		host.LocalRange = *cidr
+		if _, cidr, err := net.ParseCIDR(ln.LocalAddress); err == nil {
+			host.LocalRange = *cidr
+		} else {
+			if _, cidr, err := net.ParseCIDR(ln.LocalRange); err == nil {
+				host.LocalRange = *cidr
+			}
+		}
 		host.LocalListenPort = int(ln.LocalListenPort)
 		host.ProxyListenPort = int(ln.ProxyListenPort)
 		host.MTU = int(ln.MTU)
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
 		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
 		host.TrafficKeyPublic = ln.TrafficKeys.Mine
-		gateway, _ := net.ResolveUDPAddr("udp", ln.InternetGateway)
-		host.InternetGateway = *gateway
+		gateway, err := net.ResolveUDPAddr("udp", ln.InternetGateway)
+		if err == nil {
+			host.InternetGateway = *gateway
+		}
 		id, _ := uuid.Parse(ln.ID)
 		host.Nodes = append(host.Nodes, id.String())
 		host.Interfaces = ln.Interfaces
@@ -519,16 +525,26 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 	id, _ := uuid.Parse(ln.ID)
 	node.ID = id
 	node.Network = ln.Network
-	_, cidr, _ := net.ParseCIDR(ln.NetworkSettings.AddressRange)
-	node.NetworkRange = *cidr
-	_, cidr, _ = net.ParseCIDR(ln.NetworkSettings.AddressRange6)
-	node.NetworkRange6 = *cidr
+	if _, cidr, err := net.ParseCIDR(ln.NetworkSettings.AddressRange); err == nil {
+		node.NetworkRange = *cidr
+	}
+	if _, cidr, err := net.ParseCIDR(ln.NetworkSettings.AddressRange6); err == nil {
+		node.NetworkRange6 = *cidr
+	}
 	node.Server = ln.Server
 	node.Connected = parseBool(ln.Connected)
-	_, cidr, _ = net.ParseCIDR(ln.Address)
-	node.Address = *cidr
-	_, cidr, _ = net.ParseCIDR(ln.Address6)
-	node.Address6 = *cidr
+	if ln.Address != "" {
+		node.Address = net.IPNet{
+			IP:   net.ParseIP(ln.Address),
+			Mask: net.CIDRMask(32, 32),
+		}
+	}
+	if ln.Address6 != "" {
+		node.Address = net.IPNet{
+			IP:   net.ParseIP(ln.Address6),
+			Mask: net.CIDRMask(128, 128),
+		}
+	}
 	node.PostUp = ln.PostUp
 	node.PostDown = ln.PostDown
 	node.Action = ln.Action

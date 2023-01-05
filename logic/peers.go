@@ -207,6 +207,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		if err != nil {
 			continue
 		}
+		if !node.Connected {
+			continue
+		}
 		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
 			DNS: getPeerDNS(node.Network),
 		}
@@ -216,18 +219,19 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			return models.HostPeerUpdate{}, err
 		}
 		for _, peer := range currentPeers {
-			var peerConfig wgtypes.PeerConfig
-			peerHost, err := GetHost(peer.HostID.String())
-			if err != nil {
-				log.Println("no peer host", err)
-				return models.HostPeerUpdate{}, err
-			}
 			if peer.ID == node.ID {
 				log.Println("peer update, skipping self")
 				//skip yourself
 
 				continue
 			}
+			var peerConfig wgtypes.PeerConfig
+			peerHost, err := GetHost(peer.HostID.String())
+			if err != nil {
+				log.Println("no peer host", err)
+				return models.HostPeerUpdate{}, err
+			}
+
 			if !peer.Connected {
 				log.Println("peer update, skipping unconnected node")
 				//skip unconnected nodes
@@ -847,6 +851,7 @@ func getPeerDNS(network string) string {
 			host, err := GetHost(node.HostID.String())
 			if err != nil {
 				logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
+				continue
 			}
 			dns = dns + fmt.Sprintf("%s %s.%s\n", nodes[i].Address, host.Name, nodes[i].Network)
 		}

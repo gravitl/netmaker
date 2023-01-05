@@ -48,9 +48,9 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
-	if newNode.Address.String() != currentNode.Address.String() {
+	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
-			if !IsAddressInCIDR(newNode.Address.String(), network.AddressRange) {
+			if !IsAddressInCIDR(newNode.Address.IP.String(), network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
 		}
@@ -561,11 +561,7 @@ func createNode(node *models.Node) error {
 			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
 				return err
 			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-			if err != nil {
-				return err
-			}
-			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
+			node.Address.Mask = net.CIDRMask(32, 32)
 		}
 	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
@@ -575,11 +571,7 @@ func createNode(node *models.Node) error {
 			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
 				return err
 			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
-			if err != nil {
-				return err
-			}
-			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
+			node.Address6.Mask = net.CIDRMask(128, 128)
 		}
 	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")

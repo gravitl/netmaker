@@ -90,19 +90,20 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return
 		}
-		var newNode models.Node
-		if err := json.Unmarshal(decrypted, &newNode); err != nil {
+		var oldNode models.LegacyNode
+		if err := json.Unmarshal(decrypted, &oldNode); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
+		_, newNode := oldNode.ConvertToNewNode()
+		ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 		if servercfg.Is_EE && ifaceDelta {
 			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
 				logger.Log(1, "failed to reset failover list during node update", currentNode.ID.String(), currentNode.Network)
 			}
 		}
 		newNode.SetLastCheckIn()
-		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
+		if err := logic.UpdateNode(&currentNode, newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
 			return
 		}
