@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 var (
@@ -41,7 +40,7 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 	var userClaims, err = functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
+		handleOauthNotConfigured(w)
 		return
 	}
 
@@ -135,7 +134,9 @@ func setNetcache(ncache *netcache.CValue, state string) error {
 
 func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []byte {
 	var response bytes.Buffer
-	ncache.Pass = message
+	if ncache != nil {
+		ncache.Pass = message
+	}
 	err := ssoErrCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
 		User: uname,
 		Verb: message,
@@ -257,5 +258,5 @@ func isUserIsAllowed(username, network string, shouldAddUser bool) (*models.User
 		}
 	}
 
-	return &user, nil
+	return user, nil
 }

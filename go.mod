@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/go-playground/validator/v10 v10.11.1
-	github.com/golang-jwt/jwt/v4 v4.4.2
+	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
@@ -44,7 +44,16 @@ require (
 
 require (
 	github.com/gravitl/netclient v0.0.0-20221228022055-5bdb0bc7861d
+	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.0
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/spf13/cobra v1.6.0
+)
+
+require (
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/rivo/uniseg v0.1.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 )
 
 require (
@@ -58,6 +67,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0
 	github.com/josharian/native v1.0.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
+	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/mdlayher/genetlink v1.2.0 // indirect
 	github.com/mdlayher/netlink v1.6.0 // indirect
 	github.com/mdlayher/socket v0.1.1 // indirect
