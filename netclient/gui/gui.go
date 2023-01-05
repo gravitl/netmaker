@@ -19,7 +19,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-//go:embed nm-logo-sm.png
+// go:embed nm-logo-sm.png
 var logoContent embed.FS
 
 // Run - run's the netclient GUI
