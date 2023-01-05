@@ -59,7 +59,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IsRelay = a.IsRelay
 	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.PendingDelete = a.PendingDelete
-	//convertedNode.Peers = currentNode.Peers
+	convertedNode.Peers = currentNode.Peers
 	convertedNode.Failover = a.Failover
 	convertedNode.IsEgressGateway = a.IsEgressGateway
 	convertedNode.IsIngressGateway = a.IsIngressGateway
