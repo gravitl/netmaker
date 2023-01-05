@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/cli/functions"
+	"github.com/gravitl/netmaker/models"
 	"github.com/spf13/cobra"
 )
 
