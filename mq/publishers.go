@@ -74,31 +74,7 @@ func PublishSingleHostUpdate(host *models.Host) error {
 
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
 func PublishExtPeerUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return nil
-	}
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
-	peerUpdate, err := logic.GetPeerUpdate(node, host)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(&peerUpdate)
-	if err != nil {
-		return err
-	}
-	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetPeersForProxy(node, false)
-		if err == nil {
-			peerUpdate.ProxyUpdate = proxyUpdate
-		}
-	}
 
-	if err = publish(host, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
-		return err
-	}
 	go PublishPeerUpdate(node.Network, false)
 	return nil
 }
