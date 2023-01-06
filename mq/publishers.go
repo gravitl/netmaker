@@ -20,7 +20,7 @@ func PublishPeerUpdate(network string, publishToSelf bool) error {
 		return nil
 	}
 
-	hosts, err := logic.GetNetworkHosts(network)
+	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err

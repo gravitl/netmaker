@@ -292,7 +292,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
 					ID:      peer.ID.String(),
 					Address: peer.PrimaryAddress(),
-					Name:    peer.Name,
+					Name:    peerHost.Name,
 					Network: peer.Network,
 				}
 			} else {
@@ -302,7 +302,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
 					ID:      peer.ID.String(),
 					Address: peer.PrimaryAddress(),
-					Name:    peer.Name,
+					Name:    peerHost.Name,
 					Network: peer.Network,
 				}
 			}
