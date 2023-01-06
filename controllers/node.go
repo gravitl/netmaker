@@ -1064,24 +1064,26 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		// check if server should be removed from mq
 		// err is irrelevent
 		nodes, _ := logic.GetAllNodes()
-		var foundNode models.Node
+		var foundNode *models.Node
 		for _, nodetocheck := range nodes {
 			if nodetocheck.HostID == node.HostID {
-				foundNode = nodetocheck
+				foundNode = &nodetocheck
 				break
 			}
 		}
+		if foundNode == nil { // check if node is in deleted nodes if not found
+			delNode, err := logic.GetDeletedNodeByID(node.ID.String())
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to find node to delete"), "internal"))
+				return
+			}
+			foundNode = &delNode
+		}
 		// TODO: Address how to remove host
 		if foundNode.HostID != uuid.Nil {
-			if err = logic.DissasociateNodeFromHost(&foundNode, host); err == nil {
-				currNets := logic.GetHostNetworks(host.ID.String())
-				if len(currNets) > 0 {
-					mq.ModifyClient(&mq.MqClient{
-						ID:       host.ID.String(),
-						Text:     host.Name,
-						Networks: currNets,
-					})
-				}
+			if err = logic.DeleteNode(foundNode, true); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node from node"), "notfound"))
+				return
 			}
 		}
 	}
