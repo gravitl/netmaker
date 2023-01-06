@@ -386,12 +386,6 @@ func fetchNodeAcls() []Acl {
 			Allow:    true,
 		},
 		{
-			AclType:  "publishClientReceive",
-			Topic:    "peers/host",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
 			AclType:  "subscribePattern",
 			Topic:    "#",
 			Priority: -1,
