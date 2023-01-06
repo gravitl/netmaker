@@ -10,6 +10,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	apiHostFilePath string
+	endpoint        string
+	name            string
+	listenPort      int
+	proxyListenPort int
+	mtu             int
+	proxyEnabled    bool
+	isStatic        bool
+	isDefault       bool
+)
+
 var hostUpdateCmd = &cobra.Command{
 	Use:   "update HostID /path/to/host_definition.json",
 	Args:  cobra.ExactArgs(2),
