@@ -1085,6 +1085,14 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node from node"), "notfound"))
 				return
 			}
+			currNets := logic.GetHostNetworks(host.ID.String())
+			if len(currNets) > 0 {
+				mq.ModifyClient(&mq.MqClient{
+					ID:       host.ID.String(),
+					Text:     host.Name,
+					Networks: currNets,
+				})
+			}
 		}
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
