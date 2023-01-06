@@ -16,7 +16,7 @@ type PeerUpdate struct {
 	ProxyUpdate   proxy_models.ProxyManagerPayload `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
 }
 
-// HostPeerUpdate
+// HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
 	ServerVersion string                           `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
 	ServerAddrs   []ServerAddr                     `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
@@ -26,6 +26,7 @@ type HostPeerUpdate struct {
 	ProxyUpdate   proxy_models.ProxyManagerPayload `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
 }
 
+// NetworkInfo - struct for network info
 type NetworkInfo struct {
 	DNS string `json:"dns" bson:"dns" yaml:"dns"`
 }

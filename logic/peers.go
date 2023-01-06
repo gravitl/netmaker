@@ -193,6 +193,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 	return proxyPayload, nil
 }
 
+// GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 	hostPeerUpdate := models.HostPeerUpdate{
 		Network:       make(map[string]models.NetworkInfo),
