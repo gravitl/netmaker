@@ -139,7 +139,7 @@ func ProxyUpdate(proxyPayload *proxy_models.ProxyManagerPayload, node *models.No
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
 
-	networks, err := logic.GetNetworks()
+	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
@@ -164,13 +164,12 @@ func sendPeers() {
 		//collectServerMetrics(networks[:])
 	}
 
-	for _, network := range networks {
+	for _, host := range hosts {
 		if force {
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			err = PublishPeerUpdate(network.NetID, false)
+			err = PublishSingleHostUpdate(&host)
 			if err != nil {
-				logger.Log(1, "error publishing udp port updates for network", network.NetID)
-				logger.Log(1, err.Error())
+				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}
 	}
