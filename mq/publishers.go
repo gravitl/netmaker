@@ -14,7 +14,7 @@ import (
 	"github.com/gravitl/netmaker/serverctl"
 )
 
-// PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
+// PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(network string, publishToSelf bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
@@ -48,7 +48,7 @@ func PublishProxyPeerUpdate(node *models.Node) error {
 	return nil
 }
 
-// PublishSinglePeerUpdate --- determines and publishes a peer update to one node
+// PublishSingleHostUpdate --- determines and publishes a peer update to one host
 func PublishSingleHostUpdate(host *models.Host) error {
 
 	peerUpdate, err := logic.GetPeerUpdateForHost(host)

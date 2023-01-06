@@ -43,6 +43,7 @@ type IDandAddr struct {
 // PeerMap - peer map for ids and addresses in metrics
 type PeerMap map[string]IDandAddr
 
+// HostPeerMap - host peer map for ids and addresses
 type HostPeerMap map[string]map[string]IDandAddr
 
 // MetricsMap - map for holding multiple metrics in memory
