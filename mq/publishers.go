@@ -34,13 +34,13 @@ func PublishPeerUpdate(network string, publishToSelf bool) error {
 	return err
 }
 
-func PublishProxyPeerUpdate(node *models.Node) error {
-	proxyUpdate, err := logic.GetPeersForProxy(node, false)
+func PublishProxyPeerUpdate(host *models.Host) error {
+	proxyUpdate, err := logic.GetProxyUpdateForHost(host)
 	if err != nil {
 		return err
 	}
-	proxyUpdate.Action = proxy_models.AddNetwork
-	err = ProxyUpdate(&proxyUpdate, node)
+	proxyUpdate.Action = proxy_models.ProxyUpdate
+	err = ProxyUpdate(&proxyUpdate, host)
 	if err != nil {
 		logger.Log(1, "failed to send proxy update: ", err.Error())
 		return err
@@ -56,13 +56,13 @@ func PublishSingleHostUpdate(host *models.Host) error {
 		return err
 	}
 	if host.ProxyEnabled {
-		// proxyUpdate, err := logic.GetPeersForProxy(node, false)
-		// if err != nil {
-		// 	return err
-		// }
-		// proxyUpdate.Action = proxy_models.AddNetwork
-		// peerUpdate.ProxyUpdate = proxyUpdate
-
+		proxyUpdate, err := logic.GetProxyUpdateForHost(host)
+		if err != nil {
+			return err
+		}
+		proxyUpdate.Action = proxy_models.ProxyUpdate
+		proxyUpdate.Peers = peerUpdate.Peers
+		peerUpdate.ProxyUpdate = proxyUpdate
 	}
 
 	data, err := json.Marshal(&peerUpdate)
@@ -103,34 +103,25 @@ func NodeUpdate(node *models.Node) error {
 		logger.Log(2, "error publishing node update to peer ", node.ID.String(), err.Error())
 		return err
 	}
-	if host.ProxyEnabled {
-		err = PublishProxyPeerUpdate(node)
-		if err != nil {
-			logger.Log(1, "failed to publish proxy update to node", node.ID.String(), "on network", node.Network, ":", err.Error())
-		}
-	}
 
 	return nil
 }
 
 // ProxyUpdate -- publishes updates to peers related to proxy
-func ProxyUpdate(proxyPayload *proxy_models.ProxyManagerPayload, node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return nil
-	}
+func ProxyUpdate(proxyPayload *proxy_models.ProxyManagerPayload, host *models.Host) error {
+
 	if !servercfg.IsMessageQueueBackend() || !host.ProxyEnabled {
 		return nil
 	}
-	logger.Log(3, "publishing proxy update to "+node.ID.String())
+	logger.Log(3, "publishing proxy update to "+host.ID.String())
 
 	data, err := json.Marshal(proxyPayload)
 	if err != nil {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if err = publish(host, fmt.Sprintf("proxy/%s/%s", node.Network, node.ID), data); err != nil {
-		logger.Log(2, "error publishing proxy update to peer ", node.ID.String(), err.Error())
+	if err = publish(host, fmt.Sprintf("proxy/%s/%s", host.ID, servercfg.GetServer()), data); err != nil {
+		logger.Log(2, "error publishing proxy update to peer ", host.ID.String(), err.Error())
 		return err
 	}
 	return nil
