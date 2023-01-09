@@ -185,7 +185,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 	proxyPayload.WgAddr = addr.String()
 	proxyPayload.Peers = peers
 	proxyPayload.PeerMap = peerConfMap
-	proxyPayload.Network = node.Network
+	//proxyPayload.Network = node.Network
 	//proxyPayload.InterfaceName = node.Interface
 	//hardcode or read from host ??
 	proxyPayload.InterfaceName = models.WIREGUARD_INTERFACE
