@@ -61,7 +61,6 @@ func PublishSingleHostUpdate(host *models.Host) error {
 			return err
 		}
 		proxyUpdate.Action = proxy_models.ProxyUpdate
-		proxyUpdate.Peers = peerUpdate.Peers
 		peerUpdate.ProxyUpdate = proxyUpdate
 	}
 

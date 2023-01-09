@@ -194,7 +194,9 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 }
 
 func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload, error) {
-	proxyPayload := proxy_models.ProxyManagerPayload{}
+	proxyPayload := proxy_models.ProxyManagerPayload{
+		Action: proxy_models.ProxyUpdate,
+	}
 	peerConfMap := make(map[string]proxy_models.PeerConf)
 
 	// ** TODO - RELAY NEEDS TO BE FIXED
