@@ -263,7 +263,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 			continue
 		}
 		currentPeers, err := GetNetworkNodes(node.Network)
-		if err == nil {
+		if err != nil {
 			continue
 		}
 		for _, peer := range currentPeers {
@@ -271,30 +271,30 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 				//skip yourself
 				continue
 			}
-			host, err := GetHost(peer.HostID.String())
+			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
 				continue
 			}
-			proxyStatus := host.ProxyEnabled
-			listenPort := host.LocalListenPort
+			proxyStatus := peerHost.ProxyEnabled
+			listenPort := peerHost.LocalListenPort
 			if proxyStatus {
-				listenPort = host.ProxyListenPort
+				listenPort = peerHost.ProxyListenPort
 				if listenPort == 0 {
 					listenPort = proxy_models.NmProxyPort
 				}
 			} else if listenPort == 0 {
-				listenPort = host.ListenPort
+				listenPort = peerHost.ListenPort
 			}
-			if _, ok := peerConfMap[host.PublicKey.String()]; !ok {
-				peerConfMap[host.PublicKey.String()] = proxy_models.PeerConf{
+			if _, ok := peerConfMap[peerHost.PublicKey.String()]; !ok {
+				peerConfMap[peerHost.PublicKey.String()] = proxy_models.PeerConf{
 					Proxy:            proxyStatus,
 					PublicListenPort: int32(listenPort),
 					NetworkInfo:      make(map[string]proxy_models.NetworkInfo),
 				}
-			} else {
-				peerConfMap[host.PublicKey.String()].NetworkInfo[peer.Network] = proxy_models.NetworkInfo{
-					Address: net.IP(peer.PrimaryAddress()),
-				}
+
+			}
+			peerConfMap[peerHost.PublicKey.String()].NetworkInfo[peer.Network] = proxy_models.NetworkInfo{
+				Address: net.ParseIP(peer.PrimaryAddress()),
 			}
 
 			if peer.IsRelayed {
@@ -307,7 +307,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 					}
 					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, relayHost.LocalListenPort))
 					if err == nil {
-						peerConfMap[host.PublicKey.String()] = proxy_models.PeerConf{
+						peerConfMap[peerHost.PublicKey.String()] = proxy_models.PeerConf{
 							IsRelayed:        true,
 							RelayedTo:        relayTo,
 							Address:          net.ParseIP(peer.PrimaryAddress()),
@@ -325,6 +325,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 
 	//proxyPayload.WgAddr = addr.String()
 	proxyPayload.PeerMap = peerConfMap
+	fmt.Printf("----------> PEERRR MAP: %+v\n", peerConfMap)
 	//proxyPayload.Network = node.Network
 	//proxyPayload.InterfaceName = node.Interface
 	//hardcode or read from host ??
@@ -404,7 +405,12 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				Port: peerHost.ListenPort,
 			}
 			if !host.ProxyEnabled && peerHost.ProxyEnabled {
-				peerConfig.Endpoint.Port = peerHost.ProxyListenPort
+				if peerHost.ProxyListenPort == 0 {
+					peerConfig.Endpoint.Port = proxy_models.NmProxyPort
+				} else {
+					peerConfig.Endpoint.Port = peerHost.ProxyListenPort
+				}
+
 			}
 			if uselocal {
 				peerConfig.Endpoint.IP = peer.LocalAddress.IP

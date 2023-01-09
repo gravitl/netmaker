@@ -95,7 +95,15 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		_, newNode := oldNode.ConvertToNewNode()
+		host, err := logic.GetHost(oldNode.HostID)
+		if err != nil && database.IsEmptyRecord(err) {
+			return
+		}
+		host, newNode := oldNode.ConvertToNewNode(host)
+		err = logic.UpsertHost(host)
+		if err != nil {
+			logger.Log(0, "failed to update host: ", err.Error())
+		}
 		ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 		if servercfg.Is_EE && ifaceDelta {
 			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
