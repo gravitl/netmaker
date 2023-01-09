@@ -48,6 +48,47 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	return returnnodes, node, nil
 }
 
+func CreateHostRelay(relay models.HostRelayRequest) (relayHost *models.Host, relayedHosts []models.Host, err error) {
+
+	relayHost, err = GetHost(relay.HostID)
+	if err != nil {
+		return
+	}
+	err = ValidateHostRelay(relay)
+	if err != nil {
+		return
+	}
+	relayHost.IsRelay = true
+	relayHost.RelayedHosts = relay.RelayedHosts
+	err = UpsertHost(relayHost)
+	if err != nil {
+		return
+	}
+	relayedHosts = SetRelayedHosts(true, relay.HostID, relay.RelayedHosts)
+	return
+}
+
+func SetRelayedHosts(setRelayed bool, relayHostID string, relayedHostIDs []string) []models.Host {
+	var relayedHosts []models.Host
+	for _, relayedHostID := range relayedHostIDs {
+		host, err := GetHost(relayedHostID)
+		if err == nil {
+			if setRelayed {
+				host.IsRelayed = true
+				host.RelayedBy = relayHostID
+			} else {
+				host.IsRelayed = false
+				host.RelayedBy = ""
+			}
+			err = UpsertHost(host)
+			if err == nil {
+				relayedHosts = append(relayedHosts, *host)
+			}
+		}
+	}
+	return relayedHosts
+}
+
 // SetRelayedNodes- set relayed nodes
 func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]models.Node, error) {
 	var returnnodes []models.Node
@@ -90,6 +131,18 @@ func GetRelayedNodes(relayNode *models.Node) ([]models.Node, error) {
 	return returnnodes, nil
 }
 
+func GetRelayedHosts(relayHost *models.Host) []models.Host {
+	relayedHosts := []models.Host{}
+
+	for _, hostID := range relayHost.RelayedHosts {
+		relayedHost, err := GetHost(hostID)
+		if err == nil {
+			relayedHosts = append(relayedHosts, *relayedHost)
+		}
+	}
+	return relayedHosts
+}
+
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest) error {
 	var err error
@@ -99,6 +152,11 @@ func ValidateRelay(relay models.RelayRequest) error {
 		err = errors.New("IP Ranges Cannot Be Empty")
 	}
 	return err
+}
+
+// TODO
+func ValidateHostRelay(relay models.HostRelayRequest) error {
+	return nil
 }
 
 // UpdateRelay - updates a relay
@@ -140,4 +198,19 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 		return returnnodes, models.Node{}, err
 	}
 	return returnnodes, node, nil
+}
+
+func DeleteHostRelay(relayHostID string) (relayHost *models.Host, relayedHosts []models.Host, err error) {
+	relayHost, err = GetHost(relayHostID)
+	if err != nil {
+		return
+	}
+	relayedHosts = SetRelayedHosts(false, relayHostID, relayHost.RelayedHosts)
+	relayHost.IsRelay = false
+	relayHost.RelayedHosts = []string{}
+	err = UpsertHost(relayHost)
+	if err != nil {
+		return
+	}
+	return
 }

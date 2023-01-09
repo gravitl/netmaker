@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -21,6 +22,8 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods("PUT")
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods("DELETE")
 	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods("PUT")
+	r.HandleFunc("/api/hosts/{hostid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/{hostid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -187,4 +190,89 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated host networks", currHost.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(payload)
+}
+
+// swagger:route POST /api/hosts/{hostid}/createrelay hosts createHostRelay
+//
+// Create a relay.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeResponse
+func createHostRelay(w http.ResponseWriter, r *http.Request) {
+	var relay models.HostRelayRequest
+	var params = mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewDecoder(r.Body).Decode(&relay)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	relay.HostID = params["hostid"]
+	relayHost, relayedHosts, err := logic.CreateHostRelay(relay)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create relay on host [%s]: %v", relay.HostID, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	logger.Log(1, r.Header.Get("user"), "created relay on host", relay.HostID)
+	for _, relayedHost := range relayedHosts {
+
+		err = mq.PublishSingleHostUpdate(&relayedHost)
+		if err != nil {
+			logger.Log(1, "error sending update to relayed host ", relayedHost.ID.String(), ": ", err.Error())
+		}
+	}
+	// publish host update for relayhost
+	err = mq.PublishSingleHostUpdate(relayHost)
+	if err != nil {
+		logger.Log(1, "error sending update to relay host ", relayHost.ID.String(), ": ", err.Error())
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(relayHost)
+}
+
+// swagger:route DELETE /api/hosts/{hostid}/createrelay hosts deleteHostRelay
+//
+// Remove a relay.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeResponse
+func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	hostid := params["hostid"]
+	relayHost, relayedHosts, err := logic.DeleteHostRelay(hostid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logger.Log(1, r.Header.Get("user"), "deleted relay host", hostid)
+	for _, relayedHost := range relayedHosts {
+		err = mq.PublishSingleHostUpdate(&relayedHost)
+		if err != nil {
+			logger.Log(1, "error sending update to relayed host ", relayedHost.ID.String(), ": ", err.Error())
+		}
+	}
+	err = mq.PublishSingleHostUpdate(relayHost)
+	if err != nil {
+		logger.Log(1, "error sending update to relayed host ", relayHost.ID.String(), ": ", err.Error())
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(relayHost)
 }
