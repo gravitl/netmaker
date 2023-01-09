@@ -18,6 +18,7 @@ type PeerUpdate struct {
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
+	Host          Host                             `json:"host" bson:"host" yaml:"host"`
 	ServerVersion string                           `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
 	ServerAddrs   []ServerAddr                     `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
 	Network       map[string]NetworkInfo           `json:"network" bson:"network" yaml:"network"`

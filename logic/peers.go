@@ -309,7 +309,11 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
+	if host == nil {
+		return models.HostPeerUpdate{}, errors.New("host is nil")
+	}
 	hostPeerUpdate := models.HostPeerUpdate{
+		Host:          *host,
 		Network:       make(map[string]models.NetworkInfo),
 		PeerIDs:       make(models.HostPeerMap),
 		ServerVersion: servercfg.GetVersion(),

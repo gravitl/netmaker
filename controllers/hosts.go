@@ -18,12 +18,12 @@ type hostNetworksUpdatePayload struct {
 }
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods("GET")
-	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods("PUT")
-	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods("DELETE")
-	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods("PUT")
-	r.HandleFunc("/api/hosts/{hostid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/{hostid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -192,7 +192,7 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(payload)
 }
 
-// swagger:route POST /api/hosts/{hostid}/createrelay hosts createHostRelay
+// swagger:route POST /api/hosts/{hostid}/relay hosts createHostRelay
 //
 // Create a relay.
 //
@@ -235,12 +235,12 @@ func createHostRelay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(1, "error sending update to relay host ", relayHost.ID.String(), ": ", err.Error())
 	}
-
+	apiHostData := relayHost.ConvertNMHostToAPI()
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(relayHost)
+	json.NewEncoder(w).Encode(apiHostData)
 }
 
-// swagger:route DELETE /api/hosts/{hostid}/createrelay hosts deleteHostRelay
+// swagger:route DELETE /api/hosts/{hostid}/relay hosts deleteHostRelay
 //
 // Remove a relay.
 //
@@ -272,7 +272,7 @@ func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(1, "error sending update to relayed host ", relayHost.ID.String(), ": ", err.Error())
 	}
-
+	apiHostData := relayHost.ConvertNMHostToAPI()
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(relayHost)
+	json.NewEncoder(w).Encode(apiHostData)
 }

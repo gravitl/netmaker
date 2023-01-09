@@ -59,6 +59,7 @@ func CreateHostRelay(relay models.HostRelayRequest) (relayHost *models.Host, rel
 		return
 	}
 	relayHost.IsRelay = true
+	relayHost.ProxyEnabled = true
 	relayHost.RelayedHosts = relay.RelayedHosts
 	err = UpsertHost(relayHost)
 	if err != nil {
@@ -76,6 +77,7 @@ func SetRelayedHosts(setRelayed bool, relayHostID string, relayedHostIDs []strin
 			if setRelayed {
 				host.IsRelayed = true
 				host.RelayedBy = relayHostID
+				host.ProxyEnabled = true
 			} else {
 				host.IsRelayed = false
 				host.RelayedBy = ""
@@ -154,8 +156,10 @@ func ValidateRelay(relay models.RelayRequest) error {
 	return err
 }
 
-// TODO
 func ValidateHostRelay(relay models.HostRelayRequest) error {
+	if len(relay.RelayedHosts) == 0 {
+		return errors.New("relayed hosts are empty")
+	}
 	return nil
 }
 
