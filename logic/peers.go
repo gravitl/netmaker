@@ -198,65 +198,41 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 		Action: proxy_models.ProxyUpdate,
 	}
 	peerConfMap := make(map[string]proxy_models.PeerConf)
+	if host.IsRelayed {
+		relayHost, err := GetHost(host.RelayedBy)
+		if err == nil {
+			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, host.LocalListenPort))
+			if err != nil {
+				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
+			}
+			proxyPayload.IsRelayed = true
+			proxyPayload.RelayedTo = relayEndpoint
+		} else {
+			logger.Log(0, "couldn't find relay host for:  ", host.ID.String())
+		}
 
-	// ** TODO - RELAY NEEDS TO BE FIXED
-	// if !onlyPeers {
-	// 	if node.IsRelayed {
-	// 		relayNode := FindRelay(node)
-	// 		relayHost, err := GetHost(relayNode.HostID.String())
-	// 		if err != nil {
-	// 			return proxyPayload, err
-	// 		}
-	// 		if relayNode != nil {
-	// 			host, err := GetHost(relayNode.HostID.String())
-	// 			if err != nil {
-	// 				logger.Log(0, "error retrieving host for relay node", relayNode.HostID.String(), err.Error())
-	// 			}
-	// 			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, host.LocalListenPort))
-	// 			if err != nil {
-	// 				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
-	// 			}
-	// 			proxyPayload.IsRelayed = true
-	// 			proxyPayload.RelayedTo = relayEndpoint
-	// 		} else {
-	// 			logger.Log(0, "couldn't find relay node for:  ", node.ID.String())
-	// 		}
+	}
+	if host.IsRelay {
+		relayedHosts := GetRelayedHosts(host)
+		relayPeersMap := make(map[string]proxy_models.RelayedConf)
+		for _, relayedHost := range relayedHosts {
+			payload, err := GetPeerUpdateForHost(&relayedHost)
+			if err == nil {
+				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, host.LocalListenPort))
+				if udpErr == nil {
+					relayPeersMap[host.PublicKey.String()] = proxy_models.RelayedConf{
+						RelayedPeerEndpoint: relayedEndpoint,
+						RelayedPeerPubKey:   relayedHost.PublicKey.String(),
+						Peers:               payload.Peers,
+					}
+				}
 
-	// 	}
-	// 	if node.IsRelay {
-	// 		host, err := GetHost(node.HostID.String())
-	// 		if err != nil {
-	// 			logger.Log(0, "error retrieving host for relay node", node.ID.String(), err.Error())
-	// 		}
-	// 		relayedNodes, err := GetRelayedNodes(node)
-	// 		if err != nil {
-	// 			logger.Log(1, "failed to relayed nodes: ", node.ID.String(), err.Error())
-	// 			proxyPayload.IsRelay = false
-	// 		} else {
-	// 			relayPeersMap := make(map[string]proxy_models.RelayedConf)
-	// 			for _, relayedNode := range relayedNodes {
-	// 				payload, err := GetPeersForProxy(&relayedNode, true)
-	// 				if err == nil {
-	// 					relayedHost, err := GetHost(relayedNode.HostID.String())
-	// 					if err != nil {
-	// 						logger.Log(0, "error retrieving host for relayNode", relayedNode.ID.String(), err.Error())
-	// 					}
-	// 					relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, host.LocalListenPort))
-	// 					if udpErr == nil {
-	// 						relayPeersMap[host.PublicKey.String()] = proxy_models.RelayedConf{
-	// 							RelayedPeerEndpoint: relayedEndpoint,
-	// 							RelayedPeerPubKey:   relayedHost.PublicKey.String(),
-	// 							Peers:               payload.Peers,
-	// 						}
-	// 					}
+			}
+		}
+		proxyPayload.IsRelay = true
+		proxyPayload.RelayedPeerConf = relayPeersMap
 
-	// 				}
-	// 			}
-	// 			proxyPayload.IsRelay = true
-	// 			proxyPayload.RelayedPeerConf = relayPeersMap
-	// 		}
-	// 	}
-	// }
+	}
 
 	for _, nodeID := range host.Nodes {
 
@@ -299,14 +275,9 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 				Address: net.ParseIP(peer.PrimaryAddress()),
 			}
 
-			if peer.IsRelayed {
-				relayNode := FindRelay(&peer)
-				if relayNode != nil {
-					relayHost, err := GetHost(relayNode.HostID.String())
-					if err != nil {
-						logger.Log(0, "error retrieving host for relayNode", relayNode.ID.String(), err.Error())
-						continue
-					}
+			if peerHost.IsRelayed {
+				relayHost, err := GetHost(peerHost.RelayedBy)
+				if err == nil {
 					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, relayHost.LocalListenPort))
 					if err == nil {
 						peerConfMap[peerHost.PublicKey.String()] = proxy_models.PeerConf{
