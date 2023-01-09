@@ -2,8 +2,6 @@ package acl
 
 import (
 	"fmt"
-	"log"
-	"strings"
 
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/logic/acls"
@@ -11,23 +9,13 @@ import (
 )
 
 var aclDenyCmd = &cobra.Command{
-	Use:   "deny [NETWORK NAME] [FROM_NODE_NAME] [TO_NODE_NAME]",
+	Use:   "deny [NETWORK NAME] [NODE_1_ID] [NODE_2_ID]",
 	Args:  cobra.ExactArgs(3),
 	Short: "Deny access from one node to another",
 	Long:  `Deny access from one node to another`,
 	Run: func(cmd *cobra.Command, args []string) {
-		nameIDMap := make(map[string]string)
-		for _, node := range *functions.GetNodes(args[0]) {
-			nameIDMap[strings.ToLower(node.Name)] = node.ID
-		}
-		fromNodeID, ok := nameIDMap[strings.ToLower(args[1])]
-		if !ok {
-			log.Fatalf("Node %s doesn't exist", args[1])
-		}
-		toNodeID, ok := nameIDMap[strings.ToLower(args[2])]
-		if !ok {
-			log.Fatalf("Node %s doesn't exist", args[2])
-		}
+		fromNodeID := args[1]
+		toNodeID := args[2]
 		payload := acls.ACLContainer(map[acls.AclID]acls.ACL{
 			acls.AclID(fromNodeID): map[acls.AclID]byte{
 				acls.AclID(toNodeID): acls.NotAllowed,

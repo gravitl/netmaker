@@ -2,6 +2,7 @@ package node
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
@@ -23,19 +24,20 @@ var nodeListCmd = &cobra.Command{
 			data = *functions.GetNodes()
 		}
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Name", "Addresses", "Version", "Network", "Egress", "Ingress", "Relay", "ID"})
+		table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Ingress", "Relay"})
 		for _, d := range data {
 			addresses := ""
-			if d.Address != "" {
-				addresses += d.Address
+			if d.Address.String() != "" {
+				addresses += d.Address.String()
 			}
-			if d.Address6 != "" {
-				if d.Address != "" {
+			if d.Address6.String() != "" {
+				if d.Address.String() != "" {
 					addresses += ", "
 				}
-				addresses += d.Address6
+				addresses += d.Address6.String()
 			}
-			table.Append([]string{d.Name, addresses, d.Version, d.Network, d.IsEgressGateway, d.IsIngressGateway, d.IsRelay, d.ID})
+			table.Append([]string{d.ID.String(), addresses, d.Network,
+				strconv.FormatBool(d.IsEgressGateway), strconv.FormatBool(d.IsIngressGateway), strconv.FormatBool(d.IsRelay)})
 		}
 		table.Render()
 	},
