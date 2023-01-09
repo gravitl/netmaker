@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
@@ -442,6 +441,13 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(host)
+	if err != nil && !database.IsEmptyRecord(err) {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	server := servercfg.GetServerInfo()
 	network, err := logic.GetNetwork(node.Network)
 	if err != nil {
@@ -453,7 +459,9 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	legacy := node.Legacy(host, &server, &network)
 	response := models.NodeGet{
 		Node:         *legacy,
+		Host:         *host,
 		Peers:        peerUpdate.Peers,
+		HostPeers:    hostPeerUpdate.Peers,
 		ServerConfig: server,
 		PeerIDs:      peerUpdate.PeerIDs,
 	}
@@ -637,19 +645,18 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	peerUpdate, err := logic.GetPeerUpdate(&data.Node, &data.Host)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(&data.Host)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", data.Node.ID.String(), err))
+			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", data.Host.ID.String(), err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	data.Node.Peers = peerUpdate.Peers
-
 	response := models.NodeJoinResponse{
 		Node:         data.Node,
 		ServerConfig: server,
-		PeerIDs:      peerUpdate.PeerIDs,
+		Host:         data.Host,
+		Peers:        hostPeerUpdate.Peers,
 	}
 	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
 	w.WriteHeader(http.StatusOK)
@@ -1061,28 +1068,14 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		}, &node)
 	}
 	if fromNode {
-		// check if server should be removed from mq
-		// err is irrelevent
-		nodes, _ := logic.GetAllNodes()
-		var foundNode models.Node
-		for _, nodetocheck := range nodes {
-			if nodetocheck.HostID == node.HostID {
-				foundNode = nodetocheck
-				break
-			}
-		}
-		// TODO: Address how to remove host
-		if foundNode.HostID != uuid.Nil {
-			if err = logic.DissasociateNodeFromHost(&foundNode, host); err == nil {
-				currNets := logic.GetHostNetworks(host.ID.String())
-				if len(currNets) > 0 {
-					mq.ModifyClient(&mq.MqClient{
-						ID:       host.ID.String(),
-						Text:     host.Name,
-						Networks: currNets,
-					})
-				}
-			}
+		// update networks for host mq client
+		currNets := logic.GetHostNetworks(host.ID.String())
+		if len(currNets) > 0 {
+			mq.ModifyClient(&mq.MqClient{
+				ID:       host.ID.String(),
+				Text:     host.Name,
+				Networks: currNets,
+			})
 		}
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
@@ -1091,12 +1084,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		runUpdates(&node, false)
 		return
 	}
-	go func() {
-		if err := mq.PublishPeerUpdate(node.Network, false); err != nil {
+	go func(network string) {
+		if err := mq.PublishPeerUpdate(network, false); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
-			return
 		}
-	}()
+	}(node.Network)
 
 }
 

@@ -34,7 +34,8 @@ func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 	for _, node := range nodes {
 		host, err := GetHost(node.HostID.String())
 		if err != nil {
-
+			// should we delete the node if host not found ??
+			continue
 		}
 		if host.MacAddress.String() == mac.String() {
 			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
