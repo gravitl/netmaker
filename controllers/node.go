@@ -27,8 +27,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", authorize(true, true, "node", http.HandlerFunc(nodeNodeUpdate))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", authorize(false, true, "user", http.HandlerFunc(createEgressGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(false, http.HandlerFunc(createIngressGateway))).Methods(http.MethodPost)
@@ -865,22 +863,6 @@ func nodeNodeUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	relayupdate := false
-	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
-		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
-			relayupdate = true
-		} else {
-			for i, addr := range newNode.RelayAddrs {
-				if addr != currentNode.RelayAddrs[i] {
-					relayupdate = true
-				}
-			}
-		}
-	}
-	relayedUpdate := false
-	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
-		relayedUpdate = true
-	}
 
 	if !servercfg.GetRce() {
 		newNode.PostDown = currentNode.PostDown
@@ -901,17 +883,6 @@ func nodeNodeUpdate(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	if relayupdate {
-		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
-		if len(updatenodes) > 0 {
-			for _, relayedNode := range updatenodes {
-				runUpdates(&relayedNode, false)
-			}
-		}
-	}
-	if relayedUpdate {
-		updateRelay(&currentNode, &newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
@@ -959,22 +930,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
-	relayupdate := false
-	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
-		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
-			relayupdate = true
-		} else {
-			for i, addr := range newNode.RelayAddrs {
-				if addr != currentNode.RelayAddrs[i] {
-					relayupdate = true
-				}
-			}
-		}
-	}
-	relayedUpdate := false
-	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
-		relayedUpdate = true
-	}
 
 	if !servercfg.GetRce() {
 		newNode.PostDown = currentNode.PostDown
@@ -994,17 +949,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	if relayupdate {
-		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
-		if len(updatenodes) > 0 {
-			for _, relayedNode := range updatenodes {
-				runUpdates(&relayedNode, false)
-			}
-		}
-	}
-	if relayedUpdate {
-		updateRelay(&currentNode, newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
@@ -1092,30 +1036,6 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
 		}
 	}()
-}
-
-func updateRelay(oldnode, newnode *models.Node) {
-	relay := logic.FindRelay(oldnode)
-	newrelay := relay
-	//check if node's address has been updated and if so, update the relayAddrs of the relay node with the updated address of the relayed node
-	if oldnode.Address.String() != newnode.Address.String() {
-		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address.IP.String() {
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], relay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address.IP.String())
-			}
-		}
-	}
-	//check if node's address(v6) has been updated and if so, update the relayAddrs of the relay node with the updated address(v6) of the relayed node
-	if oldnode.Address6.String() != newnode.Address6.String() {
-		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address.IP.String() {
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], newrelay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address6.IP.String())
-			}
-		}
-	}
-	logic.UpdateNode(relay, newrelay)
 }
 
 func doesUserOwnNode(username, network, nodeID string) bool {

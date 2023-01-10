@@ -11,7 +11,6 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.Address6.String() != currentNode.Address6.String() ||
 		newNode.IsEgressGateway != currentNode.IsEgressGateway ||
 		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
-		newNode.IsRelay != currentNode.IsRelay ||
 		newNode.PersistentKeepalive != currentNode.PersistentKeepalive ||
 		newNode.DNSOn != currentNode.DNSOn ||
 		newNode.Connected != currentNode.Connected {
@@ -24,16 +23,6 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		}
 		for _, address := range newNode.EgressGatewayRanges {
 			if !StringSliceContains(currentNode.EgressGatewayRanges, address) {
-				return true
-			}
-		}
-	}
-	if newNode.IsRelay {
-		if len(currentNode.RelayAddrs) != len(newNode.RelayAddrs) {
-			return true
-		}
-		for _, address := range newNode.RelayAddrs {
-			if !StringSliceContains(currentNode.RelayAddrs, address) {
 				return true
 			}
 		}

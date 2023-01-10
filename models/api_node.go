@@ -56,8 +56,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.PostUp = a.PostUp
 	convertedNode.PostDown = a.PostDown
 	convertedNode.IsLocal = a.IsLocal
-	convertedNode.IsRelay = a.IsRelay
-	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.PendingDelete = a.PendingDelete
 	convertedNode.Failover = a.Failover
 	convertedNode.IsEgressGateway = a.IsEgressGateway
@@ -69,7 +67,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
 	convertedNode.PersistentKeepalive = time.Second * time.Duration(a.PersistentKeepalive)
-	convertedNode.RelayAddrs = a.RelayAddrs
 	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
 	_, networkRange, err := net.ParseCIDR(a.NetworkRange)
@@ -140,13 +137,10 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	if isEmptyAddr(apiNode.NetworkRange6) {
 		apiNode.NetworkRange6 = ""
 	}
-	apiNode.IsRelayed = nm.IsRelayed
-	apiNode.IsRelay = nm.IsRelay
 	apiNode.IsEgressGateway = nm.IsEgressGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.EgressGatewayRanges = nm.EgressGatewayRanges
 	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
-	apiNode.RelayAddrs = nm.RelayAddrs
 	apiNode.FailoverNode = nm.FailoverNode.String()
 	if isUUIDSet(apiNode.FailoverNode) {
 		apiNode.FailoverNode = ""
