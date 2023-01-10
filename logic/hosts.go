@@ -299,6 +299,9 @@ func GetRelatedHosts(hostID string) []models.Host {
 	hosts, err := GetAllHosts()
 	if err == nil {
 		for _, host := range hosts {
+			if host.ID.String() == hostID {
+				continue
+			}
 			networks := GetHostNetworks(host.ID.String())
 			for _, network := range networks {
 				if _, ok := networkMap[network]; ok {
