@@ -321,7 +321,6 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 
 	//proxyPayload.WgAddr = addr.String()
 	proxyPayload.PeerMap = peerConfMap
-	fmt.Printf("----------> PEERRR MAP: %+v\n", peerConfMap)
 	//proxyPayload.Network = node.Network
 	//proxyPayload.InterfaceName = node.Interface
 	//hardcode or read from host ??

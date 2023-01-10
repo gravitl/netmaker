@@ -236,7 +236,7 @@ func createHostRelay(w http.ResponseWriter, r *http.Request) {
 	// 	logger.Log(1, "error sending update to relay host ", relayHost.ID.String(), ": ", err.Error())
 	// }
 	go func() {
-		if err := mq.PublishPeerUpdate("", false); err != nil {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}()
@@ -279,7 +279,7 @@ func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
 	// 	logger.Log(1, "error sending update to relayed host ", relayHost.ID.String(), ": ", err.Error())
 	// }
 	go func() {
-		if err := mq.PublishPeerUpdate("", false); err != nil {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}()

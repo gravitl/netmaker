@@ -116,7 +116,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-			if err = PublishPeerUpdate(currentNode.Network, true); err != nil {
+			if err = PublishPeerUpdate(); err != nil {
 				logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 			}
 		}
@@ -218,7 +218,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 }
 
 func updateNodePeers(currentNode *models.Node) {
-	if err := PublishPeerUpdate(currentNode.Network, false); err != nil {
+	if err := PublishPeerUpdate(); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
 		return
 	}

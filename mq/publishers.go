@@ -15,7 +15,7 @@ import (
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
-func PublishPeerUpdate(network string, publishToSelf bool) error {
+func PublishPeerUpdate() error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -74,7 +74,7 @@ func PublishSingleHostUpdate(host *models.Host) error {
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
 func PublishExtPeerUpdate(node *models.Node) error {
 
-	go PublishPeerUpdate(node.Network, false)
+	go PublishPeerUpdate()
 	return nil
 }
 

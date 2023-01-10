@@ -662,7 +662,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 
 	go func() {
-		if err := mq.PublishPeerUpdate(data.Node.Network, true); err != nil {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "failed a peer update after creation of node", data.Host.Name)
 		}
 	}()
@@ -1078,7 +1078,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func(network string) {
-		if err := mq.PublishPeerUpdate(network, false); err != nil {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}(node.Network)
