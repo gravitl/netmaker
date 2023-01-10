@@ -511,7 +511,7 @@ func (ln *LegacyNode) ConvertToNewNode(host *Host) (*Host, *Node) {
 	host.Nodes = append(host.Nodes, nodeID.String())
 	host.Interfaces = ln.Interfaces
 	host.EndpointIP = net.ParseIP(ln.Endpoint)
-	// host.ProxyEnabled = ln.Proxy // this will always be false..
+	host.ProxyEnabled = ln.Proxy
 	node.ID = nodeID
 	node.Network = ln.Network
 	if _, cidr, err := net.ParseCIDR(ln.NetworkSettings.AddressRange); err == nil {
