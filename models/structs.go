@@ -172,6 +172,7 @@ type RelayRequest struct {
 	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
 }
 
+// HostRelayRequest - struct for host relay creation
 type HostRelayRequest struct {
 	HostID       string   `json:"host_id" bson:"host_id"`
 	RelayedHosts []string `json:"relayed_hosts" bson:"relayed_hosts"`
