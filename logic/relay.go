@@ -207,6 +207,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	return returnnodes, node, nil
 }
 
+// DeleteHostRelay - removes host as relay
 func DeleteHostRelay(relayHostID string) (relayHost *models.Host, relayedHosts []models.Host, err error) {
 	relayHost, err = GetHost(relayHostID)
 	if err != nil {

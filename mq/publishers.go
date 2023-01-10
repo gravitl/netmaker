@@ -34,20 +34,6 @@ func PublishPeerUpdate() error {
 	return err
 }
 
-func PublishProxyPeerUpdate(host *models.Host) error {
-	proxyUpdate, err := logic.GetProxyUpdateForHost(host)
-	if err != nil {
-		return err
-	}
-	proxyUpdate.Action = proxy_models.ProxyUpdate
-	err = ProxyUpdate(&proxyUpdate, host)
-	if err != nil {
-		logger.Log(1, "failed to send proxy update: ", err.Error())
-		return err
-	}
-	return nil
-}
-
 // PublishSingleHostUpdate --- determines and publishes a peer update to one host
 func PublishSingleHostUpdate(host *models.Host) error {
 
@@ -103,26 +89,6 @@ func NodeUpdate(node *models.Node) error {
 		return err
 	}
 
-	return nil
-}
-
-// ProxyUpdate -- publishes updates to peers related to proxy
-func ProxyUpdate(proxyPayload *proxy_models.ProxyManagerPayload, host *models.Host) error {
-
-	if !servercfg.IsMessageQueueBackend() || !host.ProxyEnabled {
-		return nil
-	}
-	logger.Log(3, "publishing proxy update to "+host.ID.String())
-
-	data, err := json.Marshal(proxyPayload)
-	if err != nil {
-		logger.Log(2, "error marshalling node update ", err.Error())
-		return err
-	}
-	if err = publish(host, fmt.Sprintf("proxy/%s/%s", host.ID, servercfg.GetServer()), data); err != nil {
-		logger.Log(2, "error publishing proxy update to peer ", host.ID.String(), err.Error())
-		return err
-	}
 	return nil
 }
 

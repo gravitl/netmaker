@@ -193,6 +193,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 	return proxyPayload, nil
 }
 
+// GetProxyUpdateForHost - gets the proxy update for host
 func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload, error) {
 	proxyPayload := proxy_models.ProxyManagerPayload{
 		Action: proxy_models.ProxyUpdate,
