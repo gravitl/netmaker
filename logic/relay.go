@@ -55,7 +55,7 @@ func CreateHostRelay(relay models.HostRelayRequest) (relayHost *models.Host, rel
 	if err != nil {
 		return
 	}
-	err = ValidateHostRelay(relay)
+	err = validateHostRelay(relay)
 	if err != nil {
 		return
 	}
@@ -159,7 +159,7 @@ func ValidateRelay(relay models.RelayRequest) error {
 	return err
 }
 
-func ValidateHostRelay(relay models.HostRelayRequest) error {
+func validateHostRelay(relay models.HostRelayRequest) error {
 	if len(relay.RelayedHosts) == 0 {
 		return errors.New("relayed hosts are empty")
 	}
