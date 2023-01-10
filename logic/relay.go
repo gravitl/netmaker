@@ -222,3 +222,9 @@ func DeleteHostRelay(relayHostID string) (relayHost *models.Host, relayedHosts [
 	}
 	return
 }
+
+// UpdateHostRelay - updates the relay host with new relayed hosts
+func UpdateHostRelay(relayHostID string, oldRelayedHosts, newRelayedHosts []string) {
+	_ = SetRelayedHosts(false, relayHostID, oldRelayedHosts)
+	_ = SetRelayedHosts(true, relayHostID, newRelayedHosts)
+}

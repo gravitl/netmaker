@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"reflect"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
@@ -79,12 +80,22 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
+	// check if relay information is changed
+	updateRelay := false
+	if newHost.IsRelay && len(newHost.RelayedHosts) > 0 {
+		if len(newHost.RelayedHosts) != len(currHost.RelayedHosts) || !reflect.DeepEqual(newHost.RelayedHosts, currHost.RelayedHosts) {
+			updateRelay = true
+		}
+	}
 
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if updateRelay {
+		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
 
 	newNetworks := logic.GetHostNetworks(newHost.ID.String())
