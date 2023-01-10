@@ -48,6 +48,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	return returnnodes, node, nil
 }
 
+// CreateHostRelay - creates a host relay
 func CreateHostRelay(relay models.HostRelayRequest) (relayHost *models.Host, relayedHosts []models.Host, err error) {
 
 	relayHost, err = GetHost(relay.HostID)
@@ -69,6 +70,7 @@ func CreateHostRelay(relay models.HostRelayRequest) (relayHost *models.Host, rel
 	return
 }
 
+// SetRelayedHosts - updates the relayed hosts status
 func SetRelayedHosts(setRelayed bool, relayHostID string, relayedHostIDs []string) []models.Host {
 	var relayedHosts []models.Host
 	for _, relayedHostID := range relayedHostIDs {
@@ -133,6 +135,7 @@ func GetRelayedNodes(relayNode *models.Node) ([]models.Node, error) {
 	return returnnodes, nil
 }
 
+// GetRelayedHosts - gets the relayed hosts of a relay host
 func GetRelayedHosts(relayHost *models.Host) []models.Host {
 	relayedHosts := []models.Host{}
 

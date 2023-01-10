@@ -124,23 +124,17 @@ func createHostRelay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created relay on host", relay.HostID)
-	// for _, relayedHost := range relayedHosts {
-
-	// 	err = mq.PublishSingleHostUpdate(&relayedHost)
-	// 	if err != nil {
-	// 		logger.Log(1, "error sending update to relayed host ", relayedHost.ID.String(), ": ", err.Error())
-	// 	}
-	// }
-	// // publish host update for relayhost
-	// err = mq.PublishSingleHostUpdate(relayHost)
-	// if err != nil {
-	// 	logger.Log(1, "error sending update to relay host ", relayHost.ID.String(), ": ", err.Error())
-	// }
-	go func() {
+	go func(relayHostID string) {
+		relatedhosts := logic.GetRelatedHosts(relayHostID)
+		for _, relatedHost := range relatedhosts {
+			relatedHost.ProxyEnabled = true
+			logic.UpsertHost(&relatedHost)
+		}
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
-	}()
+
+	}(relay.HostID)
 
 	apiHostData := relayHost.ConvertNMHostToAPI()
 	w.WriteHeader(http.StatusOK)
@@ -169,16 +163,6 @@ func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay host", hostid)
-	// for _, relayedHost := range relayedHosts {
-	// 	err = mq.PublishSingleHostUpdate(&relayedHost)
-	// 	if err != nil {
-	// 		logger.Log(1, "error sending update to relayed host ", relayedHost.ID.String(), ": ", err.Error())
-	// 	}
-	// }
-	// err = mq.PublishSingleHostUpdate(relayHost)
-	// if err != nil {
-	// 	logger.Log(1, "error sending update to relayed host ", relayHost.ID.String(), ": ", err.Error())
-	// }
 	go func() {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
