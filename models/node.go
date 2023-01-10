@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 const (
@@ -482,37 +483,43 @@ func (node *Node) DoesACLDeny() bool {
 	return node.DefaultACL == "no"
 }
 
-func (ln *LegacyNode) ConvertToNewNode(host *Host) (*Host, *Node) {
+func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 	var node Node
-	host.FirewallInUse = ln.FirewallInUse
-	host.Version = ln.Version
-	host.IPForwarding = parseBool(ln.IPForwarding)
-	//host.HostPass = ln.Password
-	host.Name = ln.Name
-	host.ListenPort = int(ln.ListenPort)
-	if _, cidr, err := net.ParseCIDR(ln.LocalAddress); err == nil {
-		host.LocalRange = *cidr
-	} else {
-		if _, cidr, err := net.ParseCIDR(ln.LocalRange); err == nil {
+	//host:= logic.GetHost(node.HostID)
+	var host Host
+	if host.ID.String() == "" {
+		host.ID = uuid.New()
+		host.FirewallInUse = ln.FirewallInUse
+		host.Version = ln.Version
+		host.IPForwarding = parseBool(ln.IPForwarding)
+		host.HostPass = ln.Password
+		host.Name = ln.Name
+		host.ListenPort = int(ln.ListenPort)
+		if _, cidr, err := net.ParseCIDR(ln.LocalAddress); err == nil {
 			host.LocalRange = *cidr
+		} else {
+			if _, cidr, err := net.ParseCIDR(ln.LocalRange); err == nil {
+				host.LocalRange = *cidr
+			}
 		}
+		host.LocalListenPort = int(ln.LocalListenPort)
+		host.ProxyListenPort = int(ln.ProxyListenPort)
+		host.MTU = int(ln.MTU)
+		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
+		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
+		host.TrafficKeyPublic = ln.TrafficKeys.Mine
+		gateway, err := net.ResolveUDPAddr("udp", ln.InternetGateway)
+		if err == nil {
+			host.InternetGateway = *gateway
+		}
+		id, _ := uuid.Parse(ln.ID)
+		host.Nodes = append(host.Nodes, id.String())
+		host.Interfaces = ln.Interfaces
+		host.EndpointIP = net.ParseIP(ln.Endpoint)
+		// host.ProxyEnabled = ln.Proxy // this will always be false..
 	}
-	host.LocalListenPort = int(ln.LocalListenPort)
-	host.ProxyListenPort = int(ln.ProxyListenPort)
-	host.MTU = int(ln.MTU)
-	// host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
-	// host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
-	// host.TrafficKeyPublic = ln.TrafficKeys.Mine
-	gateway, err := net.ResolveUDPAddr("udp", ln.InternetGateway)
-	if err == nil {
-		host.InternetGateway = *gateway
-	}
-	nodeID, _ := uuid.Parse(ln.ID)
-	host.Nodes = append(host.Nodes, nodeID.String())
-	host.Interfaces = ln.Interfaces
-	host.EndpointIP = net.ParseIP(ln.Endpoint)
-	host.ProxyEnabled = ln.Proxy
-	node.ID = nodeID
+	id, _ := uuid.Parse(ln.ID)
+	node.ID = id
 	node.Network = ln.Network
 	if _, cidr, err := net.ParseCIDR(ln.NetworkSettings.AddressRange); err == nil {
 		node.NetworkRange = *cidr
@@ -542,7 +549,7 @@ func (ln *LegacyNode) ConvertToNewNode(host *Host) (*Host, *Node) {
 	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
 	node.DNSOn = parseBool(ln.DNSOn)
 
-	return host, &node
+	return &host, &node
 }
 
 // Node.Legacy converts node to legacy format
