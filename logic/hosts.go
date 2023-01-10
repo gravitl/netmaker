@@ -146,15 +146,7 @@ func UpsertHost(h *models.Host) error {
 // RemoveHost - removes a given host from server
 func RemoveHost(h *models.Host) error {
 	if len(h.Nodes) > 0 {
-		for i := range h.Nodes {
-			id := h.Nodes[i]
-			n, err := GetNodeByID(id)
-			if err == nil {
-				if err = DissasociateNodeFromHost(&n, h); err != nil {
-					return err // must remove associated nodes before removing a host
-				}
-			}
-		}
+		return fmt.Errorf("host still has associated nodes")
 	}
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 }

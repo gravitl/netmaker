@@ -1,4 +1,4 @@
-package ext_client
+package host
 
 import (
 	"os"
@@ -8,9 +8,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ext_client",
-	Short: "Manage External Clients",
-	Long:  `Manage External Clients`,
+	Use:   "host",
+	Short: "Manage hosts",
+	Long:  `Manage hosts`,
 }
 
 // GetRoot returns the root subcommand
