@@ -1077,11 +1077,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		runUpdates(&node, false)
 		return
 	}
-	go func(network string) {
+	go func() {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
-	}(node.Network)
+	}()
 
 }
 
