@@ -47,7 +47,7 @@ require (
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 )
 
 require (
