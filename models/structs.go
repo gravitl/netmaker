@@ -174,8 +174,8 @@ type RelayRequest struct {
 
 // HostRelayRequest - struct for host relay creation
 type HostRelayRequest struct {
-	HostID       string   `json:"host_id" bson:"host_id"`
-	RelayedHosts []string `json:"relayed_hosts" bson:"relayed_hosts"`
+	HostID       string   `json:"host_id"`
+	RelayedHosts []string `json:"relayed_hosts"`
 }
 
 // ServerUpdateData - contains data to configure server
