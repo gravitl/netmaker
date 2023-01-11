@@ -269,12 +269,6 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		currMetric.ActualUptime = time.Duration(totalUpMinutes) * time.Minute
 		delete(oldMetrics.Connectivity, k) // remove from old data
 		newMetrics.Connectivity[k] = currMetric
-		if oldProxyMetric, ok := oldMetrics.ProxyMetrics[k]; ok {
-			newProxyMetric := newMetrics.ProxyMetrics[k]
-			newProxyMetric.TrafficSent += oldProxyMetric.TrafficSent
-			newProxyMetric.TrafficRecieved += oldProxyMetric.TrafficRecieved
-			newMetrics.ProxyMetrics[k] = newProxyMetric
-		}
 
 	}
 
