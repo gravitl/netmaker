@@ -2,19 +2,16 @@ package models
 
 import (
 	"time"
-
-	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 )
 
 // Metrics - metrics struct
 type Metrics struct {
-	Network       string                         `json:"network" bson:"network" yaml:"network"`
-	NodeID        string                         `json:"node_id" bson:"node_id" yaml:"node_id"`
-	NodeName      string                         `json:"node_name" bson:"node_name" yaml:"node_name"`
-	IsServer      string                         `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Connectivity  map[string]Metric              `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
-	FailoverPeers map[string]string              `json:"needsfailover" bson:"needsfailover" yaml:"needsfailover"`
-	ProxyMetrics  map[string]proxy_models.Metric `json:"proxy_metrics" bson:"proxy_metrics" yaml:"proxy_metrics"`
+	Network       string            `json:"network" bson:"network" yaml:"network"`
+	NodeID        string            `json:"node_id" bson:"node_id" yaml:"node_id"`
+	NodeName      string            `json:"node_name" bson:"node_name" yaml:"node_name"`
+	IsServer      string            `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Connectivity  map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
+	FailoverPeers map[string]string `json:"needsfailover" bson:"needsfailover" yaml:"needsfailover"`
 }
 
 // Metric - holds a metric for data between nodes
