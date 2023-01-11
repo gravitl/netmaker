@@ -113,6 +113,26 @@ func NodeUpdate(node *models.Node) error {
 	return nil
 }
 
+// HostUpdate -- publishes a host topic update
+func HostUpdate(host *models.Host) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	logger.Log(3, "publishing host update to "+host.ID.String())
+
+	data, err := json.Marshal(host)
+	if err != nil {
+		logger.Log(2, "error marshalling node update ", err.Error())
+		return err
+	}
+	if err = publish(host, fmt.Sprintf("host/update/%s", host.ID.String()), data); err != nil {
+		logger.Log(2, "error publishing host update to", host.ID.String(), err.Error())
+		return err
+	}
+
+	return nil
+}
+
 // ProxyUpdate -- publishes updates to peers related to proxy
 func ProxyUpdate(proxyPayload *proxy_models.ProxyManagerPayload, node *models.Node) error {
 	host, err := logic.GetHost(node.HostID.String())
