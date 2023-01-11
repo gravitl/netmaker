@@ -76,7 +76,7 @@ spec:
         - name: MQ_HOST
           value: "mq"
         - name: MQ_PORT
-          value: "31883"
+          value: "443"
         - name: MQ_SERVER_PORT
           value: "1883"
         - name: PLATFORM
