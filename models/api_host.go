@@ -96,7 +96,10 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Nodes = currentHost.Nodes
 	h.TrafficKeyPublic = currentHost.TrafficKeyPublic
 	h.OS = currentHost.OS
-
+	h.RelayedBy = a.RelayedBy
+	h.RelayedHosts = a.RelayedHosts
+	h.IsRelay = a.IsRelay
+	h.IsRelayed = a.IsRelayed
 	if len(a.LocalRange) > 0 {
 		_, localRange, err := net.ParseCIDR(a.LocalRange)
 		if err == nil {
