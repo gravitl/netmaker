@@ -39,8 +39,6 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -o nmctl
 
   tests:
-    env:
-      DATABASE: sqlite
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
