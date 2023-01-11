@@ -29,7 +29,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.0.0
 	github.com/c-robinson/iplib v1.0.6
-	github.com/go-ping/ping v1.1.0
+	github.com/go-ping/ping v1.1.0 // indirect
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
@@ -43,7 +43,7 @@ require (
 )
 
 require (
-	github.com/gravitl/netclient v0.0.0-20230111052236-026a8d6b2a76
+	github.com/gravitl/netclient v0.0.0-20230111161447-b0ba3981a25f
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.0
 	github.com/olekukonko/tablewriter v0.0.5

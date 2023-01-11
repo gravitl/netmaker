@@ -11,7 +11,7 @@ import (
 )
 
 // Collect - collects metrics
-func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models.Metrics, error) {
+func Collect(iface, server, network string, proxy bool, peerMap models.PeerMap) (*models.Metrics, error) {
 	var metrics models.Metrics
 	metrics.Connectivity = make(map[string]models.Metric)
 	var wgclient, err = wgctrl.New()
@@ -28,13 +28,16 @@ func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models
 	// TODO handle freebsd??
 	for i := range device.Peers {
 		currPeer := device.Peers[i]
+		if _, ok := peerMap[currPeer.PublicKey.String()]; !ok {
+			continue
+		}
 		id := peerMap[currPeer.PublicKey.String()].ID
 		address := peerMap[currPeer.PublicKey.String()].Address
 		if id == "" || address == "" {
 			logger.Log(0, "attempted to parse metrics for invalid peer from server", id, address)
 			continue
 		}
-		proxyMetrics := proxy_metrics.GetMetric(currPeer.PublicKey.String())
+		proxyMetrics := proxy_metrics.GetMetric(server, currPeer.PublicKey.String())
 		var newMetric = models.Metric{
 			NodeName: peerMap[currPeer.PublicKey.String()].Name,
 			IsServer: peerMap[currPeer.PublicKey.String()].IsServer,
@@ -60,9 +63,9 @@ func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models
 		newMetric.TotalTime = 1
 		metrics.Connectivity[id] = newMetric
 		if len(proxyMetrics.NodeConnectionStatus) == 1 {
-			proxy_metrics.ResetMetricsForPeer(currPeer.PublicKey.String())
+			proxy_metrics.ResetMetricsForPeer(server, currPeer.PublicKey.String())
 		} else {
-			proxy_metrics.ResetMetricForNode(currPeer.PublicKey.String(), id)
+			proxy_metrics.ResetMetricForNode(server, currPeer.PublicKey.String(), id)
 		}
 	}
 
