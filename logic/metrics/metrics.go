@@ -11,7 +11,7 @@ import (
 )
 
 // Collect - collects metrics
-func Collect(iface, server, network string, proxy bool, peerMap models.PeerMap) (*models.Metrics, error) {
+func Collect(iface, server, network string, peerMap models.PeerMap) (*models.Metrics, error) {
 	var metrics models.Metrics
 	metrics.Connectivity = make(map[string]models.Metric)
 	var wgclient, err = wgctrl.New()
