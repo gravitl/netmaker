@@ -46,10 +46,9 @@ func Collect(iface, server, network string, peerMap models.PeerMap) (*models.Met
 		newMetric.TotalSent = int64(proxyMetrics.TrafficSent)
 		newMetric.Latency = int64(proxyMetrics.LastRecordedLatency)
 		newMetric.Connected = proxyMetrics.NodeConnectionStatus[id]
-		if !newMetric.Connected {
-			newMetric.Latency = 999
+		if newMetric.Connected {
+			newMetric.Uptime = 1
 		}
-		newMetric.Uptime = 1
 		// check device peer to see if WG is working if ping failed
 		if !newMetric.Connected {
 			if currPeer.ReceiveBytes > 0 &&
