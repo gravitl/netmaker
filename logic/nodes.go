@@ -200,8 +200,10 @@ func GetAllNodes() ([]models.Node, error) {
 
 	for _, value := range collection {
 		var node models.Node
+		// ignore legacy nodes in database
 		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			return []models.Node{}, err
+			logger.Log(1, "legacy node detected: ", err.Error())
+			continue
 		}
 		// add node to our array
 		nodes = append(nodes, node)
