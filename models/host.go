@@ -34,6 +34,10 @@ type Host struct {
 	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"trafficekeypublic"`
 	InternetGateway  net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes            []string         `json:"nodes" yaml:"nodes"`
+	IsRelayed        bool             `json:"isrelayed" yaml:"isrelayed"`
+	RelayedBy        string           `json:"relayed_by" yaml:"relayed_by"`
+	IsRelay          bool             `json:"isrelay" yaml:"isrelay"`
+	RelayedHosts     []string         `json:"relay_hosts" yaml:"relay_hosts"`
 	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
 	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
 	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`

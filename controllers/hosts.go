@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"reflect"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
@@ -17,10 +18,12 @@ type hostNetworksUpdatePayload struct {
 }
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods("GET")
-	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods("PUT")
-	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods("DELETE")
-	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods("PUT")
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -77,12 +80,22 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
+	// check if relay information is changed
+	updateRelay := false
+	if newHost.IsRelay && len(newHost.RelayedHosts) > 0 {
+		if len(newHost.RelayedHosts) != len(currHost.RelayedHosts) || !reflect.DeepEqual(newHost.RelayedHosts, currHost.RelayedHosts) {
+			updateRelay = true
+		}
+	}
 
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if updateRelay {
+		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
 
 	newNetworks := logic.GetHostNetworks(newHost.ID.String())
@@ -95,6 +108,12 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
 		}
 	}
+
+	go func() {
+		if err := mq.PublishPeerUpdate(); err != nil {
+			logger.Log(0, "fail to publish peer update: ", err.Error())
+		}
+	}()
 
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())

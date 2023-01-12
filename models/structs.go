@@ -172,6 +172,12 @@ type RelayRequest struct {
 	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
 }
 
+// HostRelayRequest - struct for host relay creation
+type HostRelayRequest struct {
+	HostID       string   `json:"host_id"`
+	RelayedHosts []string `json:"relayed_hosts"`
+}
+
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {

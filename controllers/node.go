@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -664,7 +663,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 
 	go func() {
-		if err := mq.PublishPeerUpdate(data.Node.Network, true); err != nil {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "failed a peer update after creation of node", data.Host.Name)
 		}
 	}()
@@ -1013,12 +1012,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
-	if host.ProxyEnabled {
-		mq.ProxyUpdate(&proxy_models.ProxyManagerPayload{
-			Action:  proxy_models.DeleteNetwork,
-			Network: node.Network,
-		}, &node)
-	}
 	if fromNode {
 		// update networks for host mq client
 		currNets := logic.GetHostNetworks(host.ID.String())
@@ -1036,11 +1029,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		runUpdates(&node, false)
 		return
 	}
-	go func(network string) {
-		if err := mq.PublishPeerUpdate(network, false); err != nil {
+	go func() {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
-	}(node.Network)
+	}()
 
 }
 
