@@ -399,7 +399,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				IP:   peerHost.EndpointIP,
 				Port: peerHost.ListenPort,
 			}
-			if !host.ProxyEnabled && peerHost.ProxyEnabled {
+			if peerHost.ProxyEnabled {
 				if peerHost.ProxyListenPort == 0 {
 					peerConfig.Endpoint.Port = proxy_models.NmProxyPort
 				} else {
@@ -462,6 +462,7 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 		Network:       node.Network,
 		ServerVersion: ncutils.Version,
 		DNS:           getPeerDNS(node.Network),
+		PeerIDs:       make(models.PeerMap),
 	}
 	currentPeers, err := GetNetworkNodes(node.Network)
 	if err != nil {
@@ -511,7 +512,7 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 			IP:   peerHost.EndpointIP,
 			Port: peerHost.ListenPort,
 		}
-		if !host.ProxyEnabled && peerHost.ProxyEnabled {
+		if peerHost.ProxyEnabled {
 			peerConfig.Endpoint.Port = peerHost.ProxyListenPort
 		}
 		if uselocal {
@@ -526,11 +527,15 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 				}
 			}
 		}
-		if peer.IsRelay {
-			allowedips = append(allowedips, getRelayAllowedIPs(node, &peer)...)
-		}
 		if peer.IsEgressGateway {
 			allowedips = append(allowedips, getEgressIPs(node, &peer)...)
+		}
+
+		peerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
+			ID:      peer.ID.String(),
+			Address: peer.PrimaryAddress(),
+			Name:    peerHost.Name,
+			Network: peer.Network,
 		}
 		peerConfig.AllowedIPs = allowedips
 		peerUpdate.Peers = append(peerUpdate.Peers, peerConfig)
