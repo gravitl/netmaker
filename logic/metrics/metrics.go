@@ -3,9 +3,7 @@ package metrics
 import (
 	"time"
 
-	"github.com/go-ping/ping"
 	proxy_metrics "github.com/gravitl/netclient/nmproxy/metrics"
-	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -13,7 +11,7 @@ import (
 )
 
 // Collect - collects metrics
-func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models.Metrics, error) {
+func Collect(iface, server, network string, peerMap models.PeerMap) (*models.Metrics, error) {
 	var metrics models.Metrics
 	metrics.Connectivity = make(map[string]models.Metric)
 	var wgclient, err = wgctrl.New()
@@ -27,49 +25,30 @@ func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models
 		fillUnconnectedData(&metrics, peerMap)
 		return &metrics, err
 	}
-	metrics.ProxyMetrics = make(map[string]proxy_models.Metric)
-
 	// TODO handle freebsd??
 	for i := range device.Peers {
 		currPeer := device.Peers[i]
+		if _, ok := peerMap[currPeer.PublicKey.String()]; !ok {
+			continue
+		}
 		id := peerMap[currPeer.PublicKey.String()].ID
 		address := peerMap[currPeer.PublicKey.String()].Address
 		if id == "" || address == "" {
 			logger.Log(0, "attempted to parse metrics for invalid peer from server", id, address)
 			continue
 		}
+		proxyMetrics := proxy_metrics.GetMetric(server, currPeer.PublicKey.String())
 		var newMetric = models.Metric{
 			NodeName: peerMap[currPeer.PublicKey.String()].Name,
-			IsServer: peerMap[currPeer.PublicKey.String()].IsServer,
 		}
 		logger.Log(2, "collecting metrics for peer", address)
-		newMetric.TotalReceived = currPeer.ReceiveBytes
-		newMetric.TotalSent = currPeer.TransmitBytes
-
-		// get latency
-		pinger, err := ping.NewPinger(address)
-		if err != nil {
-			logger.Log(0, "could not initiliaze ping for metrics on peer address", address, err.Error())
-			newMetric.Connected = false
-			newMetric.Latency = 999
-		} else {
-			pinger.Count = 1
-			pinger.Timeout = time.Second * 2
-			err = pinger.Run()
-			if err != nil {
-				logger.Log(0, "failed ping for metrics on peer address", address, err.Error())
-				newMetric.Connected = false
-				newMetric.Latency = 999
-			} else {
-				pingStats := pinger.Statistics()
-				if pingStats.PacketsRecv > 0 {
-					newMetric.Uptime = 1
-					newMetric.Connected = true
-					newMetric.Latency = pingStats.AvgRtt.Milliseconds()
-				}
-			}
+		newMetric.TotalReceived = int64(proxyMetrics.TrafficRecieved)
+		newMetric.TotalSent = int64(proxyMetrics.TrafficSent)
+		newMetric.Latency = int64(proxyMetrics.LastRecordedLatency)
+		newMetric.Connected = proxyMetrics.NodeConnectionStatus[id]
+		if newMetric.Connected {
+			newMetric.Uptime = 1
 		}
-
 		// check device peer to see if WG is working if ping failed
 		if !newMetric.Connected {
 			if currPeer.ReceiveBytes > 0 &&
@@ -79,11 +58,13 @@ func Collect(iface, network string, proxy bool, peerMap models.PeerMap) (*models
 				newMetric.Uptime = 1
 			}
 		}
-
 		newMetric.TotalTime = 1
 		metrics.Connectivity[id] = newMetric
-		metrics.ProxyMetrics[id] = proxy_metrics.GetMetric(network, currPeer.PublicKey.String())
-		proxy_metrics.ResetMetricsForPeer(network, currPeer.PublicKey.String())
+		if len(proxyMetrics.NodeConnectionStatus) == 1 {
+			proxy_metrics.ResetMetricsForPeer(server, currPeer.PublicKey.String())
+		} else {
+			proxy_metrics.ResetMetricForNode(server, currPeer.PublicKey.String(), id)
+		}
 	}
 
 	fillUnconnectedData(&metrics, peerMap)
@@ -133,7 +114,6 @@ func fillUnconnectedData(metrics *models.Metrics, peerMap models.PeerMap) {
 		if !metrics.Connectivity[id].Connected {
 			newMetric := models.Metric{
 				NodeName:  peerMap[r].Name,
-				IsServer:  peerMap[r].IsServer,
 				Uptime:    0,
 				TotalTime: 1,
 				Connected: false,
