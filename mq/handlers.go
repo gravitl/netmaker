@@ -90,25 +90,25 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return
 		}
-		var oldNode models.LegacyNode
-		if err := json.Unmarshal(decrypted, &oldNode); err != nil {
+		var newNode models.Node
+		if err := json.Unmarshal(decrypted, &newNode); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		_, newNode := oldNode.ConvertToNewNode()
-		ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
+
+		ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
 		if servercfg.Is_EE && ifaceDelta {
 			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
 				logger.Log(1, "failed to reset failover list during node update", currentNode.ID.String(), currentNode.Network)
 			}
 		}
 		newNode.SetLastCheckIn()
-		if err := logic.UpdateNode(&currentNode, newNode); err != nil {
+		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 			logger.Log(1, "error saving node", err.Error())
 			return
 		}
 		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-			if err = PublishPeerUpdate(currentNode.Network, true); err != nil {
+			if err = PublishPeerUpdate(); err != nil {
 				logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 			}
 		}
@@ -249,7 +249,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 }
 
 func updateNodePeers(currentNode *models.Node) {
-	if err := PublishPeerUpdate(currentNode.Network, false); err != nil {
+	if err := PublishPeerUpdate(); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
 		return
 	}

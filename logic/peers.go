@@ -185,7 +185,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 	proxyPayload.WgAddr = addr.String()
 	proxyPayload.Peers = peers
 	proxyPayload.PeerMap = peerConfMap
-	proxyPayload.Network = node.Network
+	//proxyPayload.Network = node.Network
 	//proxyPayload.InterfaceName = node.Interface
 	//hardcode or read from host ??
 	proxyPayload.InterfaceName = models.WIREGUARD_INTERFACE
@@ -193,9 +193,145 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 	return proxyPayload, nil
 }
 
+// GetProxyUpdateForHost - gets the proxy update for host
+func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload, error) {
+	proxyPayload := proxy_models.ProxyManagerPayload{
+		Action: proxy_models.ProxyUpdate,
+	}
+	peerConfMap := make(map[string]proxy_models.PeerConf)
+	if host.IsRelayed {
+		relayHost, err := GetHost(host.RelayedBy)
+		if err == nil {
+			listenPort := relayHost.LocalListenPort
+			if relayHost.ProxyEnabled {
+				listenPort = relayHost.ProxyListenPort
+				if listenPort == 0 {
+					listenPort = proxy_models.NmProxyPort
+				}
+			} else if listenPort == 0 {
+				listenPort = relayHost.ListenPort
+			}
+			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, listenPort))
+			if err != nil {
+				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
+			}
+			proxyPayload.IsRelayed = true
+			proxyPayload.RelayedTo = relayEndpoint
+		} else {
+			logger.Log(0, "couldn't find relay host for:  ", host.ID.String())
+		}
+
+	}
+	if host.IsRelay {
+		relayedHosts := GetRelayedHosts(host)
+		relayPeersMap := make(map[string]proxy_models.RelayedConf)
+		for _, relayedHost := range relayedHosts {
+			payload, err := GetPeerUpdateForHost(&relayedHost)
+			if err == nil {
+				listenPort := relayedHost.LocalListenPort
+				if relayedHost.ProxyEnabled {
+					listenPort = relayedHost.ProxyListenPort
+					if listenPort == 0 {
+						listenPort = proxy_models.NmProxyPort
+					}
+				} else if listenPort == 0 {
+					listenPort = relayedHost.ListenPort
+				}
+				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, listenPort))
+				if udpErr == nil {
+					relayPeersMap[relayedHost.PublicKey.String()] = proxy_models.RelayedConf{
+						RelayedPeerEndpoint: relayedEndpoint,
+						RelayedPeerPubKey:   relayedHost.PublicKey.String(),
+						Peers:               payload.Peers,
+					}
+				}
+
+			}
+		}
+		proxyPayload.IsRelay = true
+		proxyPayload.RelayedPeerConf = relayPeersMap
+
+	}
+
+	for _, nodeID := range host.Nodes {
+
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		currentPeers, err := GetNetworkNodes(node.Network)
+		if err != nil {
+			continue
+		}
+		for _, peer := range currentPeers {
+			if peer.ID == node.ID {
+				//skip yourself
+				continue
+			}
+			peerHost, err := GetHost(peer.HostID.String())
+			if err != nil {
+				continue
+			}
+			proxyStatus := peerHost.ProxyEnabled
+			listenPort := peerHost.LocalListenPort
+			if proxyStatus {
+				listenPort = peerHost.ProxyListenPort
+				if listenPort == 0 {
+					listenPort = proxy_models.NmProxyPort
+				}
+			} else if listenPort == 0 {
+				listenPort = peerHost.ListenPort
+			}
+			var currPeerConf proxy_models.PeerConf
+			var found bool
+			if currPeerConf, found = peerConfMap[peerHost.PublicKey.String()]; !found {
+				currPeerConf = proxy_models.PeerConf{
+					Proxy:            proxyStatus,
+					PublicListenPort: int32(listenPort),
+					NetworkInfo:      make(map[string]proxy_models.NetworkInfo),
+				}
+
+			}
+			currPeerConf.NetworkInfo[peer.Network] = proxy_models.NetworkInfo{
+				Address: net.ParseIP(peer.PrimaryAddress()),
+			}
+
+			if peerHost.IsRelayed && peerHost.RelayedBy != host.ID.String() {
+				relayHost, err := GetHost(peerHost.RelayedBy)
+				if err == nil {
+					listenPort := peerHost.LocalListenPort
+					if proxyStatus {
+						listenPort = peerHost.ProxyListenPort
+						if listenPort == 0 {
+							listenPort = proxy_models.NmProxyPort
+						}
+					} else if listenPort == 0 {
+						listenPort = peerHost.ListenPort
+					}
+					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, listenPort))
+					if err == nil {
+						currPeerConf.IsRelayed = true
+						currPeerConf.RelayedTo = relayTo
+					}
+
+				}
+			}
+			peerConfMap[peerHost.PublicKey.String()] = currPeerConf
+		}
+	}
+	proxyPayload.PeerMap = peerConfMap
+	proxyPayload.InterfaceName = models.WIREGUARD_INTERFACE
+
+	return proxyPayload, nil
+}
+
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
+	if host == nil {
+		return models.HostPeerUpdate{}, errors.New("host is nil")
+	}
 	hostPeerUpdate := models.HostPeerUpdate{
+		Host:          *host,
 		Network:       make(map[string]models.NetworkInfo),
 		PeerIDs:       make(models.HostPeerMap),
 		ServerVersion: servercfg.GetVersion(),
@@ -264,7 +400,12 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				Port: peerHost.ListenPort,
 			}
 			if !host.ProxyEnabled && peerHost.ProxyEnabled {
-				peerConfig.Endpoint.Port = peerHost.ProxyListenPort
+				if peerHost.ProxyListenPort == 0 {
+					peerConfig.Endpoint.Port = proxy_models.NmProxyPort
+				} else {
+					peerConfig.Endpoint.Port = peerHost.ProxyListenPort
+				}
+
 			}
 			if uselocal {
 				peerConfig.Endpoint.IP = peer.LocalAddress.IP

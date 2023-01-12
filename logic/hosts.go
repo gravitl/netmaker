@@ -287,3 +287,29 @@ func GetHostNetworks(hostID string) []string {
 	}
 	return nets
 }
+
+// GetRelatedHosts - fetches related hosts of a given host
+func GetRelatedHosts(hostID string) []models.Host {
+	relatedHosts := []models.Host{}
+	networks := GetHostNetworks(hostID)
+	networkMap := make(map[string]struct{})
+	for _, network := range networks {
+		networkMap[network] = struct{}{}
+	}
+	hosts, err := GetAllHosts()
+	if err == nil {
+		for _, host := range hosts {
+			if host.ID.String() == hostID {
+				continue
+			}
+			networks := GetHostNetworks(host.ID.String())
+			for _, network := range networks {
+				if _, ok := networkMap[network]; ok {
+					relatedHosts = append(relatedHosts, host)
+					break
+				}
+			}
+		}
+	}
+	return relatedHosts
+}

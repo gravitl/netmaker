@@ -176,7 +176,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, "new DNS record added:", entry.Name)
 	if servercfg.IsMessageQueueBackend() {
-		if err = mq.PublishPeerUpdate(entry.Network, false); err != nil {
+		if err = mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "failed to publish peer update after ACL update on", entry.Network)
 		}
 	}
