@@ -248,7 +248,6 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 				}
 			}
 			extMetric.NodeName = attachedClients[i].ClientID
-			extMetric.IsServer = "no"
 			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
 			newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
 		}

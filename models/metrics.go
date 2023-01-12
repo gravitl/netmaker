@@ -9,7 +9,6 @@ type Metrics struct {
 	Network       string            `json:"network" bson:"network" yaml:"network"`
 	NodeID        string            `json:"node_id" bson:"node_id" yaml:"node_id"`
 	NodeName      string            `json:"node_name" bson:"node_name" yaml:"node_name"`
-	IsServer      string            `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Connectivity  map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
 	FailoverPeers map[string]string `json:"needsfailover" bson:"needsfailover" yaml:"needsfailover"`
 }
@@ -17,7 +16,6 @@ type Metrics struct {
 // Metric - holds a metric for data between nodes
 type Metric struct {
 	NodeName      string        `json:"node_name" bson:"node_name" yaml:"node_name"`
-	IsServer      string        `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Uptime        int64         `json:"uptime" bson:"uptime" yaml:"uptime"`
 	TotalTime     int64         `json:"totaltime" bson:"totaltime" yaml:"totaltime"`
 	Latency       int64         `json:"latency" bson:"latency" yaml:"latency"`

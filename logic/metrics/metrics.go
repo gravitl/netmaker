@@ -40,7 +40,6 @@ func Collect(iface, server, network string, peerMap models.PeerMap) (*models.Met
 		proxyMetrics := proxy_metrics.GetMetric(server, currPeer.PublicKey.String())
 		var newMetric = models.Metric{
 			NodeName: peerMap[currPeer.PublicKey.String()].Name,
-			IsServer: peerMap[currPeer.PublicKey.String()].IsServer,
 		}
 		logger.Log(2, "collecting metrics for peer", address)
 		newMetric.TotalReceived = int64(proxyMetrics.TrafficRecieved)
@@ -116,7 +115,6 @@ func fillUnconnectedData(metrics *models.Metrics, peerMap models.PeerMap) {
 		if !metrics.Connectivity[id].Connected {
 			newMetric := models.Metric{
 				NodeName:  peerMap[r].Name,
-				IsServer:  peerMap[r].IsServer,
 				Uptime:    0,
 				TotalTime: 1,
 				Connected: false,
