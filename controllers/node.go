@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -25,7 +26,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", authorize(true, true, "node", http.HandlerFunc(nodeNodeUpdate))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", authorize(true, true, "node", http.HandlerFunc(migrate))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
@@ -840,88 +841,39 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: nodeResponse
-func nodeNodeUpdate(w http.ResponseWriter, r *http.Request) {
-	// should only be used by nodes
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-
-	//start here
-	nodeid := params["nodeid"]
-	currentNode, err := logic.GetNodeByID(nodeid)
-	if err != nil {
-		logger.Log(0,
-			fmt.Sprintf("error fetching node [ %s ] info: %v during migrate", nodeid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	var newNode models.Node
+//				200: nodeJoinResponse
+func migrate(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(&newNode)
+	data := models.JoinData{}
+	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	relayupdate := false
-	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
-		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
-			relayupdate = true
-		} else {
-			for i, addr := range newNode.RelayAddrs {
-				if addr != currentNode.RelayAddrs[i] {
-					relayupdate = true
-				}
-			}
-		}
-	}
-	relayedUpdate := false
-	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
-		relayedUpdate = true
-	}
-
-	if !servercfg.GetRce() {
-		newNode.PostDown = currentNode.PostDown
-		newNode.PostUp = currentNode.PostUp
-	}
-
-	ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
-
-	if ifaceDelta && servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
-		}
-	}
-
-	err = logic.UpdateNode(&currentNode, &newNode)
+	params := mux.Vars(r)
+	network, err := logic.GetNetwork(params["network"])
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logger.Log(0, "error retrieving network:  ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if relayupdate {
-		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
-		if len(updatenodes) > 0 {
-			for _, relayedNode := range updatenodes {
-				runUpdates(&relayedNode, false)
-			}
-		}
+	key, err := logic.CreateAccessKey(models.AccessKey{}, network)
+	if err != nil {
+		logger.Log(0, "error creating key:  ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
-	if relayedUpdate {
-		updateRelay(&currentNode, &newNode)
+	data.Key = key.Value
+	payload, err := json.Marshal(data)
+	if err != nil {
+		logger.Log(0, "error encoding data:  ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
-	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newNode)
-
-	runUpdates(&newNode, ifaceDelta)
+	r.Body = io.NopCloser(strings.NewReader(string(payload)))
+	r.ContentLength = int64(len(string(payload)))
+	createNode(w, r)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
