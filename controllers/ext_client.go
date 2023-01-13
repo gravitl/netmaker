@@ -339,10 +339,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	host, err := logic.GetHost(node.HostID.String())
-	logger.Log(0, r.Header.Get("user"),
-		fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", nodeid, err))
-	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	listenPort := host.LocalListenPort
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	listenPort := host.ListenPort
 	if host.ProxyEnabled {
 		listenPort = host.ProxyListenPort
 	}
