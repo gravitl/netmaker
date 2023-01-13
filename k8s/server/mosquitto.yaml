@@ -102,16 +102,15 @@ spec:
 apiVersion: v1
 data:
   mosquitto.conf: |
-    per_listener_settings true
+    per_listener_settings false
     listener 8883
+    protocol websockets
     allow_anonymous false
-    require_certificate true
-    use_identity_as_username true
-    cafile /mosquitto/certs/root.pem
-    certfile /mosquitto/certs/server.pem
-    keyfile /mosquitto/certs/server.key
     listener 1883
-    allow_anonymous true
+    protocol websockets
+    allow_anonymous false
+    plugin /usr/lib/mosquitto_dynamic_security.so
+    plugin_opt_config_file /mosquitto/data/dynamic-security.json
 kind: ConfigMap
 metadata:
   labels:
@@ -149,3 +148,29 @@ spec:
     protocol: TCP
     targetPort: 8883
     name: nm-mqtt
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: nm-mqtt-ingress-nginx
+#   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+#     cert-manager.io/cluster-issuer: "letsencrypt-nginx"
+#     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+# spec:
+#   ingressClassName: nginx
+#   tls:
+#   - hosts:
+#     - broker.NETMAKER_SUBDOMAIN
+#     secretName: nm-mqtt-tls
+#   rules:
+#   - host: broker.NETMAKER_SUBDOMAIN
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: netmaker-mqtt
+#             port:
+#               number: 8883
