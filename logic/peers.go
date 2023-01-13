@@ -459,6 +459,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			if err == nil {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)
 					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID][extPeerIdAndAddr.ID] = models.IDandAddr{
 						ID:      extPeerIdAndAddr.ID,
 						Address: extPeerIdAndAddr.Address,

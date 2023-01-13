@@ -211,25 +211,43 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 
 	isunique := true
 	collection, err := database.FetchRecords(tableName)
-
 	if err != nil {
 		return isunique
 	}
 
 	for _, value := range collection { // filter
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			continue
-		}
-		if isIpv6 {
-			if node.Address6.IP.String() == ip && node.Network == network {
-				return false
+
+		if tableName == database.NODES_TABLE_NAME {
+			var node models.Node
+			if err = json.Unmarshal([]byte(value), &node); err != nil {
+				continue
 			}
-		} else {
-			if node.Address.IP.String() == ip && node.Network == network {
-				return false
+			if isIpv6 {
+				if node.Address6.IP.String() == ip && node.Network == network {
+					return false
+				}
+			} else {
+				if node.Address.IP.String() == ip && node.Network == network {
+					return false
+				}
+			}
+		} else if tableName == database.EXT_CLIENT_TABLE_NAME {
+			var extClient models.ExtClient
+			if err = json.Unmarshal([]byte(value), &extClient); err != nil {
+				continue
+			}
+			if isIpv6 {
+				if (extClient.Address6 == ip || extClient.InternalIPAddr6 == ip) && extClient.Network == network {
+					return false
+				}
+
+			} else {
+				if (extClient.Address == ip || extClient.InternalIPAddr == ip) && extClient.Network == network {
+					return false
+				}
 			}
 		}
+
 	}
 
 	return isunique

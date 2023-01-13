@@ -971,6 +971,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	host, err := logic.GetHost(newNode.HostID.String())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if newNode.IsIngressGateway {
+		host.ProxyEnabled = true
+		logic.UpsertHost(host)
+	}
 	relayedUpdate := false
 	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
 		relayedUpdate = true
