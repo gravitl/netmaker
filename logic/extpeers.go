@@ -116,6 +116,7 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 
 // CreateExtClient - creates an extclient
 func CreateExtClient(extclient *models.ExtClient) error {
+
 	if extclient.PrivateKey == "" {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
