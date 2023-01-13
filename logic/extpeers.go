@@ -131,7 +131,6 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
-	logger.Log(0, "EXT CLIENT: ", extclient.Address)
 	if extclient.Address == "" {
 		if parentNetwork.IsIPv4 == "yes" {
 			newAddress, err := UniqueAddress(extclient.Network, true)
