@@ -39,6 +39,9 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.FirewallInUse = h.FirewallInUse
 	a.ID = h.ID.String()
 	a.Interfaces = h.Interfaces
+	for i := range a.Interfaces {
+		a.Interfaces[i].AddressString = a.Interfaces[i].Address.String()
+	}
 	a.InternetGateway = h.InternetGateway.String()
 	if isEmptyAddr(a.InternetGateway) {
 		a.InternetGateway = ""
