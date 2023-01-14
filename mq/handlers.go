@@ -128,7 +128,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		}
 		currentHost, err := logic.GetHost(id)
 		if err != nil {
-			logger.Log(1, "error getting node ", id, err.Error())
+			logger.Log(1, "error getting host ", id, err.Error())
 			return
 		}
 		decrypted, decryptErr := decryptMsgWithHost(currentHost, msg.Payload())
@@ -136,24 +136,11 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return
 		}
-		var newHost models.Host
-		if err := json.Unmarshal(decrypted, &newHost); err != nil {
-			logger.Log(1, "error unmarshaling payload ", err.Error())
-			return
-		}
-		// ifaceDelta := logic.IfaceDelta(&currentHost, newNode)
-		// if servercfg.Is_EE && ifaceDelta {
-		// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
-		// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)
-		// 	}
-		// }
-		logic.UpdateHost(&newHost, currentHost)
-		if err := logic.UpsertHost(&newHost); err != nil {
-			logger.Log(1, "error saving host", err.Error())
-			return
-		}
 
-		logger.Log(1, "updated host", newHost.ID.String())
+		if decrypted[0] == byte(ncutils.ACK) {
+			logger.Log(1, "sending peer updates after completed host update", currentHost.ID.String(), currentHost.Name)
+			sendPeers(true)
+		}
 	}()
 }
 
