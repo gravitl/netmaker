@@ -1029,8 +1029,9 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
-	if fromNode {
-		// update networks for host mq client
+	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
+	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
+	if fromNode { // update networks for host mq client
 		currNets := logic.GetHostNetworks(host.ID.String())
 		if len(currNets) > 0 {
 			mq.ModifyClient(&mq.MqClient{
@@ -1039,19 +1040,14 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 				Networks: currNets,
 			})
 		}
-	}
-	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
-	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	if !fromNode {
+	} else { // notify node change
 		runUpdates(&node, false)
-		return
 	}
-	go func() {
+	go func() { // notify of peer change
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 	}()
-
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
