@@ -467,7 +467,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.Is_EE && nodeRequest {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
+		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during node config pull", node.ID.String(), node.Network)
 		}
 	}
@@ -952,7 +952,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 
 	if ifaceDelta && servercfg.Is_EE {
-		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
 		}
 	}
