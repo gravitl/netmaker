@@ -113,35 +113,36 @@ func HostUpdate(host *models.Host) error {
 }
 
 // sendPeers - retrieve networks, send peer ports to all peers
-func sendPeers() {
+func sendPeers(skipServerCheck bool) {
 
 	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
-
 	var force bool
-	peer_force_send++
-	if peer_force_send == 5 {
+	if !skipServerCheck {
+		peer_force_send++
+		if peer_force_send == 5 {
 
-		// run iptables update to ensure gateways work correctly and mq is forwarded if containerized
-		if servercfg.ManageIPTables() != "off" {
-			serverctl.InitIPTables(false)
+			// run iptables update to ensure gateways work correctly and mq is forwarded if containerized
+			if servercfg.ManageIPTables() != "off" {
+				serverctl.InitIPTables(false)
+			}
+			servercfg.SetHost()
+
+			force = true
+			peer_force_send = 0
+			err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
+			if err != nil {
+				logger.Log(3, "error occurred on timer,", err.Error())
+			}
+
+			//collectServerMetrics(networks[:])
 		}
-		servercfg.SetHost()
-
-		force = true
-		peer_force_send = 0
-		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
-		if err != nil {
-			logger.Log(3, "error occurred on timer,", err.Error())
-		}
-
-		//collectServerMetrics(networks[:])
 	}
 
 	for _, host := range hosts {
-		if force {
+		if force || skipServerCheck {
 			logger.Log(2, "sending scheduled peer update (5 min)")
 			err = PublishSingleHostUpdate(&host)
 			if err != nil {

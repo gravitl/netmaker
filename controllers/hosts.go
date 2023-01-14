@@ -109,11 +109,9 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
-		}
-	}()
+	if err = mq.HostUpdate(newHost); err != nil {
+		logger.Log(0, "failed to send host update to host", newHost.ID.String(), newHost.Name, err.Error())
+	}
 
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
