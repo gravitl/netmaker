@@ -372,7 +372,6 @@ func fetchServerAcls() []Acl {
 func fetchNodeAcls() []Acl {
 	// keeping node acls generic as of now.
 	return []Acl{
-
 		{
 			AclType:  "publishClientSend",
 			Topic:    "signal/#",
@@ -388,6 +387,12 @@ func fetchNodeAcls() []Acl {
 		{
 			AclType:  "publishClientSend",
 			Topic:    "ping/#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "publishClientSend",
+			Topic:    "host/update/#",
 			Priority: -1,
 			Allow:    true,
 		},
