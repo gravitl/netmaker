@@ -348,7 +348,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		if err != nil {
 			continue
 		}
-		if !node.Connected {
+		if !node.Connected || node.Action == models.NODE_DELETE {
 			continue
 		}
 		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
