@@ -98,7 +98,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 
 		ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
 		if servercfg.Is_EE && ifaceDelta {
-			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
 				logger.Log(1, "failed to reset failover list during node update", currentNode.ID.String(), currentNode.Network)
 			}
 		}

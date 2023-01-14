@@ -3,6 +3,7 @@ package logic
 import (
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -16,7 +17,7 @@ var EnterpriseFailoverFunc func(node *models.Node) error
 var EnterpriseResetFailoverFunc func(network string) error
 
 // EnterpriseResetAllPeersFailovers - resets all nodes that are considering a node to be failover worthy (inclusive)
-var EnterpriseResetAllPeersFailovers func(nodeid, network string) error
+var EnterpriseResetAllPeersFailovers func(nodeid uuid.UUID, network string) error
 
 // == Join, Checkin, and Leave for Server ==
 
