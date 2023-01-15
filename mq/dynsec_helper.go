@@ -180,7 +180,19 @@ func fetchHostAcls(hostID string) []Acl {
 		},
 		{
 			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("host/update/%s/#", hostID),
+			Topic:    fmt.Sprintf("update/%s/#", hostID),
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "unsubscribePattern",
+			Topic:    "#",
 			Priority: -1,
 			Allow:    true,
 		},
@@ -359,12 +371,6 @@ func fetchServerAcls() []Acl {
 			Priority: -1,
 			Allow:    true,
 		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "host/update/#",
-			Priority: -1,
-			Allow:    true,
-		},
 	}
 }
 
@@ -372,7 +378,6 @@ func fetchServerAcls() []Acl {
 func fetchNodeAcls() []Acl {
 	// keeping node acls generic as of now.
 	return []Acl{
-
 		{
 			AclType:  "publishClientSend",
 			Topic:    "signal/#",
