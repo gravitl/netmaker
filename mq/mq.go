@@ -79,13 +79,9 @@ func SetupMQTT() {
 			client.Disconnect(240)
 			logger.Log(0, "ping subscription failed")
 		}
-		if token := client.Subscribe("update/#", 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token := client.Subscribe("update/#", 0, mqtt.MessageHandler(Update)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
-			logger.Log(0, "node update subscription failed")
-		}
-		if token := client.Subscribe("host/update/#", 0, mqtt.MessageHandler(UpdateHost)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
-			logger.Log(0, "host update subscription failed")
+			logger.Log(0, "update subscription failed")
 		}
 		if token := client.Subscribe("signal/#", 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)

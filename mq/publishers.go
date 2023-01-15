@@ -104,7 +104,7 @@ func HostUpdate(host *models.Host) error {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if err = publish(host, fmt.Sprintf("host/update/%s/%s", host.ID.String(), servercfg.GetServer()), data); err != nil {
+	if err = publish(host, fmt.Sprintf("update/%s/%s", host.ID.String(), servercfg.GetServer()), data); err != nil {
 		logger.Log(2, "error publishing host update to", host.ID.String(), err.Error())
 		return err
 	}
