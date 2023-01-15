@@ -101,7 +101,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 		return err
 	}
 	if servercfg.Is_EE {
-		if err := EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
+		if err := EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node delete for node", host.Name, node.Network)
 		}
 	}
