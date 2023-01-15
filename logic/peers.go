@@ -49,7 +49,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 				if err != nil {
 					logger.Log(0, "error retrieving host for relay node", relayNode.HostID.String(), err.Error())
 				}
-				relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, host.LocalListenPort))
+				relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, host.ListenPort))
 				if err != nil {
 					logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
 				}
@@ -78,7 +78,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 						if err != nil {
 							logger.Log(0, "error retrieving host for relayNode", relayedNode.ID.String(), err.Error())
 						}
-						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, host.LocalListenPort))
+						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, host.ListenPort))
 						if udpErr == nil {
 							relayPeersMap[host.PublicKey.String()] = proxy_models.RelayedConf{
 								RelayedPeerEndpoint: relayedEndpoint,
@@ -106,7 +106,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 			continue
 		}
 		proxyStatus := host.ProxyEnabled
-		listenPort := host.LocalListenPort
+		listenPort := host.ListenPort
 		if proxyStatus {
 			listenPort = host.ProxyListenPort
 			if listenPort == 0 {
@@ -149,7 +149,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 					logger.Log(0, "error retrieving host for relayNode", relayNode.ID.String(), err.Error())
 					continue
 				}
-				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, relayHost.LocalListenPort))
+				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, relayHost.ListenPort))
 				if err == nil {
 					peerConfMap[host.PublicKey.String()] = proxy_models.PeerConf{
 
@@ -200,7 +200,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 	if host.IsRelayed {
 		relayHost, err := GetHost(host.RelayedBy)
 		if err == nil {
-			listenPort := relayHost.LocalListenPort
+			listenPort := relayHost.ListenPort
 			if relayHost.ProxyEnabled {
 				listenPort = relayHost.ProxyListenPort
 				if listenPort == 0 {
@@ -226,7 +226,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 		for _, relayedHost := range relayedHosts {
 			payload, err := GetPeerUpdateForHost(&relayedHost)
 			if err == nil {
-				listenPort := relayedHost.LocalListenPort
+				listenPort := relayedHost.ListenPort
 				if relayedHost.ProxyEnabled {
 					listenPort = relayedHost.ProxyListenPort
 					if listenPort == 0 {
@@ -271,7 +271,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 				continue
 			}
 			proxyStatus := peerHost.ProxyEnabled
-			listenPort := peerHost.LocalListenPort
+			listenPort := peerHost.ListenPort
 			if proxyStatus {
 				listenPort = peerHost.ProxyListenPort
 				if listenPort == 0 {
@@ -293,7 +293,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 			if peerHost.IsRelayed && peerHost.RelayedBy != host.ID.String() {
 				relayHost, err := GetHost(peerHost.RelayedBy)
 				if err == nil {
-					listenPort := peerHost.LocalListenPort
+					listenPort := peerHost.ListenPort
 					if proxyStatus {
 						listenPort = peerHost.ProxyListenPort
 						if listenPort == 0 {
@@ -667,8 +667,8 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 			// set_local
 			if node.LocalAddress.String() != peer.LocalAddress.String() && peer.LocalAddress.IP != nil {
 				peerHost.EndpointIP = peer.LocalAddress.IP
-				if peerHost.LocalListenPort != 0 {
-					peerHost.ListenPort = peerHost.LocalListenPort
+				if peerHost.ListenPort != 0 {
+					peerHost.ListenPort = peerHost.ListenPort
 				}
 			} else {
 				continue
@@ -700,8 +700,8 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 			// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
 			// or, if port is for some reason zero use the LocalListenPort
 			// but only do this if LocalListenPort is not zero
-			if ((!setUDPPort) || peerHost.ListenPort == 0) && peerHost.LocalListenPort != 0 {
-				peerHost.ListenPort = peerHost.LocalListenPort
+			if ((!setUDPPort) || peerHost.ListenPort == 0) && peerHost.ListenPort != 0 {
+				peerHost.ListenPort = peerHost.ListenPort
 			}
 
 			endpoint := peerHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(peerHost.ListenPort), 10)
@@ -1076,8 +1076,8 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
 	// or, if port is for some reason zero use the LocalListenPort
 	// but only do this if LocalListenPort is not zero
-	if ((!setUDPPort) || relayHost.ListenPort == 0) && relayHost.LocalListenPort != 0 {
-		listenPort = relayHost.LocalListenPort
+	if ((!setUDPPort) || relayHost.ListenPort == 0) && relayHost.ListenPort != 0 {
+		listenPort = relayHost.ListenPort
 	}
 
 	endpoint := relayHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)

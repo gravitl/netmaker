@@ -14,7 +14,6 @@ type ApiHost struct {
 	IsStatic        bool     `json:"isstatic"`
 	ListenPort      int      `json:"listenport"`
 	LocalRange      string   `json:"localrange"`
-	LocalListenPort int      `json:"locallistenport"`
 	ProxyListenPort int      `json:"proxy_listen_port"`
 	MTU             int      `json:"mtu" yaml:"mtu"`
 	Interfaces      []Iface  `json:"interfaces" yaml:"interfaces"`
@@ -48,7 +47,6 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	}
 	a.IsStatic = h.IsStatic
 	a.ListenPort = h.ListenPort
-	a.LocalListenPort = h.LocalListenPort
 	a.LocalRange = h.LocalRange.String()
 	if isEmptyAddr(a.LocalRange) {
 		a.LocalRange = ""
@@ -89,7 +87,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IsK8S = currentHost.IsK8S
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
-	h.LocalListenPort = currentHost.ListenPort
 	h.MTU = a.MTU
 	h.MacAddress = currentHost.MacAddress
 	h.PublicKey = currentHost.PublicKey
