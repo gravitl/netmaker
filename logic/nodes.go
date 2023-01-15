@@ -91,7 +91,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 		if err := UpdateNode(node, &newnode); err != nil {
 			return err
 		}
-		return nil
 	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {

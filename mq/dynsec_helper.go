@@ -178,6 +178,24 @@ func fetchHostAcls(hostID string) []Acl {
 			Priority: -1,
 			Allow:    true,
 		},
+		{
+			AclType:  "publishClientReceive",
+			Topic:    fmt.Sprintf("update/%s/#", hostID),
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "subscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
+		{
+			AclType:  "unsubscribePattern",
+			Topic:    "#",
+			Priority: -1,
+			Allow:    true,
+		},
 	}
 }
 
