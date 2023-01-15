@@ -146,10 +146,16 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)
 		// 	}
 		// }
-		logic.UpdateHostFromClient(&newHost, currentHost)
+		sendPeerUpdate := logic.UpdateHostFromClient(&newHost, currentHost)
 		if err := logic.UpsertHost(&newHost); err != nil {
 			logger.Log(1, "error saving host", err.Error())
 			return
+		}
+		if sendPeerUpdate {
+			err := PublishPeerUpdate()
+			if err != nil {
+				logger.Log(1, "failed to send host peer update: ", err.Error())
+			}
 		}
 		logger.Log(1, "updated host", newHost.ID.String())
 	}()
