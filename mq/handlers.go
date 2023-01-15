@@ -141,18 +141,16 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		// ifaceDelta := logic.IfaceDelta(&currentHost, newNode)
 		// if servercfg.Is_EE && ifaceDelta {
 		// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
 		// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)
 		// 	}
 		// }
-		logic.UpdateHost(&newHost, currentHost)
+		logic.UpdateHostFromClient(&newHost, currentHost)
 		if err := logic.UpsertHost(&newHost); err != nil {
 			logger.Log(1, "error saving host", err.Error())
 			return
 		}
-
 		logger.Log(1, "updated host", newHost.ID.String())
 	}()
 }

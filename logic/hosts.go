@@ -133,6 +133,21 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	}
 }
 
+func UpdateHostFromClient(newHost, currHost *models.Host) {
+
+	if newHost.ListenPort != 0 {
+		currHost.ListenPort = newHost.ListenPort
+	}
+	if newHost.ProxyListenPort != 0 {
+		currHost.ProxyListenPort = newHost.ProxyListenPort
+	}
+	currHost.ProxyEnabled = newHost.ProxyEnabled
+	currHost.DaemonInstalled = newHost.DaemonInstalled
+	currHost.Debug = newHost.Debug
+	currHost.Verbosity = newHost.Verbosity
+	currHost.Version = newHost.Version
+}
+
 // UpsertHost - upserts into DB a given host model, does not check for existence*
 func UpsertHost(h *models.Host) error {
 	data, err := json.Marshal(h)

@@ -179,7 +179,7 @@ func fetchHostAcls(hostID string) []Acl {
 			Allow:    true,
 		},
 		{
-			AclType:  "publishClientReceive",
+			AclType:  "publishClientSend",
 			Topic:    fmt.Sprintf("host/update/%s", hostID),
 			Priority: -1,
 			Allow:    true,
@@ -199,12 +199,6 @@ func FetchNetworkAcls(network string) []Acl {
 		{
 			AclType:  "publishClientReceive",
 			Topic:    fmt.Sprintf("peers/%s/#", network),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("proxy/%s/#", network),
 			Priority: -1,
 			Allow:    true,
 		},
@@ -296,12 +290,6 @@ func fetchServerAcls() []Acl {
 		{
 			AclType:  "publishClientSend",
 			Topic:    "peers/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "proxy/#",
 			Priority: -1,
 			Allow:    true,
 		},
