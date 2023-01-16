@@ -62,8 +62,8 @@ github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB7
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc=
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/gravitl/netclient v0.0.0-20230113135004-f6be74e5e738 h1:eKJtQq+dyGDOL59vdd55mm1xovejlW9V4930Lm6lCQQ=
-github.com/gravitl/netclient v0.0.0-20230113135004-f6be74e5e738/go.mod h1:g3q+vhLySW/6smOsWsVy5LrxoW++f+kqiBAp9BM6sbY=
+github.com/gravitl/netclient v0.0.0-20230114051017-65ecaeffca09 h1:T0gLl+i8whnrdwtW91R4u8x8bmqFVfPTU9WfBratkMc=
+github.com/gravitl/netclient v0.0.0-20230114051017-65ecaeffca09/go.mod h1:g3q+vhLySW/6smOsWsVy5LrxoW++f+kqiBAp9BM6sbY=
 github.com/guumaster/tablewriter v0.0.10 h1:A0HD94yMdt4usgxBjoEceNeE0XMJ027euoHAzsPqBQs=
 github.com/guumaster/tablewriter v0.0.10/go.mod h1:p4FRFhyfo0UD9ZLmMRbbJooTUsxo6b80qZTERVDWrH8=
 github.com/hashicorp/go-version v1.6.0 h1:feTTfFNnjP967rlCxM/I9g701jU+RN74YKx2mOkIeek=

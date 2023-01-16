@@ -43,7 +43,7 @@ require (
 )
 
 require (
-	github.com/gravitl/netclient v0.0.0-20230113135004-f6be74e5e738
+	github.com/gravitl/netclient v0.0.0-20230114051017-65ecaeffca09
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.0
 	github.com/olekukonko/tablewriter v0.0.5

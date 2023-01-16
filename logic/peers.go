@@ -899,14 +899,6 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_model
 			Address:       net.ParseIP(extPeer.Address),
 			ExtInternalIp: net.ParseIP(extInternalPrimaryAddr),
 		}
-		if extPeer.IngressGatewayID == node.ID.String() {
-			extConf.IsAttachedExtClient = true
-		}
-		ingGatewayUdpAddr, err := net.ResolveUDPAddr("udp", extPeer.IngressGatewayEndpoint)
-		if err == nil {
-			extConf.IngressGatewayEndPoint = ingGatewayUdpAddr
-		}
-
 		proxyPeerConf[peer.PublicKey.String()] = extConf
 
 		peers = append(peers, peer)
