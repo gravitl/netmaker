@@ -63,3 +63,15 @@ func ParseBool(s string) bool {
 	}
 	return b
 }
+
+const (
+	JoinHostToNetwork     = "JOIN_HOST_TO_NETWORK"
+	DeleteHostFromNetwork = "DELETE_HOST_FROM_NETWORK"
+)
+
+type HostUpdate struct {
+	Action  string
+	Host    Host
+	Network string
+	Node    Node
+}

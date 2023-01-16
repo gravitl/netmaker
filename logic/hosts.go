@@ -178,12 +178,14 @@ func RemoveHost(h *models.Host) error {
 }
 
 // UpdateHostNetworks - updates a given host's networks
-func UpdateHostNetworks(h *models.Host, server string, nets []string) error {
+func UpdateHostNetworks(h *models.Host, server string, nets []string) ([]string, []string, error) {
+	newNets := []string{}
+	delNets := []string{}
 	if len(h.Nodes) > 0 {
 		for i := range h.Nodes {
 			n, err := GetNodeByID(h.Nodes[i])
 			if err != nil {
-				return err
+				return newNets, delNets, err
 			}
 			// loop through networks and remove need for updating existing networks
 			found := false
@@ -195,8 +197,9 @@ func UpdateHostNetworks(h *models.Host, server string, nets []string) error {
 			}
 			if !found { // remove the node/host from that network
 				if err = DissasociateNodeFromHost(&n, h); err != nil {
-					return err
+					return newNets, delNets, err
 				}
+				delNets = append(delNets, n.Network)
 			}
 		}
 	} else {
@@ -210,13 +213,14 @@ func UpdateHostNetworks(h *models.Host, server string, nets []string) error {
 			newNode.Server = server
 			newNode.Network = nets[i]
 			if err := AssociateNodeToHost(&newNode, h); err != nil {
-				return err
+				return newNets, delNets, err
 			}
+			newNets = append(newNets, newNode.Network)
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 		}
 	}
 
-	return nil
+	return newNets, delNets, nil
 }
 
 // AssociateNodeToHost - associates and creates a node with a given host
@@ -338,4 +342,22 @@ func GetRelatedHosts(hostID string) []models.Host {
 		}
 	}
 	return relatedHosts
+}
+
+func GetNodeByNetwork(hostID, network string) (models.Node, error) {
+
+	currHost, err := GetHost(hostID)
+	if err != nil {
+		return models.Node{}, err
+	}
+	for i := range currHost.Nodes {
+		n, err := GetNodeByID(currHost.Nodes[i])
+		if err != nil {
+			continue
+		}
+		if n.Network == network {
+			return n, nil
+		}
+	}
+	return models.Node{}, errors.New("node not found")
 }

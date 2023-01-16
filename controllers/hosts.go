@@ -189,7 +189,8 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = logic.UpdateHostNetworks(currHost, servercfg.GetServer(), payload.Networks[:]); err != nil {
+	newNets, delNets, err := logic.UpdateHostNetworks(currHost, servercfg.GetServer(), payload.Networks[:])
+	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update host networks:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -202,6 +203,34 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
 	}
+	go func() {
+		for _, newNet := range newNets {
+			node, err := logic.GetNodeByNetwork(currHost.ID.String(), newNet)
+			if err != nil {
+				logger.Log(0, "failed to get node for network: ", newNet, hostid)
+				continue
+			}
+			err = mq.HostUpdate(&models.HostUpdate{
+				Action:  models.JoinHostToNetwork,
+				Host:    *currHost,
+				Network: node.Network,
+				Node:    node,
+			})
+			if err != nil {
+				logger.Log(0, "failed to send mq msg to add host to network: ", node.Network, err.Error())
+			}
+		}
+		for _, delNet := range delNets {
+			err = mq.HostUpdate(&models.HostUpdate{
+				Action:  models.DeleteHostFromNetwork,
+				Host:    *currHost,
+				Network: delNet,
+			})
+			if err != nil {
+				logger.Log(0, "failed to send mq msg to delete host from network: ", delNet, err.Error())
+			}
+		}
+	}()
 
 	logger.Log(2, r.Header.Get("user"), "updated host networks", currHost.Name)
 	w.WriteHeader(http.StatusOK)

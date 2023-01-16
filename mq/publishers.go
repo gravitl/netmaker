@@ -93,19 +93,19 @@ func NodeUpdate(node *models.Node) error {
 }
 
 // HostUpdate -- publishes a host topic update
-func HostUpdate(host *models.Host) error {
+func HostUpdate(hostUpdate *models.HostUpdate) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	logger.Log(3, "publishing host update to "+host.ID.String())
+	logger.Log(3, "publishing host update to "+hostUpdate.Host.ID.String())
 
-	data, err := json.Marshal(host)
+	data, err := json.Marshal(hostUpdate)
 	if err != nil {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if err = publish(host, fmt.Sprintf("host/update/%s", host.ID.String()), data); err != nil {
-		logger.Log(2, "error publishing host update to", host.ID.String(), err.Error())
+	if err = publish(&hostUpdate.Host, fmt.Sprintf("host/update/%s/%s", hostUpdate.Host.ID.String(), servercfg.GetServer()), data); err != nil {
+		logger.Log(2, "error publishing host update to", hostUpdate.Host.ID.String(), err.Error())
 		return err
 	}
 
