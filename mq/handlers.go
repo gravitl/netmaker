@@ -118,6 +118,39 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 	}()
 }
 
+// DeleteHost message Handler -- handles host deletion messages
+func DeleteHost(client mqtt.Client, msg mqtt.Message) {
+	id, err := getID(msg.Topic())
+	if err != nil {
+		logger.Log(1, "error getting host.ID sent on ", msg.Topic(), err.Error())
+		return
+	}
+	host, err := logic.GetHost(id)
+	if err != nil {
+		logger.Log(1, "error getting node ", id, err.Error())
+		return
+	}
+	for i := range host.Nodes {
+		node, err := logic.GetNodeByID(host.Nodes[i])
+		if err != nil {
+			logger.Log(0, "failed to get host node", err.Error())
+			continue
+		}
+		if err := logic.DeleteNode(&node, true); err != nil {
+			logger.Log(0, "failed to delete node", node.ID.String(), err.Error())
+			continue
+		}
+		logger.Log(3, "deleted node", node.ID.String(), "to facilitate deletion of host", host.ID.String())
+	}
+	if err := logic.RemoveHost(host); err != nil {
+		logger.Log(0, "error removing host", id, err.Error())
+	}
+	logger.Log(3, "deleted host", host.ID.String())
+	if err := PublishPeerUpdate(); err != nil {
+		logger.Log(0, "peer updated on host deletion failed", host.ID.String(), err.Error())
+	}
+}
+
 // UpdateHost  message Handler -- handles updates from client hosts
 func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	go func() {

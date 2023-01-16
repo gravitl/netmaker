@@ -87,6 +87,10 @@ func SetupMQTT() {
 			client.Disconnect(240)
 			logger.Log(0, "host update subscription failed")
 		}
+		if token := client.Subscribe("host/delete/#", 0, mqtt.MessageHandler(DeleteHost)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+			client.Disconnect(240)
+			logger.Log(0, "host delete subscription failed")
+		}
 		if token := client.Subscribe("signal/#", 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
 			logger.Log(0, "node client subscription failed")
