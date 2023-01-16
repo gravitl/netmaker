@@ -82,7 +82,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	return fmt.Errorf("failed to update node " + currentNode.ID.String() + ", cannot change ID.")
 }
 
-// DeleteNode - marks node for deletion if called by UI or deletes node if called by node
+// DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node
 func DeleteNode(node *models.Node, purge bool) error {
 	node.Action = models.NODE_DELETE
 	if !purge {
@@ -91,6 +91,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 		if err := UpdateNode(node, &newnode); err != nil {
 			return err
 		}
+		newZombie <- node.ID
 		return nil
 	}
 	host, err := GetHost(node.HostID.String())
