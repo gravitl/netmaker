@@ -17,7 +17,7 @@ var nodeListCmd = &cobra.Command{
 	Short: "List all nodes",
 	Long:  `List all nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var data []models.Node
+		var data []models.ApiNode
 		if networkName != "" {
 			data = *functions.GetNodes(networkName)
 		} else {
@@ -27,16 +27,16 @@ var nodeListCmd = &cobra.Command{
 		table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Ingress", "Relay"})
 		for _, d := range data {
 			addresses := ""
-			if d.Address.String() != "" {
-				addresses += d.Address.String()
+			if d.Address != "" {
+				addresses += d.Address
 			}
-			if d.Address6.String() != "" {
-				if d.Address.String() != "" {
+			if d.Address6 != "" {
+				if d.Address != "" {
 					addresses += ", "
 				}
-				addresses += d.Address6.String()
+				addresses += d.Address6
 			}
-			table.Append([]string{d.ID.String(), addresses, d.Network,
+			table.Append([]string{d.ID, addresses, d.Network,
 				strconv.FormatBool(d.IsEgressGateway), strconv.FormatBool(d.IsIngressGateway), strconv.FormatBool(d.IsRelay)})
 		}
 		table.Render()

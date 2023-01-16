@@ -3,10 +3,8 @@ package node
 import (
 	"encoding/json"
 	"log"
-	"net"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
@@ -20,7 +18,7 @@ var nodeUpdateCmd = &cobra.Command{
 	Long:  `Update a Node`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			node        = &models.Node{}
+			node        = &models.ApiNode{}
 			networkName = args[0]
 			nodeID      = args[1]
 		)
@@ -33,38 +31,19 @@ var nodeUpdateCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 		} else {
-			if address != "" {
-				if _, addr, err := net.ParseCIDR(address); err != nil {
-					log.Fatal(err)
-				} else {
-					node.Address = *addr
-				}
-			}
-			if address6 != "" {
-				if _, addr6, err := net.ParseCIDR(address6); err != nil {
-					log.Fatal(err)
-				} else {
-					node.Address6 = *addr6
-				}
-			}
-			if localAddress != "" {
-				if _, localAddr, err := net.ParseCIDR(localAddress); err != nil {
-					log.Fatal(err)
-				} else {
-					node.LocalAddress = *localAddr
-					node.IsLocal = true
-				}
-			}
+			node.Address = address
+			node.Address6 = address6
+			node.LocalAddress = localAddress
 			node.PostUp = postUp
 			node.PostDown = postDown
-			node.PersistentKeepalive = time.Duration(time.Second * time.Duration(keepAlive))
+			node.PersistentKeepalive = int32(keepAlive)
 			if relayAddrs != "" {
 				node.RelayAddrs = strings.Split(relayAddrs, ",")
 			}
 			if egressGatewayRanges != "" {
 				node.EgressGatewayRanges = strings.Split(egressGatewayRanges, ",")
 			}
-			node.ExpirationDateTime = time.Unix(int64(expirationDateTime), 0)
+			node.ExpirationDateTime = int64(expirationDateTime)
 			if defaultACL {
 				node.DefaultACL = "yes"
 			}
