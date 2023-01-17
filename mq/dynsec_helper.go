@@ -186,7 +186,7 @@ func fetchHostAcls(hostID string) []Acl {
 		},
 		{
 			AclType:  "publishClientSend",
-			Topic:    fmt.Sprintf("host/update/%s", hostID),
+			Topic:    fmt.Sprintf("host/serverupdate/%s", hostID),
 			Priority: -1,
 			Allow:    true,
 		},
@@ -373,7 +373,7 @@ func fetchServerAcls() []Acl {
 		},
 		{
 			AclType:  "publishClientReceive",
-			Topic:    "host/update/#",
+			Topic:    "host/serverupdate/#",
 			Priority: -1,
 			Allow:    true,
 		},
