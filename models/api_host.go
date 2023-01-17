@@ -4,31 +4,32 @@ import "net"
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
-	ID              string   `json:"id"`
-	Verbosity       int      `json:"verbosity"`
-	FirewallInUse   string   `json:"firewallinuse"`
-	Version         string   `json:"version"`
-	Name            string   `json:"name"`
-	OS              string   `json:"os"`
-	Debug           bool     `json:"debug"`
-	IsStatic        bool     `json:"isstatic"`
-	ListenPort      int      `json:"listenport"`
-	LocalRange      string   `json:"localrange"`
-	LocalListenPort int      `json:"locallistenport"`
-	ProxyListenPort int      `json:"proxy_listen_port"`
-	MTU             int      `json:"mtu" yaml:"mtu"`
-	Interfaces      []Iface  `json:"interfaces" yaml:"interfaces"`
-	EndpointIP      string   `json:"endpointip" yaml:"endpointip"`
-	PublicKey       string   `json:"publickey"`
-	MacAddress      string   `json:"macaddress"`
-	InternetGateway string   `json:"internetgateway"`
-	Nodes           []string `json:"nodes"`
-	ProxyEnabled    bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
-	IsDefault       bool     `json:"isdefault" yaml:"isdefault"`
-	IsRelayed       bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	RelayedBy       string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
-	IsRelay         bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
-	RelayedHosts    []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
+	ID               string   `json:"id"`
+	Verbosity        int      `json:"verbosity"`
+	FirewallInUse    string   `json:"firewallinuse"`
+	Version          string   `json:"version"`
+	Name             string   `json:"name"`
+	OS               string   `json:"os"`
+	Debug            bool     `json:"debug"`
+	IsStatic         bool     `json:"isstatic"`
+	ListenPort       int      `json:"listenport"`
+	LocalRange       string   `json:"localrange"`
+	LocalListenPort  int      `json:"locallistenport"`
+	ProxyListenPort  int      `json:"proxy_listen_port"`
+	MTU              int      `json:"mtu" yaml:"mtu"`
+	Interfaces       []Iface  `json:"interfaces" yaml:"interfaces"`
+	DefaultInterface string   `json:"defaultinterface" yaml:"defautlinterface"`
+	EndpointIP       string   `json:"endpointip" yaml:"endpointip"`
+	PublicKey        string   `json:"publickey"`
+	MacAddress       string   `json:"macaddress"`
+	InternetGateway  string   `json:"internetgateway"`
+	Nodes            []string `json:"nodes"`
+	ProxyEnabled     bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
+	IsDefault        bool     `json:"isdefault" yaml:"isdefault"`
+	IsRelayed        bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	RelayedBy        string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
+	IsRelay          bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	RelayedHosts     []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -42,6 +43,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	for i := range a.Interfaces {
 		a.Interfaces[i].AddressString = a.Interfaces[i].Address.String()
 	}
+	a.DefaultInterface = h.DefaultInterface
 	a.InternetGateway = h.InternetGateway.String()
 	if isEmptyAddr(a.InternetGateway) {
 		a.InternetGateway = ""
@@ -84,6 +86,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IPForwarding = currentHost.IPForwarding
 	h.Interface = currentHost.Interface
 	h.Interfaces = currentHost.Interfaces
+	h.DefaultInterface = currentHost.DefaultInterface
 	h.InternetGateway = currentHost.InternetGateway
 	h.IsDocker = currentHost.IsDocker
 	h.IsK8S = currentHost.IsK8S

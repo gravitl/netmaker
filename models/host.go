@@ -39,6 +39,7 @@ type Host struct {
 	IsRelay          bool             `json:"isrelay" yaml:"isrelay"`
 	RelayedHosts     []string         `json:"relay_hosts" yaml:"relay_hosts"`
 	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
+	DefaultInterface string           `json:"defaultinterface" yaml:"defautlinterface"`
 	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
 	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
 	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
