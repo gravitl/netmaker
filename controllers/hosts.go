@@ -108,7 +108,13 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
 		}
 	}
-	// TODO: publish host update through MQ
+	// publish host update through MQ
+	if err := mq.HostUpdate(&models.HostUpdate{
+		Action: models.UpdateHost,
+		Host:   *newHost,
+	}); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to send host update: ", currHost.ID.String(), err.Error())
+	}
 	go func() {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
