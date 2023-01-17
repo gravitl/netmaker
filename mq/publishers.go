@@ -97,7 +97,7 @@ func HostUpdate(hostUpdate *models.HostUpdate) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	logger.Log(3, "publishing host update to "+hostUpdate.Host.ID.String())
+	logger.Log(3, "----------> HEREEEEE publishing host update to "+hostUpdate.Host.ID.String())
 
 	data, err := json.Marshal(hostUpdate)
 	if err != nil {

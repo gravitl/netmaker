@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"reflect"
 
@@ -203,7 +204,9 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
 	}
-	go func() {
+	go func(newNets, delNets []string) {
+		logger.Log(0, fmt.Sprint("-----------> NEW NETS: ", newNets))
+		logger.Log(0, fmt.Sprint("-----------> DEL NETS: ", delNets))
 		for _, newNet := range newNets {
 			node, err := logic.GetNodeByNetwork(currHost.ID.String(), newNet)
 			if err != nil {
@@ -230,7 +233,7 @@ func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "failed to send mq msg to delete host from network: ", delNet, err.Error())
 			}
 		}
-	}()
+	}(newNets, delNets)
 
 	logger.Log(2, r.Header.Get("user"), "updated host networks", currHost.Name)
 	w.WriteHeader(http.StatusOK)
