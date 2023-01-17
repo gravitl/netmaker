@@ -494,7 +494,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.HostPass = ln.Password
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
-		host.LocalListenPort = int(ln.LocalListenPort)
 		host.ProxyListenPort = int(ln.ProxyListenPort)
 		host.MTU = int(ln.MTU)
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
