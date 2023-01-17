@@ -142,7 +142,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		logger.Log(0, fmt.Sprintf("recieved host update: %+v\n", hostUpdate))
-		// TODO: update logic for host for the recieved update from client
+		// TODO: logic for host update  recieved from client, handle both `update` and `delete` action here.
 
 		// if servercfg.Is_EE && ifaceDelta {
 		// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
