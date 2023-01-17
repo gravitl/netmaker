@@ -154,7 +154,12 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	// TODO: publish host update with delete action using MQ
+	if err = mq.HostUpdate(&models.HostUpdate{
+		Action: models.DeleteHost,
+		Host:   *currHost,
+	}); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
+	}
 
 	if err = mq.DeleteMqClient(currHost.ID.String()); err != nil {
 		logger.Log(0, "error removing DynSec credentials for host:", currHost.Name, err.Error())

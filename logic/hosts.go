@@ -151,6 +151,11 @@ func RemoveHost(h *models.Host) error {
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 }
 
+// RemoveHostByID - removes a given host by id from server
+func RemoveHostByID(hostID string) error {
+	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
+}
+
 // UpdateHostNetworks - updates a given host's networks
 func UpdateHostNetworks(h *models.Host, server string, nets []string) error {
 	if len(h.Nodes) > 0 {
@@ -239,6 +244,28 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	}
 
 	return UpsertHost(h)
+}
+
+// DisassociateAllNodesFromHost - deletes all nodes of the host
+func DisassociateAllNodesFromHost(hostID string) error {
+	host, err := GetHost(hostID)
+	if err != nil {
+		return err
+	}
+	for _, nodeID := range host.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			logger.Log(0, "failed to get host node", err.Error())
+			continue
+		}
+		if err := DeleteNode(&node, true); err != nil {
+			logger.Log(0, "failed to delete node", node.ID.String(), err.Error())
+			continue
+		}
+		logger.Log(3, "deleted node", node.ID.String(), "of host", host.ID.String())
+	}
+	host.Nodes = []string{}
+	return UpsertHost(host)
 }
 
 // GetDefaultHosts - retrieve all hosts marked as default from DB

@@ -152,8 +152,15 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		case models.DeleteHost:
-			// TODO: logic to delete host on the server
-
+			if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
+				logger.Log(0, "failed to delete all nodes of host: ", currentHost.ID.String(), err.Error())
+				return
+			}
+			if err := logic.RemoveHostByID(currentHost.ID.String()); err != nil {
+				logger.Log(0, "failed to delete host: ", currentHost.ID.String(), err.Error())
+				return
+			}
+			sendPeerUpdate = true
 		}
 		if sendPeerUpdate {
 			err := PublishPeerUpdate()
