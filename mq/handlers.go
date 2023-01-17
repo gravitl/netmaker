@@ -170,7 +170,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}(msg)
 }
 
-// used for updating host on sever with update recieved from client
+// used for updating host on server with update recieved from client
 func updateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
 
 	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
