@@ -108,7 +108,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
 		}
 	}
-
+	// TODO: publish host update through MQ
 	go func() {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
@@ -148,6 +148,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// TODO: publish host update with delete action using MQ
 
 	if err = mq.DeleteMqClient(currHost.ID.String()); err != nil {
 		logger.Log(0, "error removing DynSec credentials for host:", currHost.Name, err.Error())

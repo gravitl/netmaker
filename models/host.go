@@ -64,3 +64,22 @@ func ParseBool(s string) bool {
 	}
 	return b
 }
+
+// HostMqAction - type for host update action
+type HostMqAction string
+
+const (
+	// UpdateHost - constant for host update action
+	UpdateHost = "UPDATE_HOST"
+	// DeleteHost - constant for host delete action
+	DeleteHost = "DELETE_HOST"
+	// JoinHostToNetwork - constant for host network join action
+	JoinHostToNetwork = "JOIN_HOST_TO_NETWORK"
+)
+
+// HostUpdate - struct for host update
+type HostUpdate struct {
+	Action HostMqAction
+	Host   Host
+	Node   Node
+}

@@ -94,3 +94,13 @@ func getID(topic string) (string, error) {
 	//the last part of the topic will be the node.ID
 	return parts[count-1], nil
 }
+
+// decodes a message queue topic and returns the embedded host.ID
+func getHostID(topic string) (string, error) {
+	parts := strings.Split(topic, "/")
+	count := len(parts)
+	if count < 4 {
+		return "", fmt.Errorf("invalid topic")
+	}
+	return parts[2], nil
+}

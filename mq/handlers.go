@@ -118,43 +118,44 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 	}()
 }
 
-// UpdateHost  message Handler -- handles updates from client hosts
+// UpdateHost  message Handler -- handles host updates from clients
 func UpdateHost(client mqtt.Client, msg mqtt.Message) {
-	go func() {
-		id, err := getID(msg.Topic())
+	go func(msg mqtt.Message) {
+		id, err := getHostID(msg.Topic())
 		if err != nil {
 			logger.Log(1, "error getting host.ID sent on ", msg.Topic(), err.Error())
 			return
 		}
 		currentHost, err := logic.GetHost(id)
 		if err != nil {
-			logger.Log(1, "error getting node ", id, err.Error())
+			logger.Log(1, "error getting host ", id, err.Error())
 			return
 		}
 		decrypted, decryptErr := decryptMsgWithHost(currentHost, msg.Payload())
 		if decryptErr != nil {
-			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
+			logger.Log(1, "failed to decrypt message for host ", id, decryptErr.Error())
 			return
 		}
-		var newHost models.Host
-		if err := json.Unmarshal(decrypted, &newHost); err != nil {
+		var hostUpdate models.HostUpdate
+		if err := json.Unmarshal(decrypted, &hostUpdate); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		// ifaceDelta := logic.IfaceDelta(&currentHost, newNode)
+		logger.Log(0, "recieved host update for host: ", id)
+		switch hostUpdate.Action {
+		case models.UpdateHost:
+			// TODO: logic to update host recieved from client
+		case models.DeleteHost:
+			// TODO: logic to delete host on the server
+
+		}
 		// if servercfg.Is_EE && ifaceDelta {
 		// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
 		// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)
 		// 	}
 		// }
-		logic.UpdateHost(&newHost, currentHost)
-		if err := logic.UpsertHost(&newHost); err != nil {
-			logger.Log(1, "error saving host", err.Error())
-			return
-		}
 
-		logger.Log(1, "updated host", newHost.ID.String())
-	}()
+	}(msg)
 }
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
