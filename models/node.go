@@ -502,7 +502,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 				host.LocalRange = *cidr
 			}
 		}
-		host.LocalListenPort = int(ln.LocalListenPort)
 		host.ProxyListenPort = int(ln.ProxyListenPort)
 		host.MTU = int(ln.MTU)
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
@@ -563,7 +562,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.Name = h.Name
 	l.NetworkSettings = *net
 	l.ListenPort = int32(h.ListenPort)
-	l.LocalListenPort = int32(h.LocalListenPort)
 	l.ProxyListenPort = int32(h.ProxyListenPort)
 	l.PublicKey = h.PublicKey.String()
 	l.Endpoint = h.EndpointIP.String()
