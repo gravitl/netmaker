@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"gortc.io/stun"
 )
 
@@ -28,14 +27,7 @@ type Server struct {
 	Ctx  context.Context
 }
 
-// Logger is used for logging formatted messages.
-type Logger interface {
-	// Printf must have the same semantics as log.Printf.
-	Printf(format string, args ...interface{})
-}
-
 var (
-	defaultLogger     = logrus.New()
 	software          = stun.NewSoftware("netmaker-stun")
 	errNotSTUNMessage = errors.New("not stun message")
 )
