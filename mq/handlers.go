@@ -121,7 +121,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 // UpdateHost  message Handler -- handles host updates from clients
 func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	go func(msg mqtt.Message) {
-		id, err := getHostID(msg.Topic())
+		id, err := getID(msg.Topic())
 		if err != nil {
 			logger.Log(1, "error getting host.ID sent on ", msg.Topic(), err.Error())
 			return

@@ -16,6 +16,10 @@ func ModifyClient(client *MqClient) error {
 			Rolename: HostGenericRole,
 			Priority: -1,
 		},
+		{
+			Rolename: getHostRoleName(client.ID),
+			Priority: -1,
+		},
 	}
 
 	for i := range client.Networks {
