@@ -99,7 +99,7 @@ func getID(topic string) (string, error) {
 func getHostID(topic string) (string, error) {
 	parts := strings.Split(topic, "/")
 	count := len(parts)
-	if count < 4 {
+	if count < 3 {
 		return "", fmt.Errorf("invalid topic")
 	}
 	return parts[2], nil
