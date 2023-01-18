@@ -16,7 +16,6 @@ var (
 	defaultPostDown           string
 	defaultKeepalive          int
 	allowManualSignUp         bool
-	localRange                string
 	defaultExtClientDNS       string
 	defaultMTU                int
 )

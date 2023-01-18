@@ -271,14 +271,6 @@ func TestValidateNetwork(t *testing.T) {
 			},
 			errMessage: "Field validation for 'DefaultKeepalive' failed on the 'max' tag",
 		},
-		{
-			testname: "InvalidLocalRange",
-			network: models.Network{
-				NetID:      "skynet",
-				LocalRange: "192.168.0.1",
-			},
-			errMessage: "Field validation for 'LocalRange' failed on the 'cidr' tag",
-		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.testname, func(t *testing.T) {

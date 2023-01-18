@@ -13,7 +13,6 @@ type ApiHost struct {
 	Debug            bool     `json:"debug"`
 	IsStatic         bool     `json:"isstatic"`
 	ListenPort       int      `json:"listenport"`
-	LocalRange       string   `json:"localrange"`
 	LocalListenPort  int      `json:"locallistenport"`
 	ProxyListenPort  int      `json:"proxy_listen_port"`
 	MTU              int      `json:"mtu" yaml:"mtu"`
@@ -50,10 +49,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	}
 	a.IsStatic = h.IsStatic
 	a.ListenPort = h.ListenPort
-	a.LocalRange = h.LocalRange.String()
-	if isEmptyAddr(a.LocalRange) {
-		a.LocalRange = ""
-	}
+	a.LocalListenPort = h.LocalListenPort
 	a.MTU = h.MTU
 	a.MacAddress = h.MacAddress.String()
 	a.Name = h.Name
@@ -106,14 +102,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.RelayedHosts = a.RelayedHosts
 	h.IsRelay = a.IsRelay
 	h.IsRelayed = a.IsRelayed
-	if len(a.LocalRange) > 0 {
-		_, localRange, err := net.ParseCIDR(a.LocalRange)
-		if err == nil {
-			h.LocalRange = *localRange
-		}
-	} else if !isEmptyAddr(currentHost.LocalRange.String()) {
-		h.LocalRange = currentHost.LocalRange
-	}
 	h.ProxyEnabled = a.ProxyEnabled
 	h.IsDefault = a.IsDefault
 

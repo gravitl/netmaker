@@ -291,9 +291,6 @@ definitions:
             ispointtosite:
                 type: string
                 x-go-name: IsPointToSite
-            localrange:
-                type: string
-                x-go-name: LocalRange
             netid:
                 type: string
                 x-go-name: NetID
@@ -432,9 +429,6 @@ definitions:
                 format: int32
                 type: integer
                 x-go-name: LocalListenPort
-            localrange:
-                type: string
-                x-go-name: LocalRange
             macaddress:
                 type: string
                 x-go-name: MacAddress
