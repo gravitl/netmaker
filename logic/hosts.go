@@ -313,3 +313,53 @@ func GetRelatedHosts(hostID string) []models.Host {
 	}
 	return relatedHosts
 }
+
+// CheckHostPort checks host endpoints to ensures that hosts on the same server
+// with the same endpoint have different listen ports
+// in the case of 64535 hosts or more with same endpoint, ports will not be changed
+func CheckHostPorts(h *models.Host) {
+	listenPort := h.ListenPort
+	proxyPort := h.ProxyListenPort
+	count := 0
+	reset := false
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return
+	}
+	for _, host := range hosts {
+		if host.EndpointIP.Equal(h.EndpointIP) {
+			if host.ListenPort == h.ListenPort || host.ProxyListenPort == h.ProxyListenPort {
+				updateListenPorts(h)
+				count++
+				//protect against endless recursion
+				if count > 64535 {
+					reset = true
+					break
+				}
+				CheckHostPorts(h)
+			}
+		}
+	}
+	if reset {
+		h.ListenPort = listenPort
+		h.ProxyListenPort = proxyPort
+	}
+}
+
+// HostExists - checks if given host already exists
+func HostExists(h *models.Host) bool {
+	_, err := GetHost(h.ID.String())
+	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
+		return true
+	}
+	return false
+}
+
+func updateListenPorts(h *models.Host) {
+	h.ListenPort++
+	h.ProxyListenPort++
+	if h.ListenPort > 65535 || h.ProxyListenPort > 65535 {
+		h.ListenPort = 1000
+		h.ProxyListenPort = 1001
+	}
+}
