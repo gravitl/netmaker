@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -328,11 +329,12 @@ func CheckHostPorts(h *models.Host) {
 	}
 	for _, host := range hosts {
 		if host.EndpointIP.Equal(h.EndpointIP) {
-			if host.ListenPort == h.ListenPort || host.ProxyListenPort == h.ProxyListenPort {
+			if host.ListenPort == h.ListenPort || host.ProxyListenPort == h.ProxyListenPort ||
+				host.ListenPort == h.ProxyListenPort || host.ProxyListenPort == h.ListenPort {
 				updateListenPorts(h)
 				count++
 				//protect against endless recursion
-				if count > 64535 {
+				if count > (math.MaxInt16 - 1000) {
 					reset = true
 					break
 				}
@@ -358,7 +360,7 @@ func HostExists(h *models.Host) bool {
 func updateListenPorts(h *models.Host) {
 	h.ListenPort++
 	h.ProxyListenPort++
-	if h.ListenPort > 65535 || h.ProxyListenPort > 65535 {
+	if h.ListenPort > math.MaxInt16 || h.ProxyListenPort > math.MaxInt16 {
 		h.ListenPort = 1000
 		h.ProxyListenPort = 1001
 	}
