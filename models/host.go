@@ -26,7 +26,7 @@ type Host struct {
 	ListenPort       int              `json:"listenport" yaml:"listenport"`
 	LocalAddress     net.IPNet        `json:"localaddress" yaml:"localaddress"`
 	LocalRange       net.IPNet        `json:"localrange" yaml:"localrange"`
-	PublicListenPort int              `json:"proxy_public_listen_port" yaml:"proxy_public_listen_port"`
+	PublicListenPort int              `json:"public_listen_port" yaml:"public_listen_port"`
 	ProxyListenPort  int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
 	MTU              int              `json:"mtu" yaml:"mtu"`
 	PublicKey        wgtypes.Key      `json:"publickey" yaml:"publickey"`
