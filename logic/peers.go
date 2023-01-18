@@ -433,8 +433,8 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 func getPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
 	if host.ProxyEnabled {
-		if host.ProxyPublicListenPort != 0 {
-			peerPort = host.ProxyPublicListenPort
+		if host.PublicListenPort != 0 {
+			peerPort = host.PublicListenPort
 		} else if host.ProxyListenPort != 0 {
 			peerPort = host.ProxyListenPort
 		}
@@ -633,7 +633,7 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 			if node.LocalAddress.String() != peer.LocalAddress.String() && peer.LocalAddress.IP != nil {
 				peerHost.EndpointIP = peer.LocalAddress.IP
 				if peerHost.ListenPort != 0 {
-					peerHost.ListenPort = peerHost.ListenPort
+					peerHost.ListenPort = getPeerListenPort(peerHost)
 				}
 			} else {
 				continue
@@ -666,7 +666,7 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 			// or, if port is for some reason zero use the LocalListenPort
 			// but only do this if LocalListenPort is not zero
 			if ((!setUDPPort) || peerHost.ListenPort == 0) && peerHost.ListenPort != 0 {
-				peerHost.ListenPort = peerHost.ListenPort
+				peerHost.ListenPort = getPeerListenPort(peerHost)
 			}
 
 			endpoint := peerHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(peerHost.ListenPort), 10)
