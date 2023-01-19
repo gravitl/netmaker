@@ -169,6 +169,15 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 		}
 		return &newNode, nil
 	}
+	for _, nodeID := range h.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			return nil, err
+		}
+		if node.Network == network {
+			return &node, nil
+		}
+	}
 
 	return nil, errors.New("failed to update host networks")
 }
