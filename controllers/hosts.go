@@ -111,7 +111,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// publish host update through MQ
-	if mq.HostUpdate(&models.HostUpdate{
+	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
 		Host:   *newHost,
 	}); err != nil {
