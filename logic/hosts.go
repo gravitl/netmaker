@@ -333,7 +333,7 @@ func CheckHostPorts(h *models.Host) {
 }
 
 func checkPort(h *models.Host, p int) int {
-	currentPort := h.ListenPort
+	currentPort := p
 	count := 0
 	hosts, err := GetAllHosts()
 	if err != nil {
@@ -363,10 +363,7 @@ func checkPort(h *models.Host, p int) int {
 // HostExists - checks if given host already exists
 func HostExists(h *models.Host) bool {
 	_, err := GetHost(h.ID.String())
-	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
-		return true
-	}
-	return false
+	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
 }
 
 func updatePort(p *int) {
