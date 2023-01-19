@@ -208,7 +208,13 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-
+	if err = mq.HostUpdate(&models.HostUpdate{
+		Action: models.JoinHostToNetwork,
+		Host:   *currHost,
+		Node:   *newNode,
+	}); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update host to join network:", hostid, network, err.Error())
+	}
 	networks := logic.GetHostNetworks(currHost.ID.String())
 	if len(networks) > 0 {
 		if err = mq.ModifyClient(&mq.MqClient{
