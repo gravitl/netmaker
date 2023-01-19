@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -18,6 +17,11 @@ var (
 	ErrHostExists error = errors.New("host already exists")
 	// ErrInvalidHostID
 	ErrInvalidHostID error = errors.New("invalid host id")
+)
+
+const (
+	maxPort = 1<<16 - 1
+	minPort = 1025
 )
 
 // GetAllHosts - returns all hosts in flat list or error
@@ -319,13 +323,21 @@ func GetRelatedHosts(hostID string) []models.Host {
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
 func CheckHostPorts(h *models.Host) {
-	listenPort := h.ListenPort
-	proxyPort := h.ProxyListenPort
+	h.ListenPort = checkPort(h, h.ListenPort)
+	h.ProxyListenPort = checkPort(h, h.ProxyListenPort)
+	// rerun if ports were set to same value
+	if h.ListenPort == h.ProxyListenPort {
+		updatePort(&h.ProxyListenPort)
+		h.ProxyListenPort = checkPort(h, h.ProxyListenPort)
+	}
+}
+
+func checkPort(h *models.Host, p int) int {
+	currentPort := h.ListenPort
 	count := 0
-	reset := false
 	hosts, err := GetAllHosts()
 	if err != nil {
-		return
+		return currentPort
 	}
 	for _, host := range hosts {
 		if host.ID == h.ID {
@@ -333,23 +345,19 @@ func CheckHostPorts(h *models.Host) {
 			continue
 		}
 		if host.EndpointIP.Equal(h.EndpointIP) {
-			if host.ListenPort == h.ListenPort || host.ProxyListenPort == h.ProxyListenPort ||
-				host.ListenPort == h.ProxyListenPort || host.ProxyListenPort == h.ListenPort {
-				updateListenPorts(h)
+			if p == host.ListenPort || p == host.ProxyListenPort {
+				updatePort(&p)
 				count++
 				//protect against endless recursion
-				if count > (math.MaxInt16 - 1000) {
-					reset = true
-					break
+				if count > maxPort-minPort {
+					logger.Log(0, "hit max interations in checkport")
+					return currentPort
 				}
-				CheckHostPorts(h)
+				p = checkPort(h, p)
 			}
 		}
 	}
-	if reset {
-		h.ListenPort = listenPort
-		h.ProxyListenPort = proxyPort
-	}
+	return p
 }
 
 // HostExists - checks if given host already exists
@@ -361,11 +369,9 @@ func HostExists(h *models.Host) bool {
 	return false
 }
 
-func updateListenPorts(h *models.Host) {
-	h.ListenPort++
-	h.ProxyListenPort++
-	if h.ListenPort > math.MaxInt16 || h.ProxyListenPort > math.MaxInt16 {
-		h.ListenPort = 1000
-		h.ProxyListenPort = 1001
+func updatePort(p *int) {
+	*p++
+	if *p > maxPort {
+		*p = minPort
 	}
 }
