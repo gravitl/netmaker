@@ -99,17 +99,6 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	if updateRelay {
 		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
-
-	newNetworks := logic.GetHostNetworks(newHost.ID.String())
-	if len(newNetworks) > 0 {
-		if err = mq.ModifyClient(&mq.MqClient{
-			ID:       currHost.ID.String(),
-			Text:     currHost.Name,
-			Networks: newNetworks,
-		}); err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
-		}
-	}
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
@@ -163,10 +152,6 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
 	}
 
-	if err = mq.DeleteMqClient(currHost.ID.String()); err != nil {
-		logger.Log(0, "error removing DynSec credentials for host:", currHost.Name, err.Error())
-	}
-
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)
@@ -214,16 +199,6 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		Node:   *newNode,
 	}); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update host to join network:", hostid, network, err.Error())
-	}
-	networks := logic.GetHostNetworks(currHost.ID.String())
-	if len(networks) > 0 {
-		if err = mq.ModifyClient(&mq.MqClient{
-			ID:       currHost.ID.String(),
-			Text:     currHost.Name,
-			Networks: networks,
-		}); err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", hostid, err.Error())
-		}
 	}
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
