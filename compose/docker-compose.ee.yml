@@ -81,12 +81,10 @@ services:
     depends_on:
       - netmaker
     restart: unless-stopped
-    command: ["/mosquitto/config/wait.sh"]
     environment:
       NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
     ports:
