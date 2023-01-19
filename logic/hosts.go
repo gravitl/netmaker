@@ -161,7 +161,7 @@ func RemoveHostByID(hostID string) error {
 func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, error) {
 	for _, nodeID := range h.Nodes {
 		node, err := GetNodeByID(nodeID)
-		if err != nil {
+		if err != nil || node.PendingDelete {
 			continue
 		}
 		if node.Network == network {
@@ -175,9 +175,7 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 	}
 	if !add {
 		return nil, errors.New("host not part of the network " + network)
-	}
-
-	if add {
+	} else {
 		newNode := models.Node{}
 		newNode.Server = servercfg.GetServer()
 		newNode.Network = network
@@ -186,8 +184,6 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 		}
 		return &newNode, nil
 	}
-
-	return nil, errors.New("failed to update host networks")
 }
 
 // AssociateNodeToHost - associates and creates a node with a given host
