@@ -74,7 +74,6 @@ type client struct {
 // struct for MQ role
 type role struct {
 	Rolename string `json:"rolename"`
-	Acls     []Acl  `json:"acls"`
 }
 
 // struct for default acls
@@ -97,21 +96,12 @@ type MqDynSecRole struct {
 	Priority int    `json:"priority"`
 }
 
-// Acl - struct for MQ acls
-type Acl struct {
-	AclType  string `json:"acltype"`
-	Topic    string `json:"topic"`
-	Priority int    `json:"priority,omitempty"`
-	Allow    bool   `json:"allow"`
-}
-
 // MqDynSecCmd - struct for MQ dynamic security command
 type MqDynSecCmd struct {
 	Command         string          `json:"command"`
 	Username        string          `json:"username"`
 	Password        string          `json:"password"`
 	RoleName        string          `json:"rolename,omitempty"`
-	Acls            []Acl           `json:"acls,omitempty"`
 	Clientid        string          `json:"clientid"`
 	Textname        string          `json:"textname"`
 	Textdescription string          `json:"textdescription"`
