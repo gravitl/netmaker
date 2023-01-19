@@ -2,6 +2,8 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 
@@ -10,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 type hostNetworksUpdatePayload struct {
@@ -21,7 +22,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/hosts/{hostid}/networks", logic.SecurityCheck(true, http.HandlerFunc(updateHostNetworks))).Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 }
@@ -171,9 +172,9 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiHostData)
 }
 
-// swagger:route PUT /api/hosts hosts updateHostNetworks
+// swagger:route POST /api/hosts/{hostid}/networks/{network} hosts addHostToNetwork
 //
-// Given a list of networks, a host is updated accordingly.
+// Given a network, a host is added to the network.
 //
 //			Schemes: https
 //
@@ -181,41 +182,43 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: updateHostNetworks
-func updateHostNetworks(w http.ResponseWriter, r *http.Request) {
-	var payload hostNetworksUpdatePayload
-	err := json.NewDecoder(r.Body).Decode(&payload)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update host networks:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
+//				200: addHostToNetwork
+func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
-	// confirm host exists
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
+	network := params["network"]
+	if hostid == "" || network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"))
+		return
+	}
+	// confirm host exists
 	currHost, err := logic.GetHost(hostid)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to find host:", err.Error())
+		logger.Log(0, r.Header.Get("user"), "failed to find host:", hostid, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	if err = logic.UpdateHostNetworks(currHost, servercfg.GetServer(), payload.Networks[:]); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update host networks:", err.Error())
+	newNode, err := logic.UpdateHostNetwork(currHost, network, true)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to add host to network:", hostid, network, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
 
-	if err = mq.ModifyClient(&mq.MqClient{
-		ID:       currHost.ID.String(),
-		Text:     currHost.Name,
-		Networks: payload.Networks,
-	}); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", err.Error())
+	networks := logic.GetHostNetworks(currHost.ID.String())
+	if len(networks) > 0 {
+		if err = mq.ModifyClient(&mq.MqClient{
+			ID:       currHost.ID.String(),
+			Text:     currHost.Name,
+			Networks: networks,
+		}); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to update host networks roles in DynSec:", hostid, err.Error())
+		}
 	}
 
-	logger.Log(2, r.Header.Get("user"), "updated host networks", currHost.Name)
+	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(payload)
 }

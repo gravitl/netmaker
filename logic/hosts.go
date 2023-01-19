@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -156,46 +157,20 @@ func RemoveHostByID(hostID string) error {
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
 }
 
-// UpdateHostNetworks - updates a given host's networks
-func UpdateHostNetworks(h *models.Host, server string, nets []string) error {
-	if len(h.Nodes) > 0 {
-		for i := range h.Nodes {
-			n, err := GetNodeByID(h.Nodes[i])
-			if err != nil {
-				return err
-			}
-			// loop through networks and remove need for updating existing networks
-			found := false
-			for j := range nets {
-				if len(nets[j]) > 0 && nets[j] == n.Network {
-					nets[j] = "" // mark as ignore
-					found = true
-				}
-			}
-			if !found { // remove the node/host from that network
-				if err = DissasociateNodeFromHost(&n, h); err != nil {
-					return err
-				}
-			}
+// UpdateHostNetwork - adds/deletes host from a network
+func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, error) {
+
+	if add {
+		newNode := models.Node{}
+		newNode.Server = servercfg.GetServer()
+		newNode.Network = network
+		if err := AssociateNodeToHost(&newNode, h); err != nil {
+			return nil, err
 		}
-	} else {
-		h.Nodes = []string{}
+		return &newNode, nil
 	}
 
-	for i := range nets {
-		// create a node for each non zero network remaining
-		if len(nets[i]) > 0 {
-			newNode := models.Node{}
-			newNode.Server = server
-			newNode.Network = nets[i]
-			if err := AssociateNodeToHost(&newNode, h); err != nil {
-				return err
-			}
-			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-		}
-	}
-
-	return nil
+	return nil, errors.New("failed to update host networks")
 }
 
 // AssociateNodeToHost - associates and creates a node with a given host
