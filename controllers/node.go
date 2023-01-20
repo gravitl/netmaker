@@ -176,6 +176,7 @@ func nodeauth(next http.Handler) http.HandlerFunc {
 			for _, key := range network.AccessKeys {
 				if key.Value == token {
 					found = true
+					logic.DecrimentKey(network.NetID, key.Value)
 					break
 				}
 			}
@@ -188,6 +189,7 @@ func nodeauth(next http.Handler) http.HandlerFunc {
 			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	}
 }
