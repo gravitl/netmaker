@@ -130,7 +130,7 @@ func VerifyUserToken(tokenString string) (username string, networks []string, is
 }
 
 // VerifyToken - [nodes] Only
-func VerifyToken(tokenString string) (nodeID string, mac string, network string, err error) {
+func VerifyToken(tokenString string) (hostID string, mac string, network string, err error) {
 	claims := &models.Claims{}
 
 	// this may be a stupid way of serving up a master key
