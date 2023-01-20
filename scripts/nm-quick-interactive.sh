@@ -77,40 +77,40 @@ echo "checking dependencies..."
 OS=$(uname)
 
 if [ -f /etc/debian_version ]; then
-	dependencies="wireguard wireguard-tools jq docker.io docker-compose"
+	dependencies="wireguard wireguard-tools jq docker.io docker-compose mosquitto"
 	update_cmd='apt update'
 	install_cmd='apt-get install -y'
 elif [ -f /etc/alpine-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="wireguard jq docker.io docker-compose mosquitto"
 	update_cmd='apk update'
 	install_cmd='apk --update add'
 elif [ -f /etc/centos-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="wireguard jq docker.io docker-compose mosquitto"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/fedora-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="wireguard jq docker.io docker-compose mosquitto"
 	update_cmd='dnf update'
 	install_cmd='dnf install -y'
 elif [ -f /etc/redhat-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="wireguard jq docker.io docker-compose mosquitto"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/arch-release ]; then
-    	dependecies="wireguard-tools jq docker.io docker-compose"
+    	dependecies="wireguard-tools jq docker.io docker-compose mosquitto"
 	update_cmd='pacman -Sy'
 	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
-	dependencies="wireguard wget jq docker.io docker-compose"
+	dependencies="wireguard wget jq docker.io docker-compose mosquitto"
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/turris-version ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose"
+	dependencies="wireguard-tools bash jq docker.io docker-compose mosquitto"
 	OS="TurrisOS"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
 elif [ -f /etc/openwrt_release ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose"
+	dependencies="wireguard-tools bash jq docker.io docker-compose mosquitto"
 	OS="OpenWRT"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
@@ -191,7 +191,8 @@ MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 MQ_USERNAME="netmaker"
 MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
-
+echo "${MQ_USERNAME}:${MQ_PASSWORD}" > /root/password.txt
+mosquitto_passwd -U /root/password.txt
 echo "-----------------------------------------------------"
 echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
 echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_PUBLIC_IP"
