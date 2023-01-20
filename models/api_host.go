@@ -49,7 +49,6 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	}
 	a.IsStatic = h.IsStatic
 	a.ListenPort = h.ListenPort
-	a.LocalListenPort = h.LocalListenPort
 	a.MTU = h.MTU
 	a.MacAddress = h.MacAddress.String()
 	a.Name = h.Name
