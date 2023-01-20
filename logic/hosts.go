@@ -321,41 +321,22 @@ func GetRelatedHosts(hostID string) []models.Host {
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
 func CheckHostPorts(h *models.Host) {
-	h.ListenPort = checkPort(h, h.ListenPort)
-	h.ProxyListenPort = checkPort(h, h.ProxyListenPort)
-	// rerun if ports were set to same value
-	if h.ListenPort == h.ProxyListenPort {
-		updatePort(&h.ProxyListenPort)
-		h.ProxyListenPort = checkPort(h, h.ProxyListenPort)
-	}
-}
-
-func checkPort(h *models.Host, p int) int {
-	currentPort := p
-	count := 0
+	portsInUse := make(map[int]bool)
 	hosts, err := GetAllHosts()
 	if err != nil {
-		return currentPort
+		return
 	}
 	for _, host := range hosts {
-		if host.ID == h.ID {
-			//skip self
-			continue
-		}
-		if host.EndpointIP.Equal(h.EndpointIP) {
-			if p == host.ListenPort || p == host.ProxyListenPort {
-				updatePort(&p)
-				count++
-				//protect against endless recursion
-				if count > maxPort-minPort {
-					logger.Log(0, "hit max interations in checkport")
-					return currentPort
-				}
-				p = checkPort(h, p)
-			}
-		}
+		portsInUse[host.ListenPort] = true
+		portsInUse[host.ProxyListenPort] = true
 	}
-	return p
+	// iterate until port is not found or max iteration is reached
+	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
+		updatePort(&h.ListenPort)
+	}
+	for i := 0; portsInUse[h.ProxyListenPort] && i < maxPort-minPort+1; i++ {
+		updatePort(&h.ProxyListenPort)
+	}
 }
 
 // HostExists - checks if given host already exists
