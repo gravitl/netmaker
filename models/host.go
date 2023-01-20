@@ -25,7 +25,6 @@ type Host struct {
 	Debug            bool             `json:"debug" yaml:"debug"`
 	ListenPort       int              `json:"listenport" yaml:"listenport"`
 	PublicListenPort int              `json:"public_listen_port" yaml:"public_listen_port"`
-	LocalListenPort  int              `json:"locallistenport" yaml:"locallistenport"`
 	ProxyListenPort  int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
 	MTU              int              `json:"mtu" yaml:"mtu"`
 	PublicKey        wgtypes.Key      `json:"publickey" yaml:"publickey"`

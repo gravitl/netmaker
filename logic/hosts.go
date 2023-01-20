@@ -327,6 +327,13 @@ func CheckHostPorts(h *models.Host) {
 		return
 	}
 	for _, host := range hosts {
+		if host.ID == h.ID {
+			//skip self
+			continue
+		}
+		if !host.EndpointIP.Equal(h.EndpointIP) {
+			continue
+		}
 		portsInUse[host.ListenPort] = true
 		portsInUse[host.ProxyListenPort] = true
 	}
