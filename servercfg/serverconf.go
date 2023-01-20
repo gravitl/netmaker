@@ -100,6 +100,8 @@ func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
 	cfg.Broker = GetBroker()
+	cfg.MQUserName = GetMqUserName()
+	cfg.MQPassword = GetMqPassword()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()

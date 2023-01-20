@@ -41,7 +41,8 @@ services:
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
-      MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
       STUN_PORT: "3478"
       PROXY: "on"
     ports:
@@ -83,13 +84,11 @@ services:
     depends_on:
       - netmaker
     restart: unless-stopped
-    command: ["/mosquitto/config/wait.sh"]
     environment:
       NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /root/wait.sh:/mosquitto/config/wait.sh
-      - mosquitto_data:/mosquitto/data
+      - /root/passwords.txt:/mosquitto/passwords.txt
       - mosquitto_logs:/mosquitto/log
 volumes:
   caddy_data: {}
