@@ -4,10 +4,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type NetworkValidationTestCase struct {
@@ -15,6 +17,8 @@ type NetworkValidationTestCase struct {
 	network    models.Network
 	errMessage string
 }
+
+var netHost models.Host
 
 func TestCreateNetwork(t *testing.T) {
 	initialize()
@@ -305,11 +309,12 @@ func TestIpv6Network(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, network.AddressRange6, "fde6:be04:fa5e:d076::/64")
 	})
-	node1 := models.LegacyNode{PublicKey: "DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=", Name: "testnode", Endpoint: "10.0.0.50", MacAddress: "01:02:03:04:05:06", Password: "password", Network: "skynet6", OS: "linux"}
-	nodeErr := logic.CreateNode(&node1)
+	node1 := createNodeWithParams("skynet6", "")
+	createNetHost()
+	nodeErr := logic.AssociateNodeToHost(node1, &netHost)
 	t.Run("Test node on network IPv6", func(t *testing.T) {
 		assert.Nil(t, nodeErr)
-		assert.Equal(t, "fde6:be04:fa5e:d076::1", node1.Address6)
+		assert.Equal(t, "fde6:be04:fa5e:d076::1", node1.Address6.IP.String())
 	})
 }
 
@@ -357,4 +362,16 @@ func createNetDualStack() {
 	if err != nil {
 		logic.CreateNetwork(network)
 	}
+}
+
+func createNetHost() {
+	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
+	netHost = models.Host{
+		ID:        uuid.New(),
+		PublicKey: k.PublicKey(),
+		HostPass:  "password",
+		OS:        "linux",
+		Name:      "nethost",
+	}
+	_ = logic.CreateHost(&netHost)
 }
