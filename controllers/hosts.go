@@ -23,6 +23,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 }
@@ -182,7 +183,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: addHostToNetwork
+//				200: addHostToNetworkResponse
 func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
@@ -226,5 +227,55 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
+	w.WriteHeader(http.StatusOK)
+}
+
+// swagger:route DELETE /api/hosts/{hostid}/networks/{network} hosts deleteHostFromNetwork
+//
+// Given a network, a host is removed from the network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: deleteHostFromNetworkResponse
+func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
+
+	var params = mux.Vars(r)
+	hostid := params["hostid"]
+	network := params["network"]
+	if hostid == "" || network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"))
+		return
+	}
+	// confirm host exists
+	currHost, err := logic.GetHost(hostid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to find host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	node, err := logic.UpdateHostNetwork(currHost, network, false)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to remove host from network:", hostid, network, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logger.Log(1, "deleting  node", node.ID.String(), "from host", currHost.Name)
+	if err := logic.DeleteNode(node, false); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
+		return
+	}
+	// notify node change
+	runUpdates(node, false)
+	go func() { // notify of peer change
+		if err := mq.PublishPeerUpdate(); err != nil {
+			logger.Log(1, "error publishing peer update ", err.Error())
+		}
+	}()
+	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }
