@@ -17,7 +17,6 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - mosquitto_data:/etc/netmaker
     environment:
       BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
@@ -95,5 +94,4 @@ volumes:
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
-  mosquitto_data: {}
   mosquitto_logs: {}
