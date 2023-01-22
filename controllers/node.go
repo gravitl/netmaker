@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -26,7 +25,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", authorize(true, true, "node", http.HandlerFunc(migrate))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", migrate).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
@@ -176,7 +175,6 @@ func nodeauth(next http.Handler) http.HandlerFunc {
 			for _, key := range network.AccessKeys {
 				if key.Value == token {
 					found = true
-					logic.DecrimentKey(network.NetID, key.Value)
 					break
 				}
 			}
@@ -552,6 +550,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
+	logic.DecrimentKey(networkName, data.Key)
 	user, err := pro.GetNetworkUser(networkName, promodels.NetworkUserID(keyName))
 	if err == nil {
 		if user.ID != "" {
@@ -831,51 +830,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(&node, true)
-}
-
-// swagger:route PUT /api/nodes/{network}/{nodeid}/migrate nodes migrateNode
-//
-// Used to migrate a legacy node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeJoinResponse
-func migrate(w http.ResponseWriter, r *http.Request) {
-	// we decode our body request params
-	data := models.JoinData{}
-	err := json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	params := mux.Vars(r)
-	network, err := logic.GetNetwork(params["network"])
-	if err != nil {
-		logger.Log(0, "error retrieving network:  ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	key, err := logic.CreateAccessKey(models.AccessKey{}, network)
-	if err != nil {
-		logger.Log(0, "error creating key:  ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	data.Key = key.Value
-	payload, err := json.Marshal(data)
-	if err != nil {
-		logger.Log(0, "error encoding data:  ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	r.Body = io.NopCloser(strings.NewReader(string(payload)))
-	r.ContentLength = int64(len(string(payload)))
-	createNode(w, r)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
