@@ -173,20 +173,20 @@ collect_node_settings() {
       for i in $(seq 1 $NODE_LEN); do
           NUM=$(($i-1))
           echo "  SERVER NODE $NUM:"
-          echo "    network: $(jq ".[$NUM].network" ./nodejson.tmp)"
-          echo "      name: $(jq ".[$NUM].name" ./nodejson.tmp)"
-          echo "      private ipv4: $(jq ".[$NUM].address" ./nodejson.tmp)"
-          echo "      private ipv6: $(jq ".[$NUM].address6" ./nodejson.tmp)"
-          echo "      is egress: $(jq ".[$NUM].isegressgateway" ./nodejson.tmp)"
-          if [[ $(jq ".[$NUM].isegressgateway" ./nodejson.tmp) == "yes" ]]; then
-              echo "          egress range: $(jq ".[$NUM].egressgatewayranges" ./nodejson.tmp)"
+          echo "    network: $(jq -r ".[$NUM].network" ./nodejson.tmp)"
+          echo "      name: $(jq -r ".[$NUM].name" ./nodejson.tmp)"
+          echo "      private ipv4: $(jq -r ".[$NUM].address" ./nodejson.tmp)"
+          echo "      private ipv6: $(jq -r ".[$NUM].address6" ./nodejson.tmp)"
+          echo "      is egress: $(jq -r ".[$NUM].isegressgateway" ./nodejson.tmp)"
+          if [[ $(jq -r ".[$NUM].isegressgateway" ./nodejson.tmp) == "yes" ]]; then
+              echo "          egress range: $(jq -r ".[$NUM].egressgatewayranges" ./nodejson.tmp)"
           fi
-          echo "      is ingress: $(jq ".[$NUM].isingressgateway" ./nodejson.tmp)"
-          if [[ $(jq ".[$NUM].isingressgateway" ./nodejson.tmp) == "yes" ]]; then
+          echo "      is ingress: $(jq -r ".[$NUM].isingressgateway" ./nodejson.tmp)"
+          if [[ $(jq -r ".[$NUM].isingressgateway" ./nodejson.tmp) == "yes" ]]; then
               HAS_INGRESS="yes"
           fi
-          echo "      is relay: $(jq ".[$NUM].isrelay" ./nodejson.tmp)"
-          echo "      is failover: $(jq ".[$NUM].failover" ./nodejson.tmp)"
+          echo "      is relay: $(jq -r ".[$NUM].isrelay" ./nodejson.tmp)"
+          echo "      is failover: $(jq -r ".[$NUM].failover" ./nodejson.tmp)"
           echo "  ------------"
       done
       echo "=================="
@@ -284,10 +284,10 @@ chmod +x netclient
 #     exit 1
 # fi
 
-if [ -z "${install_cmd}" ]; then
-        echo "OS unsupported for automatic dependency install"
-	exit 1
-fi
+# if [ -z "${install_cmd}" ]; then
+#         echo "OS unsupported for automatic dependency install"
+# 	exit 1
+# fi
 }
 
 setup_nmctl() {
@@ -312,36 +312,85 @@ setup_nmctl() {
 join_networks() {
   NODE_LEN=$(jq length nodejson.tmp)
   HAS_INGRESS="no"
-  echo $NODE_LEN
   if [ "$NODE_LEN" -gt 0 ]; then
       for i in $(seq 1 $NODE_LEN); do
           NUM=$(($i-1))
-          echo "  joining network $(jq ".[$NUM].network" ./nodejson.tmp):"
-          KEY_JSON=./nmctl keys create $(jq ".[$NUM].network" ./nodejson.tmp) 1
-          KEY=$(echo $KEY_JSON | jq -r .accessstring)
-          NAME=$(jq ".[$NUM].name" ./nodejson.tmp)
-          netclient join -t $KEY --name=""
-          echo "    network: $(jq ".[$NUM].network" ./nodejson.tmp)"
-          echo "      name: $(jq ".[$NUM].name" ./nodejson.tmp)"
-          echo "      private ipv4: $(jq ".[$NUM].address" ./nodejson.tmp)"
-          echo "      private ipv6: $(jq ".[$NUM].address6" ./nodejson.tmp)"
-          echo "      is egress: $(jq ".[$NUM].isegressgateway" ./nodejson.tmp)"
-          if [[ $(jq ".[$NUM].isegressgateway" ./nodejson.tmp) == "yes" ]]; then
-              echo "          egress range: $(jq ".[$NUM].egressgatewayranges" ./nodejson.tmp)"
+          NETWORK=$(jq -r ".[$NUM].network" ./nodejson.tmp)
+          echo "  joining network $NETWORK with following settings. Please confirm:"
+          echo "         network: $(jq -r ".[$NUM].network" ./nodejson.tmp)"
+          echo "            name: $(jq -r ".[$NUM].name" ./nodejson.tmp)"
+          echo "    private ipv4: $(jq -r ".[$NUM].address" ./nodejson.tmp)"
+          echo "    private ipv6: $(jq -r ".[$NUM].address6" ./nodejson.tmp)"
+          echo "       is egress: $(jq -r ".[$NUM].isegressgateway" ./nodejson.tmp)"
+          if [[ $(jq -r ".[$NUM].isegressgateway" ./nodejson.tmp) == "yes" ]]; then
+              HAS_EGRESS="yes"
+              echo "          egress range: $(jq -r ".[$NUM].egressgatewayranges" ./nodejson.tmp)"
           fi
-
-          HOST_ID=$(yq e .host.id /etc/netclient/netclient.yml)
-          # set as a default host
-          
-          # create an egress if necessary
-          # create an ingress if necessary
-          echo "      is ingress: $(jq ".[$NUM].isingressgateway" ./nodejson.tmp)"
-          if [[ $(jq ".[$NUM].isingressgateway" ./nodejson.tmp) == "yes" ]]; then
+          echo "      is ingress: $(jq -r ".[$NUM].isingressgateway" ./nodejson.tmp)"
+          if [[ $(jq -r ".[$NUM].isingressgateway" ./nodejson.tmp) == "yes" ]]; then
               HAS_INGRESS="yes"
           fi
-          echo "      is relay: $(jq ".[$NUM].isrelay" ./nodejson.tmp)"
-          echo "      is failover: $(jq ".[$NUM].failover" ./nodejson.tmp)"
+          echo "        is relay: $(jq -r ".[$NUM].isrelay" ./nodejson.tmp)"
+          echo "     is failover: $(jq -r ".[$NUM].failover" ./nodejson.tmp)"
           echo "  ------------"
+
+          confirm
+          echo "running command: ./nmctl keys create $NETWORK 1"
+          KEY_JSON=$(./nmctl keys create $NETWORK 1)          
+          KEY=$(echo $KEY_JSON | jq -r .accessstring)
+
+          echo "join key created: $KEY"
+
+          NAME=$(jq -r ".[$NUM].name" ./nodejson.tmp)
+          ADDRESS=$(jq -r ".[$NUM].address" ./nodejson.tmp)
+          ADDRESS6=$(jq -r ".[$NUM].address6" ./nodejson.tmp)
+ 
+
+          if [[ ! -z "$ADDRESS6" ]]; then
+            echo "joining with command: netclient join -t $KEY --name=$NAME --address=$ADDRESS --address6=$ADDRESS6
+"
+            confirm
+            netclient join -t $KEY --name=$NAME --address=$ADDRESS --address6=$ADDRESS6
+          else
+            echo "joining with command: netclient join -t $KEY --name=$NAME --address=$ADDRESS"          
+            confirm
+            netclient join -t $KEY --name=$NAME --address=$ADDRESS
+          fi
+          NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .$NETWORK.commonnode.id)
+          echo "join complete. New node ID: $NODE_ID"
+          if [[ $NUM -eq 0 ]]; then
+            HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
+            echo "For first join, making host a default"
+            echo "Host ID: $HOST_ID"
+            # set as a default host
+            # TODO - this command is not working
+            # ./nmctl host update $HOST_ID --default
+          fi
+
+          # create an egress if necessary
+          if [[ $HAS_EGRESS == "yes" ]]; then
+            echo "Egress is currently unimplemented. Wait for 0.18.1"
+          fi
+
+          echo "HAS INGRESS: $HAS_INGRESS"
+          # create an ingress if necessary
+          if [[ $HAS_INGRESS == "yes" ]]; then
+            echo "creating ingress..."
+            ./nmctl node create_ingress $NETWORK $NODE_ID 
+          fi
+
+          # relay
+          if [[ $HAS_RELAY == "yes" ]]; then
+            echo "TODO"
+            # TODO
+          fi
+          # failover
+          if [[ $HAS_FAILOVER == "yes" ]]; then
+            echo "TODO"
+            # TODO
+          fi
+
+
       done
       echo "=================="
   else
@@ -366,47 +415,42 @@ if [ $(id -u) -ne 0 ]; then
 fi
 
 echo "...installing dependencies for script"
-install_dependencies
+# install_dependencies
 
 echo "...confirming version is correct"
-check_version
+# check_version
 
 echo "...collecting necessary server settings"
 collect_server_settings
 
 echo "...setup nmctl"
-setup_nmctl
+# setup_nmctl
 
 echo "...retrieving current server node settings"
-collect_node_settings
+# collect_node_settings
 
 echo "...backing up docker compose to docker-compose.yml.backup"
-cp /root/docker-compose.yml /root/docker-compose.yml.backup
+# cp /root/docker-compose.yml /root/docker-compose.yml.backup
 
 echo "...setting docker-compose values"
-set_compose
+# set_compose
 
-# DEV_TEMP
-echo "end of test"
-exit 0
-
-echo "..starting containers"
-start_containers
+echo "...starting containers"
+# start_containers
 
 wait_seconds 3
 
 echo "..testing Caddy proxy"
-test_caddy
+# test_caddy
 
 echo "..testing Netmaker health"
 # TODO, implement health check
 # netmaker_health_check
+# wait_seconds 2
 
-wait_seconds 2
-
-echo "...setting up netclient"
-setup_netclient
-wait_seconds 2
+echo "...setting up netclient (this may take a minute, be patient)"
+# setup_netclient
+# wait_seconds 2
 
 echo "...join networks"
 join_networks
@@ -414,6 +458,6 @@ join_networks
 echo "-----------------------------------------------------------------"
 echo "-----------------------------------------------------------------"
 echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
-echo "Visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
+echo "Visit dashboard.$SERVER_NAME to log in"
 echo "-----------------------------------------------------------------"
 echo "-----------------------------------------------------------------"
