@@ -48,7 +48,6 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logger.Log(0, "comparing passwords", legacyNode.Password, "pass: ", data.Password)
 	if err := bcrypt.CompareHashAndPassword([]byte(legacyNode.Password), []byte(data.Password)); err != nil {
 		logger.Log(0, "error decoding legacy password", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
