@@ -4,27 +4,32 @@ import "net"
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
-	ID              string   `json:"id"`
-	Verbosity       int      `json:"verbosity"`
-	FirewallInUse   string   `json:"firewallinuse"`
-	Version         string   `json:"version"`
-	Name            string   `json:"name"`
-	OS              string   `json:"os"`
-	Debug           bool     `json:"debug"`
-	IsStatic        bool     `json:"isstatic"`
-	ListenPort      int      `json:"listenport"`
-	LocalRange      string   `json:"localrange"`
-	LocalListenPort int      `json:"locallistenport"`
-	ProxyListenPort int      `json:"proxy_listen_port"`
-	MTU             int      `json:"mtu" yaml:"mtu"`
-	Interfaces      []Iface  `json:"interfaces" yaml:"interfaces"`
-	EndpointIP      string   `json:"endpointip" yaml:"endpointip"`
-	PublicKey       string   `json:"publickey"`
-	MacAddress      string   `json:"macaddress"`
-	InternetGateway string   `json:"internetgateway"`
-	Nodes           []string `json:"nodes"`
-	ProxyEnabled    bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
-	IsDefault       bool     `json:"isdefault" yaml:"isdefault"`
+	ID               string   `json:"id"`
+	Verbosity        int      `json:"verbosity"`
+	FirewallInUse    string   `json:"firewallinuse"`
+	Version          string   `json:"version"`
+	Name             string   `json:"name"`
+	OS               string   `json:"os"`
+	Debug            bool     `json:"debug"`
+	IsStatic         bool     `json:"isstatic"`
+	ListenPort       int      `json:"listenport"`
+	LocalRange       string   `json:"localrange"`
+	LocalListenPort  int      `json:"locallistenport"`
+	ProxyListenPort  int      `json:"proxy_listen_port"`
+	MTU              int      `json:"mtu" yaml:"mtu"`
+	Interfaces       []Iface  `json:"interfaces" yaml:"interfaces"`
+	DefaultInterface string   `json:"defaultinterface" yaml:"defautlinterface"`
+	EndpointIP       string   `json:"endpointip" yaml:"endpointip"`
+	PublicKey        string   `json:"publickey"`
+	MacAddress       string   `json:"macaddress"`
+	InternetGateway  string   `json:"internetgateway"`
+	Nodes            []string `json:"nodes"`
+	ProxyEnabled     bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
+	IsDefault        bool     `json:"isdefault" yaml:"isdefault"`
+	IsRelayed        bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	RelayedBy        string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
+	IsRelay          bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	RelayedHosts     []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -35,13 +40,16 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.FirewallInUse = h.FirewallInUse
 	a.ID = h.ID.String()
 	a.Interfaces = h.Interfaces
+	for i := range a.Interfaces {
+		a.Interfaces[i].AddressString = a.Interfaces[i].Address.String()
+	}
+	a.DefaultInterface = h.DefaultInterface
 	a.InternetGateway = h.InternetGateway.String()
 	if isEmptyAddr(a.InternetGateway) {
 		a.InternetGateway = ""
 	}
 	a.IsStatic = h.IsStatic
 	a.ListenPort = h.ListenPort
-	a.LocalListenPort = h.LocalListenPort
 	a.LocalRange = h.LocalRange.String()
 	if isEmptyAddr(a.LocalRange) {
 		a.LocalRange = ""
@@ -57,7 +65,10 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
 	a.IsDefault = h.IsDefault
-
+	a.IsRelay = h.IsRelay
+	a.RelayedHosts = h.RelayedHosts
+	a.IsRelayed = h.IsRelayed
+	a.RelayedBy = h.RelayedBy
 	return &a
 }
 
@@ -74,12 +85,14 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IPForwarding = currentHost.IPForwarding
 	h.Interface = currentHost.Interface
 	h.Interfaces = currentHost.Interfaces
+	h.DefaultInterface = currentHost.DefaultInterface
 	h.InternetGateway = currentHost.InternetGateway
 	h.IsDocker = currentHost.IsDocker
 	h.IsK8S = currentHost.IsK8S
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
-	h.LocalListenPort = currentHost.ListenPort
+	h.ProxyListenPort = a.ProxyListenPort
+	h.PublicListenPort = currentHost.PublicListenPort
 	h.MTU = a.MTU
 	h.MacAddress = currentHost.MacAddress
 	h.PublicKey = currentHost.PublicKey
@@ -89,7 +102,10 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Nodes = currentHost.Nodes
 	h.TrafficKeyPublic = currentHost.TrafficKeyPublic
 	h.OS = currentHost.OS
-
+	h.RelayedBy = a.RelayedBy
+	h.RelayedHosts = a.RelayedHosts
+	h.IsRelay = a.IsRelay
+	h.IsRelayed = a.IsRelayed
 	if len(a.LocalRange) > 0 {
 		_, localRange, err := net.ParseCIDR(a.LocalRange)
 		if err == nil {

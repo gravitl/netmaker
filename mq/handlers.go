@@ -95,9 +95,10 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
+
 		ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
 		if servercfg.Is_EE && ifaceDelta {
-			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID.String(), currentNode.Network); err != nil {
+			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
 				logger.Log(1, "failed to reset failover list during node update", currentNode.ID.String(), currentNode.Network)
 			}
 		}
@@ -107,7 +108,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-			if err = PublishPeerUpdate(currentNode.Network, true); err != nil {
+			if err = PublishPeerUpdate(); err != nil {
 				logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 			}
 		}
@@ -115,6 +116,96 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		logger.Log(1, "updated node", id, newNode.ID.String())
 
 	}()
+}
+
+// UpdateHost  message Handler -- handles host updates from clients
+func UpdateHost(client mqtt.Client, msg mqtt.Message) {
+	go func(msg mqtt.Message) {
+		id, err := getID(msg.Topic())
+		if err != nil {
+			logger.Log(1, "error getting host.ID sent on ", msg.Topic(), err.Error())
+			return
+		}
+		currentHost, err := logic.GetHost(id)
+		if err != nil {
+			logger.Log(1, "error getting host ", id, err.Error())
+			return
+		}
+		decrypted, decryptErr := decryptMsgWithHost(currentHost, msg.Payload())
+		if decryptErr != nil {
+			logger.Log(1, "failed to decrypt message for host ", id, decryptErr.Error())
+			return
+		}
+		var hostUpdate models.HostUpdate
+		if err := json.Unmarshal(decrypted, &hostUpdate); err != nil {
+			logger.Log(1, "error unmarshaling payload ", err.Error())
+			return
+		}
+		logger.Log(0, "recieved host update for host: ", id)
+		var sendPeerUpdate bool
+		switch hostUpdate.Action {
+		case models.UpdateHost:
+			sendPeerUpdate = updateHostFromClient(&hostUpdate.Host, currentHost)
+			err := logic.UpsertHost(currentHost)
+			if err != nil {
+				logger.Log(0, "failed to update host: ", currentHost.ID.String(), err.Error())
+				return
+			}
+		case models.DeleteHost:
+			if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
+				logger.Log(0, "failed to delete all nodes of host: ", currentHost.ID.String(), err.Error())
+				return
+			}
+			if err := logic.RemoveHostByID(currentHost.ID.String()); err != nil {
+				logger.Log(0, "failed to delete host: ", currentHost.ID.String(), err.Error())
+				return
+			}
+			sendPeerUpdate = true
+		}
+		if sendPeerUpdate {
+			err := PublishPeerUpdate()
+			if err != nil {
+				logger.Log(0, "failed to pulish peer update: ", err.Error())
+			}
+		}
+		// if servercfg.Is_EE && ifaceDelta {
+		// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
+		// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)
+		// 	}
+		// }
+
+	}(msg)
+}
+
+// used for updating host on server with update recieved from client
+func updateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
+
+	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
+		currHost.ListenPort = newHost.ListenPort
+		sendPeerUpdate = true
+	}
+	if newHost.ProxyListenPort != 0 && currHost.ProxyListenPort != newHost.ProxyListenPort {
+		currHost.ProxyListenPort = newHost.ProxyListenPort
+		sendPeerUpdate = true
+	}
+	if newHost.PublicListenPort != 0 && currHost.PublicListenPort != newHost.PublicListenPort {
+		currHost.PublicListenPort = newHost.PublicListenPort
+		sendPeerUpdate = true
+	}
+	if currHost.ProxyEnabled != newHost.ProxyEnabled {
+		currHost.ProxyEnabled = newHost.ProxyEnabled
+		sendPeerUpdate = true
+	}
+	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
+		currHost.EndpointIP = newHost.EndpointIP
+		sendPeerUpdate = true
+	}
+	currHost.DaemonInstalled = newHost.DaemonInstalled
+	currHost.Debug = newHost.Debug
+	currHost.Verbosity = newHost.Verbosity
+	currHost.Version = newHost.Version
+	currHost.Name = newHost.Name
+	return
 }
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
@@ -165,9 +256,13 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 
 			if shouldUpdate {
 				logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
-				if err = PublishSinglePeerUpdate(&currentNode); err != nil {
-					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
+				host, err := logic.GetHost(currentNode.HostID.String())
+				if err == nil {
+					if err = PublishSingleHostUpdate(host); err != nil {
+						logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
+					}
 				}
+
 			}
 
 			logger.Log(1, "updated node metrics", id)
@@ -205,7 +300,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 }
 
 func updateNodePeers(currentNode *models.Node) {
-	if err := PublishPeerUpdate(currentNode.Network, false); err != nil {
+	if err := PublishPeerUpdate(); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
 		return
 	}
@@ -243,7 +338,6 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 				}
 			}
 			extMetric.NodeName = attachedClients[i].ClientID
-			extMetric.IsServer = "no"
 			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
 			newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
 		}
@@ -264,12 +358,6 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		currMetric.ActualUptime = time.Duration(totalUpMinutes) * time.Minute
 		delete(oldMetrics.Connectivity, k) // remove from old data
 		newMetrics.Connectivity[k] = currMetric
-		if oldProxyMetric, ok := oldMetrics.ProxyMetrics[k]; ok {
-			newProxyMetric := newMetrics.ProxyMetrics[k]
-			newProxyMetric.TrafficSent += oldProxyMetric.TrafficSent
-			newProxyMetric.TrafficRecieved += oldProxyMetric.TrafficRecieved
-			newMetrics.ProxyMetrics[k] = newProxyMetric
-		}
 
 	}
 

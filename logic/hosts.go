@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -146,59 +147,43 @@ func UpsertHost(h *models.Host) error {
 // RemoveHost - removes a given host from server
 func RemoveHost(h *models.Host) error {
 	if len(h.Nodes) > 0 {
-		for i := range h.Nodes {
-			id := h.Nodes[i]
-			n, err := GetNodeByID(id)
-			if err == nil {
-				if err = DissasociateNodeFromHost(&n, h); err != nil {
-					return err // must remove associated nodes before removing a host
-				}
-			}
-		}
+		return fmt.Errorf("host still has associated nodes")
 	}
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 }
 
-// UpdateHostNetworks - updates a given host's networks
-func UpdateHostNetworks(h *models.Host, server string, nets []string) error {
-	if len(h.Nodes) > 0 {
-		for i := range h.Nodes {
-			n, err := GetNodeByID(h.Nodes[i])
-			if err != nil {
-				return err
-			}
-			// loop through networks and remove need for updating existing networks
-			found := false
-			for j := range nets {
-				if len(nets[j]) > 0 && nets[j] == n.Network {
-					nets[j] = "" // mark as ignore
-					found = true
-				}
-			}
-			if !found { // remove the node/host from that network
-				if err = DissasociateNodeFromHost(&n, h); err != nil {
-					return err
-				}
-			}
+// RemoveHostByID - removes a given host by id from server
+func RemoveHostByID(hostID string) error {
+	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
+}
+
+// UpdateHostNetwork - adds/deletes host from a network
+func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, error) {
+	for _, nodeID := range h.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil || node.PendingDelete {
+			continue
 		}
+		if node.Network == network {
+			if !add {
+				return &node, nil
+			} else {
+				return nil, errors.New("host already part of network " + network)
+			}
+
+		}
+	}
+	if !add {
+		return nil, errors.New("host not part of the network " + network)
 	} else {
-		h.Nodes = []string{}
-	}
-
-	for i := range nets {
-		// create a node for each non zero network remaining
-		if len(nets[i]) > 0 {
-			newNode := models.Node{}
-			newNode.Server = server
-			newNode.Network = nets[i]
-			if err := AssociateNodeToHost(&newNode, h); err != nil {
-				return err
-			}
-			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
+		newNode := models.Node{}
+		newNode.Server = servercfg.GetServer()
+		newNode.Network = network
+		if err := AssociateNodeToHost(&newNode, h); err != nil {
+			return nil, err
 		}
+		return &newNode, nil
 	}
-
-	return nil
 }
 
 // AssociateNodeToHost - associates and creates a node with a given host
@@ -249,6 +234,28 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	return UpsertHost(h)
 }
 
+// DisassociateAllNodesFromHost - deletes all nodes of the host
+func DisassociateAllNodesFromHost(hostID string) error {
+	host, err := GetHost(hostID)
+	if err != nil {
+		return err
+	}
+	for _, nodeID := range host.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			logger.Log(0, "failed to get host node", err.Error())
+			continue
+		}
+		if err := DeleteNode(&node, true); err != nil {
+			logger.Log(0, "failed to delete node", node.ID.String(), err.Error())
+			continue
+		}
+		logger.Log(3, "deleted node", node.ID.String(), "of host", host.ID.String())
+	}
+	host.Nodes = []string{}
+	return UpsertHost(host)
+}
+
 // GetDefaultHosts - retrieve all hosts marked as default from DB
 func GetDefaultHosts() []models.Host {
 	defaultHostList := []models.Host{}
@@ -294,4 +301,30 @@ func GetHostNetworks(hostID string) []string {
 		nets = append(nets, n.Network)
 	}
 	return nets
+}
+
+// GetRelatedHosts - fetches related hosts of a given host
+func GetRelatedHosts(hostID string) []models.Host {
+	relatedHosts := []models.Host{}
+	networks := GetHostNetworks(hostID)
+	networkMap := make(map[string]struct{})
+	for _, network := range networks {
+		networkMap[network] = struct{}{}
+	}
+	hosts, err := GetAllHosts()
+	if err == nil {
+		for _, host := range hosts {
+			if host.ID.String() == hostID {
+				continue
+			}
+			networks := GetHostNetworks(host.ID.String())
+			for _, network := range networks {
+				if _, ok := networkMap[network]; ok {
+					relatedHosts = append(relatedHosts, host)
+					break
+				}
+			}
+		}
+	}
+	return relatedHosts
 }

@@ -59,7 +59,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IsRelay = a.IsRelay
 	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.PendingDelete = a.PendingDelete
-	convertedNode.Peers = currentNode.Peers
 	convertedNode.Failover = a.Failover
 	convertedNode.IsEgressGateway = a.IsEgressGateway
 	convertedNode.IsIngressGateway = a.IsIngressGateway
@@ -93,13 +92,15 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	if err == nil {
 		convertedNode.InternetGateway = udpAddr
 	}
-	_, addr, err := net.ParseCIDR(a.Address)
+	ip, addr, err := net.ParseCIDR(a.Address)
 	if err == nil {
 		convertedNode.Address = *addr
+		convertedNode.Address.IP = ip
 	}
-	_, addr6, err := net.ParseCIDR(a.Address6)
+	ip6, addr6, err := net.ParseCIDR(a.Address6)
 	if err == nil {
 		convertedNode.Address = *addr6
+		convertedNode.Address.IP = ip6
 	}
 	convertedNode.FailoverNode, _ = uuid.Parse(a.FailoverNode)
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)

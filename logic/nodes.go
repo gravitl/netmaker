@@ -48,9 +48,9 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
-	if newNode.Address.String() != currentNode.Address.String() {
+	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
-			if !IsAddressInCIDR(newNode.Address.String(), network.AddressRange) {
+			if !IsAddressInCIDR(newNode.Address.IP.String(), network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
 		}
@@ -82,7 +82,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	return fmt.Errorf("failed to update node " + currentNode.ID.String() + ", cannot change ID.")
 }
 
-// DeleteNode - marks node for deletion if called by UI or deletes node if called by node
+// DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node
 func DeleteNode(node *models.Node, purge bool) error {
 	node.Action = models.NODE_DELETE
 	if !purge {
@@ -91,6 +91,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 		if err := UpdateNode(node, &newnode); err != nil {
 			return err
 		}
+		newZombie <- node.ID
 		return nil
 	}
 	host, err := GetHost(node.HostID.String())
@@ -101,7 +102,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 		return err
 	}
 	if servercfg.Is_EE {
-		if err := EnterpriseResetAllPeersFailovers(node.ID.String(), node.Network); err != nil {
+		if err := EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node delete for node", host.Name, node.Network)
 		}
 	}
@@ -200,8 +201,10 @@ func GetAllNodes() ([]models.Node, error) {
 
 	for _, value := range collection {
 		var node models.Node
+		// ignore legacy nodes in database
 		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			return []models.Node{}, err
+			logger.Log(1, "legacy node detected: ", err.Error())
+			continue
 		}
 		// add node to our array
 		nodes = append(nodes, node)

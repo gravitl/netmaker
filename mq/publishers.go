@@ -14,95 +14,53 @@ import (
 	"github.com/gravitl/netmaker/serverctl"
 )
 
-// PublishPeerUpdate --- deterines and publishes a peer update to all the peers of a node
-func PublishPeerUpdate(network string, publishToSelf bool) error {
+// PublishPeerUpdate --- determines and publishes a peer update to all the hosts
+func PublishPeerUpdate() error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	networkNodes, err := logic.GetNetworkNodes(network)
+
+	hosts, err := logic.GetAllHosts()
 	if err != nil {
-		logger.Log(1, "err getting Network Nodes", err.Error())
+		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
-	for _, node := range networkNodes {
-		err = PublishSinglePeerUpdate(&node)
+	for _, host := range hosts {
+		err = PublishSingleHostUpdate(&host)
 		if err != nil {
-			logger.Log(1, "failed to publish peer update to node", node.ID.String(), "on network", node.Network, ":", err.Error())
+			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
 	return err
 }
 
-func PublishProxyPeerUpdate(node *models.Node) error {
-	proxyUpdate, err := logic.GetPeersForProxy(node, false)
-	if err != nil {
-		return err
-	}
-	proxyUpdate.Action = proxy_models.AddNetwork
-	err = ProxyUpdate(&proxyUpdate, node)
-	if err != nil {
-		logger.Log(1, "failed to send proxy update: ", err.Error())
-		return err
-	}
-	return nil
-}
+// PublishSingleHostUpdate --- determines and publishes a peer update to one host
+func PublishSingleHostUpdate(host *models.Host) error {
 
-// PublishSinglePeerUpdate --- determines and publishes a peer update to one node
-func PublishSinglePeerUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return nil
-	}
-
-	peerUpdate, err := logic.GetPeerUpdate(node, host)
+	peerUpdate, err := logic.GetPeerUpdateForHost(host)
 	if err != nil {
 		return err
 	}
 	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetPeersForProxy(node, false)
+		proxyUpdate, err := logic.GetProxyUpdateForHost(host)
 		if err != nil {
 			return err
 		}
-		proxyUpdate.Action = proxy_models.AddNetwork
+		proxyUpdate.Action = proxy_models.ProxyUpdate
 		peerUpdate.ProxyUpdate = proxyUpdate
-
 	}
 
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
 		return err
 	}
-	return publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data)
+	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
 // PublishPeerUpdate --- publishes a peer update to all the peers of a node
 func PublishExtPeerUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return nil
-	}
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
-	peerUpdate, err := logic.GetPeerUpdate(node, host)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(&peerUpdate)
-	if err != nil {
-		return err
-	}
-	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetPeersForProxy(node, false)
-		if err == nil {
-			peerUpdate.ProxyUpdate = proxyUpdate
-		}
-	}
 
-	if err = publish(node, fmt.Sprintf("peers/%s/%s", node.Network, node.ID), data); err != nil {
-		return err
-	}
-	go PublishPeerUpdate(node.Network, false)
+	go PublishPeerUpdate()
 	return nil
 }
 
@@ -126,47 +84,38 @@ func NodeUpdate(node *models.Node) error {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if err = publish(node, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
+	if err = publish(host, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
 		logger.Log(2, "error publishing node update to peer ", node.ID.String(), err.Error())
 		return err
-	}
-	if host.ProxyEnabled {
-		err = PublishProxyPeerUpdate(node)
-		if err != nil {
-			logger.Log(1, "failed to publish proxy update to node", node.ID.String(), "on network", node.Network, ":", err.Error())
-		}
 	}
 
 	return nil
 }
 
-// ProxyUpdate -- publishes updates to peers related to proxy
-func ProxyUpdate(proxyPayload *proxy_models.ProxyManagerPayload, node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
+// HostUpdate -- publishes a host update to clients
+func HostUpdate(hostUpdate *models.HostUpdate) error {
+	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	if !servercfg.IsMessageQueueBackend() || !host.ProxyEnabled {
-		return nil
-	}
-	logger.Log(3, "publishing proxy update to "+node.ID.String())
+	logger.Log(3, "publishing host update to "+hostUpdate.Host.ID.String())
 
-	data, err := json.Marshal(proxyPayload)
+	data, err := json.Marshal(hostUpdate)
 	if err != nil {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if err = publish(node, fmt.Sprintf("proxy/%s/%s", node.Network, node.ID), data); err != nil {
-		logger.Log(2, "error publishing proxy update to peer ", node.ID.String(), err.Error())
+	if err = publish(&hostUpdate.Host, fmt.Sprintf("host/update/%s/%s", hostUpdate.Host.ID.String(), servercfg.GetServer()), data); err != nil {
+		logger.Log(2, "error publishing host update to", hostUpdate.Host.ID.String(), err.Error())
 		return err
 	}
+
 	return nil
 }
 
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
 
-	networks, err := logic.GetNetworks()
+	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
@@ -191,13 +140,12 @@ func sendPeers() {
 		//collectServerMetrics(networks[:])
 	}
 
-	for _, network := range networks {
+	for _, host := range hosts {
 		if force {
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			err = PublishPeerUpdate(network.NetID, false)
+			err = PublishSingleHostUpdate(&host)
 			if err != nil {
-				logger.Log(1, "error publishing udp port updates for network", network.NetID)
-				logger.Log(1, err.Error())
+				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}
 	}

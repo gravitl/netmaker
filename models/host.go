@@ -26,7 +26,7 @@ type Host struct {
 	ListenPort       int              `json:"listenport" yaml:"listenport"`
 	LocalAddress     net.IPNet        `json:"localaddress" yaml:"localaddress"`
 	LocalRange       net.IPNet        `json:"localrange" yaml:"localrange"`
-	LocalListenPort  int              `json:"locallistenport" yaml:"locallistenport"`
+	PublicListenPort int              `json:"public_listen_port" yaml:"public_listen_port"`
 	ProxyListenPort  int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
 	MTU              int              `json:"mtu" yaml:"mtu"`
 	PublicKey        wgtypes.Key      `json:"publickey" yaml:"publickey"`
@@ -34,7 +34,12 @@ type Host struct {
 	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"trafficekeypublic"`
 	InternetGateway  net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes            []string         `json:"nodes" yaml:"nodes"`
+	IsRelayed        bool             `json:"isrelayed" yaml:"isrelayed"`
+	RelayedBy        string           `json:"relayed_by" yaml:"relayed_by"`
+	IsRelay          bool             `json:"isrelay" yaml:"isrelay"`
+	RelayedHosts     []string         `json:"relay_hosts" yaml:"relay_hosts"`
 	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
+	DefaultInterface string           `json:"defaultinterface" yaml:"defautlinterface"`
 	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
 	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
 	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
@@ -59,4 +64,23 @@ func ParseBool(s string) bool {
 		b = true
 	}
 	return b
+}
+
+// HostMqAction - type for host update action
+type HostMqAction string
+
+const (
+	// UpdateHost - constant for host update action
+	UpdateHost = "UPDATE_HOST"
+	// DeleteHost - constant for host delete action
+	DeleteHost = "DELETE_HOST"
+	// JoinHostToNetwork - constant for host network join action
+	JoinHostToNetwork = "JOIN_HOST_TO_NETWORK"
+)
+
+// HostUpdate - struct for host update
+type HostUpdate struct {
+	Action HostMqAction
+	Host   Host
+	Node   Node
 }
