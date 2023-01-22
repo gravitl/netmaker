@@ -372,10 +372,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := mq.DeleteNetworkRole(network); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to remove network DynSec role: %v", err.Error()))
-	}
-
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")
@@ -421,11 +417,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
-	}
-
-	if err = mq.CreateNetworkRole(network.NetID); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to create network DynSec role:",
-			err.Error())
 	}
 
 	if err = logic.AddDefaultHostsToNetwork(network.NetID, servercfg.GetServer()); err != nil {

@@ -591,16 +591,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			logic.UpdateHost(&data.Host, host) // update the in memory struct values
-			networks := logic.GetHostNetworks(data.Host.ID.String())
-			if err := mq.ModifyClient(&mq.MqClient{
-				ID:       data.Host.ID.String(),
-				Text:     data.Host.Name,
-				Networks: networks,
-			}); err != nil {
-				logger.Log(0, fmt.Sprintf("failed to modify DynSec client: %v", err.Error()))
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-				return
-			}
 
 		} else {
 			logger.Log(0, "error creating host", err.Error())
@@ -1014,12 +1004,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
 		if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
@@ -1033,16 +1017,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	if fromNode { // update networks for host mq client
-		currNets := logic.GetHostNetworks(host.ID.String())
-		if len(currNets) > 0 {
-			mq.ModifyClient(&mq.MqClient{
-				ID:       host.ID.String(),
-				Text:     host.Name,
-				Networks: currNets,
-			})
-		}
-	} else { // notify node change
+	if !fromNode { // notify node change
 		runUpdates(&node, false)
 	}
 	go func() { // notify of peer change
