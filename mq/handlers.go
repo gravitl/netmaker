@@ -141,7 +141,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		logger.Log(0, fmt.Sprintf("recieved host update: %+v\n", hostUpdate))
+		logger.Log(3, fmt.Sprintf("recieved host update: %+v\n", hostUpdate))
 		var sendPeerUpdate bool
 		switch hostUpdate.Action {
 		case models.UpdateHost:
