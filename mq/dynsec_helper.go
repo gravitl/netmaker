@@ -2,7 +2,6 @@ package mq
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -56,7 +55,7 @@ var (
 			},
 			{
 				Rolename: genericRole,
-				Acls:     fetchServerAcls(), //TODO fetch generic acls
+				Acls:     fetchGenericAcls(), //TODO fetch generic acls
 			},
 		},
 		DefaultAcl: defaultAccessAcl{
@@ -97,202 +96,20 @@ func GetAdminClient() (mqtt.Client, error) {
 	return mqclient, connecterr
 }
 
-// fetches host related acls
-func fetchHostAcls(hostID string) []Acl {
-	return []Acl{
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("peers/host/%s/#", hostID),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("host/update/%s/#", hostID),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    fmt.Sprintf("host/serverupdate/%s", hostID),
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// FetchNetworkAcls - fetches network acls
-func FetchNetworkAcls(network string) []Acl {
-	return []Acl{
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("update/%s/#", network),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("peers/%s/#", network),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("proxy/%s/#", network),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "subscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "unsubscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// serverAcls - fetches server role related acls
-func fetchServerAcls() []Acl {
+// genericAcls - fetches generice role related acls
+func fetchGenericAcls() []Acl {
 	return []Acl{
 		{
 			AclType:  "publishClientSend",
-			Topic:    "peers/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "proxy/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "peers/host/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "metrics_exporter",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "host/update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "ping/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "signal/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "metrics/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "subscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "unsubscribePattern",
 			Topic:    "#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
 			AclType:  "publishClientReceive",
-			Topic:    "host/serverupdate/#",
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// fetchNodeAcls - fetches node related acls
-func fetchNodeAcls() []Acl {
-	// keeping node acls generic as of now.
-	return []Acl{
-
-		{
-			AclType:  "publishClientSend",
-			Topic:    "signal/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "ping/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "metrics/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "subscribePattern",
 			Topic:    "#",
 			Priority: -1,
 			Allow:    true,
-		},
-		{
-			AclType:  "unsubscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// fetchExporterAcls - fetch exporter role related acls
-func fetchExporterAcls() []Acl {
-	return []Acl{
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "metrics_exporter",
-			Allow:    true,
-			Priority: -1,
 		},
 		{
 			AclType:  "subscribePattern",
