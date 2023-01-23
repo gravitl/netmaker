@@ -1,9 +1,7 @@
 package mq
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -13,14 +11,8 @@ import (
 const (
 	// constant for admin role
 	adminRole = "admin"
-	// constant for server role
-	serverRole = "server"
-	// constant for exporter role
-	exporterRole = "exporter"
-	// constant for node role
-	NodeRole = "node"
-	// HostGenericRole constant for host role
-	HostGenericRole = "host"
+	// constant for generic role
+	genericRole = "generic"
 
 	// const for dynamic security file
 	dynamicSecurityFile = "dynamic-security.json"
@@ -50,7 +42,7 @@ var (
 				Iterations: 0,
 				Roles: []clientRole{
 					{
-						Rolename: serverRole,
+						Rolename: genericRole,
 					},
 				},
 			},
@@ -62,14 +54,9 @@ var (
 				Acls:     fetchAdminAcls(),
 			},
 			{
-				Rolename: serverRole,
-				Acls:     fetchServerAcls(),
+				Rolename: genericRole,
+				Acls:     fetchGenericAcls(),
 			},
-			{
-				Rolename: HostGenericRole,
-				Acls:     fetchNodeAcls(),
-			},
-			exporterMQRole,
 		},
 		DefaultAcl: defaultAccessAcl{
 			PublishClientSend:    false,
@@ -87,30 +74,11 @@ var (
 		Iterations: 101,
 		Roles: []clientRole{
 			{
-				Rolename: exporterRole,
+				Rolename: genericRole,
 			},
 		},
 	}
-	exporterMQRole = role{
-		Rolename: exporterRole,
-		Acls:     fetchExporterAcls(),
-	}
 )
-
-// DynListCLientsCmdResp - struct for list clients response from MQ
-type DynListCLientsCmdResp struct {
-	Responses []struct {
-		Command string          `json:"command"`
-		Error   string          `json:"error"`
-		Data    ListClientsData `json:"data"`
-	} `json:"responses"`
-}
-
-// ListClientsData - struct for list clients data
-type ListClientsData struct {
-	Clients    []string `json:"clients"`
-	TotalCount int      `json:"totalCount"`
-}
 
 // GetAdminClient - fetches admin client of the MQ
 func GetAdminClient() (mqtt.Client, error) {
@@ -128,310 +96,20 @@ func GetAdminClient() (mqtt.Client, error) {
 	return mqclient, connecterr
 }
 
-// ListClients -  to list all clients in the MQ
-func ListClients(client mqtt.Client) (ListClientsData, error) {
-	respChan := make(chan mqtt.Message, 10)
-	defer close(respChan)
-	command := "listClients"
-	resp := ListClientsData{}
-	msg := MqDynsecPayload{
-		Commands: []MqDynSecCmd{
-			{
-				Command: command,
-			},
-		},
-	}
-	client.Subscribe("$CONTROL/dynamic-security/v1/response", 2, mqtt.MessageHandler(func(c mqtt.Client, m mqtt.Message) {
-		respChan <- m
-	}))
-	defer client.Unsubscribe()
-	d, _ := json.Marshal(msg)
-	token := client.Publish("$CONTROL/dynamic-security/v1", 2, true, d)
-	if !token.WaitTimeout(30) || token.Error() != nil {
-		var err error
-		if token.Error() == nil {
-			err = errors.New("connection timeout")
-		} else {
-			err = token.Error()
-		}
-		return resp, err
-	}
-
-	for m := range respChan {
-		msg := DynListCLientsCmdResp{}
-		json.Unmarshal(m.Payload(), &msg)
-		for _, mI := range msg.Responses {
-			if mI.Command == command {
-				return mI.Data, nil
-			}
-		}
-	}
-	return resp, errors.New("resp not found")
-}
-
-// fetches host related acls
-func fetchHostAcls(hostID string) []Acl {
-	return []Acl{
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("peers/host/%s/#", hostID),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("host/update/%s/#", hostID),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    fmt.Sprintf("host/serverupdate/%s", hostID),
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// FetchNetworkAcls - fetches network acls
-func FetchNetworkAcls(network string) []Acl {
-	return []Acl{
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("update/%s/#", network),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("peers/%s/#", network),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    fmt.Sprintf("proxy/%s/#", network),
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "subscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "unsubscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// DeleteNetworkRole - deletes a network role from DynSec system
-func DeleteNetworkRole(network string) error {
-	// Deletes the network role from MQ
-	event := MqDynsecPayload{
-		Commands: []MqDynSecCmd{
-			{
-				Command:  DeleteRoleCmd,
-				RoleName: network,
-			},
-		},
-	}
-
-	return publishEventToDynSecTopic(event)
-}
-
-func deleteHostRole(hostID string) error {
-	// Deletes the hostID role from MQ
-	event := MqDynsecPayload{
-		Commands: []MqDynSecCmd{
-			{
-				Command:  DeleteRoleCmd,
-				RoleName: getHostRoleName(hostID),
-			},
-		},
-	}
-
-	return publishEventToDynSecTopic(event)
-}
-
-// CreateNetworkRole - createss a network role from DynSec system
-func CreateNetworkRole(network string) error {
-	// Create Role with acls for the network
-	event := MqDynsecPayload{
-		Commands: []MqDynSecCmd{
-			{
-				Command:  CreateRoleCmd,
-				RoleName: network,
-				Textname: "Network wide role with Acls for nodes",
-				Acls:     FetchNetworkAcls(network),
-			},
-		},
-	}
-
-	return publishEventToDynSecTopic(event)
-}
-
-// creates role for the host with ID.
-func createHostRole(hostID string) error {
-	// Create Role with acls for the host
-	event := MqDynsecPayload{
-		Commands: []MqDynSecCmd{
-			{
-				Command:  CreateRoleCmd,
-				RoleName: getHostRoleName(hostID),
-				Textname: "host role with Acls for hosts",
-				Acls:     fetchHostAcls(hostID),
-			},
-		},
-	}
-
-	return publishEventToDynSecTopic(event)
-}
-
-func getHostRoleName(hostID string) string {
-	return fmt.Sprintf("host-%s", hostID)
-}
-
-// serverAcls - fetches server role related acls
-func fetchServerAcls() []Acl {
+// genericAcls - fetches generice role related acls
+func fetchGenericAcls() []Acl {
 	return []Acl{
 		{
 			AclType:  "publishClientSend",
-			Topic:    "peers/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "proxy/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "peers/host/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "metrics_exporter",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "host/update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "ping/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "signal/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "metrics/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "subscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "unsubscribePattern",
 			Topic:    "#",
 			Priority: -1,
 			Allow:    true,
 		},
 		{
 			AclType:  "publishClientReceive",
-			Topic:    "host/serverupdate/#",
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// fetchNodeAcls - fetches node related acls
-func fetchNodeAcls() []Acl {
-	// keeping node acls generic as of now.
-	return []Acl{
-
-		{
-			AclType:  "publishClientSend",
-			Topic:    "signal/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "update/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "ping/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "publishClientSend",
-			Topic:    "metrics/#",
-			Priority: -1,
-			Allow:    true,
-		},
-		{
-			AclType:  "subscribePattern",
 			Topic:    "#",
 			Priority: -1,
 			Allow:    true,
-		},
-		{
-			AclType:  "unsubscribePattern",
-			Topic:    "#",
-			Priority: -1,
-			Allow:    true,
-		},
-	}
-}
-
-// fetchExporterAcls - fetch exporter role related acls
-func fetchExporterAcls() []Acl {
-	return []Acl{
-		{
-			AclType:  "publishClientReceive",
-			Topic:    "metrics_exporter",
-			Allow:    true,
-			Priority: -1,
 		},
 		{
 			AclType:  "subscribePattern",

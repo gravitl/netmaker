@@ -180,7 +180,6 @@ func Configure() error {
 		exporterMQClient.Iterations = 101
 		exporterMQClient.Salt = base64.StdEncoding.EncodeToString([]byte(salt))
 		dynConfig.Clients = append(dynConfig.Clients, exporterMQClient)
-		dynConfig.Roles = append(dynConfig.Roles, exporterMQRole)
 	}
 	data, err := json.MarshalIndent(dynConfig, "", " ")
 	if err != nil {
