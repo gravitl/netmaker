@@ -250,6 +250,7 @@ set_compose() {
   yq ".services.netmaker.environment += {\"BROKER_NAME\": \"$BROKER_NAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_NAME\": \"$STUN_NAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_PORT\": \"3478\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.ports += \"3478:3478/udp\"" -i /root/docker-compose.yml
 }
 
 # start_containers - run docker-compose up -d
